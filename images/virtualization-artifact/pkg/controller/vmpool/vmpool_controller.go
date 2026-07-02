@@ -52,6 +52,7 @@ func SetupController(
 	handlers := []Handler{
 		handler.NewTemplateHandler(client),
 		handler.NewSyncHandler(client, exp),
+		handler.NewDisksHandler(client),
 	}
 	r := NewReconciler(client, exp, handlers)
 

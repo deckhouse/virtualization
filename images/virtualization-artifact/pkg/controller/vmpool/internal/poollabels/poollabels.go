@@ -46,7 +46,17 @@ const (
 	// does not depend on comparing specs (which the apiserver mutates by
 	// defaulting/allocation).
 	PatchedTemplateHash = "vmpool.virtualization.deckhouse.io/patched-template-hash"
+
+	// DiskTemplate marks which virtualDiskTemplates[] entry a per-replica disk
+	// belongs to, so scale-up can tell free `cache` disks from free `profile` ones.
+	DiskTemplate = "vmpool.virtualization.deckhouse.io/disk-template"
 )
+
+// DeleteDiskName is the deterministic name of a Delete-policy per-replica disk:
+// it is bound to its VirtualMachine and cascades with it.
+func DeleteDiskName(memberName, diskTemplateName string) string {
+	return memberName + "-" + diskTemplateName
+}
 
 // ListMembers returns the VirtualMachines controlled by the pool. The pool-uid
 // label scopes the list; the controllerRef check is the authoritative guard.

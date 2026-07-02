@@ -68,6 +68,10 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 		if m.GetAnnotations()[poollabels.PatchedTemplateHash] != desiredHash {
 			patched := m.DeepCopy()
 			patched.Spec = *tmplSpec.DeepCopy()
+			// Preserve per-replica block device refs (e.g. disks the pool attached
+			// to this member) — they are not part of the shared template and must
+			// survive the spec patch.
+			patched.Spec.BlockDeviceRefs = mergeBlockDeviceRefs(tmplSpec.BlockDeviceRefs, m.Spec.BlockDeviceRefs)
 			if patched.Annotations == nil {
 				patched.Annotations = map[string]string{}
 			}
@@ -97,6 +101,23 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 	}
 
 	return reconcile.Result{}, errs
+}
+
+// mergeBlockDeviceRefs returns the template's block device refs plus any refs
+// the member carries that the template does not (per-replica disks the pool
+// attached). It keeps the template's order and appends the extras.
+func mergeBlockDeviceRefs(templateRefs, memberRefs []v1alpha2.BlockDeviceSpecRef) []v1alpha2.BlockDeviceSpecRef {
+	inTemplate := make(map[v1alpha2.BlockDeviceSpecRef]struct{}, len(templateRefs))
+	for _, r := range templateRefs {
+		inTemplate[r] = struct{}{}
+	}
+	merged := append([]v1alpha2.BlockDeviceSpecRef{}, templateRefs...)
+	for _, r := range memberRefs {
+		if _, ok := inTemplate[r]; !ok {
+			merged = append(merged, r)
+		}
+	}
+	return merged
 }
 
 // awaitingRestart reports whether the VM has pending disruptive changes waiting

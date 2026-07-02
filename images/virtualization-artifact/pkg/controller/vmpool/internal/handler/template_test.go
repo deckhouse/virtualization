@@ -58,6 +58,24 @@ var _ = Describe("TemplateHandler", func() {
 		Expect(got.Labels).NotTo(HaveKeyWithValue(poollabels.TemplateHash, poollabels.ComputeTemplateHash(pool)))
 	})
 
+	It("preserves per-replica disk refs when patching the spec", func() {
+		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs → triggers a spec patch
+		// A per-replica disk the pool attached; it is not part of the template and
+		// must survive the patch.
+		m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		got := getVM(ctx, c, "web-a")
+		Expect(got.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOnPolicy)) // template applied
+		Expect(got.Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}))
+	})
+
 	It("marks the replica on the current template once patched and not awaiting restart", func() {
 		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
 		hash := poollabels.ComputeTemplateHash(pool)
