@@ -325,17 +325,35 @@ func (h *DisksHandler) ensureRetainDisk(
 		}
 	}
 
-	// Reuse a free disk: pool-owned, Ready and referenced by nobody live.
+	// Reuse a free disk (pool-owned, held by no live member). Prefer a Ready one,
+	// but otherwise take a still-provisioning free disk anyway: attaching it is
+	// exactly what lets a WaitForFirstConsumer disk bind, and — crucially — it
+	// stops us creating a fresh disk on every reconcile while the first one is
+	// still provisioning or while the attach we just did is not yet visible in
+	// the informer cache (which otherwise over-creates reuse disks).
+	var freeReady, freeAny *v1alpha2.VirtualDisk
 	for i := range reuseDisks {
 		d := &reuseDisks[i]
-		if d.Status.Phase != v1alpha2.DiskReady || referenced[d.Name] || assignedThisPass[d.Name] {
+		if referenced[d.Name] || assignedThisPass[d.Name] || d.GetDeletionTimestamp() != nil || d.Status.Phase == v1alpha2.DiskFailed {
 			continue
 		}
-		assignedThisPass[d.Name] = true
-		return h.attachDisk(ctx, m, d.Name)
+		if freeAny == nil {
+			freeAny = d
+		}
+		if d.Status.Phase == v1alpha2.DiskReady {
+			freeReady = d
+			break
+		}
+	}
+	if pick := freeReady; pick != nil || freeAny != nil {
+		if pick == nil {
+			pick = freeAny
+		}
+		assignedThisPass[pick.Name] = true
+		return h.attachDisk(ctx, m, pick.Name)
 	}
 
-	// None free — create a new pool-owned disk and attach it.
+	// No free disk at all — create a new pool-owned disk and attach it.
 	name := fmt.Sprintf("%s-%s-%s", pool.GetName(), dt.Name, rand.String(6))
 	if err := h.client.Create(ctx, h.newRetainDisk(pool, dt, name)); err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create reuse disk %s: %w", name, err)

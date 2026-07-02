@@ -170,7 +170,7 @@ var _ = Describe("DisksHandler", func() {
 		Expect(getVM(ctx, c, "web-new").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-busy"}))
 	})
 
-	It("does not reuse a disk that is not Ready", func() {
+	It("reuses a still-provisioning free disk instead of creating a duplicate", func() {
 		pool := newPool(1)
 		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
 		pending := reuseDisk(pool, "web-cache-pending", v1alpha2.DiskPending)
@@ -181,9 +181,25 @@ var _ = Describe("DisksHandler", func() {
 		_, err = NewDisksHandler(c).Handle(ctx, pool)
 		Expect(err).NotTo(HaveOccurred())
 
-		// The pending disk is not reused; a fresh one is created instead.
-		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2))
-		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-pending"}))
+		// The free provisioning disk is reused (attaching it lets it bind); no
+		// duplicate is created — this is the fix for reuse-disk over-creation.
+		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(1))
+		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-pending"}))
+	})
+
+	It("does not reuse a Failed disk — creates a fresh one", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+		failed := reuseDisk(pool, "web-cache-failed", v1alpha2.DiskFailed)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		c, err := testutil.NewFakeClientWithObjects(pool, failed, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2)) // failed one kept + a fresh one
+		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-failed"}))
 	})
 
 	It("clears free-since when a free disk is reused", func() {
