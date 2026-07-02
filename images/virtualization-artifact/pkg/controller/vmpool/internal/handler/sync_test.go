@@ -23,6 +23,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmpoolcondition"
 )
@@ -37,6 +38,13 @@ const (
 // from it matter (e.g. which replica is older); the wall clock is never read, so
 // the value — and the real-world date — is irrelevant.
 var referenceTime = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// testRecorder is a no-op event recorder for tests that do not assert events.
+func testRecorder() eventrecord.EventRecorderLogger {
+	return &eventrecord.EventRecorderLoggerMock{
+		EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
+	}
+}
 
 func newPool(replicas int32) *v1alpha2.VirtualMachinePool {
 	return &v1alpha2.VirtualMachinePool{
@@ -102,7 +110,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool)
 			Expect(err).NotTo(HaveOccurred())
 
-			h := NewSyncHandler(c, exp)
+			h := NewSyncHandler(c, exp, testRecorder())
 			_, err = h.Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -115,7 +123,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			var list v1alpha2.VirtualMachineList
@@ -136,7 +144,7 @@ var _ = Describe("SyncHandler", func() {
 			pool := newPool(3)
 			c, err := testutil.NewFakeClientWithObjects(pool)
 			Expect(err).NotTo(HaveOccurred())
-			h := NewSyncHandler(c, exp)
+			h := NewSyncHandler(c, exp, testRecorder())
 
 			// First pass creates 3 and records expectations.
 			_, err = h.Handle(ctx, pool)
@@ -160,7 +168,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(listMemberNames(ctx, c, pool)).To(HaveLen(2))
@@ -177,7 +185,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, stopped)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(listMemberNames(ctx, c, pool)).To(ConsistOf("web-stopped")) // not replaced, not duplicated
@@ -192,7 +200,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listMemberNames(ctx, c, pool)).To(BeEmpty())
 		})
@@ -209,7 +217,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(pool.Status.DesiredTemplateHash).To(Equal(hash))
@@ -227,7 +235,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, current, lagging)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(pool.Status.UpdatedReplicas).To(Equal(int32(1)))
@@ -243,7 +251,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, older, newer)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			remaining := listMemberNames(ctx, c, pool)
@@ -258,7 +266,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, older, newer)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(listMemberNames(ctx, c, pool)).To(ConsistOf("web-new")) // oldest removed first
@@ -272,7 +280,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Explicit forbids anonymous scale-down: both replicas stay.
@@ -291,7 +299,7 @@ var _ = Describe("SyncHandler", func() {
 			c, err := testutil.NewFakeClientWithObjects(pool, terminating, healthyOld, healthyNew)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 
 			remaining := listMemberNames(ctx, c, pool)

@@ -15,6 +15,7 @@ import (
 	"sort"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmpoolcondition"
 )
@@ -36,16 +38,26 @@ const syncHandlerName = "sync"
 // member watcher normally re-enqueues the pool as soon as the events arrive.
 const expectationsRecheck = 15 * time.Second
 
+// Event reasons for pool scaling, mirroring the ReplicaSet vocabulary so they
+// are familiar in `kubectl describe`/`kubectl get events`.
+const (
+	reasonSuccessfulCreate = "SuccessfulCreate"
+	reasonFailedCreate     = "FailedCreate"
+	reasonSuccessfulDelete = "SuccessfulDelete"
+	reasonFailedDelete     = "FailedDelete"
+)
+
 // SyncHandler keeps the number of pool members equal to spec.replicas: it
 // creates missing replicas from the template and removes surplus ones, guarding
 // every action with expectations so a lagging cache cannot cause double-acting.
 type SyncHandler struct {
-	client client.Client
-	exp    *expectations.Expectations
+	client   client.Client
+	exp      *expectations.Expectations
+	recorder eventrecord.EventRecorderLogger
 }
 
-func NewSyncHandler(c client.Client, exp *expectations.Expectations) *SyncHandler {
-	return &SyncHandler{client: c, exp: exp}
+func NewSyncHandler(c client.Client, exp *expectations.Expectations, recorder eventrecord.EventRecorderLogger) *SyncHandler {
+	return &SyncHandler{client: c, exp: exp, recorder: recorder}
 }
 
 func (h *SyncHandler) Name() string { return syncHandlerName }
@@ -100,11 +112,17 @@ func (h *SyncHandler) scaleUp(ctx context.Context, pool *v1alpha2.VirtualMachine
 	h.exp.ExpectCreations(key, n)
 	var errs error
 	for i := 0; i < n; i++ {
-		if err := h.client.Create(ctx, h.newMember(pool)); err != nil {
+		vm := h.newMember(pool)
+		if err := h.client.Create(ctx, vm); err != nil {
 			// This creation will never be observed — stop waiting for it.
 			h.exp.CreationObserved(key)
+			h.recorder.Eventf(pool, corev1.EventTypeWarning, reasonFailedCreate,
+				"Failed to create a VirtualMachine from the template: %v", err)
 			errs = errors.Join(errs, fmt.Errorf("create replica: %w", err))
+			continue
 		}
+		h.recorder.Eventf(pool, corev1.EventTypeNormal, reasonSuccessfulCreate,
+			"Created VirtualMachine %q.", vm.GetName())
 	}
 	return errs
 }
@@ -146,9 +164,14 @@ func (h *SyncHandler) scaleDown(ctx context.Context, pool *v1alpha2.VirtualMachi
 			// Already gone or failed — stop waiting for that deletion event.
 			h.exp.DeletionObserved(key, victims[i].GetUID())
 			if !apierrors.IsNotFound(err) {
+				h.recorder.Eventf(pool, corev1.EventTypeWarning, reasonFailedDelete,
+					"Failed to delete VirtualMachine %q: %v", victims[i].GetName(), err)
 				errs = errors.Join(errs, fmt.Errorf("delete replica %s: %w", victims[i].GetName(), err))
 			}
+			continue
 		}
+		h.recorder.Eventf(pool, corev1.EventTypeNormal, reasonSuccessfulDelete,
+			"Deleted VirtualMachine %q.", victims[i].GetName())
 	}
 	return errs
 }

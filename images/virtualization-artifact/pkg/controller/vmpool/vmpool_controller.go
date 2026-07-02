@@ -19,6 +19,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/handler"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
@@ -48,10 +49,11 @@ func SetupController(
 	// anonymous replicas. It is shared between the reconcile handlers and the
 	// member watcher that observes creations/deletions.
 	exp := expectations.New()
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	handlers := []Handler{
 		handler.NewTemplateHandler(client),
-		handler.NewSyncHandler(client, exp),
+		handler.NewSyncHandler(client, exp, recorder),
 		handler.NewDisksHandler(client),
 	}
 	r := NewReconciler(client, exp, handlers)
