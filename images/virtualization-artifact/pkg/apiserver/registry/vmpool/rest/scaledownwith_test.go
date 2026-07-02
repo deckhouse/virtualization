@@ -10,18 +10,42 @@ package rest
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+// capturingResponder records what the Connect handler responded with.
+type capturingResponder struct {
+	obj runtime.Object
+	err error
+}
+
+func (r *capturingResponder) Object(_ int, obj runtime.Object) { r.obj = obj }
+func (r *capturingResponder) Error(err error)                  { r.err = err }
+
+// callConnect drives the scaleDownWith Connect handler with the given JSON body.
+func callConnect(c client.Client, body string) *capturingResponder {
+	resp := &capturingResponder{}
+	ctx := genericapirequest.WithNamespace(context.Background(), ns)
+	h, err := NewScaleDownWithREST(c).Connect(ctx, poolName, nil, resp)
+	Expect(err).NotTo(HaveOccurred())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body)))
+	return resp
+}
 
 const (
 	ns       = "ci"
@@ -111,5 +135,36 @@ var _ = Describe("ScaleDownWith", func() {
 
 		Expect(NewScaleDownWithREST(c).scaleDown(ctx, ns, poolName, []string{"web-a", "web-b"})).To(Succeed())
 		Expect(getReplicas(ctx, c)).To(Equal(int32(0)))
+	})
+
+	It("returns NotFound when the pool does not exist", func() {
+		c, err := testutil.NewFakeClientWithObjects()
+		Expect(err).NotTo(HaveOccurred())
+
+		err = NewScaleDownWithREST(c).scaleDown(ctx, ns, poolName, []string{"web-a"})
+		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
+	Context("Connect handler", func() {
+		It("rejects an empty targets list with BadRequest", func() {
+			c, err := testutil.NewFakeClientWithObjects(pool(2), memberOf(pool(2), "web-a"))
+			Expect(err).NotTo(HaveOccurred())
+
+			resp := callConnect(c, `{"targets":[]}`)
+			Expect(resp.err).To(HaveOccurred())
+			Expect(apierrors.IsBadRequest(resp.err)).To(BeTrue())
+		})
+
+		It("removes the target and reports success on a valid body", func() {
+			p := pool(2)
+			c, err := testutil.NewFakeClientWithObjects(p, memberOf(p, "web-a"), memberOf(p, "web-b"))
+			Expect(err).NotTo(HaveOccurred())
+
+			resp := callConnect(c, `{"targets":["web-a"]}`)
+			Expect(resp.err).NotTo(HaveOccurred())
+			Expect(resp.obj).To(BeAssignableToTypeOf(&metav1.Status{}))
+			Expect(vmExists(ctx, c, "web-a")).To(BeFalse())
+			Expect(getReplicas(ctx, c)).To(Equal(int32(1)))
+		})
 	})
 })
