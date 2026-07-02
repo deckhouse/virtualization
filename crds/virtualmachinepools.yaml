@@ -77,6 +77,25 @@ spec:
                   format: int32
                   minimum: 0
                   type: integer
+                scaleDownPolicy:
+                  description: |-
+                    ScaleDownPolicy chooses how a replica is picked when the pool is scaled down
+                    anonymously through the `scale` subresource. It is required and has no
+                    default, forcing a conscious choice between "any replica may be killed" and
+                    "only addressed removal is allowed".
+
+                      - `NewestFirst` — anonymous scale-down is allowed; the youngest replicas
+                        (least accumulated state) are removed first.
+                      - `OldestFirst` — anonymous scale-down is allowed; the oldest replicas are
+                        removed first (faster rotation).
+                      - `Explicit` — anonymous scale-down through `scale` is rejected by a
+                        webhook; replicas can be removed only by address. For "busy" workloads
+                        such as CI runners and VDI.
+                  enum:
+                    - NewestFirst
+                    - OldestFirst
+                    - Explicit
+                  type: string
                 virtualMachineTemplate:
                   description: |-
                     VirtualMachineTemplate is the template every replica is stamped from. Its
@@ -1357,6 +1376,7 @@ spec:
                       type: object
                   type: object
               required:
+                - scaleDownPolicy
                 - virtualMachineTemplate
               type: object
             status:

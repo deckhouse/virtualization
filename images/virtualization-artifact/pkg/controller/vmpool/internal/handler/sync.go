@@ -139,7 +139,13 @@ func (h *SyncHandler) scaleDown(ctx context.Context, pool *v1alpha2.VirtualMachi
 		return nil
 	}
 
-	victims := pickVictims(candidates, toDelete)
+	victims := pickVictims(pool.Spec.ScaleDownPolicy, candidates, toDelete)
+	if len(victims) == 0 {
+		// Explicit policy: anonymous scale-down is not allowed here — replicas are
+		// removed only by address (scaleDownWith). The /scale path is additionally
+		// blocked by an admission webhook.
+		return nil
+	}
 	uids := make([]types.UID, 0, len(victims))
 	for i := range victims {
 		uids = append(uids, victims[i].GetUID())
@@ -159,12 +165,21 @@ func (h *SyncHandler) scaleDown(ctx context.Context, pool *v1alpha2.VirtualMachi
 	return errs
 }
 
-// pickVictims chooses which replicas to remove during anonymous scale-down. The
-// first version deletes the youngest first (least accumulated state); the
-// configurable scaleDownPolicy is introduced in a later slice.
-func pickVictims(candidates []v1alpha2.VirtualMachine, n int) []v1alpha2.VirtualMachine {
+// pickVictims chooses which replicas to remove during anonymous scale-down,
+// honouring the pool's scaleDownPolicy. Explicit forbids anonymous removal, so
+// it returns nothing — such pools shrink only through addressed removal.
+func pickVictims(policy v1alpha2.ScaleDownPolicy, candidates []v1alpha2.VirtualMachine, n int) []v1alpha2.VirtualMachine {
+	if n <= 0 || policy == v1alpha2.ScaleDownPolicyExplicit {
+		return nil
+	}
+	oldestFirst := policy == v1alpha2.ScaleDownPolicyOldestFirst
 	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i].GetCreationTimestamp().After(candidates[j].GetCreationTimestamp().Time)
+		ti := candidates[i].GetCreationTimestamp().Time
+		tj := candidates[j].GetCreationTimestamp().Time
+		if oldestFirst {
+			return ti.Before(tj)
+		}
+		return tj.Before(ti) // NewestFirst: youngest removed first
 	})
 	if n > len(candidates) {
 		n = len(candidates)

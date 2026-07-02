@@ -42,7 +42,8 @@ func newPool(replicas int32) *v1alpha2.VirtualMachinePool {
 			Generation: 1,
 		},
 		Spec: v1alpha2.VirtualMachinePoolSpec{
-			Replicas: ptr.To(replicas),
+			Replicas:        ptr.To(replicas),
+			ScaleDownPolicy: v1alpha2.ScaleDownPolicyNewestFirst,
 		},
 	}
 }
@@ -180,6 +181,35 @@ var _ = Describe("SyncHandler", func() {
 
 			remaining := listMemberNames(ctx, c, pool)
 			Expect(remaining).To(ConsistOf("web-old")) // newest removed first
+		})
+
+		It("deletes the oldest surplus replicas under OldestFirst", func() {
+			pool := newPool(1)
+			pool.Spec.ScaleDownPolicy = v1alpha2.ScaleDownPolicyOldestFirst
+			older := newMemberVM(pool, "web-old", v1alpha2.MachineRunning, clock, false)
+			newer := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, clock.Add(time.Minute), false)
+			c, err := testutil.NewFakeClientWithObjects(pool, older, newer)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(listMemberNames(ctx, c, pool)).To(ConsistOf("web-new")) // oldest removed first
+		})
+
+		It("removes nothing anonymously under Explicit", func() {
+			pool := newPool(1)
+			pool.Spec.ScaleDownPolicy = v1alpha2.ScaleDownPolicyExplicit
+			m1 := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, clock, false)
+			m2 := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, clock.Add(time.Minute), false)
+			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Explicit forbids anonymous scale-down: both replicas stay.
+			Expect(listMemberNames(ctx, c, pool)).To(ConsistOf("web-a", "web-b"))
 		})
 	})
 

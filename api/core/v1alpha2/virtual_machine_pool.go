@@ -73,11 +73,36 @@ type VirtualMachinePoolSpec struct {
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
 
+	// ScaleDownPolicy chooses how a replica is picked when the pool is scaled down
+	// anonymously through the `scale` subresource. It is required and has no
+	// default, forcing a conscious choice between "any replica may be killed" and
+	// "only addressed removal is allowed".
+	//
+	//   - `NewestFirst` — anonymous scale-down is allowed; the youngest replicas
+	//     (least accumulated state) are removed first.
+	//   - `OldestFirst` — anonymous scale-down is allowed; the oldest replicas are
+	//     removed first (faster rotation).
+	//   - `Explicit` — anonymous scale-down through `scale` is rejected by a
+	//     webhook; replicas can be removed only by address. For "busy" workloads
+	//     such as CI runners and VDI.
+	//
+	// +kubebuilder:validation:Enum=NewestFirst;OldestFirst;Explicit
+	ScaleDownPolicy ScaleDownPolicy `json:"scaleDownPolicy"`
+
 	// VirtualMachineTemplate is the template every replica is stamped from. Its
 	// `spec` is an ordinary VirtualMachineSpec, so a replica is no different from a
 	// manually created virtual machine.
 	VirtualMachineTemplate VirtualMachineTemplateSpec `json:"virtualMachineTemplate"`
 }
+
+// ScaleDownPolicy selects which replica is removed on anonymous scale-down.
+type ScaleDownPolicy string
+
+const (
+	ScaleDownPolicyNewestFirst ScaleDownPolicy = "NewestFirst"
+	ScaleDownPolicyOldestFirst ScaleDownPolicy = "OldestFirst"
+	ScaleDownPolicyExplicit    ScaleDownPolicy = "Explicit"
+)
 
 // VirtualMachineTemplateSpec describes the metadata and spec a pool replica is
 // created with.
