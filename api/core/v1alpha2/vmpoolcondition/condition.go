@@ -42,8 +42,10 @@ func (r AvailableReason) String() string {
 }
 
 const (
-	ReasonMinimumReplicasAvailable   AvailableReason = "MinimumReplicasAvailable"
-	ReasonMinimumReplicasUnavailable AvailableReason = "MinimumReplicasUnavailable"
+	// The pool has no minReplicas/maxUnavailable, so Available means every desired
+	// replica is ready — hence "all", not "minimum".
+	ReasonAllReplicasReady          AvailableReason = "AllReplicasReady"
+	ReasonInsufficientReadyReplicas AvailableReason = "InsufficientReadyReplicas"
 )
 
 // ProgressingReason is a reason for the Progressing condition.
@@ -55,7 +57,9 @@ func (r ProgressingReason) String() string {
 
 const (
 	ReasonPoolStable ProgressingReason = "PoolStable"
-	ReasonScaling    ProgressingReason = "Scaling"
+	// ReplicasProgressing covers any convergence of the replica count — scaling
+	// as well as replacing a replica that disappeared — not only scaling.
+	ReasonReplicasProgressing ProgressingReason = "ReplicasProgressing"
 )
 
 // SyncedReason is a reason for the Synced condition.

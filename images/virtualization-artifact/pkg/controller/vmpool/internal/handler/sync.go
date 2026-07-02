@@ -265,26 +265,28 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 	pool.Status.Selector = poollabels.StatusSelector(pool)
 
 	availableStatus := metav1.ConditionFalse
-	availableReason := vmpoolcondition.ReasonMinimumReplicasUnavailable
+	availableReason := vmpoolcondition.ReasonInsufficientReadyReplicas
+	availableMessage := fmt.Sprintf("Only %d of %d replicas are ready.", ready, desired)
 	if ready >= desired {
 		availableStatus = metav1.ConditionTrue
-		availableReason = vmpoolcondition.ReasonMinimumReplicasAvailable
+		availableReason = vmpoolcondition.ReasonAllReplicasReady
+		availableMessage = fmt.Sprintf("All %d replicas are ready.", desired)
 	}
 	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
 		Type:               vmpoolcondition.TypeAvailable.String(),
 		Status:             availableStatus,
 		Reason:             availableReason.String(),
 		ObservedGeneration: pool.GetGeneration(),
-		Message:            fmt.Sprintf("VirtualMachinePool has %d of %d ready replicas.", ready, desired),
+		Message:            availableMessage,
 	})
 
 	progressingStatus := metav1.ConditionFalse
 	progressingReason := vmpoolcondition.ReasonPoolStable
-	progressingMessage := "No scaling or creation in progress."
+	progressingMessage := "No replica changes in progress."
 	if len(members) != desired {
 		progressingStatus = metav1.ConditionTrue
-		progressingReason = vmpoolcondition.ReasonScaling
-		progressingMessage = fmt.Sprintf("Scaling VirtualMachinePool from %d to %d replicas.", len(members), desired)
+		progressingReason = vmpoolcondition.ReasonReplicasProgressing
+		progressingMessage = fmt.Sprintf("Converging to %d replicas (currently %d).", desired, len(members))
 	}
 	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
 		Type:               vmpoolcondition.TypeProgressing.String(),
