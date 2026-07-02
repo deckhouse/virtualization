@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -31,21 +32,24 @@ type Watcher interface {
 	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
 
-func NewReconciler(client client.Client, handlers []Handler) *Reconciler {
+func NewReconciler(client client.Client, exp *expectations.Expectations, handlers []Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
+		exp:      exp,
 		handlers: handlers,
 	}
 }
 
 type Reconciler struct {
 	client   client.Client
+	exp      *expectations.Expectations
 	handlers []Handler
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
 		watcher.NewVirtualMachinePoolWatcher(),
+		watcher.NewVirtualMachineWatcher(r.exp),
 	} {
 		if err := w.Watch(mgr, ctr); err != nil {
 			return err
@@ -71,7 +75,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, pool.Current())
+		return h.Handle(ctx, pool.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		return pool.Update(ctx)

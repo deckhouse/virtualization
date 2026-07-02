@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
@@ -42,10 +44,15 @@ func SetupController(
 
 	client := mgr.GetClient()
 
-	// Handlers are added by the follow-up slices (replica maintenance, template
-	// propagation, reuse disks). The scaffold wires an empty chain.
-	handlers := []Handler{}
-	r := NewReconciler(client, handlers)
+	// exp guards against a lagging informer cache causing double create/delete of
+	// anonymous replicas. It is shared between the reconcile handlers and the
+	// member watcher that observes creations/deletions.
+	exp := expectations.New()
+
+	handlers := []Handler{
+		handler.NewSyncHandler(client, exp),
+	}
+	r := NewReconciler(client, exp, handlers)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
