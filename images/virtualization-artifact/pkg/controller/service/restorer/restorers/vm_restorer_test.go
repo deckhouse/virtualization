@@ -337,11 +337,11 @@ var _ = Describe("VirtualMachineRestorer", func() {
 		}),
 	)
 
-	DescribeTable("preserves the pre-restore power-state intent across the annotation overwrite",
-		func(intentKey string) {
+	DescribeTable("preserves the pre-restore power state across the annotation overwrite",
+		func(powerState string) {
 			liveVM := vm.DeepCopy()
 			liveVM.Annotations = map[string]string{
-				intentKey: "true",
+				annotations.AnnVMRestorePowerState: powerState,
 			}
 			// Different spec so ProcessRestore takes the update path (full annotation overwrite).
 			liveVM.Spec.RunPolicy = v1alpha2.ManualPolicy
@@ -362,11 +362,11 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(handler.ProcessRestore(ctx)).To(Succeed())
 
 			Expect(updatedVM).ToNot(BeNil())
-			Expect(updatedVM.Annotations).To(HaveKeyWithValue(intentKey, "true"))
+			Expect(updatedVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestorePowerState, powerState))
 			Expect(updatedVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMOPRestore, restoreUID))
 		},
-		Entry("start-requested-after-restore", annotations.AnnVMStartRequestedAfterRestore),
-		Entry("keep-stopped-after-restore", annotations.AnnVMKeepStoppedAfterRestore),
+		Entry("running", string(v1alpha2.MachineRunning)),
+		Entry("stopped", string(v1alpha2.MachineStopped)),
 	)
 
 	Describe("Override", func() {

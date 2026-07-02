@@ -90,18 +90,18 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 	// as an annotation. ProcessRestore preserves it across the annotation overwrite, and it is consumed once
 	// restore completes: a running VM is started again (see checkNeedStartVM), a stopped VM is kept stopped
 	// (see createKVVM for the AlwaysOnUnlessStoppedManually policy).
-	var powerStateAnn string
+	var powerState string
 	switch vm.Status.Phase {
 	case v1alpha2.MachineRunning, v1alpha2.MachinePending:
-		powerStateAnn = annotations.AnnVMStartRequestedAfterRestore
+		powerState = string(v1alpha2.MachineRunning)
 	case v1alpha2.MachineStopped:
-		powerStateAnn = annotations.AnnVMKeepStoppedAfterRestore
+		powerState = string(v1alpha2.MachineStopped)
 	}
-	if powerStateAnn != "" && vm.Annotations[powerStateAnn] != "true" {
+	if powerState != "" && vm.Annotations[annotations.AnnVMRestorePowerState] != powerState {
 		if vm.Annotations == nil {
 			vm.Annotations = make(map[string]string)
 		}
-		vm.Annotations[powerStateAnn] = "true"
+		vm.Annotations[annotations.AnnVMRestorePowerState] = powerState
 		if err = s.client.Update(ctx, vm); err != nil {
 			if apierrors.IsConflict(err) {
 				return &reconcile.Result{}, nil

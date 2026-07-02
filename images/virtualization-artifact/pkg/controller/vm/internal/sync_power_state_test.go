@@ -208,7 +208,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		})
 
 		It("should return start action when VM is marked to start after restore", func() {
-			vm.Annotations = map[string]string{annotations.AnnVMStartRequestedAfterRestore: "true"}
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineRunning)}
 			_, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
 
 			action := handler.handleManualPolicy(
@@ -219,7 +219,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		})
 
 		It("should return nothing when marked to start after restore but configuration is not applied", func() {
-			vm.Annotations = map[string]string{annotations.AnnVMStartRequestedAfterRestore: "true"}
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineRunning)}
 			_, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
 
 			action := handler.handleManualPolicy(

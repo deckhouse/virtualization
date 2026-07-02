@@ -418,12 +418,12 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 	// on KVVM (re)creation via RunStrategy=Always, so override it to Manual to honor the "unless stopped
 	// manually" contract. The one-shot intent is cleared here regardless of policy.
 	changed := s.VirtualMachine().Changed()
-	if changed.GetAnnotations()[annotations.AnnVMKeepStoppedAfterRestore] == "true" {
+	if changed.GetAnnotations()[annotations.AnnVMRestorePowerState] == string(v1alpha2.MachineStopped) {
 		if changed.Spec.RunPolicy == v1alpha2.AlwaysOnUnlessStoppedManually {
 			runStrategy := virtv1.RunStrategyManual
 			kvvm.Spec.RunStrategy = &runStrategy
 		}
-		delete(changed.Annotations, annotations.AnnVMKeepStoppedAfterRestore)
+		delete(changed.Annotations, annotations.AnnVMRestorePowerState)
 	}
 
 	err = h.client.Create(ctx, kvvm)

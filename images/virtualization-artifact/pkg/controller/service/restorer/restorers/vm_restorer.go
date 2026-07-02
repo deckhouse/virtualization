@@ -19,7 +19,6 @@ package restorer
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -194,21 +193,18 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			vm.Annotations = make(map[string]string)
 		}
 
-		// EnterMaintenance records the pre-restore power-state intent on the live VM so it survives the KVVM
-		// deletion. The snapshot template does not carry it, so preserve it across the full annotation overwrite
-		// below; otherwise the VM would be left in the wrong power state after restore.
-		powerStateIntents := map[string]string{}
-		for _, k := range []string{annotations.AnnVMStartRequestedAfterRestore, annotations.AnnVMKeepStoppedAfterRestore} {
-			if val, ok := vm.Annotations[k]; ok {
-				powerStateIntents[k] = val
-			}
-		}
+		// EnterMaintenance records the pre-restore power state on the live VM so it survives the KVVM deletion.
+		// The snapshot template does not carry it, so preserve it across the full annotation overwrite below;
+		// otherwise the VM would be left in the wrong power state after restore.
+		powerState, hasPowerState := vm.Annotations[annotations.AnnVMRestorePowerState]
 
 		vm.Spec = v.vm.Spec
 		vm.Labels = v.vm.Labels
 		vm.Annotations = v.vm.Annotations
 		vm.Annotations[annotations.AnnVMOPRestore] = v.restoreUID
-		maps.Copy(vm.Annotations, powerStateIntents)
+		if hasPowerState {
+			vm.Annotations[annotations.AnnVMRestorePowerState] = powerState
+		}
 
 		updErr := v.client.Update(ctx, vm)
 		if updErr != nil {

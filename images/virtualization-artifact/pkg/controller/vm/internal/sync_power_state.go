@@ -383,7 +383,7 @@ func (h *SyncPowerStateHandler) checkNeedStartVM(
 	isConfigurationApplied bool,
 	runPolicy v1alpha2.RunPolicy,
 ) bool {
-	startAfterRestore := s.VirtualMachine().Changed().GetAnnotations()[annotations.AnnVMStartRequestedAfterRestore] == "true"
+	startAfterRestore := s.VirtualMachine().Changed().GetAnnotations()[annotations.AnnVMRestorePowerState] == string(v1alpha2.MachineRunning)
 	if isConfigurationApplied &&
 		(kvvm.Annotations[annotations.AnnVMStartRequested] == "true" ||
 			kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" ||
@@ -421,7 +421,7 @@ func (h *SyncPowerStateHandler) start(
 	}
 
 	// The VM has been started after restore; clear the intent so it does not re-trigger on a later manual stop.
-	delete(s.VirtualMachine().Changed().Annotations, annotations.AnnVMStartRequestedAfterRestore)
+	delete(s.VirtualMachine().Changed().Annotations, annotations.AnnVMRestorePowerState)
 
 	return nil
 }

@@ -290,7 +290,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		It("keeps AlwaysOnUnlessStoppedManually VM stopped and clears the intent", func() {
 			vm := makeVM(v1alpha2.MachineStopped)
 			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
-			vm.Annotations = map[string]string{annotations.AnnVMKeepStoppedAfterRestore: "true"}
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineStopped)}
 
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, makeVMIP(), makeVMClass())
 
@@ -303,7 +303,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			newVM := &v1alpha2.VirtualMachine{}
 			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
-			Expect(newVM.Annotations).NotTo(HaveKey(annotations.AnnVMKeepStoppedAfterRestore))
+			Expect(newVM.Annotations).NotTo(HaveKey(annotations.AnnVMRestorePowerState))
 		})
 
 		It("starts AlwaysOnUnlessStoppedManually VM on create without the keep-stopped intent", func() {
