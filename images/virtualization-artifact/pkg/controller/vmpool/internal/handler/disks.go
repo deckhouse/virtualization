@@ -16,6 +16,7 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const disksHandlerName = "disks"
@@ -89,6 +91,12 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 				errs = errors.Join(errs, derr)
 			}
 		}
+	}
+
+	// Fallback: if a controller restart lost the in-pass guard and a reuse disk
+	// ended up on two members, detach it from the stuck one so it is reassigned.
+	if err := h.reassignCollisions(ctx, pool, members); err != nil {
+		errs = errors.Join(errs, err)
 	}
 
 	// After (re)assignment, garbage-collect free reuse disks per Retain template.
@@ -176,6 +184,110 @@ func (h *DisksHandler) gcReuseDisks(
 		}
 	}
 	return errs
+}
+
+// reassignCollisions detaches a reuse disk from all but one member when several
+// live members reference the same one (a cross-pass race after a restart). The
+// keeper is the member that can actually use it (BlockDevicesReady=True), or,
+// failing a clear winner, the lexicographically smallest name for determinism.
+// The detached members get a fresh disk on the next reconcile.
+func (h *DisksHandler) reassignCollisions(ctx context.Context, pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMachine) error {
+	reuse, err := h.listAllReuseDisks(ctx, pool)
+	if err != nil {
+		return err
+	}
+	if len(reuse) == 0 {
+		return nil
+	}
+	reuseNames := make(map[string]bool, len(reuse))
+	for i := range reuse {
+		reuseNames[reuse[i].Name] = true
+	}
+
+	refBy := map[string][]*v1alpha2.VirtualMachine{}
+	for i := range members {
+		m := &members[i]
+		if m.GetDeletionTimestamp() != nil {
+			continue
+		}
+		for _, ref := range m.Spec.BlockDeviceRefs {
+			if ref.Kind == v1alpha2.DiskDevice && reuseNames[ref.Name] {
+				refBy[ref.Name] = append(refBy[ref.Name], m)
+			}
+		}
+	}
+
+	var errs error
+	for diskName, ms := range refBy {
+		if len(ms) < 2 {
+			continue
+		}
+		keeper := pickKeeper(ms)
+		for _, m := range ms {
+			if m == keeper {
+				continue
+			}
+			if err := h.detachDisk(ctx, m, diskName); err != nil {
+				errs = errors.Join(errs, err)
+			}
+		}
+	}
+	return errs
+}
+
+func (h *DisksHandler) listAllReuseDisks(ctx context.Context, pool *v1alpha2.VirtualMachinePool) ([]v1alpha2.VirtualDisk, error) {
+	var list v1alpha2.VirtualDiskList
+	if err := h.client.List(ctx, &list,
+		client.InNamespace(pool.GetNamespace()),
+		client.MatchingLabels{poollabels.PoolUID: string(pool.GetUID())},
+	); err != nil {
+		return nil, fmt.Errorf("list reuse disks: %w", err)
+	}
+	owned := make([]v1alpha2.VirtualDisk, 0, len(list.Items))
+	for i := range list.Items {
+		_, isReuse := list.Items[i].GetLabels()[poollabels.DiskTemplate]
+		if !isReuse {
+			continue
+		}
+		if ref := metav1.GetControllerOf(&list.Items[i]); ref != nil && ref.UID == pool.GetUID() {
+			owned = append(owned, list.Items[i])
+		}
+	}
+	return owned, nil
+}
+
+func pickKeeper(ms []*v1alpha2.VirtualMachine) *v1alpha2.VirtualMachine {
+	keeper := ms[0]
+	for _, m := range ms {
+		if blockDevicesReady(m) {
+			return m
+		}
+		if m.GetName() < keeper.GetName() {
+			keeper = m
+		}
+	}
+	return keeper
+}
+
+func blockDevicesReady(vm *v1alpha2.VirtualMachine) bool {
+	c := meta.FindStatusCondition(vm.Status.Conditions, vmcondition.TypeBlockDevicesReady.String())
+	return c != nil && c.Status == metav1.ConditionTrue
+}
+
+func (h *DisksHandler) detachDisk(ctx context.Context, m *v1alpha2.VirtualMachine, diskName string) error {
+	updated := m.DeepCopy()
+	refs := updated.Spec.BlockDeviceRefs[:0]
+	for _, ref := range m.Spec.BlockDeviceRefs {
+		if ref.Kind == v1alpha2.DiskDevice && ref.Name == diskName {
+			continue
+		}
+		refs = append(refs, ref)
+	}
+	updated.Spec.BlockDeviceRefs = refs
+	if err := h.client.Update(ctx, updated); err != nil {
+		return fmt.Errorf("detach disk %s from %s: %w", diskName, m.GetName(), err)
+	}
+	return nil
 }
 
 func freeSince(d *v1alpha2.VirtualDisk) time.Time {

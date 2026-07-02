@@ -21,6 +21,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 func retainTemplate(name string, keep int32, ttl *metav1.Duration) v1alpha2.VirtualDiskTemplateSpec {
@@ -167,6 +168,80 @@ var _ = Describe("DisksHandler", func() {
 		// The busy disk stays with its holder; the newcomer gets a fresh one.
 		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2))
 		Expect(getVM(ctx, c, "web-new").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-busy"}))
+	})
+
+	It("does not reuse a disk that is not Ready", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+		pending := reuseDisk(pool, "web-cache-pending", v1alpha2.DiskPending)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		c, err := testutil.NewFakeClientWithObjects(pool, pending, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// The pending disk is not reused; a fresh one is created instead.
+		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2))
+		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-pending"}))
+	})
+
+	It("clears free-since when a free disk is reused", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{retainTemplate("cache", 0, &metav1.Duration{Duration: 30 * time.Minute})}
+		free := reuseDisk(pool, "web-cache-1", v1alpha2.DiskReady)
+		free.Annotations = map[string]string{poollabels.FreeSince: referenceTime.UTC().Format(time.RFC3339)}
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		c, err := testutil.NewFakeClientWithObjects(pool, free, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		h := NewDisksHandler(c)
+		h.now = func() time.Time { return referenceTime }
+		_, err = h.Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-1"}))
+		vd, ok := diskExists(ctx, c, "web-cache-1")
+		Expect(ok).To(BeTrue())
+		Expect(vd.Annotations).NotTo(HaveKey(poollabels.FreeSince)) // cleared on reuse
+	})
+
+	It("does not manage disks for a Terminating member", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("system", v1alpha2.VirtualDiskReclaimDelete)}
+		term := newMemberVM(pool, "web-term", v1alpha2.MachineRunning, referenceTime, true)
+		c, err := testutil.NewFakeClientWithObjects(pool, term)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, ok := diskExists(ctx, c, "web-term-system")
+		Expect(ok).To(BeFalse())
+	})
+
+	It("detaches a colliding reuse disk from the stuck member (fallback)", func() {
+		pool := newPool(2)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+		shared := reuseDisk(pool, "web-cache-shared", v1alpha2.DiskReady)
+
+		keeper := newMemberVM(pool, "web-keeper", v1alpha2.MachineRunning, referenceTime, false)
+		keeper.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-cache-shared"}}
+		keeper.Status.Conditions = []metav1.Condition{{Type: vmcondition.TypeBlockDevicesReady.String(), Status: metav1.ConditionTrue, Reason: "Ready"}}
+
+		stuck := newMemberVM(pool, "web-stuck", v1alpha2.MachineRunning, referenceTime, false)
+		stuck.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-cache-shared"}}
+		stuck.Status.Conditions = []metav1.Condition{{Type: vmcondition.TypeBlockDevicesReady.String(), Status: metav1.ConditionFalse, Reason: "InUseByAnother"}}
+
+		c, err := testutil.NewFakeClientWithObjects(pool, shared, keeper, stuck)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		sharedRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-shared"}
+		Expect(getVM(ctx, c, "web-keeper").Spec.BlockDeviceRefs).To(ContainElement(sharedRef))   // keeper (BlockDevicesReady=True) keeps it
+		Expect(getVM(ctx, c, "web-stuck").Spec.BlockDeviceRefs).NotTo(ContainElement(sharedRef)) // stuck one detached
 	})
 
 	Context("GC of free reuse disks", func() {

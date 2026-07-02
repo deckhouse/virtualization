@@ -170,6 +170,32 @@ var _ = Describe("SyncHandler", func() {
 			Expect(meta.IsStatusConditionTrue(pool.Status.Conditions, vmpoolcondition.TypeAvailable.String())).To(BeTrue())
 			Expect(meta.IsStatusConditionFalse(pool.Status.Conditions, vmpoolcondition.TypeProgressing.String())).To(BeTrue())
 		})
+
+		It("keeps a Stopped member: counts it, does not replace or duplicate it (invariant 4)", func() {
+			pool := newPool(1)
+			stopped := newMemberVM(pool, "web-stopped", v1alpha2.MachineStopped, referenceTime, false)
+			c, err := testutil.NewFakeClientWithObjects(pool, stopped)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(listMemberNames(ctx, c, pool)).To(ConsistOf("web-stopped")) // not replaced, not duplicated
+			Expect(pool.Status.Replicas).To(Equal(int32(1)))                   // counted
+			Expect(pool.Status.ReadyReplicas).To(Equal(int32(0)))              // Stopped is not ready
+			Expect(meta.IsStatusConditionFalse(pool.Status.Conditions, vmpoolcondition.TypeAvailable.String())).To(BeTrue())
+		})
+
+		It("treats nil replicas as zero", func() {
+			pool := newPool(0)
+			pool.Spec.Replicas = nil
+			c, err := testutil.NewFakeClientWithObjects(pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listMemberNames(ctx, c, pool)).To(BeEmpty())
+		})
 	})
 
 	Context("template revision", func() {
