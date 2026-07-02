@@ -206,28 +206,6 @@ var _ = Describe("Test action getters for different run policy", func() {
 			)
 			Expect(action).To(Equal(Nothing))
 		})
-
-		It("should return start action when VM is marked to start after restore", func() {
-			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineRunning)}
-			_, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
-
-			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
-			)
-
-			Expect(action).To(Equal(Start))
-		})
-
-		It("should return nothing when marked to start after restore but configuration is not applied", func() {
-			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineRunning)}
-			_, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
-
-			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, nil, false, powerstate.ShutdownInfo{},
-			)
-
-			Expect(action).To(Equal(Nothing))
-		})
 	})
 
 	Context("handleAlwaysOnPolicy", func() {

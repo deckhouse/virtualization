@@ -414,11 +414,16 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
 
-	// The VM was stopped before restore and must stay stopped. Only AlwaysOnUnlessStoppedManually would start
-	// on KVVM (re)creation via RunStrategy=Always, so override it to Manual to honor the "unless stopped
-	// manually" contract. The one-shot intent is cleared here regardless of policy.
+	// Restore the pre-restore power state captured by EnterMaintenance onto the freshly (re)created KVVM.
+	// "Running" is turned into the regular start-request annotation so the existing power-state machinery
+	// starts the VM and retries on a failed first boot. "Stopped" must override the implicit RunStrategy=Always
+	// that AlwaysOnUnlessStoppedManually gets on create, to honor the "unless stopped manually" contract.
 	changed := s.VirtualMachine().Changed()
-	if changed.GetAnnotations()[annotations.AnnVMRestorePowerState] == string(v1alpha2.MachineStopped) {
+	switch changed.GetAnnotations()[annotations.AnnVMRestorePowerState] {
+	case string(v1alpha2.MachineRunning):
+		annotations.AddAnnotation(kvvm, annotations.AnnVMStartRequested, "true")
+		delete(changed.Annotations, annotations.AnnVMRestorePowerState)
+	case string(v1alpha2.MachineStopped):
 		if changed.Spec.RunPolicy == v1alpha2.AlwaysOnUnlessStoppedManually {
 			runStrategy := virtv1.RunStrategyManual
 			kvvm.Spec.RunStrategy = &runStrategy

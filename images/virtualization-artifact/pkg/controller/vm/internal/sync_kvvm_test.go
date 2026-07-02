@@ -286,7 +286,25 @@ var _ = Describe("SyncKvvmHandler", func() {
 		}
 	}
 
-	Context("keep-stopped-after-restore intent on KVVM creation", func() {
+	Context("restore-power-state intent on KVVM creation", func() {
+		It("requests start for a VM that was running before restore and clears the intent", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.ManualPolicy
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineRunning)}
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, makeVMIP(), makeVMClass())
+
+			reconcile()
+
+			kvvm := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), kvvm)).To(Succeed())
+			Expect(kvvm.Annotations).To(HaveKeyWithValue(annotations.AnnVMStartRequested, "true"))
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+			Expect(newVM.Annotations).NotTo(HaveKey(annotations.AnnVMRestorePowerState))
+		})
+
 		It("keeps AlwaysOnUnlessStoppedManually VM stopped and clears the intent", func() {
 			vm := makeVM(v1alpha2.MachineStopped)
 			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
