@@ -3,7 +3,7 @@
 {{- $gitRepoName := "3p-kubevirt" }}
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
 {{- $tag := get $.Core $gitRepoName }}
-{{- $version := "v1.6.2" }}
+{{- $version := (split "-" $tag)._0 }}
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
