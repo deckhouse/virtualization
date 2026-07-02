@@ -38,6 +38,29 @@ func diskExists(ctx context.Context, c client.Client, name string) (*v1alpha2.Vi
 	return vd, true
 }
 
+// reuseDisk builds a free pool-owned Retain disk of the "cache" template.
+func reuseDisk(pool *v1alpha2.VirtualMachinePool, name string, phase v1alpha2.DiskPhase) *v1alpha2.VirtualDisk {
+	return &v1alpha2.VirtualDisk{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: poolNamespace,
+			Labels: map[string]string{
+				poollabels.PoolUID:      string(pool.GetUID()),
+				poollabels.Pool:         pool.GetName(),
+				poollabels.DiskTemplate: "cache",
+			},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(pool, v1alpha2.VirtualMachinePoolGVK)},
+		},
+		Status: v1alpha2.VirtualDiskStatus{Phase: phase},
+	}
+}
+
+func listReuseDisks(ctx context.Context, c client.Client, dtName string) []v1alpha2.VirtualDisk {
+	var list v1alpha2.VirtualDiskList
+	Expect(c.List(ctx, &list, client.InNamespace(poolNamespace), client.MatchingLabels{poollabels.DiskTemplate: dtName})).To(Succeed())
+	return list.Items
+}
+
 var _ = Describe("DisksHandler", func() {
 	var ctx context.Context
 	BeforeEach(func() { ctx = context.Background() })
@@ -87,7 +110,7 @@ var _ = Describe("DisksHandler", func() {
 		Expect(count).To(Equal(1))
 	})
 
-	It("does not create a Retain disk yet (handled by a later slice)", func() {
+	It("creates a pool-owned Retain disk and attaches it", func() {
 		pool := newPool(1)
 		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
 		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
@@ -97,7 +120,44 @@ var _ = Describe("DisksHandler", func() {
 		_, err = NewDisksHandler(c).Handle(ctx, pool)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, ok := diskExists(ctx, c, "web-a-cache")
-		Expect(ok).To(BeFalse())
+		disks := listReuseDisks(ctx, c, "cache")
+		Expect(disks).To(HaveLen(1))
+		Expect(disks[0].Name).To(HavePrefix(poolName + "-cache-"))
+		ref := metav1.GetControllerOf(&disks[0])
+		Expect(ref.Kind).To(Equal(v1alpha2.VirtualMachinePoolKind)) // owned by the pool, not the VM
+		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: disks[0].Name}))
+	})
+
+	It("reuses a free Ready disk instead of creating a new one", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+		free := reuseDisk(pool, "web-cache-free", v1alpha2.DiskReady)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		c, err := testutil.NewFakeClientWithObjects(pool, free, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(1)) // no new disk created
+		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-free"}))
+	})
+
+	It("does not reuse a disk already held by another live member", func() {
+		pool := newPool(2)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+		busy := reuseDisk(pool, "web-cache-busy", v1alpha2.DiskReady)
+		holder := newMemberVM(pool, "web-holder", v1alpha2.MachineRunning, referenceTime, false)
+		holder.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-cache-busy"}}
+		newcomer := newMemberVM(pool, "web-new", v1alpha2.MachineRunning, referenceTime, false)
+		c, err := testutil.NewFakeClientWithObjects(pool, busy, holder, newcomer)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// The busy disk stays with its holder; the newcomer gets a fresh one.
+		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2))
+		Expect(getVM(ctx, c, "web-new").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-busy"}))
 	})
 })
