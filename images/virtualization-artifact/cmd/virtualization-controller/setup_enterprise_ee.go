@@ -28,5 +28,11 @@ func setupEnterpriseControllers(
 	logDebugControllerList []string,
 ) error {
 	vmpoolLogger := logger.NewControllerLogger(vmpool.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	return vmpool.SetupController(ctx, mgr, vmpoolLogger)
+	if err := vmpool.SetupController(ctx, mgr, vmpoolLogger); err != nil {
+		return err
+	}
+	// Guards anonymous scale-down for scaleDownPolicy: Explicit. Self-gated by
+	// the VirtualMachinePool feature gate.
+	vmpool.SetupScaleWebhook(mgr)
+	return nil
 }
