@@ -3111,6 +3111,32 @@ spec:
 kubectl scale virtualmachinepool/runners -n ci --replicas=8
 ```
 
+Пул публикует `status.selector`, поэтому `HorizontalPodAutoscaler` читает метрики CPU/памяти прямо с реплик — без дополнительной обвязки:
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: runners
+  namespace: ci
+spec:
+  scaleTargetRef:
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualMachinePool
+    name: runners
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+```
+
+Помимо CPU/памяти пул работает и с кастомными метриками (`Pods`/`External` через `custom.metrics.k8s.io`/`external.metrics.k8s.io`) и с KEDA — например, скейлить раннеры по длине очереди CI. При `scaleDownPolicy: Explicit` автоскейлер может только **увеличивать** число реплик: безадресное сжатие через сабресурс `scale` отклоняется (реплики убираются по имени, см. ниже).
+
 `spec.scaleDownPolicy` определяет, какая реплика удаляется при безадресном сжатии:
 
 - `NewestFirst` — первыми удаляются самые молодые реплики;

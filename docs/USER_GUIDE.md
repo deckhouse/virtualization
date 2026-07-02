@@ -3082,6 +3082,32 @@ Scale through the standard `scale` subresource — with `kubectl scale`, a `Hori
 kubectl scale virtualmachinepool/runners -n ci --replicas=8
 ```
 
+The pool publishes `status.selector`, so a `HorizontalPodAutoscaler` reads CPU/memory metrics from the replicas directly — no extra wiring:
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: runners
+  namespace: ci
+spec:
+  scaleTargetRef:
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualMachinePool
+    name: runners
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+```
+
+Beyond CPU/memory, the pool also works with custom metrics (`Pods`/`External` via `custom.metrics.k8s.io`/`external.metrics.k8s.io`) and KEDA — for example, to scale runners by CI queue length. With `scaleDownPolicy: Explicit` an autoscaler can only scale **up**: anonymous scale-down through the `scale` subresource is rejected (remove replicas by name, see below).
+
 `spec.scaleDownPolicy` selects which replica is removed on anonymous scale-down:
 
 - `NewestFirst` — the youngest replicas are removed first;
