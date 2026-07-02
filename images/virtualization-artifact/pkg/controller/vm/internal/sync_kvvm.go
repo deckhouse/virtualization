@@ -525,12 +525,6 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, fmt.Errorf("failed to reload blockdevice state for the virtual machine: %w", err)
 	}
-	// Resolve images/disks attached via VMBDA but not yet reflected in block device refs,
-	// so the builder can set their disks during the hotplug attach window instead of aborting.
-	err = bdState.ResolveVMBDAAttachedDevices(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve VMBDA-attached block devices for the virtual machine: %w", err)
-	}
 	class, err := s.Class(ctx)
 	if err != nil {
 		return nil, err
