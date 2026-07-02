@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 		Eventually(func(g Gomega) {
 			count, diskErr := util.GetDiskCount(f, vm.Name, vm.Namespace)
 			g.Expect(diskErr).NotTo(HaveOccurred())
-			g.Expect(count).To(Equal(initialDiskCount))
+			g.Expect(count).To(Equal(initialDiskCount), "expected disk count to return to initial value after detaching hotplugged images: got %d, want %d", count, initialDiskCount)
 		}).WithTimeout(framework.LongTimeout).WithPolling(hotplugPollInterval).Should(Succeed())
 	})
 })
@@ -198,7 +198,7 @@ func waitBlockDeviceRefsAttached(ctx context.Context, f *framework.Framework, vm
 			}
 		}
 		g.Expect(attached).To(
-			BeNumerically(">=", expectedAttached+1),
+			BeNumerically("==", expectedAttached+1),
 			"expected at least %d attached block devices: %d hotplug images plus one root disk",
 			expectedAttached+1, expectedAttached,
 		)
@@ -273,22 +273,21 @@ func isBlockDeviceReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 
 	devicePath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceByID)
 	mountPoint := fmt.Sprintf("/tmp/vm-image-hotplug-%s", blockDeviceByID)
-	if isMounted, err := mountReadOnly(f, vm, devicePath, mountPoint); err != nil {
-		return false, err
-	} else if !isMounted {
-		return false, nil
-	}
-
-	readOnly, err := isMountPointReadOnly(f, vm, mountPoint)
+	isMounted, err := mountReadOnly(f, vm, devicePath, mountPoint)
 	if err != nil {
 		_ = unmountPath(f, vm, mountPoint)
 		return false, err
 	}
-	if err = unmountPath(f, vm, mountPoint); err != nil {
+	if !isMounted {
+		_ = unmountPath(f, vm, mountPoint)
+		return false, nil
+	}
+
+	if err := unmountPath(f, vm, mountPoint); err != nil {
 		return false, err
 	}
 
-	return readOnly, nil
+	return true, nil
 }
 
 func mountReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath, mountPoint string) (bool, error) {
@@ -316,28 +315,64 @@ func mountReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePa
 }
 
 func tryMountReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath, mountPoint string) (bool, error) {
-	cmd := fmt.Sprintf("if sudo mount -o ro %q %q >/dev/null 2>&1; then echo true; else echo false; fi", sourcePath, mountPoint)
+	cmd := fmt.Sprintf(
+		"if sudo mount -o ro %q %q >/dev/null 2>&1; then echo true; else echo false; fi",
+		sourcePath,
+		mountPoint,
+	)
 	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to try mounting %q read-only at %q: %w", sourcePath, mountPoint, err)
 	}
 
-	return strings.TrimSpace(out) == "true", nil
+	switch strings.TrimSpace(out) {
+	case "true":
+		readOnly, err := isMountPointReadOnly(f, vm, mountPoint)
+		if err != nil {
+			_ = unmountPath(f, vm, mountPoint)
+			return false, fmt.Errorf("failed to validate read-only mount options for %q at %q: %w", sourcePath, mountPoint, err)
+		}
+		if !readOnly {
+			_ = unmountPath(f, vm, mountPoint)
+			return false, fmt.Errorf("mounted %q at %q, but mount point is not read-only", sourcePath, mountPoint)
+		}
+
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected read-only mount probe output for %q at %q: %q", sourcePath, mountPoint, out)
+	}
 }
 
 func firstPartitionPath(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath string) (string, error) {
-	cmd := fmt.Sprintf("lsblk -lnpo PATH %q 2>/dev/null; true", sourcePath)
+	cmd := fmt.Sprintf("lsblk --json --paths --output PATH %q 2>/dev/null; true", sourcePath)
 	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
 	if err != nil {
 		return "", err
 	}
-
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) < 2 {
+	if strings.TrimSpace(out) == "" {
 		return "", nil
 	}
 
-	return strings.TrimSpace(lines[1]), nil
+	var lsblkOutput struct {
+		BlockDevices []struct {
+			Path     string `json:"path"`
+			Children []struct {
+				Path string `json:"path"`
+			} `json:"children"`
+		} `json:"blockdevices"`
+	}
+
+	if err = json.Unmarshal([]byte(out), &lsblkOutput); err != nil {
+		return "", err
+	}
+
+	if len(lsblkOutput.BlockDevices) == 0 || len(lsblkOutput.BlockDevices[0].Children) == 0 {
+		return "", nil
+	}
+
+	return lsblkOutput.BlockDevices[0].Children[0].Path, nil
 }
 
 func isMountPointReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoint string) (bool, error) {
