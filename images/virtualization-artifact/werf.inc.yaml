@@ -61,10 +61,9 @@ shell:
     {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-api" | join "/") }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-api" }}
-    go build -tags {{ .MODULE_EDITION }} -v -o /out/virtualization-api ./cmd/virtualization-api
+    go build -v -o /out/virtualization-api ./cmd/virtualization-api
     {{- else }}
-    {{-   $buildCommand := printf "go build -ldflags=\"-s -w\" -tags %s -v -o /out/virtualization-api ./cmd/virtualization-api" .MODULE_EDITION -}}
-    {{-   include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 4 }}
+    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-api ./cmd/virtualization-api`) | nindent 4 }}
     {{- end }}
 
 {{- if or (eq .MODULE_EDITION "EE") (eq .SVACE_ENABLED "true") }}
