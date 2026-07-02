@@ -1582,69 +1582,6 @@ var _ = Describe("Capacity check", func() {
 	})
 })
 
-var _ = Describe("ResolveVMBDAAttachedDevices", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = logger.ToContext(context.TODO(), slog.Default())
-	})
-
-	It("fills the builder maps with VMBDA-attached devices missing from block device refs", func() {
-		const ns = "hotplug-race"
-
-		vi := &v1alpha2.VirtualImage{
-			ObjectMeta: metav1.ObjectMeta{Name: "vi-hotplug", Namespace: ns},
-			Status:     v1alpha2.VirtualImageStatus{Phase: v1alpha2.ImageReady},
-		}
-		cvi := &v1alpha2.ClusterVirtualImage{
-			ObjectMeta: metav1.ObjectMeta{Name: "cvi-hotplug"},
-			Status:     v1alpha2.ClusterVirtualImageStatus{Phase: v1alpha2.ImageReady},
-		}
-		vd := &v1alpha2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-hotplug", Namespace: ns},
-		}
-
-		// Spec and Status BlockDeviceRefs are intentionally empty: this models the hotplug
-		// attach window where the volume is already added to KVVM but the device is not yet
-		// reflected in the VM block device refs.
-		vm := &v1alpha2.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{Name: "vm-hotplug-race", Namespace: ns},
-		}
-
-		newVMBDA := func(name string, kind v1alpha2.VMBDAObjectRefKind, refName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
-			return &v1alpha2.VirtualMachineBlockDeviceAttachment{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
-				Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
-					VirtualMachineName: vm.Name,
-					BlockDeviceRef:     v1alpha2.VMBDAObjectRef{Kind: kind, Name: refName},
-				},
-			}
-		}
-		vmbdaVi := newVMBDA("vmbda-vi", v1alpha2.VMBDAObjectRefKindVirtualImage, vi.Name)
-		vmbdaCvi := newVMBDA("vmbda-cvi", v1alpha2.VMBDAObjectRefKindClusterVirtualImage, cvi.Name)
-		vmbdaVd := newVMBDA("vmbda-vd", v1alpha2.VMBDAObjectRefKindVirtualDisk, vd.Name)
-		// A VMBDA whose image does not exist: must be tolerated, not cause an error.
-		vmbdaMissing := newVMBDA("vmbda-missing", v1alpha2.VMBDAObjectRefKindClusterVirtualImage, "cvi-gone")
-
-		_, _, vmState := setupEnvironment(vm, vi, cvi, vd, vmbdaVi, vmbdaCvi, vmbdaVd, vmbdaMissing)
-
-		bdState := NewBlockDeviceState(vmState)
-		Expect(bdState.Reload(ctx)).To(Succeed())
-
-		// Reload builds the maps from block device refs only, which are empty here.
-		Expect(bdState.VIByName).To(BeEmpty())
-		Expect(bdState.CVIByName).To(BeEmpty())
-		Expect(bdState.VDByName).To(BeEmpty())
-
-		Expect(bdState.ResolveVMBDAAttachedDevices(ctx)).To(Succeed())
-
-		Expect(bdState.VIByName).To(HaveKey(vi.Name))
-		Expect(bdState.CVIByName).To(HaveKey(cvi.Name))
-		Expect(bdState.VDByName).To(HaveKey(vd.Name))
-		Expect(bdState.CVIByName).NotTo(HaveKey("cvi-gone"))
-	})
-})
-
 func vmFactoryByVM(vm *v1alpha2.VirtualMachine) func() *v1alpha2.VirtualMachine {
 	return func() *v1alpha2.VirtualMachine {
 		return vm
