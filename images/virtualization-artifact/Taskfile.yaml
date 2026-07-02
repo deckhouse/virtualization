@@ -52,7 +52,9 @@ tasks:
     desc: "Run go unit tests"
     cmds:
       - |
-        go tool ginkgo -v -r pkg/
+        # Build with the EE tag: EE is the default shipped edition (see werf.inc.yaml,
+        # MODULE_EDITION defaults to EE), so unit tests must cover //go:build EE code too.
+        go tool ginkgo -v --tags EE -r pkg/
 
   lint:
     desc: "Run linters locally"
