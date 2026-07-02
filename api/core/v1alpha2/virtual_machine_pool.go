@@ -93,6 +93,70 @@ type VirtualMachinePoolSpec struct {
 	// `spec` is an ordinary VirtualMachineSpec, so a replica is no different from a
 	// manually created virtual machine.
 	VirtualMachineTemplate VirtualMachineTemplateSpec `json:"virtualMachineTemplate"`
+
+	// VirtualDiskTemplates describes the per-replica disks. A disk with reclaim
+	// Delete belongs to its VirtualMachine and is removed with it; a disk with
+	// reclaim Retain belongs to the pool, outlives the replica and is reused on a
+	// later scale-up.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	VirtualDiskTemplates []VirtualDiskTemplateSpec `json:"virtualDiskTemplates,omitempty"`
+}
+
+// VirtualDiskTemplateSpec describes a per-replica disk.
+type VirtualDiskTemplateSpec struct {
+	// Name identifies the disk template within the pool. It is a DNS-1123 label
+	// (no dots), because it is embedded into VirtualDisk names.
+	//
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+
+	// Reclaim controls what happens to the disk when its replica is removed.
+	//
+	// +optional
+	Reclaim VirtualDiskReclaim `json:"reclaim,omitempty"`
+
+	// Spec is the desired state of the disk (an ordinary VirtualDiskSpec).
+	Spec VirtualDiskSpec `json:"spec"`
+}
+
+// VirtualDiskReclaimPolicy selects the fate of a per-replica disk on scale-down.
+type VirtualDiskReclaimPolicy string
+
+const (
+	// VirtualDiskReclaimDelete removes the disk together with its replica (owner
+	// is the VirtualMachine). This is the default.
+	VirtualDiskReclaimDelete VirtualDiskReclaimPolicy = "Delete"
+	// VirtualDiskReclaimRetain keeps the disk (owner is the pool); it is reused on
+	// the next scale-up.
+	VirtualDiskReclaimRetain VirtualDiskReclaimPolicy = "Retain"
+)
+
+// VirtualDiskReclaim is the reclaim policy and warm-buffer settings of a disk
+// template.
+type VirtualDiskReclaim struct {
+	// OnScaleDown is Delete (default) or Retain.
+	//
+	// +kubebuilder:validation:Enum=Delete;Retain
+	// +kubebuilder:default=Delete
+	// +optional
+	OnScaleDown VirtualDiskReclaimPolicy `json:"onScaleDown,omitempty"`
+
+	// Keep is the number of free (Retain) disks always kept warm for fast
+	// scale-up; these are immune to the ttl. Only meaningful with Retain.
+	//
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	Keep int32 `json:"keep,omitempty"`
+
+	// TTL is how long a free disk lives beyond the warm buffer before it is
+	// garbage-collected. Only meaningful with Retain.
+	//
+	// +optional
+	TTL *metav1.Duration `json:"ttl,omitempty"`
 }
 
 // ScaleDownPolicy selects which replica is removed on anonymous scale-down.

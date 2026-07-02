@@ -96,6 +96,242 @@ spec:
                     - OldestFirst
                     - Explicit
                   type: string
+                virtualDiskTemplates:
+                  description: |-
+                    VirtualDiskTemplates describes the per-replica disks. A disk with reclaim
+                    Delete belongs to its VirtualMachine and is removed with it; a disk with
+                    reclaim Retain belongs to the pool, outlives the replica and is reused on a
+                    later scale-up.
+                  items:
+                    description: VirtualDiskTemplateSpec describes a per-replica disk.
+                    properties:
+                      name:
+                        description: |-
+                          Name identifies the disk template within the pool. It is a DNS-1123 label
+                          (no dots), because it is embedded into VirtualDisk names.
+                        maxLength: 63
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      reclaim:
+                        description:
+                          Reclaim controls what happens to the disk when
+                          its replica is removed.
+                        properties:
+                          keep:
+                            description: |-
+                              Keep is the number of free (Retain) disks always kept warm for fast
+                              scale-up; these are immune to the ttl. Only meaningful with Retain.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          onScaleDown:
+                            default: Delete
+                            description: OnScaleDown is Delete (default) or Retain.
+                            enum:
+                              - Delete
+                              - Retain
+                            type: string
+                          ttl:
+                            description: |-
+                              TTL is how long a free disk lives beyond the warm buffer before it is
+                              garbage-collected. Only meaningful with Retain.
+                            type: string
+                        type: object
+                      spec:
+                        description:
+                          Spec is the desired state of the disk (an ordinary
+                          VirtualDiskSpec).
+                        properties:
+                          dataSource:
+                            properties:
+                              containerImage:
+                                description:
+                                  Use an image stored in an external container
+                                  registry. Only registries with enabled TLS are supported.
+                                  To provide a custom Certificate Authority (CA) chain,
+                                  use the `caBundle` field.
+                                properties:
+                                  caBundle:
+                                    description:
+                                      CA chain in Base64 format to verify
+                                      the container registry.
+                                    example: YWFhCg==
+                                    format: byte
+                                    type: string
+                                  image:
+                                    description:
+                                      Path to the image in the container
+                                      registry.
+                                    example: registry.example.com/images/slackware:15
+                                    pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
+                                    type: string
+                                  imagePullSecret:
+                                    properties:
+                                      name:
+                                        description:
+                                          Name of the secret keeping container
+                                          registry credentials, which must be located
+                                          in the same namespace.
+                                        type: string
+                                    type: object
+                                required:
+                                  - image
+                                type: object
+                              http:
+                                description: |-
+                                  Fill the image with data from an external URL. The following schemas are supported:
+
+                                  * HTTP
+                                  * HTTPS
+
+                                  For HTTPS schema, there is an option to skip the TLS verification.
+                                properties:
+                                  caBundle:
+                                    description:
+                                      CA chain in Base64 format to verify
+                                      the URL.
+                                    example: YWFhCg==
+                                    format: byte
+                                    type: string
+                                  checksum:
+                                    description:
+                                      Checksum to verify integrity and consistency
+                                      of the downloaded file. The file must match all
+                                      specified checksums.
+                                    properties:
+                                      md5:
+                                        example: f3b59bed9f91e32fac1210184fcff6f5
+                                        maxLength: 32
+                                        minLength: 32
+                                        pattern: ^[0-9a-fA-F]{32}$
+                                        type: string
+                                      sha256:
+                                        example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
+                                        maxLength: 64
+                                        minLength: 64
+                                        pattern: ^[0-9a-fA-F]{64}$
+                                        type: string
+                                    type: object
+                                  url:
+                                    description: |-
+                                      URL of the file for creating an image. The following file formats are supported:
+                                      * qcow2
+                                      * vmdk
+                                      * vdi
+                                      * iso
+                                      * raw
+                                      The file can be compressed into an archive in one of the following formats:
+                                      * gz
+                                      * xz
+                                    example: https://mirror.example.com/images/slackware-15.qcow.gz
+                                    pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
+                                    type: string
+                                required:
+                                  - url
+                                type: object
+                              objectRef:
+                                description:
+                                  Use an existing VirtualImage, ClusterVirtualImage,
+                                  or VirtualDiskSnapshot resource to create a disk.
+                                properties:
+                                  kind:
+                                    description:
+                                      Kind of the existing VirtualImage,
+                                      ClusterVirtualImage, or VirtualDiskSnapshot resource.
+                                    enum:
+                                      - ClusterVirtualImage
+                                      - VirtualImage
+                                      - VirtualDiskSnapshot
+                                    type: string
+                                  name:
+                                    description:
+                                      Name of the existing VirtualImage,
+                                      ClusterVirtualImage, or VirtualDiskSnapshot resource.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                  - kind
+                                  - name
+                                type: object
+                              type:
+                                description: |-
+                                  The following image sources are available for creating an image:
+
+                                  * `HTTP`: From a file published on an HTTP/HTTPS service at a given URL.
+                                  * `ContainerImage`: From another image stored in a container registry.
+                                  * `ObjectRef`: From an existing resource.
+                                  * `Upload`: From data uploaded by the user via a special interface.
+                                enum:
+                                  - HTTP
+                                  - ContainerImage
+                                  - ObjectRef
+                                  - Upload
+                                type: string
+                            type: object
+                            x-kubernetes-validations:
+                              - message:
+                                  HTTP requires http and cannot have ContainerImage
+                                  or ObjectRef.
+                                rule:
+                                  "self.type == 'HTTP' ? has(self.http) && !has(self.containerImage)
+                                  && !has(self.objectRef) : true"
+                              - message:
+                                  ContainerImage requires containerImage and cannot
+                                  have HTTP or ObjectRef.
+                                rule:
+                                  "self.type == 'ContainerImage' ? has(self.containerImage)
+                                  && !has(self.http) && !has(self.objectRef) : true"
+                              - message:
+                                  ObjectRef requires objectRef and cannot have
+                                  HTTP or ContainerImage.
+                                rule:
+                                  "self.type == 'ObjectRef' ? has(self.objectRef)
+                                  && !has(self.http) && !has(self.containerImage) : true"
+                          persistentVolumeClaim:
+                            description: Settings for creating PVCs to store the disk.
+                            properties:
+                              size:
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                description: |-
+                                  Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
+
+                                  This parameter can be omitted if the `.spec.dataSource` section is filled out. In this case, the controller will determine the disk size automatically, based on the size of the extracted image from the source specified in `.spec.dataSource`.
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              storageClassName:
+                                description: |-
+                                  StorageClass name required by the claim. For details on using StorageClass for PVC, refer to https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
+
+                                  When creating disks, the user can specify the required StorageClass. If not specified, the default StorageClass will be used.
+
+                                  The disk features and virtual machine behavior depend on the selected StorageClass.
+
+                                  The `VolumeBindingMode` parameter in the StorageClass affects the disk creation process. The following values are allowed:
+                                  - `Immediate`: The disk will be created and becomes available for use immediately after creation.
+                                  - `WaitForFirstConsumer`: The disk will be created when first used on the node where the virtual machine will be started.
+
+                                  StorageClass supports multiple storage settings:
+                                  - Creating a block device (`Block`) or file system (`FileSystem`).
+                                  - Multiple access (`ReadWriteMany`) or single access (`ReadWriteOnce`). The `ReadWriteMany` disks support multiple access, which enables a "live" migration of virtual machines. In contrast, the `ReadWriteOnce` disks, which can be accessed from only one node, don't have this feature.
+
+                                  For known storage types, Deckhouse automatically determines the most efficient settings when creating disks (by priority, in descending order):
+                                  1. `Block` + `ReadWriteMany`
+                                  2. `FileSystem` + `ReadWriteMany`
+                                  3. `Block` + `ReadWriteOnce`
+                                  4. `FileSystem` + `ReadWriteOnce`
+                                type: string
+                            type: object
+                        type: object
+                    required:
+                      - name
+                      - spec
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                    - name
+                  x-kubernetes-list-type: map
                 virtualMachineTemplate:
                   description: |-
                     VirtualMachineTemplate is the template every replica is stamped from. Its
