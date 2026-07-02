@@ -119,6 +119,65 @@ var _ = Describe("DisksHandler", func() {
 		Expect(count).To(Equal(1))
 	})
 
+	It("resolves a Delete placeholder ref in place (root disk keeps its boot position)", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("system", v1alpha2.VirtualDiskReclaimDelete)}
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		// The user referenced the disk template by name: a placeholder the
+		// controller must resolve in place, not append.
+		m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "system"}}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Exactly one ref, still at position 0, pointing at the concrete disk:
+		// no dangling "system" placeholder and no duplicate.
+		Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}))
+		_, ok := diskExists(ctx, c, "web-a-system")
+		Expect(ok).To(BeTrue())
+	})
+
+	It("resolves a Retain placeholder ref in place (not appended)", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "cache"}}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		refs := getVM(ctx, c, "web-a").Spec.BlockDeviceRefs
+		Expect(refs).To(HaveLen(1)) // placeholder replaced, not appended alongside
+		Expect(refs[0].Name).To(HavePrefix(poolName + "-cache-"))
+	})
+
+	It("preserves block-device order when resolving several placeholders in one pass", func() {
+		pool := newPool(1)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{
+			diskTemplate("system", v1alpha2.VirtualDiskReclaimDelete),
+			diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain),
+		}
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{
+			{Kind: v1alpha2.DiskDevice, Name: "system"},
+			{Kind: v1alpha2.DiskDevice, Name: "cache"},
+		}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewDisksHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		refs := getVM(ctx, c, "web-a").Spec.BlockDeviceRefs
+		Expect(refs).To(HaveLen(2))
+		Expect(refs[0].Name).To(Equal("web-a-system"))            // root stays first (boot)
+		Expect(refs[1].Name).To(HavePrefix(poolName + "-cache-")) // reuse disk stays second
+	})
+
 	It("creates a pool-owned Retain disk and attaches it", func() {
 		pool := newPool(1)
 		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}

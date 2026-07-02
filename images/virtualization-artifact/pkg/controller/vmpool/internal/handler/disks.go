@@ -350,7 +350,7 @@ func (h *DisksHandler) ensureRetainDisk(
 			pick = freeAny
 		}
 		assignedThisPass[pick.Name] = true
-		return h.attachDisk(ctx, m, pick.Name)
+		return h.attachDisk(ctx, m, pick.Name, dt.Name)
 	}
 
 	// No free disk at all — create a new pool-owned disk and attach it.
@@ -359,7 +359,7 @@ func (h *DisksHandler) ensureRetainDisk(
 		return fmt.Errorf("create reuse disk %s: %w", name, err)
 	}
 	assignedThisPass[name] = true
-	return h.attachDisk(ctx, m, name)
+	return h.attachDisk(ctx, m, name, dt.Name)
 }
 
 func (h *DisksHandler) listReuseDisks(ctx context.Context, pool *v1alpha2.VirtualMachinePool, dt v1alpha2.VirtualDiskTemplateSpec) ([]v1alpha2.VirtualDisk, error) {
@@ -399,18 +399,38 @@ func (h *DisksHandler) newRetainDisk(pool *v1alpha2.VirtualMachinePool, dt v1alp
 	}
 }
 
-func (h *DisksHandler) attachDisk(ctx context.Context, m *v1alpha2.VirtualMachine, diskName string) error {
+// attachDisk makes the member reference diskName. If the member still carries an
+// unresolved placeholder ref (a blockDeviceRefs entry whose name equals the disk
+// template name, i.e. the user referenced the template by name), the placeholder
+// is replaced in place so the disk keeps its position in the boot order;
+// otherwise the ref is appended. Idempotent: a member already referencing
+// diskName is left untouched.
+func (h *DisksHandler) attachDisk(ctx context.Context, m *v1alpha2.VirtualMachine, diskName, placeholder string) error {
 	if hasDiskRef(m, diskName) {
 		return nil
 	}
 	updated := m.DeepCopy()
-	updated.Spec.BlockDeviceRefs = append(updated.Spec.BlockDeviceRefs, v1alpha2.BlockDeviceSpecRef{
-		Kind: v1alpha2.DiskDevice,
-		Name: diskName,
-	})
+	replaced := false
+	for i, ref := range updated.Spec.BlockDeviceRefs {
+		if ref.Kind == v1alpha2.DiskDevice && ref.Name == placeholder {
+			updated.Spec.BlockDeviceRefs[i].Name = diskName
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		updated.Spec.BlockDeviceRefs = append(updated.Spec.BlockDeviceRefs, v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.DiskDevice,
+			Name: diskName,
+		})
+	}
 	if err := h.client.Update(ctx, updated); err != nil {
 		return fmt.Errorf("attach disk %s to %s: %w", diskName, m.GetName(), err)
 	}
+	// Reflect the update onto the caller's copy so a subsequent disk-template
+	// iteration in the same pass builds on these refs (and the fresh
+	// resourceVersion) instead of clobbering them from the stale original.
+	updated.DeepCopyInto(m)
 	return nil
 }
 
@@ -425,17 +445,17 @@ func (h *DisksHandler) ensureDeleteDisk(ctx context.Context, pool *v1alpha2.Virt
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: m.GetNamespace(), Name: diskName}, &disk)
 	switch {
 	case apierrors.IsNotFound(err):
-		if err := h.client.Create(ctx, h.newDeleteDisk(pool, m, dt, diskName)); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := h.client.Create(ctx, buildDeleteDisk(pool, m, dt, diskName)); err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create disk %s: %w", diskName, err)
 		}
 	case err != nil:
 		return fmt.Errorf("get disk %s: %w", diskName, err)
 	}
 
-	return h.attachDisk(ctx, m, diskName)
+	return h.attachDisk(ctx, m, diskName, dt.Name)
 }
 
-func (h *DisksHandler) newDeleteDisk(pool *v1alpha2.VirtualMachinePool, m *v1alpha2.VirtualMachine, dt v1alpha2.VirtualDiskTemplateSpec, name string) *v1alpha2.VirtualDisk {
+func buildDeleteDisk(pool *v1alpha2.VirtualMachinePool, m *v1alpha2.VirtualMachine, dt v1alpha2.VirtualDiskTemplateSpec, name string) *v1alpha2.VirtualDisk {
 	return &v1alpha2.VirtualDisk{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

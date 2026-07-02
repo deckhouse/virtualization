@@ -62,16 +62,17 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 
 		// Step 1: bring the spec to the desired revision. Keyed on an annotation,
 		// not a spec diff, because the apiserver mutates the spec (defaulting,
-		// id allocation) and a diff would re-patch forever. In this slice a
-		// replica has no per-replica spec, so the whole spec follows the template
-		// (per-replica disk refs are merged in a later slice).
+		// id allocation) and a diff would re-patch forever.
 		if m.GetAnnotations()[poollabels.PatchedTemplateHash] != desiredHash {
 			patched := m.DeepCopy()
 			patched.Spec = *tmplSpec.DeepCopy()
-			// Preserve per-replica block device refs (e.g. disks the pool attached
-			// to this member) — they are not part of the shared template and must
-			// survive the spec patch.
-			patched.Spec.BlockDeviceRefs = mergeBlockDeviceRefs(tmplSpec.BlockDeviceRefs, m.Spec.BlockDeviceRefs)
+			// Block device refs are per-replica: the disks handler has already
+			// resolved the template's disk-template placeholders to this member's
+			// concrete disks (e.g. "system" to "web-a-system", or a reuse disk).
+			// Keep the member's resolved refs; re-copying the template placeholders
+			// would dangle (no such disk) and duplicate the resolved ref. Disk
+			// changes are reconciled by the disks handler, not the template rollout.
+			patched.Spec.BlockDeviceRefs = append([]v1alpha2.BlockDeviceSpecRef(nil), m.Spec.BlockDeviceRefs...)
 			if patched.Annotations == nil {
 				patched.Annotations = map[string]string{}
 			}
@@ -101,23 +102,6 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 	}
 
 	return reconcile.Result{}, errs
-}
-
-// mergeBlockDeviceRefs returns the template's block device refs plus any refs
-// the member carries that the template does not (per-replica disks the pool
-// attached). It keeps the template's order and appends the extras.
-func mergeBlockDeviceRefs(templateRefs, memberRefs []v1alpha2.BlockDeviceSpecRef) []v1alpha2.BlockDeviceSpecRef {
-	inTemplate := make(map[v1alpha2.BlockDeviceSpecRef]struct{}, len(templateRefs))
-	for _, r := range templateRefs {
-		inTemplate[r] = struct{}{}
-	}
-	merged := append([]v1alpha2.BlockDeviceSpecRef{}, templateRefs...)
-	for _, r := range memberRefs {
-		if _, ok := inTemplate[r]; !ok {
-			merged = append(merged, r)
-		}
-	}
-	return merged
 }
 
 // awaitingRestart reports whether the VM has pending disruptive changes waiting

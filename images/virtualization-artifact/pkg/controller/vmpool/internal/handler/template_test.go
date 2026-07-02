@@ -76,6 +76,27 @@ var _ = Describe("TemplateHandler", func() {
 		Expect(got.Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}))
 	})
 
+	It("does not reintroduce a template placeholder over the resolved per-replica ref", func() {
+		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
+		// The template references a disk template by name (placeholder); the member
+		// already has it resolved to a concrete per-replica disk.
+		pool.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "system"}}
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs → triggers a spec patch
+		m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		got := getVM(ctx, c, "web-a")
+		Expect(got.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOnPolicy)) // template applied
+		// The resolved ref survives untouched: no "system" placeholder re-added,
+		// no duplicate (which VM admission would reject as a double reference).
+		Expect(got.Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}))
+	})
+
 	It("marks the replica on the current template once patched and not awaiting restart", func() {
 		pool := poolWithRunPolicy(v1alpha2.AlwaysOnPolicy)
 		hash := poollabels.ComputeTemplateHash(pool)
