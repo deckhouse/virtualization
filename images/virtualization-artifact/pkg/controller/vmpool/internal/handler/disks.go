@@ -12,6 +12,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,10 +34,12 @@ const disksHandlerName = "disks"
 // member. Retain-policy (reusable) disks are handled by a later slice.
 type DisksHandler struct {
 	client client.Client
+	// now is injectable so tests can control free-disk ageing deterministically.
+	now func() time.Time
 }
 
 func NewDisksHandler(c client.Client) *DisksHandler {
-	return &DisksHandler{client: c}
+	return &DisksHandler{client: c, now: time.Now}
 }
 
 func (h *DisksHandler) Name() string { return disksHandlerName }
@@ -86,7 +90,100 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 			}
 		}
 	}
+
+	// After (re)assignment, garbage-collect free reuse disks per Retain template.
+	for j := range pool.Spec.VirtualDiskTemplates {
+		dt := pool.Spec.VirtualDiskTemplates[j]
+		if isDeletePolicy(dt) {
+			continue
+		}
+		if err := h.gcReuseDisks(ctx, pool, dt, referenced, assignedThisPass); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
 	return reconcile.Result{}, errs
+}
+
+// gcReuseDisks stamps free reuse disks with a free-since time, clears it when a
+// disk is back in use, and deletes free disks that are outside the warm buffer
+// (keep) and older than the ttl.
+func (h *DisksHandler) gcReuseDisks(
+	ctx context.Context,
+	pool *v1alpha2.VirtualMachinePool,
+	dt v1alpha2.VirtualDiskTemplateSpec,
+	referenced, assignedThisPass map[string]bool,
+) error {
+	disks, err := h.listReuseDisks(ctx, pool, dt)
+	if err != nil {
+		return err
+	}
+	now := h.now()
+
+	var errs error
+	var free []*v1alpha2.VirtualDisk
+	for i := range disks {
+		d := &disks[i]
+		inUse := referenced[d.Name] || assignedThisPass[d.Name]
+		if inUse {
+			// Back in use — drop the free-since stamp if present.
+			if _, ok := d.GetAnnotations()[poollabels.FreeSince]; ok {
+				patched := d.DeepCopy()
+				delete(patched.Annotations, poollabels.FreeSince)
+				if err := h.client.Update(ctx, patched); err != nil {
+					errs = errors.Join(errs, fmt.Errorf("clear free-since on %s: %w", d.Name, err))
+				}
+			}
+			continue
+		}
+		// Free — ensure it carries a free-since stamp.
+		if _, ok := d.GetAnnotations()[poollabels.FreeSince]; !ok {
+			patched := d.DeepCopy()
+			if patched.Annotations == nil {
+				patched.Annotations = map[string]string{}
+			}
+			patched.Annotations[poollabels.FreeSince] = now.UTC().Format(time.RFC3339)
+			if err := h.client.Update(ctx, patched); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("stamp free-since on %s: %w", d.Name, err))
+				continue
+			}
+			d = patched
+		}
+		free = append(free, d)
+	}
+
+	// No ttl configured — keep all free disks (only the warm buffer semantics
+	// would apply, and without a ttl nothing ages out).
+	if dt.Reclaim.TTL == nil {
+		return errs
+	}
+
+	// Warm buffer: keep the most-recently-freed `keep` disks immune to the ttl.
+	sort.SliceStable(free, func(i, j int) bool {
+		return freeSince(free[i]).After(freeSince(free[j]))
+	})
+	ttl := dt.Reclaim.TTL.Duration
+	for i, d := range free {
+		if i < int(dt.Reclaim.Keep) {
+			continue
+		}
+		if now.Sub(freeSince(d)) <= ttl {
+			continue
+		}
+		// Conditional delete: skip if the disk changed since we read it (e.g. was
+		// just handed to a new replica).
+		if err := h.client.Delete(ctx, d, client.Preconditions{ResourceVersion: &d.ResourceVersion}); err != nil && !apierrors.IsNotFound(err) && !apierrors.IsConflict(err) {
+			errs = errors.Join(errs, fmt.Errorf("gc free disk %s: %w", d.Name, err))
+		}
+	}
+	return errs
+}
+
+func freeSince(d *v1alpha2.VirtualDisk) time.Time {
+	t, err := time.Parse(time.RFC3339, d.GetAnnotations()[poollabels.FreeSince])
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 // ensureRetainDisk makes sure the member has a reusable (Retain) disk of the

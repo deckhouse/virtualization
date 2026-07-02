@@ -50,6 +50,11 @@ const (
 	// DiskTemplate marks which virtualDiskTemplates[] entry a per-replica disk
 	// belongs to, so scale-up can tell free `cache` disks from free `profile` ones.
 	DiskTemplate = "vmpool.virtualization.deckhouse.io/disk-template"
+
+	// FreeSince (annotation, RFC3339) records when a reuse disk became free (left
+	// every member's blockDeviceRefs). GC ages a free disk from this moment, not
+	// from the platform InUse timestamp.
+	FreeSince = "vmpool.virtualization.deckhouse.io/free-since"
 )
 
 // DeleteDiskName is the deterministic name of a Delete-policy per-replica disk:

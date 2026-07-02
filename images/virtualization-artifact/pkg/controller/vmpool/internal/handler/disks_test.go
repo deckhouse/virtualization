@@ -10,6 +10,7 @@ package handler
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +22,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+func retainTemplate(name string, keep int32, ttl *metav1.Duration) v1alpha2.VirtualDiskTemplateSpec {
+	return v1alpha2.VirtualDiskTemplateSpec{
+		Name:    name,
+		Reclaim: v1alpha2.VirtualDiskReclaim{OnScaleDown: v1alpha2.VirtualDiskReclaimRetain, Keep: keep, TTL: ttl},
+	}
+}
 
 func diskTemplate(name string, policy v1alpha2.VirtualDiskReclaimPolicy) v1alpha2.VirtualDiskTemplateSpec {
 	return v1alpha2.VirtualDiskTemplateSpec{
@@ -159,5 +167,79 @@ var _ = Describe("DisksHandler", func() {
 		// The busy disk stays with its holder; the newcomer gets a fresh one.
 		Expect(listReuseDisks(ctx, c, "cache")).To(HaveLen(2))
 		Expect(getVM(ctx, c, "web-new").Spec.BlockDeviceRefs).NotTo(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-busy"}))
+	})
+
+	Context("GC of free reuse disks", func() {
+		ttl := &metav1.Duration{Duration: 30 * time.Minute}
+
+		// gcPool has no members, so ensureRetainDisk never reuses the free disks
+		// under test and the GC pass operates on them.
+		gcPool := func(keep int32, ttl *metav1.Duration) *v1alpha2.VirtualMachinePool {
+			p := newPool(0)
+			p.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{retainTemplate("cache", keep, ttl)}
+			return p
+		}
+
+		handlerAt := func(c client.Client, now time.Time) *DisksHandler {
+			h := NewDisksHandler(c)
+			h.now = func() time.Time { return now }
+			return h
+		}
+
+		It("stamps free-since on a newly free disk and keeps it", func() {
+			pool := gcPool(0, ttl)
+			free := reuseDisk(pool, "web-cache-1", v1alpha2.DiskReady)
+			c, err := testutil.NewFakeClientWithObjects(pool, free)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = handlerAt(c, referenceTime).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			vd, ok := diskExists(ctx, c, "web-cache-1")
+			Expect(ok).To(BeTrue()) // just freed (age 0) — kept
+			Expect(vd.Annotations).To(HaveKey(poollabels.FreeSince))
+		})
+
+		It("deletes a free disk older than ttl and outside the keep buffer", func() {
+			pool := gcPool(0, ttl)
+			free := reuseDisk(pool, "web-cache-1", v1alpha2.DiskReady)
+			free.Annotations = map[string]string{poollabels.FreeSince: referenceTime.Add(-time.Hour).UTC().Format(time.RFC3339)}
+			c, err := testutil.NewFakeClientWithObjects(pool, free)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = handlerAt(c, referenceTime).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, ok := diskExists(ctx, c, "web-cache-1")
+			Expect(ok).To(BeFalse()) // 1h free > 30m ttl, keep=0 → collected
+		})
+
+		It("keeps the warm buffer even past ttl", func() {
+			pool := gcPool(1, ttl) // keep 1
+			free := reuseDisk(pool, "web-cache-1", v1alpha2.DiskReady)
+			free.Annotations = map[string]string{poollabels.FreeSince: referenceTime.Add(-time.Hour).UTC().Format(time.RFC3339)}
+			c, err := testutil.NewFakeClientWithObjects(pool, free)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = handlerAt(c, referenceTime).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, ok := diskExists(ctx, c, "web-cache-1")
+			Expect(ok).To(BeTrue()) // within the keep buffer
+		})
+
+		It("does not collect anything when ttl is nil", func() {
+			pool := gcPool(0, nil) // no ttl
+			free := reuseDisk(pool, "web-cache-1", v1alpha2.DiskReady)
+			free.Annotations = map[string]string{poollabels.FreeSince: referenceTime.Add(-100 * time.Hour).UTC().Format(time.RFC3339)}
+			c, err := testutil.NewFakeClientWithObjects(pool, free)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = handlerAt(c, referenceTime).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, ok := diskExists(ctx, c, "web-cache-1")
+			Expect(ok).To(BeTrue()) // no ttl → never aged out
+		})
 	})
 })
