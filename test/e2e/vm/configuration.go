@@ -68,7 +68,7 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Spec.RunPolicy).To(Equal(initialRunPolicy))
-		Expect(t.VM.Spec.EnableParavirtualization).To(Equal(initialEnableParavirtualization))
+		Expect(t.VM.Spec.EnableParavirtualization).To(HaveValue(Equal(initialEnableParavirtualization)))
 
 		By("Applying changes")
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -98,7 +98,7 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Spec.RunPolicy).To(Equal(changedRunPolicy))
-		Expect(t.VM.Spec.EnableParavirtualization).To(Equal(changedEnableParavirtualization))
+		Expect(t.VM.Spec.EnableParavirtualization).To(HaveValue(Equal(changedEnableParavirtualization)))
 
 		Consistently(func(g Gomega) {
 			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
