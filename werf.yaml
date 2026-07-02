@@ -60,6 +60,7 @@ import:
 
 {{- $_ := set . "ImagesIDList" list }}
 
+
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
   {{- tpl $content $ }}
 {{- end }}
@@ -69,12 +70,15 @@ image: images-digests
 fromImage: builder/alpine
 dependencies:
   {{- range $ImageID := $.ImagesIDList }}
+  {{- $ImageName := $ImageID | splitList "/" | last }}
   {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}
+  {{- if eq $ImageName (trimSuffix "-vex-artifact" $ImageName) }}
 - image: {{ $ImageID }}
   before: setup
   imports:
     - type: ImageDigest
       targetEnv: MODULE_IMAGE_DIGEST_{{ $ImageNameCamel }}
+  {{- end }}
   {{- end }}
 import:
 - from: tools/jq
