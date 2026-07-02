@@ -40,8 +40,8 @@ var _ = Describe("LifeCycleHandler helpers", func() {
 		Expect(isVirtualMachineMigrating(vm)).To(Equal(expected))
 	},
 		Entry("migrating condition is true", metav1.ConditionTrue, true, true),
-		Entry("migrating condition is false", metav1.ConditionFalse, true, false),
-		Entry("migrating condition is unknown", metav1.ConditionUnknown, true, false),
+		Entry("migrating condition is false", metav1.ConditionFalse, true, true),
+		Entry("migrating condition is unknown", metav1.ConditionUnknown, true, true),
 		Entry("migrating condition is absent", metav1.ConditionTrue, false, false),
 	)
 

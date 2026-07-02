@@ -257,13 +257,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 
 			if pvc != nil {
 				if isVirtualMachineMigrating(vm) && isReadWriteOnce(pvc) {
-					log.Info("Cannot hot-plug a ReadWriteOnce disk while the virtual machine is migrating")
+					log.Info("Cannot hotplug a ReadWriteOnce disk while the virtual machine is migrating")
 
 					vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 					cb.
 						Status(metav1.ConditionFalse).
 						Reason(vmbdacondition.BlockedByMigration).
-						Message("Cannot hot-plug a ReadWriteOnce disk while the virtual machine is migrating.")
+						Message("Cannot hotplug a ReadWriteOnce disk while the virtual machine is migrating.")
 					return reconcile.Result{}, nil
 				}
 
@@ -317,8 +317,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 }
 
 func isVirtualMachineMigrating(vm *v1alpha2.VirtualMachine) bool {
-	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-	return migrating.Status == metav1.ConditionTrue
+	_, migrating := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	return migrating
 }
 
 func isReadWriteOnce(pvc *corev1.PersistentVolumeClaim) bool {
