@@ -12,6 +12,7 @@ Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https
 package poollabels
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -38,7 +39,30 @@ const (
 	// pod-template-hash / currentRevision). It is NOT part of the member selector,
 	// so changing the template does not orphan existing replicas.
 	TemplateHash = "vmpool.virtualization.deckhouse.io/template-hash"
+
+	// PatchedTemplateHash (annotation) records the revision a replica's spec was
+	// last patched to. It is distinct from TemplateHash so a re-patch is avoided
+	// even while the disruptive part of the change waits for a restart, and it
+	// does not depend on comparing specs (which the apiserver mutates by
+	// defaulting/allocation).
+	PatchedTemplateHash = "vmpool.virtualization.deckhouse.io/patched-template-hash"
 )
+
+// ListMembers returns the VirtualMachines controlled by the pool. The pool-uid
+// label scopes the list; the controllerRef check is the authoritative guard.
+func ListMembers(ctx context.Context, c client.Client, pool *v1alpha2.VirtualMachinePool) ([]v1alpha2.VirtualMachine, error) {
+	var list v1alpha2.VirtualMachineList
+	if err := c.List(ctx, &list, client.InNamespace(pool.GetNamespace()), MemberSelector(pool)); err != nil {
+		return nil, err
+	}
+	members := make([]v1alpha2.VirtualMachine, 0, len(list.Items))
+	for i := range list.Items {
+		if ref := metav1.GetControllerOf(&list.Items[i]); ref != nil && ref.UID == pool.GetUID() {
+			members = append(members, list.Items[i])
+		}
+	}
+	return members, nil
+}
 
 // ComputeTemplateHash returns a stable short hash of the pool's
 // virtualMachineTemplate — the desired revision replicas converge to.

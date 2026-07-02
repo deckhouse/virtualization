@@ -50,6 +50,7 @@ func SetupController(
 	exp := expectations.New()
 
 	handlers := []Handler{
+		handler.NewTemplateHandler(client),
 		handler.NewSyncHandler(client, exp),
 	}
 	r := NewReconciler(client, exp, handlers)

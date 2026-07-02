@@ -91,19 +91,7 @@ func (h *SyncHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachineP
 }
 
 func (h *SyncHandler) listMembers(ctx context.Context, pool *v1alpha2.VirtualMachinePool) ([]v1alpha2.VirtualMachine, error) {
-	var list v1alpha2.VirtualMachineList
-	if err := h.client.List(ctx, &list, client.InNamespace(pool.GetNamespace()), poollabels.MemberSelector(pool)); err != nil {
-		return nil, err
-	}
-	// Keep only VMs actually controlled by this pool. The pool-uid label already
-	// scopes the list, but the controllerRef check is the authoritative guard.
-	members := make([]v1alpha2.VirtualMachine, 0, len(list.Items))
-	for i := range list.Items {
-		if ref := metav1.GetControllerOf(&list.Items[i]); ref != nil && ref.UID == pool.GetUID() {
-			members = append(members, list.Items[i])
-		}
-	}
-	return members, nil
+	return poollabels.ListMembers(ctx, h.client, pool)
 }
 
 func (h *SyncHandler) scaleUp(ctx context.Context, pool *v1alpha2.VirtualMachinePool, key string, n int) error {
@@ -226,6 +214,7 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 	ready := 0
 	liveNonTerminating := 0
 	updated := 0
+	restartPending := 0
 	for i := range members {
 		if members[i].GetDeletionTimestamp() != nil {
 			continue
@@ -237,6 +226,10 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 		if members[i].GetLabels()[poollabels.TemplateHash] == desiredHash {
 			updated++
 		}
+		// Patched to the desired revision but the disruptive part awaits a restart.
+		if members[i].GetAnnotations()[poollabels.PatchedTemplateHash] == desiredHash && awaitingRestart(&members[i]) {
+			restartPending++
+		}
 	}
 	desired := int(ptr.Deref(pool.Spec.Replicas, 0))
 
@@ -244,6 +237,7 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 	pool.Status.Replicas = int32(len(members))
 	pool.Status.ReadyReplicas = int32(ready)
 	pool.Status.UpdatedReplicas = int32(updated)
+	pool.Status.RestartPendingReplicas = int32(restartPending)
 	pool.Status.DesiredTemplateHash = desiredHash
 	pool.Status.Selector = poollabels.StatusSelector(pool)
 
@@ -284,6 +278,12 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 		syncedStatus = metav1.ConditionFalse
 		syncedReason = vmpoolcondition.ReasonRolloutInProgress
 		syncedMessage = fmt.Sprintf("%d of %d replicas are on the current virtualMachineTemplate.", updated, liveNonTerminating)
+		if restartPending > 0 {
+			// Some replicas are patched but wait for a restart that will not happen
+			// on its own under restartApprovalMode: Manual.
+			syncedReason = vmpoolcondition.ReasonRestartPendingApproval
+			syncedMessage = fmt.Sprintf("%d of %d replicas await a restart to apply configuration.", restartPending, liveNonTerminating)
+		}
 	}
 	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
 		Type:               vmpoolcondition.TypeSynced.String(),
