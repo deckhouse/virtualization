@@ -38,7 +38,101 @@ jobs:
     steps:
       - name: Test
         run: |
-          echo "🏷️ [INFO] Current release tag: ${{ github.event.inputs.current-release }}"
-          echo "🔜 [INFO] Next release tag: ${{ github.event.inputs.next-release }}"
+          if [[ -z "${CURRENT_RELEASE_MODULE_TAG}" || -z "${CURRENT_RELEASE_CHECKOUT_REF}" ]]; then
+            echo "::error title=Current release is required::Set workflow input 'current-release' to a git tag or PR reference that can be resolved."
+            exit 1
+          fi
 
-          echo "🎉 [INFO] Test from ${{ github.event.inputs.current-release }} -> ${{ github.event.inputs.next-release }} SUCCESS"
+          releases=$(jq -cn \
+            --arg current_tag "${CURRENT_RELEASE_MODULE_TAG}" \
+            --arg current_ref "${CURRENT_RELEASE_CHECKOUT_REF}" \
+            --arg next_tag "${NEXT_RELEASE_MODULE_TAG}" \
+            --arg next_ref "${NEXT_RELEASE_CHECKOUT_REF}" \
+            '[
+              {module_tag: $current_tag, checkout_ref: $current_ref},
+              {module_tag: $next_tag, checkout_ref: $next_ref}
+            ] | map(select(.module_tag != "" and .checkout_ref != "")) | unique_by(.module_tag + "|" + .checkout_ref)')
+
+          echo "list=${releases}" >> "$GITHUB_OUTPUT"
+
+  build-release-images:
+    name: Build release image (${{ matrix.module_tag }})
+    if: ${{ inputs.enableBuild }}
+    runs-on: [self-hosted, large]
+    needs:
+      - prepare-release-matrix
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.prepare-release-matrix.outputs.list) }}
+    steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> "$GITHUB_ENV"
+
+      - name: Print vars
+        run: |
+          echo MODULES_REGISTRY=${{ vars.DEV_REGISTRY }}
+          echo MODULES_MODULE_SOURCE=${{ vars.DEV_MODULE_SOURCE }}
+          echo MODULES_MODULE_NAME=${{ vars.MODULE_NAME }}
+          echo MODULES_MODULE_TAG=${{ matrix.module_tag }}
+          echo CHECKOUT_REF=${{ matrix.checkout_ref }}
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ matrix.checkout_ref }}
+
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - uses: deckhouse/modules-actions/build@v15
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE }}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{ matrix.module_tag }}
+          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+          source_repo: ${{ secrets.SOURCE_REPO_GIT }}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+
+      - name: Cleanup Docker config
+        if: ${{ always() }}
+        run: |
+          rm -rf "$DOCKER_CONFIG"
+
+  e2e-release:
+    name: E2E Release Pipeline (Replicated + Local + NFS)
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    needs:
+      - set-vars
+      - resolve-release-inputs
+      - build-release-images
+    uses: ./.github/workflows/e2e-test-releases-reusable-pipeline.yml
+    with:
+      current_release: ${{ needs.resolve-release-inputs.outputs.current_module_tag }}
+      new_release: ${{ needs.resolve-release-inputs.outputs.next_module_tag }}
+      storage_type: mixed
+      nested_storageclass_name: nested-thin-r1
+      nested_cluster_network_name: cn-4006-for-e2e-test
+      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
+      deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
+      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
+      default_user: cloud
+      go_version: "1.25.8"
+      date_start: ${{ needs.set-vars.outputs.date_start }}
+      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
+      cluster_config_workers_memory: "9Gi"
+      cluster_config_additional_disk_size: "250Gi"
+      cluster_config_k8s_version: "1.34"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+      DEV_MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+      E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
