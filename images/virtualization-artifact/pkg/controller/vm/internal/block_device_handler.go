@@ -316,3 +316,54 @@ func (s *BlockDevicesState) Reload(ctx context.Context) error {
 	s.VMBDAByBlockDeviceRef = vmbdaByRef
 	return nil
 }
+
+// ResolveVMBDAAttachedDevices fills VIByName/CVIByName/VDByName with objects referenced
+// by VMBDAs that are not yet reflected in the VM block device refs.
+//
+// During a hotplug attach KubeVirt adds the volume to KVVM before the device appears in
+// .status.blockDeviceRefs. Reload builds the maps from those refs, so the freshly attached
+// image is missing from them while the VMBDA-driven volume sync already tries to set its disk.
+// Without this the KVVM builder fails to resolve the image and aborts the whole reconcile.
+//
+// Scoped to the KVVM builder on purpose: it must not be called from the block device status
+// handler, whose readiness and finalizer logic operates on .spec/.status refs only.
+func (s *BlockDevicesState) ResolveVMBDAAttachedDevices(ctx context.Context) error {
+	for ref := range s.VMBDAByBlockDeviceRef {
+		switch ref.Kind {
+		case v1alpha2.VMBDAObjectRefKindVirtualImage:
+			if _, ok := s.VIByName[ref.Name]; ok {
+				continue
+			}
+			vi, err := s.s.VirtualImage(ctx, ref.Name)
+			if err != nil {
+				return err
+			}
+			if vi != nil {
+				s.VIByName[ref.Name] = vi
+			}
+		case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+			if _, ok := s.CVIByName[ref.Name]; ok {
+				continue
+			}
+			cvi, err := s.s.ClusterVirtualImage(ctx, ref.Name)
+			if err != nil {
+				return err
+			}
+			if cvi != nil {
+				s.CVIByName[ref.Name] = cvi
+			}
+		case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+			if _, ok := s.VDByName[ref.Name]; ok {
+				continue
+			}
+			vd, err := s.s.VirtualDisk(ctx, ref.Name)
+			if err != nil {
+				return err
+			}
+			if vd != nil {
+				s.VDByName[ref.Name] = vd
+			}
+		}
+	}
+	return nil
+}
