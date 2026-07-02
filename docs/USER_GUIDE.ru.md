@@ -3032,6 +3032,112 @@ d8 v collect-debug-info linux-vm.mynamespace > debug-info.tar.gz
 
 После выполнения команды вы получите архив `debug-info.tar.gz`, который содержит все собранные данные в формате YAML (для ресурсов) и текстовые файлы (для логов). Этот архив можно передать в службу технической поддержки для анализа проблем.
 
+## Пулы виртуальных машин
+
+{{< alert level="warning" >}}
+Доступно в редакциях EE и SE+. Требует включения feature gate `VirtualMachinePool`.
+{{< /alert >}}
+
+`VirtualMachinePool` поддерживает заданное число одинаковых виртуальных машин и позволяет масштабировать их через `kubectl scale`, HPA или KEDA — удобно для пулов раннеров CI и рабочих мест VDI. Поле `virtualMachineTemplate.spec` — это обычный `VirtualMachineSpec`, поэтому реплика ничем не отличается от вручную созданной виртуальной машины.
+
+По умолчанию функциональность выключена. Чтобы включить, добавьте `VirtualMachinePool` в массив `.spec.settings.featureGates` в ModuleConfig `virtualization`:
+
+```yaml
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+    - VirtualMachinePool
+```
+
+Создайте пул с нужным числом реплик и шаблоном. Диски на каждую реплику описываются в `virtualDiskTemplates` и указываются в `blockDeviceRefs` по имени шаблона — пул выдаёт каждой реплике собственную копию, поэтому список устройств (и порядок загрузки) вы задаёте так же, как в обычной виртуальной машине:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachinePool
+metadata:
+  name: runners
+  namespace: ci
+spec:
+  replicas: 3
+  scaleDownPolicy: NewestFirst
+  virtualMachineTemplate:
+    spec:
+      runPolicy: AlwaysOn
+      virtualMachineClassName: generic
+      cpu:
+        cores: 2
+      memory:
+        size: 4Gi
+      # Устройства в порядке загрузки; каждое имя резолвится в диск этой реплики.
+      blockDeviceRefs:
+        - kind: VirtualDisk
+          name: root
+        - kind: VirtualDisk
+          name: cache
+  virtualDiskTemplates:
+    # Записываемый корневой диск: свой на каждую реплику, клонируется из образа, удаляется вместе с репликой.
+    - name: root
+      reclaim:
+        onScaleDown: Delete
+      spec:
+        persistentVolumeClaim:
+          size: 30Gi
+        dataSource:
+          type: ObjectRef
+          objectRef:
+            kind: VirtualImage
+            name: ubuntu
+    # Переиспользуемый кэш: переживает scale-down и переподключается при scale-up.
+    - name: cache
+      reclaim:
+        onScaleDown: Retain
+        keep: 5
+        ttl: 30m
+      spec:
+        persistentVolumeClaim:
+          size: 50Gi
+```
+
+Реплики именуются `<pool>-<random>`; их диски следуют той же схеме — диск на реплику (`Delete`) называется `<replica>-<template>` (например, `runners-1b2e84-root`), переиспользуемый (`Retain`) — `<pool>-<template>-<random>`. Посмотреть реплики можно через `kubectl get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
+
+### Масштабирование
+
+Масштабируйте через стандартный сабресурс `scale` — `kubectl scale`, `HorizontalPodAutoscaler` или KEDA:
+
+```bash
+kubectl scale virtualmachinepool/runners -n ci --replicas=8
+```
+
+`spec.scaleDownPolicy` определяет, какая реплика удаляется при безадресном сжатии:
+
+- `NewestFirst` — первыми удаляются самые молодые реплики;
+- `OldestFirst` — первыми самые старые;
+- `Explicit` — безадресное сжатие запрещено; реплики можно убирать только по имени (см. ниже). Используйте для «занятых» нагрузок — раннеров и VDI, — где только вызывающая сторона знает, какая реплика простаивает.
+
+### Удаление конкретных реплик
+
+Чтобы убрать именно заданные реплики (и сжать пул на это число), а не отдавать выбор контроллеру, используйте сабресурс `scaleDownWith`:
+
+```bash
+kubectl create --raw \
+  /apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/ci/virtualmachinepools/runners/scaledownwith \
+  -f - <<'EOF'
+{"targets": ["runners-1b2e84", "runners-9c0d11"]}
+EOF
+```
+
+Обычный `kubectl delete vm` пул **не** сжимает: контроллер воспринимает это как утрату реплики и создаёт замену.
+
+### Переиспользуемые диски
+
+`reclaim.onScaleDown` элемента `virtualDiskTemplates` определяет судьбу диска при сжатии:
+
+- `Delete` (по умолчанию) — диск принадлежит виртуальной машине и удаляется вместе с ней;
+- `Retain` — диск принадлежит пулу, переживает реплику и переиспользуется при следующем масштабировании вверх. `keep` задаёт размер тёплого буфера свободных дисков, `ttl` собирает остальные. Удобно для кэшей сборок или профилей VDI, которые должны переживать пересоздание ВМ.
+
 ## Настройка сети
 
 ### IP-адреса ВМ

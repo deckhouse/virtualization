@@ -3003,6 +3003,112 @@ The command cannot output data directly to the terminal. You must redirect the o
 
 After executing the command, you will receive a `debug-info.tar.gz` archive that contains all collected data in YAML format (for resources) and text files (for logs). This archive can be sent to technical support for problem analysis.
 
+## Virtual machine pools
+
+{{< alert level="warning" >}}
+Available in the EE and SE+ editions. Requires the `VirtualMachinePool` feature gate.
+{{< /alert >}}
+
+A `VirtualMachinePool` maintains a requested number of identical virtual machines and lets you scale them with `kubectl scale`, an HPA, or KEDA — useful for CI runner fleets and VDI desktop pools. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
+
+This functionality is disabled by default. To enable it, add `VirtualMachinePool` to the `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
+
+```yaml
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+    - VirtualMachinePool
+```
+
+Create a pool with the desired number of replicas and a template. Per-replica disks are declared in `virtualDiskTemplates` and referenced in `blockDeviceRefs` by their template name — the pool gives each replica its own copy, so you build the device list (and boot order) exactly as in an ordinary virtual machine:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachinePool
+metadata:
+  name: runners
+  namespace: ci
+spec:
+  replicas: 3
+  scaleDownPolicy: NewestFirst
+  virtualMachineTemplate:
+    spec:
+      runPolicy: AlwaysOn
+      virtualMachineClassName: generic
+      cpu:
+        cores: 2
+      memory:
+        size: 4Gi
+      # Devices in boot order; each name resolves to this replica's own disk.
+      blockDeviceRefs:
+        - kind: VirtualDisk
+          name: root
+        - kind: VirtualDisk
+          name: cache
+  virtualDiskTemplates:
+    # Writable root disk: one per replica, cloned from an image, removed with the replica.
+    - name: root
+      reclaim:
+        onScaleDown: Delete
+      spec:
+        persistentVolumeClaim:
+          size: 30Gi
+        dataSource:
+          type: ObjectRef
+          objectRef:
+            kind: VirtualImage
+            name: ubuntu
+    # Reusable cache: survives scale-down and is reattached on scale-up.
+    - name: cache
+      reclaim:
+        onScaleDown: Retain
+        keep: 5
+        ttl: 30m
+      spec:
+        persistentVolumeClaim:
+          size: 50Gi
+```
+
+Replicas are named `<pool>-<random>`; their disks follow the same scheme — a per-replica (`Delete`) disk is `<replica>-<template>` (for example `runners-1b2e84-root`), a reusable (`Retain`) disk is `<pool>-<template>-<random>`. List replicas with `kubectl get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
+
+### Scaling
+
+Scale through the standard `scale` subresource — with `kubectl scale`, a `HorizontalPodAutoscaler`, or KEDA:
+
+```bash
+kubectl scale virtualmachinepool/runners -n ci --replicas=8
+```
+
+`spec.scaleDownPolicy` selects which replica is removed on anonymous scale-down:
+
+- `NewestFirst` — the youngest replicas are removed first;
+- `OldestFirst` — the oldest first;
+- `Explicit` — anonymous scale-down is rejected; replicas can be removed only by name (see below). Use it for "busy" workloads such as runners and VDI, where only the caller knows which replica is idle.
+
+### Removing specific replicas
+
+To remove particular replicas (and shrink the pool by that count) instead of letting the controller choose, use the `scaleDownWith` subresource:
+
+```bash
+kubectl create --raw \
+  /apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/ci/virtualmachinepools/runners/scaledownwith \
+  -f - <<'EOF'
+{"targets": ["runners-1b2e84", "runners-9c0d11"]}
+EOF
+```
+
+A plain `kubectl delete vm` does **not** shrink the pool: the controller treats it as a lost replica and creates a replacement.
+
+### Reusable disks
+
+`reclaim.onScaleDown` of a `virtualDiskTemplates` entry controls a disk's fate on scale-down:
+
+- `Delete` (default) — the disk belongs to the virtual machine and is removed with it;
+- `Retain` — the disk belongs to the pool, outlives the replica and is reused on the next scale-up. `keep` sets how many free disks to keep warm; `ttl` garbage-collects the rest. Handy for build caches or VDI profiles that should survive VM recreation.
+
 ## Network configuration
 
 ### IP addresses of virtual machines
