@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -284,6 +285,41 @@ var _ = Describe("SyncKvvmHandler", func() {
 			vm.Spec.Memory.Size = memSize
 		}
 	}
+
+	Context("keep-stopped-after-restore intent on KVVM creation", func() {
+		It("keeps AlwaysOnUnlessStoppedManually VM stopped and clears the intent", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+			vm.Annotations = map[string]string{annotations.AnnVMKeepStoppedAfterRestore: "true"}
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, makeVMIP(), makeVMClass())
+
+			reconcile()
+
+			kvvm := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), kvvm)).To(Succeed())
+			Expect(kvvm.Spec.RunStrategy).NotTo(BeNil())
+			Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyManual))
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+			Expect(newVM.Annotations).NotTo(HaveKey(annotations.AnnVMKeepStoppedAfterRestore))
+		})
+
+		It("starts AlwaysOnUnlessStoppedManually VM on create without the keep-stopped intent", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, makeVMIP(), makeVMClass())
+
+			reconcile()
+
+			kvvm := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), kvvm)).To(Succeed())
+			Expect(kvvm.Spec.RunStrategy).NotTo(BeNil())
+			Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyAlways))
+		})
+	})
 
 	DescribeTable("AwaitingRestart Condition Tests",
 		func(phase v1alpha2.MachinePhase, needChange bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {

@@ -112,6 +112,12 @@ const (
 	// which is deleted during the restore maintenance window) so the start intent survives KVVM recreation.
 	AnnVMStartRequestedAfterRestore = AnnAPIGroupV + "/start-requested-after-restore"
 
+	// AnnVMKeepStoppedAfterRestore is an annotation on VirtualMachine indicating the VM was stopped before a
+	// restore operation and must remain stopped once restore completes. It is needed because the maintenance
+	// window deletes the KVVM, and recreating it for the AlwaysOnUnlessStoppedManually policy would otherwise
+	// implicitly start the VM (RunStrategy=Always on create), breaking the "unless stopped manually" contract.
+	AnnVMKeepStoppedAfterRestore = AnnAPIGroupV + "/keep-stopped-after-restore"
+
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"
 	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"

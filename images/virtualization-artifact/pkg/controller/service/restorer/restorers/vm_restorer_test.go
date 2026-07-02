@@ -337,33 +337,37 @@ var _ = Describe("VirtualMachineRestorer", func() {
 		}),
 	)
 
-	It("preserves the start-requested-after-restore intent across the annotation overwrite", func() {
-		liveVM := vm.DeepCopy()
-		liveVM.Annotations = map[string]string{
-			annotations.AnnVMStartRequestedAfterRestore: "true",
-		}
-		// Different spec so ProcessRestore takes the update path (full annotation overwrite).
-		liveVM.Spec.RunPolicy = v1alpha2.ManualPolicy
+	DescribeTable("preserves the pre-restore power-state intent across the annotation overwrite",
+		func(intentKey string) {
+			liveVM := vm.DeepCopy()
+			liveVM.Annotations = map[string]string{
+				intentKey: "true",
+			}
+			// Different spec so ProcessRestore takes the update path (full annotation overwrite).
+			liveVM.Spec.RunPolicy = v1alpha2.ManualPolicy
 
-		var updatedVM *v1alpha2.VirtualMachine
-		ic := interceptor.Funcs{
-			Update: func(_ context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
-				if got, ok := obj.(*v1alpha2.VirtualMachine); ok {
-					updatedVM = got.DeepCopy()
-				}
-				return c.Update(ctx, obj, opts...)
-			},
-		}
-		fc, err := testutil.NewFakeClientWithInterceptorWithObjects(ic, liveVM)
-		Expect(err).ToNot(HaveOccurred())
+			var updatedVM *v1alpha2.VirtualMachine
+			ic := interceptor.Funcs{
+				Update: func(_ context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+					if got, ok := obj.(*v1alpha2.VirtualMachine); ok {
+						updatedVM = got.DeepCopy()
+					}
+					return c.Update(ctx, obj, opts...)
+				},
+			}
+			fc, err := testutil.NewFakeClientWithInterceptorWithObjects(ic, liveVM)
+			Expect(err).ToNot(HaveOccurred())
 
-		handler := NewVirtualMachineHandler(fc, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
-		Expect(handler.ProcessRestore(ctx)).To(Succeed())
+			handler := NewVirtualMachineHandler(fc, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			Expect(handler.ProcessRestore(ctx)).To(Succeed())
 
-		Expect(updatedVM).ToNot(BeNil())
-		Expect(updatedVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMStartRequestedAfterRestore, "true"))
-		Expect(updatedVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMOPRestore, restoreUID))
-	})
+			Expect(updatedVM).ToNot(BeNil())
+			Expect(updatedVM.Annotations).To(HaveKeyWithValue(intentKey, "true"))
+			Expect(updatedVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMOPRestore, restoreUID))
+		},
+		Entry("start-requested-after-restore", annotations.AnnVMStartRequestedAfterRestore),
+		Entry("keep-stopped-after-restore", annotations.AnnVMKeepStoppedAfterRestore),
+	)
 
 	Describe("Override", func() {
 		var rules []v1alpha2.NameReplacement

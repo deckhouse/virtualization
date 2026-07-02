@@ -85,22 +85,29 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		return nil, nil
 	}
 
-	// Capture whether the VM was running before restore stops it. Restore must not silently leave a
-	// running VM stopped: the start intent is stored on the VM so it survives the KVVM deletion during
-	// maintenance and is consumed by the power-state handler once restore completes (see checkNeedStartVM).
-	if vm.Status.Phase == v1alpha2.MachineRunning || vm.Status.Phase == v1alpha2.MachinePending {
+	// Preserve the VM power state across restore. The maintenance window deletes the KVVM (and with it the
+	// implicit run-strategy state), so capture whether the VM was running or stopped before restore and store it
+	// as an annotation. ProcessRestore preserves it across the annotation overwrite, and it is consumed once
+	// restore completes: a running VM is started again (see checkNeedStartVM), a stopped VM is kept stopped
+	// (see createKVVM for the AlwaysOnUnlessStoppedManually policy).
+	var powerStateAnn string
+	switch vm.Status.Phase {
+	case v1alpha2.MachineRunning, v1alpha2.MachinePending:
+		powerStateAnn = annotations.AnnVMStartRequestedAfterRestore
+	case v1alpha2.MachineStopped:
+		powerStateAnn = annotations.AnnVMKeepStoppedAfterRestore
+	}
+	if powerStateAnn != "" && vm.Annotations[powerStateAnn] != "true" {
 		if vm.Annotations == nil {
 			vm.Annotations = make(map[string]string)
 		}
-		if vm.Annotations[annotations.AnnVMStartRequestedAfterRestore] != "true" {
-			vm.Annotations[annotations.AnnVMStartRequestedAfterRestore] = "true"
-			if err = s.client.Update(ctx, vm); err != nil {
-				if apierrors.IsConflict(err) {
-					return &reconcile.Result{}, nil
-				}
-				s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to mark VM for start after restore: "+err.Error())
-				return &reconcile.Result{}, err
+		vm.Annotations[powerStateAnn] = "true"
+		if err = s.client.Update(ctx, vm); err != nil {
+			if apierrors.IsConflict(err) {
+				return &reconcile.Result{}, nil
 			}
+			s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to record VM power state for restore: "+err.Error())
+			return &reconcile.Result{}, err
 		}
 	}
 
