@@ -122,6 +122,7 @@ var _ = Describe("SyncHandler", func() {
 			Expect(vm.Name).To(HavePrefix(poolName + "-"))
 			Expect(vm.Labels).To(HaveKeyWithValue(poollabels.PoolUID, string(poolUID)))
 			Expect(vm.Labels).To(HaveKeyWithValue(poollabels.Pool, poolName))
+			Expect(vm.Labels).To(HaveKeyWithValue(poollabels.TemplateHash, poollabels.ComputeTemplateHash(pool)))
 			ref := metav1.GetControllerOf(&vm)
 			Expect(ref).NotTo(BeNil())
 			Expect(ref.UID).To(Equal(poolUID))
@@ -165,6 +166,43 @@ var _ = Describe("SyncHandler", func() {
 			Expect(pool.Status.Selector).To(ContainSubstring(string(poolUID)))
 			Expect(meta.IsStatusConditionTrue(pool.Status.Conditions, vmpoolcondition.TypeAvailable.String())).To(BeTrue())
 			Expect(meta.IsStatusConditionFalse(pool.Status.Conditions, vmpoolcondition.TypeProgressing.String())).To(BeTrue())
+		})
+	})
+
+	Context("template revision", func() {
+		It("reports Synced when every replica is on the current template hash", func() {
+			pool := newPool(2)
+			hash := poollabels.ComputeTemplateHash(pool)
+			m1 := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, clock, false)
+			m2 := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, clock, false)
+			m1.Labels[poollabels.TemplateHash] = hash
+			m2.Labels[poollabels.TemplateHash] = hash
+			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pool.Status.DesiredTemplateHash).To(Equal(hash))
+			Expect(pool.Status.UpdatedReplicas).To(Equal(int32(2)))
+			Expect(meta.IsStatusConditionTrue(pool.Status.Conditions, vmpoolcondition.TypeSynced.String())).To(BeTrue())
+		})
+
+		It("reports Synced=False when a replica lags on an old hash", func() {
+			pool := newPool(2)
+			hash := poollabels.ComputeTemplateHash(pool)
+			current := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, clock, false)
+			lagging := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, clock, false)
+			current.Labels[poollabels.TemplateHash] = hash
+			lagging.Labels[poollabels.TemplateHash] = "stale"
+			c, err := testutil.NewFakeClientWithObjects(pool, current, lagging)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewSyncHandler(c, exp).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pool.Status.UpdatedReplicas).To(Equal(int32(1)))
+			Expect(meta.IsStatusConditionFalse(pool.Status.Conditions, vmpoolcondition.TypeSynced.String())).To(BeTrue())
 		})
 	})
 

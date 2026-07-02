@@ -197,6 +197,8 @@ func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.Vir
 	for k, v := range poollabels.Member(pool) {
 		labels[k] = v
 	}
+	// Stamp the revision the replica is created on.
+	labels[poollabels.TemplateHash] = poollabels.ComputeTemplateHash(pool)
 
 	var annotations map[string]string
 	if len(tmpl.Annotations) > 0 {
@@ -219,10 +221,21 @@ func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.Vir
 }
 
 func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMachine) {
+	desiredHash := poollabels.ComputeTemplateHash(pool)
+
 	ready := 0
+	liveNonTerminating := 0
+	updated := 0
 	for i := range members {
-		if members[i].GetDeletionTimestamp() == nil && members[i].Status.Phase == v1alpha2.MachineRunning {
+		if members[i].GetDeletionTimestamp() != nil {
+			continue
+		}
+		liveNonTerminating++
+		if members[i].Status.Phase == v1alpha2.MachineRunning {
 			ready++
+		}
+		if members[i].GetLabels()[poollabels.TemplateHash] == desiredHash {
+			updated++
 		}
 	}
 	desired := int(ptr.Deref(pool.Spec.Replicas, 0))
@@ -230,6 +243,8 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 	pool.Status.ObservedGeneration = pool.GetGeneration()
 	pool.Status.Replicas = int32(len(members))
 	pool.Status.ReadyReplicas = int32(ready)
+	pool.Status.UpdatedReplicas = int32(updated)
+	pool.Status.DesiredTemplateHash = desiredHash
 	pool.Status.Selector = poollabels.StatusSelector(pool)
 
 	availableStatus := metav1.ConditionFalse
@@ -260,5 +275,21 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 		Reason:             progressingReason.String(),
 		ObservedGeneration: pool.GetGeneration(),
 		Message:            progressingMessage,
+	})
+
+	syncedStatus := metav1.ConditionTrue
+	syncedReason := vmpoolcondition.ReasonPoolSynced
+	syncedMessage := "All replicas are on the current virtualMachineTemplate."
+	if updated < liveNonTerminating {
+		syncedStatus = metav1.ConditionFalse
+		syncedReason = vmpoolcondition.ReasonRolloutInProgress
+		syncedMessage = fmt.Sprintf("%d of %d replicas are on the current virtualMachineTemplate.", updated, liveNonTerminating)
+	}
+	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
+		Type:               vmpoolcondition.TypeSynced.String(),
+		Status:             syncedStatus,
+		Reason:             syncedReason.String(),
+		ObservedGeneration: pool.GetGeneration(),
+		Message:            syncedMessage,
 	})
 }

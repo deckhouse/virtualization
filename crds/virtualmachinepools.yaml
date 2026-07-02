@@ -1443,6 +1443,12 @@ spec:
                   x-kubernetes-list-map-keys:
                     - type
                   x-kubernetes-list-type: map
+                desiredTemplateHash:
+                  description: |-
+                    DesiredTemplateHash is the hash of the current virtualMachineTemplate — the
+                    revision the controller is converging replicas to (cf. updateRevision on a
+                    StatefulSet).
+                  type: string
                 observedGeneration:
                   description:
                     ObservedGeneration is the generation of the spec the
@@ -1461,11 +1467,23 @@ spec:
                     such a machine still occupies resources, so it is real capacity, not a phantom.
                   format: int32
                   type: integer
+                restartPendingReplicas:
+                  description: |-
+                    RestartPendingReplicas is the number of replicas patched to the new template
+                    whose disruptive part still awaits a restart.
+                  format: int32
+                  type: integer
                 selector:
                   description: |-
                     Selector is the label selector the controller publishes for the `scale`
                     subresource; HPA/KEDA read it themselves.
                   type: string
+                updatedReplicas:
+                  description: |-
+                    UpdatedReplicas is the number of replicas effectively on DesiredTemplateHash
+                    (fully synced).
+                  format: int32
+                  type: integer
               type: object
           required:
             - spec

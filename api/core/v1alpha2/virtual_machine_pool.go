@@ -137,6 +137,25 @@ type VirtualMachinePoolStatus struct {
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 
+	// DesiredTemplateHash is the hash of the current virtualMachineTemplate — the
+	// revision the controller is converging replicas to (cf. updateRevision on a
+	// StatefulSet).
+	//
+	// +optional
+	DesiredTemplateHash string `json:"desiredTemplateHash,omitempty"`
+
+	// UpdatedReplicas is the number of replicas effectively on DesiredTemplateHash
+	// (fully synced).
+	//
+	// +optional
+	UpdatedReplicas int32 `json:"updatedReplicas,omitempty"`
+
+	// RestartPendingReplicas is the number of replicas patched to the new template
+	// whose disruptive part still awaits a restart.
+	//
+	// +optional
+	RestartPendingReplicas int32 `json:"restartPendingReplicas,omitempty"`
+
 	// Selector is the label selector the controller publishes for the `scale`
 	// subresource; HPA/KEDA read it themselves.
 	//

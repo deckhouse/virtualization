@@ -12,6 +12,10 @@ Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https
 package poollabels
 
 import (
+	"encoding/json"
+	"fmt"
+	"hash/fnv"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -29,7 +33,22 @@ const (
 	// Pool is a human-readable label with the pool name, predictable from the
 	// pool and handy for kubectl/observability. Analogous to job-name on Job pods.
 	Pool = "vmpool.virtualization.deckhouse.io/pool"
+
+	// TemplateHash marks the template revision a replica is effectively on (cf.
+	// pod-template-hash / currentRevision). It is NOT part of the member selector,
+	// so changing the template does not orphan existing replicas.
+	TemplateHash = "vmpool.virtualization.deckhouse.io/template-hash"
 )
+
+// ComputeTemplateHash returns a stable short hash of the pool's
+// virtualMachineTemplate — the desired revision replicas converge to.
+func ComputeTemplateHash(pool *v1alpha2.VirtualMachinePool) string {
+	// encoding/json sorts map keys, so the marshalling is deterministic.
+	data, _ := json.Marshal(pool.Spec.VirtualMachineTemplate)
+	h := fnv.New32a()
+	_, _ = h.Write(data)
+	return fmt.Sprintf("%x", h.Sum32())
+}
 
 // Member returns the managed labels stamped on every replica of the pool.
 func Member(pool *v1alpha2.VirtualMachinePool) map[string]string {
