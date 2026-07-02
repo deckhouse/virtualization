@@ -90,7 +90,7 @@ var _ = Describe("SyncHandler", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		exp = expectations.New()
-		clock = time.Unix(1_700_000_000, 0)
+		clock = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	})
 
 	Context("scale up", func() {

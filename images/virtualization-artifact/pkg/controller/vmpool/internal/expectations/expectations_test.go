@@ -112,7 +112,7 @@ var _ = Describe("Expectations", func() {
 	Context("TTL safety valve", func() {
 		It("becomes satisfied once the expectation outlives the TTL", func() {
 			e := NewWithTTL(time.Minute)
-			now := time.Unix(1_700_000_000, 0)
+			now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 			e.now = func() time.Time { return now }
 
 			e.ExpectCreations(key, 1)

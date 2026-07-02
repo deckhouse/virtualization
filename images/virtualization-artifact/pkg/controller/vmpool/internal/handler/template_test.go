@@ -35,7 +35,7 @@ var _ = Describe("TemplateHandler", func() {
 	var when time.Time
 	BeforeEach(func() {
 		ctx = context.Background()
-		when = time.Unix(1_700_000_000, 0)
+		when = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	})
 
 	poolWithRunPolicy := func(p v1alpha2.RunPolicy) *v1alpha2.VirtualMachinePool {
