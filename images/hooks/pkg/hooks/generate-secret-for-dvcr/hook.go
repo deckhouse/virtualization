@@ -18,7 +18,12 @@ package generate_secret_for_dvcr
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	crand "crypto/rand"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"math/rand/v2"
 	"strings"
@@ -33,19 +38,23 @@ import (
 )
 
 const (
-	dvcrSecrets             = "dvcr-secrets"
-	passwordRWValuePath     = "virtualization.internal.dvcr.passwordRW"
-	passwordPullerValuePath = "virtualization.internal.dvcr.passwordPuller"
-	saltValuePath           = "virtualization.internal.dvcr.salt"
-	htpasswdValuePath       = "virtualization.internal.dvcr.htpasswd"
-	user                    = "admin"
+	dvcrSecrets              = "dvcr-secrets"
+	passwordRWValuePath      = "virtualization.internal.dvcr.passwordRW"
+	passwordPullerValuePath  = "virtualization.internal.dvcr.passwordPuller"
+	saltValuePath            = "virtualization.internal.dvcr.salt"
+	htpasswdValuePath        = "virtualization.internal.dvcr.htpasswd"
+	tokenPrivateKeyValuePath = "virtualization.internal.dvcr.tokenPrivateKey"
+	tokenPublicKeyValuePath  = "virtualization.internal.dvcr.tokenPublicKey"
+	user                     = "admin"
 )
 
 type dvcrSecretData struct {
-	PasswordRW     string `json:"passwordRW"`
-	PasswordPuller string `json:"passwordPuller"`
-	Salt           string `json:"salt"`
-	Htpasswd       string `json:"htpasswd"`
+	PasswordRW      string `json:"passwordRW"`
+	PasswordPuller  string `json:"passwordPuller"`
+	Salt            string `json:"salt"`
+	Htpasswd        string `json:"htpasswd"`
+	TokenPrivateKey string `json:"tokenPrivateKey"`
+	TokenPublicKey  string `json:"tokenPublicKey"`
 }
 
 var _ = registry.RegisterFunc(configDVCRSecrets, handlerDVCRSecrets)
@@ -148,6 +157,30 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 		input.Values.Set(htpasswdValuePath, htpasswd)
 	}
 
+	// tokenPrivateKey/tokenPublicKey is the ECDSA keypair used to mint and verify
+	// scoped DVCR tokens when per-namespace authorization is on. Regenerate the
+	// pair whenever the private key is missing or unparseable.
+	tokenPrivateKey := dataFromSecret.TokenPrivateKey
+	tokenPublicKey := dataFromSecret.TokenPublicKey
+	privBytes, err := base64.StdEncoding.DecodeString(tokenPrivateKey)
+	if err != nil || !validateECPrivateKey(privBytes) {
+		input.Logger.Info("Regenerate DVCR token keypair")
+		privPEM, pubPEM, genErr := generateECKeypair()
+		if genErr != nil {
+			return fmt.Errorf("generate DVCR token keypair: %w", genErr)
+		}
+		tokenPrivateKey = base64.StdEncoding.EncodeToString(privPEM)
+		tokenPublicKey = base64.StdEncoding.EncodeToString(pubPEM)
+	}
+	if tokenPrivateKey != dataFromValues.TokenPrivateKey {
+		input.Logger.Info("Set DVCR token private key to values")
+		input.Values.Set(tokenPrivateKeyValuePath, tokenPrivateKey)
+	}
+	if tokenPublicKey != dataFromValues.TokenPublicKey {
+		input.Logger.Info("Set DVCR token public key to values")
+		input.Values.Set(tokenPublicKeyValuePath, tokenPublicKey)
+	}
+
 	return nil
 }
 
@@ -168,11 +201,48 @@ func getDVCRSecretsFromSecrets(input *pkg.HookInput) (dvcrSecretData, error) {
 
 func getDVCRSecretsFromValues(input *pkg.HookInput) dvcrSecretData {
 	return dvcrSecretData{
-		PasswordRW:     input.Values.Get(passwordRWValuePath).String(),
-		PasswordPuller: input.Values.Get(passwordPullerValuePath).String(),
-		Salt:           input.Values.Get(saltValuePath).String(),
-		Htpasswd:       input.Values.Get(htpasswdValuePath).String(),
+		PasswordRW:      input.Values.Get(passwordRWValuePath).String(),
+		PasswordPuller:  input.Values.Get(passwordPullerValuePath).String(),
+		Salt:            input.Values.Get(saltValuePath).String(),
+		Htpasswd:        input.Values.Get(htpasswdValuePath).String(),
+		TokenPrivateKey: input.Values.Get(tokenPrivateKeyValuePath).String(),
+		TokenPublicKey:  input.Values.Get(tokenPublicKeyValuePath).String(),
 	}
+}
+
+// generateECKeypair returns a fresh ECDSA P-256 keypair as PKCS8/PKIX PEM. The
+// private key mints scoped DVCR tokens (controller); the public key verifies them
+// (registry).
+func generateECKeypair() (privPEM, pubPEM []byte, err error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	privDER, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	pubDER, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	privPEM = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER})
+	pubPEM = pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+	return privPEM, pubPEM, nil
+}
+
+// validateECPrivateKey reports whether pemBytes is a parseable ECDSA private key.
+func validateECPrivateKey(pemBytes []byte) bool {
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return false
+	}
+	if k, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+		_, ok := k.(*ecdsa.PrivateKey)
+		return ok
+	}
+	_, err := x509.ParseECPrivateKey(block.Bytes)
+	return err == nil
 }
 
 func generateHtpasswd(password string) (string, error) {

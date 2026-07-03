@@ -46,16 +46,23 @@ var _ = Describe("DVCR Secrets", func() {
 		defaultHtpasswdBase64 = "YWRtaW46JDJhJDEwJHZza21wTjVLSERKUlpNU1pWd3RZWU91YmtEcTEueEF2MXVRQkkvSzFHQ1dpNUpxSnF5amdt" // "admin:$2a$10$vskmpN5KHDJRZMSZVwtYYOubkDq1.xAv1uQBI/K1GCWi5JqJqyjgm"
 	)
 	var (
-		dc        *mock.DependencyContainerMock
-		snapshots *mock.SnapshotsMock
-		values    *mock.OutputPatchableValuesCollectorMock
+		dc            *mock.DependencyContainerMock
+		snapshots     *mock.SnapshotsMock
+		values        *mock.OutputPatchableValuesCollectorMock
+		validTokenKey string
+		validTokenPub string
 	)
 
+	// prepareValuesGet mocks the values-side reads. The token keypair is always a
+	// valid pair matching the snapshot, so these tests never exercise keypair
+	// regeneration (its own coverage lives in signer_test.go and the hook helpers).
 	prepareValuesGet := func(passwordRW, passwordPuller, salt, htpasswd string) {
 		values.GetMock.When(passwordRWValuePath).Then(gjson.Result{Type: gjson.String, Str: passwordRW})
 		values.GetMock.When(passwordPullerValuePath).Then(gjson.Result{Type: gjson.String, Str: passwordPuller})
 		values.GetMock.When(saltValuePath).Then(gjson.Result{Type: gjson.String, Str: salt})
 		values.GetMock.When(htpasswdValuePath).Then(gjson.Result{Type: gjson.String, Str: htpasswd})
+		values.GetMock.When(tokenPrivateKeyValuePath).Then(gjson.Result{Type: gjson.String, Str: validTokenKey})
+		values.GetMock.When(tokenPublicKeyValuePath).Then(gjson.Result{Type: gjson.String, Str: validTokenPub})
 	}
 
 	setSnapshots := func(snaps ...pkg.Snapshot) {
@@ -71,6 +78,8 @@ var _ = Describe("DVCR Secrets", func() {
 			data.PasswordPuller = passwordPuller
 			data.Salt = salt
 			data.Htpasswd = htpasswd
+			data.TokenPrivateKey = validTokenKey
+			data.TokenPublicKey = validTokenPub
 			return nil
 		})
 	}
@@ -94,6 +103,11 @@ var _ = Describe("DVCR Secrets", func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
 		values.GetMock.When(settings.InternalValuesConfigCopyPath).Then(gjson.Result{})
+
+		priv, pub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		validTokenKey = base64.StdEncoding.EncodeToString(priv)
+		validTokenPub = base64.StdEncoding.EncodeToString(pub)
 	})
 
 	AfterEach(func() {
