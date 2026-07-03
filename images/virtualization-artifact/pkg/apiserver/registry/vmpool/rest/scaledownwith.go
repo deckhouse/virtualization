@@ -25,12 +25,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
@@ -45,7 +44,7 @@ import (
 // so it bypasses the /scale guard — that is what makes addressed removal work
 // for Explicit pools.
 type ScaleDownWithREST struct {
-	client client.Client
+	client virtclient.Interface
 }
 
 var (
@@ -53,7 +52,7 @@ var (
 	_ rest.Connecter = &ScaleDownWithREST{}
 )
 
-func NewScaleDownWithREST(c client.Client) *ScaleDownWithREST {
+func NewScaleDownWithREST(c virtclient.Interface) *ScaleDownWithREST {
 	return &ScaleDownWithREST{client: c}
 }
 
@@ -98,8 +97,14 @@ func (r *ScaleDownWithREST) Connect(ctx context.Context, name string, _ runtime.
 }
 
 func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName string, targets []string) error {
-	pool := &v1alpha2.VirtualMachinePool{}
-	if err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: poolName}, pool); err != nil {
+	vms := r.client.VirtualizationV1alpha2().VirtualMachines(namespace)
+	pools := r.client.VirtualizationV1alpha2().VirtualMachinePools(namespace)
+
+	// Reads go straight to the API server (no cache): scaleDownWith is a rare,
+	// user-initiated mutation, and validating targets before deleting them must
+	// not observe stale membership.
+	pool, err := pools.Get(ctx, poolName, metav1.GetOptions{})
+	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return apierrors.NewNotFound(v1alpha2.Resource(v1alpha2.VirtualMachinePoolResource), poolName)
 		}
@@ -109,8 +114,8 @@ func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName s
 	// Validate all targets up front: every one must be a member of this pool.
 	// Fail the whole request if any is not, so we never partially delete.
 	for _, target := range targets {
-		vm := &v1alpha2.VirtualMachine{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: target}, vm); err != nil {
+		vm, err := vms.Get(ctx, target, metav1.GetOptions{})
+		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return apierrors.NewBadRequest(fmt.Sprintf("target VirtualMachine %q not found in namespace %q", target, namespace))
 			}
@@ -123,8 +128,7 @@ func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName s
 
 	// Delete the targets. A target already gone still counts toward the decrement.
 	for _, target := range targets {
-		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: target}}
-		if err := r.client.Delete(ctx, vm); err != nil && !apierrors.IsNotFound(err) {
+		if err := vms.Delete(ctx, target, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			return apierrors.NewInternalError(fmt.Errorf("delete target %q: %w", target, err))
 		}
 	}
@@ -132,8 +136,8 @@ func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName s
 	// Atomically shrink the pool by the number of removed replicas.
 	removed := int32(len(targets))
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current := &v1alpha2.VirtualMachinePool{}
-		if err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: poolName}, current); err != nil {
+		current, err := pools.Get(ctx, poolName, metav1.GetOptions{})
+		if err != nil {
 			return err
 		}
 		desired := int32(0)
@@ -145,6 +149,7 @@ func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName s
 			desired = 0
 		}
 		current.Spec.Replicas = &desired
-		return r.client.Update(ctx, current)
+		_, err = pools.Update(ctx, current, metav1.UpdateOptions{})
+		return err
 	})
 }

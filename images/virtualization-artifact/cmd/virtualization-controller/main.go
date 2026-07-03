@@ -62,6 +62,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
@@ -487,11 +488,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Enterprise-only controllers (compiled in EE builds only, see setup_enterprise_{ee,ce}.go).
-	if err = setupEnterpriseControllers(ctx, mgr, logLevel, logOutput, logDebugVerbosity, logDebugControllerList); err != nil {
+	vmpoolLogger := logger.NewControllerLogger(vmpool.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmpool.SetupController(ctx, mgr, vmpoolLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+	// Guards anonymous scale-down for scaleDownPolicy: Explicit; self-gated by the VirtualMachinePool feature gate.
+	vmpool.SetupScaleWebhook(mgr)
 
 	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, clusterUUID, virtClient); err != nil {

@@ -20,15 +20,13 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -83,14 +81,10 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
-	// Write-capable client used by enterprise subresources (e.g. scaleDownWith)
-	// to delete pool members and adjust spec.replicas from the apiserver's own
-	// identity.
-	crScheme := runtime.NewScheme()
-	if err = v1alpha2.AddToScheme(crScheme); err != nil {
-		return nil, err
-	}
-	crClient, err := client.New(c.Rest, client.Options{Scheme: crScheme})
+	// Write-capable typed client used by enterprise subresources (e.g.
+	// scaleDownWith) to delete pool members and adjust spec.replicas from the
+	// apiserver's own identity.
+	virtCli, err := virtclient.NewForConfig(c.Rest)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +93,7 @@ func (c Config) Complete() (*Server, error) {
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,
-		crClient,
+		virtCli,
 	)
 	if err != nil {
 		return nil, err

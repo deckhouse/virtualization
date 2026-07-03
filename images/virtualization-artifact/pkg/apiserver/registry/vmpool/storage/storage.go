@@ -23,9 +23,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmpoolrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/rest"
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/subresources"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
@@ -45,7 +45,7 @@ var (
 	_ rest.SingularNameProvider = &VirtualMachinePoolStorage{}
 )
 
-func NewStorage(c client.Client) *VirtualMachinePoolStorage {
+func NewStorage(c virtclient.Interface) *VirtualMachinePoolStorage {
 	return &VirtualMachinePoolStorage{
 		scaleDownWith: vmpoolrest.NewScaleDownWithREST(c),
 	}

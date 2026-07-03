@@ -58,11 +58,26 @@ type scaleValidator struct {
 }
 
 func (v *scaleValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
-	// Only UPDATE of the scale subresource carries a replicas change to guard.
-	if req.SubResource != "scale" || req.Operation != admissionv1.Update {
+	// This is a raw admission handler rather than a controller-runtime
+	// CustomValidator: the guard is scoped to the scale subresource, whose request
+	// object is an autoscalingv1.Scale, while the builder's typed CustomValidator
+	// decodes the parent VirtualMachinePool. Operations are dispatched explicitly;
+	// only UPDATE can shrink the pool, so create/delete/connect are allowed
+	// outright.
+	if req.SubResource != "scale" {
 		return admission.Allowed("")
 	}
+	switch req.Operation {
+	case admissionv1.Update:
+		return v.validateScaleUpdate(ctx, req)
+	default:
+		return admission.Allowed("")
+	}
+}
 
+// validateScaleUpdate rejects an anonymous decrease of replicas for a pool with
+// scaleDownPolicy: Explicit.
+func (v *scaleValidator) validateScaleUpdate(ctx context.Context, req admission.Request) admission.Response {
 	var newScale, oldScale autoscalingv1.Scale
 	if err := json.Unmarshal(req.Object.Raw, &newScale); err != nil {
 		return admission.Errored(http.StatusBadRequest, fmt.Errorf("decode new Scale: %w", err))

@@ -23,11 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
+	vmpoolstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
@@ -54,7 +56,7 @@ func init() {
 	)
 }
 
-func Build(store *storage.VirtualMachineStorage, client client.Client) genericapiserver.APIGroupInfo {
+func Build(store *storage.VirtualMachineStorage, poolStorage *vmpoolstorage.VirtualMachinePoolStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resourcesV1alpha2 := map[string]rest.Storage{
 		"virtualmachines":                     store,
@@ -70,8 +72,8 @@ func Build(store *storage.VirtualMachineStorage, client client.Client) genericap
 		"virtualmachines/removeresourceclaim": store.RemoveResourceClaimREST(),
 	}
 	// Enterprise-only resources (e.g. virtualmachinepools/scaledownwith) are added
-	// by the EE build; the CE build leaves the map untouched.
-	installEnterpriseResources(resourcesV1alpha2, client)
+	// only in paid editions; poolStorage is nil in CE, leaving the map untouched.
+	installEnterpriseResources(resourcesV1alpha2, poolStorage)
 	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resourcesV1alpha2
 	return apiGroupInfo
 }
@@ -81,13 +83,21 @@ func Install(
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	client client.Client,
+	virtCli virtclient.Interface,
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
 		kubevirt,
 		proxyCertManager,
 	)
-	info := Build(vmStorage, client)
+	// Paid-edition (EE/SE+) subresources are constructed here and injected, the
+	// same way vmStorage is. The runtime VirtualMachinePool feature gate is not
+	// wired into the apiserver process, so the compiled-in edition is the guard:
+	// in CE nothing is constructed and the endpoints are never served.
+	var poolStorage *vmpoolstorage.VirtualMachinePoolStorage
+	if version.GetEdition() != version.EditionCE {
+		poolStorage = vmpoolstorage.NewStorage(virtCli)
+	}
+	info := Build(vmStorage, poolStorage)
 	return server.InstallAPIGroup(&info)
 }

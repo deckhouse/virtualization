@@ -18,17 +18,17 @@ package api
 
 import (
 	"k8s.io/apiserver/pkg/registry/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmpoolstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/storage"
 )
 
 // installEnterpriseResources registers subresources for paid-edition (EE/SE+)
-// features into the aggregated apiserver group. The endpoints are always served;
-// availability is governed by the resource's CRD (installed only when the
-// VirtualMachinePool feature gate is on) and by the controller that self-gates.
-func installEnterpriseResources(resources map[string]rest.Storage, c client.Client) {
-	poolStorage := vmpoolstorage.NewStorage(c)
+// features into the aggregated apiserver group. poolStorage is nil outside paid
+// editions (see Install), in which case nothing is registered.
+func installEnterpriseResources(resources map[string]rest.Storage, poolStorage *vmpoolstorage.VirtualMachinePoolStorage) {
+	if poolStorage == nil {
+		return
+	}
 	resources["virtualmachinepools"] = poolStorage
 	resources["virtualmachinepools/scaledownwith"] = poolStorage.ScaleDownWithREST()
 }
