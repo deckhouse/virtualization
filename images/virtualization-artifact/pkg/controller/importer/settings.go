@@ -66,14 +66,21 @@ type Settings struct {
 	DestinationEndpoint    string
 	DestinationInsecureTLS string
 	DestinationAuthSecret  string
+	// DestinationTokenAuth makes the Pod authenticate to DVCR with a projected
+	// ServiceAccount token instead of the shared read-write credential.
+	DestinationTokenAuth bool
 }
 
 func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen supplements.Generator, dvcrImageName string) {
-	authSecret := dvcrSettings.AuthSecret
-	if supplements.ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
-		authSecret = supGen.DVCRAuthSecret().Name
+	if dvcrSettings.TenantAuthzEnabled {
+		podEnvVars.DestinationTokenAuth = true
+	} else {
+		authSecret := dvcrSettings.AuthSecret
+		if supplements.ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
+			authSecret = supGen.DVCRAuthSecret().Name
+		}
+		podEnvVars.DestinationAuthSecret = authSecret
 	}
-	podEnvVars.DestinationAuthSecret = authSecret
 	podEnvVars.DestinationInsecureTLS = dvcrSettings.InsecureTLS
 	podEnvVars.DestinationEndpoint = dvcrImageName
 }

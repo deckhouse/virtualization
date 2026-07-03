@@ -40,6 +40,8 @@ true
   value: "*/5 * * * *"
 - name: DVCR_GC_SCHEDULE
   value: "{{ .Values.virtualization.internal.moduleConfig | dig "dvcr" "gc" "schedule" "" }}"
+- name: DVCR_TENANT_AUTHZ_ENABLED
+  value: "{{ include "dvcr.isTenantAuthz" . }}"
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualImages") }}

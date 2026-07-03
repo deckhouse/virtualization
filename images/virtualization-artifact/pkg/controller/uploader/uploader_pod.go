@@ -35,6 +35,14 @@ import (
 const (
 	// destinationAuthVol is the name of the volume containing DVCR docker auth config.
 	destinationAuthVol = "dvcr-secret-vol"
+
+	// destinationTokenVol is the name of the volume containing the projected
+	// ServiceAccount token used for per-namespace DVCR authorization.
+	destinationTokenVol = "dvcr-token-vol"
+
+	// destinationTokenExpirationSeconds is the requested lifetime of the projected
+	// SA token; kubelet rotates the file well before it expires.
+	destinationTokenExpirationSeconds = 600
 )
 
 // These constants can't be imported from "images/dvcr-artifact/pkg/uploader/uploader.go" due to conflicts with the CDI version.
@@ -205,6 +213,19 @@ func (p *Pod) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			corev1.EnvVar{
 				Name:  common.UploaderDestinationAuthConfigVar,
 				Value: common.UploaderDestinationAuthConfigFile,
+			},
+		)
+	}
+
+	if p.Settings.DestinationTokenAuth {
+		// Mount a projected ServiceAccount token so the Pod authenticates to DVCR
+		// with its own namespace-scoped identity.
+		podutil.AddVolume(pod, container,
+			podutil.CreateProjectedSATokenVolume(destinationTokenVol, "token", destinationTokenExpirationSeconds),
+			podutil.CreateVolumeMount(destinationTokenVol, common.UploaderDestinationTokenDir),
+			corev1.EnvVar{
+				Name:  common.UploaderDestinationTokenFileVar,
+				Value: common.UploaderDestinationTokenFile,
 			},
 		)
 	}

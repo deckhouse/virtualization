@@ -104,6 +104,12 @@ func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen Generator) boo
 	if dvcrSettings.AuthSecret == "" {
 		return false
 	}
+	// With per-namespace authorization the Pod authenticates with its own
+	// ServiceAccount token, so the shared read-write credential must not be
+	// copied into the tenant namespace.
+	if dvcrSettings.TenantAuthzEnabled {
+		return false
+	}
 	// Should copy if namespaces are different.
 	return dvcrSettings.AuthSecretNamespace != supGen.Namespace()
 }

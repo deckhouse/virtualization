@@ -92,6 +92,13 @@ const (
 	ImporterDestinationAuthConfigVar = "IMPORTER_DESTINATION_AUTH_CONFIG"
 	// ImporterDestinationAuthConfigFile is a path to auth config file in mount directory.
 	ImporterDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
+	// ImporterDestinationTokenFileVar is an environment variable with the path to
+	// the projected ServiceAccount token used for per-namespace DVCR authorization.
+	ImporterDestinationTokenFileVar = "IMPORTER_DESTINATION_TOKEN_FILE"
+	// ImporterDestinationTokenDir is a mount directory for the projected SA token.
+	ImporterDestinationTokenDir = "/dvcr-token"
+	// ImporterDestinationTokenFile is the path to the projected SA token file.
+	ImporterDestinationTokenFile = "/dvcr-token/token"
 	// DestinationInsecureTLSVar is an environment variable for Importer Pod that defines whether DVCR is insecure.
 	DestinationInsecureTLSVar   = "DESTINATION_INSECURE_TLS"
 	ImporterSHA256Sum           = "IMPORTER_SHA256SUM"
@@ -105,6 +112,13 @@ const (
 	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
 	UploaderDestinationAuthConfigDir  = "/dvcr-auth"
 	UploaderDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
+	// UploaderDestinationTokenFileVar is an environment variable with the path to
+	// the projected ServiceAccount token used for per-namespace DVCR authorization.
+	UploaderDestinationTokenFileVar = "UPLOADER_DESTINATION_TOKEN_FILE"
+	// UploaderDestinationTokenDir is a mount directory for the projected SA token.
+	UploaderDestinationTokenDir = "/dvcr-token"
+	// UploaderDestinationTokenFile is the path to the projected SA token file.
+	UploaderDestinationTokenFile = "/dvcr-token/token"
 
 	DockerRegistrySchemePrefix = "docker://"
 

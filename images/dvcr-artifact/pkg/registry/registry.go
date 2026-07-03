@@ -39,6 +39,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
 	importerrs "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/errors"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
@@ -73,6 +74,7 @@ type DataProcessor struct {
 	ds            datasource.DataSourceInterface
 	destUsername  string
 	destPassword  string
+	destTokenFile string
 	destImageName string
 	sha256Sum     string
 	md5Sum        string
@@ -83,19 +85,33 @@ type DestinationRegistry struct {
 	ImageName string
 	Username  string
 	Password  string
+	// TokenFile, when set, is the path to a projected ServiceAccount token used
+	// for per-namespace DVCR authorization instead of static credentials.
+	TokenFile string
 	Insecure  bool
 }
 
 func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistry, sha256Sum, md5Sum string) (*DataProcessor, error) {
 	return &DataProcessor{
-		ds,
-		dest.Username,
-		dest.Password,
-		dest.ImageName,
-		sha256Sum,
-		md5Sum,
-		dest.Insecure,
+		ds:            ds,
+		destUsername:  dest.Username,
+		destPassword:  dest.Password,
+		destTokenFile: dest.TokenFile,
+		destImageName: dest.ImageName,
+		sha256Sum:     sha256Sum,
+		md5Sum:        md5Sum,
+		destInsecure:  dest.Insecure,
 	}, nil
+}
+
+// destAuthenticator returns the authenticator for pushing to DVCR. With
+// per-namespace authorization the projected ServiceAccount token is read fresh
+// on every request; otherwise static Basic credentials are used.
+func (p DataProcessor) destAuthenticator() authn.Authenticator {
+	if p.destTokenFile != "" {
+		return auth.TokenFileAuthenticator(p.destTokenFile)
+	}
+	return &authn.Basic{Username: p.destUsername, Password: p.destPassword}
 }
 
 func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
@@ -325,7 +341,7 @@ func (p DataProcessor) uploadLayersAndImage(
 	informer *ImageInformer,
 ) error {
 	nameOpts := destNameOptions(p.destInsecure)
-	remoteOpts := destRemoteOptions(ctx, p.destUsername, p.destPassword, p.destInsecure)
+	remoteOpts := destRemoteOptions(ctx, p.destAuthenticator(), p.destInsecure)
 	image := empty.Image
 
 	ref, err := name.ParseReference(p.destImageName, nameOpts...)
@@ -417,7 +433,7 @@ func destNameOptions(destInsecure bool) []name.Option {
 	return nameOpts
 }
 
-func destRemoteOptions(ctx context.Context, destUsername, destPassword string, destInsecure bool) []remote.Option {
+func destRemoteOptions(ctx context.Context, authenticator authn.Authenticator, destInsecure bool) []remote.Option {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: destInsecure,
 	}
@@ -428,7 +444,7 @@ func destRemoteOptions(ctx context.Context, destUsername, destPassword string, d
 	remoteOpts := []remote.Option{
 		remote.WithContext(ctx),
 		remote.WithTransport(transport),
-		remote.WithAuth(&authn.Basic{Username: destUsername, Password: destPassword}),
+		remote.WithAuth(authenticator),
 	}
 
 	return remoteOpts

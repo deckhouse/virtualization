@@ -50,6 +50,10 @@ const (
 	healthzPort = 8080
 	healthzPath = "/healthz"
 	uploadPath  = "/upload"
+
+	// uploaderDestinationTokenFileVar is the env var with the path to the
+	// projected ServiceAccount token used for per-namespace DVCR authorization.
+	uploaderDestinationTokenFileVar = "UPLOADER_DESTINATION_TOKEN_FILE"
 )
 
 // UploadServer is the interface to uploadServerApp
@@ -85,6 +89,7 @@ type uploadServerApp struct {
 	destImageName string
 	destUsername  string
 	destPassword  string
+	destTokenFile string
 	destInsecure  bool
 }
 
@@ -125,9 +130,10 @@ func (app *uploadServerApp) parseOptions() error {
 	app.destImageName, _ = util.ParseEnvVar(common.UploaderDestinationEndpoint, false)
 	app.destInsecure, _ = strconv.ParseBool(os.Getenv(common.DestinationInsecureTLSVar))
 
+	app.destTokenFile = os.Getenv(uploaderDestinationTokenFileVar)
 	app.destUsername, _ = util.ParseEnvVar(common.UploaderDestinationAccessKeyID, false)
 	app.destPassword, _ = util.ParseEnvVar(common.UploaderDestinationSecretKey, false)
-	if app.destUsername == "" && app.destPassword == "" {
+	if app.destTokenFile == "" && app.destUsername == "" && app.destPassword == "" {
 		destAuthConfig, _ := util.ParseEnvVar(common.UploaderDestinationAuthConfig, false)
 		if destAuthConfig != "" {
 			authFile, err := auth.RegistryAuthFile(destAuthConfig)
@@ -389,6 +395,7 @@ func (app *uploadServerApp) upload(stream io.ReadCloser, sourceContentType strin
 		ImageName: app.destImageName,
 		Username:  app.destUsername,
 		Password:  app.destPassword,
+		TokenFile: app.destTokenFile,
 		Insecure:  app.destInsecure,
 	}, "", "")
 	if err != nil {
