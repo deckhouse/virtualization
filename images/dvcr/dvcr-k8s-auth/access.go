@@ -189,6 +189,12 @@ func (ac *accessController) verifyJWT(raw string) ([]Grant, error) {
 		TrustedIssuers:    []string{ac.jwtIssuer},
 		AcceptedAudiences: []string{ac.jwtAudience},
 		TrustedKeys:       ac.trustedKeys,
+		// Roots must be a non-nil empty pool. distribution verifies a token's
+		// x5c/jwk certificate chain before the pinned kid->TrustedKeys lookup;
+		// with Roots unset (nil) that chain validates against the system CA pool,
+		// letting any publicly-trusted leaf cert forge a token. An empty pool
+		// fails every chain, so only our pinned key (matched by kid) is trusted.
+		Roots: x509.NewCertPool(),
 	})
 	if err != nil {
 		return nil, err
