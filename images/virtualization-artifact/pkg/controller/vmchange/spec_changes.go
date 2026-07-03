@@ -229,10 +229,6 @@ func (s *SpecChanges) GetRestartMessages() []string {
 	return msgs
 }
 
-func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
-	return s.convertPendingChanges(func(FieldChange) bool { return true })
-}
-
 func (s *SpecChanges) ConvertPendingRestartChanges() ([]apiextensionsv1.JSON, error) {
 	return s.convertPendingChanges(func(change FieldChange) bool {
 		return change.ActionRequired == ActionRestart
@@ -256,11 +252,7 @@ func (s *SpecChanges) convertPendingChanges(include func(FieldChange) bool) ([]a
 	return res, nil
 }
 
-func (s *SpecChanges) UpgradeBlockDeviceChangesToRestart() {
-	s.UpgradeBlockDeviceChangesToRestartIf(nil)
-}
-
-func (s *SpecChanges) UpgradeBlockDeviceChangesToRestartIf(shouldUpgrade func(FieldChange) bool) {
+func (s *SpecChanges) UpgradeBlockDeviceChangesToRestartMatching(shouldUpgrade func(FieldChange) bool) {
 	for i := range s.changes {
 		isBlockDeviceChange := s.changes[i].Path == blockDevicesPath || strings.HasPrefix(s.changes[i].Path, blockDevicesPath+".")
 		if isBlockDeviceChange && s.changes[i].ActionRequired == ActionApplyImmediate && (shouldUpgrade == nil || shouldUpgrade(s.changes[i])) {

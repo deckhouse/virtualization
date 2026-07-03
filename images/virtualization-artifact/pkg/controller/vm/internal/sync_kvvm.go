@@ -161,7 +161,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			kvvmi, kvvmiErr := s.KVVMI(ctx)
 			if kvvmiErr == nil {
 				nonHotpluggableVolumes := nonHotpluggableVolumeRefs(kvvmi)
-				changes.UpgradeBlockDeviceChangesToRestartIf(func(change vmchange.FieldChange) bool {
+				changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
 					return blockDeviceChangeTouchesRefs(change, nonHotpluggableVolumes)
 				})
 			}
@@ -204,9 +204,6 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 				Reason(vmcondition.ReasonConfigurationNotApplied).
 				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 			return reconcile.Result{}, err
-		}
-		if len(changed.Status.RestartAwaitingChanges) == 0 {
-			changed.Status.RestartAwaitingChanges = nil
 		}
 	}
 

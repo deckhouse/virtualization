@@ -587,7 +587,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		updatedVM := &v1alpha2.VirtualMachine{}
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updatedVM)).To(Succeed())
-		Expect(updatedVM.Status.RestartAwaitingChanges).To(BeNil())
+		Expect(updatedVM.Status.RestartAwaitingChanges).To(BeEmpty())
 		awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, updatedVM.Status.Conditions)
 		Expect(awaitExists).To(BeFalse(), "ApplyImmediate block device changes should not set %s, got %+v", vmcondition.TypeAwaitingRestartToApplyConfiguration, awaitCond)
 	})
@@ -655,17 +655,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 			vmchange.FieldChange{Path: "blockDeviceRefs.0", Operation: vmchange.ChangeRemove, CurrentValue: dataRef, ActionRequired: vmchange.ActionApplyImmediate},
 			vmchange.FieldChange{Path: "blockDeviceRefs.1", Operation: vmchange.ChangeAdd, DesiredValue: extraRef, ActionRequired: vmchange.ActionApplyImmediate},
 			vmchange.FieldChange{Path: "blockDeviceRefs.2", Operation: vmchange.ChangeReplace, CurrentValue: rootRef, DesiredValue: dataRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "blockDeviceRefs.3", Operation: vmchange.ChangeAdd, DesiredValue: rootRef, ActionRequired: vmchange.ActionApplyImmediate},
 			vmchange.FieldChange{Path: "cpu.cores", Operation: vmchange.ChangeReplace, ActionRequired: vmchange.ActionApplyImmediate},
 		)
 
-		changes.UpgradeBlockDeviceChangesToRestartIf(func(change vmchange.FieldChange) bool {
+		changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
 			return blockDeviceChangeTouchesRefs(change, nonHotpluggableRefs)
 		})
 
 		Expect(changes.GetAll()[0].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
 		Expect(changes.GetAll()[1].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
 		Expect(changes.GetAll()[2].ActionRequired).To(Equal(vmchange.ActionRestart))
-		Expect(changes.GetAll()[3].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
+		Expect(changes.GetAll()[3].ActionRequired).To(Equal(vmchange.ActionRestart))
+		Expect(changes.GetAll()[4].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
 	})
 
 	DescribeTable("isPlacementPolicyChanged",
