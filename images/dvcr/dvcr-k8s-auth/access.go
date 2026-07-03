@@ -23,17 +23,26 @@ limitations under the License.
 package dvcrk8s
 
 import (
+	"crypto"
 	"crypto/subtle"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-	"time"
+
+	jose "github.com/go-jose/go-jose/v4"
 
 	"github.com/distribution/distribution/v3/registry/auth"
+	"github.com/distribution/distribution/v3/registry/auth/token"
 )
+
+// jwtSigningAlgs are the JWS algorithms accepted for scoped tokens. ES256 only:
+// tokens are minted by the virtualization-controller with an ECDSA P-256 key.
+var jwtSigningAlgs = []jose.SignatureAlgorithm{jose.ES256}
 
 func init() {
 	if err := auth.Register("dvcr-k8s", auth.InitFunc(newAccessController)); err != nil {
@@ -50,21 +59,23 @@ type accessController struct {
 	pullerUsername string
 	pullerPassword []byte
 
-	privilegedNamespace string
-
-	reviewer *tokenReviewer
+	jwtIssuer   string
+	jwtAudience string
+	trustedKeys map[string]crypto.PublicKey
 }
 
 // newAccessController builds the controller from the `auth: { dvcr-k8s: {...} }`
 // config block. Options:
 //
-//	realm                   string (WWW-Authenticate realm)
-//	adminusername           string
-//	adminpasswordfile       string (path to the admin password, e.g. from dvcr-secrets)
-//	pullerusername          string
-//	pullerpasswordfile      string (path to the node-puller password)
-//	tokenreviewcachettl     string (Go duration, default 45s)
-//	tokenreviewcachenegttl  string (Go duration for failed reviews, default 5s)
+//	realm               string (WWW-Authenticate realm)
+//	adminusername       string
+//	adminpasswordfile   string (path to the admin read-write password)
+//	pullerusername      string
+//	pullerpasswordfile  string (path to the node-puller password)
+//	jwtissuer           string (accepted token issuer)
+//	jwtaudience         string (accepted token audience)
+//	jwtpublickeyfile    string (PEM PKIX public key that signs scoped tokens)
+//	jwtkeyid            string (key id the token header must reference, default "dvcr")
 func newAccessController(options map[string]interface{}) (auth.AccessController, error) {
 	realm, err := optString(options, "realm", "dvcr")
 	if err != nil {
@@ -89,27 +100,39 @@ func newAccessController(options map[string]interface{}) (auth.AccessController,
 		return nil, err
 	}
 
-	privilegedNamespace, err := optString(options, "privilegednamespace", "")
+	jwtIssuer, err := optString(options, "jwtissuer", "")
 	if err != nil {
 		return nil, err
 	}
-
-	ttl := optDuration(options, "tokenreviewcachettl", 45*time.Second)
-	negTTL := optDuration(options, "tokenreviewcachenegttl", 5*time.Second)
-
-	reviewer, err := newTokenReviewer(ttl, negTTL)
+	jwtAudience, err := optString(options, "jwtaudience", "")
 	if err != nil {
-		return nil, fmt.Errorf("init token reviewer: %w", err)
+		return nil, err
+	}
+	keyID, err := optString(options, "jwtkeyid", "dvcr")
+	if err != nil {
+		return nil, err
+	}
+	keyPath, err := optString(options, "jwtpublickeyfile", "")
+	if err != nil {
+		return nil, err
+	}
+	if keyPath == "" {
+		return nil, errors.New("dvcr-k8s: jwtpublickeyfile is required")
+	}
+	pub, err := loadPublicKey(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("dvcr-k8s: load jwt public key: %w", err)
 	}
 
 	return &accessController{
-		realm:               realm,
-		adminUsername:       adminUser,
-		adminPassword:       adminPass,
-		pullerUsername:      pullerUser,
-		pullerPassword:      pullerPass,
-		privilegedNamespace: privilegedNamespace,
-		reviewer:            reviewer,
+		realm:          realm,
+		adminUsername:  adminUser,
+		adminPassword:  adminPass,
+		pullerUsername: pullerUser,
+		pullerPassword: pullerPass,
+		jwtIssuer:      jwtIssuer,
+		jwtAudience:    jwtAudience,
+		trustedKeys:    map[string]crypto.PublicKey{keyID: pub},
 	}, nil
 }
 
@@ -120,7 +143,7 @@ func (ac *accessController) Authorized(req *http.Request, accessRecords ...auth.
 		return nil, &challenge{realm: ac.realm, err: auth.ErrInvalidCredential}
 	}
 
-	subject, name, err := ac.classify(req, username, password)
+	subject, name, err := ac.classify(username, password)
 	if err != nil {
 		// Bad credential -> 401 challenge so the client may retry with valid creds.
 		return nil, &challenge{realm: ac.realm, err: err}
@@ -134,10 +157,10 @@ func (ac *accessController) Authorized(req *http.Request, accessRecords ...auth.
 	return &auth.Grant{User: auth.UserInfo{Name: name}}, nil
 }
 
-// classify maps a Basic credential to an authorization Subject. Static admin and
-// node-puller passwords are matched in constant time; anything else is treated as
-// a ServiceAccount token and verified via TokenReview (fail-closed on any error).
-func (ac *accessController) classify(req *http.Request, username, password string) (Subject, string, error) {
+// classify maps a Basic credential to an authorization Subject. The static admin
+// and node-puller passwords are matched in constant time; any other credential is
+// treated as a signed scoped token, its password verified as a JWT (fail-closed).
+func (ac *accessController) classify(username, password string) (Subject, string, error) {
 	if len(ac.adminPassword) > 0 && username == ac.adminUsername &&
 		subtle.ConstantTimeCompare([]byte(password), ac.adminPassword) == 1 {
 		return Subject{Role: RoleAdmin}, username, nil
@@ -148,15 +171,36 @@ func (ac *accessController) classify(req *http.Request, username, password strin
 		return Subject{Role: RolePuller}, username, nil
 	}
 
-	ns, err := ac.reviewer.namespaceForToken(req.Context(), password)
+	grants, err := ac.verifyJWT(password)
 	if err != nil {
-		return Subject{}, "", fmt.Errorf("token review: %w", err)
+		return Subject{}, "", fmt.Errorf("scoped token: %w", err)
 	}
-	subject := SubjectForServiceAccount(ns, ac.privilegedNamespace)
-	if subject.Role == RoleNone {
-		return Subject{}, "", errors.New("token is not a namespaced ServiceAccount")
+	return Subject{Role: RoleScoped, Grants: grants}, "scoped:" + username, nil
+}
+
+// verifyJWT parses and verifies a scoped token, reusing distribution's own token
+// verification (signature, issuer, audience, nbf/exp), and returns its grants.
+func (ac *accessController) verifyJWT(raw string) ([]Grant, error) {
+	tok, err := token.NewToken(raw, jwtSigningAlgs)
+	if err != nil {
+		return nil, err
 	}
-	return subject, "serviceaccount:" + ns, nil
+	claims, err := tok.Verify(token.VerifyOptions{
+		TrustedIssuers:    []string{ac.jwtIssuer},
+		AcceptedAudiences: []string{ac.jwtAudience},
+		TrustedKeys:       ac.trustedKeys,
+	})
+	if err != nil {
+		return nil, err
+	}
+	grants := make([]Grant, 0, len(claims.Access))
+	for _, ra := range claims.Access {
+		if ra == nil {
+			continue
+		}
+		grants = append(grants, Grant{Type: ra.Type, Name: ra.Name, Actions: ra.Actions})
+	}
+	return grants, nil
 }
 
 func toPolicyAccess(records []auth.Access) []Access {
@@ -181,6 +225,18 @@ func (ch *challenge) Error() string {
 	return fmt.Sprintf("dvcr-k8s basic auth challenge for realm %q: %v", ch.realm, ch.err)
 }
 
+func loadPublicKey(path string) (crypto.PublicKey, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("no PEM block found")
+	}
+	return x509.ParsePKIXPublicKey(block.Bytes)
+}
+
 func optString(options map[string]interface{}, key, def string) (string, error) {
 	v, present := options[key]
 	if !present {
@@ -191,22 +247,6 @@ func optString(options map[string]interface{}, key, def string) (string, error) 
 		return "", fmt.Errorf("dvcr-k8s: option %q must be a string", key)
 	}
 	return s, nil
-}
-
-func optDuration(options map[string]interface{}, key string, def time.Duration) time.Duration {
-	v, present := options[key]
-	if !present {
-		return def
-	}
-	s, ok := v.(string)
-	if !ok {
-		return def
-	}
-	d, err := time.ParseDuration(strings.TrimSpace(s))
-	if err != nil {
-		return def
-	}
-	return d
 }
 
 func readSecretFile(options map[string]interface{}, key string) ([]byte, error) {

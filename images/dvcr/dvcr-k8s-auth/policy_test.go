@@ -25,8 +25,18 @@ func repo(name, action string) Access {
 	return Access{Type: "repository", Name: name, Action: action}
 }
 
+func grantRepo(name string, actions ...string) Grant {
+	return Grant{Type: "repository", Name: name, Actions: actions}
+}
+
 func TestAuthorize(t *testing.T) {
-	tenantA := Subject{Role: RoleTenant, Namespace: "nsA"}
+	// A Pod scoped to its own cvi repository (the CVI-from-PVC case).
+	scopedCVI := Subject{Role: RoleScoped, Grants: []Grant{grantRepo("cvi/my-image", "pull", "push")}}
+	// A Pod scoped to a namespaced vd plus a DVCR source it pulls from.
+	scopedVD := Subject{Role: RoleScoped, Grants: []Grant{
+		grantRepo("vd/nsA/disk", "pull", "push"),
+		grantRepo("cvi/base", "pull"),
+	}}
 
 	tests := []struct {
 		name     string
@@ -34,44 +44,31 @@ func TestAuthorize(t *testing.T) {
 		accesses []Access
 		want     bool
 	}{
-		// --- tenant: own namespace ---
-		{"tenant pull own vi", tenantA, []Access{repo("vi/nsA/img", "pull")}, true},
-		{"tenant push own vi", tenantA, []Access{repo("vi/nsA/img", "push")}, true},
-		{"tenant pull own vd", tenantA, []Access{repo("vd/nsA/disk", "pull")}, true},
-		{"tenant push own vd", tenantA, []Access{repo("vd/nsA/disk", "push")}, true},
-		{"tenant delete own vi denied", tenantA, []Access{repo("vi/nsA/img", "delete")}, false},
+		// --- scoped: exactly the granted repo/action ---
+		{"scoped push own cvi", scopedCVI, []Access{repo("cvi/my-image", "push")}, true},
+		{"scoped pull own cvi", scopedCVI, []Access{repo("cvi/my-image", "pull")}, true},
+		{"scoped delete own cvi denied", scopedCVI, []Access{repo("cvi/my-image", "delete")}, false},
 
-		// --- tenant: cross-namespace (the core vulnerability) ---
-		{"tenant pull other-ns vi denied", tenantA, []Access{repo("vi/nsB/img", "pull")}, false},
-		{"tenant push other-ns vi denied", tenantA, []Access{repo("vi/nsB/img", "push")}, false},
-		{"tenant push other-ns vd denied", tenantA, []Access{repo("vd/nsB/disk", "push")}, false},
+		// --- scoped: any other repository is denied (the core guarantee) ---
+		{"scoped push other cvi denied", scopedCVI, []Access{repo("cvi/other", "push")}, false},
+		{"scoped push tenant repo denied", scopedCVI, []Access{repo("vd/nsB/disk", "push")}, false},
+		{"scoped prefix confusion denied", scopedCVI, []Access{repo("cvi/my-image-evil", "push")}, false},
+		{"scoped traversal denied", scopedCVI, []Access{repo("cvi/my-image/../other", "push")}, false},
+		{"scoped catalog denied", scopedCVI, []Access{{Type: "registry", Name: "catalog", Action: "*"}}, false},
 
-		// --- tenant: cvi (cluster, shared read-only) ---
-		{"tenant pull cvi ok", tenantA, []Access{repo("cvi/ubuntu", "pull")}, true},
-		{"tenant push cvi denied", tenantA, []Access{repo("cvi/ubuntu", "push")}, false},
+		// --- scoped: name normalization compares equal ---
+		{"scoped trailing slash ok", scopedCVI, []Access{repo("cvi/my-image/", "push")}, true},
 
-		// --- tenant: catalog / registry enumeration ---
-		{"tenant catalog denied", tenantA, []Access{{Type: "registry", Name: "catalog", Action: "*"}}, false},
-
-		// --- tenant: path normalization / prefix confusion ---
-		{"tenant prefix confusion nsA-evil denied", tenantA, []Access{repo("vi/nsA-evil/img", "push")}, false},
-		{"tenant traversal to other ns denied", tenantA, []Access{repo("vi/nsA/../nsB/img", "push")}, false},
-		{"tenant traversal escape denied", tenantA, []Access{repo("vi/nsA/../../etc/x", "push")}, false},
-		{"tenant unknown prefix denied", tenantA, []Access{repo("foo/nsA/img", "push")}, false},
-		{"tenant bare ns no name denied", tenantA, []Access{repo("vi/nsA", "push")}, false},
-
-		// --- tenant: cross-repo blob mount (distribution issues a pull on the from-repo) ---
-		{"tenant mount from own ns ok", tenantA, []Access{
-			repo("vi/nsA/dst", "push"),
-			repo("vi/nsA/src", "pull"),
+		// --- scoped: destination push + source pull (cross-repo, both granted) ---
+		{"scoped push dst pull src ok", scopedVD, []Access{
+			repo("vd/nsA/disk", "push"),
+			repo("cvi/base", "pull"),
 		}, true},
-		{"tenant mount from other ns denied", tenantA, []Access{
-			repo("vi/nsA/dst", "push"),
-			repo("vi/nsB/src", "pull"),
+		{"scoped push src denied", scopedVD, []Access{repo("cvi/base", "push")}, false},
+		{"scoped mixed one bad denies all", scopedVD, []Access{
+			repo("vd/nsA/disk", "push"),
+			repo("cvi/other", "pull"),
 		}, false},
-
-		// --- tenant: empty namespace is never valid ---
-		{"tenant empty ns denied", Subject{Role: RoleTenant, Namespace: ""}, []Access{repo("vi//img", "pull")}, false},
 
 		// --- puller (nodes) ---
 		{"puller pull any ok", Subject{Role: RolePuller}, []Access{repo("vi/nsB/img", "pull")}, true},
@@ -85,16 +82,11 @@ func TestAuthorize(t *testing.T) {
 		{"admin catalog ok", Subject{Role: RoleAdmin}, []Access{{Type: "registry", Name: "catalog", Action: "*"}}, true},
 
 		// --- fail-closed default ---
-		{"none denied", Subject{Role: RoleNone}, []Access{repo("vi/nsA/img", "pull")}, false},
-
-		// --- mixed list: one denied access denies all ---
-		{"tenant mixed one bad denies all", tenantA, []Access{
-			repo("vi/nsA/ok", "pull"),
-			repo("vi/nsB/bad", "pull"),
-		}, false},
+		{"none denied", Subject{Role: RoleNone}, []Access{repo("cvi/x", "pull")}, false},
+		{"scoped no grants denied", Subject{Role: RoleScoped}, []Access{repo("cvi/x", "pull")}, false},
 
 		// --- empty access list is allowed (capability probe) ---
-		{"empty access allowed", tenantA, nil, true},
+		{"empty access allowed", scopedCVI, nil, true},
 	}
 
 	for _, tt := range tests {
@@ -103,47 +95,5 @@ func TestAuthorize(t *testing.T) {
 				t.Errorf("Authorize(%+v, %+v) = %v, want %v", tt.subject, tt.accesses, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestSubjectForServiceAccount(t *testing.T) {
-	const priv = "d8-virtualization"
-	tests := []struct {
-		name   string
-		saNs   string
-		privNs string
-		want   Subject
-	}{
-		{"module namespace is admin", "d8-virtualization", priv, Subject{Role: RoleAdmin}},
-		{"tenant namespace is scoped", "tenant-a", priv, Subject{Role: RoleTenant, Namespace: "tenant-a"}},
-		{"empty namespace denied", "", priv, Subject{Role: RoleNone}},
-		{"no privileged ns configured, tenant stays scoped", "d8-virtualization", "", Subject{Role: RoleTenant, Namespace: "d8-virtualization"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := SubjectForServiceAccount(tt.saNs, tt.privNs); got != tt.want {
-				t.Errorf("SubjectForServiceAccount(%q, %q) = %+v, want %+v", tt.saNs, tt.privNs, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNamespaceFromUsername(t *testing.T) {
-	tests := []struct {
-		username string
-		want     string
-	}{
-		{"system:serviceaccount:nsA:importer", "nsA"},
-		{"system:serviceaccount:d8-virtualization:dvcr", "d8-virtualization"},
-		{"system:serviceaccount::name", ""}, // empty namespace
-		{"system:serviceaccount:nsA", ""},   // no name separator
-		{"system:node:worker-1", ""},        // not a service account
-		{"kubernetes-admin", ""},            // human user
-		{"", ""},                            // empty
-	}
-	for _, tt := range tests {
-		if got := namespaceFromUsername(tt.username); got != tt.want {
-			t.Errorf("namespaceFromUsername(%q) = %q, want %q", tt.username, got, tt.want)
-		}
 	}
 }

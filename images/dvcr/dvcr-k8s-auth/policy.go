@@ -18,7 +18,7 @@ limitations under the License.
 //
 // This file holds the pure, dependency-free authorization decision logic so it
 // can be unit-tested without the distribution registry runtime. The distribution
-// auth.AccessController glue (request parsing, TokenReview) lives in access.go
+// auth.AccessController glue (Basic parsing, JWT verification) lives in access.go
 // and only translates registry types into the Subject/Access values decided here.
 package dvcrk8s
 
@@ -33,22 +33,28 @@ type Role int
 const (
 	// RoleNone denies everything (fail-closed default).
 	RoleNone Role = iota
-	// RoleAdmin grants full access. Used by the virtualization-controller.
+	// RoleAdmin grants full access. Presented by the virtualization-controller
+	// with the static read-write password.
 	RoleAdmin
-	// RolePuller grants pull-only access to any repository. Used by node containerd.
+	// RolePuller grants pull-only access to any repository. Presented by node
+	// containerd with the static node-puller password.
 	RolePuller
-	// RoleTenant grants namespace-scoped access. Used by importer/uploader Pods.
-	RoleTenant
+	// RoleScoped grants exactly the access carried in the credential. Presented by
+	// importer/uploader Pods with a signed JWT the controller minted for the single
+	// repository that Pod reads from / writes to.
+	RoleScoped
 )
 
 // Subject is the authenticated caller together with its authorization scope.
 type Subject struct {
 	Role Role
-	// Namespace is the tenant namespace; only meaningful for RoleTenant.
-	Namespace string
+	// Grants is the set of allowed repository actions carried by a RoleScoped
+	// credential (the JWT's access claim). Ignored for other roles.
+	Grants []Grant
 }
 
-// Access mirrors the subset of distribution's auth.Access needed for a decision.
+// Access mirrors the subset of distribution's auth.Access needed for a single
+// authorization decision (one requested resource + action).
 type Access struct {
 	// Type is the resource type: "repository" or "registry".
 	Type string
@@ -59,49 +65,12 @@ type Access struct {
 	Action string
 }
 
-// Repository path prefixes, kept in sync with pkg/dvcr/dvcr.go image templates:
-//
-//	cvi/<name>          (ClusterVirtualImage, cluster-scoped, shared read-only)
-//	vi/<ns>/<name>      (VirtualImage, namespaced)
-//	vd/<ns>/<name>      (VirtualDisk, namespaced)
-const (
-	prefixCVI = "cvi"
-	prefixVI  = "vi"
-	prefixVD  = "vd"
-)
-
-// saUserPrefix is the TokenReview username prefix for a ServiceAccount.
-const saUserPrefix = "system:serviceaccount:"
-
-// SubjectForServiceAccount maps an authenticated ServiceAccount namespace to an
-// authorization Subject. ServiceAccounts in the module's own privileged namespace
-// (e.g. d8-virtualization) are control-plane components — the controller, the
-// ClusterVirtualImage importer, garbage collection — that legitimately read images
-// across namespaces and write cluster-scoped cvi repositories, so they are granted
-// admin. Tenants cannot run Pods in that namespace, so this is safe. Every other
-// namespace is namespace-scoped.
-func SubjectForServiceAccount(saNamespace, privilegedNamespace string) Subject {
-	if saNamespace == "" {
-		return Subject{Role: RoleNone}
-	}
-	if privilegedNamespace != "" && saNamespace == privilegedNamespace {
-		return Subject{Role: RoleAdmin}
-	}
-	return Subject{Role: RoleTenant, Namespace: saNamespace}
-}
-
-// namespaceFromUsername parses "system:serviceaccount:<ns>:<name>" and returns
-// <ns>. Any other username shape returns "" (denied by the caller).
-func namespaceFromUsername(username string) string {
-	if !strings.HasPrefix(username, saUserPrefix) {
-		return ""
-	}
-	rest := strings.TrimPrefix(username, saUserPrefix)
-	ns, _, ok := strings.Cut(rest, ":")
-	if !ok || ns == "" {
-		return ""
-	}
-	return ns
+// Grant is one entry of a RoleScoped credential's access claim: a resource with
+// the set of actions permitted on it. Mirrors distribution's token ResourceActions.
+type Grant struct {
+	Type    string
+	Name    string
+	Actions []string
 }
 
 // Authorize returns true only if the subject is allowed every requested access.
@@ -123,48 +92,34 @@ func authorizeOne(s Subject, a Access) bool {
 	case RolePuller:
 		// Nodes only ever pull image layers; never push or delete, never enumerate.
 		return a.Type == "repository" && a.Action == "pull"
-	case RoleTenant:
-		return authorizeTenant(s.Namespace, a)
+	case RoleScoped:
+		return grantsCover(s.Grants, a)
 	default:
 		return false
 	}
 }
 
-func authorizeTenant(ns string, a Access) bool {
-	// Deny the registry-wide catalog and any non-repository resource: it would
-	// enumerate every tenant's images.
-	if a.Type != "repository" {
-		return false
+// grantsCover reports whether any grant permits the requested access. Names are
+// path-cleaned on both sides so trailing slashes or "." segments cannot smuggle a
+// mismatch past an exact string compare.
+func grantsCover(grants []Grant, a Access) bool {
+	name := cleanName(a.Name)
+	for i := range grants {
+		g := grants[i]
+		if g.Type != a.Type || cleanName(g.Name) != name {
+			continue
+		}
+		for _, act := range g.Actions {
+			if act == a.Action || act == "*" {
+				return true
+			}
+		}
 	}
-	// Empty namespace can never match a repository segment; deny.
-	if ns == "" {
-		return false
-	}
-
-	seg := splitClean(a.Name)
-	switch {
-	case len(seg) == 3 && (seg[0] == prefixVI || seg[0] == prefixVD) && seg[1] == ns:
-		// Own-namespace VirtualImage / VirtualDisk: read and write.
-		return a.Action == "pull" || a.Action == "push"
-	case len(seg) >= 2 && seg[0] == prefixCVI:
-		// Cluster images are shared; tenants may read them as disk/image sources,
-		// but only the controller (RoleAdmin) creates them.
-		// ponytail: pull-only for tenants; if a future flow pushes cvi from a
-		// tenant Pod, grant push here and cover it with an e2e test.
-		return a.Action == "pull"
-	default:
-		return false
-	}
+	return false
 }
 
-// splitClean normalizes a repository name into path segments, neutralizing any
-// "." / ".." traversal by anchoring the clean at root. Returns nil for an empty
-// or root-only path. Using path.Clean (not HasPrefix) is what prevents a name
-// like "vi/nsA-evil" or "vi/nsA/../nsB/x" from being mistaken for namespace nsA.
-func splitClean(name string) []string {
-	cleaned := strings.TrimPrefix(path.Clean("/"+name), "/")
-	if cleaned == "" || cleaned == "." {
-		return nil
-	}
-	return strings.Split(cleaned, "/")
+// cleanName normalizes a resource name by anchoring path.Clean at root, so
+// "cvi/foo/", "cvi/foo" and "cvi/./foo" compare equal and no "../" can escape.
+func cleanName(name string) string {
+	return strings.TrimPrefix(path.Clean("/"+name), "/")
 }
