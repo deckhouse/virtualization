@@ -99,7 +99,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 			result, err := handler.Handle(context.Background(), cvi)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(imageLostRecheckInterval))
+			Expect(result.RequeueAfter).To(Equal(imageLostRecheckBase))
 			Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageLost))
 
 			readyCondition := findCondition(cvi.Status.Conditions, cvicondition.ReadyType.String())
@@ -154,7 +154,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 			result, err := handler.Handle(context.Background(), cvi)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(imageLostRecheckInterval))
+			Expect(result.RequeueAfter).To(Equal(imageLostRecheckBase))
 			Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageLost))
 		})
 

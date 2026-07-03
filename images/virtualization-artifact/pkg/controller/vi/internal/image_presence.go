@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/backoff"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -33,9 +34,14 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-// imageLostRecheckInterval is how often DVCR is polled while an image is lost,
-// so recovery is noticed shortly after the data (for example, a DVCR PVC) returns.
-const imageLostRecheckInterval = 30 * time.Second
+// While an image is lost, DVCR is rechecked with an exponential backoff
+// (starting from imageLostRecheckBase, capped at imageLostRecheckMax) so a
+// prolonged DVCR outage does not keep hammering the registry, yet recovery is
+// still noticed once the data (for example, a DVCR PVC) returns.
+const (
+	imageLostRecheckBase = 15 * time.Second
+	imageLostRecheckMax  = 5 * time.Minute
+)
 
 type ImagePresenceHandler struct {
 	imageChecker dvcr.ImageChecker
@@ -93,8 +99,9 @@ func (h *ImagePresenceHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualI
 			conditions.SetCondition(cb, &vi.Status.Conditions)
 		}
 
-		// Keep polling: the data may return (for example, when the DVCR PVC is remounted).
-		return reconcile.Result{RequeueAfter: imageLostRecheckInterval}, nil
+		// Keep polling with a backoff derived from how long the image has been lost:
+		// the data may return (for example, when the DVCR PVC is remounted).
+		return reconcile.Result{RequeueAfter: h.recheckInterval(vi.Status.Conditions)}, nil
 	}
 
 	if phase == v1alpha2.ImageLost {
@@ -117,4 +124,15 @@ func (h *ImagePresenceHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualI
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// recheckInterval derives the DVCR recheck backoff from how long the image has
+// been lost, using the Ready condition's LastTransitionTime. It keeps the
+// backoff stateless and surviving controller restarts.
+func (h *ImagePresenceHandler) recheckInterval(conds []metav1.Condition) time.Duration {
+	cond, found := conditions.GetCondition(vicondition.ReadyType, conds)
+	if !found || cond.LastTransitionTime.IsZero() {
+		return imageLostRecheckBase
+	}
+	return backoff.Progressive(time.Since(cond.LastTransitionTime.Time), imageLostRecheckBase, imageLostRecheckMax)
 }
