@@ -39,7 +39,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
 	importerrs "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/errors"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
@@ -74,7 +73,6 @@ type DataProcessor struct {
 	ds            datasource.DataSourceInterface
 	destUsername  string
 	destPassword  string
-	destTokenFile string
 	destImageName string
 	sha256Sum     string
 	md5Sum        string
@@ -85,9 +83,6 @@ type DestinationRegistry struct {
 	ImageName string
 	Username  string
 	Password  string
-	// TokenFile, when set, is the path to a projected ServiceAccount token used
-	// for per-namespace DVCR authorization instead of static credentials.
-	TokenFile string
 	Insecure  bool
 }
 
@@ -96,7 +91,6 @@ func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistr
 		ds:            ds,
 		destUsername:  dest.Username,
 		destPassword:  dest.Password,
-		destTokenFile: dest.TokenFile,
 		destImageName: dest.ImageName,
 		sha256Sum:     sha256Sum,
 		md5Sum:        md5Sum,
@@ -104,13 +98,10 @@ func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistr
 	}, nil
 }
 
-// destAuthenticator returns the authenticator for pushing to DVCR. With
-// per-namespace authorization the projected ServiceAccount token is read fresh
-// on every request; otherwise static Basic credentials are used.
+// destAuthenticator returns the Basic authenticator for pushing to DVCR. The
+// credentials are a scoped token (per-namespace authorization) or the shared
+// read-write credential; both are presented as Basic username/password.
 func (p DataProcessor) destAuthenticator() authn.Authenticator {
-	if p.destTokenFile != "" {
-		return auth.TokenFileAuthenticator(p.destTokenFile)
-	}
 	return &authn.Basic{Username: p.destUsername, Password: p.destPassword}
 }
 

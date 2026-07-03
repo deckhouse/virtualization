@@ -49,11 +49,7 @@ const (
 	DockerRegistrySchemePrefix = "docker://"
 	DVCRSource                 = "dvcr"
 	BlockDeviceSource          = "blockDevice"
-	FilesystemSource          = "filesystem"
-
-	// ImporterDestinationTokenFileVar is the env var with the path to the
-	// projected ServiceAccount token used for per-namespace DVCR authorization.
-	ImporterDestinationTokenFileVar = "IMPORTER_DESTINATION_TOKEN_FILE"
+	FilesystemSource           = "filesystem"
 )
 
 func New() *Importer {
@@ -70,7 +66,6 @@ type Importer struct {
 	destImageName  string
 	destUsername   string
 	destPassword   string
-	destTokenFile  string
 	destInsecure   bool
 	certDir        string
 	sha256Sum      string
@@ -122,10 +117,9 @@ func (i *Importer) parseOptions() error {
 		}
 	}
 
-	i.destTokenFile = os.Getenv(ImporterDestinationTokenFileVar)
 	i.destUsername, _ = util.ParseEnvVar(common.ImporterDestinationAccessKeyID, false)
 	i.destPassword, _ = util.ParseEnvVar(common.ImporterDestinationSecretKey, false)
-	if i.destTokenFile == "" && i.destUsername == "" && i.destPassword == "" {
+	if i.destUsername == "" && i.destPassword == "" {
 		destAuthConfig, _ := util.ParseEnvVar(common.ImporterDestinationAuthConfig, false)
 		if destAuthConfig != "" {
 			authFile, err := auth.RegistryAuthFile(destAuthConfig)
@@ -170,7 +164,6 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 			ImageName: i.destImageName,
 			Username:  i.destUsername,
 			Password:  i.destPassword,
-			TokenFile: i.destTokenFile,
 			Insecure:  i.destInsecure,
 		}, i.sha256Sum, i.md5Sum)
 		if err != nil {
@@ -266,13 +259,10 @@ func (i *Importer) destRemoteOptions(ctx context.Context) []remote.Option {
 	return remoteOpts
 }
 
-// destAuthenticator returns the authenticator for pushing to DVCR. With
-// per-namespace authorization the projected ServiceAccount token is read fresh
-// on every request; otherwise static Basic credentials are used.
+// destAuthenticator returns the Basic authenticator for pushing to DVCR. The
+// credentials are a scoped token (per-namespace authorization) or the shared
+// read-write credential; both are presented as Basic username/password.
 func (i *Importer) destAuthenticator() authn.Authenticator {
-	if i.destTokenFile != "" {
-		return auth.TokenFileAuthenticator(i.destTokenFile)
-	}
 	return &authn.Basic{Username: i.destUsername, Password: i.destPassword}
 }
 
