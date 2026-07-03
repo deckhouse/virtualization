@@ -42,9 +42,8 @@ const (
 	KeyID = "dvcr"
 	// DefaultTTL is the scoped token lifetime. Generous on purpose: an import may
 	// run for hours, and the token is scoped to a single repository, so a long
-	// validity window is a small exposure.
-	// ponytail: fixed TTL; bind to the Pod's activeDeadlineSeconds if imports ever
-	// need to outlive this or exposure must be tightened further.
+	// validity window is a small exposure. If imports ever outlive this, bind the
+	// TTL to the Pod's activeDeadlineSeconds instead.
 	DefaultTTL = 24 * time.Hour
 )
 
