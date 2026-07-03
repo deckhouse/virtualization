@@ -90,9 +90,9 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnPolicy),
 				vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 				vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
-				// Reference the per-replica root disk by its template name; the pool
-				// resolves it to this replica's own disk, first = boot device.
-				vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "root"}),
+				// No blockDeviceRefs: the pool template has no such field. The
+				// controller derives each replica's block devices from
+				// virtualDiskTemplates order (first = boot).
 			)
 			rootDisk := vdbuilder.New(
 				vdbuilder.WithSize(ptr.To(resource.MustParse("1Gi"))),
