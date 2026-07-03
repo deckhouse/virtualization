@@ -18,19 +18,23 @@ package copier
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/auth"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
 
-// ServiceAccountTokenUsername is a sentinel accessKeyId value that instructs the
-// (patched) CDI importer to authenticate to the registry with the Pod's projected
-// ServiceAccount token instead of static credentials. Must match the constant in
-// the CDI fork (deckhouse/3p-containerized-data-importer, pkg/importer/transport.go).
-const ServiceAccountTokenUsername = "dvcr-serviceaccount-token-auth"
+// ScopedTokenUsername is the Basic-auth username presented alongside a scoped
+// DVCR token. The registry authorizes on the token in the password; the username
+// is a fixed, human-readable marker.
+const ScopedTokenUsername = "dvcr-jwt"
 
 // AuthSecret copies auth credentials from the source Secret into
 // Destination Secret and ensure its data is CDI compatible:
@@ -45,18 +49,50 @@ type AuthSecret struct {
 	Secret
 }
 
-// CreateServiceAccountTokenAuth creates a CDI-compatible Opaque Secret whose
-// accessKeyId is the ServiceAccount-token sentinel, so the importer Pod
-// authenticates to DVCR with its own namespace-scoped identity instead of the
-// shared read-write credential. Used for VirtualDisk imports when per-namespace
-// DVCR authorization is enabled.
-func (a AuthSecret) CreateServiceAccountTokenAuth(ctx context.Context, client client.Client) error {
-	destData := map[string][]byte{
-		"accessKeyId": []byte(ServiceAccountTokenUsername),
-		"secretKey":   []byte(""),
+// CreateScopedTokenCDI mints a scoped DVCR token for access and stores it in a
+// CDI-compatible Opaque Secret (accessKeyId/secretKey). The importer Pod
+// authenticates to DVCR with a credential scoped to exactly the repositories in
+// access, instead of the shared read-write credential.
+func (a AuthSecret) CreateScopedTokenCDI(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access) error {
+	raw, err := signer.Sign(access, 0, time.Now())
+	if err != nil {
+		return fmt.Errorf("mint scoped DVCR token: %w", err)
 	}
-	_, err := a.Create(ctx, client, destData, corev1.SecretTypeOpaque)
+	destData := map[string][]byte{
+		"accessKeyId": []byte(ScopedTokenUsername),
+		"secretKey":   []byte(raw),
+	}
+	_, err = a.Create(ctx, client, destData, corev1.SecretTypeOpaque)
 	return err
+}
+
+// CreateScopedTokenDockerConfig mints a scoped DVCR token for access and stores
+// it as a dockerconfigjson Secret keyed by registryURL, so the dvcr-artifact
+// importer/uploader Pod reads it through the standard destination auth config.
+func (a AuthSecret) CreateScopedTokenDockerConfig(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access, registryURL string) error {
+	raw, err := signer.Sign(access, 0, time.Now())
+	if err != nil {
+		return fmt.Errorf("mint scoped DVCR token: %w", err)
+	}
+	cfg, err := dockerConfigJSON(registryURL, ScopedTokenUsername, raw)
+	if err != nil {
+		return err
+	}
+	destData := map[string][]byte{corev1.DockerConfigJsonKey: cfg}
+	_, err = a.Create(ctx, client, destData, corev1.SecretTypeDockerConfigJson)
+	return err
+}
+
+// dockerConfigJSON builds a minimal ~/.docker/config.json for a single registry.
+func dockerConfigJSON(registryURL, username, password string) ([]byte, error) {
+	entry := map[string]string{
+		"username": username,
+		"password": password,
+		"auth":     base64.StdEncoding.EncodeToString([]byte(username + ":" + password)),
+	}
+	return json.Marshal(map[string]any{
+		"auths": map[string]any{registryURL: entry},
+	})
 }
 
 // CopyCDICompatible transforms auth credentials in dockerconfigjson format into CDI compatible:

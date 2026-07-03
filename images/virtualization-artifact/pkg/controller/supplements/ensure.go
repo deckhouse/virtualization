@@ -34,6 +34,7 @@ import (
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
 
 type DataSource interface {
@@ -45,7 +46,7 @@ type DataSource interface {
 // EnsureForPod make supplements for importer or uploader Pod:
 // - It creates ConfigMap with caBundle for http and containerImage data sources.
 // - It copies DVCR auth Secret to use DVCR as destination.
-func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings) error {
+func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings, scope []registrytoken.Access) error {
 	// Create ConfigMap with caBundle.
 	if ds.HasCABundle() {
 		caBundleCM := supGen.CABundleConfigMap()
@@ -60,7 +61,20 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 	}
 
 	// Create Secret with auth config to use DVCR as destination.
-	if ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
+	switch {
+	case dvcrSettings.TenantAuthzEnabled:
+		// Mint a token scoped to this Pod's repositories instead of copying the
+		// shared read-write credential into the (possibly tenant) namespace.
+		authCopier := copier.AuthSecret{
+			Secret: copier.Secret{
+				Destination:    supGen.DVCRAuthSecret(),
+				OwnerReference: podutil.MakeOwnerReference(pod),
+			},
+		}
+		if err := authCopier.CreateScopedTokenDockerConfig(ctx, client, dvcrSettings.TokenSigner, scope, dvcrSettings.RegistryURL); err != nil {
+			return err
+		}
+	case ShouldCopyDVCRAuthSecret(dvcrSettings, supGen):
 		authSecret := supGen.DVCRAuthSecret()
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
@@ -104,12 +118,6 @@ func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen Generator) boo
 	if dvcrSettings.AuthSecret == "" {
 		return false
 	}
-	// With per-namespace authorization the Pod authenticates with its own
-	// ServiceAccount token, so the shared read-write credential must not be
-	// copied into the tenant namespace.
-	if dvcrSettings.TenantAuthzEnabled {
-		return false
-	}
 	// Should copy if namespaces are different.
 	return dvcrSettings.AuthSecretNamespace != supGen.Namespace()
 }
@@ -133,7 +141,7 @@ func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS st
 	return imgPullNS != "" && imgPullNS != targetNS
 }
 
-func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataVolumeSupplement, dv *cdiv1.DataVolume, dvcrSettings *dvcr.Settings) error {
+func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataVolumeSupplement, dv *cdiv1.DataVolume, dvcrSettings *dvcr.Settings, scope []registrytoken.Access) error {
 	if dvcrSettings.AuthSecret != "" {
 		authSecret := supGen.DVCRAuthSecretForDV()
 		authCopier := copier.AuthSecret{
@@ -147,12 +155,11 @@ func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataV
 			},
 		}
 
-		// With per-namespace authorization the importer Pod authenticates to DVCR
-		// with its own ServiceAccount token (via the sentinel credential understood
-		// by the patched CDI importer), so the shared read-write credential is not
-		// copied into the tenant namespace.
+		// With per-namespace authorization the CDI importer authenticates to DVCR
+		// with a token scoped to the source repository it pulls from, so the shared
+		// read-write credential is not copied into the tenant namespace.
 		if dvcrSettings.TenantAuthzEnabled {
-			if err := authCopier.CreateServiceAccountTokenAuth(ctx, client); err != nil {
+			if err := authCopier.CreateScopedTokenCDI(ctx, client, dvcrSettings.TokenSigner, scope); err != nil {
 				return err
 			}
 		} else if err := authCopier.CopyCDICompatible(ctx, client, dvcrSettings.RegistryURL); err != nil {

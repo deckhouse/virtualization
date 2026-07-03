@@ -72,28 +72,6 @@ func CreateVolumeMount(volName, mountPath string) corev1.VolumeMount {
 	}
 }
 
-// CreateProjectedSATokenVolume creates a volume with a projected ServiceAccount
-// token at the given relative path. The audience is left empty so the token is
-// accepted by the apiserver's default TokenReview. expirationSeconds controls
-// kubelet rotation of the token file.
-func CreateProjectedSATokenVolume(volName, path string, expirationSeconds int64) corev1.Volume {
-	return corev1.Volume{
-		Name: volName,
-		VolumeSource: corev1.VolumeSource{
-			Projected: &corev1.ProjectedVolumeSource{
-				Sources: []corev1.VolumeProjection{
-					{
-						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-							Path:              path,
-							ExpirationSeconds: ptr.To(expirationSeconds),
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func AddVolume(pod *corev1.Pod, container *corev1.Container, volume corev1.Volume, mount corev1.VolumeMount, envVar corev1.EnvVar) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, volume)
 	container.VolumeMounts = append(container.VolumeMounts, mount)

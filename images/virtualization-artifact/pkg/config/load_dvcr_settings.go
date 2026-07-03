@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
 
 const (
@@ -43,6 +44,9 @@ const (
 	DVCRGCScheduleVar = "DVCR_GC_SCHEDULE"
 	// DVCRTenantAuthzEnabledVar is an env variable that enables per-namespace DVCR authorization.
 	DVCRTenantAuthzEnabledVar = "DVCR_TENANT_AUTHZ_ENABLED"
+	// DVCRTokenPrivateKeyVar holds the PEM ECDSA private key used to mint scoped
+	// DVCR tokens. Required when DVCR_TENANT_AUTHZ_ENABLED is true.
+	DVCRTokenPrivateKeyVar = "DVCR_TOKEN_PRIVATE_KEY"
 
 	// UploaderIngressHostVar is a env variable
 	UploaderIngressHostVar = "UPLOADER_INGRESS_HOST"
@@ -91,6 +95,18 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 
 	if dvcrSettings.GCSchedule == "" {
 		dvcrSettings.GCSchedule = dvcr.DefaultGCSchedule
+	}
+
+	if dvcrSettings.TenantAuthzEnabled {
+		keyPEM := os.Getenv(DVCRTokenPrivateKeyVar)
+		if keyPEM == "" {
+			return nil, fmt.Errorf("environment variable %q undefined, required when %s is true", DVCRTokenPrivateKeyVar, DVCRTenantAuthzEnabledVar)
+		}
+		signer, err := registrytoken.NewSignerFromPEM([]byte(keyPEM))
+		if err != nil {
+			return nil, fmt.Errorf("init DVCR token signer: %w", err)
+		}
+		dvcrSettings.TokenSigner = signer
 	}
 
 	return dvcrSettings, nil

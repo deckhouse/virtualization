@@ -19,8 +19,11 @@ package dvcr
 import (
 	"fmt"
 	"path"
+	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
 
 type Settings struct {
@@ -43,10 +46,12 @@ type Settings struct {
 	// GCSchedule is a cron formatted schedule to periodically run a garbage collection.
 	GCSchedule string
 	// TenantAuthzEnabled turns on per-namespace DVCR authorization: importer and
-	// uploader Pods authenticate with their ServiceAccount token instead of the
-	// shared read-write credential, which is then no longer copied into tenant
-	// namespaces.
+	// uploader Pods authenticate with a scoped token minted for the single
+	// repository they use, instead of the shared read-write credential, which is
+	// then no longer copied into tenant namespaces.
 	TenantAuthzEnabled bool
+	// TokenSigner mints the scoped tokens. Non-nil only when TenantAuthzEnabled.
+	TokenSigner *registrytoken.Signer
 }
 
 type UploaderIngressSettings struct {
@@ -79,4 +84,20 @@ func (s *Settings) RegistryImageForVI(obj client.Object) string {
 func (s *Settings) RegistryImageForVD(obj client.Object) string {
 	imgPath := path.Clean(fmt.Sprintf(VMDImageTmpl, obj.GetNamespace(), obj.GetName(), obj.GetUID()))
 	return path.Join(s.RegistryURL, imgPath)
+}
+
+// RepoPath extracts the repository path (e.g. "vi/ns/name", "cvi/name") from a
+// DVCR image reference by stripping the optional docker:// scheme, the registry
+// host and the tag/digest. It is the name used in a scoped token's access claim.
+func (s *Settings) RepoPath(imageRef string) string {
+	ref := strings.TrimPrefix(imageRef, "docker://")
+	ref = strings.TrimPrefix(ref, s.RegistryURL)
+	ref = strings.TrimPrefix(ref, "/")
+	if i := strings.Index(ref, "@"); i >= 0 {
+		ref = ref[:i]
+	}
+	if slash := strings.LastIndex(ref, "/"); strings.LastIndex(ref, ":") > slash {
+		ref = ref[:strings.LastIndex(ref, ":")]
+	}
+	return path.Clean(ref)
 }
