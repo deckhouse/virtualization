@@ -147,8 +147,15 @@ func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataV
 			},
 		}
 
-		err := authCopier.CopyCDICompatible(ctx, client, dvcrSettings.RegistryURL)
-		if err != nil {
+		// With per-namespace authorization the importer Pod authenticates to DVCR
+		// with its own ServiceAccount token (via the sentinel credential understood
+		// by the patched CDI importer), so the shared read-write credential is not
+		// copied into the tenant namespace.
+		if dvcrSettings.TenantAuthzEnabled {
+			if err := authCopier.CreateServiceAccountTokenAuth(ctx, client); err != nil {
+				return err
+			}
+		} else if err := authCopier.CopyCDICompatible(ctx, client, dvcrSettings.RegistryURL); err != nil {
 			return err
 		}
 	}

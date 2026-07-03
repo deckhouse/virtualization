@@ -26,6 +26,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
+// ServiceAccountTokenUsername is a sentinel accessKeyId value that instructs the
+// (patched) CDI importer to authenticate to the registry with the Pod's projected
+// ServiceAccount token instead of static credentials. Must match the constant in
+// the CDI fork (deckhouse/3p-containerized-data-importer, pkg/importer/transport.go).
+const ServiceAccountTokenUsername = "dvcr-serviceaccount-token-auth"
+
 // AuthSecret copies auth credentials from the source Secret into
 // Destination Secret and ensure its data is CDI compatible:
 // type: Opaque
@@ -37,6 +43,20 @@ import (
 // Additionally OwnerRef, Annotations, and Labels may be passed.
 type AuthSecret struct {
 	Secret
+}
+
+// CreateServiceAccountTokenAuth creates a CDI-compatible Opaque Secret whose
+// accessKeyId is the ServiceAccount-token sentinel, so the importer Pod
+// authenticates to DVCR with its own namespace-scoped identity instead of the
+// shared read-write credential. Used for VirtualDisk imports when per-namespace
+// DVCR authorization is enabled.
+func (a AuthSecret) CreateServiceAccountTokenAuth(ctx context.Context, client client.Client) error {
+	destData := map[string][]byte{
+		"accessKeyId": []byte(ServiceAccountTokenUsername),
+		"secretKey":   []byte(""),
+	}
+	_, err := a.Create(ctx, client, destData, corev1.SecretTypeOpaque)
+	return err
 }
 
 // CopyCDICompatible transforms auth credentials in dockerconfigjson format into CDI compatible:
