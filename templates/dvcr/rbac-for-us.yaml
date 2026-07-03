@@ -84,4 +84,20 @@ subjects:
   - kind: ServiceAccount
     name: dvcr
     namespace: d8-{{ .Chart.Name }}
+---
+# Allow the registry to verify ServiceAccount tokens via TokenReview for the
+# dvcr-k8s multi-tenant authorization backend.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:{{ .Chart.Name }}:dvcr:auth-delegator
+  {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: dvcr
+    namespace: d8-{{ .Chart.Name }}
 {{- end }}
