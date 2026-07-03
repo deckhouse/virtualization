@@ -54,7 +54,7 @@ type AuthSecret struct {
 // authenticates to DVCR with a credential scoped to exactly the repositories in
 // access, instead of the shared read-write credential.
 func (a AuthSecret) CreateScopedTokenCDI(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access) error {
-	raw, err := signer.Sign(access, 0, time.Now())
+	raw, err := signer.Sign(access, time.Now())
 	if err != nil {
 		return fmt.Errorf("mint scoped DVCR token: %w", err)
 	}
@@ -70,7 +70,7 @@ func (a AuthSecret) CreateScopedTokenCDI(ctx context.Context, client client.Clie
 // it as a dockerconfigjson Secret keyed by registryURL, so the dvcr-artifact
 // importer/uploader Pod reads it through the standard destination auth config.
 func (a AuthSecret) CreateScopedTokenDockerConfig(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access, registryURL string) error {
-	raw, err := signer.Sign(access, 0, time.Now())
+	raw, err := signer.Sign(access, time.Now())
 	if err != nil {
 		return fmt.Errorf("mint scoped DVCR token: %w", err)
 	}

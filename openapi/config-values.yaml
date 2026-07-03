@@ -139,10 +139,10 @@ properties:
         description: |
           Enable per-namespace authorization in the DVCR registry (experimental).
 
-          When enabled, image import and upload Pods authenticate to DVCR with their own
-          ServiceAccount token and may access only repositories in their namespace, while
-          nodes get pull-only access. The shared read-write credential is no longer copied
-          into tenant namespaces.
+          When enabled, image import and upload Pods authenticate to DVCR with a scoped
+          token that grants access only to the repositories they use, while nodes get
+          pull-only access. The shared read-write credential is no longer copied into
+          tenant namespaces.
 
           When disabled (default), DVCR uses shared htpasswd credentials. Disable to roll back.
   audit:

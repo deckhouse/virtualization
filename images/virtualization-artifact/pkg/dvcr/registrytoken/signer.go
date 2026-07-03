@@ -85,18 +85,15 @@ func parseECKey(der []byte) (*ecdsa.PrivateKey, error) {
 	return x509.ParseECPrivateKey(der)
 }
 
-// Sign issues a token granting access, valid for ttl. A non-positive ttl uses
-// DefaultTTL. now is passed explicitly to keep the function testable.
-func (s *Signer) Sign(access []Access, ttl time.Duration, now time.Time) (string, error) {
-	if ttl <= 0 {
-		ttl = DefaultTTL
-	}
+// Sign issues a token granting access, valid for DefaultTTL. now is passed
+// explicitly to keep the function testable.
+func (s *Signer) Sign(access []Access, now time.Time) (string, error) {
 	claims := jwt.MapClaims{
 		"iss":    Issuer,
 		"aud":    Audience,
 		"iat":    now.Unix(),
 		"nbf":    now.Add(-30 * time.Second).Unix(),
-		"exp":    now.Add(ttl).Unix(),
+		"exp":    now.Add(DefaultTTL).Unix(),
 		"access": access,
 	}
 	tok := jwt.NewWithClaims(jwt.SigningMethodES256, claims)

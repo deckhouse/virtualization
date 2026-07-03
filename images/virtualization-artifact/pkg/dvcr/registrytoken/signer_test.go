@@ -50,7 +50,7 @@ func TestSignRoundTrip(t *testing.T) {
 
 	access := []Access{{Type: "repository", Name: "cvi/my-image", Actions: []string{"pull", "push"}}}
 	now := time.Unix(1_700_000_000, 0)
-	raw, err := signer.Sign(access, time.Hour, now)
+	raw, err := signer.Sign(access, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,12 +86,13 @@ func TestSignExpired(t *testing.T) {
 	keyPEM, pub := newSignerPEM(t)
 	signer, _ := NewSignerFromPEM(keyPEM)
 	now := time.Unix(1_700_000_000, 0)
-	raw, err := signer.Sign(nil, time.Hour, now)
+	raw, err := signer.Sign(nil, now)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Past DefaultTTL the token must no longer verify.
 	_, err = jwt.Parse(raw, func(*jwt.Token) (interface{}, error) { return pub, nil },
-		jwt.WithTimeFunc(func() time.Time { return now.Add(2 * time.Hour) }))
+		jwt.WithTimeFunc(func() time.Time { return now.Add(DefaultTTL + time.Hour) }))
 	if err == nil {
 		t.Fatal("expected expired token to fail verification")
 	}

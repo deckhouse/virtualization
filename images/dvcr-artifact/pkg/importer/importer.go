@@ -49,7 +49,7 @@ const (
 	DockerRegistrySchemePrefix = "docker://"
 	DVCRSource                 = "dvcr"
 	BlockDeviceSource          = "blockDevice"
-	FilesystemSource           = "filesystem"
+	FilesystemSource          = "filesystem"
 )
 
 func New() *Importer {
@@ -253,17 +253,10 @@ func (i *Importer) destRemoteOptions(ctx context.Context) []remote.Option {
 	remoteOpts := []remote.Option{
 		remote.WithContext(ctx),
 		remote.WithTransport(transport),
-		remote.WithAuth(i.destAuthenticator()),
+		remote.WithAuth(&authn.Basic{Username: i.destUsername, Password: i.destPassword}),
 	}
 
 	return remoteOpts
-}
-
-// destAuthenticator returns the Basic authenticator for pushing to DVCR. The
-// credentials are a scoped token (per-namespace authorization) or the shared
-// read-write credential; both are presented as Basic username/password.
-func (i *Importer) destAuthenticator() authn.Authenticator {
-	return &authn.Basic{Username: i.destUsername, Password: i.destPassword}
 }
 
 func (i *Importer) destCraneOptions(ctx context.Context) []crane.Option {
@@ -277,7 +270,7 @@ func (i *Importer) destCraneOptions(ctx context.Context) []crane.Option {
 	craneOpts := []crane.Option{
 		crane.WithContext(ctx),
 		crane.WithTransport(transport),
-		crane.WithAuth(i.destAuthenticator()),
+		crane.WithAuth(&authn.Basic{Username: i.destUsername, Password: i.destPassword}),
 	}
 
 	return craneOpts

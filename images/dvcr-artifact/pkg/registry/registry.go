@@ -88,21 +88,14 @@ type DestinationRegistry struct {
 
 func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistry, sha256Sum, md5Sum string) (*DataProcessor, error) {
 	return &DataProcessor{
-		ds:            ds,
-		destUsername:  dest.Username,
-		destPassword:  dest.Password,
-		destImageName: dest.ImageName,
-		sha256Sum:     sha256Sum,
-		md5Sum:        md5Sum,
-		destInsecure:  dest.Insecure,
+		ds,
+		dest.Username,
+		dest.Password,
+		dest.ImageName,
+		sha256Sum,
+		md5Sum,
+		dest.Insecure,
 	}, nil
-}
-
-// destAuthenticator returns the Basic authenticator for pushing to DVCR. The
-// credentials are a scoped token (per-namespace authorization) or the shared
-// read-write credential; both are presented as Basic username/password.
-func (p DataProcessor) destAuthenticator() authn.Authenticator {
-	return &authn.Basic{Username: p.destUsername, Password: p.destPassword}
 }
 
 func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
@@ -332,7 +325,7 @@ func (p DataProcessor) uploadLayersAndImage(
 	informer *ImageInformer,
 ) error {
 	nameOpts := destNameOptions(p.destInsecure)
-	remoteOpts := destRemoteOptions(ctx, p.destAuthenticator(), p.destInsecure)
+	remoteOpts := destRemoteOptions(ctx, p.destUsername, p.destPassword, p.destInsecure)
 	image := empty.Image
 
 	ref, err := name.ParseReference(p.destImageName, nameOpts...)
@@ -424,7 +417,7 @@ func destNameOptions(destInsecure bool) []name.Option {
 	return nameOpts
 }
 
-func destRemoteOptions(ctx context.Context, authenticator authn.Authenticator, destInsecure bool) []remote.Option {
+func destRemoteOptions(ctx context.Context, destUsername, destPassword string, destInsecure bool) []remote.Option {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: destInsecure,
 	}
@@ -435,7 +428,7 @@ func destRemoteOptions(ctx context.Context, authenticator authn.Authenticator, d
 	remoteOpts := []remote.Option{
 		remote.WithContext(ctx),
 		remote.WithTransport(transport),
-		remote.WithAuth(authenticator),
+		remote.WithAuth(&authn.Basic{Username: destUsername, Password: destPassword}),
 	}
 
 	return remoteOpts
