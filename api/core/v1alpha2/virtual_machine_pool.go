@@ -155,6 +155,7 @@ type VirtualDiskReclaim struct {
 	// scale-up; these are immune to the ttl. Only meaningful with Retain.
 	//
 	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
 	// +optional
 	Keep int32 `json:"keep,omitempty"`
 

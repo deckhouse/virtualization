@@ -119,6 +119,7 @@ spec:
                         description: Reclaim controls what happens to the disk when its replica is removed.
                         properties:
                           keep:
+                            default: 0
                             description: |-
                               Keep is the number of free (Retain) disks always kept warm for fast
                               scale-up; these are immune to the ttl. Only meaningful with Retain.
