@@ -206,6 +206,7 @@ func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2
 		if attached {
 			continue // detach not yet done; retry next reconcile, never delete an attached disk
 		}
+		log.Info("deleting disk of a removed template", "disk", d.Name, "diskTemplate", tmpl)
 		if err := h.client.Delete(ctx, d); err != nil && !apierrors.IsNotFound(err) {
 			errs = errors.Join(errs, fmt.Errorf("delete disk %s of removed template %s: %w", d.Name, tmpl, err))
 		}
@@ -240,6 +241,7 @@ func (h *DisksHandler) reconcileDiskSizes(ctx context.Context, pool *v1alpha2.Vi
 			patched := d.DeepCopy()
 			size := want.DeepCopy()
 			patched.Spec.PersistentVolumeClaim.Size = &size
+			logf.FromContext(ctx).Info("resizing disk", "disk", d.Name, "diskTemplate", dt.Name, "to", want.String())
 			if err := h.client.Update(ctx, patched); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("resize disk %s: %w", d.Name, err))
 			}
@@ -340,6 +342,7 @@ func (h *DisksHandler) gcReuseDisks(
 		}
 		// Conditional delete: skip if the disk changed since we read it (e.g. was
 		// just handed to a new replica).
+		logf.FromContext(ctx).Info("garbage-collecting a free reuse disk past ttl", "disk", d.Name, "diskTemplate", dt.Name)
 		if err := h.client.Delete(ctx, d, client.Preconditions{ResourceVersion: &d.ResourceVersion}); err != nil && !apierrors.IsNotFound(err) && !apierrors.IsConflict(err) {
 			errs = errors.Join(errs, fmt.Errorf("gc free disk %s: %w", d.Name, err))
 		}
@@ -461,6 +464,7 @@ func (h *DisksHandler) detachDisk(ctx context.Context, m *v1alpha2.VirtualMachin
 			return err
 		}
 		cur.DeepCopyInto(m)
+		logf.FromContext(ctx).Info("detached disk from member", "member", m.GetName(), "disk", diskName)
 		return nil
 	})
 	if err != nil {
@@ -529,11 +533,13 @@ func (h *DisksHandler) ensureRetainDisk(
 			pick = freeAny
 		}
 		assignedThisPass[pick.Name] = true
+		logf.FromContext(ctx).Info("reusing a free pool disk", "member", m.GetName(), "disk", pick.Name, "diskTemplate", dt.Name)
 		return h.attachDisk(ctx, m, pick.Name, dt.Name)
 	}
 
 	// No free disk at all — create a new pool-owned disk and attach it.
 	name := fmt.Sprintf("%s-%s-%s", pool.GetName(), dt.Name, rand.String(6))
+	logf.FromContext(ctx).Info("creating a reuse disk", "member", m.GetName(), "disk", name, "diskTemplate", dt.Name)
 	if err := h.client.Create(ctx, h.newRetainDisk(pool, dt, name)); err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create reuse disk %s: %w", name, err)
 	}
@@ -624,6 +630,7 @@ func (h *DisksHandler) ensureDeleteDisk(ctx context.Context, pool *v1alpha2.Virt
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: m.GetNamespace(), Name: diskName}, &disk)
 	switch {
 	case apierrors.IsNotFound(err):
+		logf.FromContext(ctx).Info("creating a per-replica disk", "member", m.GetName(), "disk", diskName, "diskTemplate", dt.Name)
 		if err := h.client.Create(ctx, buildDeleteDisk(pool, m, dt, diskName)); err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create disk %s: %w", diskName, err)
 		}
