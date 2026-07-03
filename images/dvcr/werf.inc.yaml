@@ -48,6 +48,25 @@ import:
   add: /src/distribution
   to: /distribution
   before: install
+git:
+# DVCR multi-tenant authorization plugin sources, compiled into the registry
+# binary (see images/dvcr/dvcr-k8s-auth and images/dvcr/registry-main).
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/dvcr-k8s-auth
+  to: /plugin/dvcrk8s
+  includePaths:
+  - "*.go"
+  excludePaths:
+  - "*_test.go"
+  stageDependencies:
+    install:
+    - "**/*.go"
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/registry-main
+  to: /plugin/registry-main
+  includePaths:
+  - "*.go"
+  stageDependencies:
+    install:
+    - "**/*.go"
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
@@ -63,6 +82,13 @@ shell:
     mkdir -p /container-registry-binary
     cd /distribution
 
+    # Graft the DVCR auth plugin and its entrypoint into the distribution module.
+    # The plugin depends only on the distribution auth package and the standard
+    # library, so no go.mod changes are required.
+    mkdir -p /distribution/registry/auth/dvcrk8s /distribution/cmd/dvcr-registry
+    cp /plugin/dvcrk8s/*.go /distribution/registry/auth/dvcrk8s/
+    cp /plugin/registry-main/*.go /distribution/cmd/dvcr-registry/
+
     export VERSION={{ $version }}
     {{- $_ := set $ "ProjectName" (list .ImageName "dvcr" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -o /container-registry-binary/ -ldflags '-s -w -X github.com/distribution/distribution/v3/version.version=v$VERSION -X github.com/distribution/distribution/v3/version.revision=v$VERSION -X github.com/distribution/distribution/v3/version.mainpkg=github.com/distribution/distribution/v3' ./cmd/registry`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -tags dvcr_registry -o /container-registry-binary/registry -ldflags '-s -w -X github.com/distribution/distribution/v3/version.version=v$VERSION -X github.com/distribution/distribution/v3/version.revision=v$VERSION -X github.com/distribution/distribution/v3/version.mainpkg=github.com/distribution/distribution/v3' ./cmd/dvcr-registry`) | nindent 6 }}

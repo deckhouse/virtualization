@@ -26,18 +26,18 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/distribution/distribution/v3/registry/auth"
-	"github.com/sirupsen/logrus"
 )
 
 func init() {
 	if err := auth.Register("dvcr-k8s", auth.InitFunc(newAccessController)); err != nil {
-		logrus.Errorf("failed to register dvcr-k8s auth: %v", err)
+		log.Printf("failed to register dvcr-k8s auth: %v", err)
 	}
 }
 
