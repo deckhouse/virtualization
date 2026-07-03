@@ -83,8 +83,9 @@ shell:
     cd /distribution
 
     # Graft the DVCR auth plugin and its entrypoint into the distribution module.
-    # The plugin depends only on the distribution auth package and the standard
-    # library, so no go.mod changes are required.
+    # The plugin depends only on the distribution auth package, go-jose/v4 (already
+    # a direct dependency of distribution v3) and the standard library, so no go.mod
+    # changes are required.
     mkdir -p /distribution/registry/auth/dvcrk8s /distribution/cmd/dvcr-registry
     cp /plugin/dvcrk8s/*.go /distribution/registry/auth/dvcrk8s/
     cp /plugin/registry-main/*.go /distribution/cmd/dvcr-registry/
