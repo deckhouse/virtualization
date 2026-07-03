@@ -126,16 +126,23 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 	}
 
 	// After (re)assignment, garbage-collect free reuse disks per Retain template.
+	// Track the soonest a free disk becomes GC-eligible and requeue for it, so ttl
+	// collection fires even when nothing else triggers a reconcile (idle pool).
+	var requeueAfter time.Duration
 	for j := range pool.Spec.VirtualDiskTemplates {
 		dt := pool.Spec.VirtualDiskTemplates[j]
 		if isDeletePolicy(dt) {
 			continue
 		}
-		if err := h.gcReuseDisks(ctx, pool, dt, referenced, assignedThisPass); err != nil {
+		after, err := h.gcReuseDisks(ctx, pool, dt, referenced, assignedThisPass)
+		if err != nil {
 			errs = errors.Join(errs, err)
 		}
+		if after > 0 && (requeueAfter == 0 || after < requeueAfter) {
+			requeueAfter = after
+		}
 	}
-	return reconcile.Result{}, errs
+	return reconcile.Result{RequeueAfter: requeueAfter}, errs
 }
 
 // pruneRemovedTemplates deletes disks whose disk template is no longer present
@@ -255,15 +262,19 @@ func diskRefIndex(m *v1alpha2.VirtualMachine, diskName string) int {
 // gcReuseDisks stamps free reuse disks with a free-since time, clears it when a
 // disk is back in use, and deletes free disks that are outside the warm buffer
 // (keep) and older than the ttl.
+// gcReuseDisks returns how long until the next free disk of this template becomes
+// eligible for collection (0 if none is pending), so the caller can requeue —
+// otherwise ttl-based GC would only fire on an unrelated reconcile and free disks
+// would linger on an idle pool.
 func (h *DisksHandler) gcReuseDisks(
 	ctx context.Context,
 	pool *v1alpha2.VirtualMachinePool,
 	dt v1alpha2.VirtualDiskTemplateSpec,
 	referenced, assignedThisPass map[string]bool,
-) error {
+) (time.Duration, error) {
 	disks, err := h.listReuseDisks(ctx, pool, dt)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := h.now()
 
@@ -302,7 +313,7 @@ func (h *DisksHandler) gcReuseDisks(
 	// No ttl configured — keep all free disks (only the warm buffer semantics
 	// would apply, and without a ttl nothing ages out).
 	if dt.Reclaim.TTL == nil {
-		return errs
+		return 0, errs
 	}
 
 	// Warm buffer: keep the most-recently-freed `keep` disks immune to the ttl.
@@ -310,11 +321,21 @@ func (h *DisksHandler) gcReuseDisks(
 		return freeSince(free[i]).After(freeSince(free[j]))
 	})
 	ttl := dt.Reclaim.TTL.Duration
+	var requeueAfter time.Duration
 	for i, d := range free {
 		if i < int(dt.Reclaim.Keep) {
 			continue
 		}
-		if now.Sub(freeSince(d)) <= ttl {
+		if age := now.Sub(freeSince(d)); age <= ttl {
+			// Not yet expired — schedule a re-check for when it will be, so GC
+			// fires even if nothing else triggers a reconcile.
+			remaining := ttl - age
+			if remaining <= 0 {
+				remaining = time.Second
+			}
+			if requeueAfter == 0 || remaining < requeueAfter {
+				requeueAfter = remaining
+			}
 			continue
 		}
 		// Conditional delete: skip if the disk changed since we read it (e.g. was
@@ -323,7 +344,7 @@ func (h *DisksHandler) gcReuseDisks(
 			errs = errors.Join(errs, fmt.Errorf("gc free disk %s: %w", d.Name, err))
 		}
 	}
-	return errs
+	return requeueAfter, errs
 }
 
 // reassignCollisions detaches a reuse disk from all but one member when several

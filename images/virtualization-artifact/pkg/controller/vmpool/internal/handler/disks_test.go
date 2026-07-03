@@ -419,6 +419,23 @@ var _ = Describe("DisksHandler", func() {
 			_, ok := diskExists(ctx, c, "web-cache-1")
 			Expect(ok).To(BeTrue()) // no ttl → never aged out
 		})
+
+		It("requeues for the moment a not-yet-expired free disk becomes GC-eligible", func() {
+			pool := gcPool(0, ttl) // ttl 30m, keep 0
+			free := reuseDisk(pool, "web-cache-1", v1alpha2.DiskReady)
+			free.Annotations = map[string]string{poollabels.FreeSince: referenceTime.Add(-20 * time.Minute).UTC().Format(time.RFC3339)}
+			c, err := testutil.NewFakeClientWithObjects(pool, free)
+			Expect(err).NotTo(HaveOccurred())
+
+			res, err := handlerAt(c, referenceTime).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			// 20m free, 30m ttl → ~10m left; the handler must requeue so GC fires
+			// even without another reconcile trigger (idle pool).
+			Expect(res.RequeueAfter).To(BeNumerically("~", 10*time.Minute, time.Minute))
+			_, ok := diskExists(ctx, c, "web-cache-1")
+			Expect(ok).To(BeTrue()) // not collected yet
+		})
 	})
 
 	Context("disk resize", func() {
