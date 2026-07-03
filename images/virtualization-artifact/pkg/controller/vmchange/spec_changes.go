@@ -229,9 +229,19 @@ func (s *SpecChanges) GetRestartMessages() []string {
 	return msgs
 }
 
-func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
+func (s *SpecChanges) ConvertPendingRestartChanges() ([]apiextensionsv1.JSON, error) {
+	return s.convertPendingChanges(func(change FieldChange) bool {
+		return change.ActionRequired == ActionRestart
+	})
+}
+
+func (s *SpecChanges) convertPendingChanges(include func(FieldChange) bool) ([]apiextensionsv1.JSON, error) {
 	res := make([]apiextensionsv1.JSON, 0, len(s.changes))
 	for i := range s.changes {
+		if !include(s.changes[i]) {
+			continue
+		}
+
 		b, err := json.Marshal(s.changes[i])
 		if err != nil {
 			return nil, fmt.Errorf("change[%d]: %w", i, err)
@@ -242,10 +252,10 @@ func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
 	return res, nil
 }
 
-func (s *SpecChanges) UpgradeBlockDeviceChangesToRestart() {
+func (s *SpecChanges) UpgradeBlockDeviceChangesToRestartMatching(shouldUpgrade func(FieldChange) bool) {
 	for i := range s.changes {
 		isBlockDeviceChange := s.changes[i].Path == blockDevicesPath || strings.HasPrefix(s.changes[i].Path, blockDevicesPath+".")
-		if isBlockDeviceChange && s.changes[i].ActionRequired == ActionApplyImmediate {
+		if isBlockDeviceChange && s.changes[i].ActionRequired == ActionApplyImmediate && (shouldUpgrade == nil || shouldUpgrade(s.changes[i])) {
 			s.changes[i].ActionRequired = ActionRestart
 		}
 	}
