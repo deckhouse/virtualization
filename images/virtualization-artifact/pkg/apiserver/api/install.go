@@ -28,7 +28,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	vmpoolstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
-	"github.com/deckhouse/virtualization-controller/pkg/version"
 	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
@@ -90,14 +89,14 @@ func Install(
 		kubevirt,
 		proxyCertManager,
 	)
-	// Paid-edition (EE/SE+) subresources are constructed here and injected, the
-	// same way vmStorage is. The runtime VirtualMachinePool feature gate is not
-	// wired into the apiserver process, so the compiled-in edition is the guard:
-	// in CE nothing is constructed and the endpoints are never served.
-	var poolStorage *vmpoolstorage.VirtualMachinePoolStorage
-	if version.GetEdition() != version.EditionCE {
-		poolStorage = vmpoolstorage.NewStorage(virtCli)
-	}
+	// Enterprise (EE/SE+) subresources are constructed here and injected, the same
+	// way vmStorage is. They are registered unconditionally: the apiserver process
+	// has neither the runtime feature gate (not wired in here) nor the compiled-in
+	// edition (the virtualization-api binary is built without an edition tag), so
+	// it cannot gate them itself. Availability is enforced upstream — the pool CRD
+	// is installed only when the feature gate is on, and the controller self-gates;
+	// with no CRD the endpoint simply resolves to NotFound.
+	poolStorage := vmpoolstorage.NewStorage(virtCli)
 	info := Build(vmStorage, poolStorage)
 	return server.InstallAPIGroup(&info)
 }

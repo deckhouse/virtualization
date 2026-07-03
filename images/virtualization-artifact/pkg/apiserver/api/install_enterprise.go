@@ -23,8 +23,8 @@ import (
 )
 
 // installEnterpriseResources registers subresources for paid-edition (EE/SE+)
-// features into the aggregated apiserver group. poolStorage is nil outside paid
-// editions (see Install), in which case nothing is registered.
+// features into the aggregated apiserver group. See Install for why they are
+// registered unconditionally.
 func installEnterpriseResources(resources map[string]rest.Storage, poolStorage *vmpoolstorage.VirtualMachinePoolStorage) {
 	if poolStorage == nil {
 		return
