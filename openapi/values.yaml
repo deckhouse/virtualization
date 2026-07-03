@@ -33,6 +33,9 @@ properties:
                 default: ""
           passwordRW:
             type: string
+          passwordPuller:
+            type: string
+            default: ""
           htpasswd:
             type: string
           salt:
