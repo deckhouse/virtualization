@@ -69,17 +69,17 @@ if [[ ! -d schemas ]]; then
   echo "  VerticalPodAutoscaler"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/302-vertical-pod-autoscaler/crds/verticalpodautoscaler.yaml
   echo "  ScrapeConfig"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/scrapeconfigs.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/200-operator-prometheus/crds/scrapeconfigs.yaml
   echo "  ServiceMonitor"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/servicemonitors.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/200-operator-prometheus/crds/servicemonitors.yaml
   echo "  PrometheusRule"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/internal/prometheusrules.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/200-operator-prometheus/crds/internal/prometheusrules.yaml
   echo "  NodeGroupConfiguration"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/040-node-manager/crds/nodegroupconfiguration.yaml
   echo "  Certificate"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/cert-manager/cert-manager.io_certificates.yaml
   echo "  GrafanaDashboardDefinition"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
   echo " ClusterLoggingConfig"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/460-log-shipper/crds/cluster-logging-config.yaml
   echo " ClusterLogDestination"
