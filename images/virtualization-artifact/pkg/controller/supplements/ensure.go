@@ -63,8 +63,6 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 	// Create Secret with auth config to use DVCR as destination.
 	switch {
 	case dvcrSettings.TenantAuthzEnabled:
-		// Mint a token scoped to this Pod's repositories instead of copying the
-		// shared read-write credential into the (possibly tenant) namespace.
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
 				Destination:    supGen.DVCRAuthSecret(),
@@ -155,9 +153,6 @@ func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataV
 			},
 		}
 
-		// With per-namespace authorization the CDI importer authenticates to DVCR
-		// with a token scoped to the source repository it pulls from, so the shared
-		// read-write credential is not copied into the tenant namespace.
 		if dvcrSettings.TenantAuthzEnabled {
 			if err := authCopier.CreateScopedTokenCDI(ctx, client, dvcrSettings.TokenSigner, scope); err != nil {
 				return err

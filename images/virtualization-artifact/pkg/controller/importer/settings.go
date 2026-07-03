@@ -70,9 +70,6 @@ type Settings struct {
 
 func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen supplements.Generator, dvcrImageName string) {
 	authSecret := dvcrSettings.AuthSecret
-	// With per-namespace authorization every Pod gets a per-import scoped token
-	// Secret (created by supplements.EnsureForPod); otherwise the shared credential
-	// is used, copied into the namespace only when they differ.
 	if dvcrSettings.TenantAuthzEnabled || supplements.ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
 		authSecret = supGen.DVCRAuthSecret().Name
 	}
