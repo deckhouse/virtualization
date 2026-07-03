@@ -37,14 +37,12 @@ import (
 // is a fixed, human-readable marker.
 const ScopedTokenUsername = "dvcr-jwt"
 
-// scopedTokenExpiryAnnotation records the scoped token's expiry (RFC3339) so a
-// reconcile can re-mint the Secret only when the token is close to expiring,
-// instead of writing a fresh token on every pass.
+// scopedTokenExpiryAnnotation records the token expiry (RFC3339) so a reconcile
+// re-mints only when it is close to expiring, not on every pass.
 const scopedTokenExpiryAnnotation = "dvcr.deckhouse.io/scoped-token-expires-at"
 
-// scopedTokenRefreshThreshold is how much validity must remain before a reconcile
-// re-mints the token. Reconciles run far more often than this, so refreshing in
-// the last hour keeps a valid token available while minimizing re-mint churn.
+// scopedTokenRefreshThreshold: re-mint once validity drops below this. Reconciles
+// run far more often than an hour, so a valid token stays available cheaply.
 const scopedTokenRefreshThreshold = time.Hour
 
 // AuthSecret copies auth credentials from the source Secret into
@@ -86,10 +84,9 @@ func (a AuthSecret) CreateScopedTokenDockerConfig(ctx context.Context, client cl
 	})
 }
 
-// ensureScopedToken mints a scoped token and writes the destination Secret only
-// when it is missing or within half its TTL of expiring. Reusing a still-fresh
-// Secret keeps re-mint churn down; refreshing before expiry means an import that
-// outlives one token gets a valid one on a later reconcile instead of a stale 403.
+// ensureScopedToken writes the destination Secret with a freshly minted token
+// only when it is missing or near expiry, so an import that outlives one token
+// gets a valid one on a later reconcile instead of a stale 403.
 func (a AuthSecret) ensureScopedToken(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access, build func(raw string) (map[string][]byte, corev1.SecretType, error)) error {
 	now := time.Now()
 

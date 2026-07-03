@@ -16,12 +16,9 @@ limitations under the License.
 
 //go:build dvcr_registry
 
-// Integration tests for the JWT verification path. They mint tokens the way the
-// virtualization-controller does (golang-jwt/v5) and an attacker would (go-jose
-// x5c header), then verify them through the real distribution token backend the
-// registry uses. This is the only place the load-bearing empty-Roots defense in
-// verifyJWT is exercised end to end; it is excluded from the werf build (which
-// copies *.go but not *_test.go).
+// Integration tests for verifyJWT: mint tokens as the controller (golang-jwt) and
+// as an x5c attacker (go-jose), verify through the real distribution backend. The
+// only end-to-end check of the empty-Roots x5c defense.
 
 package dvcrk8s
 

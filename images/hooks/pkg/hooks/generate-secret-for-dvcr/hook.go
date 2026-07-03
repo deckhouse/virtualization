@@ -231,10 +231,9 @@ func generateECKeypair() (privPEM, pubPEM []byte, err error) {
 	return privPEM, pubPEM, nil
 }
 
-// validateECKeypair reports whether privPEM is a parseable ECDSA private key and
-// pubPEM is its matching public key. The public key is shipped to the registry as
-// /auth/tokenPublicKey; a missing, corrupt or mismatched one would make it reject
-// every scoped token, so any of those must force regeneration of the whole pair.
+// validateECKeypair reports whether privPEM parses as ECDSA and pubPEM is its
+// matching public key. A bad public key (shipped to the registry) would reject
+// every scoped token, so it must force regenerating the pair too.
 func validateECKeypair(privPEM, pubPEM []byte) bool {
 	priv := parseECPrivateKey(privPEM)
 	if priv == nil {

@@ -1,10 +1,8 @@
-// Local module for standalone unit-testing of the DVCR authorization code.
-// policy_test.go tests the dependency-free policy without build tags; the
-// distribution/go-jose/golang-jwt requires below exist only so access_test.go
-// (build tag dvcr_registry) can exercise the JWT verifier against the real
-// distribution token backend. The .go sources are copied into the distribution
-// registry module at build time (see images/dvcr/werf.inc.yaml); this go.mod and
-// the *_test.go files are not used in that build.
+// Local module for unit-testing the DVCR authorization code. The requires below
+// exist only for access_test.go (build tag dvcr_registry) to verify tokens
+// against the real distribution backend. The .go sources are copied into the
+// distribution module at build time (see images/dvcr/werf.inc.yaml); this go.mod
+// and the *_test.go files are not used in that build.
 module github.com/deckhouse/virtualization/dvcr-k8s-auth
 
 go 1.25.0
