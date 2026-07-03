@@ -162,7 +162,8 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 	tokenPrivateKey := dataFromSecret.TokenPrivateKey
 	tokenPublicKey := dataFromSecret.TokenPublicKey
 	privBytes, err := base64.StdEncoding.DecodeString(tokenPrivateKey)
-	if err != nil || !validateECPrivateKey(privBytes) {
+	pubBytes, pubErr := base64.StdEncoding.DecodeString(tokenPublicKey)
+	if err != nil || pubErr != nil || !validateECKeypair(privBytes, pubBytes) {
 		input.Logger.Info("Regenerate DVCR token keypair")
 		privPEM, pubPEM, genErr := generateECKeypair()
 		if genErr != nil {
@@ -230,18 +231,43 @@ func generateECKeypair() (privPEM, pubPEM []byte, err error) {
 	return privPEM, pubPEM, nil
 }
 
-// validateECPrivateKey reports whether pemBytes is a parseable ECDSA private key.
-func validateECPrivateKey(pemBytes []byte) bool {
-	block, _ := pem.Decode(pemBytes)
+// validateECKeypair reports whether privPEM is a parseable ECDSA private key and
+// pubPEM is its matching public key. The public key is shipped to the registry as
+// /auth/tokenPublicKey; a missing, corrupt or mismatched one would make it reject
+// every scoped token, so any of those must force regeneration of the whole pair.
+func validateECKeypair(privPEM, pubPEM []byte) bool {
+	priv := parseECPrivateKey(privPEM)
+	if priv == nil {
+		return false
+	}
+	block, _ := pem.Decode(pubPEM)
 	if block == nil {
 		return false
 	}
-	if k, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
-		_, ok := k.(*ecdsa.PrivateKey)
-		return ok
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return false
 	}
-	_, err := x509.ParseECPrivateKey(block.Bytes)
-	return err == nil
+	ecPub, ok := pub.(*ecdsa.PublicKey)
+	return ok && ecPub.Equal(&priv.PublicKey)
+}
+
+func parseECPrivateKey(pemBytes []byte) *ecdsa.PrivateKey {
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return nil
+	}
+	if k, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+		if ec, ok := k.(*ecdsa.PrivateKey); ok {
+			return ec
+		}
+		return nil
+	}
+	ec, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil
+	}
+	return ec
 }
 
 func generateHtpasswd(password string) (string, error) {
