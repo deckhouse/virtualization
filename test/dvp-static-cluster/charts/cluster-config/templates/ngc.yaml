@@ -33,7 +33,9 @@ kind: NodeGroupConfiguration
 metadata:
   name: install-tools.sh
 spec:
-  weight: 98
+  # weight 100: run after 099-detect-kvm so a flaky GitHub fetch can't block
+  # node kvm-enabled labelling.
+  weight: 100
   nodeGroups: ["*"]
   bundles: ["*"]
   content: |
@@ -43,14 +45,16 @@ spec:
     complete -o default -F __start_kubectl k
     EOF
 
-    if [ ! -f /usr/local/bin/k9s ]; then
-      K9S_URL=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | jq '.assets[] | select(.name=="k9s_Linux_amd64.tar.gz") | .browser_download_url' -r)
-      curl -L "${K9S_URL}" | tar -xz -C  /usr/bin/ "k9s"
+    # Optional debug tools: "|| true" so a GitHub API flap can't fail the step;
+    # check /usr/bin (extraction dir) to avoid re-downloading on every converge.
+    if [ ! -f /usr/bin/k9s ]; then
+      K9S_URL=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | jq -r '.assets[] | select(.name=="k9s_Linux_amd64.tar.gz") | .browser_download_url') || true
+      [ -n "${K9S_URL}" ] && curl -fsSL "${K9S_URL}" | tar -xz -C /usr/bin/ "k9s" || true
     fi
 
-    if [ ! -f /usr/local/bin/stern ]; then
-      STERN_URL=$(curl -s https://api.github.com/repos/stern/stern/releases/latest | jq '.assets[].browser_download_url | select(. | test("linux_amd64"))' -r)
-      curl -L "${STERN_URL}" | tar -xz -C  /usr/bin/ "stern"
+    if [ ! -f /usr/bin/stern ]; then
+      STERN_URL=$(curl -s https://api.github.com/repos/stern/stern/releases/latest | jq -r '.assets[].browser_download_url | select(. | test("linux_amd64"))') || true
+      [ -n "${STERN_URL}" ] && curl -fsSL "${STERN_URL}" | tar -xz -C /usr/bin/ "stern" || true
     fi
 ---
 apiVersion: deckhouse.io/v1alpha1
