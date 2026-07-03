@@ -27,9 +27,10 @@ data:
         adminpasswordfile: /auth/passwordRW
         pullerusername: "node-puller"
         pullerpasswordfile: /auth/passwordPuller
-        privilegednamespace: d8-{{ .Chart.Name }}
-        tokenreviewcachettl: "45s"
-        tokenreviewcachenegttl: "5s"
+        jwtissuer: "virtualization-controller"
+        jwtaudience: "dvcr"
+        jwtkeyid: "dvcr"
+        jwtpublickeyfile: /auth/tokenPublicKey
 {{- end }}
     http:
       addr: :5000

@@ -36,6 +36,12 @@ properties:
           passwordPuller:
             type: string
             default: ""
+          tokenPrivateKey:
+            type: string
+            default: ""
+          tokenPublicKey:
+            type: string
+            default: ""
           htpasswd:
             type: string
           salt:

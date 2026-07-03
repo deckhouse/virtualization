@@ -102,6 +102,8 @@ true
       path: passwordRW
     - key: passwordPuller
       path: passwordPuller
+    - key: tokenPublicKey
+      path: tokenPublicKey
 {{- end }}
 {{- end -}}
 
