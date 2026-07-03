@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,8 +39,8 @@ func NewIPAMValidator(client client.Client) *IPAMValidator {
 }
 
 func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if vm.Spec.VirtualMachineIPAddress != "" && len(vm.Spec.Networks) > 0 && !network.HasMainNetworkSpec(vm.Spec.Networks) {
-		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	if err := v.validateVMIPUsage(ctx, vm); err != nil {
+		return nil, err
 	}
 
 	vmipName := vm.Spec.VirtualMachineIPAddress
@@ -67,8 +68,8 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 }
 
 func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM.Spec.VirtualMachineIPAddress != "" && len(newVM.Spec.Networks) > 0 && !network.HasMainNetworkSpec(newVM.Spec.Networks) {
-		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	if err := v.validateVMIPUsage(ctx, newVM); err != nil {
+		return nil, err
 	}
 
 	if oldVM.Spec.VirtualMachineIPAddress == newVM.Spec.VirtualMachineIPAddress {
@@ -90,4 +91,24 @@ func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alph
 	}
 
 	return nil, nil
+}
+
+func (v *IPAMValidator) validateVMIPUsage(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
+	if vm.Spec.VirtualMachineIPAddress == "" {
+		return nil
+	}
+
+	hasCIDRs, err := moduleconfig.ModuleConfigHasVirtualMachineCIDRs(ctx, v.client)
+	if err != nil {
+		return fmt.Errorf("unable to check ModuleConfig virtualization virtualMachineCIDRs: %w", err)
+	}
+	if !hasCIDRs {
+		return fmt.Errorf("spec.virtualMachineIPAddressName cannot be set when ModuleConfig/virtualization spec.settings.virtualMachineCIDRs is not configured")
+	}
+
+	if len(vm.Spec.Networks) > 0 && !network.HasMainNetworkSpec(vm.Spec.Networks) {
+		return fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	}
+
+	return nil
 }

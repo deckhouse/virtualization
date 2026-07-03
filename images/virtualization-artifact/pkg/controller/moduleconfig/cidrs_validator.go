@@ -46,6 +46,9 @@ func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.Modu
 	if err != nil {
 		return admission.Warnings{}, err
 	}
+	if len(cidrs) == 0 {
+		return admission.Warnings{}, nil
+	}
 
 	err = CheckCIDRsOverlap(cidrs)
 	if err != nil {

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -38,6 +40,24 @@ var (
 )
 
 func TestNetworksValidateCreate(t *testing.T) {
+	newValidator := func(settings map[string]any) *NetworksValidator {
+		scheme := runtime.NewScheme()
+		if err := mcapi.AddToScheme(scheme); err != nil {
+			t.Fatalf("AddToScheme: %v", err)
+		}
+		featureGate, _, setFromMap, err := featuregates.New()
+		if err != nil {
+			t.Fatalf("featuregates.New: %v", err)
+		}
+		if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
+			t.Fatalf("setFromMap: %v", err)
+		}
+		return NewNetworksValidator(fake.NewClientBuilder().WithScheme(scheme).WithObjects(&mcapi.ModuleConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "virtualization"},
+			Spec:       mcapi.ModuleConfigSpec{Settings: settings},
+		}).Build(), featureGate)
+	}
+
 	tests := []struct {
 		networks   []v1alpha2.NetworksSpec
 		sdnEnabled bool
@@ -93,7 +113,7 @@ func TestNetworksValidateCreate(t *testing.T) {
 					t.Fatalf("setFromMap: %v", err)
 				}
 			}
-			networkValidator := NewNetworksValidator(nil, featureGate)
+			networkValidator := newValidator(map[string]any{"dvcr": map[string]any{}, "virtualMachineCIDRs": []any{"10.0.0.0/24"}})
 
 			_, err = networkValidator.ValidateCreate(t.Context(), vm)
 			if test.valid && err != nil {
@@ -107,6 +127,24 @@ func TestNetworksValidateCreate(t *testing.T) {
 }
 
 func TestNetworksValidateUpdate(t *testing.T) {
+	newValidator := func(settings map[string]any) *NetworksValidator {
+		scheme := runtime.NewScheme()
+		if err := mcapi.AddToScheme(scheme); err != nil {
+			t.Fatalf("AddToScheme: %v", err)
+		}
+		featureGate, _, setFromMap, err := featuregates.New()
+		if err != nil {
+			t.Fatalf("featuregates.New: %v", err)
+		}
+		if testErr := setFromMap(map[string]bool{string(featuregates.SDN): true}); testErr != nil {
+			t.Fatalf("setFromMap: %v", testErr)
+		}
+		return NewNetworksValidator(fake.NewClientBuilder().WithScheme(scheme).WithObjects(&mcapi.ModuleConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "virtualization"},
+			Spec:       mcapi.ModuleConfigSpec{Settings: settings},
+		}).Build(), featureGate)
+	}
+
 	tests := []struct {
 		oldNetworksSpec []v1alpha2.NetworksSpec
 		newNetworksSpec []v1alpha2.NetworksSpec
@@ -345,7 +383,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 					t.Fatalf("setFromMap: %v", err)
 				}
 			}
-			networkValidator := NewNetworksValidator(nil, featureGate)
+			networkValidator := newValidator(map[string]any{"dvcr": map[string]any{}, "virtualMachineCIDRs": []any{"10.0.0.0/24"}})
 			_, err = networkValidator.ValidateUpdate(t.Context(), oldVM, newVM)
 
 			if test.valid && err != nil {
@@ -374,17 +412,62 @@ func newUnstructured(gvk schema.GroupVersionKind, name, namespace string) *unstr
 	return u
 }
 
+func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := mcapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	newValidator := func(settings map[string]any) *NetworksValidator {
+		featureGate, _, setFromMap, err := featuregates.New()
+		if err != nil {
+			t.Fatalf("featuregates.New: %v", err)
+		}
+		if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
+			t.Fatalf("setFromMap: %v", err)
+		}
+		builder := fake.NewClientBuilder().WithScheme(scheme)
+		if settings != nil {
+			builder = builder.WithObjects(&mcapi.ModuleConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: "virtualization"},
+				Spec:       mcapi.ModuleConfigSpec{Settings: settings},
+			})
+		}
+		return NewNetworksValidator(builder.Build(), featureGate)
+	}
+
+	vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+	if _, err := newValidator(map[string]any{"dvcr": map[string]any{}}).ValidateCreate(t.Context(), vm); err == nil {
+		t.Fatalf("expected error for explicit Main without CIDRs")
+	}
+	if _, err := newValidator(map[string]any{"dvcr": map[string]any{}, "virtualMachineCIDRs": []any{"10.0.0.0/24"}}).ValidateCreate(t.Context(), vm); err != nil {
+		t.Fatalf("expected success with CIDRs, got: %v", err)
+	}
+
+	oldVM := &v1alpha2.VirtualMachine{}
+	newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+	if _, err := newValidator(map[string]any{"dvcr": map[string]any{}}).ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
+		t.Fatalf("expected update error for explicit Main without CIDRs")
+	}
+}
+
 func TestNetworksValidatesExistence(t *testing.T) {
 	scheme := runtime.NewScheme()
 	scheme.AddKnownTypeWithName(commonnetwork.ClusterNetworkGVK, &unstructured.Unstructured{})
 	scheme.AddKnownTypeWithName(commonnetwork.NetworkGVK, &unstructured.Unstructured{})
+	if err := mcapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
 
 	existingCN := newUnstructured(commonnetwork.ClusterNetworkGVK, "exists-cn", "")
 	existingNet := newUnstructured(commonnetwork.NetworkGVK, "exists-net", "default")
 
 	cli := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(existingCN, existingNet).
+		WithObjects(existingCN, existingNet, &mcapi.ModuleConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "virtualization"},
+			Spec:       mcapi.ModuleConfigSpec{Settings: map[string]any{"dvcr": map[string]any{}, "virtualMachineCIDRs": []any{"10.0.0.0/24"}}},
+		}).
 		Build()
 
 	featureGate, _, setFromMap, err := featuregates.New()

@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -46,10 +47,14 @@ func NewNetworksValidator(c client.Client, featureGate featuregate.FeatureGate) 
 	}
 }
 
-func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *NetworksValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	networksSpec := vm.Spec.Networks
 	if len(networksSpec) == 0 {
 		return nil, nil
+	}
+
+	if err := v.validateMainNetworkAllowed(ctx, networksSpec); err != nil {
+		return nil, err
 	}
 
 	if !isSingleMainNet(networksSpec) && !v.featureGate.Enabled(featuregates.SDN) {
@@ -63,6 +68,10 @@ func (v *NetworksValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1
 	newNetworksSpec := newVM.Spec.Networks
 	if len(newNetworksSpec) == 0 {
 		return nil, nil
+	}
+
+	if err := v.validateMainNetworkAllowed(ctx, newNetworksSpec); err != nil {
+		return nil, err
 	}
 
 	if !isSingleMainNet(newNetworksSpec) && !v.featureGate.Enabled(featuregates.SDN) {
@@ -270,4 +279,20 @@ func (v *NetworksValidator) getNetworkIdentifier(network v1alpha2.NetworksSpec) 
 		return network.Type
 	}
 	return fmt.Sprintf("%s/%s", network.Type, network.Name)
+}
+
+func (v *NetworksValidator) validateMainNetworkAllowed(ctx context.Context, networksSpec []v1alpha2.NetworksSpec) error {
+	if !commonnetwork.HasMainNetworkSpec(networksSpec) {
+		return nil
+	}
+
+	hasCIDRs, err := moduleconfig.ModuleConfigHasVirtualMachineCIDRs(ctx, v.client)
+	if err != nil {
+		return fmt.Errorf("unable to check ModuleConfig virtualization virtualMachineCIDRs: %w", err)
+	}
+	if !hasCIDRs {
+		return fmt.Errorf("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization spec.settings.virtualMachineCIDRs is not configured")
+	}
+
+	return nil
 }

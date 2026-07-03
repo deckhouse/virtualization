@@ -1,7 +1,9 @@
 positive:
   configValues:
+    - {}
     - virtualMachineCIDRs: ["10.10.10.0/24"]
   values:
+    - internal: {}
     - virtualMachineCIDRs: ["10.10.10.0/24"]
       internal: {}
     - https:
@@ -14,6 +16,8 @@ positive:
           tls.key: plainstring
 negative:
   configValues:
+    - virtualMachineCIDRs: []
     - { somethingInConfig: yes }
   values:
+    - virtualMachineCIDRs: []
     - { somethingInConfig: yes }

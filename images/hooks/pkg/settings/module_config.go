@@ -55,10 +55,6 @@ func CanRunWithModuleConfig(ctx context.Context, input *pkg.HookInput) (bool, er
 		return false, nil
 	}
 
-	if _, ok := moduleConfig.Spec.Settings["virtualMachineCIDRs"]; !ok {
-		return false, nil
-	}
-
 	if _, ok := moduleConfig.Spec.Settings["dvcr"]; !ok {
 		return false, nil
 	}
