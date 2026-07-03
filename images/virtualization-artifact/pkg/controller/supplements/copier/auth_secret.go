@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/auth"
@@ -35,6 +36,11 @@ import (
 // DVCR token. The registry authorizes on the token in the password; the username
 // is a fixed, human-readable marker.
 const ScopedTokenUsername = "dvcr-jwt"
+
+// scopedTokenExpiryAnnotation records the scoped token's expiry (RFC3339) so a
+// reconcile can re-mint the Secret only when the token is close to expiring,
+// instead of writing a fresh token on every pass.
+const scopedTokenExpiryAnnotation = "dvcr.deckhouse.io/scoped-token-expires-at"
 
 // AuthSecret copies auth credentials from the source Secret into
 // Destination Secret and ensure its data is CDI compatible:
@@ -54,33 +60,83 @@ type AuthSecret struct {
 // authenticates to DVCR with a credential scoped to exactly the repositories in
 // access, instead of the shared read-write credential.
 func (a AuthSecret) CreateScopedTokenCDI(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access) error {
-	raw, err := signer.Sign(access, time.Now())
-	if err != nil {
-		return fmt.Errorf("mint scoped DVCR token: %w", err)
-	}
-	destData := map[string][]byte{
-		"accessKeyId": []byte(ScopedTokenUsername),
-		"secretKey":   []byte(raw),
-	}
-	_, err = a.Create(ctx, client, destData, corev1.SecretTypeOpaque)
-	return err
+	return a.ensureScopedToken(ctx, client, signer, access, func(raw string) (map[string][]byte, corev1.SecretType, error) {
+		return map[string][]byte{
+			"accessKeyId": []byte(ScopedTokenUsername),
+			"secretKey":   []byte(raw),
+		}, corev1.SecretTypeOpaque, nil
+	})
 }
 
 // CreateScopedTokenDockerConfig mints a scoped DVCR token for access and stores
 // it as a dockerconfigjson Secret keyed by registryURL, so the dvcr-artifact
 // importer/uploader Pod reads it through the standard destination auth config.
 func (a AuthSecret) CreateScopedTokenDockerConfig(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access, registryURL string) error {
-	raw, err := signer.Sign(access, time.Now())
+	return a.ensureScopedToken(ctx, client, signer, access, func(raw string) (map[string][]byte, corev1.SecretType, error) {
+		cfg, err := dockerConfigJSON(registryURL, ScopedTokenUsername, raw)
+		if err != nil {
+			return nil, "", err
+		}
+		return map[string][]byte{corev1.DockerConfigJsonKey: cfg}, corev1.SecretTypeDockerConfigJson, nil
+	})
+}
+
+// ensureScopedToken mints a scoped token and writes the destination Secret only
+// when it is missing or within half its TTL of expiring. Reusing a still-fresh
+// Secret keeps re-mint churn down; refreshing before expiry means an import that
+// outlives one token gets a valid one on a later reconcile instead of a stale 403.
+func (a AuthSecret) ensureScopedToken(ctx context.Context, client client.Client, signer *registrytoken.Signer, access []registrytoken.Access, build func(raw string) (map[string][]byte, corev1.SecretType, error)) error {
+	now := time.Now()
+
+	existing := &corev1.Secret{}
+	err := client.Get(ctx, a.Destination, existing)
+	switch {
+	case err == nil:
+		if scopedTokenValidFor(existing, now) > registrytoken.DefaultTTL/2 {
+			return nil
+		}
+	case !k8serrors.IsNotFound(err):
+		return err
+	}
+
+	raw, err := signer.Sign(access, now)
 	if err != nil {
 		return fmt.Errorf("mint scoped DVCR token: %w", err)
 	}
-	cfg, err := dockerConfigJSON(registryURL, ScopedTokenUsername, raw)
+	data, secretType, err := build(raw)
 	if err != nil {
 		return err
 	}
-	destData := map[string][]byte{corev1.DockerConfigJsonKey: cfg}
-	_, err = a.Create(ctx, client, destData, corev1.SecretTypeDockerConfigJson)
-	return err
+
+	secret := a.makeSecret(data, secretType)
+	secret.Annotations[scopedTokenExpiryAnnotation] = now.Add(registrytoken.DefaultTTL).Format(time.RFC3339)
+
+	if createErr := client.Create(ctx, secret); createErr != nil {
+		if !k8serrors.IsAlreadyExists(createErr) {
+			return createErr
+		}
+		existing.Data = secret.Data
+		if existing.Annotations == nil {
+			existing.Annotations = map[string]string{}
+		}
+		existing.Annotations[scopedTokenExpiryAnnotation] = secret.Annotations[scopedTokenExpiryAnnotation]
+		return client.Update(ctx, existing)
+	}
+	return nil
+}
+
+// scopedTokenValidFor returns how long the Secret's scoped token stays valid, or
+// zero if the expiry annotation is missing, unparseable, or already past.
+func scopedTokenValidFor(secret *corev1.Secret, now time.Time) time.Duration {
+	raw := secret.Annotations[scopedTokenExpiryAnnotation]
+	if raw == "" {
+		return 0
+	}
+	exp, err := time.Parse(time.RFC3339, raw)
+	if err != nil || exp.Before(now) {
+		return 0
+	}
+	return exp.Sub(now)
 }
 
 // dockerConfigJSON builds a minimal ~/.docker/config.json for a single registry.
