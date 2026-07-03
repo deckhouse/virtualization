@@ -25,9 +25,8 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"math/rand/v2"
+	"math/big"
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"k8s.io/utils/ptr"
@@ -273,11 +272,14 @@ const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456
 
 //nolint:unparam // we need to pass the length
 func alphaNum(length int) string {
-	rnd := rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0))
-
+	max := big.NewInt(int64(len(letterBytes)))
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = letterBytes[rnd.IntN(len(letterBytes))]
+		n, err := crand.Int(crand.Reader, max)
+		if err != nil {
+			panic(fmt.Sprintf("generate random password: %v", err))
+		}
+		b[i] = letterBytes[n.Int64()]
 	}
 	return string(b)
 }
