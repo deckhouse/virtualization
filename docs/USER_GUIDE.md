@@ -3175,6 +3175,15 @@ Examples:
 
 Invalid combinations are rejected on create/update: `keep`/`ttl` may be set only with `Retain`, and `keep > 0` requires a `ttl` (without a `ttl` nothing is ever collected, so `keep` would do nothing). A `Retain` disk with no `ttl` keeps every freed disk indefinitely — bound it with a `ttl` unless that is what you want.
 
+### Good to know
+
+- **Removing a `virtualDiskTemplates` entry deletes its disks.** For `Retain` disks this destroys reusable data — remove a template only when you no longer need it.
+- **The pool maintains the replica count, not health.** An existing but unhealthy VM is not replaced (VM-level restart handles liveness), and a `Stopped` replica is kept, not replaced — only a fully deleted replica is recreated.
+- **`Retain` disks are shared across replicas.** On scale-up a new replica may reuse another replica's freed disk together with its data; there is no fixed replica-to-disk binding.
+- **Editing a `virtualDiskTemplates[].spec` affects only new disks** — except `size`, which grows existing disks (never shrinks). `dataSource`, `storageClassName`, etc. are not re-applied to already-created disks.
+- **Every device is per-replica.** There is no shared block device (a common image/ISO for all replicas) — declare each device as a `virtualDiskTemplates` entry; each replica gets its own copy.
+- **Disruptive template changes wait for a restart.** Changing, for example, the VM class or CPU topology marks `status.restartPendingReplicas` and takes effect after the replica restarts (per `restartApprovalMode`), not immediately.
+
 ## Network configuration
 
 ### IP addresses of virtual machines
