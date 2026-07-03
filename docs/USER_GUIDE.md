@@ -1119,6 +1119,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
   A VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
   - Possible problems:
     - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
+    - Namespace or project quotas have been exceeded.
   - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
 
     ```bash
@@ -1131,7 +1132,6 @@ A virtual machine (VM) goes through several phases in its existence, from creati
   - Possible problems:
     - There is no suitable node to start.
     - There is not enough CPU or memory on suitable nodes.
-    - Namespace or project quotas have been exceeded.
   - Diagnostics:
     - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
 
