@@ -41,7 +41,8 @@ func NewMarker(dynamicClient dynamic.Interface, nodeName string) *Marker {
 func (m Marker) Mark(ctx context.Context, any, hs, ss bool) error {
 	var (
 		addLabels = map[string]string{
-			consts.USBGatewayLabel: "true",
+			consts.USBGatewayLabel:      "true",
+			consts.USBGatewayLabelShort: "true",
 		}
 		removeLabels []string
 	)
@@ -72,7 +73,7 @@ func (m Marker) Mark(ctx context.Context, any, hs, ss bool) error {
 }
 
 func (m Marker) Unmark(ctx context.Context) error {
-	err := m.labeler.Label(ctx, m.nodeName, "", nil, []string{consts.USBGatewayLabel, consts.USBGatewayHighSpeedLabel, consts.USBGatewaySuperSpeedLabel})
+	err := m.labeler.Label(ctx, m.nodeName, "", nil, []string{consts.USBGatewayLabel, consts.USBGatewayLabelShort, consts.USBGatewayHighSpeedLabel, consts.USBGatewaySuperSpeedLabel})
 	if err != nil {
 		return fmt.Errorf("failed to unlabel node %s: %w", m.nodeName, err)
 	}

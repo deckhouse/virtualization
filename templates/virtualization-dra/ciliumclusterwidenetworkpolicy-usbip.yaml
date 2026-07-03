@@ -1,0 +1,32 @@
+{{- if eq (include "virtualization-dra.isEnabled" .) "true"}}
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: d8-virtualization-deny-external-usbip
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-dra")) | nindent 2 }}
+spec:
+  nodeSelector:
+    matchLabels:
+      # Cilium excludes virtualization.deckhouse.io node labels from node selector matching,
+      # so policies use the short usb-gateway label instead.
+      usb-gateway: "true"
+  enableDefaultDeny:
+    ingress: false
+  ingressDeny:
+    - fromEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: {{ include "virtualization_dra.usbipd_port" . | quote }}
+              protocol: TCP
+    - fromNodes:
+        - matchExpressions:
+            - key: "usb-gateway"
+              operator: NotIn
+              values:
+                - "true"
+      toPorts:
+        - ports:
+            - port: {{ include "virtualization_dra.usbipd_port" . | quote }}
+              protocol: TCP
+{{- end }}
