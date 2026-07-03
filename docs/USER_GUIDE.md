@@ -3009,7 +3009,7 @@ After executing the command, you will receive a `debug-info.tar.gz` archive that
 Available in the EE and SE+ editions. Requires the `VirtualMachinePool` feature gate.
 {{< /alert >}}
 
-A `VirtualMachinePool` maintains a requested number of identical virtual machines and lets you scale them with `kubectl scale`, an HPA, or KEDA — useful for CI runner fleets and VDI desktop pools. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
+A `VirtualMachinePool` maintains a requested number of identical virtual machines and lets you scale them with `kubectl scale`, an HPA, or KEDA. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
 
 This functionality is disabled by default. To enable it, add `VirtualMachinePool` to the `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
 
@@ -3023,7 +3023,7 @@ spec:
     - VirtualMachinePool
 ```
 
-Create a pool with the desired number of replicas and a template. Per-replica disks are declared in `virtualDiskTemplates` and referenced in `blockDeviceRefs` by their template name — the pool gives each replica its own copy, so you build the device list (and boot order) exactly as in an ordinary virtual machine:
+Create a pool with the desired number of replicas and a template. Per-replica disks are declared in `virtualDiskTemplates`; their order is the replica's device (boot) order — the first template is the boot disk. The pool template has no `blockDeviceRefs` field: the controller gives each replica its own copy of every template and wires them up, so you only describe the disks once.
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -3042,12 +3042,7 @@ spec:
         cores: 2
       memory:
         size: 4Gi
-      # Devices in boot order; each name resolves to this replica's own disk.
-      blockDeviceRefs:
-        - kind: VirtualDisk
-          name: root
-        - kind: VirtualDisk
-          name: cache
+  # Per-replica disks, in device order — the first (root) is the boot disk.
   virtualDiskTemplates:
     # Writable root disk: one per replica, cloned from an image, removed with the replica.
     - name: root
@@ -3106,13 +3101,13 @@ spec:
           averageUtilization: 70
 ```
 
-Beyond CPU/memory, the pool also works with custom metrics (`Pods`/`External` via `custom.metrics.k8s.io`/`external.metrics.k8s.io`) and KEDA — for example, to scale runners by CI queue length. With `scaleDownPolicy: Explicit` an autoscaler can only scale **up**: anonymous scale-down through the `scale` subresource is rejected (remove replicas by name, see below).
+Beyond CPU/memory, the pool also works with custom metrics (`Pods`/`External` via `custom.metrics.k8s.io`/`external.metrics.k8s.io`) and KEDA — for example, to scale on an external queue length. With `scaleDownPolicy: Explicit` an autoscaler can only scale **up**: anonymous scale-down through the `scale` subresource is rejected (remove replicas by name, see below).
 
 `spec.scaleDownPolicy` selects which replica is removed on anonymous scale-down:
 
 - `NewestFirst` — the youngest replicas are removed first;
 - `OldestFirst` — the oldest first;
-- `Explicit` — anonymous scale-down is rejected; replicas can be removed only by name (see below). Use it for "busy" workloads such as runners and VDI, where only the caller knows which replica is idle.
+- `Explicit` — anonymous scale-down is rejected; replicas can be removed only by name (see below). Use it when only the caller knows which replica is safe to remove (e.g. an idle one).
 
 ### Removing specific replicas
 
@@ -3128,12 +3123,47 @@ EOF
 
 A plain `kubectl delete vm` does **not** shrink the pool: the controller treats it as a lost replica and creates a replacement.
 
-### Reusable disks
+### Reusable disks (`reclaim`)
 
-`reclaim.onScaleDown` of a `virtualDiskTemplates` entry controls a disk's fate on scale-down:
+`reclaim.onScaleDown` of a `virtualDiskTemplates` entry controls what happens to a disk when its replica is removed:
 
-- `Delete` (default) — the disk belongs to the virtual machine and is removed with it;
-- `Retain` — the disk belongs to the pool, outlives the replica and is reused on the next scale-up. `keep` sets how many free disks to keep warm; `ttl` garbage-collects the rest. Handy for build caches or VDI profiles that should survive VM recreation.
+`reclaim` is optional; if omitted, the disk defaults to `Delete`.
+
+- **`Delete`** (default) — the disk belongs to the virtual machine and is removed with it; nothing survives the replica.
+- **`Retain`** — the disk belongs to the pool, outlives the replica and is reattached to the next replica on scale-up. Use it for state that is expensive to rebuild and should survive VM recreation, so scaling back up is warm instead of cold.
+
+`keep` and `ttl` tune the pool of free `Retain` disks (they apply only to `Retain`):
+
+- **`keep`** — how many recently-freed disks to always keep warm for instant scale-up; these are immune to `ttl`.
+- **`ttl`** — how long a free disk lives *beyond* the warm buffer before it is garbage-collected.
+
+Examples:
+
+```yaml
+# Ephemeral disk — removed with the replica (Delete is the default).
+- name: root
+  spec:
+    persistentVolumeClaim: { size: 30Gi }
+    dataSource: { type: ObjectRef, objectRef: { kind: VirtualImage, name: ubuntu } }
+
+# Reusable disk — keep 3 warm for fast scale-up, collect the rest after 1h idle.
+- name: cache
+  reclaim:
+    onScaleDown: Retain
+    keep: 3
+    ttl: 1h
+  spec:
+    persistentVolumeClaim: { size: 100Gi }
+
+# Reusable disk kept indefinitely — reused forever, never auto-collected (no ttl).
+- name: data
+  reclaim:
+    onScaleDown: Retain
+  spec:
+    persistentVolumeClaim: { size: 20Gi }
+```
+
+Invalid combinations are rejected on create/update: `keep`/`ttl` may be set only with `Retain`, and `keep > 0` requires a `ttl` (without a `ttl` nothing is ever collected, so `keep` would do nothing). A `Retain` disk with no `ttl` keeps every freed disk indefinitely — bound it with a `ttl` unless that is what you want.
 
 ## Network configuration
 

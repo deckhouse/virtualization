@@ -90,6 +90,34 @@ function generate::crds {
         fi
         cp "$file" "${ROOT}/crds/$(echo "$file" | awk -Fio_ '{print $2}')"
     done
+
+    generate::strip_vmpool_blockdevicerefs
+}
+
+# generate::strip_vmpool_blockdevicerefs removes blockDeviceRefs from the
+# VirtualMachinePool CRD's virtualMachineTemplate.spec. That field is inherited
+# from the shared VirtualMachineSpec (required, minItems:1, user-settable), but a
+# pool derives each replica's block devices from virtualDiskTemplates, so the
+# field must not be exposed on the pool. It is stripped ONLY from the pool CRD —
+# never touch the VirtualMachine CRD or the shared Go type.
+#
+# The step fails loudly if the field is not present before stripping (schema path
+# moved) or still present after, so it can never silently no-op. A unit test
+# (TestVMPoolCRDHasNoBlockDeviceRefs) additionally guards the committed CRD.
+function generate::strip_vmpool_blockdevicerefs {
+    local pool_crd="${ROOT}/crds/virtualmachinepools.yaml"
+    local bdr='.spec.versions[].schema.openAPIV3Schema.properties.spec.properties.virtualMachineTemplate.properties.spec.properties.blockDeviceRefs'
+
+    if [ "$(yq "$bdr | tag" "$pool_crd")" != "!!map" ]; then
+        echo "ERROR: ${pool_crd}: blockDeviceRefs not found at the expected path; the schema moved — refusing to emit a CRD that leaks it. Fix the path in generate::strip_vmpool_blockdevicerefs." >&2
+        exit 1
+    fi
+    yq -i "del(${bdr})" "$pool_crd"
+    yq -i 'del(.spec.versions[].schema.openAPIV3Schema.properties.spec.properties.virtualMachineTemplate.properties.spec.required[] | select(. == "blockDeviceRefs"))' "$pool_crd"
+    if [ "$(yq "$bdr | tag" "$pool_crd")" != "!!null" ]; then
+        echo "ERROR: ${pool_crd}: failed to strip blockDeviceRefs." >&2
+        exit 1
+    fi
 }
 
 WHAT=$1

@@ -151,6 +151,29 @@ var _ = Describe("SyncHandler", func() {
 			Expect(ref.Kind).To(Equal(v1alpha2.VirtualMachinePoolKind))
 		})
 
+		It("builds the replica's block devices from virtualDiskTemplates in order", func() {
+			pool := newPool(1)
+			pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{
+				diskTemplate("root", v1alpha2.VirtualDiskReclaimDelete),
+				diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain),
+			}
+			c, err := testutil.NewFakeClientWithObjects(pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+
+			var list v1alpha2.VirtualMachineList
+			Expect(c.List(ctx, &list, client.InNamespace(pool.Namespace))).To(Succeed())
+			Expect(list.Items).To(HaveLen(1))
+			// Placeholders in template order (first = boot); the disks handler
+			// resolves them in place to the replica's concrete disks.
+			Expect(list.Items[0].Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{
+				{Kind: v1alpha2.DiskDevice, Name: "root"},
+				{Kind: v1alpha2.DiskDevice, Name: "cache"},
+			}))
+		})
+
 		It("does not create again while creations are unobserved (cache-lag guard)", func() {
 			pool := newPool(3)
 			c, err := testutil.NewFakeClientWithObjects(pool)

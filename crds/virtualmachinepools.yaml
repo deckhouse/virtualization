@@ -98,10 +98,13 @@ spec:
                   type: string
                 virtualDiskTemplates:
                   description: |-
-                    VirtualDiskTemplates describes the per-replica disks. A disk with reclaim
-                    Delete belongs to its VirtualMachine and is removed with it; a disk with
-                    reclaim Retain belongs to the pool, outlives the replica and is reused on a
-                    later scale-up.
+                    VirtualDiskTemplates describes the per-replica disks and, by their order, the
+                    replica's block devices — the first template is the boot device. A disk with
+                    reclaim Delete belongs to its VirtualMachine and is removed with it; a disk
+                    with reclaim Retain belongs to the pool, outlives the replica and is reused
+                    on a later scale-up. This is the sole source of a replica's disks: the pool's
+                    virtualMachineTemplate has no blockDeviceRefs field — the controller builds it
+                    from these templates.
                   items:
                     description: VirtualDiskTemplateSpec describes a per-replica disk.
                     properties:
@@ -113,9 +116,7 @@ spec:
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
                       reclaim:
-                        description:
-                          Reclaim controls what happens to the disk when
-                          its replica is removed.
+                        description: Reclaim controls what happens to the disk when its replica is removed.
                         properties:
                           keep:
                             description: |-
@@ -137,41 +138,33 @@ spec:
                               garbage-collected. Only meaningful with Retain.
                             type: string
                         type: object
+                        x-kubernetes-validations:
+                          - message: "keep and ttl are only valid with onScaleDown: Retain"
+                            rule: self.onScaleDown == 'Retain' || (self.keep == 0 && !has(self.ttl))
+                          - message: keep requires ttl; without ttl free disks are never garbage-collected, so keep would have no effect
+                            rule: self.keep == 0 || has(self.ttl)
                       spec:
-                        description:
-                          Spec is the desired state of the disk (an ordinary
-                          VirtualDiskSpec).
+                        description: Spec is the desired state of the disk (an ordinary VirtualDiskSpec).
                         properties:
                           dataSource:
                             properties:
                               containerImage:
-                                description:
-                                  Use an image stored in an external container
-                                  registry. Only registries with enabled TLS are supported.
-                                  To provide a custom Certificate Authority (CA) chain,
-                                  use the `caBundle` field.
+                                description: Use an image stored in an external container registry. Only registries with enabled TLS are supported. To provide a custom Certificate Authority (CA) chain, use the `caBundle` field.
                                 properties:
                                   caBundle:
-                                    description:
-                                      CA chain in Base64 format to verify
-                                      the container registry.
+                                    description: CA chain in Base64 format to verify the container registry.
                                     example: YWFhCg==
                                     format: byte
                                     type: string
                                   image:
-                                    description:
-                                      Path to the image in the container
-                                      registry.
+                                    description: Path to the image in the container registry.
                                     example: registry.example.com/images/slackware:15
                                     pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
                                     type: string
                                   imagePullSecret:
                                     properties:
                                       name:
-                                        description:
-                                          Name of the secret keeping container
-                                          registry credentials, which must be located
-                                          in the same namespace.
+                                        description: Name of the secret keeping container registry credentials, which must be located in the same namespace.
                                         type: string
                                     type: object
                                 required:
@@ -187,17 +180,12 @@ spec:
                                   For HTTPS schema, there is an option to skip the TLS verification.
                                 properties:
                                   caBundle:
-                                    description:
-                                      CA chain in Base64 format to verify
-                                      the URL.
+                                    description: CA chain in Base64 format to verify the URL.
                                     example: YWFhCg==
                                     format: byte
                                     type: string
                                   checksum:
-                                    description:
-                                      Checksum to verify integrity and consistency
-                                      of the downloaded file. The file must match all
-                                      specified checksums.
+                                    description: Checksum to verify integrity and consistency of the downloaded file. The file must match all specified checksums.
                                     properties:
                                       md5:
                                         example: f3b59bed9f91e32fac1210184fcff6f5
@@ -230,23 +218,17 @@ spec:
                                   - url
                                 type: object
                               objectRef:
-                                description:
-                                  Use an existing VirtualImage, ClusterVirtualImage,
-                                  or VirtualDiskSnapshot resource to create a disk.
+                                description: Use an existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource to create a disk.
                                 properties:
                                   kind:
-                                    description:
-                                      Kind of the existing VirtualImage,
-                                      ClusterVirtualImage, or VirtualDiskSnapshot resource.
+                                    description: Kind of the existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource.
                                     enum:
                                       - ClusterVirtualImage
                                       - VirtualImage
                                       - VirtualDiskSnapshot
                                     type: string
                                   name:
-                                    description:
-                                      Name of the existing VirtualImage,
-                                      ClusterVirtualImage, or VirtualDiskSnapshot resource.
+                                    description: Name of the existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource.
                                     minLength: 1
                                     type: string
                                 required:
@@ -269,24 +251,12 @@ spec:
                                 type: string
                             type: object
                             x-kubernetes-validations:
-                              - message:
-                                  HTTP requires http and cannot have ContainerImage
-                                  or ObjectRef.
-                                rule:
-                                  "self.type == 'HTTP' ? has(self.http) && !has(self.containerImage)
-                                  && !has(self.objectRef) : true"
-                              - message:
-                                  ContainerImage requires containerImage and cannot
-                                  have HTTP or ObjectRef.
-                                rule:
-                                  "self.type == 'ContainerImage' ? has(self.containerImage)
-                                  && !has(self.http) && !has(self.objectRef) : true"
-                              - message:
-                                  ObjectRef requires objectRef and cannot have
-                                  HTTP or ContainerImage.
-                                rule:
-                                  "self.type == 'ObjectRef' ? has(self.objectRef)
-                                  && !has(self.http) && !has(self.containerImage) : true"
+                              - message: HTTP requires http and cannot have ContainerImage or ObjectRef.
+                                rule: "self.type == 'HTTP' ? has(self.http) && !has(self.containerImage) && !has(self.objectRef) : true"
+                              - message: ContainerImage requires containerImage and cannot have HTTP or ObjectRef.
+                                rule: "self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) : true"
+                              - message: ObjectRef requires objectRef and cannot have HTTP or ContainerImage.
+                                rule: "self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) : true"
                           persistentVolumeClaim:
                             description: Settings for creating PVCs to store the disk.
                             properties:
@@ -328,6 +298,7 @@ spec:
                       - name
                       - spec
                     type: object
+                  minItems: 1
                   type: array
                   x-kubernetes-list-map-keys:
                     - name
@@ -366,9 +337,7 @@ spec:
                             * podAffinityTerm -> virtualMachineAndPodAffinityTerm
                           properties:
                             nodeAffinity:
-                              description:
-                                Node affinity is a group of node affinity
-                                scheduling rules.
+                              description: Node affinity is a group of node affinity scheduling rules.
                               properties:
                                 preferredDuringSchedulingIgnoredDuringExecution:
                                   description: |-
@@ -387,23 +356,17 @@ spec:
                                       (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).
                                     properties:
                                       preference:
-                                        description:
-                                          A node selector term, associated
-                                          with the corresponding weight.
+                                        description: A node selector term, associated with the corresponding weight.
                                         properties:
                                           matchExpressions:
-                                            description:
-                                              A list of node selector requirements
-                                              by node's labels.
+                                            description: A list of node selector requirements by node's labels.
                                             items:
                                               description: |-
                                                 A node selector requirement is a selector that contains values, a key, and an operator
                                                 that relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    The label key that the
-                                                    selector applies to.
+                                                  description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -428,18 +391,14 @@ spec:
                                             type: array
                                             x-kubernetes-list-type: atomic
                                           matchFields:
-                                            description:
-                                              A list of node selector requirements
-                                              by node's fields.
+                                            description: A list of node selector requirements by node's fields.
                                             items:
                                               description: |-
                                                 A node selector requirement is a selector that contains values, a key, and an operator
                                                 that relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    The label key that the
-                                                    selector applies to.
+                                                  description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -466,10 +425,7 @@ spec:
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       weight:
-                                        description:
-                                          Weight associated with matching
-                                          the corresponding nodeSelectorTerm, in the
-                                          range 1-100.
+                                        description: Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
                                         format: int32
                                         type: integer
                                     required:
@@ -487,9 +443,7 @@ spec:
                                     may or may not try to eventually evict the pod from its node.
                                   properties:
                                     nodeSelectorTerms:
-                                      description:
-                                        Required. A list of node selector
-                                        terms. The terms are ORed.
+                                      description: Required. A list of node selector terms. The terms are ORed.
                                       items:
                                         description: |-
                                           A null or empty node selector term matches no objects. The requirements of
@@ -497,18 +451,14 @@ spec:
                                           The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.
                                         properties:
                                           matchExpressions:
-                                            description:
-                                              A list of node selector requirements
-                                              by node's labels.
+                                            description: A list of node selector requirements by node's labels.
                                             items:
                                               description: |-
                                                 A node selector requirement is a selector that contains values, a key, and an operator
                                                 that relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    The label key that the
-                                                    selector applies to.
+                                                  description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -533,18 +483,14 @@ spec:
                                             type: array
                                             x-kubernetes-list-type: atomic
                                           matchFields:
-                                            description:
-                                              A list of node selector requirements
-                                              by node's fields.
+                                            description: A list of node selector requirements by node's fields.
                                             items:
                                               description: |-
                                                 A node selector requirement is a selector that contains values, a key, and an operator
                                                 that relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    The label key that the
-                                                    selector applies to.
+                                                  description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -583,9 +529,7 @@ spec:
                                   items:
                                     properties:
                                       virtualMachineAndPodAffinityTerm:
-                                        description:
-                                          Required. A vm affinity term, associated
-                                          with the corresponding weight.
+                                        description: Required. A vm affinity term, associated with the corresponding weight.
                                         properties:
                                           labelSelector:
                                             description: |-
@@ -594,20 +538,14 @@ spec:
                                               label selector matches no objects.
                                             properties:
                                               matchExpressions:
-                                                description:
-                                                  matchExpressions is a list
-                                                  of label selector requirements. The
-                                                  requirements are ANDed.
+                                                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                 items:
                                                   description: |-
                                                     A label selector requirement is a selector that contains values, a key, and an operator that
                                                     relates the key and values.
                                                   properties:
                                                     key:
-                                                      description:
-                                                        key is the label
-                                                        key that the selector applies
-                                                        to.
+                                                      description: key is the label key that the selector applies to.
                                                       type: string
                                                     operator:
                                                       description: |-
@@ -655,20 +593,14 @@ spec:
                                               label selector matches no objects.
                                             properties:
                                               matchExpressions:
-                                                description:
-                                                  matchExpressions is a list
-                                                  of label selector requirements. The
-                                                  requirements are ANDed.
+                                                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                 items:
                                                   description: |-
                                                     A label selector requirement is a selector that contains values, a key, and an operator that
                                                     relates the key and values.
                                                   properties:
                                                     key:
-                                                      description:
-                                                        key is the label
-                                                        key that the selector applies
-                                                        to.
+                                                      description: key is the label key that the selector applies to.
                                                       type: string
                                                     operator:
                                                       description: |-
@@ -731,19 +663,14 @@ spec:
                                           label selector matches no objects.
                                         properties:
                                           matchExpressions:
-                                            description:
-                                              matchExpressions is a list
-                                              of label selector requirements. The requirements
-                                              are ANDed.
+                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                             items:
                                               description: |-
                                                 A label selector requirement is a selector that contains values, a key, and an operator that
                                                 relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    key is the label key
-                                                    that the selector applies to.
+                                                  description: key is the label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -791,19 +718,14 @@ spec:
                                           label selector matches no objects.
                                         properties:
                                           matchExpressions:
-                                            description:
-                                              matchExpressions is a list
-                                              of label selector requirements. The requirements
-                                              are ANDed.
+                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                             items:
                                               description: |-
                                                 A label selector requirement is a selector that contains values, a key, and an operator that
                                                 relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    key is the label key
-                                                    that the selector applies to.
+                                                  description: key is the label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -853,9 +775,7 @@ spec:
                                   items:
                                     properties:
                                       virtualMachineAndPodAffinityTerm:
-                                        description:
-                                          Required. A vm affinity term, associated
-                                          with the corresponding weight.
+                                        description: Required. A vm affinity term, associated with the corresponding weight.
                                         properties:
                                           labelSelector:
                                             description: |-
@@ -864,20 +784,14 @@ spec:
                                               label selector matches no objects.
                                             properties:
                                               matchExpressions:
-                                                description:
-                                                  matchExpressions is a list
-                                                  of label selector requirements. The
-                                                  requirements are ANDed.
+                                                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                 items:
                                                   description: |-
                                                     A label selector requirement is a selector that contains values, a key, and an operator that
                                                     relates the key and values.
                                                   properties:
                                                     key:
-                                                      description:
-                                                        key is the label
-                                                        key that the selector applies
-                                                        to.
+                                                      description: key is the label key that the selector applies to.
                                                       type: string
                                                     operator:
                                                       description: |-
@@ -925,20 +839,14 @@ spec:
                                               label selector matches no objects.
                                             properties:
                                               matchExpressions:
-                                                description:
-                                                  matchExpressions is a list
-                                                  of label selector requirements. The
-                                                  requirements are ANDed.
+                                                description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                 items:
                                                   description: |-
                                                     A label selector requirement is a selector that contains values, a key, and an operator that
                                                     relates the key and values.
                                                   properties:
                                                     key:
-                                                      description:
-                                                        key is the label
-                                                        key that the selector applies
-                                                        to.
+                                                      description: key is the label key that the selector applies to.
                                                       type: string
                                                     operator:
                                                       description: |-
@@ -1001,19 +909,14 @@ spec:
                                           label selector matches no objects.
                                         properties:
                                           matchExpressions:
-                                            description:
-                                              matchExpressions is a list
-                                              of label selector requirements. The requirements
-                                              are ANDed.
+                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                             items:
                                               description: |-
                                                 A label selector requirement is a selector that contains values, a key, and an operator that
                                                 relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    key is the label key
-                                                    that the selector applies to.
+                                                  description: key is the label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -1061,19 +964,14 @@ spec:
                                           label selector matches no objects.
                                         properties:
                                           matchExpressions:
-                                            description:
-                                              matchExpressions is a list
-                                              of label selector requirements. The requirements
-                                              are ANDed.
+                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                             items:
                                               description: |-
                                                 A label selector requirement is a selector that contains values, a key, and an operator that
                                                 relates the key and values.
                                               properties:
                                                 key:
-                                                  description:
-                                                    key is the label key
-                                                    that the selector applies to.
+                                                  description: key is the label key that the selector applies to.
                                                   type: string
                                                 operator:
                                                   description: |-
@@ -1118,41 +1016,6 @@ spec:
                                   type: array
                               type: object
                           type: object
-                        blockDeviceRefs:
-                          description: |-
-                            List of block devices that can be mounted by disks belonging to the virtual machine.
-                            The order of booting is determined by the order in the list.
-                          items:
-                            properties:
-                              bootOrder:
-                                description: |-
-                                  Boot order of the block device. A smaller value means a higher priority.
-                                  If the parameter is not set for any device, the boot order follows the device position in the list (starting from 1).
-                                  If the parameter is set for at least one device, the boot order is determined by the specified values.
-                                minimum: 1
-                                type: integer
-                              kind:
-                                description: |-
-                                  The BlockDeviceKind is a type of the block device. Options are:
-
-                                  * `ClusterVirtualImage` — Use `ClusterVirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                                  * `VirtualImage` — Use `VirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                                  * `VirtualDisk` — Use `VirtualDisk` as the disk. This type is always mounted in RW mode.
-                                enum:
-                                  - ClusterVirtualImage
-                                  - VirtualImage
-                                  - VirtualDisk
-                                type: string
-                              name:
-                                description: The name of attached resource.
-                                type: string
-                            required:
-                              - kind
-                              - name
-                            type: object
-                          maxItems: 16
-                          minItems: 1
-                          type: array
                         bootloader:
                           default: BIOS
                           description: |-
@@ -1176,9 +1039,7 @@ spec:
                               pattern: ^(100|[1-9][0-9]?|[1-9])%$
                               type: string
                             cores:
-                              description:
-                                Specifies the number of cores inside the
-                                VM. The value must be greater or equal 1.
+                              description: Specifies the number of cores inside the VM. The value must be greater or equal 1.
                               format: int32
                               minimum: 1
                               type: integer
@@ -1193,9 +1054,7 @@ spec:
                             Changes to some VM configuration settings require a reboot of the VM to apply them. This policy allows you to specify the behavior of how the VM will respond to such changes.
                           properties:
                             restartApprovalMode:
-                              description:
-                                "RestartApprovalMode defines a restart approving
-                                mode: Manual or Automatic."
+                              description: "RestartApprovalMode defines a restart approving mode: Manual or Automatic."
                               enum:
                                 - Manual
                                 - Automatic
@@ -1218,9 +1077,7 @@ spec:
                             - PreferForced
                           type: string
                         memory:
-                          description:
-                            MemorySpec specifies the memory settings for
-                            the VM.
+                          description: MemorySpec specifies the memory settings for the VM.
                           properties:
                             size:
                               anyOf:
@@ -1265,14 +1122,10 @@ spec:
                             - Generic
                           type: string
                         priorityClassName:
-                          description:
-                            PriorityClassName [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as
-                            in the pods `spec.priorityClassName` parameter in Kubernetes.
+                          description: PriorityClassName [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as in the pods `spec.priorityClassName` parameter in Kubernetes.
                           type: string
                         provisioning:
-                          description:
-                            Provisioning is a block allows you to configure
-                            the provisioning script for the VM.
+                          description: Provisioning is a block allows you to configure the provisioning script for the VM.
                           properties:
                             sysprepRef:
                               description: |-
@@ -1333,17 +1186,11 @@ spec:
                           type: object
                           x-kubernetes-validations:
                             - message: UserData cannot have userDataRef or sysprepRef.
-                              rule:
-                                "self.type == 'UserData' ? has(self.userData) &&
-                                !has(self.userDataRef) && !has(self.sysprepRef) : true"
+                              rule: "self.type == 'UserData' ? has(self.userData) && !has(self.userDataRef) && !has(self.sysprepRef) : true"
                             - message: UserDataRef cannot have userData or sysprepRef.
-                              rule:
-                                "self.type == 'UserDataRef' ? has(self.userDataRef)
-                                && !has(self.userData) && !has(self.sysprepRef) : true"
+                              rule: "self.type == 'UserDataRef' ? has(self.userDataRef) && !has(self.userData) && !has(self.sysprepRef) : true"
                             - message: SysprepRef cannot have userData or userDataRef.
-                              rule:
-                                "self.type == 'SysprepRef' ? has(self.sysprepRef)
-                                && !has(self.userData) && !has(self.userDataRef) : true"
+                              rule: "self.type == 'SysprepRef' ? has(self.sysprepRef) && !has(self.userData) && !has(self.userDataRef) : true"
                         runPolicy:
                           default: AlwaysOnUnlessStoppedManually
                           description: |-
@@ -1360,9 +1207,7 @@ spec:
                           type: string
                         terminationGracePeriodSeconds:
                           default: 60
-                          description:
-                            Grace period observed after signalling a VM to
-                            stop after which the VM is force terminated.
+                          description: Grace period observed after signalling a VM to stop after which the VM is force terminated.
                           format: int64
                           type: integer
                         tolerations:
@@ -1408,9 +1253,7 @@ spec:
                           type: array
                         topologySpreadConstraints:
                           items:
-                            description:
-                              TopologySpreadConstraint specifies how to spread
-                              matching pods among the given topology.
+                            description: TopologySpreadConstraint specifies how to spread matching pods among the given topology.
                             properties:
                               labelSelector:
                                 description: |-
@@ -1419,18 +1262,14 @@ spec:
                                   in their corresponding topology domain.
                                 properties:
                                   matchExpressions:
-                                    description:
-                                      matchExpressions is a list of label
-                                      selector requirements. The requirements are ANDed.
+                                    description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                     items:
                                       description: |-
                                         A label selector requirement is a selector that contains values, a key, and an operator that
                                         relates the key and values.
                                       properties:
                                         key:
-                                          description:
-                                            key is the label key that the
-                                            selector applies to.
+                                          description: key is the label key that the selector applies to.
                                           type: string
                                         operator:
                                           description: |-
@@ -1587,14 +1426,10 @@ spec:
                             List of USB devices to attach to the virtual machine.
                             Devices are referenced by name of USBDevice resource in the same namespace.
                           items:
-                            description:
-                              USBDeviceSpecRef references a USB device by
-                              name.
+                            description: USBDeviceSpecRef references a USB device by name.
                             properties:
                               name:
-                                description:
-                                  The name of USBDevice resource in the same
-                                  namespace.
+                                description: The name of USBDevice resource in the same namespace.
                                 type: string
                             required:
                               - name
@@ -1602,11 +1437,7 @@ spec:
                           maxItems: 8
                           type: array
                         virtualMachineClassName:
-                          description:
-                            Name of the `VirtualMachineClass` resource describing
-                            the requirements for a virtual CPU, memory and the resource
-                            allocation policy and node placement policies for virtual
-                            machines.
+                          description: Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy and node placement policies for virtual machines.
                           type: string
                         virtualMachineIPAddressName:
                           description: |-
@@ -1615,7 +1446,6 @@ spec:
                             If not explicitly specified, by default a `virtualMachineIPAddress` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).
                           type: string
                       required:
-                        - blockDeviceRefs
                         - cpu
                         - liveMigrationPolicy
                         - memory
@@ -1624,6 +1454,7 @@ spec:
                   type: object
               required:
                 - scaleDownPolicy
+                - virtualDiskTemplates
                 - virtualMachineTemplate
               type: object
             status:
@@ -1632,9 +1463,7 @@ spec:
                 conditions:
                   description: Conditions describe the current state of the pool.
                   items:
-                    description:
-                      Condition contains details for one aspect of the current
-                      state of this API Resource.
+                    description: Condition contains details for one aspect of the current state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -1697,15 +1526,11 @@ spec:
                     StatefulSet).
                   type: string
                 observedGeneration:
-                  description:
-                    ObservedGeneration is the generation of the spec the
-                    controller has processed.
+                  description: ObservedGeneration is the generation of the spec the controller has processed.
                   format: int64
                   type: integer
                 readyReplicas:
-                  description:
-                    ReadyReplicas is the number of members ready to serve
-                    (Terminating excluded).
+                  description: ReadyReplicas is the number of members ready to serve (Terminating excluded).
                   format: int32
                   type: integer
                 replicas:

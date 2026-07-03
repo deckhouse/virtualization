@@ -94,15 +94,18 @@ type VirtualMachinePoolSpec struct {
 	// manually created virtual machine.
 	VirtualMachineTemplate VirtualMachineTemplateSpec `json:"virtualMachineTemplate"`
 
-	// VirtualDiskTemplates describes the per-replica disks. A disk with reclaim
-	// Delete belongs to its VirtualMachine and is removed with it; a disk with
-	// reclaim Retain belongs to the pool, outlives the replica and is reused on a
-	// later scale-up.
+	// VirtualDiskTemplates describes the per-replica disks and, by their order, the
+	// replica's block devices — the first template is the boot device. A disk with
+	// reclaim Delete belongs to its VirtualMachine and is removed with it; a disk
+	// with reclaim Retain belongs to the pool, outlives the replica and is reused
+	// on a later scale-up. This is the sole source of a replica's disks: the pool's
+	// virtualMachineTemplate has no blockDeviceRefs field — the controller builds it
+	// from these templates.
 	//
-	// +optional
+	// +kubebuilder:validation:MinItems=1
 	// +listType=map
 	// +listMapKey=name
-	VirtualDiskTemplates []VirtualDiskTemplateSpec `json:"virtualDiskTemplates,omitempty"`
+	VirtualDiskTemplates []VirtualDiskTemplateSpec `json:"virtualDiskTemplates"`
 }
 
 // VirtualDiskTemplateSpec describes a per-replica disk.
@@ -137,6 +140,9 @@ const (
 
 // VirtualDiskReclaim is the reclaim policy and warm-buffer settings of a disk
 // template.
+//
+// +kubebuilder:validation:XValidation:rule="self.onScaleDown == 'Retain' || (self.keep == 0 && !has(self.ttl))",message="keep and ttl are only valid with onScaleDown: Retain"
+// +kubebuilder:validation:XValidation:rule="self.keep == 0 || has(self.ttl)",message="keep requires ttl; without ttl free disks are never garbage-collected, so keep would have no effect"
 type VirtualDiskReclaim struct {
 	// OnScaleDown is Delete (default) or Retain.
 	//

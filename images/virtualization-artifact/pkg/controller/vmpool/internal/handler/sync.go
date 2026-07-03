@@ -227,6 +227,20 @@ func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.Vir
 		}
 	}
 
+	spec := *tmpl.Spec.DeepCopy()
+	// The pool template has no blockDeviceRefs (the field is stripped from the pool
+	// CRD): build the replica's block devices from virtualDiskTemplates, in order —
+	// the first template is the boot device. Each entry is a placeholder (the
+	// template name) that the disks handler resolves in place to this replica's
+	// concrete disk (Delete -> <vm>-<tmpl>, Retain -> a reuse disk).
+	spec.BlockDeviceRefs = make([]v1alpha2.BlockDeviceSpecRef, 0, len(pool.Spec.VirtualDiskTemplates))
+	for i := range pool.Spec.VirtualDiskTemplates {
+		spec.BlockDeviceRefs = append(spec.BlockDeviceRefs, v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.DiskDevice,
+			Name: pool.Spec.VirtualDiskTemplates[i].Name,
+		})
+	}
+
 	return &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    pool.GetName() + "-",
@@ -235,7 +249,7 @@ func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.Vir
 			Annotations:     annotations,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(pool, v1alpha2.VirtualMachinePoolGVK)},
 		},
-		Spec: *tmpl.Spec.DeepCopy(),
+		Spec: spec,
 	}
 }
 
