@@ -27,6 +27,7 @@ data:
         adminpasswordfile: /auth/passwordRW
         pullerusername: "node-puller"
         pullerpasswordfile: /auth/passwordPuller
+        privilegednamespace: d8-{{ .Chart.Name }}
         tokenreviewcachettl: "45s"
         tokenreviewcachenegttl: "5s"
 {{- end }}

@@ -106,6 +106,28 @@ func TestAuthorize(t *testing.T) {
 	}
 }
 
+func TestSubjectForServiceAccount(t *testing.T) {
+	const priv = "d8-virtualization"
+	tests := []struct {
+		name   string
+		saNs   string
+		privNs string
+		want   Subject
+	}{
+		{"module namespace is admin", "d8-virtualization", priv, Subject{Role: RoleAdmin}},
+		{"tenant namespace is scoped", "tenant-a", priv, Subject{Role: RoleTenant, Namespace: "tenant-a"}},
+		{"empty namespace denied", "", priv, Subject{Role: RoleNone}},
+		{"no privileged ns configured, tenant stays scoped", "d8-virtualization", "", Subject{Role: RoleTenant, Namespace: "d8-virtualization"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SubjectForServiceAccount(tt.saNs, tt.privNs); got != tt.want {
+				t.Errorf("SubjectForServiceAccount(%q, %q) = %+v, want %+v", tt.saNs, tt.privNs, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNamespaceFromUsername(t *testing.T) {
 	tests := []struct {
 		username string
@@ -113,11 +135,11 @@ func TestNamespaceFromUsername(t *testing.T) {
 	}{
 		{"system:serviceaccount:nsA:importer", "nsA"},
 		{"system:serviceaccount:d8-virtualization:dvcr", "d8-virtualization"},
-		{"system:serviceaccount::name", ""},   // empty namespace
-		{"system:serviceaccount:nsA", ""},      // no name separator
-		{"system:node:worker-1", ""},           // not a service account
-		{"kubernetes-admin", ""},               // human user
-		{"", ""},                               // empty
+		{"system:serviceaccount::name", ""}, // empty namespace
+		{"system:serviceaccount:nsA", ""},   // no name separator
+		{"system:node:worker-1", ""},        // not a service account
+		{"kubernetes-admin", ""},            // human user
+		{"", ""},                            // empty
 	}
 	for _, tt := range tests {
 		if got := namespaceFromUsername(tt.username); got != tt.want {

@@ -50,6 +50,8 @@ type accessController struct {
 	pullerUsername string
 	pullerPassword []byte
 
+	privilegedNamespace string
+
 	reviewer *tokenReviewer
 }
 
@@ -87,6 +89,11 @@ func newAccessController(options map[string]interface{}) (auth.AccessController,
 		return nil, err
 	}
 
+	privilegedNamespace, err := optString(options, "privilegednamespace", "")
+	if err != nil {
+		return nil, err
+	}
+
 	ttl := optDuration(options, "tokenreviewcachettl", 45*time.Second)
 	negTTL := optDuration(options, "tokenreviewcachenegttl", 5*time.Second)
 
@@ -96,12 +103,13 @@ func newAccessController(options map[string]interface{}) (auth.AccessController,
 	}
 
 	return &accessController{
-		realm:          realm,
-		adminUsername:  adminUser,
-		adminPassword:  adminPass,
-		pullerUsername: pullerUser,
-		pullerPassword: pullerPass,
-		reviewer:       reviewer,
+		realm:               realm,
+		adminUsername:       adminUser,
+		adminPassword:       adminPass,
+		pullerUsername:      pullerUser,
+		pullerPassword:      pullerPass,
+		privilegedNamespace: privilegedNamespace,
+		reviewer:            reviewer,
 	}, nil
 }
 
@@ -144,10 +152,11 @@ func (ac *accessController) classify(req *http.Request, username, password strin
 	if err != nil {
 		return Subject{}, "", fmt.Errorf("token review: %w", err)
 	}
-	if ns == "" {
+	subject := SubjectForServiceAccount(ns, ac.privilegedNamespace)
+	if subject.Role == RoleNone {
 		return Subject{}, "", errors.New("token is not a namespaced ServiceAccount")
 	}
-	return Subject{Role: RoleTenant, Namespace: ns}, "serviceaccount:" + ns, nil
+	return subject, "serviceaccount:" + ns, nil
 }
 
 func toPolicyAccess(records []auth.Access) []Access {

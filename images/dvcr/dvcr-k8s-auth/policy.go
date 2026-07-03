@@ -73,6 +73,23 @@ const (
 // saUserPrefix is the TokenReview username prefix for a ServiceAccount.
 const saUserPrefix = "system:serviceaccount:"
 
+// SubjectForServiceAccount maps an authenticated ServiceAccount namespace to an
+// authorization Subject. ServiceAccounts in the module's own privileged namespace
+// (e.g. d8-virtualization) are control-plane components — the controller, the
+// ClusterVirtualImage importer, garbage collection — that legitimately read images
+// across namespaces and write cluster-scoped cvi repositories, so they are granted
+// admin. Tenants cannot run Pods in that namespace, so this is safe. Every other
+// namespace is namespace-scoped.
+func SubjectForServiceAccount(saNamespace, privilegedNamespace string) Subject {
+	if saNamespace == "" {
+		return Subject{Role: RoleNone}
+	}
+	if privilegedNamespace != "" && saNamespace == privilegedNamespace {
+		return Subject{Role: RoleAdmin}
+	}
+	return Subject{Role: RoleTenant, Namespace: saNamespace}
+}
+
 // namespaceFromUsername parses "system:serviceaccount:<ns>:<name>" and returns
 // <ns>. Any other username shape returns "" (denied by the caller).
 func namespaceFromUsername(username string) string {
