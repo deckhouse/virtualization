@@ -38,6 +38,36 @@ func TestSetDVCRSecrets(t *testing.T) {
 	RunSpecs(t, "DVCR Secrets Suite")
 }
 
+var _ = Describe("validateECKeypair", func() {
+	It("accepts a matching pair", func() {
+		priv, pub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(priv, pub)).To(BeTrue())
+	})
+
+	It("rejects a public key from a different pair", func() {
+		priv, _, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		_, otherPub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(priv, otherPub)).To(BeFalse())
+	})
+
+	It("rejects a missing or corrupt public key", func() {
+		priv, _, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(priv, nil)).To(BeFalse())
+		Expect(validateECKeypair(priv, []byte("not a pem"))).To(BeFalse())
+	})
+
+	It("rejects a missing or corrupt private key", func() {
+		_, pub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(nil, pub)).To(BeFalse())
+		Expect(validateECKeypair([]byte("not a pem"), pub)).To(BeFalse())
+	})
+})
+
 var _ = Describe("DVCR Secrets", func() {
 	const (
 		defaultPasswordBase64 = "dkREU0I1N1JXeVVFd1NwN3VubDA3SHlnWUx3MzlOTlY="                                             // "vDDSB57RWyUEwSp7unl07HygYLw39NNV"
