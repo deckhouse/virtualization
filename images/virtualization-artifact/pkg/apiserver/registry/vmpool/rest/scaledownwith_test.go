@@ -18,9 +18,6 @@ package rest
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,25 +31,14 @@ import (
 	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtfake "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/subresources"
 )
 
-// capturingResponder records what the Connect handler responded with.
-type capturingResponder struct {
-	obj runtime.Object
-	err error
-}
-
-func (r *capturingResponder) Object(_ int, obj runtime.Object) { r.obj = obj }
-func (r *capturingResponder) Error(err error)                  { r.err = err }
-
-// callConnect drives the scaleDownWith Connect handler with the given JSON body.
-func callConnect(c virtclient.Interface, body string) *capturingResponder {
-	resp := &capturingResponder{}
-	ctx := genericapirequest.WithNamespace(context.Background(), ns)
-	h, err := NewScaleDownWithREST(c).Connect(ctx, poolName, nil, resp)
-	Expect(err).NotTo(HaveOccurred())
-	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body)))
-	return resp
+// callCreate drives the scaleDownWith Create handler with the given targets.
+func callCreate(ctx context.Context, c virtclient.Interface, targets ...string) (runtime.Object, error) {
+	ctx = genericapirequest.WithNamespace(ctx, ns)
+	body := &subresources.VirtualMachinePoolScaleDownWith{Targets: targets}
+	return NewScaleDownWithREST(c).Create(ctx, poolName, body, nil, &metav1.CreateOptions{})
 }
 
 const (
@@ -152,22 +138,21 @@ var _ = Describe("ScaleDownWith", func() {
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 
-	Context("Connect handler", func() {
+	Context("Create handler", func() {
 		It("rejects an empty targets list with BadRequest", func() {
 			c := newClient(pool(2), memberOf(pool(2), "web-a"))
 
-			resp := callConnect(c, `{"targets":[]}`)
-			Expect(resp.err).To(HaveOccurred())
-			Expect(apierrors.IsBadRequest(resp.err)).To(BeTrue())
+			_, err := callCreate(ctx, c)
+			Expect(apierrors.IsBadRequest(err)).To(BeTrue())
 		})
 
 		It("removes the target and reports success on a valid body", func() {
 			p := pool(2)
 			c := newClient(p, memberOf(p, "web-a"), memberOf(p, "web-b"))
 
-			resp := callConnect(c, `{"targets":["web-a"]}`)
-			Expect(resp.err).NotTo(HaveOccurred())
-			Expect(resp.obj).To(BeAssignableToTypeOf(&metav1.Status{}))
+			obj, err := callCreate(ctx, c, "web-a")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj).To(BeAssignableToTypeOf(&metav1.Status{}))
 			Expect(vmExists(ctx, c, "web-a")).To(BeFalse())
 			Expect(getReplicas(ctx, c)).To(Equal(int32(1)))
 		})

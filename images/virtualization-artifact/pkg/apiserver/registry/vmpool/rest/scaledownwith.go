@@ -18,9 +18,7 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,8 +46,8 @@ type ScaleDownWithREST struct {
 }
 
 var (
-	_ rest.Storage   = &ScaleDownWithREST{}
-	_ rest.Connecter = &ScaleDownWithREST{}
+	_ rest.Storage      = &ScaleDownWithREST{}
+	_ rest.NamedCreater = &ScaleDownWithREST{}
 )
 
 func NewScaleDownWithREST(c virtclient.Interface) *ScaleDownWithREST {
@@ -62,38 +60,29 @@ func (r *ScaleDownWithREST) New() runtime.Object {
 
 func (r *ScaleDownWithREST) Destroy() {}
 
-// NewConnectOptions implements rest.Connecter.
-func (r *ScaleDownWithREST) NewConnectOptions() (runtime.Object, bool, string) {
-	return &subresources.VirtualMachinePoolScaleDownWith{}, false, ""
-}
+// Create implements rest.NamedCreater. The client POSTs a
+// VirtualMachinePoolScaleDownWith to .../virtualmachinepools/<name>/scaledownwith,
+// where name is the pool. Unlike the VM subresources, this handler does not proxy
+// to another API server, so a plain create is enough — there is nothing to stream.
+func (r *ScaleDownWithREST) Create(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, _ *metav1.CreateOptions) (runtime.Object, error) {
+	body, ok := obj.(*subresources.VirtualMachinePoolScaleDownWith)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected VirtualMachinePoolScaleDownWith, got %T", obj))
+	}
+	if createValidation != nil {
+		if err := createValidation(ctx, obj); err != nil {
+			return nil, err
+		}
+	}
+	if len(body.Targets) == 0 {
+		return nil, apierrors.NewBadRequest("scaleDownWith requires a non-empty targets list")
+	}
 
-// ConnectMethods implements rest.Connecter.
-func (r *ScaleDownWithREST) ConnectMethods() []string {
-	return []string{http.MethodPost}
-}
-
-func (r *ScaleDownWithREST) Connect(ctx context.Context, name string, _ runtime.Object, responder rest.Responder) (http.Handler, error) {
 	namespace := genericapirequest.NamespaceValue(ctx)
-
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		var body subresources.VirtualMachinePoolScaleDownWith
-		if req.Body != nil {
-			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-				responder.Error(apierrors.NewBadRequest(fmt.Sprintf("decode scaleDownWith body: %v", err)))
-				return
-			}
-		}
-		if len(body.Targets) == 0 {
-			responder.Error(apierrors.NewBadRequest("scaleDownWith requires a non-empty targets list"))
-			return
-		}
-
-		if err := r.scaleDown(req.Context(), namespace, name, body.Targets); err != nil {
-			responder.Error(err)
-			return
-		}
-		responder.Object(http.StatusOK, &metav1.Status{Status: metav1.StatusSuccess})
-	}), nil
+	if err := r.scaleDown(ctx, namespace, name, body.Targets); err != nil {
+		return nil, err
+	}
+	return &metav1.Status{Status: metav1.StatusSuccess}, nil
 }
 
 func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName string, targets []string) error {
