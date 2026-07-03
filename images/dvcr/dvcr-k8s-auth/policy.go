@@ -70,6 +70,23 @@ const (
 	prefixVD  = "vd"
 )
 
+// saUserPrefix is the TokenReview username prefix for a ServiceAccount.
+const saUserPrefix = "system:serviceaccount:"
+
+// namespaceFromUsername parses "system:serviceaccount:<ns>:<name>" and returns
+// <ns>. Any other username shape returns "" (denied by the caller).
+func namespaceFromUsername(username string) string {
+	if !strings.HasPrefix(username, saUserPrefix) {
+		return ""
+	}
+	rest := strings.TrimPrefix(username, saUserPrefix)
+	ns, _, ok := strings.Cut(rest, ":")
+	if !ok || ns == "" {
+		return ""
+	}
+	return ns
+}
+
 // Authorize returns true only if the subject is allowed every requested access.
 // A single denied access denies the whole request (fail-closed). An empty access
 // list is allowed (distribution uses it for unauthenticated capability probes).

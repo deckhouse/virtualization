@@ -105,3 +105,23 @@ func TestAuthorize(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespaceFromUsername(t *testing.T) {
+	tests := []struct {
+		username string
+		want     string
+	}{
+		{"system:serviceaccount:nsA:importer", "nsA"},
+		{"system:serviceaccount:d8-virtualization:dvcr", "d8-virtualization"},
+		{"system:serviceaccount::name", ""},   // empty namespace
+		{"system:serviceaccount:nsA", ""},      // no name separator
+		{"system:node:worker-1", ""},           // not a service account
+		{"kubernetes-admin", ""},               // human user
+		{"", ""},                               // empty
+	}
+	for _, tt := range tests {
+		if got := namespaceFromUsername(tt.username); got != tt.want {
+			t.Errorf("namespaceFromUsername(%q) = %q, want %q", tt.username, got, tt.want)
+		}
+	}
+}
