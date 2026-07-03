@@ -140,24 +140,29 @@ func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS st
 }
 
 func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataVolumeSupplement, dv *cdiv1.DataVolume, dvcrSettings *dvcr.Settings, scope []registrytoken.Access) error {
-	if dvcrSettings.AuthSecret != "" {
-		authSecret := supGen.DVCRAuthSecretForDV()
+	switch {
+	case dvcrSettings.TenantAuthzEnabled:
+		authCopier := copier.AuthSecret{
+			Secret: copier.Secret{
+				Destination:    supGen.DVCRAuthSecretForDV(),
+				OwnerReference: dvutil.MakeOwnerReference(dv),
+			},
+		}
+		if err := authCopier.CreateScopedTokenCDI(ctx, client, dvcrSettings.TokenSigner, scope); err != nil {
+			return err
+		}
+	case dvcrSettings.AuthSecret != "":
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
 				Source: types.NamespacedName{
 					Name:      dvcrSettings.AuthSecret,
 					Namespace: dvcrSettings.AuthSecretNamespace,
 				},
-				Destination:    authSecret,
+				Destination:    supGen.DVCRAuthSecretForDV(),
 				OwnerReference: dvutil.MakeOwnerReference(dv),
 			},
 		}
-
-		if dvcrSettings.TenantAuthzEnabled {
-			if err := authCopier.CreateScopedTokenCDI(ctx, client, dvcrSettings.TokenSigner, scope); err != nil {
-				return err
-			}
-		} else if err := authCopier.CopyCDICompatible(ctx, client, dvcrSettings.RegistryURL); err != nil {
+		if err := authCopier.CopyCDICompatible(ctx, client, dvcrSettings.RegistryURL); err != nil {
 			return err
 		}
 	}
