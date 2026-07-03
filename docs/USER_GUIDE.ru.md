@@ -3071,6 +3071,16 @@ spec:
         cores: 2
       memory:
         size: 4Gi
+      # cloud-init: каждая реплика самонастраивается при первом запуске (одинаково для всех).
+      provisioning:
+        type: UserData
+        userData: |
+          #cloud-config
+          users:
+            - name: cloud
+              sudo: ALL=(ALL) NOPASSWD:ALL
+              ssh_authorized_keys:
+                - ssh-ed25519 AAAAC3Nz... user@example
   # Диски на реплику, в порядке устройств — первый (root) загрузочный.
   virtualDiskTemplates:
     # Записываемый корневой диск: свой на каждую реплику, клонируется из образа, удаляется вместе с репликой.

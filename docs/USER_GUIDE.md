@@ -3042,6 +3042,16 @@ spec:
         cores: 2
       memory:
         size: 4Gi
+      # cloud-init: every replica self-configures on first boot (same for all).
+      provisioning:
+        type: UserData
+        userData: |
+          #cloud-config
+          users:
+            - name: cloud
+              sudo: ALL=(ALL) NOPASSWD:ALL
+              ssh_authorized_keys:
+                - ssh-ed25519 AAAAC3Nz... user@example
   # Per-replica disks, in device order — the first (root) is the boot disk.
   virtualDiskTemplates:
     # Writable root disk: one per replica, cloned from an image, removed with the replica.
