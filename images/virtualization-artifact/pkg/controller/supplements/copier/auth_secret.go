@@ -42,6 +42,11 @@ const ScopedTokenUsername = "dvcr-jwt"
 // instead of writing a fresh token on every pass.
 const scopedTokenExpiryAnnotation = "dvcr.deckhouse.io/scoped-token-expires-at"
 
+// scopedTokenRefreshThreshold is how much validity must remain before a reconcile
+// re-mints the token. Reconciles run far more often than this, so refreshing in
+// the last hour keeps a valid token available while minimizing re-mint churn.
+const scopedTokenRefreshThreshold = time.Hour
+
 // AuthSecret copies auth credentials from the source Secret into
 // Destination Secret and ensure its data is CDI compatible:
 // type: Opaque
@@ -92,7 +97,7 @@ func (a AuthSecret) ensureScopedToken(ctx context.Context, client client.Client,
 	err := client.Get(ctx, a.Destination, existing)
 	switch {
 	case err == nil:
-		if scopedTokenValidFor(existing, now) > registrytoken.DefaultTTL/2 {
+		if scopedTokenValidFor(existing, now) > scopedTokenRefreshThreshold {
 			return nil
 		}
 	case !k8serrors.IsNotFound(err):

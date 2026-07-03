@@ -96,7 +96,7 @@ var _ = Describe("Scoped token secret refresh", func() {
 		Expect(second.Data["secretKey"]).To(Equal(first.Data["secretKey"]))
 	})
 
-	It("re-mints when the token is within half its TTL of expiring", func() {
+	It("re-mints when the token is close to expiring", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).Build()
 		Expect(authSecret().CreateScopedTokenCDI(ctx, c, signer, access)).To(Succeed())
 		stale := &corev1.Secret{}
