@@ -59,12 +59,12 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 		DeferCleanup(f.After)
 	})
 
-	// buildPool returns a pool of tiny alpine VMs with a single per-replica root
-	// disk template. The block devices are derived by the controller from
+	// buildPool returns a pool of tiny VMs with a single per-replica root disk
+	// template. The block devices are derived by the controller from
 	// virtualDiskTemplates (the pool template has no blockDeviceRefs field).
 	buildPool := func(replicas int32, policy v1alpha2.ScaleDownPolicy, reclaim v1alpha2.VirtualDiskReclaim) *v1alpha2.VirtualMachinePool {
 		tmpl := vmbuilder.New(
-			vmbuilder.WithCPU(1, ptr.To("5%")),
+			vmbuilder.WithCPU(1, ptr.To("20%")),
 			vmbuilder.WithMemory(*resource.NewQuantity(object.Mi512, resource.BinarySI)),
 			vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 			vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnPolicy),
@@ -72,8 +72,8 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 			vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 		)
 		rootDisk := vdbuilder.New(
-			vdbuilder.WithSize(ptr.To(resource.MustParse("1Gi"))),
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("100Mi"))),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIMyOS),
 		)
 		return &v1alpha2.VirtualMachinePool{
 			ObjectMeta: metav1.ObjectMeta{GenerateName: "pool-", Namespace: f.Namespace().Name},
@@ -130,13 +130,13 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 	}
 
 	It("maintains the requested number of tiny replicas, each with its own root disk, and scales", func() {
-		By("Creating a pool of 2 tiny VMs with a per-replica root disk from the alpine image", func() {
+		By("Creating a pool of 2 tiny VMs with a per-replica root disk from the myos image", func() {
 			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
 			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
 		})
 
 		By("Waiting until both replicas are Running", func() {
-			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(5 * time.Second).Should(Equal(2))
+			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Equal(2))
 		})
 
 		By("Checking every replica has its own Delete-policy root disk", func() {
@@ -157,7 +157,7 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 		})
 
 		By("Waiting until all 3 replicas are Running", func() {
-			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(5 * time.Second).Should(Equal(3))
+			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Equal(3))
 		})
 	})
 
@@ -165,7 +165,7 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 		By("Creating a pool of 2 and waiting until both are Running", func() {
 			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
 			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
-			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(5 * time.Second).Should(Equal(2))
+			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Equal(2))
 		})
 
 		By("Rejecting a target that does not belong to the pool, without deleting anything", func() {
