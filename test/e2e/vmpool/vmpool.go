@@ -18,11 +18,13 @@ package vmpool
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -57,6 +59,38 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 		DeferCleanup(f.After)
 	})
 
+	// buildPool returns a pool of tiny alpine VMs with a single per-replica root
+	// disk template. The block devices are derived by the controller from
+	// virtualDiskTemplates (the pool template has no blockDeviceRefs field).
+	buildPool := func(replicas int32, policy v1alpha2.ScaleDownPolicy, reclaim v1alpha2.VirtualDiskReclaim) *v1alpha2.VirtualMachinePool {
+		tmpl := vmbuilder.New(
+			vmbuilder.WithCPU(1, ptr.To("5%")),
+			vmbuilder.WithMemory(*resource.NewQuantity(object.Mi512, resource.BinarySI)),
+			vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
+			vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnPolicy),
+			vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
+			vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
+		)
+		rootDisk := vdbuilder.New(
+			vdbuilder.WithSize(ptr.To(resource.MustParse("1Gi"))),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+		)
+		return &v1alpha2.VirtualMachinePool{
+			ObjectMeta: metav1.ObjectMeta{GenerateName: "pool-", Namespace: f.Namespace().Name},
+			Spec: v1alpha2.VirtualMachinePoolSpec{
+				Replicas:               ptr.To(replicas),
+				ScaleDownPolicy:        policy,
+				VirtualMachineTemplate: v1alpha2.VirtualMachineTemplateSpec{Spec: tmpl.Spec},
+				VirtualDiskTemplates: []v1alpha2.VirtualDiskTemplateSpec{{
+					Name:    "root",
+					Reclaim: reclaim,
+					Spec:    rootDisk.Spec,
+				}},
+			},
+		}
+	}
+	deleteReclaim := v1alpha2.VirtualDiskReclaim{OnScaleDown: v1alpha2.VirtualDiskReclaimDelete}
+
 	// members returns the VirtualMachines owned by the pool (membership is by the
 	// controller ownerReference, so this does not depend on controller-internal
 	// label keys that live in another Go module).
@@ -81,37 +115,23 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 		return n
 	}
 
+	// scaleDownWith POSTs to the aggregated-apiserver scaleDownWith subresource,
+	// the same call `kubectl create --raw` makes. Returns the request error so
+	// both the success and the rejection paths can be asserted.
+	scaleDownWith := func(poolName string, targets ...string) error {
+		body, err := json.Marshal(map[string][]string{"targets": targets})
+		Expect(err).NotTo(HaveOccurred())
+		return f.KubeClient().Discovery().RESTClient().Post().
+			AbsPath("apis", "subresources.virtualization.deckhouse.io", "v1alpha2",
+				"namespaces", f.Namespace().Name, "virtualmachinepools", poolName, "scaledownwith").
+			Body(body).
+			SetHeader("Content-Type", "application/json").
+			Do(ctx).Error()
+	}
+
 	It("maintains the requested number of tiny replicas, each with its own root disk, and scales", func() {
 		By("Creating a pool of 2 tiny VMs with a per-replica root disk from the alpine image", func() {
-			tmpl := vmbuilder.New(
-				vmbuilder.WithCPU(1, ptr.To("5%")),
-				vmbuilder.WithMemory(*resource.NewQuantity(object.Mi512, resource.BinarySI)),
-				vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnPolicy),
-				vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-				vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
-				// No blockDeviceRefs: the pool template has no such field. The
-				// controller derives each replica's block devices from
-				// virtualDiskTemplates order (first = boot).
-			)
-			rootDisk := vdbuilder.New(
-				vdbuilder.WithSize(ptr.To(resource.MustParse("1Gi"))),
-				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
-			)
-
-			pool = &v1alpha2.VirtualMachinePool{
-				ObjectMeta: metav1.ObjectMeta{GenerateName: "pool-", Namespace: f.Namespace().Name},
-				Spec: v1alpha2.VirtualMachinePoolSpec{
-					Replicas:               ptr.To(int32(2)),
-					ScaleDownPolicy:        v1alpha2.ScaleDownPolicyNewestFirst,
-					VirtualMachineTemplate: v1alpha2.VirtualMachineTemplateSpec{Spec: tmpl.Spec},
-					VirtualDiskTemplates: []v1alpha2.VirtualDiskTemplateSpec{{
-						Name:    "root",
-						Reclaim: v1alpha2.VirtualDiskReclaim{OnScaleDown: v1alpha2.VirtualDiskReclaimDelete},
-						Spec:    rootDisk.Spec,
-					}},
-				},
-			}
+			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
 			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
 		})
 
@@ -138,6 +158,67 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 
 		By("Waiting until all 3 replicas are Running", func() {
 			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(5 * time.Second).Should(Equal(3))
+		})
+	})
+
+	It("removes addressed replicas via scaleDownWith, shrinks the pool, and does not replace them", func() {
+		By("Creating a pool of 2 and waiting until both are Running", func() {
+			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
+			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
+			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(5 * time.Second).Should(Equal(2))
+		})
+
+		By("Rejecting a target that does not belong to the pool, without deleting anything", func() {
+			Expect(apierrors.IsBadRequest(scaleDownWith(pool.Name, "not-a-member"))).To(BeTrue())
+			Expect(members()).To(HaveLen(2))
+		})
+
+		var victim string
+		By("Removing one addressed replica", func() {
+			victim = members()[0].Name
+			Expect(scaleDownWith(pool.Name, victim)).To(Succeed())
+		})
+
+		By("Verifying the pool shrank to 1, spec.replicas was decremented, and no replacement appears", func() {
+			Eventually(func() int { return len(members()) }).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Equal(1))
+			Expect(f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(pool), pool)).To(Succeed())
+			Expect(ptr.Deref(pool.Spec.Replicas, -1)).To(Equal(int32(1)))
+			// Unlike a plain delete, scaleDownWith is not a lost replica: the count
+			// stays at 1 and the removed VM does not come back.
+			Consistently(func() int { return len(members()) }).WithTimeout(20 * time.Second).WithPolling(4 * time.Second).Should(Equal(1))
+			for _, m := range members() {
+				Expect(m.Name).NotTo(Equal(victim))
+			}
+		})
+	})
+
+	// The reclaim CEL rules live in the apiserver, so they can only be exercised
+	// end-to-end. These pools use replicas: 0, so admission is checked without
+	// booting any VM.
+	Context("reclaim validation (CEL)", func() {
+		It("rejects keep/ttl unless onScaleDown is Retain", func() {
+			p := buildPool(0, v1alpha2.ScaleDownPolicyNewestFirst, v1alpha2.VirtualDiskReclaim{
+				OnScaleDown: v1alpha2.VirtualDiskReclaimDelete,
+				Keep:        1,
+			})
+			Expect(f.GenericClient().Create(ctx, p)).NotTo(Succeed())
+		})
+
+		It("rejects keep without ttl on Retain", func() {
+			p := buildPool(0, v1alpha2.ScaleDownPolicyNewestFirst, v1alpha2.VirtualDiskReclaim{
+				OnScaleDown: v1alpha2.VirtualDiskReclaimRetain,
+				Keep:        1,
+			})
+			Expect(f.GenericClient().Create(ctx, p)).NotTo(Succeed())
+		})
+
+		It("accepts a valid Retain reclaim with keep and ttl", func() {
+			pool = buildPool(0, v1alpha2.ScaleDownPolicyNewestFirst, v1alpha2.VirtualDiskReclaim{
+				OnScaleDown: v1alpha2.VirtualDiskReclaimRetain,
+				Keep:        1,
+				TTL:         &metav1.Duration{Duration: time.Hour},
+			})
+			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
 		})
 	})
 })
