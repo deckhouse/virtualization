@@ -186,9 +186,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCores))
 
-	guestCPUCount, err = t.getGuestCPUCount()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(guestCPUCount).To(Equal(changedCores))
+	t.untilGuestCPUCount(changedCores, framework.MiddleTimeout)
 }
 
 func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, liveMigration bool) {
@@ -248,9 +246,7 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	Expect(err).NotTo(HaveOccurred())
 	Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCores))
 
-	guestCPUCount, err = t.getGuestCPUCount()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(guestCPUCount).To(Equal(changedCores))
+	t.untilGuestCPUCount(changedCores, framework.MiddleTimeout)
 }
 
 func (t *cpuHotplugTest) generateResources(vmName string, cores int, disableInPlaceResize bool) {
@@ -298,6 +294,16 @@ func (t *cpuHotplugTest) getGuestCPUCount() (int, error) {
 	}
 
 	return cpuCount, nil
+}
+
+func (t *cpuHotplugTest) untilGuestCPUCount(expectedCores int, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		count, err := t.getGuestCPUCount()
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(count).To(Equal(expectedCores))
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
 func untilVMCPUCoresApplied(key crclient.ObjectKey, expectedCores int, timeout time.Duration) {
