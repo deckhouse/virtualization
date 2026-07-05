@@ -130,13 +130,21 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(newVDBlankSize.Cmp(resource.MustParse(vdBlank.Status.Capacity))).To(BeZero())
 		Expect(newVDAttachSize.Cmp(resource.MustParse(vdAttach.Status.Capacity))).To(BeZero())
 
-		newVDRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
-		newVDBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
-		newVDAttachLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdAttach.Name)
+		// The new size becomes visible in the guest asynchronously: the CSI volume
+		// expansion and the block-device capacity refresh in qemu finish after the
+		// VirtualDisk reports Ready, so poll lsblk instead of asserting once.
+		untilLsblkSizeGrows := func(vdName string, oldSize resource.Quantity) {
+			GinkgoHelper()
+			Eventually(func() int {
+				lsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdName)
+				return lsblkSize.Cmp(oldSize)
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(5*time.Second).Should(Equal(common.CmpGreater),
+				"the guest should observe the increased size of the %q disk", vdName)
+		}
 
-		Expect(newVDRootLsblkSize.Cmp(vdRootLsblkSize)).To(Equal(common.CmpGreater))
-		Expect(newVDBlankLsblkSize.Cmp(vdBlankLsblkSize)).To(Equal(common.CmpGreater))
-		Expect(newVDAttachLsblkSize.Cmp(vdAttachLsblkSize)).To(Equal(common.CmpGreater))
+		untilLsblkSizeGrows(vdRoot.Name, vdRootLsblkSize)
+		untilLsblkSizeGrows(vdBlank.Name, vdBlankLsblkSize)
+		untilLsblkSizeGrows(vdAttach.Name, vdAttachLsblkSize)
 
 		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdBlank, vdAttach)
 	})
