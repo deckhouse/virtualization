@@ -20,8 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/deckhouse/module-sdk/pkg"
-	objectpatch "github.com/deckhouse/module-sdk/pkg/object-patch"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
@@ -47,18 +52,52 @@ type staleResource struct {
 	name       string
 }
 
-func cleanup(_ context.Context, input *pkg.HookInput) error {
-	// The `config` CR carries the operator.cdi.kubevirt.io finalizer, and the
-	// cdi-operator that removes it is already gone. Strip the finalizers first,
-	// otherwise the InternalVirtualizationCDI CRD deletion below never completes.
-	input.PatchCollector.PatchWithMerge(
-		map[string]any{"metadata": map[string]any{"finalizers": nil}},
-		"cdi.internal.virtualization.deckhouse.io/v1beta1", "InternalVirtualizationCDI", "", "config",
-		objectpatch.WithIgnoreMissingObject(true),
-	)
+func cleanup(ctx context.Context, input *pkg.HookInput) error {
+	if err := stripCDIConfigFinalizers(ctx, input); err != nil {
+		return err
+	}
 
 	for _, resource := range staleCDIResources() {
 		input.PatchCollector.DeleteInBackground(resource.apiVersion, resource.kind, resource.namespace, resource.name)
+	}
+
+	return nil
+}
+
+// stripCDIConfigFinalizers removes the finalizers from the CDI `config` CR:
+// it carries operator.cdi.kubevirt.io, and the cdi-operator that removes it is
+// already gone, so without this the InternalVirtualizationCDI CRD deletion
+// below never completes. Done with a direct client rather than a PatchCollector
+// operation: a collected patch fails the whole ModuleRun at the discovery level
+// once the CRD is gone, while here the absent kind is just a no-op.
+func stripCDIConfigFinalizers(ctx context.Context, input *pkg.HookInput) error {
+	k8s, err := input.DC.GetK8sClient()
+	if err != nil {
+		return fmt.Errorf("get kubernetes client: %w", err)
+	}
+
+	cr := &unstructured.Unstructured{}
+	cr.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cdi.internal.virtualization.deckhouse.io",
+		Version: "v1beta1",
+		Kind:    "InternalVirtualizationCDI",
+	})
+
+	err = k8s.Get(ctx, client.ObjectKey{Name: "config"}, cr)
+	switch {
+	case apierrors.IsNotFound(err), meta.IsNoMatchError(err):
+		return nil
+	case err != nil:
+		return fmt.Errorf("get CDI config: %w", err)
+	}
+
+	if len(cr.GetFinalizers()) == 0 {
+		return nil
+	}
+
+	cr.SetFinalizers(nil)
+	if err := k8s.Update(ctx, cr); err != nil && !apierrors.IsNotFound(err) && !apierrors.IsConflict(err) {
+		return fmt.Errorf("strip CDI config finalizers: %w", err)
 	}
 
 	return nil
