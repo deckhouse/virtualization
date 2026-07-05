@@ -102,7 +102,7 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
-			Message("Waiting for the underlying PersistentVolumeClaim to be created by controller.")
+			Message("Waiting for the underlying PersistentVolumeClaim to be created.")
 		return &reconcile.Result{}, nil
 	}
 

@@ -65,7 +65,7 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *v1alpha2.VirtualMachine
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("sizing policy validation has failed: %w: %w", errors.Join(errs...), ErrSizingPolicyValidation)
+		return fmt.Errorf("does not match the VirtualMachineClass sizing policy: %w: %w", errors.Join(errs...), ErrSizingPolicyValidation)
 	}
 
 	return nil

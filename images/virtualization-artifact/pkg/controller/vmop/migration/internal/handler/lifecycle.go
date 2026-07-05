@@ -50,7 +50,6 @@ const timeElapsedUpdateInterval = 10 * time.Second
 
 const (
 	progressMigrationPending   int32 = 0
-	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
 	progressSourceSuspended    int32 = 91
@@ -60,16 +59,19 @@ const (
 
 const (
 	messageMigrationPending       = "The VirtualMachineOperation for migrating the virtual machine has been queued. Waiting for the queue to be processed and for this operation to be executed."
-	messageSyncingSourceAndTarget = "Syncing source and target"
-	messageTargetPodScheduling    = "Target pod is being scheduled"
-	messageTargetPodPreparing     = "Target pod is being prepared"
-	messageTargetVMResumed        = "Target VM resumed"
-	messageSourceVMSuspended      = "Source VM suspended"
+	messageSyncingSourceAndTarget = "Source and target are being synchronized"
+	messageTargetPodScheduling    = "Scheduling the migration target"
+	messageTargetPodPreparing     = "Preparing the migration target"
+	messageTargetVMResumed        = "The virtual machine has resumed on the target"
+	messageSourceVMSuspended      = "The virtual machine has been suspended on the source"
 )
 
 const (
 	reasonFailedAttachVolume = "FailedAttachVolume"
 	reasonFailedMount        = "FailedMount"
+
+	reasonTargetNodeIncomingMigrationLimitExceeded  = "TargetNodeIncomingMigrationLimitExceeded"
+	messageTargetNodeIncomingMigrationLimitExceeded = "Target node has no free inbound migration slots."
 )
 
 type Base interface {
@@ -421,7 +423,6 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	if migratable.Status == metav1.ConditionTrue {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
-		vmop.Status.Progress = migrationprogress.FormatPercent(1)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -591,6 +592,13 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
 		reason = vmopcondition.ReasonMigrationPending
 		message = messageMigrationPending
+		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
+			message = messageTargetNodeIncomingMigrationLimitExceeded
+		} else if waiting, err := h.isWaitingForInboundMigrationSlot(ctx, mig); err != nil {
+			return reason, message, err
+		} else if waiting {
+			message = messageTargetNodeIncomingMigrationLimitExceeded
+		}
 	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
 		message = messageTargetPodScheduling
@@ -681,8 +689,6 @@ func (h LifecycleHandler) calculateMigrationProgress(
 	switch reason {
 	case vmopcondition.ReasonMigrationPending:
 		return progressMigrationPending
-	case vmopcondition.ReasonDisksPreparing:
-		return progressDisksPreparing
 	case vmopcondition.ReasonTargetScheduling:
 		return progressTargetScheduling
 	case vmopcondition.ReasonTargetUnschedulable:
@@ -749,6 +755,20 @@ func humanizeMigrationFailedMessage(message string) string {
 	}
 
 	return message
+}
+
+func (h LifecycleHandler) isWaitingForInboundMigrationSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (bool, error) {
+	if mig == nil || mig.Spec.VMIName == "" {
+		return false, nil
+	}
+
+	var kvvmi virtv1.VirtualMachineInstance
+	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
+	if err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+
+	return livemigration.IsInboundMigrationSlotWaiting(&kvvmi), nil
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {

@@ -97,7 +97,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.VirtualMachineNotReady).
-			Message(fmt.Sprintf("VirtualMachine %q Running, but underlying InternalVirtualizationVirtualMachine not found.", vmKey.String()))
+			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vmKey.String()))
 		return reconcile.Result{}, nil
 	}
 
@@ -110,7 +110,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.VirtualMachineNotReady).
-			Message(fmt.Sprintf("VirtualMachine %q Running, but underlying InternalVirtualizationVirtualMachineInstance not found.", vmKey.String()))
+			Message(fmt.Sprintf("VirtualMachine %q is Running, but its underlying virtualization instance is not ready yet.", vmKey.String()))
 		return reconcile.Result{}, nil
 	}
 

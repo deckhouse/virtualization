@@ -210,7 +210,7 @@ func setPhaseConditionForFinishedImage(
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.PVCLost).
-			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
+			Message(fmt.Sprintf("The underlying PersistentVolumeClaim %q was not found.", supgen.PersistentVolumeClaim().String()))
 	default:
 		*phase = v1alpha2.ImageReady
 		cb.
@@ -258,7 +258,7 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
-			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
+			Message("The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = v1alpha2.ImagePending
@@ -330,7 +330,7 @@ func reconcilePVCImportFromDVCR(
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
+			Message("Preparing the PersistentVolumeClaim for the image.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -357,7 +357,7 @@ func reconcilePVCImportFromDVCR(
 	}
 
 	vi.Status.Phase = v1alpha2.ImageProvisioning
-	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
+	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Importing data into the PersistentVolumeClaim.")
 	if vi.Status.Progress == "" {
 		vi.Status.Progress = "50.0%"
 	}
@@ -409,7 +409,7 @@ func reconcilePVCImportFromReadySource(
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("PVC Provisioner not found: create the new one.")
+		cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Preparing the PersistentVolumeClaim for the image.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -437,7 +437,7 @@ func reconcilePVCImportFromReadySource(
 	if vi.Status.Progress == "" {
 		vi.Status.Progress = "0%"
 	}
-	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Import is in the process of provisioning to PVC.")
+	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Importing data into the PersistentVolumeClaim.")
 	if importPhase == corev1.PodSucceeded {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}

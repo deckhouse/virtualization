@@ -167,7 +167,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Preparing to import the image.")
 
 		log.Info("Create uploader pod...", "progress", cvi.Status.Progress, "pod.phase", nil)
 
@@ -238,7 +238,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
@@ -255,7 +255,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.WaitForUserUpload).
-			Message("Waiting for the user upload.")
+			Message("Waiting for the user to upload image data.")
 
 		cvi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)

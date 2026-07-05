@@ -166,7 +166,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).
-		Message("PVC has created: waiting to be Bound.")
+		Message("The PersistentVolumeClaim has been created; waiting for it to be Bound.")
 
 	vd.Status.Progress = "0%"
 	vd.Status.SourceUID = ptr.To(vdSnapshot.UID)

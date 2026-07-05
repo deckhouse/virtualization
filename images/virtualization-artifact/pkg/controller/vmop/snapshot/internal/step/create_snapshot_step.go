@@ -67,7 +67,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 			switch vmSnapshot.Status.Phase {
 			case v1alpha2.VirtualMachineSnapshotPhaseFailed:
 				conditions.SetCondition(
-					snapshotConditionBuilder.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
+					snapshotConditionBuilder.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot creation failed."),
 					&vmop.Status.Conditions,
 				)
 				vmsReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)

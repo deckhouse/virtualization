@@ -66,7 +66,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Waiting for the importer pod to be created by controller.")
+			Message("Preparing to import the image.")
 
 		return &reconcile.Result{}, nil
 	}
@@ -80,7 +80,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 				s.cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.Provisioning).
-					Message("Waiting for PersistentVolumeClaim to be Bound")
+					Message("Waiting for the PersistentVolumeClaim to be Bound.")
 
 				return &reconcile.Result{Requeue: true}, nil
 			}
@@ -112,7 +112,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Preparing to start import to DVCR.")
+			Message("Preparing to import the image.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		vi.Status.Target.RegistryURL = s.stat.GetDVCRImageName(s.pod)
@@ -123,7 +123,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.Provisioning).
-		Message("Import is in the process of provisioning to DVCR.")
+		Message("The image is being imported.")
 
 	vi.Status.Phase = v1alpha2.ImageProvisioning
 	vi.Status.Progress = service.CapProgressBelow(s.stat.GetProgress(vi.GetUID(), s.pod, vi.Status.Progress), 100)

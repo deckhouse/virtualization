@@ -141,7 +141,7 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningFailed).
-				Message("StorageProfile not found in the cluster: Please check a StorageProfile name in the cluster.")
+				Message("The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.")
 			return &reconcile.Result{}, nil
 		}
 		// A project quota that rejects the target PVC is a recoverable, user-facing

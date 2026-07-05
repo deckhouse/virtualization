@@ -67,7 +67,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 	}
 
 	if vmsop.Spec.CreateVirtualMachine == nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonOperationFailed, "clone specification is mandatory to start creating virtual machine")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonOperationFailed, "Cannot start the clone: no parameters for the new virtual machine are specified.")
 		return reconcile.Result{}, nil
 	}
 
@@ -77,40 +77,39 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 
 	vms, err := object.FetchObject(ctx, types.NamespacedName{Name: vmsop.Spec.VirtualMachineSnapshotName, Namespace: vmsop.Namespace}, h.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonVirtualMachineSnapshotNotFound, "fail to fetch the virtual machine snapshot")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonVirtualMachineSnapshotNotFound, fmt.Sprintf("Failed to read the VirtualMachineSnapshot %q.", vmsop.Spec.VirtualMachineSnapshotName))
 		return reconcile.Result{}, err
 	}
 
 	if vms == nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonVirtualMachineSnapshotNotFound, "virtual machine snapshot not found")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonVirtualMachineSnapshotNotFound, fmt.Sprintf("The VirtualMachineSnapshot %q was not found.", vmsop.Spec.VirtualMachineSnapshotName))
 		return reconcile.Result{}, nil
 	}
 
 	if vms.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseReady {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "virtual machine snapshot is not ready")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, fmt.Sprintf("The VirtualMachineSnapshot %q is not ready yet.", vmsop.Spec.VirtualMachineSnapshotName))
 		return reconcile.Result{}, nil
 	}
 
 	restorerSecretKey := types.NamespacedName{Namespace: vms.Namespace, Name: vms.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, h.client, &corev1.Secret{})
 	if err != nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "fail to fetch the virtual machine snapshot secret")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "The VirtualMachineSnapshot is not ready to be used yet.")
 		return reconcile.Result{}, err
 	}
 
 	if restorerSecret == nil {
-		msg := "fail to fetch the virtual machine snapshot secret: secret is nil"
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, msg)
-		return reconcile.Result{}, errors.New(msg)
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "The VirtualMachineSnapshot is not ready to be used yet.")
+		return reconcile.Result{}, errors.New("virtual machine snapshot secret is nil")
 	}
 
 	hasInProgress, err := h.hasOperationsInProgress(ctx, vmsop)
 	if err != nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "fail to check if there is any operation in progress")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "Failed to check for other operations in progress.")
 		return reconcile.Result{}, err
 	}
 	if hasInProgress {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "VMSOP cannot be executed now. Previously created operation should finish first")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "The operation cannot start yet: another operation must finish first.")
 		return reconcile.Result{}, nil
 	}
 

@@ -171,8 +171,8 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		case vmopcondition.ReasonQuotaExceeded.String():
 			cb.Message(fmt.Sprintf("Migration is pending: %s.", completed.Message))
 
-		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonTargetPreparing.String(), vmopcondition.ReasonDisksPreparing.String():
-			cb.Message("Migration is in progress: target pod is being scheduled and prepared.")
+		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonTargetPreparing.String():
+			cb.Message("Migration is in progress: preparing the migration target.")
 
 		case vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonSyncing.String(), vmopcondition.ReasonSourceSuspended.String(), vmopcondition.ReasonTargetResumed.String():
 			cb.Message("Migration is in progress: source and target are being synchronized.")
@@ -229,7 +229,7 @@ func (h *MigratingHandler) syncWaitingForVMToBeReadyMigrate(ctx context.Context,
 	}
 
 	if !synced {
-		cb.Message("Target persistent volume claims are not synced yet.")
+		cb.Message("The virtual machine disks are not synchronized to the migration target yet.")
 		return nil
 	}
 
@@ -295,14 +295,14 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 			} else {
 				cb.Status(metav1.ConditionFalse).
 					Reason(vmcondition.ReasonDisksNotMigratable).
-					Message("Live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")
+					Message("Live migration requires all disks to use ReadWriteMany (shared) storage. Make sure the StorageClass supports the ReadWriteMany access mode.")
 			}
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
 		case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonHostDeviceNotMigratable:
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonHostDevicesNotMigratable).
-				Message("Live migration requires that all Host Devices must be unplugged")
+				Message("Live migration is blocked because the VirtualMachine has a device that cannot be migrated. Remove it to enable live migration.")
 
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
@@ -327,7 +327,7 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 				} else {
 					cb.Status(metav1.ConditionFalse).
 						Reason(vmcondition.ReasonDisksNotMigratable).
-						Message("Live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")
+						Message("Live migration requires all disks to use ReadWriteMany (shared) storage. Make sure the StorageClass supports the ReadWriteMany access mode.")
 				}
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 				return nil
