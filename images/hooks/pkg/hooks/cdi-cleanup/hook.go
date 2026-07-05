@@ -31,8 +31,13 @@ const cdiCleanupNamespace = settings.ModuleNamespace
 var _ = registry.RegisterFunc(config, cleanup)
 
 var config = &pkg.HookConfig{
-	OnBeforeHelm: &pkg.OrderedConfig{Order: 15},
-	Queue:        fmt.Sprintf("modules/%s", settings.ModuleName),
+	// Runs after helm on purpose: at beforeHelm the previous release (which on
+	// a CDI-enabled -> CDI-less switch still contains the CDI config CR) drives
+	// the helm resources monitor, and deleting the CDI CRDs at that point makes
+	// the monitor's re-check fail at discovery and wedges ModuleRun in a retry
+	// loop. After helm the release no longer references CDI objects.
+	OnAfterHelm: &pkg.OrderedConfig{Order: 15},
+	Queue:       fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 type staleResource struct {
