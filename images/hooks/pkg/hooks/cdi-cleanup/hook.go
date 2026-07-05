@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/deckhouse/module-sdk/pkg"
+	objectpatch "github.com/deckhouse/module-sdk/pkg/object-patch"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
@@ -42,6 +43,15 @@ type staleResource struct {
 }
 
 func cleanup(_ context.Context, input *pkg.HookInput) error {
+	// The `config` CR carries the operator.cdi.kubevirt.io finalizer, and the
+	// cdi-operator that removes it is already gone. Strip the finalizers first,
+	// otherwise the InternalVirtualizationCDI CRD deletion below never completes.
+	input.PatchCollector.PatchWithMerge(
+		map[string]any{"metadata": map[string]any{"finalizers": nil}},
+		"cdi.internal.virtualization.deckhouse.io/v1beta1", "InternalVirtualizationCDI", "", "config",
+		objectpatch.WithIgnoreMissingObject(true),
+	)
+
 	for _, resource := range staleCDIResources() {
 		input.PatchCollector.DeleteInBackground(resource.apiVersion, resource.kind, resource.namespace, resource.name)
 	}
@@ -134,6 +144,9 @@ func cdiCRDResources() []staleResource {
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "storageprofiles.cdi.kubevirt.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "cdiconfigs.cdi.kubevirt.io"),
+		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationcdiconfigs.cdi.internal.virtualization.deckhouse.io"),
+		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationopenstackvolumepopulators.forklift.cdi.internal.virtualization.deckhouse.io"),
+		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationovirtvolumepopulators.forklift.cdi.internal.virtualization.deckhouse.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "datavolumes.cdi.kubevirt.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "dataimportcrons.cdi.kubevirt.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "datasources.cdi.kubevirt.io"),

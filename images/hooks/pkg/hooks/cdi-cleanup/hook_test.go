@@ -58,6 +58,9 @@ func TestStaleCDIResources(t *testing.T) {
 		"internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io",
 		"storageprofiles.cdi.kubevirt.io",
 		"internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io",
+		"internalvirtualizationcdiconfigs.cdi.internal.virtualization.deckhouse.io",
+		"internalvirtualizationopenstackvolumepopulators.forklift.cdi.internal.virtualization.deckhouse.io",
+		"internalvirtualizationovirtvolumepopulators.forklift.cdi.internal.virtualization.deckhouse.io",
 	} {
 		assertHasResource(t, resources, staleResource{
 			apiVersion: "apiextensions.k8s.io/v1",
