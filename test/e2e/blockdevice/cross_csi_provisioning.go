@@ -34,9 +34,12 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-// Creating a block device from a source that lives on a storage class backed by a
-// different CSI driver is not supported. The virtualization-controller admission
-// webhooks must reject such requests at creation time.
+// Creating a block device from a PVC-backed source that lives on a storage class
+// backed by a different CSI driver is provisioned through a host-assigned copy:
+// snapshot and CSI-clone strategies cannot cross drivers, so the data is copied by
+// an importer pod instead. Snapshot sources are the exception: the target PVC is
+// restored directly from the VolumeSnapshot, which cannot cross CSI drivers, so
+// the admission webhooks must reject such requests at creation time.
 var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
 	var (
 		f   *framework.Framework
@@ -56,7 +59,7 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 		differentSCPtr = differentCSIDriverStorageClass()
 	})
 
-	It("rejects creating a VirtualDisk from a VirtualImage backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
+	It("provisions a VirtualDisk from a VirtualImage backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
 		sourceVI := vibuilder.New(
 			vibuilder.WithName("vi-source-main-csi"),
 			vibuilder.WithNamespace(f.Namespace().Name),
@@ -73,10 +76,10 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 			vdbuilder.WithStorageClass(differentSCPtr),
 		)
 
-		expectCrossCSIRejection(ctx, f, target)
+		createVirtualDiskAndWait(ctx, f, target)
 	})
 
-	It("rejects creating a VirtualImage from a VirtualDisk backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
+	It("provisions a VirtualImage from a VirtualDisk backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
 		sourceVD := vdbuilder.New(
 			vdbuilder.WithName("vd-source-main-csi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
@@ -93,10 +96,10 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 		)
 		target.Spec.PersistentVolumeClaim.StorageClass = differentSCPtr
 
-		expectCrossCSIRejection(ctx, f, target)
+		createVirtualImageAndWait(ctx, f, target)
 	})
 
-	It("rejects creating a VirtualImage from a VirtualImage backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
+	It("provisions a VirtualImage from a VirtualImage backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
 		sourceVI := vibuilder.New(
 			vibuilder.WithName("vi-source-main-csi"),
 			vibuilder.WithNamespace(f.Namespace().Name),
@@ -114,7 +117,7 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 		)
 		target.Spec.PersistentVolumeClaim.StorageClass = differentSCPtr
 
-		expectCrossCSIRejection(ctx, f, target)
+		createVirtualImageAndWait(ctx, f, target)
 	})
 
 	Context("with snapshots", Label(precheck.PrecheckSnapshot), func() {
@@ -193,13 +196,13 @@ func createSourceSnapshotOnMainSC(ctx context.Context, f *framework.Framework, s
 }
 
 // expectCrossCSIRejection attempts to create obj and asserts that the admission webhook
-// rejects it because the source lives on a different CSI driver.
+// rejects it because the source snapshot lives on a different CSI driver.
 func expectCrossCSIRejection(ctx context.Context, f *framework.Framework, obj crclient.Object) {
 	GinkgoHelper()
 
-	By("Expecting the webhook to reject creation from a source on a different CSI driver", func() {
+	By("Expecting the webhook to reject creation from a snapshot on a different CSI driver", func() {
 		err := f.CreateWithDeferredDeletion(ctx, obj)
-		Expect(err).To(HaveOccurred(), "creation from a source on a different CSI driver must be rejected by the webhook")
+		Expect(err).To(HaveOccurred(), "creation from a snapshot on a different CSI driver must be rejected by the webhook")
 		Expect(err.Error()).To(ContainSubstring("provisioner"),
 			"the rejection error should explain the storage class provisioner mismatch")
 	})
