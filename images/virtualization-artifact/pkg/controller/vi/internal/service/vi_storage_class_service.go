@@ -24,8 +24,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
@@ -121,7 +121,7 @@ func (svc *VirtualImageStorageClassService) GetModuleStorageClass(ctx context.Co
 	return svc.GetStorageClass(ctx, svc.storageClassSettings.DefaultStorageClassName)
 }
 
-func (svc *VirtualImageStorageClassService) ValidateClaimPropertySets(sp *cdiv1.StorageProfile) error {
+func (svc *VirtualImageStorageClassService) ValidateClaimPropertySets(sp *storagev1alpha1.StorageProfile) error {
 	if sp == nil {
 		return fmt.Errorf("the storage profile cannot be nil; please report a bug")
 	}

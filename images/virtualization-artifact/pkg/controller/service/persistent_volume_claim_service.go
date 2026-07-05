@@ -31,6 +31,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
@@ -303,7 +304,7 @@ func (s *PersistentVolumeClaimService) choosePVCCloneStrategy(ctx context.Contex
 	}
 
 	preferred := cloneStrategySnapshot
-	if sp, err := object.FetchObject(ctx, types.NamespacedName{Name: targetSC.Name}, s.client, &cdiv1.StorageProfile{}); err == nil && sp != nil && sp.Status.CloneStrategy != nil {
+	if sp, err := object.FetchObject(ctx, types.NamespacedName{Name: targetSC.Name}, s.client, &storagev1alpha1.StorageProfile{}); err == nil && sp != nil && sp.Status.CloneStrategy != nil {
 		switch *sp.Status.CloneStrategy {
 		case cdiv1.CloneStrategyCsiClone:
 			preferred = cloneStrategyCSI

@@ -5,21 +5,17 @@ metadata:
     heritage: deckhouse
     module: virtualization
     app.kubernetes.io/component: virtualization-controller
-  name: internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io
+  name: storageprofiles.storage.virtualization.deckhouse.io
 spec:
-  group: cdi.internal.virtualization.deckhouse.io
+  group: storage.virtualization.deckhouse.io
   names:
-    categories:
-    - intvirt
-    kind: InternalVirtualizationStorageProfile
-    listKind: InternalVirtualizationStorageProfileList
-    plural: internalvirtualizationstorageprofiles
-    shortNames:
-    - intvirtsp
-    singular: internalvirtualizationstorageprofile
+    kind: StorageProfile
+    listKind: StorageProfileList
+    plural: storageprofiles
+    singular: storageprofile
   scope: Cluster
   versions:
-  - name: v1beta1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: StorageProfile provides storage capability recommendations

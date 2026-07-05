@@ -22,10 +22,10 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
 
@@ -69,7 +69,7 @@ func (v viStorageClassValidator) ValidateUpdate(ctx context.Context, _, newMC *m
 }
 
 func (v viStorageClassValidator) validateStorageClass(ctx context.Context, scName string) (admission.Warnings, error) {
-	scProfile := &cdiv1.StorageProfile{}
+	scProfile := &storagev1alpha1.StorageProfile{}
 	err := v.client.Get(ctx, client.ObjectKey{Name: scName}, scProfile, &client.GetOptions{})
 	if err != nil {
 		return admission.Warnings{}, fmt.Errorf("failed to fetch the storage profile %s: %w", scName, err)

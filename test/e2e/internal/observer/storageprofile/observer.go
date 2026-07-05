@@ -23,16 +23,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 )
 
-type Observer = observer.Observer[*cdiv1beta1.StorageProfile]
+type Observer = observer.Observer[*storagev1alpha1.StorageProfile]
 
-type Predicate = observer.Predicate[*cdiv1beta1.StorageProfile]
+type Predicate = observer.Predicate[*storagev1alpha1.StorageProfile]
 
 func StartObserver(ctx context.Context, f *framework.Framework, name string) Observer {
 	GinkgoHelper()
@@ -43,7 +43,7 @@ func StartObserver(ctx context.Context, f *framework.Framework, name string) Obs
 		gvr:    gvr,
 	}
 
-	obs, err := observer.New[*cdiv1beta1.StorageProfile](ctx, w, name, "")
+	obs, err := observer.New[*storagev1alpha1.StorageProfile](ctx, w, name, "")
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for StorageProfile %q", name)
 
 	go failFastOnInvariant(obs, fmt.Sprintf("StorageProfile %q", name))

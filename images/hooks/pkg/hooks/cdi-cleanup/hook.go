@@ -123,6 +123,16 @@ func cdiRuntimeResources() []staleResource {
 
 func cdiCRDResources() []staleResource {
 	return []staleResource{
+		// Deleting the CDI CRD also deletes the `config` custom resource.
+		// StorageProfile moved to storageprofiles.storage.virtualization.deckhouse.io,
+		// so the CDI-group profiles are stale as well. Leaving any of these CRDs
+		// behind deadlocks a later switch back to a CDI-enabled build: cdi-operator
+		// treats every pre-existing resource from its install set as an orphan and
+		// refuses to deploy.
+		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "cdis.cdi.kubevirt.io"),
+		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io"),
+		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "storageprofiles.cdi.kubevirt.io"),
+		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "cdiconfigs.cdi.kubevirt.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "datavolumes.cdi.kubevirt.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "dataimportcrons.cdi.kubevirt.io"),

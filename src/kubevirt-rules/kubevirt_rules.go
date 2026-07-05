@@ -87,27 +87,6 @@ var KubevirtRewriteRules = &rewriter.RewriteRules{
 // TODO create generator in golang to produce below rules from KubeVirt sources so proxy can work with future versions.
 
 var KubevirtAPIGroupsRules = map[string]rewriter.APIGroupRule{
-	"cdi.kubevirt.io": {
-		GroupRule: rewriter.GroupRule{
-			Group:            "cdi.kubevirt.io",
-			Versions:         []string{"v1beta1"},
-			PreferredVersion: "v1beta1",
-			Renamed:          "cdi." + internalPrefix,
-		},
-		ResourceRules: map[string]rewriter.ResourceRule{
-			// storageprofiles.cdi.kubevirt.io
-			"storageprofiles": {
-				Kind:             "StorageProfile",
-				ListKind:         "StorageProfileList",
-				Plural:           "storageprofiles",
-				Singular:         "storageprofile",
-				Versions:         []string{"v1beta1"},
-				PreferredVersion: "v1beta1",
-				Categories:       []string{},
-				ShortNames:       []string{},
-			},
-		},
-	},
 	"kubevirt.io": {
 		GroupRule: rewriter.GroupRule{
 			Group:            "kubevirt.io",

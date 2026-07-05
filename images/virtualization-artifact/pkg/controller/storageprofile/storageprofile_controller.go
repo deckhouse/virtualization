@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -79,8 +80,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 func (r *Reconciler) reconcileStorageProfile(ctx context.Context, sc *storagev1.StorageClass) error {
-	profile := &cdiv1.StorageProfile{}
-	var previous *cdiv1.StorageProfile
+	profile := &storagev1alpha1.StorageProfile{}
+	var previous *storagev1alpha1.StorageProfile
 	if err := r.client.Get(ctx, types.NamespacedName{Name: sc.Name}, profile); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return err
@@ -118,7 +119,7 @@ func (r *Reconciler) reconcileStorageProfile(ctx context.Context, sc *storagev1.
 }
 
 func (r *Reconciler) deleteStorageProfile(ctx context.Context, name string) error {
-	err := r.client.Delete(ctx, &cdiv1.StorageProfile{ObjectMeta: metav1.ObjectMeta{Name: name}})
+	err := r.client.Delete(ctx, &storagev1alpha1.StorageProfile{ObjectMeta: metav1.ObjectMeta{Name: name}})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
@@ -188,9 +189,9 @@ func defaultClaimPropertySets() []cdiv1.ClaimPropertySet {
 	}
 }
 
-func emptyStorageProfile(name string) *cdiv1.StorageProfile {
-	return &cdiv1.StorageProfile{
-		TypeMeta: metav1.TypeMeta{Kind: "StorageProfile", APIVersion: "cdi.kubevirt.io/v1beta1"},
+func emptyStorageProfile(name string) *storagev1alpha1.StorageProfile {
+	return &storagev1alpha1.StorageProfile{
+		TypeMeta: metav1.TypeMeta{Kind: storagev1alpha1.StorageProfileKind, APIVersion: storagev1alpha1.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
@@ -204,7 +205,7 @@ func addWatches(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &storagev1.StorageClass{}, &handler.TypedEnqueueRequestForObject[*storagev1.StorageClass]{})); err != nil {
 		return err
 	}
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &cdiv1.StorageProfile{}, &handler.TypedEnqueueRequestForObject[*cdiv1.StorageProfile]{})); err != nil {
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &storagev1alpha1.StorageProfile{}, &handler.TypedEnqueueRequestForObject[*storagev1alpha1.StorageProfile]{})); err != nil {
 		return err
 	}
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.PersistentVolume{},

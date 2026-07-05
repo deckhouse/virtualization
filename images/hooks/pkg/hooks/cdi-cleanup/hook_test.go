@@ -47,13 +47,28 @@ func TestStaleCDIResources(t *testing.T) {
 		kind:       "CustomResourceDefinition",
 		name:       "datavolumes.cdi.kubevirt.io",
 	})
+	// A later switch back to a CDI-enabled build must find none of the
+	// resources cdi-operator installs, otherwise its orphan check blocks the
+	// deployment. The CDI-group CRDs must therefore be cleaned up, including
+	// the CDI configuration CRD (removing it also removes the `config` CR) and
+	// the CDI-group StorageProfile CRDs replaced by
+	// storageprofiles.storage.virtualization.deckhouse.io.
+	for _, name := range []string{
+		"cdis.cdi.kubevirt.io",
+		"internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io",
+		"storageprofiles.cdi.kubevirt.io",
+		"internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io",
+	} {
+		assertHasResource(t, resources, staleResource{
+			apiVersion: "apiextensions.k8s.io/v1",
+			kind:       "CustomResourceDefinition",
+			name:       name,
+		})
+	}
 
 	for _, resource := range resources {
-		if strings.Contains(resource.name, "storageprofiles") {
-			t.Fatalf("StorageProfile CRD must not be removed by CDI cleanup hook: %#v", resource)
-		}
-		if resource.kind == "InternalVirtualizationCDI" || resource.name == "config" && resource.apiVersion == "cdi.internal.virtualization.deckhouse.io/v1beta1" {
-			t.Fatalf("CDI config must not be removed by CDI cleanup hook: %#v", resource)
+		if strings.Contains(resource.name, "storageprofiles.storage.virtualization.deckhouse.io") {
+			t.Fatalf("module-owned StorageProfile CRD must not be removed by CDI cleanup hook: %#v", resource)
 		}
 	}
 }

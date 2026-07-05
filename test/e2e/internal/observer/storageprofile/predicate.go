@@ -19,12 +19,12 @@ package storageprofile
 import (
 	"fmt"
 
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 )
 
 // BeReady reports that the StorageProfile is populated for storageClassName.
 func BeReady(storageClassName string) Predicate {
-	return func(sp *cdiv1beta1.StorageProfile) (bool, error) {
+	return func(sp *storagev1alpha1.StorageProfile) (bool, error) {
 		if sp == nil {
 			return false, nil
 		}

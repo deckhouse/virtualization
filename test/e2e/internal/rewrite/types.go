@@ -19,7 +19,8 @@ package rewrite
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 )
 
 func rewriteVirtualizationV1(resource string) schema.GroupVersionResource {
@@ -34,15 +35,17 @@ func rewriteInternalVirtualizationResource(resource string) string {
 	return "internalvirtualization" + resource
 }
 
+// StorageProfile is the module-owned storageprofiles.storage.virtualization.deckhouse.io
+// resource maintained by virtualization-controller instead of CDI.
 type StorageProfile struct {
-	*cdiv1beta1.StorageProfile `json:",inline"`
+	*storagev1alpha1.StorageProfile `json:",inline"`
 }
 
 func (StorageProfile) GVR() schema.GroupVersionResource {
 	return schema.GroupVersionResource{
-		Group:    "cdi.internal.virtualization.deckhouse.io",
-		Version:  "v1beta1",
-		Resource: rewriteInternalVirtualizationResource("storageprofiles"),
+		Group:    "storage.virtualization.deckhouse.io",
+		Version:  "v1alpha1",
+		Resource: "storageprofiles",
 	}
 }
 

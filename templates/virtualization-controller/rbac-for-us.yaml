@@ -127,9 +127,9 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - cdi.internal.virtualization.deckhouse.io
+  - storage.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationstorageprofiles
+  - storageprofiles
   verbs:
   - get
   - create

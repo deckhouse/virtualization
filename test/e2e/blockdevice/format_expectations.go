@@ -25,9 +25,9 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -144,8 +144,8 @@ func storageClassByName(ctx context.Context, f *framework.Framework, name string
 	return got
 }
 
-func storageProfileGetter(f *framework.Framework) func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
-	return func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+func storageProfileGetter(f *framework.Framework) func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
+	return func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 		obj := &rewrite.StorageProfile{}
 		err := f.RewriteClient().Get(ctx, name, obj)
 		if err != nil {

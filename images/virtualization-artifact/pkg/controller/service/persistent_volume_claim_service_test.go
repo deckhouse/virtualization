@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonpvc "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
@@ -388,9 +389,9 @@ func TestPVCServiceCreateTargetFromPVCUsesSnapshotForSDSReplicated(t *testing.T)
 		Driver:     sc.Provisioner,
 	}
 	snapshot := cdiv1.CloneStrategySnapshot
-	sp := &cdiv1.StorageProfile{
+	sp := &storagev1alpha1.StorageProfile{
 		ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
-		Status: cdiv1.StorageProfileStatus{
+		Status: storagev1alpha1.StorageProfileStatus{
 			CloneStrategy: &snapshot,
 		},
 	}
@@ -436,7 +437,7 @@ func diskImportTestScheme(t *testing.T) *runtime.Scheme {
 	if err := vsv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	if err := cdiv1.AddToScheme(scheme); err != nil {
+	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 	if err := v1alpha2.AddToScheme(scheme); err != nil {

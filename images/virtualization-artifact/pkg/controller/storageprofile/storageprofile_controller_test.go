@@ -28,6 +28,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 )
 
 func TestReconcileStorageProfileCreatesSnapshotStrategy(t *testing.T) {
@@ -45,7 +47,7 @@ func TestReconcileStorageProfileCreatesSnapshotStrategy(t *testing.T) {
 		t.Fatalf("reconcile failed: %v", err)
 	}
 
-	sp := &cdiv1.StorageProfile{}
+	sp := &storagev1alpha1.StorageProfile{}
 	if err := c.Get(ctx, types.NamespacedName{Name: sc.Name}, sp); err != nil {
 		t.Fatalf("storageprofile not found: %v", err)
 	}
@@ -65,9 +67,9 @@ func TestReconcileStorageProfileUsesSnapshotForSDSReplicated(t *testing.T) {
 	vsc := &vsv1.VolumeSnapshotClass{Driver: sc.Provisioner}
 	vsc.Name = "sds-replicated-volume"
 	snapshot := cdiv1.CloneStrategySnapshot
-	existing := &cdiv1.StorageProfile{
+	existing := &storagev1alpha1.StorageProfile{
 		ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
-		Spec: cdiv1.StorageProfileSpec{
+		Spec: storagev1alpha1.StorageProfileSpec{
 			CloneStrategy: &snapshot,
 		},
 	}
@@ -79,7 +81,7 @@ func TestReconcileStorageProfileUsesSnapshotForSDSReplicated(t *testing.T) {
 		t.Fatalf("reconcile failed: %v", err)
 	}
 
-	sp := &cdiv1.StorageProfile{}
+	sp := &storagev1alpha1.StorageProfile{}
 	if err := c.Get(ctx, types.NamespacedName{Name: sc.Name}, sp); err != nil {
 		t.Fatalf("storageprofile not found: %v", err)
 	}
@@ -110,7 +112,7 @@ func TestReconcileStorageProfileHonorsStorageClassAnnotation(t *testing.T) {
 		t.Fatalf("reconcile failed: %v", err)
 	}
 
-	sp := &cdiv1.StorageProfile{}
+	sp := &storagev1alpha1.StorageProfile{}
 	if err := c.Get(ctx, types.NamespacedName{Name: sc.Name}, sp); err != nil {
 		t.Fatalf("storageprofile not found: %v", err)
 	}
@@ -128,7 +130,7 @@ func storageProfileTestScheme(t *testing.T) *runtime.Scheme {
 	if err := vsv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	if err := cdiv1.AddToScheme(scheme); err != nil {
+	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 	return scheme

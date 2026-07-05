@@ -26,9 +26,9 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -157,8 +157,8 @@ func newStorageClassServiceMock(existedStorageClass *string, unsupportedStorageC
 		}
 	}
 
-	storageClassServiceMock.GetStorageProfileFunc = func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
-		return &cdiv1.StorageProfile{}, nil
+	storageClassServiceMock.GetStorageProfileFunc = func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
+		return &storagev1alpha1.StorageProfile{}, nil
 	}
 
 	storageClassServiceMock.GetModuleStorageClassFunc = func(ctx context.Context) (*storagev1.StorageClass, error) {
@@ -173,7 +173,7 @@ func newStorageClassServiceMock(existedStorageClass *string, unsupportedStorageC
 		return true
 	}
 
-	storageClassServiceMock.ValidateClaimPropertySetsFunc = func(_ *cdiv1.StorageProfile) error {
+	storageClassServiceMock.ValidateClaimPropertySetsFunc = func(_ *storagev1alpha1.StorageProfile) error {
 		if unsupportedStorageClass {
 			return fmt.Errorf(
 				"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' or 'Filesystem' and access mode 'ReadWriteOnce' or 'ReadWriteMany'",

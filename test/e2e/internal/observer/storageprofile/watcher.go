@@ -25,7 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 )
 
 type dynamicWatcher struct {
@@ -94,13 +95,13 @@ func convertStorageProfileEvent(event watch.Event) (watch.Event, error) {
 	return watch.Event{Type: event.Type, Object: sp}, nil
 }
 
-func unstructuredToStorageProfile(u *unstructured.Unstructured) (*cdiv1beta1.StorageProfile, error) {
+func unstructuredToStorageProfile(u *unstructured.Unstructured) (*storagev1alpha1.StorageProfile, error) {
 	raw, err := u.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
 
-	sp := &cdiv1beta1.StorageProfile{}
+	sp := &storagev1alpha1.StorageProfile{}
 	if err := json.Unmarshal(raw, sp); err != nil {
 		return nil, err
 	}
