@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -147,8 +148,79 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 
 			expectCrossCSIRejection(ctx, f, target)
 		})
+
+		// The webhooks legitimately admit a resource when the source provisioner is not
+		// determinable yet (e.g. the referenced snapshot does not exist at creation
+		// time). These specs pin the reconcile-time guard: once the snapshot becomes
+		// ready on a different CSI driver, provisioning must fail with a clear message
+		// instead of creating a PVC that can never be populated.
+		It("fails provisioning a VirtualDisk when the cross-CSI snapshot source appears after creation", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
+			const snapshotName = "vdsnapshot-late-cross-csi-vd"
+
+			target := vdbuilder.New(
+				vdbuilder.WithName("vd-from-late-snapshot-cross-csi"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot, snapshotName),
+				vdbuilder.WithStorageClass(differentSCPtr),
+			)
+
+			By("Creating the target VirtualDisk while the source snapshot does not exist yet", func() {
+				err := f.CreateWithDeferredDeletion(ctx, target)
+				Expect(err).NotTo(HaveOccurred(),
+					"creation must be admitted while the source provisioner is not determinable")
+			})
+
+			createSourceSnapshotOnMainSC(ctx, f, scPtr, "vd-source-for-late-snap-cross-csi", snapshotName)
+
+			By("Expecting the provisioning to fail on the reconcile-time cross-provider check", func() {
+				util.UntilObjectPhase(ctx, string(v1alpha2.DiskFailed), framework.LongTimeout, target)
+
+				err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(target), target)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(readyConditionMessage(target.Status.Conditions)).To(ContainSubstring("Cross-provider snapshot restore is not supported"))
+			})
+		})
+
+		It("fails provisioning a VirtualImage when the cross-CSI snapshot source appears after creation", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
+			const snapshotName = "vdsnapshot-late-cross-csi-vi"
+
+			target := vibuilder.New(
+				vibuilder.WithName("vi-from-late-snapshot-cross-csi"),
+				vibuilder.WithNamespace(f.Namespace().Name),
+				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, snapshotName),
+			)
+			target.Spec.PersistentVolumeClaim.StorageClass = differentSCPtr
+
+			By("Creating the target VirtualImage while the source snapshot does not exist yet", func() {
+				err := f.CreateWithDeferredDeletion(ctx, target)
+				Expect(err).NotTo(HaveOccurred(),
+					"creation must be admitted while the source provisioner is not determinable")
+			})
+
+			createSourceSnapshotOnMainSC(ctx, f, scPtr, "vd-source-for-late-snap-cross-csi", snapshotName)
+
+			By("Expecting the provisioning to fail on the reconcile-time cross-provider check", func() {
+				util.UntilObjectPhase(ctx, string(v1alpha2.ImageFailed), framework.LongTimeout, target)
+
+				err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(target), target)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(readyConditionMessage(target.Status.Conditions)).To(ContainSubstring("Cross-provider snapshot restore is not supported"))
+			})
+		})
 	})
 })
+
+// readyConditionMessage returns the message of the Ready condition, or an empty
+// string when the condition is not present.
+func readyConditionMessage(conds []metav1.Condition) string {
+	for _, cond := range conds {
+		if cond.Type == "Ready" {
+			return cond.Message
+		}
+	}
+	return ""
+}
 
 // differentCSIDriverStorageClass returns a pointer to the name of a StorageClass backed
 // by a different CSI driver than the main one. Its presence and distinct CSI driver are
