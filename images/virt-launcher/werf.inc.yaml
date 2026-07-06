@@ -482,3 +482,6 @@ shell:
     {{- $_ := set $ "ProjectName" (list .ImageName "temp_pod" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `musl-gcc -static -Os -o /bins/temp_pod temp_pod.c`) | nindent 6 }}
     strip /bins/temp_pod
+
+
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
