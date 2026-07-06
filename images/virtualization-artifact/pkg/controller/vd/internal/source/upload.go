@@ -172,6 +172,14 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		}
 
 		return CleanUpSupplements(ctx, vd, ds)
+	case condition.Reason == vdcondition.WaitForUserUploadTimeout.String():
+		log.Debug("Upload wait timed out: clean up")
+
+		vd.Status.Phase = v1alpha2.DiskFailed
+		vd.Status.ImageUploadURLs = nil
+		setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.WaitForUserUploadTimeout, uploader.WaitForUserUploadTimeoutMessage)
+
+		return CleanUpSupplements(ctx, vd, ds)
 	case object.AnyTerminating(pod, svc, ing, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil || svc == nil || ing == nil:
@@ -213,6 +221,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		}
 
 		if !ds.statService.IsUploadStarted(vd.GetUID(), pod) {
+			if uploader.IsWaitForUserUploadTimeoutExpired(pod) {
+				log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
+				ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
+
+				vd.Status.Phase = v1alpha2.DiskFailed
+				vd.Status.ImageUploadURLs = nil
+				setReadyConditionWithWFFCAccounting(vd, cb, metav1.ConditionFalse, vdcondition.WaitForUserUploadTimeout, uploader.WaitForUserUploadTimeoutMessage)
+
+				return CleanUpSupplements(ctx, vd, ds)
+			}
+
 			if isUploaderReady {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 

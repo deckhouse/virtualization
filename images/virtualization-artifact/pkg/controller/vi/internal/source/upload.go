@@ -161,6 +161,17 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
+	case condition.Reason == vicondition.WaitForUserUploadTimeout.String():
+		log.Debug("Upload wait timed out: clean up")
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage)
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case object.AnyTerminating(pod, svc, ing, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil || svc == nil || ing == nil:
@@ -202,6 +213,20 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		}
 
 		if !ds.statService.IsUploadStarted(vi.GetUID(), pod) {
+			if uploader.IsWaitForUserUploadTimeoutExpired(pod) {
+				log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
+				ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
+
+				vi.Status.Phase = v1alpha2.ImageFailed
+				vi.Status.ImageUploadURLs = nil
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.WaitForUserUploadTimeout).
+					Message(uploader.WaitForUserUploadTimeoutMessage)
+
+				return CleanUpSupplements(ctx, vi, ds)
+			}
+
 			if isUploaderReady {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
@@ -430,6 +455,17 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
+	case condition.Reason == vicondition.WaitForUserUploadTimeout.String():
+		log.Debug("Upload wait timed out: clean up")
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage)
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case object.AnyTerminating(pod, svc, ing):
 		vi.Status.Phase = v1alpha2.ImagePending
 
@@ -510,6 +546,18 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		}
 
 		log.Info("Provisioning...", "pod.phase", pod.Status.Phase)
+	case uploader.IsWaitForUserUploadTimeoutExpired(pod):
+		log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
+		ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage)
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case isUploaderReady:
 		cb.
 			Status(metav1.ConditionFalse).
