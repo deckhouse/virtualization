@@ -33,7 +33,7 @@ import (
 
 type Handler interface {
 	Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error)
-	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error)
+	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error)
 	Validate(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error
 }
 
@@ -60,31 +60,33 @@ func (s Sources) Changed(_ context.Context, cvi *v1alpha2.ClusterVirtualImage) b
 	return cvi.Generation != cvi.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
+func (s Sources) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error) {
 	var requeue bool
+	var reason string
 
 	for _, source := range s.sources {
-		ok, err := source.CleanUp(ctx, cvi)
+		sourceRequeue, sourceReason, err := source.CleanUp(ctx, cvi)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
-		requeue = requeue || ok
+		requeue = requeue || sourceRequeue
+		reason = service.MergeCleanUpReasons(reason, sourceReason)
 	}
 
-	return requeue, nil
+	return requeue, reason, nil
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error)
+	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error)
 }
 
-func CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage, c Cleaner) (bool, error) {
+func CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage, c Cleaner) (bool, string, error) {
 	if object.ShouldCleanupSubResources(cvi) {
 		return c.CleanUp(ctx, cvi)
 	}
 
-	return false, nil
+	return false, "", nil
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {

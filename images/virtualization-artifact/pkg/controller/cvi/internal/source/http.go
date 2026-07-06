@@ -100,7 +100,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 			return reconcile.Result{}, err
 		}
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -220,15 +220,15 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds HTTPDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
+func (ds HTTPDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
-	requeue, err := ds.importerService.CleanUp(ctx, supgen)
+	requeue, reason, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return requeue, nil
+	return requeue, reason, nil
 }
 
 func (ds HTTPDataSource) Validate(_ context.Context, _ *v1alpha2.ClusterVirtualImage) error {

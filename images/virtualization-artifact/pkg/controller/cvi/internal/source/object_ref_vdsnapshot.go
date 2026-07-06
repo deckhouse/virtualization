@@ -319,42 +319,42 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	importerRequeue, importerReason, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	pvcCleanupRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	pvcCleanupRequeue, pvcCleanupReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if importerRequeue || diskRequeue || pvcCleanupRequeue {
+	if reason := service.MergeCleanUpReasons(importerReason, diskReason, pvcCleanupReason); reason != "" || importerRequeue || diskRequeue || pvcCleanupRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
+func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, importerReason, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue || diskRequeue, service.MergeCleanUpReasons(importerReason, diskReason), nil
 }
 
 func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {

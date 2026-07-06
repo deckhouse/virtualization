@@ -84,8 +84,8 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		}
 
 		importer = &ImporterMock{
-			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
-				return false, nil
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) {
+				return false, "", nil
 			},
 			GetPodFunc: func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) {
 				return pod, nil
@@ -113,8 +113,8 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		}
 
 		diskService = &DiskMock{
-			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
-				return false, nil
+			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
+				return false, "", nil
 			},
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil

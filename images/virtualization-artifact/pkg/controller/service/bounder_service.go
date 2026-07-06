@@ -79,32 +79,32 @@ func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerRefe
 	return nil
 }
 
-func (s BounderPodService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s BounderPodService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	err = s.protection.RemoveProtection(ctx, pod)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	var hasDeleted bool
+	var reason string
 
 	if pod != nil {
-		hasDeleted = true
+		reason = CleanUpReasonForObject("waiting for bounder Pod deletion", pod)
 		err = s.client.Delete(ctx, pod)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
-	return hasDeleted, nil
+	return reason != "", reason, nil
 }
 
 func (s BounderPodService) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {

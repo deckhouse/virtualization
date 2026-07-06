@@ -37,7 +37,7 @@ import (
 )
 
 type ReadyPersistentVolumeClaimStepBounder interface {
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type ReadyPersistentVolumeClaimStep struct {
@@ -140,7 +140,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 func (s ReadyPersistentVolumeClaimStep) cleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	_, err := s.bounder.CleanUpSupplements(ctx, supgen)
+	_, _, err := s.bounder.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return err
 	}

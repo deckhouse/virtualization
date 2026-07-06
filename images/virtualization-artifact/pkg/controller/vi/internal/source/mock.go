@@ -30,10 +30,10 @@ var _ Importer = &ImporterMock{}
 //
 //		// make and configure a mocked Importer
 //		mockedImporter := &ImporterMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			GetPodFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
@@ -62,10 +62,10 @@ var _ Importer = &ImporterMock{}
 //	}
 type ImporterMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// GetPodFunc mocks the GetPod method.
 	GetPodFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
@@ -179,7 +179,7 @@ type ImporterMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("ImporterMock.CleanUpFunc: method is nil but Importer.CleanUp was just called")
 	}
@@ -215,7 +215,7 @@ func (mock *ImporterMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("ImporterMock.CleanUpSupplementsFunc: method is nil but Importer.CleanUpSupplements was just called")
 	}
@@ -524,10 +524,10 @@ var _ Uploader = &UploaderMock{}
 //
 //		// make and configure a mocked Uploader
 //		mockedUploader := &UploaderMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			EnsureIngressFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
@@ -571,10 +571,10 @@ var _ Uploader = &UploaderMock{}
 //	}
 type UploaderMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// EnsureIngressFunc mocks the EnsureIngress method.
 	EnsureIngressFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
@@ -735,7 +735,7 @@ type UploaderMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("UploaderMock.CleanUpFunc: method is nil but Uploader.CleanUp was just called")
 	}
@@ -771,7 +771,7 @@ func (mock *UploaderMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *UploaderMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *UploaderMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("UploaderMock.CleanUpSupplementsFunc: method is nil but Uploader.CleanUpSupplements was just called")
 	}
@@ -1709,10 +1709,10 @@ var _ Bounder = &BounderMock{}
 //
 //		// make and configure a mocked Bounder
 //		mockedBounder := &BounderMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			StartFunc: func(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...service.Option) error {
@@ -1726,10 +1726,10 @@ var _ Bounder = &BounderMock{}
 //	}
 type BounderMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...service.Option) error
@@ -1768,7 +1768,7 @@ type BounderMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *BounderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *BounderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("BounderMock.CleanUpFunc: method is nil but Bounder.CleanUp was just called")
 	}
@@ -1804,7 +1804,7 @@ func (mock *BounderMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *BounderMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *BounderMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("BounderMock.CleanUpSupplementsFunc: method is nil but Bounder.CleanUpSupplements was just called")
 	}
@@ -1893,7 +1893,7 @@ var _ Handler = &HandlerMock{}
 //
 //		// make and configure a mocked Handler
 //		mockedHandler := &HandlerMock{
-//			CleanUpFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
 //			StoreToDVCRFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
@@ -1913,7 +1913,7 @@ var _ Handler = &HandlerMock{}
 //	}
 type HandlerMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error)
+	CleanUpFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error)
 
 	// StoreToDVCRFunc mocks the StoreToDVCR method.
 	StoreToDVCRFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
@@ -1962,7 +1962,7 @@ type HandlerMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *HandlerMock) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
+func (mock *HandlerMock) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("HandlerMock.CleanUpFunc: method is nil but Handler.CleanUp was just called")
 	}
@@ -2115,7 +2115,7 @@ var _ Disk = &DiskMock{}
 //
 //		// make and configure a mocked Disk
 //		mockedDisk := &DiskMock{
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
@@ -2129,7 +2129,7 @@ var _ Disk = &DiskMock{}
 //	}
 type DiskMock struct {
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
 	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
@@ -2156,7 +2156,7 @@ type DiskMock struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *DiskMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *DiskMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("DiskMock.CleanUpSupplementsFunc: method is nil but Disk.CleanUpSupplements was just called")
 	}

@@ -160,7 +160,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 			return reconcile.Result{}, err
 		}
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -294,25 +294,25 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
-	viRefResult, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
+func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error) {
+	viRefRequeue, viRefReason, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	vdRefResult, err := ds.vdSyncer.CleanUp(ctx, cvi)
+	vdRefRequeue, vdRefReason, err := ds.vdSyncer.CleanUp(ctx, cvi)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
-	objRefRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	objRefRequeue, objRefReason, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return viRefResult || vdRefResult || objRefRequeue, nil
+	return viRefRequeue || vdRefRequeue || objRefRequeue, service.MergeCleanUpReasons(viRefReason, vdRefReason, objRefReason), nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error {

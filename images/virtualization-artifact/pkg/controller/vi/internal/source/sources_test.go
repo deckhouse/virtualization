@@ -38,9 +38,10 @@ import (
 )
 
 type sourcesHandlerStub struct {
-	cleanupResult bool
-	cleanupErr    error
-	cleanupCalls  int
+	cleanupRequeue bool
+	cleanupReason  string
+	cleanupErr     error
+	cleanupCalls   int
 }
 
 func (s *sourcesHandlerStub) StoreToDVCR(context.Context, *v1alpha2.VirtualImage) (reconcile.Result, error) {
@@ -51,9 +52,9 @@ func (s *sourcesHandlerStub) StoreToPVC(context.Context, *v1alpha2.VirtualImage)
 	return reconcile.Result{}, nil
 }
 
-func (s *sourcesHandlerStub) CleanUp(context.Context, *v1alpha2.VirtualImage) (bool, error) {
+func (s *sourcesHandlerStub) CleanUp(context.Context, *v1alpha2.VirtualImage) (bool, string, error) {
 	s.cleanupCalls++
-	return s.cleanupResult, s.cleanupErr
+	return s.cleanupRequeue, s.cleanupReason, s.cleanupErr
 }
 
 func (s *sourcesHandlerStub) Validate(context.Context, *v1alpha2.VirtualImage) error {
@@ -61,7 +62,8 @@ func (s *sourcesHandlerStub) Validate(context.Context, *v1alpha2.VirtualImage) e
 }
 
 type sourcesCleanerStub struct {
-	cleanupResult            bool
+	cleanupRequeue           bool
+	cleanupReason            string
 	cleanupErr               error
 	cleanupSupplementsResult reconcile.Result
 	cleanupSupplementsErr    error
@@ -69,9 +71,9 @@ type sourcesCleanerStub struct {
 	cleanupSupplementsCalls  int
 }
 
-func (s *sourcesCleanerStub) CleanUp(context.Context, *v1alpha2.VirtualImage) (bool, error) {
+func (s *sourcesCleanerStub) CleanUp(context.Context, *v1alpha2.VirtualImage) (bool, string, error) {
 	s.cleanupCalls++
-	return s.cleanupResult, s.cleanupErr
+	return s.cleanupRequeue, s.cleanupReason, s.cleanupErr
 }
 
 func (s *sourcesCleanerStub) CleanUpSupplements(context.Context, *v1alpha2.VirtualImage) (reconcile.Result, error) {
@@ -119,12 +121,12 @@ var _ = Describe("Sources helpers", func() {
 
 		It("aggregates cleanup results from all handlers", func() {
 			sources := NewSources()
-			first := &sourcesHandlerStub{cleanupResult: false}
-			second := &sourcesHandlerStub{cleanupResult: true}
+			first := &sourcesHandlerStub{}
+			second := &sourcesHandlerStub{cleanupRequeue: true, cleanupReason: "waiting for cleanup"}
 			sources.Set(v1alpha2.DataSourceTypeHTTP, first)
 			sources.Set(v1alpha2.DataSourceTypeObjectRef, second)
 
-			requeue, err := sources.CleanUp(context.Background(), newVI())
+			requeue, _, err := sources.CleanUp(context.Background(), newVI())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(requeue).To(BeTrue())
 			Expect(first.cleanupCalls).To(Equal(1))
@@ -136,7 +138,7 @@ var _ = Describe("Sources helpers", func() {
 			broken := &sourcesHandlerStub{cleanupErr: errors.New("cleanup failed")}
 			sources.Set(v1alpha2.DataSourceTypeHTTP, broken)
 
-			requeue, err := sources.CleanUp(context.Background(), newVI())
+			requeue, _, err := sources.CleanUp(context.Background(), newVI())
 			Expect(err).To(MatchError("cleanup failed"))
 			Expect(requeue).To(BeFalse())
 			Expect(broken.cleanupCalls).To(Equal(1))
@@ -146,22 +148,22 @@ var _ = Describe("Sources helpers", func() {
 	Describe("cleanup wrappers", func() {
 		It("runs cleanup only when subresources should be deleted", func() {
 			vi := newVI()
-			cleaner := &sourcesCleanerStub{cleanupResult: true}
+			cleaner := &sourcesCleanerStub{cleanupRequeue: true, cleanupReason: "waiting for cleanup"}
 
-			shouldRequeue, err := CleanUp(context.Background(), vi, cleaner)
+			requeue, _, err := CleanUp(context.Background(), vi, cleaner)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(shouldRequeue).To(BeTrue())
+			Expect(requeue).To(BeTrue())
 			Expect(cleaner.cleanupCalls).To(Equal(1))
 		})
 
 		It("skips cleanup when retain annotation is set", func() {
 			vi := newVI()
 			vi.Annotations[annotations.AnnPodRetainAfterCompletion] = "true"
-			cleaner := &sourcesCleanerStub{cleanupResult: true}
+			cleaner := &sourcesCleanerStub{cleanupRequeue: true, cleanupReason: "waiting for cleanup"}
 
-			shouldRequeue, err := CleanUp(context.Background(), vi, cleaner)
+			requeue, _, err := CleanUp(context.Background(), vi, cleaner)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(shouldRequeue).To(BeFalse())
+			Expect(requeue).To(BeFalse())
 			Expect(cleaner.cleanupCalls).To(BeZero())
 		})
 

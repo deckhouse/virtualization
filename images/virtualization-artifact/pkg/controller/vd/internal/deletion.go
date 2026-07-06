@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,12 +53,13 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 			return reconcile.Result{}, nil
 		}
 
-		requeue, err := h.sources.CleanUp(ctx, vd)
+		requeue, reason, err := h.sources.CleanUp(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		if requeue {
+			log.Info("VirtualDisk cleanup is pending", slog.String("reason", reason))
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 

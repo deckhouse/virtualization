@@ -149,7 +149,7 @@ var _ Sources = &SourcesMock{}
 //			ChangedFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) bool {
 //				panic("mock out the Changed method")
 //			},
-//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
 //			ForFunc: func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
@@ -166,7 +166,7 @@ type SourcesMock struct {
 	ChangedFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) bool
 
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error)
+	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, string, error)
 
 	// ForFunc mocks the For method.
 	ForFunc func(dsType v1alpha2.DataSourceType) (source.Handler, bool)
@@ -235,7 +235,7 @@ func (mock *SourcesMock) ChangedCalls() []struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *SourcesMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error) {
+func (mock *SourcesMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("SourcesMock.CleanUpFunc: method is nil but Sources.CleanUp was just called")
 	}

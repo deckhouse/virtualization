@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,12 +45,13 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if vi.DeletionTimestamp != nil {
-		requeue, err := h.sources.CleanUp(ctx, vi)
+		requeue, reason, err := h.sources.CleanUp(ctx, vi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		if requeue {
+			log.Info("VirtualImage cleanup is pending", slog.String("reason", reason))
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 

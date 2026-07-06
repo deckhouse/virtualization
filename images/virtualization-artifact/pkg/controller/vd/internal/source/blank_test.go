@@ -73,8 +73,8 @@ var _ = Describe("Blank", func() {
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return vd.Spec.PersistentVolumeClaim.Size.String()
 			},
-			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
-				return false, nil
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) {
+				return false, "", nil
 			},
 			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
 				return nil

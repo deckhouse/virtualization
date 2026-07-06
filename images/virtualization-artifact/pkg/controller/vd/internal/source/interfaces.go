@@ -31,7 +31,7 @@ import (
 type Handler interface {
 	Name() string
 	Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
-	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
+	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error)
 	Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error
 }
 
@@ -39,7 +39,7 @@ type BlankDataSourceDiskService interface {
 	step.VolumeAndAccessModesGetter
 	step.ReadyStepDiskService
 
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type ObjectRefVirtualImageDiskService interface {

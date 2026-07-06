@@ -85,7 +85,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 			return reconcile.Result{}, err
 		}
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -205,9 +205,17 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
+func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Namespace, cvi.UID)
-	return ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
+	deleted, err := ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
+	if err != nil {
+		return false, "", err
+	}
+	if !deleted {
+		return false, "", nil
+	}
+
+	return true, "waiting for object-ref importer Pod deletion", nil
 }
 
 func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {

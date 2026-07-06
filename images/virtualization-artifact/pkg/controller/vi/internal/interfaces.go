@@ -33,7 +33,7 @@ import (
 type Sources interface {
 	Changed(ctx context.Context, vi *v1alpha2.VirtualImage) bool
 	For(dsType v1alpha2.DataSourceType) (source.Handler, bool)
-	CleanUp(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error)
+	CleanUp(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, string, error)
 }
 
 type DiskService interface {
