@@ -118,3 +118,4 @@ shell:
     mkdir -p /relocate/home/qemu
     chown -R 107:107 /relocate/home/qemu
 
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
