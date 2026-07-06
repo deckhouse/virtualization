@@ -9,10 +9,10 @@ require (
 	github.com/povsister/scp v0.0.0-20250504051308-e467f71ea63c
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.7
-	golang.org/x/crypto v0.45.0
-	golang.org/x/sys v0.38.0
-	golang.org/x/term v0.37.0
-	golang.org/x/text v0.31.0
+	golang.org/x/crypto v0.51.0
+	golang.org/x/sys v0.45.0
+	golang.org/x/term v0.43.0
+	golang.org/x/text v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.34.2
 	k8s.io/apimachinery v0.34.2
@@ -61,7 +61,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
@@ -79,3 +79,9 @@ require (
 )
 
 replace github.com/deckhouse/virtualization/api => ../../api
+
+// CVE Replaces
+replace (
+	golang.org/x/net => golang.org/x/net v0.55.0
+	golang.org/x/sys => golang.org/x/sys v0.45.0
+)
