@@ -138,11 +138,15 @@ func runVirtualMachineFromImageUntilRunning(ctx context.Context, f *framework.Fr
 	})
 
 	By("Checking that the OS installer boot screen is visible over VNC", func() {
+		// The live-server ISO takes a while to reach the subiquity language screen
+		// (kernel, systemd, snapd mounting the installer snap) — around 45s after
+		// Running even on an idle cluster, so the middle timeout is too tight when
+		// specs run in parallel.
 		Eventually(func(g Gomega) {
 			frame, err := captureVNCFrame(ctx, vm)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(hasUbuntuInstallerBootScreen(frame)).To(BeTrue(), "expected Ubuntu installer language selection screen")
-		}).WithTimeout(framework.MiddleTimeout).WithPolling(5 * time.Second).Should(Succeed())
+		}).WithTimeout(framework.LongTimeout).WithPolling(5 * time.Second).Should(Succeed())
 	})
 }
 
