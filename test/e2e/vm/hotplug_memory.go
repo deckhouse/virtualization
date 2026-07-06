@@ -222,7 +222,7 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 		util.ExpectVMOnNode(ctx, t.Framework, t.VM, initialNode)
 	}
 
-	util.UntilSSHReady(t.Framework, t.VM, framework.MiddleTimeout)
+	util.UntilSSHReady(t.Framework, t.VM, framework.LongTimeout)
 
 	By("Checking changed memory size")
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)

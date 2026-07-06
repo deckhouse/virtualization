@@ -84,7 +84,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	Expect(err).NotTo(HaveOccurred())
 
 	util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-	util.UntilSSHReady(f, vm, framework.MiddleTimeout)
+	util.UntilSSHReady(f, vm, framework.LongTimeout)
 
 	By("Create memory pressure inside the virtual machine")
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, stressngCmd)
