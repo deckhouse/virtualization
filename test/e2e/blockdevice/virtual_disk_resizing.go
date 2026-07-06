@@ -132,15 +132,13 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 
 		// The new size becomes visible in the guest asynchronously: the CSI volume
 		// expansion and the block-device capacity refresh in qemu finish after the
-		// VirtualDisk reports Ready, so poll lsblk instead of asserting once. On an
-		// idle cluster this takes seconds, but under a parallel e2e run the LINSTOR
-		// resize can lag for minutes (lock contention), hence the long timeout.
+		// VirtualDisk reports Ready, so poll lsblk instead of asserting once.
 		untilLsblkSizeGrows := func(vdName string, oldSize resource.Quantity) {
 			GinkgoHelper()
 			Eventually(func() int {
 				lsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdName)
 				return lsblkSize.Cmp(oldSize)
-			}).WithTimeout(framework.LongTimeout).WithPolling(5*time.Second).Should(Equal(common.CmpGreater),
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(5*time.Second).Should(Equal(common.CmpGreater),
 				"the guest should observe the increased size of the %q disk", vdName)
 		}
 
