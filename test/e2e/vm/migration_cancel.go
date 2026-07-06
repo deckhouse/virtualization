@@ -120,7 +120,11 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Ensure the VMOP is removed")
-	util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, evictVMOP)
+	// The VMOP disappears only after the migration abort completes, and KubeVirt
+	// delivers the abort signal to the VMI only once the migration reaches the
+	// Running phase — under stress-ng load the target preparation alone can take
+	// minutes, so the graceful cancellation needs the long timeout too.
+	util.UntilObjectsDeleted(ctx, framework.LongTimeout, evictVMOP)
 
 	By("Ensure stress-ng error log is empty")
 	err = checkStressNGErrorLogIsEmpty(f, vm)
