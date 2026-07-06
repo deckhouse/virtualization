@@ -130,12 +130,13 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		ActionRestart,
 	)
 	if len(changes) > 0 {
-		// Provisioning data is consumed at boot only, so its removal can be
-		// applied to the underlying VM immediately: it allows deleting the
-		// referenced secret without restarting the VM.
-		for i := range changes {
-			if changes[i].Operation == ChangeRemove {
-				changes[i].ActionRequired = ActionApplyImmediate
+		// Cloud-init data is consumed at boot only, so its removal can be
+		// applied to the underlying VM immediately
+		if isCloudInitProvisioning(current.Provisioning) {
+			for i := range changes {
+				if changes[i].Operation == ChangeRemove {
+					changes[i].ActionRequired = ActionApplyImmediate
+				}
 			}
 		}
 		return changes
@@ -235,4 +236,11 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 	}
 
 	return nil
+}
+
+func isCloudInitProvisioning(p *v1alpha2.Provisioning) bool {
+	if p == nil {
+		return false
+	}
+	return p.Type == v1alpha2.ProvisioningTypeUserData || p.Type == v1alpha2.ProvisioningTypeUserDataRef
 }
