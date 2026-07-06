@@ -107,7 +107,10 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Ensure the VMOP is in the InProgress phase")
-	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, evictVMOP)
+	// The VMOP stays Pending until virt-controller grants a migration slot
+	// (parallelMigrationsPerCluster/parallelOutboundMigrationsPerNode), which
+	// takes minutes when parallel specs keep long-running migrations busy.
+	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.LongTimeout, evictVMOP)
 
 	By("Ensure the KVVMI has a migration state")
 	untilKVVMIMigrationStateExists(ctx, framework.MiddleTimeout, vm)
