@@ -94,15 +94,24 @@ func VolumeBindingMode(sc *storagev1.StorageClass) storagev1.VolumeBindingMode {
 	return *sc.VolumeBindingMode
 }
 
-// FindStorageClassWithDifferentProvisioner returns a StorageClass whose provisioner (CSI
-// driver) differs from the given provisioner. When several match, the one with the
-// smallest name is returned for determinism. Returns nil if none match (the cluster has
-// only a single CSI driver).
-func FindStorageClassWithDifferentProvisioner(scList *storagev1.StorageClassList, provisioner string) *storagev1.StorageClass {
+// FindStorageClassWithDifferentProvisioner returns a StorageClass whose provisioner is a
+// registered CSI driver different from the given provisioner. Non-CSI provisioners (for
+// example the localpath external provisioner) are skipped: virtualization does not work
+// with them. When several match, the one with the smallest name is returned for
+// determinism. Returns nil if none match (the cluster has only a single CSI driver).
+func FindStorageClassWithDifferentProvisioner(scList *storagev1.StorageClassList, csiDrivers *storagev1.CSIDriverList, provisioner string) *storagev1.StorageClass {
+	registered := make(map[string]struct{}, len(csiDrivers.Items))
+	for _, driver := range csiDrivers.Items {
+		registered[driver.Name] = struct{}{}
+	}
+
 	var match *storagev1.StorageClass
 	for i := range scList.Items {
 		sc := &scList.Items[i]
 		if sc.Provisioner == "" || sc.Provisioner == provisioner {
+			continue
+		}
+		if _, ok := registered[sc.Provisioner]; !ok {
 			continue
 		}
 		if match == nil || sc.Name < match.Name {
@@ -243,8 +252,12 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 	c.StorageClass.ImmediateStorageClass = immediateSC
 
 	if c.StorageClass.WFFCStorageClass != nil {
+		var csiDrivers storagev1.CSIDriverList
+		if err := k8sClient.List(ctx, &csiDrivers); err != nil {
+			return fmt.Errorf("failed to list CSIDrivers: %w", err)
+		}
 		c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassWithDifferentProvisioner(
-			&scList, c.StorageClass.WFFCStorageClass.Provisioner,
+			&scList, &csiDrivers, c.StorageClass.WFFCStorageClass.Provisioner,
 		)
 	}
 

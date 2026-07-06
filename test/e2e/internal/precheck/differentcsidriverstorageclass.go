@@ -68,7 +68,12 @@ func (c *differentCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *fra
 		)
 	}
 
-	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, wffcSC.Provisioner)
+	var csiDrivers storagev1.CSIDriverList
+	if err := k8sClient.List(ctx, &csiDrivers); err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: list CSIDrivers: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
+	}
+
+	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, &csiDrivers, wffcSC.Provisioner)
 	if differentSC == nil {
 		return fmt.Errorf(
 			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the WFFC StorageClass %q (CSI driver %q) was found in the cluster; "+
