@@ -65,7 +65,7 @@ const (
 	Conflict AttachedReason = "Conflict"
 	// DeviceNotAvailableOnNode indicates that the block device's PersistentVolume is not available on the node where the virtual machine is running.
 	DeviceNotAvailableOnNode AttachedReason = "DeviceNotAvailableOnNode"
-	// BlockedByMigration indicates that a ReadWriteOnce block device cannot be hot-plugged while the virtual machine is migrating.
+	// BlockedByMigration indicates that a block device cannot be hot-plugged while the virtual machine is migrating.
 	BlockedByMigration AttachedReason = "BlockedByMigration"
 
 	// CapacityAvailable signifies that the capacity not reached and attaching available.

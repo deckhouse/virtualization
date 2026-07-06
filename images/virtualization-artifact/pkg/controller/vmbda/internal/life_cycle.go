@@ -20,10 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -250,23 +248,23 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		}
 
 		if ad.PVCName != "" {
+			if isVirtualMachineMigrating(vm) {
+				log.Info("Cannot hotplug a disk while the virtual machine is migrating")
+
+				vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmbdacondition.BlockedByMigration).
+					Message("Cannot hotplug a disk while the virtual machine is migrating.")
+				return reconcile.Result{}, nil
+			}
+
 			pvc, err := h.attacher.GetPersistentVolumeClaim(ctx, ad)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 
 			if pvc != nil {
-				if isVirtualMachineMigrating(vm) && isReadWriteOnce(pvc) {
-					log.Info("Cannot hotplug a ReadWriteOnce disk while the virtual machine is migrating")
-
-					vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vmbdacondition.BlockedByMigration).
-						Message("Cannot hotplug a ReadWriteOnce disk while the virtual machine is migrating.")
-					return reconcile.Result{}, nil
-				}
-
 				available, err := h.attacher.IsPVAvailableOnVMNode(ctx, pvc, kvvmi)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -319,8 +317,4 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 func isVirtualMachineMigrating(vm *v1alpha2.VirtualMachine) bool {
 	_, migrating := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	return migrating
-}
-
-func isReadWriteOnce(pvc *corev1.PersistentVolumeClaim) bool {
-	return !slices.Contains(pvc.Spec.AccessModes, corev1.ReadWriteMany)
 }

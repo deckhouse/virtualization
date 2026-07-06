@@ -19,7 +19,6 @@ package internal
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -43,21 +42,5 @@ var _ = Describe("LifeCycleHandler helpers", func() {
 		Entry("migrating condition is false", metav1.ConditionFalse, true, true),
 		Entry("migrating condition is unknown", metav1.ConditionUnknown, true, true),
 		Entry("migrating condition is absent", metav1.ConditionTrue, false, false),
-	)
-
-	DescribeTable("isReadWriteOnce", func(accessModes []corev1.PersistentVolumeAccessMode, expected bool) {
-		pvc := &corev1.PersistentVolumeClaim{
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: accessModes,
-			},
-		}
-		Expect(isReadWriteOnce(pvc)).To(Equal(expected))
-	},
-		Entry("ReadWriteOnce", []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, true),
-		Entry("ReadWriteOncePod", []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod}, true),
-		Entry("ReadOnlyMany", []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany}, true),
-		Entry("no access modes", []corev1.PersistentVolumeAccessMode{}, true),
-		Entry("ReadWriteMany", []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, false),
-		Entry("ReadWriteMany among others", []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce, corev1.ReadWriteMany}, false),
 	)
 })
