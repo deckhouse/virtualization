@@ -69,12 +69,11 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualM
 		return reconcile.Result{}, nil
 	}
 
-	// A node placement update is fulfilled via live migration. If the VMI is
-	// not live-migratable (e.g. it has local/non-shared disks), a live
-	// migration can never reconcile the placement, so never trigger it.
-	// The placement sum is intentionally not recorded here: once the VMI
-	// becomes migratable again (e.g. after disks are migrated to shared
-	// storage), the migration must still be able to fire.
+	// A node placement update is fulfilled via live migration. If the VMI can
+	// be migrated neither live (shared disks) nor with a storage migration of
+	// its local disks, the placement can never be reconciled, so never trigger
+	// it. The placement sum is intentionally not recorded here: once the VMI
+	// becomes migratable again, the migration must still be able to fire.
 	if !isLiveMigratable(kvvmi) {
 		return reconcile.Result{}, nil
 	}
@@ -131,7 +130,15 @@ func shouldSkipNodePlacementMigration(kvvmi *virtv1.VirtualMachineInstance) (rec
 
 func isLiveMigratable(kvvmi *virtv1.VirtualMachineInstance) bool {
 	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, kvvmi.Status.Conditions)
-	return cond.Status == corev1.ConditionTrue
+	if cond.Status == corev1.ConditionTrue {
+		return true
+	}
+
+	// A VMI with local (non-shared) disks is not live-migratable by itself,
+	// but the evict operation migrates its volumes along; that ability is
+	// reported by the StorageLiveMigratable condition.
+	storageCond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsStorageLiveMigratable, kvvmi.Status.Conditions)
+	return storageCond.Status == corev1.ConditionTrue
 }
 
 func genNodePlacementSum(kvvmi *virtv1.VirtualMachineInstance) (string, error) {
