@@ -31,8 +31,6 @@ import (
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -79,8 +77,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 	})
 
 	It("checks placement via status.nodeName and migrations after affinity changes", func() {
-		var masterVMClassName string
-
 		By("Checking test prerequisites", func() {
 			readyNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true"})
 			Expect(err).NotTo(HaveOccurred())
@@ -89,16 +85,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 			masterNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "master"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(masterNodes)).To(BeNumerically(">", 0), "at least one ready KVM-enabled master node is required, got %d", len(masterNodes))
-
-			// The VirtualMachineClass nodeSelector is merged into the launcher pod
-			// affinity, so a class that excludes control-plane nodes (as the default
-			// e2e class does on some clusters) makes the master placement of vm-d
-			// impossible regardless of its node affinity. Pick a class that permits
-			// the master node, or skip the spec when none does.
-			masterVMClassName = vmClassAllowingNode(ctx, f, &masterNodes[0])
-			if masterVMClassName == "" {
-				Skip("no VirtualMachineClass permits scheduling on a master node")
-			}
 		})
 
 		By("Creating vm-a", func() {
@@ -121,7 +107,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 		By("Creating vm-b, vm-c and vm-d", func() {
 			vmB = newPlacementVM("vm-b", f.Namespace().Name, antiAffinityToVM("vm-a"))
 			vmC = newPlacementVM("vm-c", f.Namespace().Name, affinityToVM("vm-a"))
-			vmD = newPlacementVM("vm-d", f.Namespace().Name, masterNodeAffinity(), vmbuilder.WithVirtualMachineClass(masterVMClassName))
+			vmD = newPlacementVM("vm-d", f.Namespace().Name, masterNodeAffinity())
 
 			objs := []crclient.Object{
 				object.NewVDFromCVI(
@@ -391,8 +377,10 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 	})
 })
 
-func newPlacementVM(name, namespace string, affinity *v1alpha2.VMAffinity, opts ...vmbuilder.Option) *v1alpha2.VirtualMachine {
-	baseOpts := []vmbuilder.Option{
+func newPlacementVM(name, namespace string, affinity *v1alpha2.VMAffinity) *v1alpha2.VirtualMachine {
+	vm := object.NewMinimalVM(
+		"",
+		namespace,
 		vmbuilder.WithName(name),
 		vmbuilder.WithBootloader(v1alpha2.BIOS),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
@@ -404,45 +392,9 @@ func newPlacementVM(name, namespace string, affinity *v1alpha2.VMAffinity, opts 
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoSchedule,
 		}}),
-	}
-	vm := object.NewMinimalVM(
-		"",
-		namespace,
-		append(baseOpts, opts...)...,
 	)
 	vm.Spec.Affinity = affinity
 	return vm
-}
-
-// vmClassAllowingNode returns the name of a VirtualMachineClass whose placement
-// requirements permit the given node: the default class when possible, any other
-// class otherwise. Returns an empty string when no class fits.
-func vmClassAllowingNode(ctx context.Context, f *framework.Framework, node *corev1.Node) string {
-	GinkgoHelper()
-
-	var classes v1alpha2.VirtualMachineClassList
-	Expect(f.GenericClient().List(ctx, &classes)).To(Succeed())
-
-	nodeFits := func(class *v1alpha2.VirtualMachineClass) bool {
-		matches, err := nodeaffinity.MatchesVMPlacement(node, &v1alpha2.VirtualMachine{}, class)
-		return err == nil && matches
-	}
-
-	var fallback string
-	for i := range classes.Items {
-		class := &classes.Items[i]
-		if class.Status.Phase != v1alpha2.ClassPhaseReady || !nodeFits(class) {
-			continue
-		}
-		if class.Annotations[annotations.AnnVirtualMachineClassDefault] == "true" {
-			return class.Name
-		}
-		if fallback == "" {
-			fallback = class.Name
-		}
-	}
-
-	return fallback
 }
 
 func rootVDNameForVM(vmName string) string {

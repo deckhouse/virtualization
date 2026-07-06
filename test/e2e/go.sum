@@ -607,8 +607,6 @@ k8s.io/cli-runtime v0.33.3/go.mod h1:yklhLklD4vLS8HNGgC9wGiuHWze4g7x6XQZ+8edsKEo
 k8s.io/client-go v0.33.3 h1:M5AfDnKfYmVJif92ngN532gFqakcGi6RvaOF16efrpA=
 k8s.io/client-go v0.33.3/go.mod h1:luqKBQggEf3shbxHY4uVENAxrDISLOarxpTKMiUuujg=
 k8s.io/code-generator v0.23.3/go.mod h1:S0Q1JVA+kSzTI1oUvbKAxZY/DYbA/ZUb4Uknog12ETk=
-k8s.io/component-helpers v0.34.2 h1:RIUGDdU+QFzeVKLZ9f05sXTNAtJrRJ3bnbMLrogCrvM=
-k8s.io/component-helpers v0.34.2/go.mod h1:pLi+GByuRTeFjjcezln8gHL7LcT6HImkwVQ3A2SQaEE=
 k8s.io/gengo v0.0.0-20210813121822-485abfe95c7c/go.mod h1:FiNAH4ZV3gBg2Kwh89tzAEV2be7d5xI0vBa/VySYy3E=
 k8s.io/gengo v0.0.0-20211129171323-c02415ce4185/go.mod h1:FiNAH4ZV3gBg2Kwh89tzAEV2be7d5xI0vBa/VySYy3E=
 k8s.io/gengo/v2 v2.0.0-20240826214909-a7b603a56eb7/go.mod h1:EJykeLsmFC60UQbYJezXkEsG2FLrt0GPNkU5iK5GWxU=
