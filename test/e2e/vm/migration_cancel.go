@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -57,8 +58,14 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	f.Before()
 
 	By("Environment preparation")
-	vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
-	vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+	// Build the disks on the template StorageClass (STORAGE_CLASS_NAME or the
+	// cluster default): live migration requires a class whose volumes are
+	// reachable from the target node.
+	storageClass := framework.GetConfig().StorageClass.TemplateStorageClass
+	vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu,
+		vdbuilder.WithStorageClass(&storageClass.Name),
+	)
+	vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, &storageClass.Name, ptr.To(resource.MustParse("100Mi")))
 
 	vm := object.NewMinimalVM("", f.Namespace().Name,
 		vmbuilder.WithName("vm"),
