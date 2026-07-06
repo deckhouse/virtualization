@@ -53,6 +53,49 @@ func ProvisionerOf(ctx context.Context, c client.Client, scName string) (string,
 	return sc.Provisioner, nil
 }
 
+// ProvisionerOfVirtualDisk resolves the provisioner backing a VirtualDisk.
+// The boolean is false when the provisioner cannot be determined yet (the disk
+// is missing or not ready), in which case the caller should skip validation.
+func ProvisionerOfVirtualDisk(ctx context.Context, c client.Client, namespace, name string) (string, bool, error) {
+	vd, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, c, &v1alpha2.VirtualDisk{})
+	if err != nil {
+		return "", false, err
+	}
+	if vd == nil || vd.Status.Phase != v1alpha2.DiskReady || vd.Status.StorageClassName == "" {
+		return "", false, nil
+	}
+
+	provisioner, err := ProvisionerOf(ctx, c, vd.Status.StorageClassName)
+	if err != nil {
+		return "", false, err
+	}
+
+	return provisioner, provisioner != "", nil
+}
+
+// ProvisionerOfVirtualImage resolves the provisioner backing a VirtualImage.
+// The boolean is false when the provisioner cannot be determined (the image is
+// missing, not ready, or stored on the container registry rather than a PVC).
+func ProvisionerOfVirtualImage(ctx context.Context, c client.Client, namespace, name string) (string, bool, error) {
+	vi, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, c, &v1alpha2.VirtualImage{})
+	if err != nil {
+		return "", false, err
+	}
+	if vi == nil ||
+		vi.Status.Phase != v1alpha2.ImageReady ||
+		vi.Spec.Storage == v1alpha2.StorageContainerRegistry ||
+		vi.Status.StorageClassName == "" {
+		return "", false, nil
+	}
+
+	provisioner, err := ProvisionerOf(ctx, c, vi.Status.StorageClassName)
+	if err != nil {
+		return "", false, err
+	}
+
+	return provisioner, provisioner != "", nil
+}
+
 // ProvisionerOfVirtualDiskSnapshot resolves the provisioner that backs the
 // source PVC of a VirtualDiskSnapshot. The boolean is false when it cannot be
 // determined (the snapshot is missing, not ready, or its source PVC is gone).

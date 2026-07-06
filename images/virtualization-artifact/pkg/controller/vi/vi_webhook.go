@@ -201,11 +201,9 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 }
 
 // validateSourceStorageClassProvisionerCompatibility forbids creating a VirtualImage
-// on a PVC from a VirtualDiskSnapshot whose storage is backed by a different CSI
-// driver than the target storage class: the target PVC is restored directly from
-// the VolumeSnapshot, and a snapshot cannot cross CSI drivers. PVC-backed sources
-// (VirtualDisk, VirtualImage) are not restricted: cloning between different CSI
-// drivers falls back to a host-assigned copy.
+// on a PVC from an object reference (VirtualDisk, VirtualImage, VirtualDiskSnapshot)
+// whose storage is backed by a different CSI driver than the target storage class.
+// Cross-CSI-driver provisioning is not supported.
 func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	// Only PVC-backed targets have a storage class provisioner to compare against.
 	if vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim && vi.Spec.Storage != v1alpha2.StorageKubernetes {
@@ -217,11 +215,22 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 	}
 
 	ref := vi.Spec.DataSource.ObjectRef
-	if ref.Kind != v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+
+	var (
+		sourceProvisioner string
+		determinable      bool
+		err               error
+	)
+	switch ref.Kind {
+	case v1alpha2.VirtualImageObjectRefKindVirtualDisk:
+		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualDisk(ctx, v.client, vi.Namespace, ref.Name)
+	case v1alpha2.VirtualImageObjectRefKindVirtualImage:
+		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualImage(ctx, v.client, vi.Namespace, ref.Name)
+	case v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot:
+		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualDiskSnapshot(ctx, v.client, vi.Namespace, ref.Name)
+	default:
 		return nil
 	}
-
-	sourceProvisioner, determinable, err := storageclass.ProvisionerOfVirtualDiskSnapshot(ctx, v.client, vi.Namespace, ref.Name)
 	if err != nil {
 		return err
 	}
@@ -245,7 +254,7 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 	if targetProvisioner != sourceProvisioner {
 		return fmt.Errorf(
 			"virtual image storage class %q provisioner %q does not match the source %s %q provisioner %q: "+
-				"creating an image from a snapshot on a different CSI driver is not supported",
+				"creating an image from a source on a different CSI driver is not supported",
 			targetSCName, targetProvisioner, ref.Kind, ref.Name, sourceProvisioner,
 		)
 	}

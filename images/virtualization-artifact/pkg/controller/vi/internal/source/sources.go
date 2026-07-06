@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -396,6 +397,22 @@ func reconcilePVCImportFromReadySource(
 	ready func(),
 ) (reconcile.Result, error) {
 	if pvc == nil {
+		// The admission webhook rejects cross-CSI PVC sources only when the source
+		// provisioner is determinable at creation time; re-check here so a source
+		// that became Ready on a different CSI driver afterwards fails with a clear
+		// message instead of starting a copy that can never succeed.
+		if source != nil && source.PVC != nil {
+			err := validatePVCSourceProvisionerCompatibility(ctx, disk.Client(), vi.Status.StorageClassName, source.PVC)
+			if err != nil {
+				vi.Status.Phase = v1alpha2.ImageFailed
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error()))
+				return reconcile.Result{}, nil
+			}
+		}
+
 		err := createPVCImportTarget(ctx, vi, supgen, size, source, disk)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -445,6 +462,41 @@ func reconcilePVCImportFromReadySource(
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
+}
+
+// validatePVCSourceProvisionerCompatibility forbids provisioning from a source PVC
+// whose storage class is backed by a different CSI driver than the target storage
+// class: a PVC-to-PVC copy cannot cross the driver boundary. The check is skipped
+// when either provisioner cannot be determined.
+func validatePVCSourceProvisionerCompatibility(ctx context.Context, c client.Client, targetSCName string, sourcePVC *service.PVCImportSourcePVC) error {
+	sourceClaim, err := object.FetchObject(ctx, types.NamespacedName{Name: sourcePVC.Name, Namespace: sourcePVC.Namespace}, c, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return fmt.Errorf("fetch source pvc: %w", err)
+	}
+	if sourceClaim == nil || sourceClaim.Spec.StorageClassName == nil || *sourceClaim.Spec.StorageClassName == "" {
+		return nil
+	}
+
+	sourceProvisioner, err := storageclass.ProvisionerOf(ctx, c, *sourceClaim.Spec.StorageClassName)
+	if err != nil || sourceProvisioner == "" {
+		return nil
+	}
+
+	targetProvisioner, err := storageclass.ProvisionerOf(ctx, c, targetSCName)
+	if err != nil || targetProvisioner == "" {
+		return nil
+	}
+
+	if sourceProvisioner != targetProvisioner {
+		return fmt.Errorf(
+			"cannot provision to storage class %q: incompatible storage providers. "+
+				"Source is backed by %q, target storage class uses %q. "+
+				"Cross-provider PVC copy is not supported",
+			targetSCName, sourceProvisioner, targetProvisioner,
+		)
+	}
+
+	return nil
 }
 
 func createPVCImportTarget(

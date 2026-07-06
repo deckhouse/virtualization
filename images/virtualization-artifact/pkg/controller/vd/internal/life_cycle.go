@@ -26,7 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -135,6 +137,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 
 		if vd.Status.StorageClassName == "" {
 			return reconcile.Result{}, fmt.Errorf("empty storage class in status")
+		}
+
+		err := commonvd.ValidateVirtualImageStorageClassProvisionerCompatibility(ctx, vd, h.client)
+		if err != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.StorageClassProvisionerMismatch).
+				Message(service.CapitalizeFirstLetter(err.Error()))
+			conditions.SetCondition(cb, &vd.Status.Conditions)
+
+			return reconcile.Result{}, nil
 		}
 	}
 

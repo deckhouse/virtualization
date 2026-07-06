@@ -163,3 +163,51 @@ func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.Virtual
 
 	return &nodePlacement, nil
 }
+
+// ValidateVirtualImageStorageClassProvisionerCompatibility forbids provisioning a
+// VirtualDisk from a PVC-backed VirtualImage that lives on a storage class backed
+// by a different CSI driver: the PVC-to-PVC copy cannot cross the driver boundary.
+func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
+		return nil
+	}
+
+	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskObjectRefKindVirtualImage {
+		return nil
+	}
+
+	vi, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Spec.DataSource.ObjectRef.Name}, client, &v1alpha2.VirtualImage{})
+	if err != nil {
+		return err
+	}
+
+	if vi == nil || vi.Status.Phase != v1alpha2.ImageReady || vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
+		return nil
+	}
+
+	vdSc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("get virtual disk storage class %q: %w", vd.Status.StorageClassName, err)
+	}
+	if vdSc == nil {
+		return fmt.Errorf("virtual disk storage class %q was not found", vd.Status.StorageClassName)
+	}
+
+	viSc, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Status.StorageClassName}, client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("get virtual image storage class %q: %w", vi.Status.StorageClassName, err)
+	}
+	if viSc == nil {
+		return fmt.Errorf("virtual image storage class %q was not found", vi.Status.StorageClassName)
+	}
+
+	if vdSc.Provisioner != viSc.Provisioner {
+		return fmt.Errorf(
+			"virtual disk storage class %q provisioner does not match virtual image storage class %q provisioner: source type with different provisioners is not supported yet",
+			vd.Status.StorageClassName,
+			vi.Status.StorageClassName,
+		)
+	}
+
+	return nil
+}

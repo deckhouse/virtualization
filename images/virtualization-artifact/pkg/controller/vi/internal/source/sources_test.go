@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -101,6 +102,7 @@ var _ = Describe("Sources helpers", func() {
 		scheme := runtime.NewScheme()
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(netv1.AddToScheme(scheme)).To(Succeed())
+		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 		return scheme
 	}
 
@@ -253,6 +255,35 @@ var _ = Describe("Sources helpers", func() {
 
 			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
 			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
+		})
+
+		It("fails provisioning when the source PVC lives on a different CSI driver", func() {
+			ctx := context.Background()
+			vi := newVI()
+			vi.Status.StorageClassName = "dst-sc"
+			sourcePVC := newBoundImportPVC("source", vi.Namespace)
+			sourcePVC.Spec.StorageClassName = ptr.To("src-sc")
+			srcSC := &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: "src-sc"},
+				Provisioner: "src.csi.example.com",
+			}
+			dstSC := &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: "dst-sc"},
+				Provisioner: "dst.csi.example.com",
+			}
+			client := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(sourcePVC, srcSC, dstSC).Build()
+			disk := service.NewDiskService(client, nil, nil, "vi-controller", service.DiskImporterConfig{Image: "pvc-importer", Verbose: "1"})
+			supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+			source := service.NewPVCPVCImportSource(sourcePVC.Name, sourcePVC.Namespace)
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+
+			result, err := reconcilePVCImportFromReadySource(ctx, vi, nil, source, resource.MustParse("1Gi"), cb, supgen, nil, disk, func() {})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageFailed))
+			Expect(cb.Condition().Reason).To(Equal(vicondition.ProvisioningFailed.String()))
+			Expect(cb.Condition().Message).To(ContainSubstring("Cross-provider PVC copy is not supported"))
 		})
 
 		It("sets raw format when block PVC import is complete", func() {
