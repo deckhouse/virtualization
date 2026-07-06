@@ -90,6 +90,27 @@ var _ = Describe("InboundMigrationLimiter", func() {
 		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
 	})
 
+	It("Should release the slot by VMI when the migration UID is unknown", func() {
+		limiter := NewInboundMigrationLimiter(true, 1)
+		first := newKVVMI("first", "first-migration")
+		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeFalse())
+
+		limiter.ReleaseByVMI(namespace, "first")
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
+	})
+
+	It("Should not release a different VMI sharing a name prefix", func() {
+		limiter := NewInboundMigrationLimiter(true, 2)
+		Expect(limiter.TryAcquire(newKVVMI("vm", "vm-migration"), targetNode)).To(BeTrue())
+		Expect(limiter.TryAcquire(newKVVMI("vm-2", "vm-2-migration"), targetNode)).To(BeTrue())
+
+		limiter.ReleaseByVMI(namespace, "vm")
+		// "vm-2" must still hold its slot: only one of the two is free now.
+		Expect(limiter.TryAcquire(newKVVMI("third", "third-migration"), targetNode)).To(BeTrue())
+		Expect(limiter.TryAcquire(newKVVMI("fourth", "fourth-migration"), targetNode)).To(BeFalse())
+	})
+
 	It("Should respect a limit greater than one", func() {
 		limiter := NewInboundMigrationLimiter(true, 2)
 		Expect(limiter.TryAcquire(newKVVMI("first", "first-migration"), targetNode)).To(BeTrue())

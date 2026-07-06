@@ -42,7 +42,7 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 			&handler.TypedEnqueueRequestForObject[*virtv1.VirtualMachineInstance]{},
 			predicate.TypedFuncs[*virtv1.VirtualMachineInstance]{
 				CreateFunc: func(e event.TypedCreateEvent[*virtv1.VirtualMachineInstance]) bool { return false },
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachineInstance]) bool { return false },
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachineInstance]) bool { return true },
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
 					return !equality.Semantic.DeepEqual(e.ObjectOld.Status, e.ObjectNew.Status)
 				},
