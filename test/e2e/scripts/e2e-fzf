@@ -371,15 +371,18 @@ def main():
         if args.run or args.repeat > 1:
             return run_repeated(e2e_dir, selected, args.repeat)
         if sys.stdin.isatty():
-            action = input("Action: [Enter] done, [r]un once, [n] repeat, [c]opy: ")
-            if action.lower() == "r":
-                return run_repeated(e2e_dir, selected, 1)
+            action = input("Action: [Enter] run once, [n] repeat, [c]opy, [q]uit: ")
+            if action.lower() == "q":
+                return 0
             if action.lower() == "n":
                 repeat = ask_repeat_count()
                 if repeat is not None:
                     return run_repeated(e2e_dir, selected, repeat)
+                return 0
             if action.lower() == "c":
                 copy_command(command)
+                return 0
+            return run_repeated(e2e_dir, selected, 1)
         return 0
     except RuntimeError as err:
         print(err, file=sys.stderr)

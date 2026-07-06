@@ -532,8 +532,19 @@ func setVMBDABlockDeviceDisk(
 			IsHotplugged:          true,
 		})
 	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		// The image ref may not be reflected in block device refs yet during the hotplug
+		// attach window: the volume is already present in KVVM, disk options will be set on a
+		// later reconcile. Skip instead of aborting the whole reconcile (do not removeDisk —
+		// an attached image is finalizer-protected, so a missing map entry means the status
+		// lagged, not that the image is gone). Mirrors the tolerant VirtualDisk branch above.
+		if vi, ok := viByName[ref.Name]; !ok || vi == nil {
+			return nil
+		}
 		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		if cvi, ok := cviByName[ref.Name]; !ok || cvi == nil {
+			return nil
+		}
 		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ClusterImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
 	default:
 		return fmt.Errorf("unknown VMBDA block device kind %q. %w", ref.Kind, common.ErrUnknownType)

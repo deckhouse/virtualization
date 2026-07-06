@@ -723,7 +723,7 @@ func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
 	)
 
 	changes.UpgradeHotplugComputeChangesToRestart()
-	changes.UpgradeBlockDeviceChangesToRestart()
+	changes.UpgradeBlockDeviceChangesToRestartMatching(nil)
 
 	require.Equal(t, ActionRestart, changes.GetAll()[0].ActionRequired)
 	require.Equal(t, cpuReason, changes.GetAll()[0].RestartMessage)

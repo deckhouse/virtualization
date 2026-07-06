@@ -542,6 +542,56 @@ var _ = Describe("SyncKvvmHandler", func() {
 		),
 	)
 
+	It("does not expose apply-immediate block device changes in RestartAwaitingChanges while dependencies are not ready", func() {
+		ip := makeVMIP()
+		vmClass := makeVMClass()
+
+		rootRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "root"}
+		blankRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "blank-disk"}
+
+		vm := makeVM(v1alpha2.MachineRunning)
+		vm.Spec.EnableParavirtualization = ptr.To(true)
+		vm.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{rootRef, blankRef}
+		vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+			Type:   vmcondition.TypeBlockDevicesReady.String(),
+			Status: metav1.ConditionFalse,
+			Reason: "BlockDevicesNotReady",
+		})
+
+		kvvm := makeKVVM(vm)
+		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				CPU: v1alpha2.CPUSpec{
+					Cores: vm.Spec.CPU.Cores,
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: vm.Spec.Memory.Size,
+				},
+				VirtualMachineIPAddress:       vm.Spec.VirtualMachineIPAddress,
+				RunPolicy:                     vm.Spec.RunPolicy,
+				OsType:                        vm.Spec.OsType,
+				VirtualMachineClassName:       vm.Spec.VirtualMachineClassName,
+				EnableParavirtualization:      ptr.To(true),
+				BlockDeviceRefs:               []v1alpha2.BlockDeviceSpecRef{rootRef},
+				TerminationGracePeriodSeconds: vm.Spec.TerminationGracePeriodSeconds,
+				Disruptions: &v1alpha2.Disruptions{
+					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
+				},
+			},
+		})).To(Succeed())
+
+		kvvmi := makeKVVMI()
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+
+		reconcile()
+
+		updatedVM := &v1alpha2.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updatedVM)).To(Succeed())
+		Expect(updatedVM.Status.RestartAwaitingChanges).To(BeEmpty())
+		awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, updatedVM.Status.Conditions)
+		Expect(awaitExists).To(BeFalse(), "ApplyImmediate block device changes should not set %s, got %+v", vmcondition.TypeAwaitingRestartToApplyConfiguration, awaitCond)
+	})
+
 	It("keeps ConfigurationApplied False and requeues while SDN is not ready", func() {
 		ip := &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-ip", Namespace: namespace},
@@ -576,6 +626,48 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Expect(exists).To(BeTrue())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
+	})
+
+	It("upgrades only block device changes touching non-hotpluggable volumes", func() {
+		rootRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "root"}
+		dataRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "data"}
+		extraRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "extra"}
+
+		kvvmi := newEmptyKVVMI(name, namespace)
+		kvvmi.Spec.Volumes = []virtv1.Volume{
+			{
+				Name: kvbuilder.GenerateDiskName(rootRef.Kind, rootRef.Name),
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{Hotpluggable: false},
+				},
+			},
+			{
+				Name: kvbuilder.GenerateDiskName(dataRef.Kind, dataRef.Name),
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{Hotpluggable: true},
+				},
+			},
+		}
+
+		nonHotpluggableRefs := nonHotpluggableVolumeRefs(kvvmi)
+		changes := vmchange.SpecChanges{}
+		changes.Add(
+			vmchange.FieldChange{Path: "blockDeviceRefs.0", Operation: vmchange.ChangeRemove, CurrentValue: dataRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "blockDeviceRefs.1", Operation: vmchange.ChangeAdd, DesiredValue: extraRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "blockDeviceRefs.2", Operation: vmchange.ChangeReplace, CurrentValue: rootRef, DesiredValue: dataRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "blockDeviceRefs.3", Operation: vmchange.ChangeAdd, DesiredValue: rootRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "cpu.cores", Operation: vmchange.ChangeReplace, ActionRequired: vmchange.ActionApplyImmediate},
+		)
+
+		changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
+			return blockDeviceChangeTouchesRefs(change, nonHotpluggableRefs)
+		})
+
+		Expect(changes.GetAll()[0].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
+		Expect(changes.GetAll()[1].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
+		Expect(changes.GetAll()[2].ActionRequired).To(Equal(vmchange.ActionRestart))
+		Expect(changes.GetAll()[3].ActionRequired).To(Equal(vmchange.ActionRestart))
+		Expect(changes.GetAll()[4].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
 	})
 
 	DescribeTable("isPlacementPolicyChanged",

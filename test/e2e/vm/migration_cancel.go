@@ -63,8 +63,8 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	vm := object.NewMinimalVM("", f.Namespace().Name,
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithBootloader(bootloaderType),
-		vmbuilder.WithCPU(4, ptr.To("100%")),
-		vmbuilder.WithMemory(resource.MustParse("4Gi")),
+		vmbuilder.WithCPU(4, ptr.To("10%")),
+		vmbuilder.WithMemory(resource.MustParse("2Gi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
