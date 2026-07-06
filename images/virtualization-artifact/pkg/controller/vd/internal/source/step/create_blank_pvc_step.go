@@ -32,6 +32,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -99,7 +100,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	log := logger.FromContext(ctx).With(logger.SlogStep(createStep)).With("pvc.name", key.Name)
 	log.Debug("Create new PVC")
 
-	nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
+	nodePlacement, err := commonvd.GetNodePlacement(ctx, s.client, vd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
 	}

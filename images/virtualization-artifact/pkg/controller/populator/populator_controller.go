@@ -35,6 +35,8 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -164,7 +166,17 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	}
 
 	source := sourceFromAnnotations(pvc, strategy, sup)
-	if err := r.pvc.Import(ctx, pvc, source, owner, sup, nil); err != nil {
+
+	// The importer pod is pinned to the node the volume is provisioned on (the
+	// consuming VirtualMachine's node), so it must also carry the VM and class
+	// tolerations: without them the pod can never be scheduled when the VM sits
+	// on a tainted node (e.g. a control-plane one).
+	nodePlacement, err := r.ownerNodePlacement(ctx, owner)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.pvc.Import(ctx, pvc, source, owner, sup, nodePlacement); err != nil {
 		return reconcile.Result{}, fmt.Errorf("import to pvc: %w", err)
 	}
 
@@ -183,7 +195,7 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 		)
 	}
 
-	phase, err := r.pvc.WaitForImport(ctx, pvc, source, owner, sup, nil)
+	phase, err := r.pvc.WaitForImport(ctx, pvc, source, owner, sup, nodePlacement)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wait for pvc import: %w", err)
 	}
@@ -243,6 +255,21 @@ func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string, s
 	default:
 		return nil
 	}
+}
+
+// ownerNodePlacement resolves the node placement (tolerations of the consuming
+// VirtualMachine and its class) for the importer helpers of the PVC owner.
+// Only VirtualDisks are consumed by VirtualMachines; other owners get none.
+func (r *Reconciler) ownerNodePlacement(ctx context.Context, owner client.Object) (*provisioner.NodePlacement, error) {
+	vd, ok := owner.(*v1alpha2.VirtualDisk)
+	if !ok {
+		return nil, nil
+	}
+	nodePlacement, err := commonvd.GetNodePlacement(ctx, r.client, vd)
+	if err != nil {
+		return nil, fmt.Errorf("get node placement for virtual disk %s/%s: %w", vd.Namespace, vd.Name, err)
+	}
+	return nodePlacement, nil
 }
 
 func (r *Reconciler) ownerAndSupplements(ctx context.Context, pvc *corev1.PersistentVolumeClaim) (client.Object, supplements.Generator, error) {

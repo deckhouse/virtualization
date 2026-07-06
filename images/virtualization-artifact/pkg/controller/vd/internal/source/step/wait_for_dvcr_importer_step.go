@@ -30,6 +30,7 @@ import (
 
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -114,7 +115,7 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 		vd.Status.Phase = v1alpha2.DiskPending
 		vd.Status.Progress = ""
 
-		nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
+		nodePlacement, err := commonvd.GetNodePlacement(ctx, s.client, vd)
 		if err != nil {
 			return nil, fmt.Errorf("get node placement: %w", err)
 		}

@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -115,7 +116,7 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 		return nil, fmt.Errorf("storage class %q not found", vd.Status.StorageClassName)
 	}
 
-	nodePlacement, err := GetNodePlacement(ctx, s.client, vd)
+	nodePlacement, err := commonvd.GetNodePlacement(ctx, s.client, vd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
 	}
@@ -183,41 +184,4 @@ func (s PVCImportStep) createTarget(ctx context.Context, key types.NamespacedNam
 	default:
 		return nil
 	}
-}
-
-func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.VirtualDisk) (*provisioner.NodePlacement, error) {
-	if len(vd.Status.AttachedToVirtualMachines) != 1 {
-		return nil, nil
-	}
-
-	vmKey := types.NamespacedName{Name: vd.Status.AttachedToVirtualMachines[0].Name, Namespace: vd.Namespace}
-	vm, err := object.FetchObject(ctx, vmKey, c, &v1alpha2.VirtualMachine{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get the virtual machine %s: %w", vmKey, err)
-	}
-
-	if vm == nil {
-		return nil, nil
-	}
-
-	var nodePlacement provisioner.NodePlacement
-	// The node the VM is scheduled on (empty until the VM's virt-launcher pod is
-	// scheduled). Import helpers (prime PVC, importer pod) are pinned here so a
-	// WaitForFirstConsumer node-local volume is provisioned on the VM's node.
-	nodePlacement.Node = vm.Status.Node
-	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
-
-	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}
-	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &v1alpha2.VirtualMachineClass{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get the virtual machine class %s: %w", vmClassKey, err)
-	}
-
-	if vmClass == nil {
-		return &nodePlacement, nil
-	}
-
-	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vmClass.Spec.Tolerations...)
-
-	return &nodePlacement, nil
 }
