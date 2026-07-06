@@ -39,7 +39,7 @@ import (
 )
 
 var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck), func(bootloaderType v1alpha2.BootloaderType) {
-	const stressngCmd = "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 3m </dev/null >/dev/null 2>errlog &"
+	const stressngCmd = "nohup stress-ng --cpu 2 --vm 2 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 3m </dev/null >/dev/null 2>errlog &"
 
 	ctx := context.Background()
 	var suffix string
@@ -70,7 +70,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	vm := object.NewMinimalVM("", f.Namespace().Name,
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithBootloader(bootloaderType),
-		vmbuilder.WithCPU(4, ptr.To("10%")),
+		vmbuilder.WithCPU(2, ptr.To("100%")),
 		vmbuilder.WithMemory(resource.MustParse("2Gi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 		vmbuilder.WithBlockDeviceRefs(
