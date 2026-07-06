@@ -33,11 +33,19 @@ func CleanUpReasonForObject(action string, obj client.Object) string {
 
 func MergeCleanUpReasons(reasons ...string) string {
 	var merged []string
+	seen := make(map[string]struct{}, len(reasons))
 
 	for _, reason := range reasons {
-		if reason != "" {
-			merged = append(merged, reason)
+		if reason == "" {
+			continue
 		}
+
+		if _, ok := seen[reason]; ok {
+			continue
+		}
+
+		seen[reason] = struct{}{}
+		merged = append(merged, reason)
 	}
 
 	return strings.Join(merged, "; ")
