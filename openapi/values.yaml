@@ -33,7 +33,7 @@ properties:
                 default: ""
           passwordRW:
             type: string
-          passwordPuller:
+          passwordRO:
             type: string
             default: ""
           tokenPrivateKey:

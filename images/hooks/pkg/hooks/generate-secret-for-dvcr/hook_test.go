@@ -86,9 +86,9 @@ var _ = Describe("DVCR Secrets", func() {
 	// prepareValuesGet mocks the values-side reads. The token keypair is always a
 	// valid pair matching the snapshot, so these tests never exercise keypair
 	// regeneration (its own coverage lives in signer_test.go and the hook helpers).
-	prepareValuesGet := func(passwordRW, passwordPuller, salt, htpasswd string) {
+	prepareValuesGet := func(passwordRW, passwordRO, salt, htpasswd string) {
 		values.GetMock.When(passwordRWValuePath).Then(gjson.Result{Type: gjson.String, Str: passwordRW})
-		values.GetMock.When(passwordPullerValuePath).Then(gjson.Result{Type: gjson.String, Str: passwordPuller})
+		values.GetMock.When(passwordROValuePath).Then(gjson.Result{Type: gjson.String, Str: passwordRO})
 		values.GetMock.When(saltValuePath).Then(gjson.Result{Type: gjson.String, Str: salt})
 		values.GetMock.When(htpasswdValuePath).Then(gjson.Result{Type: gjson.String, Str: htpasswd})
 		values.GetMock.When(tokenPrivateKeyValuePath).Then(gjson.Result{Type: gjson.String, Str: validTokenKey})
@@ -99,13 +99,13 @@ var _ = Describe("DVCR Secrets", func() {
 		snapshots.GetMock.When(dvcrSecrets).Then(snaps)
 	}
 
-	newSnapshot := func(passwordRW, passwordPuller, salt, htpasswd string) pkg.Snapshot {
+	newSnapshot := func(passwordRW, passwordRO, salt, htpasswd string) pkg.Snapshot {
 		return mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
 			data, ok := v.(*dvcrSecretData)
 			Expect(ok).To(BeTrue())
 
 			data.PasswordRW = passwordRW
-			data.PasswordPuller = passwordPuller
+			data.PasswordRO = passwordRO
 			data.Salt = salt
 			data.Htpasswd = htpasswd
 			data.TokenPrivateKey = validTokenKey
@@ -157,7 +157,7 @@ var _ = Describe("DVCR Secrets", func() {
 			switch path {
 			case passwordRWValuePath:
 				Expect(value).To(Equal(defaultPasswordBase64))
-			case passwordPullerValuePath:
+			case passwordROValuePath:
 				Expect(value).To(Equal(defaultPullerBase64))
 			case saltValuePath:
 				Expect(value).To(Equal(defaultSaltBase64))
@@ -193,7 +193,7 @@ var _ = Describe("DVCR Secrets", func() {
 			case passwordRWValuePath:
 				passwordRW = value
 				Expect(value).To(HaveLen(32))
-			case passwordPullerValuePath:
+			case passwordROValuePath:
 				Expect(value).To(HaveLen(32))
 			case saltValuePath:
 				Expect(value).To(HaveLen(32))

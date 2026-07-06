@@ -60,34 +60,15 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 		}
 	}
 
-	// Create Secret with auth config to use DVCR as destination.
-	switch {
-	case dvcrSettings.TenantAuthzEnabled:
-		authCopier := copier.AuthSecret{
-			Secret: copier.Secret{
-				Destination:    supGen.DVCRAuthSecret(),
-				OwnerReference: podutil.MakeOwnerReference(pod),
-			},
-		}
-		if err := authCopier.CreateScopedTokenDockerConfig(ctx, client, dvcrSettings.TokenSigner, scope, dvcrSettings.RegistryURL); err != nil {
-			return err
-		}
-	case ShouldCopyDVCRAuthSecret(dvcrSettings, supGen):
-		authSecret := supGen.DVCRAuthSecret()
-		authCopier := copier.AuthSecret{
-			Secret: copier.Secret{
-				Source: types.NamespacedName{
-					Name:      dvcrSettings.AuthSecret,
-					Namespace: dvcrSettings.AuthSecretNamespace,
-				},
-				Destination:    authSecret,
-				OwnerReference: podutil.MakeOwnerReference(pod),
-			},
-		}
-		err := authCopier.Copy(ctx, client)
-		if err != nil {
-			return err
-		}
+	// Create Secret with a scoped token to use DVCR as destination.
+	authCopier := copier.AuthSecret{
+		Secret: copier.Secret{
+			Destination:    supGen.DVCRAuthSecret(),
+			OwnerReference: podutil.MakeOwnerReference(pod),
+		},
+	}
+	if err := authCopier.CreateScopedTokenDockerConfig(ctx, client, dvcrSettings.TokenSigner, scope, dvcrSettings.RegistryURL); err != nil {
+		return err
 	}
 
 	// Copy imagePullSecret if namespaces are differ (e.g. CVMI).
@@ -112,14 +93,6 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 	return nil
 }
 
-func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen Generator) bool {
-	if dvcrSettings.AuthSecret == "" {
-		return false
-	}
-	// Should copy if namespaces are different.
-	return dvcrSettings.AuthSecretNamespace != supGen.Namespace()
-}
-
 func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen Generator) bool {
 	if dvcrSettings.UploaderIngressSettings.TLSSecret == "" {
 		return false
@@ -140,31 +113,14 @@ func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS st
 }
 
 func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataVolumeSupplement, dv *cdiv1.DataVolume, dvcrSettings *dvcr.Settings, scope []registrytoken.Access) error {
-	switch {
-	case dvcrSettings.TenantAuthzEnabled:
-		authCopier := copier.AuthSecret{
-			Secret: copier.Secret{
-				Destination:    supGen.DVCRAuthSecretForDV(),
-				OwnerReference: dvutil.MakeOwnerReference(dv),
-			},
-		}
-		if err := authCopier.CreateScopedTokenCDI(ctx, client, dvcrSettings.TokenSigner, scope); err != nil {
-			return err
-		}
-	case dvcrSettings.AuthSecret != "":
-		authCopier := copier.AuthSecret{
-			Secret: copier.Secret{
-				Source: types.NamespacedName{
-					Name:      dvcrSettings.AuthSecret,
-					Namespace: dvcrSettings.AuthSecretNamespace,
-				},
-				Destination:    supGen.DVCRAuthSecretForDV(),
-				OwnerReference: dvutil.MakeOwnerReference(dv),
-			},
-		}
-		if err := authCopier.CopyCDICompatible(ctx, client, dvcrSettings.RegistryURL); err != nil {
-			return err
-		}
+	authCopier := copier.AuthSecret{
+		Secret: copier.Secret{
+			Destination:    supGen.DVCRAuthSecretForDV(),
+			OwnerReference: dvutil.MakeOwnerReference(dv),
+		},
+	}
+	if err := authCopier.CreateScopedTokenCDI(ctx, client, dvcrSettings.TokenSigner, scope); err != nil {
+		return err
 	}
 
 	// CABundle needs transformation, so it always copied.

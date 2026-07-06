@@ -69,11 +69,7 @@ type Settings struct {
 }
 
 func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen supplements.Generator, dvcrImageName string) {
-	authSecret := dvcrSettings.AuthSecret
-	if dvcrSettings.TenantAuthzEnabled || supplements.ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
-		authSecret = supGen.DVCRAuthSecret().Name
-	}
-	podEnvVars.DestinationAuthSecret = authSecret
+	podEnvVars.DestinationAuthSecret = supGen.DVCRAuthSecret().Name
 	podEnvVars.DestinationInsecureTLS = dvcrSettings.InsecureTLS
 	podEnvVars.DestinationEndpoint = dvcrImageName
 }

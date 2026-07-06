@@ -8,24 +8,11 @@ true
 {{- .Values.virtualization.internal | dig "dvcr" "garbageCollectionModeEnabled" "false" | default "false" -}}
 {{- end }}
 
-{{- define "dvcr.isTenantAuthz" -}}
-{{- .Values.virtualization.internal.moduleConfig | dig "dvcr" "tenantRegistryAuthorization" false -}}
-{{- end }}
-
 {{- define "dvcr.envs" -}}
 - name: REGISTRY_HTTP_TLS_CERTIFICATE
   value: /etc/ssl/docker/tls.crt
 - name: REGISTRY_HTTP_TLS_KEY
   value: /etc/ssl/docker/tls.key
-
-{{- if ne (include "dvcr.isTenantAuthz" .) "true" }}
-- name: REGISTRY_AUTH
-  value: "htpasswd"
-- name: REGISTRY_AUTH_HTPASSWD_REALM
-  value: "Registry Realm"
-- name: REGISTRY_AUTH_HTPASSWD_PATH
-  value: "/auth/htpasswd"
-{{- end }}
 
 - name: REGISTRY_HTTP_SECRET
   valueFrom:
@@ -97,14 +84,12 @@ true
     items:
     - key: htpasswd
       path: htpasswd
-{{- if eq (include "dvcr.isTenantAuthz" .) "true" }}
     - key: passwordRW
       path: passwordRW
-    - key: passwordPuller
-      path: passwordPuller
+    - key: passwordRO
+      path: passwordRO
     - key: tokenPublicKey
       path: tokenPublicKey
-{{- end }}
 {{- end -}}
 
 

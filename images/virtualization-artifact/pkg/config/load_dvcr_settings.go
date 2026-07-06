@@ -19,7 +19,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
@@ -42,10 +41,8 @@ const (
 	DVCRImageMonitorScheduleVar = "DVCR_IMAGE_MONITOR_SCHEDULE"
 	// DVCRGCScheduleVar is an env variable holds the cron schedule to run DVCR garbage collection.
 	DVCRGCScheduleVar = "DVCR_GC_SCHEDULE"
-	// DVCRTenantAuthzEnabledVar is an env variable that enables per-namespace DVCR authorization.
-	DVCRTenantAuthzEnabledVar = "DVCR_TENANT_AUTHZ_ENABLED"
 	// DVCRTokenPrivateKeyVar holds the PEM ECDSA private key used to mint scoped
-	// DVCR tokens. Required when DVCR_TENANT_AUTHZ_ENABLED is true.
+	// per-namespace DVCR tokens.
 	DVCRTokenPrivateKeyVar = "DVCR_TOKEN_PRIVATE_KEY"
 
 	// UploaderIngressHostVar is a env variable
@@ -68,7 +65,6 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		InsecureTLS:          os.Getenv(DVCRInsecureTLSVar),
 		ImageMonitorSchedule: os.Getenv(DVCRImageMonitorScheduleVar),
 		GCSchedule:           os.Getenv(DVCRGCScheduleVar),
-		TenantAuthzEnabled:   parseBoolEnv(DVCRTenantAuthzEnabledVar),
 		UploaderIngressSettings: dvcr.UploaderIngressSettings{
 			Host:               os.Getenv(UploaderIngressHostVar),
 			TLSSecret:          os.Getenv(UploaderIngressTLSSecretVar),
@@ -97,27 +93,15 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		dvcrSettings.GCSchedule = dvcr.DefaultGCSchedule
 	}
 
-	if dvcrSettings.TenantAuthzEnabled {
-		keyPEM := os.Getenv(DVCRTokenPrivateKeyVar)
-		if keyPEM == "" {
-			return nil, fmt.Errorf("environment variable %q undefined, required when %s is true", DVCRTokenPrivateKeyVar, DVCRTenantAuthzEnabledVar)
-		}
-		signer, err := registrytoken.NewSignerFromPEM([]byte(keyPEM))
-		if err != nil {
-			return nil, fmt.Errorf("init DVCR token signer: %w", err)
-		}
-		dvcrSettings.TokenSigner = signer
+	keyPEM := os.Getenv(DVCRTokenPrivateKeyVar)
+	if keyPEM == "" {
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", DVCRTokenPrivateKeyVar)
 	}
+	signer, err := registrytoken.NewSignerFromPEM([]byte(keyPEM))
+	if err != nil {
+		return nil, fmt.Errorf("init DVCR token signer: %w", err)
+	}
+	dvcrSettings.TokenSigner = signer
 
 	return dvcrSettings, nil
-}
-
-// parseBoolEnv returns the boolean value of the env variable, or false if it is
-// unset or not parseable as a bool.
-func parseBoolEnv(name string) bool {
-	v, err := strconv.ParseBool(os.Getenv(name))
-	if err != nil {
-		return false
-	}
-	return v
 }

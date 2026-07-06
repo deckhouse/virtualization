@@ -19,19 +19,17 @@ data:
         readonly:
           enabled: true
 {{- end }}
-{{- if eq (include "dvcr.isTenantAuthz" . ) "true" }}
     auth:
       dvcr-k8s:
         realm: "dvcr"
         adminusername: "admin"
         adminpasswordfile: /auth/passwordRW
         pullerusername: "node-puller"
-        pullerpasswordfile: /auth/passwordPuller
+        pullerpasswordfile: /auth/passwordRO
         jwtissuer: "virtualization-controller"
         jwtaudience: "dvcr"
         jwtkeyid: "dvcr"
         jwtpublickeyfile: /auth/tokenPublicKey
-{{- end }}
     http:
       addr: :5000
       headers:

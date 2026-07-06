@@ -45,12 +45,10 @@ type Settings struct {
 	ImageMonitorSchedule string
 	// GCSchedule is a cron formatted schedule to periodically run a garbage collection.
 	GCSchedule string
-	// TenantAuthzEnabled turns on per-namespace DVCR authorization: importer and
-	// uploader Pods authenticate with a scoped token minted for the single
-	// repository they use, instead of the shared read-write credential, which is
-	// then no longer copied into tenant namespaces.
-	TenantAuthzEnabled bool
-	// TokenSigner mints the scoped tokens. Non-nil only when TenantAuthzEnabled.
+	// TokenSigner mints the scoped per-namespace DVCR tokens: importer and uploader
+	// Pods authenticate with a token minted for the single repository they use,
+	// instead of the shared read-write credential, which is then no longer copied
+	// into tenant namespaces.
 	TokenSigner *registrytoken.Signer
 }
 

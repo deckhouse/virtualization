@@ -39,7 +39,7 @@ import (
 const (
 	dvcrSecrets              = "dvcr-secrets"
 	passwordRWValuePath      = "virtualization.internal.dvcr.passwordRW"
-	passwordPullerValuePath  = "virtualization.internal.dvcr.passwordPuller"
+	passwordROValuePath      = "virtualization.internal.dvcr.passwordRO"
 	saltValuePath            = "virtualization.internal.dvcr.salt"
 	htpasswdValuePath        = "virtualization.internal.dvcr.htpasswd"
 	tokenPrivateKeyValuePath = "virtualization.internal.dvcr.tokenPrivateKey"
@@ -49,7 +49,7 @@ const (
 
 type dvcrSecretData struct {
 	PasswordRW      string `json:"passwordRW"`
-	PasswordPuller  string `json:"passwordPuller"`
+	PasswordRO      string `json:"passwordRO"`
 	Salt            string `json:"salt"`
 	Htpasswd        string `json:"htpasswd"`
 	TokenPrivateKey string `json:"tokenPrivateKey"`
@@ -111,20 +111,20 @@ func handlerDVCRSecrets(ctx context.Context, input *pkg.HookInput) error {
 		input.Values.Set(passwordRWValuePath, passwordRW)
 	}
 
-	// passwordPuller is the pull-only node-puller credential used by the dvcr-k8s
+	// passwordRO is the pull-only node-puller credential used by the dvcr-k8s
 	// authorization backend. It carries no push rights, so it does not need an
 	// htpasswd entry (nodes fall back to admin only when the backend is htpasswd).
-	passwordPuller := dataFromSecret.PasswordPuller
-	passwordPullerBytes, err := base64.StdEncoding.DecodeString(passwordPuller)
-	passwordPullerDecoded := string(passwordPullerBytes)
-	if err != nil || passwordPullerDecoded == "" {
-		input.Logger.Info("Regenerate PasswordPuller")
-		passwordPullerDecoded = alphaNum(32)
-		passwordPuller = base64.StdEncoding.EncodeToString([]byte(passwordPullerDecoded))
+	passwordRO := dataFromSecret.PasswordRO
+	passwordROBytes, err := base64.StdEncoding.DecodeString(passwordRO)
+	passwordRODecoded := string(passwordROBytes)
+	if err != nil || passwordRODecoded == "" {
+		input.Logger.Info("Regenerate PasswordRO")
+		passwordRODecoded = alphaNum(32)
+		passwordRO = base64.StdEncoding.EncodeToString([]byte(passwordRODecoded))
 	}
-	if passwordPuller != dataFromValues.PasswordPuller {
-		input.Logger.Info("Set PasswordPuller to values")
-		input.Values.Set(passwordPullerValuePath, passwordPuller)
+	if passwordRO != dataFromValues.PasswordRO {
+		input.Logger.Info("Set PasswordRO to values")
+		input.Values.Set(passwordROValuePath, passwordRO)
 	}
 
 	salt := dataFromSecret.Salt
@@ -202,7 +202,7 @@ func getDVCRSecretsFromSecrets(input *pkg.HookInput) (dvcrSecretData, error) {
 func getDVCRSecretsFromValues(input *pkg.HookInput) dvcrSecretData {
 	return dvcrSecretData{
 		PasswordRW:      input.Values.Get(passwordRWValuePath).String(),
-		PasswordPuller:  input.Values.Get(passwordPullerValuePath).String(),
+		PasswordRO:      input.Values.Get(passwordROValuePath).String(),
 		Salt:            input.Values.Get(saltValuePath).String(),
 		Htpasswd:        input.Values.Get(htpasswdValuePath).String(),
 		TokenPrivateKey: input.Values.Get(tokenPrivateKeyValuePath).String(),

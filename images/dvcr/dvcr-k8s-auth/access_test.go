@@ -38,7 +38,14 @@ import (
 	golangjwt "github.com/golang-jwt/jwt/v5"
 
 	jose "github.com/go-jose/go-jose/v4"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
+
+func TestAccessController(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "DVCR Auth Suite")
+}
 
 const (
 	testIssuer   = "virtualization-controller"
@@ -46,8 +53,7 @@ const (
 	testKeyID    = "dvcr"
 )
 
-func newController(t *testing.T, pub crypto.PublicKey) *accessController {
-	t.Helper()
+func newController(pub crypto.PublicKey) *accessController {
 	return &accessController{
 		realm:       "dvcr",
 		jwtIssuer:   testIssuer,
@@ -56,14 +62,14 @@ func newController(t *testing.T, pub crypto.PublicKey) *accessController {
 	}
 }
 
-func testClaims(now time.Time) map[string]interface{} {
-	return map[string]interface{}{
+func testClaims(now time.Time) map[string]any {
+	return map[string]any{
 		"iss": testIssuer,
 		"aud": testAudience,
 		"iat": now.Unix(),
 		"nbf": now.Add(-30 * time.Second).Unix(),
 		"exp": now.Add(time.Hour).Unix(),
-		"access": []map[string]interface{}{
+		"access": []map[string]any{
 			{"type": "repository", "name": "cvi/img", "actions": []string{"pull", "push"}},
 		},
 	}
@@ -71,25 +77,21 @@ func testClaims(now time.Time) map[string]interface{} {
 
 // mintKidToken signs a token the way the controller does: golang-jwt/v5, ES256,
 // kid header, no embedded key material.
-func mintKidToken(t *testing.T, key *ecdsa.PrivateKey, claims map[string]interface{}) string {
-	t.Helper()
+func mintKidToken(key *ecdsa.PrivateKey, claims map[string]any) string {
+	GinkgoHelper()
 	tok := golangjwt.NewWithClaims(golangjwt.SigningMethodES256, golangjwt.MapClaims(claims))
 	tok.Header["kid"] = testKeyID
 	raw, err := tok.SignedString(key)
-	if err != nil {
-		t.Fatalf("sign kid token: %v", err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return raw
 }
 
 // mintX5cToken forges a token carrying its own self-signed certificate in the
 // x5c header — the attack the empty-Roots pool must defeat.
-func mintX5cToken(t *testing.T, claims map[string]interface{}) string {
-	t.Helper()
+func mintX5cToken(claims map[string]any) string {
+	GinkgoHelper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject:      pkix.Name{CommonName: "attacker"},
@@ -97,124 +99,102 @@ func mintX5cToken(t *testing.T, claims map[string]interface{}) string {
 		NotAfter:     time.Now().Add(time.Hour),
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	opts := (&jose.SignerOptions{}).WithHeader("x5c", []string{base64.StdEncoding.EncodeToString(certDER)})
 	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.ES256, Key: key}, opts)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	payload, err := json.Marshal(claims)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	jws, err := signer.Sign(payload)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	raw, err := jws.CompactSerialize()
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return raw
 }
 
-func newKey(t *testing.T) *ecdsa.PrivateKey {
-	t.Helper()
+func newKey() *ecdsa.PrivateKey {
+	GinkgoHelper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return key
 }
 
-func TestVerifyJWT_ValidKidToken(t *testing.T) {
-	key := newKey(t)
-	ac := newController(t, &key.PublicKey)
+var _ = Describe("verifyJWT", func() {
+	It("accepts a valid kid-signed token and returns its access grants", func() {
+		key := newKey()
+		ac := newController(&key.PublicKey)
 
-	grants, err := ac.verifyJWT(mintKidToken(t, key, testClaims(time.Now())))
-	if err != nil {
-		t.Fatalf("valid token rejected: %v", err)
-	}
-	if len(grants) != 1 || grants[0].Name != "cvi/img" || grants[0].Type != "repository" {
-		t.Fatalf("unexpected grants: %+v", grants)
-	}
-}
-
-// The core security guarantee: a token whose signing key is smuggled in via x5c
-// must not be trusted, even though its self-signed cert is internally valid.
-func TestVerifyJWT_X5cTokenRejected(t *testing.T) {
-	key := newKey(t)
-	ac := newController(t, &key.PublicKey)
-
-	if _, err := ac.verifyJWT(mintX5cToken(t, testClaims(time.Now()))); err == nil {
-		t.Fatal("x5c-signed token must be rejected")
-	}
-}
-
-func TestVerifyJWT_Rejections(t *testing.T) {
-	key := newKey(t)
-	ac := newController(t, &key.PublicKey)
-	now := time.Now()
-
-	t.Run("expired", func(t *testing.T) {
-		claims := testClaims(now)
-		claims["exp"] = now.Add(-time.Hour).Unix()
-		if _, err := ac.verifyJWT(mintKidToken(t, key, claims)); err == nil {
-			t.Fatal("expired token accepted")
-		}
+		grants, err := ac.verifyJWT(mintKidToken(key, testClaims(time.Now())))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(grants).To(HaveLen(1))
+		Expect(grants[0].Name).To(Equal("cvi/img"))
+		Expect(grants[0].Type).To(Equal("repository"))
 	})
 
-	t.Run("wrong issuer", func(t *testing.T) {
-		claims := testClaims(now)
-		claims["iss"] = "someone-else"
-		if _, err := ac.verifyJWT(mintKidToken(t, key, claims)); err == nil {
-			t.Fatal("token with wrong issuer accepted")
-		}
+	// The core security guarantee: a token whose signing key is smuggled in via
+	// x5c must not be trusted, even though its self-signed cert is internally valid.
+	It("rejects an x5c-smuggled token", func() {
+		key := newKey()
+		ac := newController(&key.PublicKey)
+
+		_, err := ac.verifyJWT(mintX5cToken(testClaims(time.Now())))
+		Expect(err).To(HaveOccurred())
 	})
 
-	t.Run("wrong audience", func(t *testing.T) {
-		claims := testClaims(now)
-		claims["aud"] = "not-dvcr"
-		if _, err := ac.verifyJWT(mintKidToken(t, key, claims)); err == nil {
-			t.Fatal("token with wrong audience accepted")
-		}
+	DescribeTable("rejects an invalid token",
+		func(makeToken func(key *ecdsa.PrivateKey) string) {
+			key := newKey()
+			ac := newController(&key.PublicKey)
+
+			_, err := ac.verifyJWT(makeToken(key))
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("expired", func(key *ecdsa.PrivateKey) string {
+			claims := testClaims(time.Now())
+			claims["exp"] = time.Now().Add(-time.Hour).Unix()
+			return mintKidToken(key, claims)
+		}),
+		Entry("wrong issuer", func(key *ecdsa.PrivateKey) string {
+			claims := testClaims(time.Now())
+			claims["iss"] = "someone-else"
+			return mintKidToken(key, claims)
+		}),
+		Entry("wrong audience", func(key *ecdsa.PrivateKey) string {
+			claims := testClaims(time.Now())
+			claims["aud"] = "not-dvcr"
+			return mintKidToken(key, claims)
+		}),
+		Entry("untrusted signing key", func(*ecdsa.PrivateKey) string {
+			return mintKidToken(newKey(), testClaims(time.Now()))
+		}),
+		Entry("tampered payload", func(key *ecdsa.PrivateKey) string {
+			raw := mintKidToken(key, testClaims(time.Now()))
+			return raw[:len(raw)-3] + "AAA"
+		}),
+	)
+})
+
+var _ = Describe("classify", func() {
+	It("maps static credentials and scoped tokens to roles", func() {
+		key := newKey()
+		ac := newController(&key.PublicKey)
+		ac.adminUsername = "admin"
+		ac.adminPassword = []byte("admin-pass")
+		ac.pullerUsername = "node-puller"
+		ac.pullerPassword = []byte("puller-pass")
+
+		s, _, err := ac.classify("admin", "admin-pass")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Role).To(Equal(RoleAdmin))
+
+		s, _, err = ac.classify("node-puller", "puller-pass")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Role).To(Equal(RolePuller))
+
+		// A scoped token presented under the admin username must not become admin.
+		scoped := mintKidToken(key, testClaims(time.Now()))
+		s, _, err = ac.classify("admin", scoped)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Role).To(Equal(RoleScoped))
 	})
-
-	t.Run("wrong signing key", func(t *testing.T) {
-		attacker := newKey(t)
-		if _, err := ac.verifyJWT(mintKidToken(t, attacker, testClaims(now))); err == nil {
-			t.Fatal("token signed by untrusted key accepted")
-		}
-	})
-
-	t.Run("tampered payload", func(t *testing.T) {
-		raw := mintKidToken(t, key, testClaims(now))
-		tampered := raw[:len(raw)-3] + "AAA"
-		if _, err := ac.verifyJWT(tampered); err == nil {
-			t.Fatal("tampered token accepted")
-		}
-	})
-}
-
-func TestClassify_StaticCredentials(t *testing.T) {
-	key := newKey(t)
-	ac := newController(t, &key.PublicKey)
-	ac.adminUsername = "admin"
-	ac.adminPassword = []byte("admin-pass")
-	ac.pullerUsername = "node-puller"
-	ac.pullerPassword = []byte("puller-pass")
-
-	if s, _, err := ac.classify("admin", "admin-pass"); err != nil || s.Role != RoleAdmin {
-		t.Fatalf("admin credential: role=%v err=%v", s.Role, err)
-	}
-	if s, _, err := ac.classify("node-puller", "puller-pass"); err != nil || s.Role != RolePuller {
-		t.Fatalf("puller credential: role=%v err=%v", s.Role, err)
-	}
-	// A scoped token presented under the admin username must not become admin.
-	scoped := mintKidToken(t, key, testClaims(time.Now()))
-	if s, _, err := ac.classify("admin", scoped); err != nil || s.Role != RoleScoped {
-		t.Fatalf("scoped token as admin username: role=%v err=%v", s.Role, err)
-	}
-}
+})
