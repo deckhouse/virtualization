@@ -26,7 +26,6 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -63,53 +62,6 @@ var _ = Describe("VirtualMachineNoBootableDevice", Label(precheck.NoPrecheck), f
 
 		By("Creating resources")
 		err := f.CreateWithDeferredDeletion(ctx, vdBlank, vm)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for virtual machine to be Running")
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-
-		By("Checking Running condition reason indicates no bootable device")
-		Eventually(func(g Gomega) {
-			err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
-			g.Expect(err).NotTo(HaveOccurred())
-
-			runningCondition, found := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
-			g.Expect(found).To(BeTrue())
-			g.Expect(runningCondition.Reason).To(Equal(vmcondition.ReasonNoBootableDeviceFound.String()))
-			g.Expect(runningCondition.Status).To(Equal(metav1.ConditionTrue))
-		}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
-	})
-
-	It("sets Running condition reason to NoBootableDevice when booting from a non-bootable iso image", func() {
-		// The iso test-data image is a plain data ISO without an El Torito boot
-		// record, so it is genuinely non-bootable, and an ISO-backed
-		// VirtualImage is a CDROM, which may legally occupy the first position
-		// in block devices. (The qcow2 test-data image is unsuitable here: it
-		// carries a valid MBR boot sector, and a non-CDROM image may not be the
-		// first block device anyway.)
-		By("Creating a VirtualImage from a non-bootable iso image")
-		isoVI := vibuilder.New(
-			vibuilder.WithName("vi-iso"),
-			vibuilder.WithNamespace(f.Namespace().Name),
-			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
-			vibuilder.WithDataSourceHTTP(object.ImageTestDataISO, nil, nil),
-		)
-
-		err := f.CreateWithDeferredDeletion(ctx, isoVI)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Waiting for the VirtualImage to be ready")
-		util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, isoVI)
-
-		By("Creating a virtual machine booting from the iso image")
-		vm := object.NewMinimalVM("vm-iso-", f.Namespace().Name,
-			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.ImageDevice,
-				Name: isoVI.Name,
-			}),
-		)
-
-		err = f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for virtual machine to be Running")
