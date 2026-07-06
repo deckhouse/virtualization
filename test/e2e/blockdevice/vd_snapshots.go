@@ -88,7 +88,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
 
 		By("Waiting for ready snapshot phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshot)
+		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -125,7 +125,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for ready snapshot phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshot)
+		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -164,7 +164,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
 
 		By("Waiting for ready snapshots phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
+		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotRoot)
@@ -206,7 +206,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
 
 		By("Waiting for ready snapshots phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, util.ToObjects(vdSnapshots)...)
+		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshots...)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		for _, vdSnapshot := range vdSnapshots {

@@ -265,7 +265,7 @@ func createSourceSnapshotOnMainSC(ctx context.Context, f *framework.Framework, s
 		err := f.CreateWithDeferredDeletion(ctx, snapshot)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.LongTimeout, snapshot)
+		util.UntilVDSnapshotsReady(ctx, f, framework.LongTimeout, snapshot)
 	})
 
 	return snapshot
