@@ -3009,7 +3009,7 @@ After executing the command, you will receive a `debug-info.tar.gz` archive that
 Available in the EE and SE+ editions. Requires the `VirtualMachinePool` feature gate.
 {{< /alert >}}
 
-A `VirtualMachinePool` maintains a requested number of identical virtual machines and lets you scale them with `kubectl scale`, an HPA, or KEDA. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
+The [VirtualMachinePool](cr.html#virtualmachinepool) resource maintains a requested number of identical virtual machines and lets you scale them via the `scale` subresource, a HorizontalPodAutoscaler (HPA), or KEDA. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
 
 This functionality is disabled by default. To enable it, add `VirtualMachinePool` to the `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
 
@@ -3023,9 +3023,10 @@ spec:
     - VirtualMachinePool
 ```
 
-Create a pool with the desired number of replicas and a template. Per-replica disks are declared in `virtualDiskTemplates`; their order is the replica's device (boot) order — the first template is the boot disk. The pool template has no `blockDeviceRefs` field: the controller gives each replica its own copy of every template and wires them up, so you only describe the disks once.
+Create a pool with the desired number of replicas and a template. Per-replica disks are declared in `virtualDiskTemplates`. Their order defines the replica's device (boot) order: the first template is the boot disk. The pool template has no `blockDeviceRefs` field: the controller gives each replica its own copy of every template and wires them up, so you only describe the disks once.
 
-```yaml
+```bash
+d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachinePool
 metadata:
@@ -3042,7 +3043,7 @@ spec:
         cores: 2
       memory:
         size: 4Gi
-      # cloud-init: every replica self-configures on first boot (same for all).
+      # Cloud-init: every replica self-configures on first boot (same for all).
       provisioning:
         type: UserData
         userData: |
@@ -3052,7 +3053,7 @@ spec:
               sudo: ALL=(ALL) NOPASSWD:ALL
               ssh_authorized_keys:
                 - ssh-ed25519 AAAAC3Nz... user@example
-  # Per-replica disks, in device order — the first (root) is the boot disk.
+  # Per-replica disks, in device order; the first (root) is the boot disk.
   virtualDiskTemplates:
     # Writable root disk: one per replica, cloned from an image, removed with the replica.
     - name: root
@@ -3075,19 +3076,22 @@ spec:
       spec:
         persistentVolumeClaim:
           size: 50Gi
+EOF
 ```
 
-Replicas are named `<pool>-<random>`; their disks follow the same scheme — a per-replica (`Delete`) disk is `<replica>-<template>` (for example `runners-1b2e84-root`), a reusable (`Retain`) disk is `<pool>-<template>-<random>`. List replicas with `kubectl get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
+Replicas are named `<pool>-<random>`. Disks follow the same scheme: a per-replica (`Delete`) disk is named `<replica>-<template>` (for example `runners-1b2e84-root`), a reusable (`Retain`) disk is named `<pool>-<template>-<random>`. List replicas with `d8 k get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
 
 ### Scaling
 
-Scale through the standard `scale` subresource — with `kubectl scale`, a `HorizontalPodAutoscaler`, or KEDA:
+The pool supports the standard `scale` subresource, which works with manual replica changes and autoscalers.
+
+To change the number of replicas manually, run:
 
 ```bash
-kubectl scale virtualmachinepool/runners -n ci --replicas=8
+d8 k scale virtualmachinepool/runners -n ci --replicas=8
 ```
 
-The pool publishes `status.selector`, so a `HorizontalPodAutoscaler` reads CPU/memory metrics from the replicas directly — no extra wiring:
+The pool publishes `status.selector`, so an HPA reads CPU/memory metrics from the replicas directly without extra wiring:
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -3111,17 +3115,19 @@ spec:
           averageUtilization: 70
 ```
 
-Beyond CPU/memory, the pool also works with custom metrics (`Pods`/`External` via `custom.metrics.k8s.io`/`external.metrics.k8s.io`) and KEDA — for example, to scale on an external queue length. With `scaleDownPolicy: Explicit` an autoscaler can only scale **up**: anonymous scale-down through the `scale` subresource is rejected (remove replicas by name, see below).
+Beyond CPU/memory, the pool also works with custom metrics (`Pods`/`External` via `custom.metrics.k8s.io`/`external.metrics.k8s.io`) and KEDA, for example to scale on an external queue length. With `scaleDownPolicy: Explicit` an autoscaler can only scale up: anonymous scale-down through the `scale` subresource is rejected (remove replicas by name, see below).
 
-`spec.scaleDownPolicy` selects which replica is removed on anonymous scale-down:
+The `spec.scaleDownPolicy` field selects which replica is removed on anonymous scale-down:
 
-- `NewestFirst` — the youngest replicas are removed first;
-- `OldestFirst` — the oldest first;
-- `Explicit` — anonymous scale-down is rejected; replicas can be removed only by name (see below). Use it when only the caller knows which replica is safe to remove (e.g. an idle one).
+- `NewestFirst`: the youngest replicas are removed first.
+- `OldestFirst`: the oldest replicas are removed first.
+- `Explicit`: anonymous scale-down is rejected; replicas can be removed only by name (see below). Use it when only the caller knows which replica is safe to remove (for example, an idle one).
 
 ### Removing specific replicas
 
-To remove particular replicas (and shrink the pool by that count) instead of letting the controller choose, use the `scaleDownWith` subresource:
+By default, when the pool shrinks the controller chooses which replica to remove.
+
+To remove particular replicas (and shrink the pool by that count), use the `scaleDownWith` subresource:
 
 ```bash
 kubectl create --raw \
@@ -3131,32 +3137,32 @@ kubectl create --raw \
 EOF
 ```
 
-A plain `kubectl delete vm` does **not** shrink the pool: the controller treats it as a lost replica and creates a replacement.
+A plain `kubectl delete vm` does not shrink the pool: the controller treats it as a lost replica and creates a replacement.
 
 ### Reusable disks (`reclaim`)
 
-`reclaim.onScaleDown` of a `virtualDiskTemplates` entry controls what happens to a disk when its replica is removed:
+The `reclaim` policy defines what happens to a replica's disk when the replica is removed from the pool.
 
-`reclaim` is optional; if omitted, the disk defaults to `Delete`.
+The `reclaim.onScaleDown` field of a `virtualDiskTemplates` entry controls this behavior. `reclaim` is optional; if omitted, the disk defaults to `Delete`.
 
-- **`Delete`** (default) — the disk belongs to the virtual machine and is removed with it; nothing survives the replica.
-- **`Retain`** — the disk belongs to the pool, outlives the replica and is reattached to the next replica on scale-up. Use it for state that is expensive to rebuild and should survive VM recreation, so scaling back up is warm instead of cold.
+- `Delete` (default): the disk belongs to the virtual machine and is removed with it; nothing survives the replica.
+- `Retain`: the disk belongs to the pool, outlives the replica and is reattached to the next replica on scale-up. Use it for state that is expensive to rebuild and should survive VM recreation, so scaling back up is warm instead of cold.
 
 `keep` and `ttl` tune the pool of free `Retain` disks (they apply only to `Retain`):
 
-- **`keep`** — how many recently-freed disks to always keep warm for instant scale-up; these are immune to `ttl`.
-- **`ttl`** — how long a free disk lives *beyond* the warm buffer before it is garbage-collected.
+- `keep`: how many recently-freed disks to always keep warm for instant scale-up; these are immune to `ttl`.
+- `ttl`: how long a free disk lives beyond the warm buffer before it is garbage-collected.
 
 Examples:
 
 ```yaml
-# Ephemeral disk — removed with the replica (Delete is the default).
+# Ephemeral disk: removed with the replica (Delete is the default).
 - name: root
   spec:
     persistentVolumeClaim: { size: 30Gi }
     dataSource: { type: ObjectRef, objectRef: { kind: VirtualImage, name: ubuntu } }
 
-# Reusable disk — keep 3 warm for fast scale-up, collect the rest after 1h idle.
+# Reusable disk: keep 3 warm for fast scale-up, collect the rest after 1h idle.
 - name: cache
   reclaim:
     onScaleDown: Retain
@@ -3165,7 +3171,7 @@ Examples:
   spec:
     persistentVolumeClaim: { size: 100Gi }
 
-# Reusable disk kept indefinitely — reused forever, never auto-collected (no ttl).
+# Reusable disk kept indefinitely: reused forever, never auto-collected (no ttl).
 - name: data
   reclaim:
     onScaleDown: Retain
@@ -3173,16 +3179,18 @@ Examples:
     persistentVolumeClaim: { size: 20Gi }
 ```
 
-Invalid combinations are rejected on create/update: `keep`/`ttl` may be set only with `Retain`, and `keep > 0` requires a `ttl` (without a `ttl` nothing is ever collected, so `keep` would do nothing). A `Retain` disk with no `ttl` keeps every freed disk indefinitely — bound it with a `ttl` unless that is what you want.
+Invalid combinations are rejected on create/update: `keep`/`ttl` may be set only with `Retain`, and `keep > 0` requires a `ttl` (without a `ttl` nothing is ever collected, so `keep` would do nothing). A `Retain` disk with no `ttl` keeps every freed disk indefinitely; bound it with a `ttl` unless that is what you want.
 
-### Good to know
+### Notes
 
-- **Removing a `virtualDiskTemplates` entry deletes its disks.** For `Retain` disks this destroys reusable data — remove a template only when you no longer need it.
-- **The pool maintains the replica count, not health.** An existing but unhealthy VM is not replaced (VM-level restart handles liveness), and a `Stopped` replica is kept, not replaced — only a fully deleted replica is recreated.
-- **`Retain` disks are shared across replicas.** On scale-up a new replica may reuse another replica's freed disk together with its data; there is no fixed replica-to-disk binding.
-- **Editing a `virtualDiskTemplates[].spec` affects only new disks** — except `size`, which grows existing disks (never shrinks). `dataSource`, `storageClassName`, etc. are not re-applied to already-created disks.
-- **Every device is per-replica.** There is no shared block device (a common image/ISO for all replicas) — declare each device as a `virtualDiskTemplates` entry; each replica gets its own copy.
-- **Disruptive template changes wait for a restart.** Changing, for example, the VM class or CPU topology marks `status.restartPendingReplicas` and takes effect after the replica restarts (per `restartApprovalMode`), not immediately.
+Below are pool limitations and non-obvious behavior to keep in mind in production.
+
+- Removing a `virtualDiskTemplates` entry deletes its disks. For `Retain` disks this destroys reusable data, so remove a template only when you no longer need it.
+- The pool maintains the replica count, not health. An existing but unhealthy VM is not replaced (VM-level restart handles liveness), and a `Stopped` replica is kept, not replaced; only a fully deleted replica is recreated.
+- `Retain` disks are shared across replicas. On scale-up a new replica may reuse another replica's freed disk together with its data; there is no fixed binding between a replica and a disk.
+- Editing a `virtualDiskTemplates[].spec` affects only new disks, except `size`, which grows existing disks (never shrinks). `dataSource`, `storageClassName`, etc. are not re-applied to already-created disks.
+- Every device is created per replica. There is no shared block device (a common image/ISO for all replicas): declare each device as a `virtualDiskTemplates` entry; each replica gets its own copy.
+- Template changes that require a restart take effect only after the replica restarts according to `.spec.disruptions.restartApprovalMode` in the template.
 
 ## Network configuration
 
