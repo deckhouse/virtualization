@@ -103,8 +103,19 @@ func validateDefaultVMClassPermitsMaster(ctx context.Context, f *framework.Frame
 		return fmt.Errorf("no default VirtualMachineClass found (annotation %s)", annotations.AnnVirtualMachineClassDefault)
 	}
 
+	// The probe VM carries the same catch-all NoSchedule toleration the test
+	// VMs are created with, so only the class placement is actually probed.
+	probeVM := &v1alpha2.VirtualMachine{
+		Spec: v1alpha2.VirtualMachineSpec{
+			Tolerations: []corev1.Toleration{{
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffectNoSchedule,
+			}},
+		},
+	}
+
 	for i := range masterNodes {
-		matches, err := nodeaffinity.MatchesVMPlacement(&masterNodes[i], &v1alpha2.VirtualMachine{}, defaultClass)
+		matches, err := nodeaffinity.MatchesVMPlacement(&masterNodes[i], probeVM, defaultClass)
 		if err != nil {
 			return fmt.Errorf("failed to match the default VirtualMachineClass %q against master node %q: %w", defaultClass.Name, masterNodes[i].Name, err)
 		}
