@@ -35,11 +35,11 @@ require (
 	github.com/onsi/ginkgo/v2 v2.17.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -57,6 +57,6 @@ require (
 
 // CVE Replaces
 replace (
-	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
-	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
+	golang.org/x/net => golang.org/x/net v0.55.0
+	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0
 )

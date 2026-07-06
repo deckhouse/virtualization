@@ -18,8 +18,8 @@ require (
 	github.com/prometheus/client_model v0.6.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.42.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.45.0
 	k8s.io/apimachinery v0.30.2
 	k8s.io/klog/v2 v2.120.1
 	kubevirt.io/containerized-data-importer v0.0.0-00010101000000-000000000000
@@ -116,12 +116,12 @@ require (
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
-	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
-	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/term v0.38.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/api v0.155.0 // indirect
 	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
@@ -196,7 +196,7 @@ replace (
 // CVE Replaces
 replace (
 	github.com/docker/docker => ./staging/src/github.com/docker/docker // CVE-2026-34040,CVE-2026-33997
-	golang.org/x/crypto => golang.org/x/crypto v0.45.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914
-	golang.org/x/net => golang.org/x/net v0.48.0
+	golang.org/x/crypto => golang.org/x/crypto v0.52.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914,+2026 high CVEs
+	golang.org/x/net => golang.org/x/net v0.55.0
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0
 )
