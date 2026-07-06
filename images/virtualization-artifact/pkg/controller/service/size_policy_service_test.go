@@ -480,4 +480,208 @@ var _ = Describe("SizePolicyService", func() {
 			Expect(err).Should(BeNil())
 		})
 	})
+
+	// classWithCoresStep builds a class with a single policy that discretizes the number of cores.
+	classWithCoresStep := func() *v1alpha2.VirtualMachineClass {
+		return &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
+					{Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 9, Step: 4}}, // allowed: 1, 5, 9
+				},
+			},
+		}
+	}
+
+	Context("when VM's number of cores matches the cores step", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineClassName: "vmclasstest",
+				CPU:                     v1alpha2.CPUSpec{Cores: 5, CoreFraction: "10%"},
+			},
+		}
+
+		It("should pass validation", func() {
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, classWithCoresStep())
+			Expect(err).Should(BeNil())
+		})
+	})
+
+	Context("when VM's number of cores does not match the cores step", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineClassName: "vmclasstest",
+				CPU:                     v1alpha2.CPUSpec{Cores: 3, CoreFraction: "10%"},
+			},
+		}
+
+		It("should fail and point at spec.cpu.cores with the nearest valid values", func() {
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, classWithCoresStep())
+			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("spec.cpu.cores"))
+			Expect(err.Error()).To(ContainSubstring("1 or 5"))
+		})
+	})
+
+	Context("when memory policy defines only min without max", func() {
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
+					{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							MemoryMinMax: v1alpha2.MemoryMinMax{Min: ptr.To(resource.MustParse("2Gi"))},
+						},
+					},
+				},
+			},
+		}
+
+		It("should fail when memory is below the min (regression: min was ignored without max)", func() {
+			vm := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					VirtualMachineClassName: "vmclasstest",
+					CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "10%"},
+					Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("512Mi")},
+				},
+			}
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, vmClass)
+			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("at least 2Gi"))
+		})
+
+		It("should pass when memory is at or above the min", func() {
+			vm := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					VirtualMachineClassName: "vmclasstest",
+					CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "10%"},
+					Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4Gi")},
+				},
+			}
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, vmClass)
+			Expect(err).Should(BeNil())
+		})
+	})
+
+	Context("when per-core memory policy defines only min without max", func() {
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
+					{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							PerCore: &v1alpha2.SizingPolicyMemoryPerCore{
+								MemoryMinMax: v1alpha2.MemoryMinMax{Min: ptr.To(resource.MustParse("2Gi"))},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		It("should fail when per-core memory is below the min", func() {
+			vm := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					VirtualMachineClassName: "vmclasstest",
+					CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+					Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("2Gi")}, // 1Gi per core
+				},
+			}
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, vmClass)
+			Expect(err).ShouldNot(BeNil())
+		})
+	})
+
+	Context("when per-core memory step does not match", func() {
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
+					{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							Step: ptr.To(resource.MustParse("1Gi")),
+							PerCore: &v1alpha2.SizingPolicyMemoryPerCore{
+								MemoryMinMax: v1alpha2.MemoryMinMax{
+									Min: ptr.To(resource.MustParse("1Gi")),
+									Max: ptr.To(resource.MustParse("3Gi")),
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		It("should report the nearest valid values as total memory, not per core", func() {
+			vm := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					VirtualMachineClassName: "vmclasstest",
+					CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+					Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("3Gi")}, // 1.5Gi per core, off-grid
+				},
+			}
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, vmClass)
+			Expect(err).ShouldNot(BeNil())
+			// Per-core grid is 1Gi/2Gi/3Gi; for 2 cores that is 2Gi/4Gi total.
+			Expect(err.Error()).To(ContainSubstring("2Gi or 4Gi"))
+			Expect(err.Error()).To(ContainSubstring("spec.memory.size"))
+		})
+	})
+
+	Context("when several parameters violate the policy at once", func() {
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
+					{
+						Cores:         &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						CoreFractions: []v1alpha2.CoreFractionValue{10, 25},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							MemoryMinMax: v1alpha2.MemoryMinMax{
+								Min: ptr.To(resource.MustParse("1Gi")),
+								Max: ptr.To(resource.MustParse("2Gi")),
+							},
+						},
+					},
+				},
+			},
+		}
+
+		It("should report every violation in a single message", func() {
+			vm := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					VirtualMachineClassName: "vmclasstest",
+					CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "33%"},
+					Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4Gi")},
+				},
+			}
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, vmClass)
+			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("several reasons"))
+			Expect(err.Error()).To(ContainSubstring("spec.cpu.coreFraction"))
+			Expect(err.Error()).To(ContainSubstring("spec.memory.size"))
+		})
+	})
+
+	Context("when no sizing policy matches the number of cores", func() {
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
+					{Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4}},
+					{Cores: &v1alpha2.SizingPolicyCores{Min: 9, Max: 16}},
+				},
+			},
+		}
+
+		It("should list the allowed core ranges", func() {
+			vm := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					VirtualMachineClassName: "vmclasstest",
+					CPU:                     v1alpha2.CPUSpec{Cores: 6, CoreFraction: "10%"},
+				},
+			}
+			err := service.NewSizePolicyService().CheckVMMatchedSizePolicy(vm, vmClass)
+			Expect(err).ShouldNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("1-4"))
+			Expect(err.Error()).To(ContainSubstring("9-16"))
+		})
+	})
 })
