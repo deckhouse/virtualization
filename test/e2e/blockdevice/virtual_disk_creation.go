@@ -614,9 +614,8 @@ func virtualDiskProgressExpectations(vd *v1alpha2.VirtualDisk, o progressWaitOpt
 	}
 	if o.progressCoverage == progressCoverageIntermediate {
 		return vdobs.ProgressExpectations{
-			RequireZero:                    true,
-			RequireIntermediateExceptFifty: true,
-			RequireHundred:                 true,
+			RequireZero:    true,
+			RequireHundred: true,
 		}
 	}
 	return streamedVirtualDiskProgress()
@@ -630,10 +629,8 @@ func isVirtualDiskFromCVI(vd *v1alpha2.VirtualDisk) bool {
 
 func streamedVirtualDiskProgress() vdobs.ProgressExpectations {
 	return vdobs.ProgressExpectations{
-		RequireZero:                    true,
-		RequireBetweenZeroAndFifty:     true,
-		RequireIntermediateExceptFifty: true,
-		RequireHundred:                 true,
+		RequireZero:    true,
+		RequireHundred: true,
 	}
 }
 

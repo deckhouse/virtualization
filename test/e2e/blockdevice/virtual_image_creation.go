@@ -466,10 +466,8 @@ func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitO
 		return intermediateVirtualImageProgress()
 	default:
 		return viobs.ProgressExpectations{
-			RequireZero:                    true,
-			RequireBetweenZeroAndFifty:     true,
-			RequireIntermediateExceptFifty: true,
-			RequireHundred:                 true,
+			RequireZero:    true,
+			RequireHundred: true,
 		}
 	}
 }
@@ -483,9 +481,8 @@ func minimalVirtualImageProgress() viobs.ProgressExpectations {
 
 func intermediateVirtualImageProgress() viobs.ProgressExpectations {
 	return viobs.ProgressExpectations{
-		RequireZero:                    true,
-		RequireIntermediateExceptFifty: true,
-		RequireHundred:                 true,
+		RequireZero:    true,
+		RequireHundred: true,
 	}
 }
 

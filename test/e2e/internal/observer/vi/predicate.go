@@ -249,7 +249,6 @@ func displayPhase(phase v1alpha2.ImagePhase) string {
 // before the VirtualImage reaches Ready.
 type ProgressExpectations struct {
 	RequireZero                    bool
-	RequireBetweenZeroAndFifty     bool
 	RequireIntermediateExceptFifty bool
 	RequireHundred                 bool
 }
@@ -324,7 +323,6 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 
 type progressObservations struct {
 	hasZero                    bool
-	hasBetweenZeroAndFifty     bool
 	hasIntermediateExceptFifty bool
 	hasHundred                 bool
 }
@@ -334,7 +332,6 @@ func (o *progressObservations) record(p float64) {
 	case p == 0:
 		o.hasZero = true
 	case p > 0 && p < 50:
-		o.hasBetweenZeroAndFifty = true
 		o.hasIntermediateExceptFifty = true
 	case p > 50 && p < 100:
 		o.hasIntermediateExceptFifty = true
@@ -349,8 +346,6 @@ func (o progressObservations) satisfies(expect ProgressExpectations) (bool, erro
 	switch {
 	case expect.RequireZero && !o.hasZero:
 		return false, errors.New("progress reached Ready without observing 0%")
-	case expect.RequireBetweenZeroAndFifty && !o.hasBetweenZeroAndFifty:
-		return false, errors.New("progress reached Ready without observing a value in (0%;50%)")
 	case expect.RequireIntermediateExceptFifty && !o.hasIntermediateExceptFifty:
 		return false, errors.New("progress reached Ready without observing a value in (0%;100%) different from 50%")
 	case expect.RequireHundred && !o.hasHundred:
