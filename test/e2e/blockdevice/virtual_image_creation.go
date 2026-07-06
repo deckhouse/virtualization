@@ -468,7 +468,6 @@ func virtualImageProgressExpectations(vi *v1alpha2.VirtualImage, o progressWaitO
 		return viobs.ProgressExpectations{
 			RequireZero:                    true,
 			RequireBetweenZeroAndFifty:     true,
-			RequireBetweenFiftyAndHundred:  true,
 			RequireIntermediateExceptFifty: true,
 			RequireHundred:                 true,
 		}

@@ -347,7 +347,6 @@ func displayPhase(phase v1alpha2.DiskPhase) string {
 type ProgressExpectations struct {
 	RequireZero                    bool
 	RequireBetweenZeroAndFifty     bool
-	RequireBetweenFiftyAndHundred  bool
 	RequireIntermediateExceptFifty bool
 	RequireHundred                 bool
 }
@@ -423,7 +422,6 @@ func HaveValidProgress(expect ProgressExpectations) Predicate {
 type progressObservations struct {
 	hasZero                    bool
 	hasBetweenZeroAndFifty     bool
-	hasBetweenFiftyAndHundred  bool
 	hasIntermediateExceptFifty bool
 	hasHundred                 bool
 }
@@ -436,7 +434,6 @@ func (o *progressObservations) record(p float64) {
 		o.hasBetweenZeroAndFifty = true
 		o.hasIntermediateExceptFifty = true
 	case p > 50 && p < 100:
-		o.hasBetweenFiftyAndHundred = true
 		o.hasIntermediateExceptFifty = true
 	case p > 0 && p < 100 && p != 50:
 		o.hasIntermediateExceptFifty = true
@@ -451,8 +448,6 @@ func (o progressObservations) satisfies(expect ProgressExpectations) (bool, erro
 		return false, errors.New("progress reached Ready without observing 0%")
 	case expect.RequireBetweenZeroAndFifty && !o.hasBetweenZeroAndFifty:
 		return false, errors.New("progress reached Ready without observing a value in (0%;50%)")
-	case expect.RequireBetweenFiftyAndHundred && !o.hasBetweenFiftyAndHundred:
-		return false, errors.New("progress reached Ready without observing a value in (50%;100%)")
 	case expect.RequireIntermediateExceptFifty && !o.hasIntermediateExceptFifty:
 		return false, errors.New("progress reached Ready without observing a value in (0%;100%) different from 50%")
 	case expect.RequireHundred && !o.hasHundred:

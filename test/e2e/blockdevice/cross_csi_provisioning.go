@@ -56,7 +56,9 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 		f.Before()
 		DeferCleanup(f.After)
 
-		scPtr = wffcStorageClass()
+		// Sources live on the immediate StorageClass: they are provisioned standalone
+		// (no VM consumer), and on a WFFC StorageClass they would never become Ready.
+		scPtr = immediateStorageClass()
 		differentSCPtr = differentCSIDriverStorageClass()
 	})
 
@@ -77,7 +79,9 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 			vdbuilder.WithStorageClass(differentSCPtr),
 		)
 
-		createVirtualDiskAndWait(ctx, f, target)
+		// The discovered different-CSI StorageClass may use WaitForFirstConsumer
+		// binding, so provision the disk through its VM consumer.
+		createVirtualDiskAndRunVM(ctx, f, target)
 	})
 
 	It("provisions a VirtualImage from a VirtualDisk backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {

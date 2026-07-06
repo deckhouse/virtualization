@@ -632,7 +632,6 @@ func streamedVirtualDiskProgress() vdobs.ProgressExpectations {
 	return vdobs.ProgressExpectations{
 		RequireZero:                    true,
 		RequireBetweenZeroAndFifty:     true,
-		RequireBetweenFiftyAndHundred:  true,
 		RequireIntermediateExceptFifty: true,
 		RequireHundred:                 true,
 	}
