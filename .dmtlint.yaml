@@ -67,4 +67,4 @@ linters-settings:
   no-cyrillic:
     exclude-rules:
       files:
-        - templates/security-events.yaml    # Ru information for docs
+        - templates/security-events.yaml # Ru information for docs
