@@ -288,7 +288,7 @@ var _ = Describe("CreatePodStep", func() {
 
 			envSettings := step.getEnvSettings(vi, supplements.NewGenerator("vi", vi.Name, vi.Namespace, vi.UID), volumeMode)
 			Expect(envSettings.Source).To(Equal(expectedSource))
-			Expect(envSettings.DestinationAuthSecret).To(Equal("dvcr-secret"))
+			Expect(envSettings.DestinationAuthSecret).To(Equal("d8v-vi-dvcr-auth-vi-vi-uid"))
 			Expect(envSettings.DestinationEndpoint).To(Equal("registry.example.com/vi/default/vi:vi-uid"))
 		},
 		Entry("filesystem by default", nil, importer.SourceFilesystem),
@@ -317,7 +317,7 @@ var _ = Describe("CreatePodStep", func() {
 		Expect(importerStub.startCalls).To(Equal(1))
 		Expect(importerStub.settings).ToNot(BeNil())
 		Expect(importerStub.settings.Source).To(Equal(importer.SourceBlockDevice))
-		Expect(importerStub.settings.DestinationAuthSecret).To(Equal("dvcr-secret"))
+		Expect(importerStub.settings.DestinationAuthSecret).To(Equal("d8v-vi-dvcr-auth-vi-vi-uid"))
 		Expect(importerStub.settings.DestinationEndpoint).To(Equal("registry.example.com/vi/default/vi:vi-uid"))
 		Expect(vi.Status.Progress).To(Equal("0%"))
 		Expect(vi.Status.Target.RegistryURL).To(Equal("registry.example.com/custom:tag"))

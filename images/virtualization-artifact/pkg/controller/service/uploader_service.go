@@ -96,7 +96,7 @@ func (s UploaderService) Start(
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
 
-	err = supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	err = supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, uploaderTokenScope(s.dvcrSettings, settings))
 	if err != nil {
 		return err
 	}
