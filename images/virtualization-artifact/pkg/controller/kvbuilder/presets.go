@@ -45,16 +45,17 @@ var DeviceOptionsPresets DeviceOptionsList = []DeviceOptions{
 	{
 		EnableParavirtualization: true,
 		DiskBus:                  virtv1.DiskBusSCSI,
-		// CD-ROMs use the USB bus (usb-storage) so guests without a virtio-scsi
-		// driver (e.g. Windows WinPE) can enumerate them via the inbox USB Mass
-		// Storage driver. The xhci controller is always present (tablet input).
-		CdromBus:       virtv1.DiskBusUSB,
+		// CD-ROMs use the SATA bus and stay cold-plug: UEFI/OVMF can only boot an
+		// optical device that exposes a CDROM Media Device Path (El Torito), which
+		// usb-storage does not provide, and a SATA CD-ROM is visible to Windows
+		// WinPE via the inbox AHCI driver.
+		CdromBus:       virtv1.DiskBusSATA,
 		InterfaceModel: "virtio",
 	},
 	{
 		EnableParavirtualization: false,
 		DiskBus:                  virtv1.DiskBusSATA,
-		CdromBus:                 virtv1.DiskBusUSB,
+		CdromBus:                 virtv1.DiskBusSATA,
 		InterfaceModel:           "e1000",
 	},
 }

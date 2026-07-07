@@ -337,7 +337,13 @@ func applyBlockDeviceRefs(
 		}
 
 		_, hotpluggable := hotpluggableVolumes[diskName]
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (isParavirtualizationEnabled && !isVmRunning), vdByName, viByName, cviByName); err != nil {
+		// CD-ROM ISOs must stay cold-plug so they land on the SATA bus in the initial
+		// domain XML: a KubeVirt hotplug volume can only use scsi/virtio/usb, and a boot
+		// ISO on any of those either fails to boot under UEFI (usb has no CDROM device
+		// path) or is invisible to WinPE (scsi needs vioscsi). A cold SATA CD-ROM boots
+		// under OVMF and is enumerated by the inbox AHCI driver.
+		forceHotplug := isParavirtualizationEnabled && !isVmRunning && !isCdromBlockDevice(bd, viByName, cviByName)
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || forceHotplug, vdByName, viByName, cviByName); err != nil {
 			return err
 		}
 	}
@@ -442,6 +448,23 @@ func syncAttachedVMBDAHotplugVolumes(
 	}
 
 	return nil
+}
+
+func isCdromBlockDevice(
+	bd v1alpha2.BlockDeviceSpecRef,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+) bool {
+	switch bd.Kind {
+	case v1alpha2.ImageDevice:
+		vi, ok := viByName[bd.Name]
+		return ok && vi != nil && imageformat.IsISO(vi.Status.Format)
+	case v1alpha2.ClusterImageDevice:
+		cvi, ok := cviByName[bd.Name]
+		return ok && cvi != nil && imageformat.IsISO(cvi.Status.Format)
+	default:
+		return false
+	}
 }
 
 func setBlockDeviceDisk(
