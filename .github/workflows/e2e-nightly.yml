@@ -161,7 +161,7 @@ jobs:
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
 
   e2e-sds-elastic:
-    name: E2E Pipeline (Sds Elastic)
+    name: E2E Pipeline (Elastic)
     needs:
       - set-vars
     uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
