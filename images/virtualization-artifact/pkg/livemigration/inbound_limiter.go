@@ -121,6 +121,29 @@ func (l *InboundMigrationLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, 
 	}
 }
 
+// ReleaseByKVVMI frees any slot held by the given VMI on any node, regardless of
+// the migration UID. A deleted VMI can no longer have an active migration, so
+// dropping every owner keyed by this VMI is safe. This covers the case where a
+// VMI is removed before its migration reaches a terminal state, which would
+// otherwise leak the slot and starve subsequent inbound migrations to that node.
+func (l *InboundMigrationLimiter) ReleaseByKVVMI(namespace, name string) {
+	prefix := namespace + "/" + name + "/"
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for targetNode, owners := range l.slots {
+		for owner := range owners {
+			if strings.HasPrefix(owner, prefix) {
+				delete(owners, owner)
+			}
+		}
+		if len(owners) == 0 {
+			delete(l.slots, targetNode)
+		}
+	}
+}
+
 // Restore rebuilds the in-memory registry after a controller restart or leader
 // change by scanning VMIs annotated with inbound-migration-slot=acquired.
 //
