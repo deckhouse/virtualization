@@ -21,12 +21,16 @@ import (
 	"log/slog"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -51,17 +55,34 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) 
 		}
 
 		if requeue {
+			if reason == "" {
+				reason = "Waiting for cleanup to finish"
+			}
+			h.setDeletingCondition(vi, vicondition.DeletionCleanupPending, reason)
 			log.Info("VirtualImage cleanup is pending", slog.String("reason", reason))
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
+		conditions.RemoveCondition(vicondition.DeletingType, &vi.Status.Conditions)
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualImage")
 		controllerutil.RemoveFinalizer(vi, v1alpha2.FinalizerVICleanup)
 		return reconcile.Result{}, nil
 	}
 
+	conditions.RemoveCondition(vicondition.DeletingType, &vi.Status.Conditions)
 	controllerutil.AddFinalizer(vi, v1alpha2.FinalizerVICleanup)
 	return reconcile.Result{}, nil
+}
+
+func (h DeletionHandler) setDeletingCondition(vi *v1alpha2.VirtualImage, reason vicondition.DeletingReason, message string) {
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vicondition.DeletingType).
+			Generation(vi.Generation).
+			Status(metav1.ConditionFalse).
+			Reason(reason).
+			Message(service.CapitalizeFirstLetter(message)+"."),
+		&vi.Status.Conditions,
+	)
 }
 
 func (h DeletionHandler) Name() string {

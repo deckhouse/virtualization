@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,9 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -57,6 +61,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	controllerutil.AddFinalizer(vmbda, v1alpha2.FinalizerVMBDACleanup)
 
 	if vmbda.DeletionTimestamp == nil {
+		conditions.RemoveCondition(vmbdacondition.DeletingType, &vmbda.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -71,6 +76,8 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	}
 
 	if h.unplug.IsAttached(vm, kvvm, vmbda) {
+		h.setDeletingCondition(vmbda, vmbdacondition.DeletionCleanupPending, detachPendingMessage(vmbda))
+
 		var res reconcile.Result
 		res, err = h.detach(ctx, kvvm, vmbda)
 		if err != nil {
@@ -80,9 +87,25 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
+	conditions.RemoveCondition(vmbdacondition.DeletingType, &vmbda.Status.Conditions)
 	log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineBlockDeviceAttachment")
 	controllerutil.RemoveFinalizer(vmbda, v1alpha2.FinalizerVMBDACleanup)
 	return reconcile.Result{}, nil
+}
+
+func (h *DeletionHandler) setDeletingCondition(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, reason vmbdacondition.DeletingReason, message string) {
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmbdacondition.DeletingType).
+			Generation(vmbda.Generation).
+			Status(metav1.ConditionFalse).
+			Reason(reason).
+			Message(service.CapitalizeFirstLetter(message)+"."),
+		&vmbda.Status.Conditions,
+	)
+}
+
+func detachPendingMessage(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) string {
+	return fmt.Sprintf("Waiting for block device %s/%s to detach from VirtualMachine %s", vmbda.Spec.BlockDeviceRef.Kind, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.VirtualMachineName)
 }
 
 func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {

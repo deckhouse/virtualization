@@ -28,6 +28,8 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `ClusterVirtualImage` is ready for use.
 	ReadyType Type = "Ready"
+	// DeletingType indicates whether the ClusterVirtualImage deletion can be completed.
+	DeletingType Type = "Deleting"
 )
 
 type (
@@ -35,6 +37,8 @@ type (
 	DatasourceReadyReason string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason string
+	// DeletingReason represents the various reasons for the Deleting condition type.
+	DeletingReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -42,6 +46,10 @@ func (s DatasourceReadyReason) String() string {
 }
 
 func (s ReadyReason) String() string {
+	return string(s)
+}
+
+func (s DeletingReason) String() string {
 	return string(s)
 }
 
@@ -75,4 +83,7 @@ const (
 	Ready ReadyReason = "Ready"
 	// ImageLost indicates that the image in DVCR has been lost and the `ClusterVirtualImage` can no longer be used.
 	ImageLost ReadyReason = "ImageLost"
+
+	// DeletionCleanupPending indicates that the ClusterVirtualImage cleanup is still in progress.
+	DeletionCleanupPending DeletingReason = "CleanupPending"
 )

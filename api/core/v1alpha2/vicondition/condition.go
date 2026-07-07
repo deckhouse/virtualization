@@ -30,6 +30,8 @@ const (
 	ReadyType Type = "Ready"
 	// StorageClassReadyType indicates whether the storageClass ready.
 	StorageClassReadyType Type = "StorageClassReady"
+	// DeletingType indicates whether the VirtualImage deletion can be completed.
+	DeletingType Type = "Deleting"
 )
 
 type (
@@ -39,6 +41,8 @@ type (
 	ReadyReason string
 	// StorageClassReadyReason represents the various reasons for the StorageClassReady condition type.
 	StorageClassReadyReason string
+	// DeletingReason represents the various reasons for the Deleting condition type.
+	DeletingReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -50,6 +54,10 @@ func (s ReadyReason) String() string {
 }
 
 func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
+
+func (s DeletingReason) String() string {
 	return string(s)
 }
 
@@ -103,4 +111,7 @@ const (
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
+
+	// DeletionCleanupPending indicates that the VirtualImage cleanup is still in progress.
+	DeletionCleanupPending DeletingReason = "CleanupPending"
 )
