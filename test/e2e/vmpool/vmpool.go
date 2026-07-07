@@ -165,6 +165,35 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 		})
 	})
 
+	It("attaches a shared image (CD-ROM) referenced in blockDeviceRefs to every replica", func() {
+		sharedImage := object.PrecreatedCVIUbuntuISO
+
+		By("Creating a pool whose template references a per-replica root disk and a shared ClusterVirtualImage", func() {
+			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
+			// The image is NOT a virtualDiskTemplates entry (it is shared, read-only,
+			// not per-replica) and is not subject to the bijection.
+			pool.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs = append(
+				pool.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs,
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ClusterImageDevice, Name: sharedImage},
+			)
+			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
+		})
+
+		By("Waiting until both replicas are Running", func() {
+			Eventually(runningCount).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Equal(2))
+		})
+
+		By("Checking every replica attaches the same shared image, unresolved", func() {
+			ms := members()
+			Expect(ms).To(HaveLen(2))
+			for _, m := range ms {
+				Expect(m.Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{
+					Kind: v1alpha2.ClusterImageDevice, Name: sharedImage,
+				}), "replica %s must reference the shared image verbatim", m.Name)
+			}
+		})
+	})
+
 	It("removes addressed replicas via scaleDownWith, shrinks the pool, and does not replace them", func() {
 		By("Creating a pool of 2 and waiting until both are Running", func() {
 			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)

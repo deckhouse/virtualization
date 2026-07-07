@@ -3091,6 +3091,35 @@ EOF
 
 Replicas are named `<pool>-<random>`. Disks follow the same scheme: a per-replica (`Delete`) disk is named `<replica>-<template>` (for example `runners-1b2e84-root`), a reusable (`Retain`) disk is named `<pool>-<template>-<random>`. List replicas with `d8 k get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
 
+### Attaching a shared CD-ROM (or any shared image) to every replica
+
+Besides the per-replica disks, `blockDeviceRefs` may reference read-only images — a `ClusterVirtualImage` or a `VirtualImage`. Such an image is not per-replica: every replica attaches the same image (for example a common ISO with tools or drivers). Images are not listed in `virtualDiskTemplates` (they have no per-replica state) and are not subject to the bijection.
+
+Add the image to `blockDeviceRefs` at the position where you want it in the boot order — for an OS-installation ISO, place it before the disk; for a tools CD-ROM, after:
+
+```yaml
+spec:
+  virtualMachineTemplate:
+    spec:
+      blockDeviceRefs:
+        - kind: VirtualDisk           # per-replica writable root, boots first
+          name: root
+        - kind: ClusterVirtualImage   # shared read-only CD-ROM, attached to every replica
+          name: tools-iso
+  virtualDiskTemplates:
+    - name: root
+      spec:
+        persistentVolumeClaim:
+          size: 30Gi
+        dataSource:
+          type: ObjectRef
+          objectRef:
+            kind: ClusterVirtualImage
+            name: ubuntu
+```
+
+The image is attached to existing replicas the same way as any other device — a change to `blockDeviceRefs` applies to a live replica on its next recreation (rotation or scale-up).
+
 ### Scaling
 
 The pool supports the standard `scale` subresource, which works with manual replica changes and autoscalers.

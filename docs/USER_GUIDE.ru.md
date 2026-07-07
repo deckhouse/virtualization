@@ -3120,6 +3120,35 @@ EOF
 
 Реплики именуются `<pool>-<random>`. Диски следуют той же схеме: диск на реплику (`Delete`) называется `<replica>-<template>` (например, `runners-1b2e84-root`), переиспользуемый (`Retain`) получает имя `<pool>-<template>-<random>`. Посмотреть реплики можно через `d8 k get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
 
+### Подключение общего CD-ROM (или любого общего образа) ко всем репликам
+
+Помимо per-replica дисков, в `blockDeviceRefs` можно сослаться на read-only образы — `ClusterVirtualImage` или `VirtualImage`. Такой образ не per-replica: все реплики подключают один и тот же образ (например, общий ISO с инструментами или драйверами). Образы не перечисляются в `virtualDiskTemplates` (у них нет per-replica состояния) и под биекцию не попадают.
+
+Добавьте образ в `blockDeviceRefs` на нужную позицию в порядке загрузки — для установочного ISO поставьте его перед диском, для CD-ROM с инструментами — после:
+
+```yaml
+spec:
+  virtualMachineTemplate:
+    spec:
+      blockDeviceRefs:
+        - kind: VirtualDisk           # записываемый корневой диск на реплику, грузится первым
+          name: root
+        - kind: ClusterVirtualImage   # общий read-only CD-ROM, подключается ко всем репликам
+          name: tools-iso
+  virtualDiskTemplates:
+    - name: root
+      spec:
+        persistentVolumeClaim:
+          size: 30Gi
+        dataSource:
+          type: ObjectRef
+          objectRef:
+            kind: ClusterVirtualImage
+            name: ubuntu
+```
+
+Образ подключается к существующим репликам так же, как любое другое устройство, — изменение `blockDeviceRefs` применяется к живой реплике при её следующем пересоздании (ротация или scale-up).
+
 ### Масштабирование
 
 Пул поддерживает стандартный сабресурс `scale`, совместимый с ручным изменением числа реплик и с автоскейлерами.
