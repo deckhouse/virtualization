@@ -22,12 +22,14 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -202,6 +204,10 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 	initialNode, err := util.GetVMNode(ctx, t.Framework, t.VM)
 	Expect(err).NotTo(HaveOccurred())
 
+	if liveMigration {
+		t.skipIfDisksAreNotLiveMigratable(ctx)
+	}
+
 	By("Applying memory size changes")
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
@@ -232,6 +238,30 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 	guestMemorySize, err = t.getGuestMemorySize()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(guestMemorySize).To(Equal(int(changedQuantity.Value())))
+}
+
+// TODO: Remove this skip when memory hotplug is supported for VMs with RWO disks.
+// Upstream KubeVirt hotplugs memory only for a plainly live-migratable VMI:
+// handleMemoryHotplugRequest checks vmi.IsMigratable() (the LiveMigratable condition)
+// and knows nothing about the StorageLiveMigratable condition our fork uses to volume-migrate
+// VMs with RWO disks. So on an RWO storage class KubeVirt sets RestartRequired instead of
+// hotplugging, the VM is restarted (restartApprovalMode: Automatic), and the migration this
+// test waits for never happens.
+func (t *memoryHotplugTest) skipIfDisksAreNotLiveMigratable(ctx context.Context) {
+	GinkgoHelper()
+
+	vd := &v1alpha2.VirtualDisk{}
+	err := t.Framework.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VD), vd)
+	Expect(err).NotTo(HaveOccurred())
+
+	pvc, err := t.Framework.KubeClient().CoreV1().PersistentVolumeClaims(vd.Namespace).Get(ctx, vd.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	if slices.Contains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
+		return
+	}
+
+	Skip(fmt.Sprintf("skip: PVC %s/%s is not ReadWriteMany, memory hotplug via live migration needs a live-migratable VMI", pvc.Namespace, pvc.Name))
 }
 
 func (t *memoryHotplugTest) generateResources(vmName, memSize string, disableInPlaceResize bool) {
