@@ -55,6 +55,8 @@ jobs:
           LABEL_SELECTOR: test=nightly-e2e
           KEEP_HOURS: "47"
           FRIDAY_KEEP_HOURS: "71"
+          # Ceph (sds-elastic) nested clusters are torn down after ~1 day.
+          ELASTIC_KEEP_HOURS: "23"
         run: bash .github/scripts/bash/e2e/cleanup-nightly-resources.sh
 
   power-off-vms-for-nested:
