@@ -3,6 +3,16 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 7, 2026.
+</span>
+
+### Fixes
+
+- [module] Fixed slow downloading of images from DVCR to the node when attaching them to a virtual machine.
+- [vm] Fixed a volume mount leak that could leave a VM with hotplugged images stuck in the Terminating state during deletion.
+
 ## v1.9.2
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: July 1, 2026.
