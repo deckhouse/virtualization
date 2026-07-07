@@ -152,6 +152,8 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	Expect(err).NotTo(HaveOccurred())
 	Expect(guestCPUCount).To(Equal(initialCores))
 
+	skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
+
 	By("Applying CPU core changes")
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
@@ -218,6 +220,10 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 
 	initialNode, err := util.GetVMNode(ctx, t.Framework, t.VM)
 	Expect(err).NotTo(HaveOccurred())
+
+	if liveMigration {
+		skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
+	}
 
 	By("Applying CPU core changes")
 	patch, err := json.Marshal([]map[string]interface{}{{
