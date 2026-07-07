@@ -151,11 +151,20 @@ var _ = Describe("SyncHandler", func() {
 			Expect(ref.Kind).To(Equal(v1alpha2.VirtualMachinePoolKind))
 		})
 
-		It("builds the replica's block devices from virtualDiskTemplates in order", func() {
+		It("gives the replica the template's blockDeviceRefs verbatim (disk placeholders and shared images)", func() {
 			pool := newPool(1)
 			pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{
 				diskTemplate("root", v1alpha2.VirtualDiskReclaimDelete),
 				diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain),
+			}
+			// The user authors blockDeviceRefs: disk-template placeholders in boot
+			// order plus a shared image. The controller copies them as-is; the disks
+			// handler later resolves the VirtualDisk placeholders per replica, images
+			// are left untouched.
+			pool.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{
+				{Kind: v1alpha2.DiskDevice, Name: "root"},
+				{Kind: v1alpha2.DiskDevice, Name: "cache"},
+				{Kind: v1alpha2.ClusterImageDevice, Name: "tools-iso"},
 			}
 			c, err := testutil.NewFakeClientWithObjects(pool)
 			Expect(err).NotTo(HaveOccurred())
@@ -166,11 +175,10 @@ var _ = Describe("SyncHandler", func() {
 			var list v1alpha2.VirtualMachineList
 			Expect(c.List(ctx, &list, client.InNamespace(pool.Namespace))).To(Succeed())
 			Expect(list.Items).To(HaveLen(1))
-			// Placeholders in template order (first = boot); the disks handler
-			// resolves them in place to the replica's concrete disks.
 			Expect(list.Items[0].Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{
 				{Kind: v1alpha2.DiskDevice, Name: "root"},
 				{Kind: v1alpha2.DiskDevice, Name: "cache"},
+				{Kind: v1alpha2.ClusterImageDevice, Name: "tools-iso"},
 			}))
 		})
 

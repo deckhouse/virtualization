@@ -74,12 +74,16 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 		if m.GetAnnotations()[poollabels.PatchedTemplateHash] != desiredHash {
 			patched := m.DeepCopy()
 			patched.Spec = *tmplSpec.DeepCopy()
-			// Block device refs are per-replica: the disks handler has already
-			// resolved the template's disk-template placeholders to this member's
-			// concrete disks (e.g. "system" to "web-a-system", or a reuse disk).
-			// Keep the member's resolved refs; re-copying the template placeholders
-			// would dangle (no such disk) and duplicate the resolved ref. Disk
-			// changes are reconciled by the disks handler, not the template rollout.
+			// Keep the member's own blockDeviceRefs instead of the template's. The
+			// template lists disk-template placeholders (kind VirtualDisk, name = a
+			// virtualDiskTemplates entry) plus any shared images; the disks handler
+			// has already resolved each placeholder to this member's concrete disk
+			// (e.g. "system" -> "web-a-system", or a reuse disk). Re-copying the
+			// template placeholders would dangle (no such disk) and duplicate the
+			// resolved ref. Disk add/remove is reconciled by the disks handler;
+			// blockDeviceRefs edits (reorder, added/removed image) reach a live
+			// replica on its next recreation (rotation/scale-up), like other
+			// disruptive template changes the pool does not force.
 			patched.Spec.BlockDeviceRefs = append([]v1alpha2.BlockDeviceSpecRef(nil), m.Spec.BlockDeviceRefs...)
 			if patched.Annotations == nil {
 				patched.Annotations = map[string]string{}

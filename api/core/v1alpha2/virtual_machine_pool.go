@@ -61,6 +61,15 @@ type VirtualMachinePoolList struct {
 }
 
 // VirtualMachinePoolSpec is the desired state of a VirtualMachinePool.
+//
+// The disks a replica gets are declared in two places that must stay in sync:
+// virtualDiskTemplates describes each per-replica disk, and the template's
+// blockDeviceRefs references those disks (by name, kind VirtualDisk) to set the
+// boot order and interleave shared images. The rule below enforces a bijection —
+// every template is referenced exactly once, and every VirtualDisk reference
+// resolves to a template — so neither list can carry a dangling entry.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.virtualMachineTemplate.spec) && has(self.virtualMachineTemplate.spec.blockDeviceRefs) && self.virtualDiskTemplates.all(t, self.virtualMachineTemplate.spec.blockDeviceRefs.exists(r, r.kind == 'VirtualDisk' && r.name == t.name)) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').all(r, self.virtualDiskTemplates.exists(t, t.name == r.name)) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').size() == self.virtualDiskTemplates.size()",message="each virtualDiskTemplates entry must be referenced exactly once by a VirtualDisk entry in virtualMachineTemplate.spec.blockDeviceRefs, and every VirtualDisk reference must name a virtualDiskTemplates entry"
 type VirtualMachinePoolSpec struct {
 	// Replicas is the desired number of virtual machines in the pool.
 	//
@@ -94,15 +103,16 @@ type VirtualMachinePoolSpec struct {
 	// manually created virtual machine.
 	VirtualMachineTemplate VirtualMachineTemplateSpec `json:"virtualMachineTemplate"`
 
-	// VirtualDiskTemplates describes the per-replica disks and, by their order, the
-	// replica's block devices — the first template is the boot device. A disk with
-	// reclaim Delete belongs to its VirtualMachine and is removed with it; a disk
-	// with reclaim Retain belongs to the pool, outlives the replica and is reused
-	// on a later scale-up. This is the sole source of a replica's disks: the pool's
-	// virtualMachineTemplate has no blockDeviceRefs field — the controller builds it
-	// from these templates.
+	// VirtualDiskTemplates describes each per-replica disk (reclaim policy, size,
+	// data source). Names are unique within the pool (list-map key) and every
+	// template must be referenced by a VirtualDisk entry in
+	// virtualMachineTemplate.spec.blockDeviceRefs, which sets the boot order (see
+	// the bijection rule on the spec). A disk with reclaim Delete belongs to its
+	// VirtualMachine and is removed with it; a disk with reclaim Retain belongs to
+	// the pool, outlives the replica and is reused on a later scale-up.
 	//
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=16
 	// +listType=map
 	// +listMapKey=name
 	VirtualDiskTemplates []VirtualDiskTemplateSpec `json:"virtualDiskTemplates"`

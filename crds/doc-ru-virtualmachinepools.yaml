@@ -67,16 +67,27 @@ spec:
                           dataSource:
                             properties:
                               containerImage:
-                                description: Use an image stored in an external container registry. Only registries with enabled TLS are supported. To provide a custom Certificate Authority (CA) chain, use the `caBundle` field.
+                                description:
+                                  Use an image stored in an external container
+                                  registry. Only registries with enabled TLS are supported.
+                                  To provide a custom Certificate Authority (CA) chain,
+                                  use the `caBundle` field.
                                 properties:
                                   caBundle:
-                                    description: CA chain in Base64 format to verify the container registry.
+                                    description:
+                                      CA chain in Base64 format to verify
+                                      the container registry.
                                   image:
-                                    description: Path to the image in the container registry.
+                                    description:
+                                      Path to the image in the container
+                                      registry.
                                   imagePullSecret:
                                     properties:
                                       name:
-                                        description: Name of the secret keeping container registry credentials, which must be located in the same namespace.
+                                        description:
+                                          Name of the secret keeping container
+                                          registry credentials, which must be located
+                                          in the same namespace.
                               http:
                                 description: |-
                                   Fill the image with data from an external URL. The following schemas are supported:
@@ -87,9 +98,14 @@ spec:
                                   For HTTPS schema, there is an option to skip the TLS verification.
                                 properties:
                                   caBundle:
-                                    description: CA chain in Base64 format to verify the URL.
+                                    description:
+                                      CA chain in Base64 format to verify
+                                      the URL.
                                   checksum:
-                                    description: Checksum to verify integrity and consistency of the downloaded file. The file must match all specified checksums.
+                                    description:
+                                      Checksum to verify integrity and consistency
+                                      of the downloaded file. The file must match all
+                                      specified checksums.
                                   url:
                                     description: |-
                                       URL of the file for creating an image. The following file formats are supported:
@@ -102,12 +118,18 @@ spec:
                                       * gz
                                       * xz
                               objectRef:
-                                description: Use an existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource to create a disk.
+                                description:
+                                  Use an existing VirtualImage, ClusterVirtualImage,
+                                  or VirtualDiskSnapshot resource to create a disk.
                                 properties:
                                   kind:
-                                    description: Kind of the existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource.
+                                    description:
+                                      Kind of the existing VirtualImage,
+                                      ClusterVirtualImage, or VirtualDiskSnapshot resource.
                                   name:
-                                    description: Name of the existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource.
+                                    description:
+                                      Name of the existing VirtualImage,
+                                      ClusterVirtualImage, or VirtualDiskSnapshot resource.
                               type:
                                 description: |-
                                   The following image sources are available for creating an image:
@@ -169,221 +191,612 @@ spec:
                               description: Описывает affinity-правила узлов для ВМ.
                               properties:
                                 preferredDuringSchedulingIgnoredDuringExecution:
-                                  description: "Планировщик предпочтёт размещать поды на узлах, удовлетворяющих affinity-выражениям из этого поля, но может выбрать и узел, нарушающий одно или несколько выражений. Наиболее предпочтителен узел с наибольшей суммой весов: для каждого узла, удовлетворяющего всем требованиям планирования (запрос ресурсов, обязательные affinity-выражения и т. п.), сумма вычисляется перебором элементов этого поля с прибавлением «веса», если узел соответствует соответствующим matchExpressions; узлы с наибольшей суммой наиболее предпочтительны."
+                                  description:
+                                    "Планировщик предпочтёт размещать поды
+                                    на узлах, удовлетворяющих affinity-выражениям из
+                                    этого поля, но может выбрать и узел, нарушающий
+                                    одно или несколько выражений. Наиболее предпочтителен
+                                    узел с наибольшей суммой весов: для каждого узла,
+                                    удовлетворяющего всем требованиям планирования (запрос
+                                    ресурсов, обязательные affinity-выражения и т. п.),
+                                    сумма вычисляется перебором элементов этого поля
+                                    с прибавлением «веса», если узел соответствует соответствующим
+                                    matchExpressions; узлы с наибольшей суммой наиболее
+                                    предпочтительны."
                                   items:
-                                    description: "Пустой предпочитаемый терм планирования соответствует всем объектам с неявным весом 0 (то есть ничего не делает). Терм со значением null не соответствует ни одному объекту (также ничего не делает)."
+                                    description:
+                                      Пустой предпочитаемый терм планирования
+                                      соответствует всем объектам с неявным весом 0
+                                      (то есть ничего не делает). Терм со значением
+                                      null не соответствует ни одному объекту (также
+                                      ничего не делает).
                                     properties:
                                       preference:
-                                        description: "Терм селектора узлов, связанный с соответствующим весом."
+                                        description:
+                                          Терм селектора узлов, связанный
+                                          с соответствующим весом.
                                         properties:
                                           matchExpressions:
-                                            description: "Список требований селектора узлов по меткам узла."
+                                            description:
+                                              Список требований селектора
+                                              узлов по меткам узла.
                                             items:
-                                              description: "Требование селектора узлов — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора узлов
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "Ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    Ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "Задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists, DoesNotExist, Gt и Lt."
+                                                  description:
+                                                    "Задаёт отношение ключа
+                                                    к набору значений. Допустимые операторы:
+                                                    In, NotIn, Exists, DoesNotExist,
+                                                    Gt и Lt."
                                                 values:
-                                                  description: "Массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым; для Gt и Lt — содержать ровно один элемент, интерпретируемый как целое число. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    Массив строковых значений.
+                                                    Для операторов In и NotIn массив
+                                                    должен быть непустым; для Exists
+                                                    и DoesNotExist — пустым; для Gt
+                                                    и Lt — содержать ровно один элемент,
+                                                    интерпретируемый как целое число.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                                           matchFields:
-                                            description: "Список требований селектора узлов по полям узла."
+                                            description:
+                                              Список требований селектора
+                                              узлов по полям узла.
                                             items:
-                                              description: "Требование селектора узлов — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора узлов
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "Ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    Ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "Задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists, DoesNotExist, Gt и Lt."
+                                                  description:
+                                                    "Задаёт отношение ключа
+                                                    к набору значений. Допустимые операторы:
+                                                    In, NotIn, Exists, DoesNotExist,
+                                                    Gt и Lt."
                                                 values:
-                                                  description: "Массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым; для Gt и Lt — содержать ровно один элемент, интерпретируемый как целое число. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    Массив строковых значений.
+                                                    Для операторов In и NotIn массив
+                                                    должен быть непустым; для Exists
+                                                    и DoesNotExist — пустым; для Gt
+                                                    и Lt — содержать ровно один элемент,
+                                                    интерпретируемый как целое число.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                                       weight:
-                                        description: "Вес, связанный с соответствием данному nodeSelectorTerm, в диапазоне 1–100."
+                                        description:
+                                          Вес, связанный с соответствием
+                                          данному nodeSelectorTerm, в диапазоне 1–100.
                                 requiredDuringSchedulingIgnoredDuringExecution:
-                                  description: "Если заданные этим полем требования affinity не выполнены на момент планирования, под не будет размещён на узле. Если они перестают выполняться во время работы пода (например, из-за обновления), система может как попытаться в итоге вытеснить под с узла, так и не делать этого."
+                                  description:
+                                    Если заданные этим полем требования affinity
+                                    не выполнены на момент планирования, под не будет
+                                    размещён на узле. Если они перестают выполняться
+                                    во время работы пода (например, из-за обновления),
+                                    система может как попытаться в итоге вытеснить под
+                                    с узла, так и не делать этого.
                                   properties:
                                     nodeSelectorTerms:
-                                      description: "Обязательное поле. Список термов селектора узлов. Термы объединяются по ИЛИ."
+                                      description:
+                                        Обязательное поле. Список термов
+                                        селектора узлов. Термы объединяются по ИЛИ.
                                       items:
-                                        description: "Пустой терм селектора узлов или терм со значением null не соответствует ни одному объекту. Требования внутри терма объединяются по И. Тип TopologySelectorTerm реализует подмножество NodeSelectorTerm."
+                                        description:
+                                          Пустой терм селектора узлов или
+                                          терм со значением null не соответствует ни
+                                          одному объекту. Требования внутри терма объединяются
+                                          по И. Тип TopologySelectorTerm реализует подмножество
+                                          NodeSelectorTerm.
                                         properties:
                                           matchExpressions:
-                                            description: "Список требований селектора узлов по меткам узла."
+                                            description:
+                                              Список требований селектора
+                                              узлов по меткам узла.
                                             items:
-                                              description: "Требование селектора узлов — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора узлов
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "Ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    Ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "Задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists, DoesNotExist, Gt и Lt."
+                                                  description:
+                                                    "Задаёт отношение ключа
+                                                    к набору значений. Допустимые операторы:
+                                                    In, NotIn, Exists, DoesNotExist,
+                                                    Gt и Lt."
                                                 values:
-                                                  description: "Массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым; для Gt и Lt — содержать ровно один элемент, интерпретируемый как целое число. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    Массив строковых значений.
+                                                    Для операторов In и NotIn массив
+                                                    должен быть непустым; для Exists
+                                                    и DoesNotExist — пустым; для Gt
+                                                    и Lt — содержать ровно один элемент,
+                                                    интерпретируемый как целое число.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                                           matchFields:
-                                            description: "Список требований селектора узлов по полям узла."
+                                            description:
+                                              Список требований селектора
+                                              узлов по полям узла.
                                             items:
-                                              description: "Требование селектора узлов — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора узлов
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "Ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    Ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "Задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists, DoesNotExist, Gt и Lt."
+                                                  description:
+                                                    "Задаёт отношение ключа
+                                                    к набору значений. Допустимые операторы:
+                                                    In, NotIn, Exists, DoesNotExist,
+                                                    Gt и Lt."
                                                 values:
-                                                  description: "Массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым; для Gt и Lt — содержать ровно один элемент, интерпретируемый как целое число. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    Массив строковых значений.
+                                                    Для операторов In и NotIn массив
+                                                    должен быть непустым; для Exists
+                                                    и DoesNotExist — пустым; для Gt
+                                                    и Lt — содержать ровно один элемент,
+                                                    интерпретируемый как целое число.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                             virtualMachineAndPodAffinity:
                               properties:
                                 preferredDuringSchedulingIgnoredDuringExecution:
                                   items:
                                     properties:
                                       virtualMachineAndPodAffinityTerm:
-                                        description: "Обязательное поле. Терм affinity виртуальных машин, связанный с соответствующим весом."
+                                        description:
+                                          Обязательное поле. Терм affinity
+                                          виртуальных машин, связанный с соответствующим
+                                          весом.
                                         properties:
                                           labelSelector:
-                                            description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                            description:
+                                              Селектор меток — это запрос
+                                              по меткам к набору ресурсов. Результаты
+                                              matchLabels и matchExpressions объединяются
+                                              по И. Пустой селектор соответствует всем
+                                              объектам, селектор со значением null —
+                                              ни одному.
                                             properties:
                                               matchExpressions:
-                                                description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                                description:
+                                                  matchExpressions — список
+                                                  требований селектора меток. Требования
+                                                  объединяются по И.
                                                 items:
-                                                  description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                                  description:
+                                                    Требование селектора
+                                                    меток — это селектор, содержащий
+                                                    ключ, набор значений и оператор,
+                                                    связывающий ключ со значениями.
                                                   properties:
                                                     key:
-                                                      description: "key — ключ метки, к которому применяется селектор."
+                                                      description:
+                                                        key — ключ метки,
+                                                        к которому применяется селектор.
                                                     operator:
-                                                      description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                      description:
+                                                        "operator задаёт
+                                                        отношение ключа к набору значений.
+                                                        Допустимые операторы: In, NotIn,
+                                                        Exists и DoesNotExist."
                                                     values:
-                                                      description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                      description:
+                                                        values — массив строковых
+                                                        значений. Для операторов In
+                                                        и NotIn массив должен быть непустым;
+                                                        для Exists и DoesNotExist —
+                                                        пустым. При strategic merge
+                                                        patch массив заменяется целиком.
                                               matchLabels:
-                                                description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                                description:
+                                                  matchLabels — набор пар
+                                                  {ключ, значение}. Одна пара {ключ,
+                                                  значение} эквивалентна элементу matchExpressions
+                                                  с полем key = «ключ», оператором In
+                                                  и массивом values, содержащим только
+                                                  «значение». Требования объединяются
+                                                  по И.
                                           namespaceSelector:
-                                            description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                            description:
+                                              Селектор меток — это запрос
+                                              по меткам к набору ресурсов. Результаты
+                                              matchLabels и matchExpressions объединяются
+                                              по И. Пустой селектор соответствует всем
+                                              объектам, селектор со значением null —
+                                              ни одному.
                                             properties:
                                               matchExpressions:
-                                                description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                                description:
+                                                  matchExpressions — список
+                                                  требований селектора меток. Требования
+                                                  объединяются по И.
                                                 items:
-                                                  description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                                  description:
+                                                    Требование селектора
+                                                    меток — это селектор, содержащий
+                                                    ключ, набор значений и оператор,
+                                                    связывающий ключ со значениями.
                                                   properties:
                                                     key:
-                                                      description: "key — ключ метки, к которому применяется селектор."
+                                                      description:
+                                                        key — ключ метки,
+                                                        к которому применяется селектор.
                                                     operator:
-                                                      description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                      description:
+                                                        "operator задаёт
+                                                        отношение ключа к набору значений.
+                                                        Допустимые операторы: In, NotIn,
+                                                        Exists и DoesNotExist."
                                                     values:
-                                                      description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                      description:
+                                                        values — массив строковых
+                                                        значений. Для операторов In
+                                                        и NotIn массив должен быть непустым;
+                                                        для Exists и DoesNotExist —
+                                                        пустым. При strategic merge
+                                                        patch массив заменяется целиком.
                                               matchLabels:
-                                                description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                                description:
+                                                  matchLabels — набор пар
+                                                  {ключ, значение}. Одна пара {ключ,
+                                                  значение} эквивалентна элементу matchExpressions
+                                                  с полем key = «ключ», оператором In
+                                                  и массивом values, содержащим только
+                                                  «значение». Требования объединяются
+                                                  по И.
                                       weight:
-                                        description: "Вес, связанный с соответствием данному vmAndPodAffinityTerm, в диапазоне 1–100."
+                                        description:
+                                          Вес, связанный с соответствием
+                                          данному vmAndPodAffinityTerm, в диапазоне
+                                          1–100.
                                 requiredDuringSchedulingIgnoredDuringExecution:
                                   items:
                                     properties:
                                       labelSelector:
-                                        description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                        description:
+                                          Селектор меток — это запрос по
+                                          меткам к набору ресурсов. Результаты matchLabels
+                                          и matchExpressions объединяются по И. Пустой
+                                          селектор соответствует всем объектам, селектор
+                                          со значением null — ни одному.
                                         properties:
                                           matchExpressions:
-                                            description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                            description:
+                                              matchExpressions — список требований
+                                              селектора меток. Требования объединяются
+                                              по И.
                                             items:
-                                              description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора меток
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "key — ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    key — ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                  description:
+                                                    "operator задаёт отношение
+                                                    ключа к набору значений. Допустимые
+                                                    операторы: In, NotIn, Exists и DoesNotExist."
                                                 values:
-                                                  description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    values — массив строковых
+                                                    значений. Для операторов In и NotIn
+                                                    массив должен быть непустым; для
+                                                    Exists и DoesNotExist — пустым.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                                           matchLabels:
-                                            description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                            description:
+                                              matchLabels — набор пар {ключ,
+                                              значение}. Одна пара {ключ, значение}
+                                              эквивалентна элементу matchExpressions
+                                              с полем key = «ключ», оператором In и
+                                              массивом values, содержащим только «значение».
+                                              Требования объединяются по И.
                                       namespaceSelector:
-                                        description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                        description:
+                                          Селектор меток — это запрос по
+                                          меткам к набору ресурсов. Результаты matchLabels
+                                          и matchExpressions объединяются по И. Пустой
+                                          селектор соответствует всем объектам, селектор
+                                          со значением null — ни одному.
                                         properties:
                                           matchExpressions:
-                                            description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                            description:
+                                              matchExpressions — список требований
+                                              селектора меток. Требования объединяются
+                                              по И.
                                             items:
-                                              description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора меток
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "key — ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    key — ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                  description:
+                                                    "operator задаёт отношение
+                                                    ключа к набору значений. Допустимые
+                                                    операторы: In, NotIn, Exists и DoesNotExist."
                                                 values:
-                                                  description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    values — массив строковых
+                                                    значений. Для операторов In и NotIn
+                                                    массив должен быть непустым; для
+                                                    Exists и DoesNotExist — пустым.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                                           matchLabels:
-                                            description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                            description:
+                                              matchLabels — набор пар {ключ,
+                                              значение}. Одна пара {ключ, значение}
+                                              эквивалентна элементу matchExpressions
+                                              с полем key = «ключ», оператором In и
+                                              массивом values, содержащим только «значение».
+                                              Требования объединяются по И.
                             virtualMachineAndPodAntiAffinity:
                               properties:
                                 preferredDuringSchedulingIgnoredDuringExecution:
                                   items:
                                     properties:
                                       virtualMachineAndPodAffinityTerm:
-                                        description: "Обязательное поле. Терм affinity виртуальных машин, связанный с соответствующим весом."
+                                        description:
+                                          Обязательное поле. Терм affinity
+                                          виртуальных машин, связанный с соответствующим
+                                          весом.
                                         properties:
                                           labelSelector:
-                                            description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                            description:
+                                              Селектор меток — это запрос
+                                              по меткам к набору ресурсов. Результаты
+                                              matchLabels и matchExpressions объединяются
+                                              по И. Пустой селектор соответствует всем
+                                              объектам, селектор со значением null —
+                                              ни одному.
                                             properties:
                                               matchExpressions:
-                                                description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                                description:
+                                                  matchExpressions — список
+                                                  требований селектора меток. Требования
+                                                  объединяются по И.
                                                 items:
-                                                  description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                                  description:
+                                                    Требование селектора
+                                                    меток — это селектор, содержащий
+                                                    ключ, набор значений и оператор,
+                                                    связывающий ключ со значениями.
                                                   properties:
                                                     key:
-                                                      description: "key — ключ метки, к которому применяется селектор."
+                                                      description:
+                                                        key — ключ метки,
+                                                        к которому применяется селектор.
                                                     operator:
-                                                      description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                      description:
+                                                        "operator задаёт
+                                                        отношение ключа к набору значений.
+                                                        Допустимые операторы: In, NotIn,
+                                                        Exists и DoesNotExist."
                                                     values:
-                                                      description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                      description:
+                                                        values — массив строковых
+                                                        значений. Для операторов In
+                                                        и NotIn массив должен быть непустым;
+                                                        для Exists и DoesNotExist —
+                                                        пустым. При strategic merge
+                                                        patch массив заменяется целиком.
                                               matchLabels:
-                                                description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                                description:
+                                                  matchLabels — набор пар
+                                                  {ключ, значение}. Одна пара {ключ,
+                                                  значение} эквивалентна элементу matchExpressions
+                                                  с полем key = «ключ», оператором In
+                                                  и массивом values, содержащим только
+                                                  «значение». Требования объединяются
+                                                  по И.
                                           namespaceSelector:
-                                            description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                            description:
+                                              Селектор меток — это запрос
+                                              по меткам к набору ресурсов. Результаты
+                                              matchLabels и matchExpressions объединяются
+                                              по И. Пустой селектор соответствует всем
+                                              объектам, селектор со значением null —
+                                              ни одному.
                                             properties:
                                               matchExpressions:
-                                                description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                                description:
+                                                  matchExpressions — список
+                                                  требований селектора меток. Требования
+                                                  объединяются по И.
                                                 items:
-                                                  description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                                  description:
+                                                    Требование селектора
+                                                    меток — это селектор, содержащий
+                                                    ключ, набор значений и оператор,
+                                                    связывающий ключ со значениями.
                                                   properties:
                                                     key:
-                                                      description: "key — ключ метки, к которому применяется селектор."
+                                                      description:
+                                                        key — ключ метки,
+                                                        к которому применяется селектор.
                                                     operator:
-                                                      description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                      description:
+                                                        "operator задаёт
+                                                        отношение ключа к набору значений.
+                                                        Допустимые операторы: In, NotIn,
+                                                        Exists и DoesNotExist."
                                                     values:
-                                                      description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                      description:
+                                                        values — массив строковых
+                                                        значений. Для операторов In
+                                                        и NotIn массив должен быть непустым;
+                                                        для Exists и DoesNotExist —
+                                                        пустым. При strategic merge
+                                                        patch массив заменяется целиком.
                                               matchLabels:
-                                                description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                                description:
+                                                  matchLabels — набор пар
+                                                  {ключ, значение}. Одна пара {ключ,
+                                                  значение} эквивалентна элементу matchExpressions
+                                                  с полем key = «ключ», оператором In
+                                                  и массивом values, содержащим только
+                                                  «значение». Требования объединяются
+                                                  по И.
                                       weight:
-                                        description: "Вес, связанный с соответствием данному vmAndPodAffinityTerm, в диапазоне 1–100."
+                                        description:
+                                          Вес, связанный с соответствием
+                                          данному vmAndPodAffinityTerm, в диапазоне
+                                          1–100.
                                 requiredDuringSchedulingIgnoredDuringExecution:
                                   items:
                                     properties:
                                       labelSelector:
-                                        description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                        description:
+                                          Селектор меток — это запрос по
+                                          меткам к набору ресурсов. Результаты matchLabels
+                                          и matchExpressions объединяются по И. Пустой
+                                          селектор соответствует всем объектам, селектор
+                                          со значением null — ни одному.
                                         properties:
                                           matchExpressions:
-                                            description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                            description:
+                                              matchExpressions — список требований
+                                              селектора меток. Требования объединяются
+                                              по И.
                                             items:
-                                              description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора меток
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "key — ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    key — ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                  description:
+                                                    "operator задаёт отношение
+                                                    ключа к набору значений. Допустимые
+                                                    операторы: In, NotIn, Exists и DoesNotExist."
                                                 values:
-                                                  description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    values — массив строковых
+                                                    значений. Для операторов In и NotIn
+                                                    массив должен быть непустым; для
+                                                    Exists и DoesNotExist — пустым.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                                           matchLabels:
-                                            description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                            description:
+                                              matchLabels — набор пар {ключ,
+                                              значение}. Одна пара {ключ, значение}
+                                              эквивалентна элементу matchExpressions
+                                              с полем key = «ключ», оператором In и
+                                              массивом values, содержащим только «значение».
+                                              Требования объединяются по И.
                                       namespaceSelector:
-                                        description: "Селектор меток — это запрос по меткам к набору ресурсов. Результаты matchLabels и matchExpressions объединяются по И. Пустой селектор соответствует всем объектам, селектор со значением null — ни одному."
+                                        description:
+                                          Селектор меток — это запрос по
+                                          меткам к набору ресурсов. Результаты matchLabels
+                                          и matchExpressions объединяются по И. Пустой
+                                          селектор соответствует всем объектам, селектор
+                                          со значением null — ни одному.
                                         properties:
                                           matchExpressions:
-                                            description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                            description:
+                                              matchExpressions — список требований
+                                              селектора меток. Требования объединяются
+                                              по И.
                                             items:
-                                              description: "Требование селектора меток — это селектор, содержащий ключ, набор значений и оператор, связывающий ключ со значениями."
+                                              description:
+                                                Требование селектора меток
+                                                — это селектор, содержащий ключ, набор
+                                                значений и оператор, связывающий ключ
+                                                со значениями.
                                               properties:
                                                 key:
-                                                  description: "key — ключ метки, к которому применяется селектор."
+                                                  description:
+                                                    key — ключ метки, к которому
+                                                    применяется селектор.
                                                 operator:
-                                                  description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                                  description:
+                                                    "operator задаёт отношение
+                                                    ключа к набору значений. Допустимые
+                                                    операторы: In, NotIn, Exists и DoesNotExist."
                                                 values:
-                                                  description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                                  description:
+                                                    values — массив строковых
+                                                    значений. Для операторов In и NotIn
+                                                    массив должен быть непустым; для
+                                                    Exists и DoesNotExist — пустым.
+                                                    При strategic merge patch массив
+                                                    заменяется целиком.
                                           matchLabels:
-                                            description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                            description:
+                                              matchLabels — набор пар {ключ,
+                                              значение}. Одна пара {ключ, значение}
+                                              эквивалентна элементу matchExpressions
+                                              с полем key = «ключ», оператором In и
+                                              массивом values, содержащим только «значение».
+                                              Требования объединяются по И.
+                        blockDeviceRefs:
+                          description: |
+                            Список блочных устройств, которые могут быть смонтированы в ВМ.
+
+                            Порядок загрузки определяется порядком в списке.
+                          items:
+                            properties:
+                              bootOrder:
+                                description: |
+                                  Порядок загрузки блочного устройства. Меньшее значение означает более высокий приоритет.
+                                  Если параметр не задан ни для одного устройства, порядок загрузки определяется позицией устройства в списке (начиная с 1).
+                                  Если параметр задан хотя бы для одного устройства, порядок загрузки определяется указанными значениями.
+                              kind:
+                                description: |
+                                  Поддерживаемые типы устройств:
+
+                                  * `ClusterVirtualImage` — использовать ClusterVirtualImage в качестве диска. Данный тип всегда монтируется в режиме для чтения (`ReadOnly`). ISO-образ будет смонтирован как устройство CD-ROM;
+                                  * `VirtualImage` — использовать VirtualImage в качестве диска. Данный тип всегда монтируется в режиме для чтения (`ReadOnly`). ISO-образ будет смонтирован как устройство CD-ROM;
+                                  * `VirtualDisk` — использовать VirtualDisk в качестве диска. Данный тип всегда монтируется в режиме для чтения и записи (`ReadWrite`).
+                              name:
+                                description: |
+                                  Имя ресурса заданного типа.
                         bootloader:
                           description: |
                             Загрузчик для ВМ:
@@ -501,40 +914,89 @@ spec:
                           description: |
                             [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) с параметром подов `spec.tolerations` в Kubernetes.
                           items:
-                            description: "Под, к которому привязан этот toleration, допускает любой taint, соответствующий тройке <key, value, effect> с учётом оператора <operator>."
+                            description:
+                              Под, к которому привязан этот toleration, допускает
+                              любой taint, соответствующий тройке <key, value, effect>
+                              с учётом оператора <operator>.
                             properties:
                               effect:
-                                description: "Effect задаёт эффект taint, которому нужно соответствовать. Пустое значение означает соответствие всем эффектам. Если задано, допустимые значения: NoSchedule, PreferNoSchedule и NoExecute."
+                                description:
+                                  "Effect задаёт эффект taint, которому нужно
+                                  соответствовать. Пустое значение означает соответствие
+                                  всем эффектам. Если задано, допустимые значения: NoSchedule,
+                                  PreferNoSchedule и NoExecute."
                               key:
-                                description: "Key — ключ taint, к которому применяется toleration. Пустое значение означает соответствие всем ключам. Если ключ пуст, оператор должен быть Exists; такая комбинация означает соответствие всем значениям и всем ключам."
+                                description:
+                                  Key — ключ taint, к которому применяется
+                                  toleration. Пустое значение означает соответствие
+                                  всем ключам. Если ключ пуст, оператор должен быть
+                                  Exists; такая комбинация означает соответствие всем
+                                  значениям и всем ключам.
                               operator:
-                                description: "Operator задаёт отношение ключа к значению. Допустимые операторы: Exists и Equal, по умолчанию Equal. Exists эквивалентен подстановочному значению, поэтому под может допускать все taint определённой категории."
+                                description:
+                                  "Operator задаёт отношение ключа к значению.
+                                  Допустимые операторы: Exists и Equal, по умолчанию
+                                  Equal. Exists эквивалентен подстановочному значению,
+                                  поэтому под может допускать все taint определённой
+                                  категории."
                               tolerationSeconds:
-                                description: "TolerationSeconds задаёт время, в течение которого toleration (должен иметь эффект NoExecute, иначе поле игнорируется) допускает taint. По умолчанию не задано — taint допускается бесконечно (без вытеснения). Нулевые и отрицательные значения трактуются системой как 0 (немедленное вытеснение)."
+                                description:
+                                  TolerationSeconds задаёт время, в течение
+                                  которого toleration (должен иметь эффект NoExecute,
+                                  иначе поле игнорируется) допускает taint. По умолчанию
+                                  не задано — taint допускается бесконечно (без вытеснения).
+                                  Нулевые и отрицательные значения трактуются системой
+                                  как 0 (немедленное вытеснение).
                               value:
-                                description: "Value — значение taint, которому соответствует toleration. Для оператора Exists значение должно быть пустым, иначе — обычная строка."
+                                description:
+                                  Value — значение taint, которому соответствует
+                                  toleration. Для оператора Exists значение должно быть
+                                  пустым, иначе — обычная строка.
                         topologySpreadConstraints:
                           items:
-                            description: TopologySpreadConstraint specifies how to spread matching pods among the given topology.
+                            description:
+                              TopologySpreadConstraint specifies how to spread
+                              matching pods among the given topology.
                             properties:
                               labelSelector:
-                                description: "LabelSelector используется для поиска подходящих подов. Поды, соответствующие этому селектору меток, учитываются при подсчёте числа подов в соответствующем домене топологии."
+                                description:
+                                  LabelSelector используется для поиска подходящих
+                                  подов. Поды, соответствующие этому селектору меток,
+                                  учитываются при подсчёте числа подов в соответствующем
+                                  домене топологии.
                                 properties:
                                   matchExpressions:
-                                    description: "matchExpressions — список требований селектора меток. Требования объединяются по И."
+                                    description:
+                                      matchExpressions — список требований
+                                      селектора меток. Требования объединяются по И.
                                     items:
                                       description: |-
                                         A label selector requirement is a selector that contains values, a key, and an operator that
                                         relates the key and values.
                                       properties:
                                         key:
-                                          description: "key — ключ метки, к которому применяется селектор."
+                                          description:
+                                            key — ключ метки, к которому
+                                            применяется селектор.
                                         operator:
-                                          description: "operator задаёт отношение ключа к набору значений. Допустимые операторы: In, NotIn, Exists и DoesNotExist."
+                                          description:
+                                            "operator задаёт отношение ключа
+                                            к набору значений. Допустимые операторы:
+                                            In, NotIn, Exists и DoesNotExist."
                                         values:
-                                          description: "values — массив строковых значений. Для операторов In и NotIn массив должен быть непустым; для Exists и DoesNotExist — пустым. При strategic merge patch массив заменяется целиком."
+                                          description:
+                                            values — массив строковых значений.
+                                            Для операторов In и NotIn массив должен
+                                            быть непустым; для Exists и DoesNotExist
+                                            — пустым. При strategic merge patch массив
+                                            заменяется целиком.
                                   matchLabels:
-                                    description: "matchLabels — набор пар {ключ, значение}. Одна пара {ключ, значение} эквивалентна элементу matchExpressions с полем key = «ключ», оператором In и массивом values, содержащим только «значение». Требования объединяются по И."
+                                    description:
+                                      matchLabels — набор пар {ключ, значение}.
+                                      Одна пара {ключ, значение} эквивалентна элементу
+                                      matchExpressions с полем key = «ключ», оператором
+                                      In и массивом values, содержащим только «значение».
+                                      Требования объединяются по И.
                               matchLabelKeys:
                                 description: |-
                                   MatchLabelKeys is a set of pod label keys to select the pods over which
@@ -548,7 +1010,13 @@ spec:
 
                                   This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
                               maxSkew:
-                                description: "MaxSkew задаёт допустимую степень неравномерности распределения подов. При `whenUnsatisfiable=DoNotSchedule` — максимально допустимая разница между числом подходящих подов в целевой топологии и глобальным минимумом. Глобальный минимум — минимальное число подходящих подов в подходящем домене (или ноль, если число подходящих доменов меньше MinDomains). Например, в кластере из 3 зон при MaxSkew=1 и распределении подов с одинаковым labelSelector как 2/2/1 глобальный минимум равен 1:\n| zone1 | zone2 | zone3 |\n|  P P  |  P P  |   P   |\n- при MaxSkew=1 новый под можно разместить только в zone3 (станет 2/2/2); размещение в zone1 или zone2 сделает ActualSkew(3-1) нарушающим MaxSkew(1);\n- при MaxSkew=2 новый под можно разместить в любой зоне.\nПри `whenUnsatisfiable=ScheduleAnyway` поле используется, чтобы отдавать приоритет удовлетворяющим его топологиям. Обязательное поле. Значение по умолчанию — 1, значение 0 не допускается."
+                                description: |-
+                                  MaxSkew задаёт допустимую степень неравномерности распределения подов. При `whenUnsatisfiable=DoNotSchedule` — максимально допустимая разница между числом подходящих подов в целевой топологии и глобальным минимумом. Глобальный минимум — минимальное число подходящих подов в подходящем домене (или ноль, если число подходящих доменов меньше MinDomains). Например, в кластере из 3 зон при MaxSkew=1 и распределении подов с одинаковым labelSelector как 2/2/1 глобальный минимум равен 1:
+                                  | zone1 | zone2 | zone3 |
+                                  |  P P  |  P P  |   P   |
+                                  - при MaxSkew=1 новый под можно разместить только в zone3 (станет 2/2/2); размещение в zone1 или zone2 сделает ActualSkew(3-1) нарушающим MaxSkew(1);
+                                  - при MaxSkew=2 новый под можно разместить в любой зоне.
+                                  При `whenUnsatisfiable=ScheduleAnyway` поле используется, чтобы отдавать приоритет удовлетворяющим его топологиям. Обязательное поле. Значение по умолчанию — 1, значение 0 не допускается.
                               minDomains:
                                 description: |-
                                   MinDomains indicates a minimum number of eligible domains.
@@ -588,15 +1056,34 @@ spec:
 
                                   If this value is nil, the behavior is equivalent to the Ignore policy.
                               topologyKey:
-                                description: "TopologyKey — ключ меток узлов. Узлы с меткой с этим ключом и одинаковыми значениями считаются принадлежащими одной топологии. Каждая пара <ключ, значение> рассматривается как «корзина», и в каждую корзину стараются поместить сбалансированное число подов. Домен — конкретный экземпляр топологии; подходящий домен — домен, узлы которого удовлетворяют nodeAffinityPolicy и nodeTaintsPolicy. Например, при TopologyKey «kubernetes.io/hostname» доменом топологии является каждый узел, а при «topology.kubernetes.io/zone» — каждая зона. Обязательное поле."
+                                description:
+                                  TopologyKey — ключ меток узлов. Узлы с
+                                  меткой с этим ключом и одинаковыми значениями считаются
+                                  принадлежащими одной топологии. Каждая пара <ключ,
+                                  значение> рассматривается как «корзина», и в каждую
+                                  корзину стараются поместить сбалансированное число
+                                  подов. Домен — конкретный экземпляр топологии; подходящий
+                                  домен — домен, узлы которого удовлетворяют nodeAffinityPolicy
+                                  и nodeTaintsPolicy. Например, при TopologyKey «kubernetes.io/hostname»
+                                  доменом топологии является каждый узел, а при «topology.kubernetes.io/zone»
+                                  — каждая зона. Обязательное поле.
                               whenUnsatisfiable:
-                                description: "WhenUnsatisfiable задаёт, что делать с подом, если он не удовлетворяет ограничению распределения.\n- DoNotSchedule (по умолчанию) — планировщик не размещает под.\n- ScheduleAnyway — планировщик размещает под в любом месте, отдавая приоритет топологиям, помогающим уменьшить перекос.\nОграничение считается «невыполнимым» для нового пода тогда и только тогда, когда любое возможное размещение пода нарушило бы MaxSkew в какой-либо топологии. Например, в кластере из 3 зон при MaxSkew=1 и распределении подов с одинаковым labelSelector как 3/1/1:\n| zone1 | zone2 | zone3 |\n| P P P |   P   |   P   |\nПри WhenUnsatisfiable=DoNotSchedule новый под можно разместить только в zone2 или zone3 (станет 3/2/1 или 3/1/2), так как ActualSkew(2-1) в zone2(zone3) удовлетворяет MaxSkew(1). Иными словами, кластер может оставаться несбалансированным, но планировщик не усилит дисбаланс. Обязательное поле."
+                                description: |-
+                                  WhenUnsatisfiable задаёт, что делать с подом, если он не удовлетворяет ограничению распределения.
+                                  - DoNotSchedule (по умолчанию) — планировщик не размещает под.
+                                  - ScheduleAnyway — планировщик размещает под в любом месте, отдавая приоритет топологиям, помогающим уменьшить перекос.
+                                  Ограничение считается «невыполнимым» для нового пода тогда и только тогда, когда любое возможное размещение пода нарушило бы MaxSkew в какой-либо топологии. Например, в кластере из 3 зон при MaxSkew=1 и распределении подов с одинаковым labelSelector как 3/1/1:
+                                  | zone1 | zone2 | zone3 |
+                                  | P P P |   P   |   P   |
+                                  При WhenUnsatisfiable=DoNotSchedule новый под можно разместить только в zone2 или zone3 (станет 3/2/1 или 3/1/2), так как ActualSkew(2-1) в zone2(zone3) удовлетворяет MaxSkew(1). Иными словами, кластер может оставаться несбалансированным, но планировщик не усилит дисбаланс. Обязательное поле.
                         usbDevices:
                           description: |
                             Список USB-устройств для подключения к виртуальной машине.
                             Устройства указываются по имени ресурса `USBDevice` в том же пространстве имен.
                           items:
-                            description: USBDeviceSpecRef references a USB device by name.
+                            description:
+                              USBDeviceSpecRef references a USB device by
+                              name.
                             properties:
                               name:
                                 description: |
@@ -619,7 +1106,9 @@ spec:
                   description: |
                     Условия, описывающие текущее состояние пула.
                   items:
-                    description: Condition contains details for one aspect of the current state of this API Resource.
+                    description:
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-

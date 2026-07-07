@@ -21,19 +21,19 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
 )
 
-// TestVMPoolCRDContract guards the hand-tuned shape of the VirtualMachinePool CRD
-// that update-codegen.sh produces via a post-process step. If someone regenerates
-// the CRD without that step (or the schema path it edits moves), this fails —
-// keeping the contract from being silently broken:
-//   - virtualMachineTemplate.spec must NOT expose blockDeviceRefs (a pool derives
-//     a replica's devices from virtualDiskTemplates; the field is stripped);
-//   - virtualDiskTemplates is the sole source of devices → required, minItems>=1.
+// TestVMPoolCRDContract guards the disk-model shape of the VirtualMachinePool CRD:
+//   - virtualMachineTemplate.spec exposes blockDeviceRefs (the user lists the
+//     replica's devices and their boot order there, like a plain VirtualMachine);
+//   - virtualDiskTemplates describes each per-replica disk → required, minItems>=1;
+//   - a CEL rule ties blockDeviceRefs to virtualDiskTemplates (bijection), so the
+//     two lists cannot drift.
 func TestVMPoolCRDContract(t *testing.T) {
 	crd := loadPoolCRD(t)
 	for _, v := range crd.Spec.Versions {
@@ -43,11 +43,11 @@ func TestVMPoolCRDContract(t *testing.T) {
 		specProps := v.Schema.OpenAPIV3Schema.Properties["spec"]
 
 		tmplSpec := specProps.Properties["virtualMachineTemplate"].Properties["spec"]
-		if _, ok := tmplSpec.Properties["blockDeviceRefs"]; ok {
-			t.Errorf("version %s: virtualMachineTemplate.spec must NOT expose blockDeviceRefs (it must be stripped by update-codegen.sh)", v.Name)
+		if _, ok := tmplSpec.Properties["blockDeviceRefs"]; !ok {
+			t.Errorf("version %s: virtualMachineTemplate.spec must expose blockDeviceRefs (the user sets the replica's devices there)", v.Name)
 		}
-		if slices.Contains(tmplSpec.Required, "blockDeviceRefs") {
-			t.Errorf("version %s: blockDeviceRefs must not be in the pool template's required list", v.Name)
+		if !slices.Contains(tmplSpec.Required, "blockDeviceRefs") {
+			t.Errorf("version %s: blockDeviceRefs must be in the pool template's required list", v.Name)
 		}
 
 		vdt, ok := specProps.Properties["virtualDiskTemplates"]
@@ -55,12 +55,26 @@ func TestVMPoolCRDContract(t *testing.T) {
 			t.Fatalf("version %s: virtualDiskTemplates property is missing", v.Name)
 		}
 		if vdt.MinItems == nil || *vdt.MinItems < 1 {
-			t.Errorf("version %s: virtualDiskTemplates must have minItems>=1 (it is the sole source of devices)", v.Name)
+			t.Errorf("version %s: virtualDiskTemplates must have minItems>=1", v.Name)
 		}
 		if !slices.Contains(specProps.Required, "virtualDiskTemplates") {
 			t.Errorf("version %s: virtualDiskTemplates must be required", v.Name)
 		}
+		if !hasBijectionRule(specProps.XValidations) {
+			t.Errorf("version %s: spec must carry a CEL rule binding blockDeviceRefs to virtualDiskTemplates", v.Name)
+		}
 	}
+}
+
+// hasBijectionRule reports whether some spec-level CEL rule references both
+// blockDeviceRefs and virtualDiskTemplates (the bijection guard).
+func hasBijectionRule(rules []apiextv1.ValidationRule) bool {
+	for _, r := range rules {
+		if strings.Contains(r.Rule, "blockDeviceRefs") && strings.Contains(r.Rule, "virtualDiskTemplates") {
+			return true
+		}
+	}
+	return false
 }
 
 func loadPoolCRD(t *testing.T) *apiextv1.CustomResourceDefinition {

@@ -3023,7 +3023,7 @@ spec:
     - VirtualMachinePool
 ```
 
-Create a pool with the desired number of replicas and a template. Per-replica disks are declared in `virtualDiskTemplates`. Their order defines the replica's device (boot) order: the first template is the boot disk. The pool template has no `blockDeviceRefs` field: the controller gives each replica its own copy of every template and wires them up, so you only describe the disks once.
+Create a pool with the desired number of replicas and a template. Each per-replica disk is described once in `virtualDiskTemplates` (reclaim policy, size, data source), and the template's `blockDeviceRefs` references those disks — by name, with `kind: VirtualDisk` — to set the device (boot) order, exactly as in a plain `VirtualMachine`. Every `virtualDiskTemplates` entry must be referenced exactly once (admission enforces this bijection; disk-template names are unique). Alongside the per-replica disks you may list shared read-only images (`VirtualImage`/`ClusterVirtualImage`) — for example a common ISO/CD-ROM attached to every replica — they are not per-replica and need no `virtualDiskTemplates` entry.
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3053,7 +3053,17 @@ spec:
               sudo: ALL=(ALL) NOPASSWD:ALL
               ssh_authorized_keys:
                 - ssh-ed25519 AAAAC3Nz... user@example
-  # Per-replica disks, in device order; the first (root) is the boot disk.
+      # Devices and boot order (first = boot). VirtualDisk entries reference
+      # virtualDiskTemplates by name (per-replica, resolved by the controller);
+      # a VirtualImage/ClusterVirtualImage is shared read-only by every replica.
+      blockDeviceRefs:
+        - kind: VirtualDisk
+          name: root          # boot disk
+        - kind: VirtualDisk
+          name: cache
+        - kind: ClusterVirtualImage
+          name: tools-iso      # shared CD-ROM attached to every replica
+  # Per-replica disk parameters (reclaim/size/source). Each must be referenced above.
   virtualDiskTemplates:
     # Writable root disk: one per replica, cloned from an image, removed with the replica.
     - name: root
@@ -3189,7 +3199,8 @@ Below are pool limitations and non-obvious behavior to keep in mind in productio
 - The pool maintains the replica count, not health. An existing but unhealthy VM is not replaced (VM-level restart handles liveness), and a `Stopped` replica is kept, not replaced; only a fully deleted replica is recreated.
 - `Retain` disks are shared across replicas. On scale-up a new replica may reuse another replica's freed disk together with its data; there is no fixed binding between a replica and a disk.
 - Editing a `virtualDiskTemplates[].spec` affects only new disks, except `size`, which grows existing disks (never shrinks). `dataSource`, `storageClassName`, etc. are not re-applied to already-created disks.
-- Every device is created per replica. There is no shared block device (a common image/ISO for all replicas): declare each device as a `virtualDiskTemplates` entry; each replica gets its own copy.
+- Each `virtualDiskTemplates` disk is per-replica: every replica gets its own copy. Shared read-only images (`VirtualImage`/`ClusterVirtualImage`, e.g. a common ISO/CD-ROM) can be attached to all replicas by listing them in the template's `blockDeviceRefs`; a writable disk cannot be shared between replicas.
+- Editing the template's `blockDeviceRefs` (reordering, adding or removing a shared image) applies to new replicas; live replicas keep their current devices until they are recreated (rotation or scale-up), like other restart-requiring template changes.
 - Template changes that require a restart take effect only after the replica restarts according to `.spec.disruptions.restartApprovalMode` in the template.
 
 ## Network configuration

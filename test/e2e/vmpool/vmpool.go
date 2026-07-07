@@ -60,8 +60,9 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 	})
 
 	// buildPool returns a pool of tiny VMs with a single per-replica root disk
-	// template. The block devices are derived by the controller from
-	// virtualDiskTemplates (the pool template has no blockDeviceRefs field).
+	// template. The template's blockDeviceRefs references that disk by name (a
+	// placeholder the controller resolves per replica); the bijection with
+	// virtualDiskTemplates is enforced by admission.
 	buildPool := func(replicas int32, policy v1alpha2.ScaleDownPolicy, reclaim v1alpha2.VirtualDiskReclaim) *v1alpha2.VirtualMachinePool {
 		tmpl := vmbuilder.New(
 			vmbuilder.WithCPU(1, ptr.To("20%")),
@@ -71,6 +72,9 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 			vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 			vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 		)
+		tmpl.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{
+			{Kind: v1alpha2.DiskDevice, Name: "root"},
+		}
 		rootDisk := vdbuilder.New(
 			vdbuilder.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIMyOS),
