@@ -32,6 +32,8 @@ import (
 
 // UntilVDSnapshotsReady waits until every VirtualDiskSnapshot becomes Ready.
 //
+// TODO: will be refactored to observers.
+//
 // A snapshot that turns Failed because the CSI driver could not create the
 // underlying VolumeSnapshot (the failure message relays a VolumeSnapshot error)
 // skips the spec: that is a storage-infrastructure problem, not a
