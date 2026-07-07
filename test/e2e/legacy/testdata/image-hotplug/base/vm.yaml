@@ -4,6 +4,10 @@ metadata:
   name: vm
 spec:
   bootloader: BIOS
+  # The VM is created stopped: the test first waits for the PVC-backed image
+  # to provision, then pins the VM to the image's node and starts it (a
+  # node-local volume can be hotplugged only on its own node).
+  runPolicy: AlwaysOff
   virtualMachineClassName: generic
   cpu:
     cores: 1
