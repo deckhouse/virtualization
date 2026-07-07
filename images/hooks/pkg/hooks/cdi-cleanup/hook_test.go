@@ -50,12 +50,13 @@ func TestStaleCDIResources(t *testing.T) {
 	// A later switch back to a CDI-enabled build must find none of the
 	// resources cdi-operator installs, otherwise its orphan check blocks the
 	// deployment. The CDI-group CRDs must therefore be cleaned up, including
-	// the CDI configuration CRD (removing it also removes the `config` CR) and
 	// the CDI-group StorageProfile CRDs replaced by
-	// storageprofiles.storage.virtualization.deckhouse.io.
+	// storageprofiles.storage.virtualization.deckhouse.io. The exception is
+	// internalvirtualizationcdis and its `config` CR: they stay in the release
+	// as an unused leftover, because deleting the CR from the release wedges
+	// the helm deploy on its dead operator finalizer.
 	for _, name := range []string{
 		"cdis.cdi.kubevirt.io",
-		"internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io",
 		"storageprofiles.cdi.kubevirt.io",
 		"internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io",
 		"internalvirtualizationcdiconfigs.cdi.internal.virtualization.deckhouse.io",
@@ -72,6 +73,9 @@ func TestStaleCDIResources(t *testing.T) {
 	for _, resource := range resources {
 		if strings.Contains(resource.name, "storageprofiles.storage.virtualization.deckhouse.io") {
 			t.Fatalf("module-owned StorageProfile CRD must not be removed by CDI cleanup hook: %#v", resource)
+		}
+		if resource.name == "internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io" {
+			t.Fatalf("internalvirtualizationcdis CRD is kept in the release and must not be removed by CDI cleanup hook: %#v", resource)
 		}
 	}
 }
