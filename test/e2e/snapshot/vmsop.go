@@ -56,7 +56,7 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, Label(precheck.PrecheckSn
 		ctx = context.Background()
 		f = framework.NewFramework("vmsop")
 		cfg := framework.GetConfig()
-		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == framework.NFS {
+		if cfg.StorageClass.DefaultStorageClass != nil && cfg.StorageClass.DefaultStorageClass.Provisioner == framework.NFS {
 			Skip("Not working due to bug with VMBDA on NFS right now, skipping")
 		}
 

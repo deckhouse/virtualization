@@ -43,7 +43,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorageClass, precheck.PrecheckSnapshot), func() {
+var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
 	var (
 		ctx context.Context
 		cfg *config.Config
@@ -53,7 +53,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ctx = context.Background()
 
 		cfg = framework.GetConfig()
-		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == config.NFS {
+		if cfg.StorageClass.DefaultStorageClass != nil && cfg.StorageClass.DefaultStorageClass.Provisioner == config.NFS {
 			Skip("Concurrent snapshotting is not supported on NFS on the VolumeSnapshot side, skipping")
 		}
 	})
@@ -110,7 +110,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 			"vd-no-consumer",
 			f.Namespace().Name,
 			object.PrecreatedCVIAlpineBIOS,
-			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.ImmediateStorageClass.Name)),
+			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.DefaultStorageClass.Name)),
 		)
 
 		err := f.CreateWithDeferredDeletion(ctx, vd)

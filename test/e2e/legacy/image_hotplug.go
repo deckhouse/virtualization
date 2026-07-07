@@ -63,7 +63,7 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), Label(precheck.NoPrech
 	)
 
 	BeforeAll(func() {
-		if conf.StorageClass.TemplateStorageClass != nil && conf.StorageClass.TemplateStorageClass.Provisioner == config.NFS {
+		if conf.StorageClass.DefaultStorageClass != nil && conf.StorageClass.DefaultStorageClass.Provisioner == config.NFS {
 			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
 		}
 

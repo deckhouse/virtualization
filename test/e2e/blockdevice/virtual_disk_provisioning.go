@@ -42,7 +42,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vd-provisioning")
-		sc := framework.GetConfig().StorageClass.TemplateStorageClass
+		sc := framework.GetConfig().StorageClass.DefaultStorageClass
 		if sc != nil && sc.Provisioner == framework.NFS {
 			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
 		}

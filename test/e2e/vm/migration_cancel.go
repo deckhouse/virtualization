@@ -61,7 +61,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	// Build the disks on the template StorageClass (STORAGE_CLASS_NAME or the
 	// cluster default): live migration requires a class whose volumes are
 	// reachable from the target node.
-	storageClass := framework.GetConfig().StorageClass.TemplateStorageClass
+	storageClass := framework.GetConfig().StorageClass.DefaultStorageClass
 	vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu,
 		vdbuilder.WithStorageClass(&storageClass.Name),
 	)

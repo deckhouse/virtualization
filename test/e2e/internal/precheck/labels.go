@@ -33,21 +33,6 @@ const (
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
 	PrecheckDefaultStorageClass = "default-sc-precheck"
 
-	// PrecheckImmediateStorageClass - test requires an immediate StorageClass to be configured.
-	PrecheckImmediateStorageClass = "immediate-sc-precheck"
-
-	// PrecheckWFFCStorageClass - test requires a WaitForFirstConsumer StorageClass to be
-	// resolvable from the main StorageClass (STORAGE_CLASS_NAME or the cluster default).
-	PrecheckWFFCStorageClass = "wffc-sc-precheck"
-
-	// PrecheckSameCSIDriverStorageClass - test requires the WFFC and immediate StorageClasses
-	// to be backed by the same CSI driver.
-	PrecheckSameCSIDriverStorageClass = "same-csi-sc-precheck"
-
-	// PrecheckDifferentCSIDriverStorageClass - test requires the main StorageClass (any
-	// volume binding mode) and a StorageClass backed by a different CSI driver.
-	PrecheckDifferentCSIDriverStorageClass = "different-csi-sc-precheck"
-
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
 	PrecheckSnapshot = "snapshot-precheck"
 
@@ -91,10 +76,6 @@ func KnownPrecheckLabels() []string {
 		PrecheckVMC,
 		PrecheckSVDM,
 		PrecheckDefaultStorageClass,
-		PrecheckImmediateStorageClass,
-		PrecheckWFFCStorageClass,
-		PrecheckSameCSIDriverStorageClass,
-		PrecheckDifferentCSIDriverStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,

@@ -51,22 +51,13 @@ Additionally, the storage class in the tests can be defined by the environment v
 STORAGE_CLASS_NAME=linstor-thin-r1 task run
 ```
 
-The main StorageClass (`STORAGE_CLASS_NAME` or the cluster default) may use any volume
-binding mode. Block-device tests that additionally require a WaitForFirstConsumer or an
-Immediate StorageClass derive them from the main StorageClass and its siblings on the same
-CSI driver. The Immediate one can be overridden explicitly:
-
-```bash
-IMMEDIATE_STORAGE_CLASS=linstor-thin-r1 task run
-```
-
-When the cluster has no default StorageClass, set `STORAGE_CLASS_NAME` explicitly:
-auto-detection needs a main StorageClass to anchor to.
+The StorageClass (`STORAGE_CLASS_NAME` or the cluster default) may use any volume binding
+mode. When the cluster has no default StorageClass, set `STORAGE_CLASS_NAME` explicitly.
 
 Note: `task run VAR=value` style passes variables to the Taskfile templates only, not to the
 environment of the test process. Environment variables consumed by the tests themselves
 (`STORAGE_CLASS_NAME` aside, which the Taskfile forwards, e.g. `*_PRECHECK=no` switches)
-must be passed as real environment variables: `WFFC_STORAGE_CLASS_PRECHECK=no task run ...`.
+must be passed as real environment variables: `DEFAULT_STORAGE_CLASS_PRECHECK=no task run ...`.
 
 ### E2E configuration
 

@@ -43,13 +43,13 @@ import (
 // resource-quota-overrides.deckhouse.io/ignore label and are not blocked.
 const quotaExhaustedQuotaName = "v12n-e2e-block-pods-and-pvcs"
 
-var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckImmediateStorageClass), func() {
+var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
 
-		immediateSCPtr *string
-		baseVD         *v1alpha2.VirtualDisk
+		scPtr  *string
+		baseVD *v1alpha2.VirtualDisk
 	)
 
 	BeforeAll(func() {
@@ -59,13 +59,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckImmediateStor
 		DeferCleanup(f.After)
 		setupProject(ctx, f, "quota-exhausted")
 
-		// This spec provisions objects without a VirtualMachine consumer
-		// (the base disk below must become Ready on its own, and the
-		// quota-blocked objects are only ever observed for the
-		// QuotaExceeded reason), so every object uses the immediate
-		// StorageClass; on a WaitForFirstConsumer StorageClass the base
-		// disk would park in WaitForFirstConsumer forever.
-		immediateSCPtr = immediateStorageClass()
+		scPtr = defaultStorageClass()
 
 		// Create a base VirtualDisk before applying the quota so that
 		// the ClusterVirtualImage spec below has a valid object-ref
@@ -77,19 +71,19 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckImmediateStor
 			vdbuilder.WithName("vd-quota-source"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
-			vdbuilder.WithStorageClass(immediateSCPtr),
+			vdbuilder.WithStorageClass(scPtr),
 		)
 		createVirtualDiskAndWait(ctx, f, baseVD)
 
 		applyBlockingResourceQuota(ctx, f)
 	})
 
-	It("VirtualDisk reports QuotaExceeded reason on a fresh Ready condition", Label(precheck.PrecheckImmediateStorageClass), func() {
+	It("VirtualDisk reports QuotaExceeded reason on a fresh Ready condition", Label(precheck.PrecheckDefaultStorageClass), func() {
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-quota-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
-			vdbuilder.WithStorageClass(immediateSCPtr),
+			vdbuilder.WithStorageClass(scPtr),
 		)
 
 		obs := vdobs.StartObserver(ctx, f, vd)
@@ -103,14 +97,14 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckImmediateStor
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("VirtualImage on PVC reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckImmediateStorageClass), func() {
+	It("VirtualImage on PVC reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckDefaultStorageClass), func() {
 		vi := vibuilder.New(
 			vibuilder.WithName("vi-pvc-quota"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
 		)
-		vi.Spec.PersistentVolumeClaim.StorageClass = immediateSCPtr
+		vi.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
 		obs := viobs.StartObserver(ctx, f, vi)
 

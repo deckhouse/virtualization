@@ -554,7 +554,7 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 func defaultStorageClass() *string {
 	GinkgoHelper()
 
-	sc := framework.GetConfig().StorageClass.TemplateStorageClass
+	sc := framework.GetConfig().StorageClass.DefaultStorageClass
 	Expect(sc).NotTo(BeNil(), "StorageClass not found: set STORAGE_CLASS_NAME or configure a default StorageClass")
 
 	return &sc.Name

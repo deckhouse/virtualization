@@ -40,7 +40,7 @@ import (
 // The qcow2 spec provisions its main VirtualDisk on the WFFC StorageClass, so the precheck
 // label is declared on the Describe (the spec-label validator only reads container-hierarchy
 // labels, not leaf It labels).
-var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckWFFCStorageClass), func() {
+var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckDefaultStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -58,7 +58,7 @@ var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckWFFCStorageClass), 
 		// The disk under test is the scenario's main resource, so it lives on the WFFC
 		// storage class.
 		vd := object.NewVDFromCVI("vd-qcow2", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-			vdbuilder.WithStorageClass(wffcStorageClass()),
+			vdbuilder.WithStorageClass(defaultStorageClass()),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
 
 		createVirtualDiskAndRunVM(ctx, f, vd)

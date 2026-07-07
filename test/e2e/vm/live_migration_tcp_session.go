@@ -60,7 +60,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vm-live-migration-tcp-session")
-		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		storageClass = framework.GetConfig().StorageClass.DefaultStorageClass
 
 		DeferCleanup(f.After)
 

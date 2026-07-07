@@ -52,7 +52,7 @@ import (
 // The qcow2 spec provisions its main VirtualDisk on the WFFC StorageClass, so the precheck
 // label is declared on the Describe (the spec-label validator only reads container-hierarchy
 // labels, not leaf It labels).
-var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckWFFCStorageClass), func() {
+var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckDefaultStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -92,7 +92,7 @@ var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckWFFCStorageClass),
 		// The disk under test is the scenario's main resource, so it lives on the WFFC
 		// storage class.
 		vd := object.NewVDFromVI("vd-from-vi-qcow2", f.Namespace().Name, vi,
-			vdbuilder.WithStorageClass(wffcStorageClass()),
+			vdbuilder.WithStorageClass(defaultStorageClass()),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
 
 		createVirtualDiskAndRunVM(ctx, f, vd)
@@ -105,7 +105,7 @@ var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckWFFCStorageClass),
 func runVirtualMachineFromImageUntilRunning(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
 	GinkgoHelper()
 
-	blankVD := object.NewBlankVD("vd-blank-for-iso", f.Namespace().Name, wffcStorageClass(), ptr.To(resource.MustParse("4Gi")))
+	blankVD := object.NewBlankVD("vd-blank-for-iso", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("4Gi")))
 	vm := object.NewMinimalVM("vm-from-vi-", f.Namespace().Name,
 		vmbuilder.WithBootloader(v1alpha2.EFI),
 		vmbuilder.WithCPU(2, ptr.To("100%")),

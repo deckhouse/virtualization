@@ -50,11 +50,11 @@ func (c *defaultStorageClassPrecheck) Run(ctx context.Context, f *framework.Fram
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", defaultStorageClassPrecheckEnvName, err)
 	}
 
-	templateSC, err := config.ResolveTemplateStorageClass(&scList)
+	defaultSC, err := config.ResolveDefaultStorageClass(&scList)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: %w", defaultStorageClassPrecheckEnvName, err)
 	}
-	if templateSC == nil {
+	if defaultSC == nil {
 		return fmt.Errorf("%s=no to disable this precheck: cluster has no default StorageClass and %s is not set. "+
 			"Please set %s or set a default StorageClass with: "+
 			"kubectl annotate storageclass/<name> storageclass.kubernetes.io/is-default-class=true",

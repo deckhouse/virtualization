@@ -65,9 +65,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("volume-migration-local-disks")
-		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		storageClass = framework.GetConfig().StorageClass.DefaultStorageClass
 		if storageClass == nil {
-			Skip("TemplateStorageClass is not set.")
+			Skip("DefaultStorageClass is not set.")
 		}
 
 		f.Before()

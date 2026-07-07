@@ -118,26 +118,10 @@ type TestData struct {
 }
 
 type StorageClass struct {
-	DefaultStorageClass *storagev1.StorageClass
-	// ImmediateStorageClass is resolved from IMMEDIATE_STORAGE_CLASS or derived from the main
-	// StorageClass (TemplateStorageClass). It uses the Immediate volume binding mode and shares
-	// the CSI driver with the main StorageClass, so tests can use it both as the "other"
-	// same-CSI StorageClass and to provision dependent objects that must become Ready without
-	// a consumer.
-	ImmediateStorageClass *storagev1.StorageClass
-	// TemplateStorageClass is the main StorageClass the suite is pointed at:
+	// DefaultStorageClass is the StorageClass the suite is pointed at:
 	// STORAGE_CLASS_NAME when set, otherwise the cluster default StorageClass. Its volume
-	// binding mode is not constrained; the derived classes below are anchored to its CSI
-	// driver.
-	TemplateStorageClass *storagev1.StorageClass
-	// WFFCStorageClass is derived from the main StorageClass (TemplateStorageClass): the main
-	// class itself when it uses WaitForFirstConsumer, or another StorageClass on the same CSI
-	// driver otherwise. It backs the scenario's main VirtualDisks and VirtualImages.
-	WFFCStorageClass *storagev1.StorageClass
-	// DifferentCSIDriverStorageClass is a StorageClass backed by a different CSI driver
-	// than the main StorageClass (TemplateStorageClass), used to verify cross-CSI
-	// provisioning is rejected.
-	DifferentCSIDriverStorageClass *storagev1.StorageClass
+	// binding mode is not constrained.
+	DefaultStorageClass *storagev1.StorageClass
 }
 
 type ClusterTransport struct {

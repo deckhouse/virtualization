@@ -46,7 +46,6 @@ import (
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
@@ -375,39 +374,6 @@ var _ = Describe("VirtualDiskCreation", Label(
 		})
 	})
 })
-
-// wffcStorageClass returns a pointer to the name of the WaitForFirstConsumer StorageClass
-// that block-device tests use to provision the scenario's main VirtualDisks and
-// VirtualImages. Its presence and WaitForFirstConsumer volume binding mode are enforced by
-// precheck.PrecheckWFFCStorageClass.
-func wffcStorageClass() *string {
-	GinkgoHelper()
-
-	sc := framework.GetConfig().StorageClass.WFFCStorageClass
-	Expect(sc).NotTo(BeNil(),
-		"WFFC StorageClass not found: point the main StorageClass (%s or the cluster default) at one, "+
-			"or have a WaitForFirstConsumer StorageClass on the same CSI driver (enforced by the %q precheck)",
-		config.StorageClassNameEnv, precheck.PrecheckWFFCStorageClass)
-
-	return ptr.To(sc.Name)
-}
-
-// immediateStorageClass returns a pointer to the name of the immediate StorageClass, used as
-// the "other" StorageClass (same CSI driver as the WFFC one) when a source object must
-// live on a different StorageClass than the produced one, and to provision dependent objects
-// that must become Ready without a consumer. Its presence and Immediate volume binding mode are
-// enforced by precheck.PrecheckImmediateStorageClass; the shared CSI driver with the WFFC
-// StorageClass is enforced by precheck.PrecheckSameCSIDriverStorageClass.
-func immediateStorageClass() *string {
-	GinkgoHelper()
-
-	sc := framework.GetConfig().StorageClass.ImmediateStorageClass
-	Expect(sc).NotTo(BeNil(),
-		"immediate StorageClass not found: set %s or configure a default StorageClass (enforced by the %q precheck)",
-		config.ImmediateStorageClassEnv, precheck.PrecheckImmediateStorageClass)
-
-	return ptr.To(sc.Name)
-}
 
 // expectedDiskPhaseBeforeVM returns the phase predicate the disk must satisfy before its
 // consuming VirtualMachine is created: a WaitForFirstConsumer disk parks in the

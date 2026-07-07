@@ -235,7 +235,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 })
 
 func IsNFS() bool {
-	sc := framework.GetConfig().StorageClass.TemplateStorageClass
+	sc := framework.GetConfig().StorageClass.DefaultStorageClass
 	if sc == nil {
 		return false
 	}

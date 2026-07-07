@@ -68,18 +68,18 @@ func configure() (err error) {
 
 	kubectl = framework.GetClients().Kubectl()
 
-	if conf.StorageClass.TemplateStorageClass == nil {
-		return fmt.Errorf("TemplateStorageClass is not set")
+	if conf.StorageClass.DefaultStorageClass == nil {
+		return fmt.Errorf("DefaultStorageClass is not set")
 	}
 
 	if err = SetStorageClass(testDataDir, map[string]string{
-		config.StorageClassNameEnv: conf.StorageClass.TemplateStorageClass.Name,
+		config.StorageClassNameEnv: conf.StorageClass.DefaultStorageClass.Name,
 	}); err != nil {
 		return err
 	}
 
 	//nolint:staticcheck // It can be used in legacy tests.
-	namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.TemplateStorageClass)
+	namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.DefaultStorageClass)
 	if err != nil {
 		return err
 	}

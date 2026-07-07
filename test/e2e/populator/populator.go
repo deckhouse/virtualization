@@ -55,7 +55,7 @@ const (
 	populationStrategyDVCR         = "dvcr"
 )
 
-var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, precheck.PrecheckSnapshot), func() {
+var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
 	var (
 		f  *framework.Framework
 		sc string
@@ -66,11 +66,11 @@ var _ = Describe("Populator", Label(precheck.PrecheckImmediateStorageClass, prec
 		f.Before()
 		DeferCleanup(f.After)
 
-		immediateSC := framework.GetConfig().StorageClass.ImmediateStorageClass
-		if immediateSC == nil {
-			Skip("Immediate StorageClass is not configured")
+		defaultSC := framework.GetConfig().StorageClass.DefaultStorageClass
+		if defaultSC == nil {
+			Skip("StorageClass is not configured")
 		}
-		sc = immediateSC.Name
+		sc = defaultSC.Name
 	})
 
 	It("creates target PVC from PVC using CSI clone", func(ctx SpecContext) {
