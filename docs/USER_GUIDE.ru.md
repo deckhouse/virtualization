@@ -1300,6 +1300,17 @@ spec:
 Помимо сайзинга виртуальных машин, политика также позволяет реализовать желаемую максимальную переподписку для ВМ.
 Например, указав в политике значение `coreFraction: 20%`, вы гарантируете любой ВМ не менее 20% вычислительных ресурсов процессора, что фактически определит максимально возможную переподписку в размере 5:1.
 
+При попытке создать или изменить ВМ, конфигурация которой нарушает политику сайзинга, запрос отклоняется с сообщением, в котором указан параметр для изменения и допустимые значения. Каждое сообщение о нарушении конкретной политики также заканчивается подсказкой `check the sizing policy of the VirtualMachineClass or contact the administrator for more information` (ниже опущена для краткости). Примеры для класса `supercpu` с политикой, приведённой выше:
+
+- Количество ядер вне всех диапазонов (`cores: 10`): `does not match any sizing policy of VirtualMachineClass "supercpu": its 10 CPU core(s) fall outside the allowed ranges (1-4, 5-8); set the number of cores (spec.cpu.cores) accordingly`
+- Доля ядра недопустима (`cores: 2`, `coreFraction: 30%`): `the CPU core fraction "30%" is not allowed; set the core fraction (spec.cpu.coreFraction) to one of: 5%, 10%, 20%, 50%, 100%`
+- Память вне диапазона (`cores: 2`, `size: 16Gi`): `the memory size (16Gi) is out of the range allowed by the sizing policy; set the memory size (spec.memory.size) between 1Gi and 8Gi`
+- Ядра не на сетке шага (`cores.step`): `the number of CPU cores (7) does not match the sizing policy step; set the number of cores (spec.cpu.cores) to 6 or 8`
+- Память не на сетке шага (`memory.step`): `the memory size (1536Mi) does not match the sizing policy step; set the memory size (spec.memory.size) to 1Gi or 2Gi`
+- Память на ядро вне диапазона (`memory.perCore`): `the memory size (18Gi) is not allowed for 6 CPU core(s); set the memory size (spec.memory.size) between 6Gi and 12Gi, or change the number of cores (spec.cpu.cores) (the sizing policy allows between 1Gi and 2Gi of memory per core)`
+- Память на ядро не на сетке шага: `the memory size (2560Mi) does not match the per-core sizing policy step for 2 CPU core(s); set the memory size (spec.memory.size) to 2Gi or 4Gi, or change the number of cores (spec.cpu.cores)`
+- Несколько нарушений сразу: все причины перечисляются в одном сообщении под заголовком `does not match the sizing policy of VirtualMachineClass "supercpu" for several reasons:`.
+
 ### Топологии CPU
 
 Топология CPU виртуальной машины (ВМ) определяет, как ядра процессора распределяются по сокетам. Это важно для обеспечения оптимальной производительности и совместимости с приложениями, которые могут зависеть от конфигурации процессора. В конфигурации ВМ вы задаете только общее количество ядер процессора, а топология (количество сокетов и ядер в каждом сокете) рассчитывается автоматически на основе этого значения.

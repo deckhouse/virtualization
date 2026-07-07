@@ -1282,6 +1282,17 @@ If the VM uses 2 cores, it falls in the range of 1-4 cores. Then memory can be s
 In addition to VM sizing, the policy also allows you to implement the desired maximum oversubscription for VMs.
 For example, by specifying `coreFraction: 20%` in the policy, you guarantee any VM at least 20% of the CPU compute resources, which would effectively define a maximum possible oversubscription of 5:1.
 
+If you try to create or update a VM whose configuration violates the sizing policy, the request is rejected with a message that names the parameter to change and the values to use. Each message about a specific policy also ends with the hint `check the sizing policy of the VirtualMachineClass or contact the administrator for more information` (omitted below for brevity). Examples for a class `supercpu` with the policy above:
+
+- Cores outside all ranges (`cores: 10`): `does not match any sizing policy of VirtualMachineClass "supercpu": its 10 CPU core(s) fall outside the allowed ranges (1-4, 5-8); set the number of cores (spec.cpu.cores) accordingly`
+- Core fraction not allowed (`cores: 2`, `coreFraction: 30%`): `the CPU core fraction "30%" is not allowed; set the core fraction (spec.cpu.coreFraction) to one of: 5%, 10%, 20%, 50%, 100%`
+- Memory out of range (`cores: 2`, `size: 16Gi`): `the memory size (16Gi) is out of the range allowed by the sizing policy; set the memory size (spec.memory.size) between 1Gi and 8Gi`
+- Cores not on the step grid (`cores.step`): `the number of CPU cores (7) does not match the sizing policy step; set the number of cores (spec.cpu.cores) to 6 or 8`
+- Memory not on the step grid (`memory.step`): `the memory size (1536Mi) does not match the sizing policy step; set the memory size (spec.memory.size) to 1Gi or 2Gi`
+- Per-core memory out of range (`memory.perCore`): `the memory size (18Gi) is not allowed for 6 CPU core(s); set the memory size (spec.memory.size) between 6Gi and 12Gi, or change the number of cores (spec.cpu.cores) (the sizing policy allows between 1Gi and 2Gi of memory per core)`
+- Per-core memory not on the step grid: `the memory size (2560Mi) does not match the per-core sizing policy step for 2 CPU core(s); set the memory size (spec.memory.size) to 2Gi or 4Gi, or change the number of cores (spec.cpu.cores)`
+- Several violations at once: all reasons are listed in a single message under `does not match the sizing policy of VirtualMachineClass "supercpu" for several reasons:`.
+
 ### Automatic CPU topology configuration
 
 The CPU topology of a virtual machine (VM) determines how the CPU cores are allocated across sockets. This is important to ensure optimal performance and compatibility with applications that may depend on the CPU configuration. In the VM configuration, you specify only the total number of processor cores, and the topology (the number of sockets and cores in each socket) is automatically calculated based on this value.
