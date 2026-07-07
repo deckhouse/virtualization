@@ -100,8 +100,12 @@ func (r AddVolumeREST) requestFromKubevirt(opts *subresources.VirtualMachineAddV
 func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAddVolume) (mutateRequestHook, error) {
 	var dd virtv1.DiskDevice
 	if opts.IsCdrom {
+		// Hot-plug CD-ROMs on the USB bus (usb-storage) so guests without a
+		// virtio-scsi driver (e.g. Windows Server WinPE) can enumerate them via
+		// the inbox USB Mass Storage driver. The xhci controller is always
+		// present (added for the tablet input device).
 		dd.CDRom = &virtv1.CDRomTarget{
-			Bus: virtv1.DiskBusSCSI,
+			Bus: virtv1.DiskBusUSB,
 		}
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
