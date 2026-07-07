@@ -116,6 +116,38 @@ func IsVMActive(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachi
 	return false, nil
 }
 
+// BlockDeviceUsage reports whether a VM status references a block device and whether that reference is actively mounted.
+func BlockDeviceUsage(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachine, kind v1alpha2.BlockDeviceKind, name string) (referenced bool, mounted bool, err error) {
+	if !HasBlockDeviceStatusRef(vm, kind, name) {
+		return false, false, nil
+	}
+
+	switch vm.Status.Phase {
+	case "":
+		return true, false, nil
+	case v1alpha2.MachineStopped:
+		vmIsActive, err := IsVMActive(ctx, cli, vm)
+		if err != nil {
+			return true, false, err
+		}
+
+		return true, vmIsActive, nil
+	default:
+		return true, true, nil
+	}
+}
+
+// HasBlockDeviceStatusRef reports whether VM status contains a block device reference with the provided kind and name.
+func HasBlockDeviceStatusRef(vm v1alpha2.VirtualMachine, kind v1alpha2.BlockDeviceKind, name string) bool {
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind == kind && bd.Name == name {
+			return true
+		}
+	}
+
+	return false
+}
+
 func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, bool) {
 	for _, pod := range vm.Status.VirtualMachinePods {
 		if pod.Active {

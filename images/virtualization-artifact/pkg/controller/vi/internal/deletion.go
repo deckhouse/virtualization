@@ -114,40 +114,18 @@ func (h DeletionHandler) attachedVirtualMachineNames(ctx context.Context, vi *v1
 
 	var attachedVMs []string
 	for _, vm := range vms.Items {
-		if !h.isVIAttachedToVM(vi.GetName(), vm) {
-			continue
+		_, mounted, err := commonvm.BlockDeviceUsage(ctx, h.client, vm, v1alpha2.ImageDevice, vi.GetName())
+		if err != nil {
+			return nil, err
 		}
 
-		if vm.Status.Phase == "" {
-			continue
+		if mounted {
+			attachedVMs = append(attachedVMs, vm.Name)
 		}
-
-		if vm.Status.Phase == v1alpha2.MachineStopped {
-			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
-			if err != nil {
-				return nil, err
-			}
-
-			if !vmIsActive {
-				continue
-			}
-		}
-
-		attachedVMs = append(attachedVMs, vm.Name)
 	}
 
 	sort.Strings(attachedVMs)
 	return attachedVMs, nil
-}
-
-func (h DeletionHandler) isVIAttachedToVM(viName string, vm v1alpha2.VirtualMachine) bool {
-	for _, bd := range vm.Status.BlockDeviceRefs {
-		if bd.Kind == v1alpha2.ImageDevice && bd.Name == viName {
-			return true
-		}
-	}
-
-	return false
 }
 
 func deletionBlockedByProtectionMessage(vi *v1alpha2.VirtualImage, attachedVMs []string) string {
