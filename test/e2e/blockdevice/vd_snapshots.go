@@ -113,10 +113,26 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.DefaultStorageClass.Name)),
 		)
 
-		err := f.CreateWithDeferredDeletion(ctx, vd)
+		// With a WaitForFirstConsumer storage class the disk stays in the
+		// WaitForFirstConsumer phase until a VM consumes it, so run a throwaway
+		// VM to get the disk provisioned, then delete it to snapshot the disk
+		// without a consumer.
+		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
+			vmbuilder.WithName("vm-first-consumer"),
+			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vd.Name,
+			}),
+		)
+
+		err := f.CreateWithDeferredDeletion(ctx, vd, vm)
 		Expect(err).NotTo(HaveOccurred())
 
 		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+
+		By("Deleting the VM so the disk has no consumer")
+		Expect(f.Delete(ctx, vm)).To(Succeed())
+		util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, vm)
 
 		By("Creating snapshot")
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
