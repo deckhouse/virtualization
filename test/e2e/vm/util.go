@@ -46,7 +46,9 @@ func newRootVD(f *framework.Framework, root buildOption, vi *v1alpha2.VirtualIma
 	disk := object.NewVDFromVI(root.name, f.Namespace().Name, vi)
 	vdbuilder.ApplyOptions(disk,
 		vdbuilder.WithStorageClass(root.storageClass),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("2Gi"))),
+		// Keep the root small: these disks are volume-migrated in the tests,
+		// and the copy time scales with the block device size.
+		vdbuilder.WithSize(ptr.To(resource.MustParse("512Mi"))),
 	)
 
 	if root.rwo {
