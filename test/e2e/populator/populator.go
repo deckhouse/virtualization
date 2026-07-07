@@ -87,6 +87,9 @@ var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, preche
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
 		bindSourcePVC(ctx, f, sourceObs, source.Name)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
+		// The CSI clone is performed by the provisioner, so on a WFFC StorageClass
+		// it does not start until the target PVC gets its first consumer.
+		bindTargetPVC(ctx, f, targetObs, target.Name)
 
 		waitPVCBoundAndDone(targetObs)
 		waitPopulatorCleanup(ctx, f, target.Name)
@@ -107,6 +110,10 @@ var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, preche
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
 		bindSourcePVC(ctx, f, sourceObs, source.Name)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
+		// Restoring from the VolumeSnapshot is performed by the provisioner, so on
+		// a WFFC StorageClass it does not start until the target PVC gets its
+		// first consumer.
+		bindTargetPVC(ctx, f, targetObs, target.Name)
 
 		waitPVCBoundAndDone(targetObs)
 		waitPopulatorCleanup(ctx, f, target.Name)
@@ -240,26 +247,38 @@ func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetNam
 	Expect(err).NotTo(HaveOccurred())
 }
 
-// bindSourcePVC waits for the freshly created source PVC to become Bound. On a
-// WaitForFirstConsumer StorageClass a bare PVC never binds on its own, so run a
+// bindPVC waits for a freshly created PVC to become Bound. On a
+// WaitForFirstConsumer StorageClass a bare PVC never binds on its own — this
+// also holds for the csi-clone and snapshot-restore targets, whose provisioning
+// (and hence the cloning itself) starts only at the first consumer — so run a
 // short-lived consumer pod first to trigger provisioning.
-func bindSourcePVC(ctx context.Context, f *framework.Framework, obs pvcobs.Observer, sourcePVC string) {
+func bindPVC(ctx context.Context, f *framework.Framework, obs pvcobs.Observer, podName, pvcName string) {
 	GinkgoHelper()
 	sc := framework.GetConfig().StorageClass.DefaultStorageClass
 	if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
-		runSourceConsumerPod(ctx, f, "bind-source-pvc", sourcePVC, "true")
+		runConsumerPod(ctx, f, podName, pvcName, "true")
 	}
 	waitPVCBound(obs)
 }
 
-func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC string) {
+func bindSourcePVC(ctx context.Context, f *framework.Framework, obs pvcobs.Observer, sourcePVC string) {
 	GinkgoHelper()
-	runSourceConsumerPod(ctx, f, "write-source-disk", sourcePVC, "dd if=/dev/zero of=/data/disk.img bs=1M count=1")
+	bindPVC(ctx, f, obs, "bind-source-pvc", sourcePVC)
 }
 
-// runSourceConsumerPod runs a short-lived pod that mounts sourcePVC and executes
+func bindTargetPVC(ctx context.Context, f *framework.Framework, obs pvcobs.Observer, targetPVC string) {
+	GinkgoHelper()
+	bindPVC(ctx, f, obs, "bind-target-pvc", targetPVC)
+}
+
+func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC string) {
+	GinkgoHelper()
+	runConsumerPod(ctx, f, "write-source-disk", sourcePVC, "dd if=/dev/zero of=/data/disk.img bs=1M count=1")
+}
+
+// runConsumerPod runs a short-lived pod that mounts pvcName and executes
 // script, waiting until the pod succeeds.
-func runSourceConsumerPod(ctx context.Context, f *framework.Framework, podName, sourcePVC, script string) {
+func runConsumerPod(ctx context.Context, f *framework.Framework, podName, pvcName, script string) {
 	GinkgoHelper()
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -284,7 +303,7 @@ func runSourceConsumerPod(ctx context.Context, f *framework.Framework, podName, 
 			Volumes: []corev1.Volume{{
 				Name: "data",
 				VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: sourcePVC,
+					ClaimName: pvcName,
 				}},
 			}},
 		},
