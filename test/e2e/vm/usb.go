@@ -82,6 +82,9 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
+			// Running only means qemu has started; wait for the guest agent so the
+			// guest is fully booted before the short SSH readiness window below.
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			util.UntilGuestCommandsReady(f, t.VM, []string{"sudo", "tee", "udevadm"}, framework.LongTimeout)
 		})
