@@ -91,7 +91,7 @@ func NewController(
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
 		internal.NewImagePresenceHandler(recorder, mgr.GetClient(), dvcr),
-		internal.NewDeletionHandler(sources),
+		internal.NewDeletionHandler(sources, mgr.GetClient()),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 

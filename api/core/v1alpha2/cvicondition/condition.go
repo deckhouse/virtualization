@@ -84,6 +84,8 @@ const (
 	// ImageLost indicates that the image in DVCR has been lost and the `ClusterVirtualImage` can no longer be used.
 	ImageLost ReadyReason = "ImageLost"
 
+	// DeletionBlockedByProtection indicates that the ClusterVirtualImage cannot be deleted while it is protected.
+	DeletionBlockedByProtection DeletingReason = "DeletionBlockedByProtection"
 	// DeletionCleanupPending indicates that the ClusterVirtualImage cleanup is still in progress.
 	DeletionCleanupPending DeletingReason = "CleanupPending"
 )

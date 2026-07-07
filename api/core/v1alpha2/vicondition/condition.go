@@ -112,6 +112,8 @@ const (
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
 
+	// DeletionBlockedByProtection indicates that the VirtualImage cannot be deleted while it is protected.
+	DeletionBlockedByProtection DeletingReason = "DeletionBlockedByProtection"
 	// DeletionCleanupPending indicates that the VirtualImage cleanup is still in progress.
 	DeletionCleanupPending DeletingReason = "CleanupPending"
 )

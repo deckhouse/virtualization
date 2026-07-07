@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -48,7 +50,7 @@ var _ = Describe("DeletionHandler", func() {
 			},
 		})
 
-		handler := NewDeletionHandler(sources)
+		handler := NewDeletionHandler(sources, nil)
 		result, err := handler.Handle(context.Background(), cvi)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -59,6 +61,45 @@ var _ = Describe("DeletionHandler", func() {
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(cvicondition.DeletionCleanupPending.String()))
 		Expect(cond.Message).To(Equal("Waiting for PersistentVolumeClaim deletion default/cvi."))
+	})
+
+	It("sets Deleting condition when protection finalizer blocks deletion", func() {
+		scheme := runtime.NewScheme()
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
+		now := metav1.Now()
+		cvi := &v1alpha2.ClusterVirtualImage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "cvi",
+				DeletionTimestamp: &now,
+				Finalizers:        []string{v1alpha2.FinalizerCVIProtection},
+			},
+		}
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vm-a",
+				Namespace: "default",
+			},
+			Status: v1alpha2.VirtualMachineStatus{
+				Phase: v1alpha2.MachineRunning,
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+					{Kind: v1alpha2.ClusterImageDevice, Name: "cvi"},
+				},
+			},
+		}
+
+		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm).Build()
+		handler := NewDeletionHandler(source.NewSources(), client)
+		result, err := handler.Handle(context.Background(), cvi)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(BeZero())
+
+		cond, ok := conditions.GetCondition(cvicondition.DeletingType, cvi.Status.Conditions)
+		Expect(ok).To(BeTrue())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(cvicondition.DeletionBlockedByProtection.String()))
+		Expect(cond.Message).To(Equal("The ClusterVirtualImage is protected from deletion because it is attached to VirtualMachine default/vm-a."))
 	})
 })
 

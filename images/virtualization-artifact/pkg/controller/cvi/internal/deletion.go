@@ -19,12 +19,16 @@ package internal
 import (
 	"context"
 	"log/slog"
+	"sort"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -37,11 +41,13 @@ const deletionHandlerName = "DeletionHandler"
 
 type DeletionHandler struct {
 	sources *source.Sources
+	client  client.Client
 }
 
-func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
+func NewDeletionHandler(sources *source.Sources, client client.Client) *DeletionHandler {
 	return &DeletionHandler{
 		sources: sources,
+		client:  client,
 	}
 }
 
@@ -49,6 +55,20 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if cvi.DeletionTimestamp != nil {
+		if controllerutil.ContainsFinalizer(cvi, v1alpha2.FinalizerCVIProtection) {
+			attachedVMs, err := h.attachedVirtualMachineNames(ctx, cvi)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			h.setDeletingCondition(
+				cvi,
+				cvicondition.DeletionBlockedByProtection,
+				deletionBlockedByProtectionMessage(cvi, attachedVMs),
+			)
+			return reconcile.Result{}, nil
+		}
+
 		requeue, reason, err := h.sources.CleanUp(ctx, cvi)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -83,4 +103,60 @@ func (h DeletionHandler) setDeletingCondition(cvi *v1alpha2.ClusterVirtualImage,
 			Message(service.CapitalizeFirstLetter(message)+"."),
 		&cvi.Status.Conditions,
 	)
+}
+
+func (h DeletionHandler) attachedVirtualMachineNames(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) ([]string, error) {
+	var vms v1alpha2.VirtualMachineList
+	err := h.client.List(ctx, &vms, &client.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var attachedVMs []string
+	for _, vm := range vms.Items {
+		if !h.isCVIAttachedToVM(cvi.GetName(), vm) {
+			continue
+		}
+
+		if vm.Status.Phase == "" {
+			continue
+		}
+
+		if vm.Status.Phase == v1alpha2.MachineStopped {
+			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
+			if err != nil {
+				return nil, err
+			}
+
+			if !vmIsActive {
+				continue
+			}
+		}
+
+		attachedVMs = append(attachedVMs, vm.Namespace+"/"+vm.Name)
+	}
+
+	sort.Strings(attachedVMs)
+	return attachedVMs, nil
+}
+
+func (h DeletionHandler) isCVIAttachedToVM(cviName string, vm v1alpha2.VirtualMachine) bool {
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind == v1alpha2.ClusterImageDevice && bd.Name == cviName {
+			return true
+		}
+	}
+
+	return false
+}
+
+func deletionBlockedByProtectionMessage(cvi *v1alpha2.ClusterVirtualImage, attachedVMs []string) string {
+	switch len(attachedVMs) {
+	case 0:
+		return "The ClusterVirtualImage is protected from deletion by the protection finalizer"
+	case 1:
+		return "The ClusterVirtualImage is protected from deletion because it is attached to VirtualMachine " + attachedVMs[0]
+	default:
+		return "The ClusterVirtualImage is protected from deletion because it is attached to VirtualMachines: " + strings.Join(attachedVMs, ", ")
+	}
 }
