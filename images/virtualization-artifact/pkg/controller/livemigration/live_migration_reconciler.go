@@ -43,7 +43,7 @@ type Handler interface {
 }
 
 type InboundSlotReleaser interface {
-	ReleaseByVMI(namespace, name string)
+	ReleaseByKVVMI(namespace, name string)
 }
 
 type Reconciler struct {
@@ -87,7 +87,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	if kvvmi.IsEmpty() {
 		log.Info("Reconcile observe an absent VirtualMachineInstance: it may be deleted; releasing inbound migration slot")
-		r.limiter.ReleaseByVMI(req.Namespace, req.Name)
+		r.limiter.ReleaseByKVVMI(req.Namespace, req.Name)
 		return reconcile.Result{}, nil
 	}
 

@@ -96,7 +96,7 @@ var _ = Describe("InboundMigrationLimiter", func() {
 		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
 		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeFalse())
 
-		limiter.ReleaseByVMI(namespace, "first")
+		limiter.ReleaseByKVVMI(namespace, "first")
 		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
 	})
 
@@ -105,7 +105,7 @@ var _ = Describe("InboundMigrationLimiter", func() {
 		Expect(limiter.TryAcquire(newKVVMI("vm", "vm-migration"), targetNode)).To(BeTrue())
 		Expect(limiter.TryAcquire(newKVVMI("vm-2", "vm-2-migration"), targetNode)).To(BeTrue())
 
-		limiter.ReleaseByVMI(namespace, "vm")
+		limiter.ReleaseByKVVMI(namespace, "vm")
 		// "vm-2" must still hold its slot: only one of the two is free now.
 		Expect(limiter.TryAcquire(newKVVMI("third", "third-migration"), targetNode)).To(BeTrue())
 		Expect(limiter.TryAcquire(newKVVMI("fourth", "fourth-migration"), targetNode)).To(BeFalse())
