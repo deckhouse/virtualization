@@ -64,7 +64,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) 
 			h.setDeletingCondition(
 				vi,
 				vicondition.DeletionBlockedByProtection,
-				deletionBlockedByProtectionMessage(vi, attachedVMs),
+				deletionBlockedByProtectionMessage(attachedVMs),
 			)
 			return reconcile.Result{}, nil
 		}
@@ -128,7 +128,7 @@ func (h DeletionHandler) attachedVirtualMachineNames(ctx context.Context, vi *v1
 	return attachedVMs, nil
 }
 
-func deletionBlockedByProtectionMessage(vi *v1alpha2.VirtualImage, attachedVMs []string) string {
+func deletionBlockedByProtectionMessage(attachedVMs []string) string {
 	switch len(attachedVMs) {
 	case 0:
 		return "The VirtualImage is protected from deletion by the protection finalizer"

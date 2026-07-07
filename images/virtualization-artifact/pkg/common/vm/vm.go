@@ -117,7 +117,13 @@ func IsVMActive(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachi
 }
 
 // BlockDeviceUsage reports whether a VM status references a block device and whether that reference is actively mounted.
-func BlockDeviceUsage(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachine, kind v1alpha2.BlockDeviceKind, name string) (referenced bool, mounted bool, err error) {
+func BlockDeviceUsage(
+	ctx context.Context,
+	cli client.Client,
+	vm v1alpha2.VirtualMachine,
+	kind v1alpha2.BlockDeviceKind,
+	name string,
+) (referenced, mounted bool, err error) {
 	if !HasBlockDeviceStatusRef(vm, kind, name) {
 		return false, false, nil
 	}
