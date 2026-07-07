@@ -28,6 +28,7 @@ import (
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -105,6 +106,21 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorag
 			err := f.CreateWithDeferredDeletion(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		// On a WaitForFirstConsumer StorageClass the disk parks in the
+		// WaitForFirstConsumer phase and never attempts to create its target
+		// PVC (see PVCImportStep), so the quota would never be exercised.
+		// Give the disk a consumer: the VM's virt-launcher pod is quota-exempt
+		// (resource-quota-overrides.deckhouse.io/ignore), so the VM schedules
+		// and the disk proceeds to the PVC creation the quota then rejects.
+		// The VM never becomes Running — its disk never provisions — so don't
+		// wait for it.
+		if storageClassIsWaitForFirstConsumer(ctx, f, ptr.Deref(scPtr, "")) {
+			By("Creating a consumer VirtualMachine to unpark the WaitForFirstConsumer disk", func() {
+				vm := object.NewMinimalVM("vm-quota-consumer-", f.Namespace().Name, vmbuilder.WithDisks(vd))
+				Expect(f.CreateWithDeferredDeletion(ctx, vm)).To(Succeed())
+			})
+		}
 
 		err := obs.WaitFor(vdobs.BeQuotaExceeded(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
