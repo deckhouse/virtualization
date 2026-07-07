@@ -64,12 +64,13 @@ func cleanup(ctx context.Context, input *pkg.HookInput) error {
 	return nil
 }
 
-// stripCDIConfigFinalizers removes the finalizers from the CDI `config` CR:
-// it carries operator.cdi.kubevirt.io, and the cdi-operator that removes it is
-// already gone, so without this the InternalVirtualizationCDI CRD deletion
-// below never completes. Done with a direct client rather than a PatchCollector
-// operation: a collected patch fails the whole ModuleRun at the discovery level
-// once the CRD is gone, while here the absent kind is just a no-op.
+// stripCDIConfigFinalizers removes the finalizers from the CDI `config` CR.
+// The CR is intentionally kept in the release (unused), but it carries
+// operator.cdi.kubevirt.io added by the now-removed cdi-operator; with that
+// dead finalizer any deletion of the CR would hang forever and wedge the helm
+// deploy. Done with a direct client rather than a PatchCollector operation:
+// a collected patch fails the whole ModuleRun at the discovery level if the
+// CRD is absent, while here the absent kind is just a no-op.
 func stripCDIConfigFinalizers(ctx context.Context, input *pkg.HookInput) error {
 	k8s, err := input.DC.GetK8sClient()
 	if err != nil {
@@ -177,14 +178,16 @@ func cdiRuntimeResources() []staleResource {
 
 func cdiCRDResources() []staleResource {
 	return []staleResource{
-		// Deleting the CDI CRD also deletes the `config` custom resource.
+		// The internalvirtualizationcdis CRD and its `config` CR are NOT listed
+		// here: they stay in the release (crds/embedded/cdi.yaml and
+		// templates/cdi/config.yaml) as an unused leftover, because deleting the
+		// CR from the release wedges the helm deploy on its operator finalizer.
 		// StorageProfile moved to storageprofiles.storage.virtualization.deckhouse.io,
-		// so the CDI-group profiles are stale as well. Leaving any of these CRDs
+		// so the CDI-group profiles are stale as well. Leaving the other CRDs
 		// behind deadlocks a later switch back to a CDI-enabled build: cdi-operator
 		// treats every pre-existing resource from its install set as an orphan and
 		// refuses to deploy.
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "cdis.cdi.kubevirt.io"),
-		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "storageprofiles.cdi.kubevirt.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "internalvirtualizationstorageprofiles.cdi.internal.virtualization.deckhouse.io"),
 		cluster("apiextensions.k8s.io/v1", "CustomResourceDefinition", "cdiconfigs.cdi.kubevirt.io"),
