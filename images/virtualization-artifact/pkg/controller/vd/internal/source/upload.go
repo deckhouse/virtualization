@@ -26,6 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -94,6 +95,30 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	}
 	if pvc != nil {
 		ctx = logger.ToContext(ctx, log.With("pvc.name", pvc.Name, "pvc.status.phase", pvc.Status.Phase))
+	}
+
+	tlsSecret, err := supplements.GetTLSSecret(ctx, ds.client, supgen.Generator)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("fetch uploader tls secret: %w", err)
+	}
+
+	// Reconcile the uploader Ingress and its TLS secret before the readiness probe.
+	// All uploaders share one public host: if the Ingress host drifts (e.g. after
+	// publicDomainTemplate changed) or its copied TLS secret goes missing,
+	// ingress-nginx serves its default certificate for the whole host and every
+	// upload on it breaks. IsUploaderReady HTTPS-probes that host, so restore both
+	// first. Initial creation is handled by Start, so skip when the pod is absent.
+	tlsCopyMissing := tlsSecret == nil && supplements.ShouldCopyUploaderTLSSecret(ds.dvcrSettings, supgen.Generator)
+	if pod != nil && (ds.uploaderService.IngressHostDrifted(ing) || tlsCopyMissing) {
+		var oldHost string
+		if ing != nil && len(ing.Spec.Rules) > 0 {
+			oldHost = ing.Spec.Rules[0].Host
+		}
+		log.Info("Reconciling uploader Ingress", "hostDrifted", ds.uploaderService.IngressHostDrifted(ing), "tlsSecretMissing", tlsCopyMissing, "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
+		ing, err = ds.uploaderService.EnsureIngress(ctx, vd, supgen)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
