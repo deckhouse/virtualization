@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,7 +85,7 @@ var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, preche
 		sourceObs := startPVCObserver(ctx, f, source)
 		targetObs := startPVCObserver(ctx, f, target)
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
-		waitPVCBound(sourceObs)
+		bindSourcePVC(ctx, f, sourceObs, source.Name)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
 
 		waitPVCBoundAndDone(targetObs)
@@ -104,7 +105,7 @@ var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, preche
 		sourceObs := startPVCObserver(ctx, f, source)
 		targetObs := startPVCObserver(ctx, f, target)
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
-		waitPVCBound(sourceObs)
+		bindSourcePVC(ctx, f, sourceObs, source.Name)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
 
 		waitPVCBoundAndDone(targetObs)
@@ -126,8 +127,10 @@ var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, preche
 		sourceObs := startPVCObserver(ctx, f, source)
 		targetObs := startPVCObserver(ctx, f, target)
 		Expect(f.CreateWithDeferredDeletion(ctx, source)).To(Succeed())
-		waitPVCBound(sourceObs)
+		// The writer pod is the source's first consumer, so it also lets the
+		// PVC bind on a WaitForFirstConsumer StorageClass.
 		writeRawDiskImage(ctx, f, source.Name)
+		waitPVCBound(sourceObs)
 		Expect(f.CreateWithDeferredDeletion(ctx, target)).To(Succeed())
 
 		waitPVCBoundAndDone(targetObs)
@@ -237,11 +240,30 @@ func waitPopulatorCleanup(ctx context.Context, f *framework.Framework, targetNam
 	Expect(err).NotTo(HaveOccurred())
 }
 
+// bindSourcePVC waits for the freshly created source PVC to become Bound. On a
+// WaitForFirstConsumer StorageClass a bare PVC never binds on its own, so run a
+// short-lived consumer pod first to trigger provisioning.
+func bindSourcePVC(ctx context.Context, f *framework.Framework, obs pvcobs.Observer, sourcePVC string) {
+	GinkgoHelper()
+	sc := framework.GetConfig().StorageClass.DefaultStorageClass
+	if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+		runSourceConsumerPod(ctx, f, "bind-source-pvc", sourcePVC, "true")
+	}
+	waitPVCBound(obs)
+}
+
 func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC string) {
+	GinkgoHelper()
+	runSourceConsumerPod(ctx, f, "write-source-disk", sourcePVC, "dd if=/dev/zero of=/data/disk.img bs=1M count=1")
+}
+
+// runSourceConsumerPod runs a short-lived pod that mounts sourcePVC and executes
+// script, waiting until the pod succeeds.
+func runSourceConsumerPod(ctx context.Context, f *framework.Framework, podName, sourcePVC, script string) {
 	GinkgoHelper()
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "write-source-disk",
+			Name:      podName,
 			Namespace: f.Namespace().Name,
 		},
 		Spec: corev1.PodSpec{
@@ -250,10 +272,10 @@ func writeRawDiskImage(ctx context.Context, f *framework.Framework, sourcePVC st
 				FSGroup: ptr.To[int64](65532),
 			},
 			Containers: []corev1.Container{{
-				Name:    "writer",
+				Name:    "consumer",
 				Image:   framework.GetConfig().HelperImages.CurlImage,
 				Command: []string{"/bin/sh", "-c"},
-				Args:    []string{"dd if=/dev/zero of=/data/disk.img bs=1M count=1"},
+				Args:    []string{script},
 				VolumeMounts: []corev1.VolumeMount{{
 					Name:      "data",
 					MountPath: "/data",

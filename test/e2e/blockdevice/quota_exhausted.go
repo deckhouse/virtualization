@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
@@ -70,10 +71,22 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorag
 		baseVD = vdbuilder.New(
 			vdbuilder.WithName("vd-quota-source"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
+			// A bootable image: on a WaitForFirstConsumer StorageClass the
+			// disk is provisioned by booting a VM from it, see below.
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 			vdbuilder.WithStorageClass(scPtr),
 		)
-		createVirtualDiskAndWait(ctx, f, baseVD)
+		if storageClassIsWaitForFirstConsumer(ctx, f, ptr.Deref(scPtr, "")) {
+			// A WaitForFirstConsumer disk provisions only once a VirtualMachine
+			// consumes it, so boot a throwaway VM and delete it once the disk
+			// is Ready, leaving the namespace Pod-free for the blocking quota
+			// below.
+			obs := startVirtualDisk(ctx, f, baseVD)
+			vm := runVirtualMachineFromDisks(ctx, f, observedDisk{vd: baseVD, obs: obs})
+			Expect(f.Delete(ctx, vm)).To(Succeed())
+		} else {
+			createVirtualDiskAndWait(ctx, f, baseVD)
+		}
 
 		applyBlockingResourceQuota(ctx, f)
 	})
