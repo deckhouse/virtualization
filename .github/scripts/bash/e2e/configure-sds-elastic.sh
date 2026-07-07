@@ -22,6 +22,8 @@ source "${SCRIPT_DIR}/wait-sds-elastic.sh"
 
 ELASTIC_CLUSTER_NAME=elastic
 ELASTIC_STORAGE_CLASS=nested-ceph-rbd
+# StorageClassMigration needs a second RBD storage class as a migration target.
+ELASTIC_STORAGE_CLASSES=(nested-ceph-rbd nested-ceph-rbd-r3)
 
 # sds-elastic (Ceph via Rook) is Experimental, so enable it and its dependencies
 # (sds-node-configurator, csi-ceph). On the stage profile the modules are absent in
@@ -108,17 +110,19 @@ kubectl apply -f ./elastic-cluster.yaml
 echo "[INFO] Wait for ElasticCluster to be ready"
 elastic_cluster_ready "${ELASTIC_CLUSTER_NAME}"
 
-echo "[INFO] Create ElasticStorageClass (RBD, replica-2)"
+echo "[INFO] Create ElasticStorageClasses (RBD: replica-2 default + replica-3 migration target)"
 kubectl apply -f ./elastic-storage-class.yaml
 
-echo "[INFO] Wait for StorageClass ${ELASTIC_STORAGE_CLASS} to appear"
-for i in $(seq 1 30); do
-  if kubectl get storageclass "${ELASTIC_STORAGE_CLASS}" >/dev/null 2>&1; then
-    echo "[SUCCESS] StorageClass ${ELASTIC_STORAGE_CLASS} is present"
-    break
-  fi
-  echo "[INFO] Wait 10s for StorageClass ${ELASTIC_STORAGE_CLASS} (attempt ${i}/30)"
-  sleep 10
+for sc in "${ELASTIC_STORAGE_CLASSES[@]}"; do
+  echo "[INFO] Wait for StorageClass ${sc} to appear"
+  for i in $(seq 1 30); do
+    if kubectl get storageclass "${sc}" >/dev/null 2>&1; then
+      echo "[SUCCESS] StorageClass ${sc} is present"
+      break
+    fi
+    echo "[INFO] Wait 10s for StorageClass ${sc} (attempt ${i}/30)"
+    sleep 10
+  done
 done
 
 echo "[INFO] Set default cluster storage class to ${ELASTIC_STORAGE_CLASS}"
