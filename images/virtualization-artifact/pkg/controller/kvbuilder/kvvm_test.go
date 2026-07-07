@@ -253,6 +253,85 @@ func TestSetOsType(t *testing.T) {
 	})
 }
 
+func TestSetProvisioning(t *testing.T) {
+	hasDisk := func(b *KVVM, name string) bool {
+		for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+			if d.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	hasVolume := func(b *KVVM, name string) bool {
+		for _, v := range b.Resource.Spec.Template.Spec.Volumes {
+			if v.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	cloudInit := &v1alpha2.Provisioning{
+		Type:     v1alpha2.ProvisioningTypeUserData,
+		UserData: "#cloud-config",
+	}
+	sysprep := &v1alpha2.Provisioning{
+		Type:       v1alpha2.ProvisioningTypeSysprepRef,
+		SysprepRef: &v1alpha2.SysprepRef{Kind: v1alpha2.SysprepRefKindSecret, Name: "sysprep-secret"},
+	}
+
+	t.Run("removes cloudinit disk and volume when provisioning is removed", func(t *testing.T) {
+		b := newTestKVVM()
+		if err := b.SetProvisioning(cloudInit); err != nil {
+			t.Fatalf("SetProvisioning(cloudInit) failed: %v", err)
+		}
+		if !hasDisk(b, CloudInitDiskName) || !hasVolume(b, CloudInitDiskName) {
+			t.Fatal("cloudinit disk and volume should be present after setting provisioning")
+		}
+
+		if err := b.SetProvisioning(nil); err != nil {
+			t.Fatalf("SetProvisioning(nil) failed: %v", err)
+		}
+		if hasDisk(b, CloudInitDiskName) || hasVolume(b, CloudInitDiskName) {
+			t.Error("cloudinit disk and volume should be removed after removing provisioning")
+		}
+	})
+
+	t.Run("removes sysprep disk and volume when provisioning is removed", func(t *testing.T) {
+		b := newTestKVVM()
+		if err := b.SetProvisioning(sysprep); err != nil {
+			t.Fatalf("SetProvisioning(sysprep) failed: %v", err)
+		}
+		if !hasDisk(b, SysprepDiskName) || !hasVolume(b, SysprepDiskName) {
+			t.Fatal("sysprep disk and volume should be present after setting provisioning")
+		}
+
+		if err := b.SetProvisioning(nil); err != nil {
+			t.Fatalf("SetProvisioning(nil) failed: %v", err)
+		}
+		if hasDisk(b, SysprepDiskName) || hasVolume(b, SysprepDiskName) {
+			t.Error("sysprep disk and volume should be removed after removing provisioning")
+		}
+	})
+
+	t.Run("removes stale disk when provisioning type changes", func(t *testing.T) {
+		b := newTestKVVM()
+		if err := b.SetProvisioning(cloudInit); err != nil {
+			t.Fatalf("SetProvisioning(cloudInit) failed: %v", err)
+		}
+		if err := b.SetProvisioning(sysprep); err != nil {
+			t.Fatalf("SetProvisioning(sysprep) failed: %v", err)
+		}
+
+		if hasDisk(b, CloudInitDiskName) || hasVolume(b, CloudInitDiskName) {
+			t.Error("cloudinit disk and volume should be removed after switching to sysprep")
+		}
+		if !hasDisk(b, SysprepDiskName) || !hasVolume(b, SysprepDiskName) {
+			t.Error("sysprep disk and volume should be present after switching to sysprep")
+		}
+	})
+}
+
 func newTestKVVM() *KVVM {
 	return NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{
 		EnableParavirtualization: true,

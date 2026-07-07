@@ -427,7 +427,7 @@ provisioning:
 			),
 		},
 		{
-			"restart on provisioning remove",
+			"apply immediate on provisioning remove",
 			`
 provisioning:
   type: UserDataRef
@@ -438,7 +438,7 @@ provisioning:
 			"",
 			nil,
 			assertChanges(
-				actionRequired(ActionRestart),
+				actionRequired(ActionApplyImmediate),
 				requirePathOperation("provisioning", ChangeRemove),
 			),
 		},
