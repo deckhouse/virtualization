@@ -5,7 +5,7 @@ go 1.25.11
 tool github.com/cilium/ebpf/cmd/bpf2go
 
 require (
-	github.com/cilium/cilium v1.17.15
+	github.com/cilium/cilium v1.17.16
 	github.com/cilium/ebpf v0.17.1
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/go-logr/logr v1.4.3
