@@ -222,7 +222,9 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
 
 		By("Waiting for ready snapshots phase")
-		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshots...)
+		// 10 concurrent snapshots are processed nearly sequentially by the CSI
+		// driver (LINSTOR lock contention), so the tail does not fit in MiddleTimeout.
+		util.UntilVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshots...)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		for _, vdSnapshot := range vdSnapshots {
