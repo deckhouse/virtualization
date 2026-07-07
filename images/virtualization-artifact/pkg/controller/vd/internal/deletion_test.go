@@ -94,6 +94,6 @@ var _ = Describe("DeletionHandler", func() {
 		Expect(ok).To(BeTrue())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(vdcondition.DeletionCleanupPending.String()))
-		Expect(cond.Message).To(Equal("waiting for PersistentVolumeClaim deletion default/vd"))
+		Expect(cond.Message).To(Equal("Waiting for PersistentVolumeClaim deletion default/vd."))
 	})
 })
