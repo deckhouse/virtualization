@@ -1,0 +1,17 @@
+module:
+  fixes:
+    - summary: >-
+        Pre-create missing container mount points so virt-handler and virtualization-dra pods start
+        under containerd strict mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2584
+    - summary: >-
+        Fixed slow downloading of images from DVCR to the node when attaching them to a virtual
+        machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2576
+vm:
+  fixes:
+    - summary: >-
+        Fixed a volume mount leak that could leave a VM with hotplugged images stuck in the
+        Terminating state during deletion.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2581
+
