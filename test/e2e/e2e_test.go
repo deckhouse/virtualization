@@ -57,7 +57,12 @@ var _ = SynchronizedBeforeSuite(func() {
 	precheck.LoadSpecLabelsFromFile(precheck.LabelsFile, GinkgoLabelFilter())
 	// Run prechecks based on loaded labels
 	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
-}, func() {})
+}, func() {
+	// Runs on every parallel process once process 1 finishes the setup
+	// above; legacy package state is per-process and must be initialized
+	// everywhere, otherwise legacy specs on workers panic on a nil conf.
+	legacy.NewAllProcessesBody()
+})
 
 var _ = SynchronizedAfterSuite(func() {
 	// Cleanup precreated CVIs if PRECREATED_CVI_CLEANUP=yes
