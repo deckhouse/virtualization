@@ -45,13 +45,16 @@ var DeviceOptionsPresets DeviceOptionsList = []DeviceOptions{
 	{
 		EnableParavirtualization: true,
 		DiskBus:                  virtv1.DiskBusSCSI,
-		CdromBus:                 virtv1.DiskBusSCSI,
-		InterfaceModel:           "virtio",
+		// CD-ROMs use the USB bus (usb-storage) so guests without a virtio-scsi
+		// driver (e.g. Windows WinPE) can enumerate them via the inbox USB Mass
+		// Storage driver. The xhci controller is always present (tablet input).
+		CdromBus:       virtv1.DiskBusUSB,
+		InterfaceModel: "virtio",
 	},
 	{
 		EnableParavirtualization: false,
 		DiskBus:                  virtv1.DiskBusSATA,
-		CdromBus:                 virtv1.DiskBusSATA,
+		CdromBus:                 virtv1.DiskBusUSB,
 		InterfaceModel:           "e1000",
 	},
 }
