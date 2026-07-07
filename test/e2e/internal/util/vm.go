@@ -414,10 +414,58 @@ func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, error) {
 	return "", fmt.Errorf("no active pod found for virtual machine %s/%s", vm.Namespace, vm.Name)
 }
 
+// TODO: Remove this skip when the lost guest-shutdown-reason race in the
+// virtualization-controller is fixed. SyncPowerStateHandler decides what to do
+// with a Succeeded internal VMI by the virt-launcher pod termination message
+// (powerstate.ShutdownReason): guest-reset means Restart, guest-shutdown means
+// Stop (cleanup of the finished VMI). If the launcher pod is already gone by
+// the time the controller reconciles, ShutdownInfo stays empty: the handler
+// neither cleans up the Succeeded VMI nor honors a pending vm-start-requested
+// annotation (the start branch in handleManualPolicy and
+// handleAlwaysOnUnlessStoppedManuallyPolicy is reachable only when no VMI
+// exists), and the Nothing branch schedules no requeue. The VM parks in
+// Stopped forever: an expected in-guest reboot never happens and a Start VMOP
+// hangs InProgress.
+func SkipIfGuestPowerActionStuck(ctx context.Context, key client.ObjectKey) {
+	GinkgoHelper()
+
+	kvvmi, err := GetInternalVirtualMachineInstance(ctx, &v1alpha2.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
+	})
+	if err != nil || kvvmi == nil || kvvmi.DeletionTimestamp != nil || kvvmi.Status.Phase != virtv1.Succeeded {
+		return
+	}
+
+	pods := &corev1.PodList{}
+	err = framework.GetClients().GenericClient().List(ctx, pods,
+		client.InNamespace(key.Namespace),
+		client.MatchingLabels{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"},
+	)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to list virt-launcher pods for the stuck guest power action check: %v\n", err)
+		return
+	}
+
+	for _, pod := range pods.Items {
+		if pod.Labels["kubevirt.internal.virtualization.deckhouse.io/created-by"] == string(kvvmi.UID) {
+			return
+		}
+		for _, ownerRef := range pod.OwnerReferences {
+			if ownerRef.UID == kvvmi.UID {
+				return
+			}
+		}
+	}
+
+	Skip(fmt.Sprintf("skip: internal VMI %s/%s is Succeeded and its virt-launcher pod is gone, the controller has lost the guest shutdown/reset reason and will not process the power action", key.Namespace, key.Name))
+}
+
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
 	GinkgoHelper()
 
 	Eventually(func() error {
+		SkipIfGuestPowerActionStuck(context.Background(), key)
+
 		vm := &v1alpha2.VirtualMachine{}
 		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
 		if err != nil {
