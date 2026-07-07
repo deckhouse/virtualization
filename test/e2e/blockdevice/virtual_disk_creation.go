@@ -385,8 +385,9 @@ func wffcStorageClass() *string {
 
 	sc := framework.GetConfig().StorageClass.WFFCStorageClass
 	Expect(sc).NotTo(BeNil(),
-		"WFFC StorageClass not found: set %s or configure a default StorageClass (enforced by the %q precheck)",
-		config.WFFCStorageClassEnv, precheck.PrecheckWFFCStorageClass)
+		"WFFC StorageClass not found: point the main StorageClass (%s or the cluster default) at one, "+
+			"or have a WaitForFirstConsumer StorageClass on the same CSI driver (enforced by the %q precheck)",
+		config.StorageClassNameEnv, precheck.PrecheckWFFCStorageClass)
 
 	return ptr.To(sc.Name)
 }

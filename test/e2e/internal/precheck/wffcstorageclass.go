@@ -60,9 +60,9 @@ func (c *wffcStorageClassPrecheck) Run(ctx context.Context, f *framework.Framewo
 	if wffcSC == nil {
 		return fmt.Errorf(
 			"%s=no to disable this precheck: WFFC StorageClass not found. "+
-				"Set %s explicitly or configure a default StorageClass with WaitForFirstConsumer binding, "+
-				"or with Immediate binding and another WaitForFirstConsumer StorageClass on the same CSI driver",
-			wffcStorageClassPrecheckEnvName, config.WFFCStorageClassEnv,
+				"Point the main StorageClass (%s or the cluster default) at a WaitForFirstConsumer class, "+
+				"or have another WaitForFirstConsumer StorageClass on the same CSI driver as the main one",
+			wffcStorageClassPrecheckEnvName, config.StorageClassNameEnv,
 		)
 	}
 

@@ -37,15 +37,15 @@ const (
 	PrecheckImmediateStorageClass = "immediate-sc-precheck"
 
 	// PrecheckWFFCStorageClass - test requires a WaitForFirstConsumer StorageClass to be
-	// configured.
+	// resolvable from the main StorageClass (STORAGE_CLASS_NAME or the cluster default).
 	PrecheckWFFCStorageClass = "wffc-sc-precheck"
 
 	// PrecheckSameCSIDriverStorageClass - test requires the WFFC and immediate StorageClasses
 	// to be backed by the same CSI driver.
 	PrecheckSameCSIDriverStorageClass = "same-csi-sc-precheck"
 
-	// PrecheckDifferentCSIDriverStorageClass - test requires a WFFC StorageClass and a
-	// StorageClass backed by a different CSI driver.
+	// PrecheckDifferentCSIDriverStorageClass - test requires the main StorageClass (any
+	// volume binding mode) and a StorageClass backed by a different CSI driver.
 	PrecheckDifferentCSIDriverStorageClass = "different-csi-sc-precheck"
 
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.

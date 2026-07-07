@@ -33,9 +33,10 @@ const (
 
 // differentCSIDriverStorageClassPrecheck implements the Precheck interface for the
 // cross-CSI-driver block-device tests. It verifies that:
-//  1. a WFFC StorageClass can be resolved;
+//  1. the main StorageClass (STORAGE_CLASS_NAME or the cluster default) can be resolved —
+//     its volume binding mode does not matter;
 //  2. the cluster has at least one StorageClass whose CSI driver (provisioner) differs
-//     from the WFFC one.
+//     from the main one.
 //
 // The "different CSI driver" StorageClass is discovered automatically; no extra
 // configuration is required for it.
@@ -57,14 +58,14 @@ func (c *differentCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *fra
 		return fmt.Errorf("%s=no to disable this precheck: list StorageClasses: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
 	}
 
-	wffcSC, err := config.ResolveWFFCStorageClass(&scList)
+	mainSC, err := config.ResolveTemplateStorageClass(&scList)
 	if err != nil {
-		return fmt.Errorf("%s=no to disable this precheck: resolve WFFC StorageClass: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
+		return fmt.Errorf("%s=no to disable this precheck: resolve the main StorageClass: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
 	}
-	if wffcSC == nil {
+	if mainSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: WFFC StorageClass not found. Set %s or configure a default StorageClass",
-			differentCSIDriverStorageClassPrecheckEnvName, config.WFFCStorageClassEnv,
+			"%s=no to disable this precheck: main StorageClass not found. Set %s or configure a default StorageClass",
+			differentCSIDriverStorageClassPrecheckEnvName, config.StorageClassNameEnv,
 		)
 	}
 
@@ -73,18 +74,18 @@ func (c *differentCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *fra
 		return fmt.Errorf("%s=no to disable this precheck: list CSIDrivers: %w", differentCSIDriverStorageClassPrecheckEnvName, err)
 	}
 
-	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, &csiDrivers, wffcSC.Provisioner)
+	differentSC := config.FindStorageClassWithDifferentProvisioner(&scList, &csiDrivers, mainSC.Provisioner)
 	if differentSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the WFFC StorageClass %q (CSI driver %q) was found in the cluster; "+
+			"%s=no to disable this precheck: no StorageClass with a CSI driver different from the main StorageClass %q (CSI driver %q) was found in the cluster; "+
 				"the cross-CSI block-device tests require a second CSI driver to be installed",
-			differentCSIDriverStorageClassPrecheckEnvName, wffcSC.Name, wffcSC.Provisioner,
+			differentCSIDriverStorageClassPrecheckEnvName, mainSC.Name, mainSC.Provisioner,
 		)
 	}
 
 	_, _ = fmt.Fprintf(GinkgoWriter,
-		"different CSI driver StorageClass precheck passed: the tests will use WFFC StorageClass %q (CSI driver %q) and StorageClass %q (CSI driver %q).\n",
-		wffcSC.Name, wffcSC.Provisioner, differentSC.Name, differentSC.Provisioner,
+		"different CSI driver StorageClass precheck passed: the tests will use the main StorageClass %q (CSI driver %q) and StorageClass %q (CSI driver %q).\n",
+		mainSC.Name, mainSC.Provisioner, differentSC.Name, differentSC.Provisioner,
 	)
 
 	return nil

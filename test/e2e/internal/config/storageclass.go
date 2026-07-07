@@ -32,16 +32,10 @@ const (
 	// StorageClassNameEnv overrides TemplateStorageClass for tests (see README).
 	StorageClassNameEnv = "STORAGE_CLASS_NAME"
 
-	// WFFCStorageClassEnv overrides the WaitForFirstConsumer StorageClass used by block-device
-	// tests. When unset, the class is derived from the default StorageClass: the default itself
-	// when it uses WaitForFirstConsumer, or another StorageClass on the same CSI driver when
-	// the default uses Immediate binding.
-	WFFCStorageClassEnv = "WFFC_STORAGE_CLASS"
-
 	// ImmediateStorageClassEnv overrides the Immediate StorageClass used by block-device tests.
-	// When unset, the class is derived from the default StorageClass: the default itself when
-	// it uses Immediate binding, or another StorageClass on the same CSI driver when the
-	// default uses WaitForFirstConsumer.
+	// When unset, the class is derived from the main StorageClass (STORAGE_CLASS_NAME or the
+	// cluster default): the main class itself when it uses Immediate binding, or another
+	// StorageClass on the same CSI driver when it uses WaitForFirstConsumer.
 	ImmediateStorageClassEnv = "IMMEDIATE_STORAGE_CLASS"
 )
 
@@ -159,27 +153,25 @@ func FindStorageClassWithProvisionerAndBinding(
 }
 
 // ResolveWFFCStorageClass returns the WaitForFirstConsumer StorageClass for block-device
-// tests. When WFFC_STORAGE_CLASS is set, that StorageClass is returned. Otherwise the class
-// is derived from the default StorageClass: the default itself when it uses
-// WaitForFirstConsumer, or another StorageClass on the same CSI driver when the default
-// uses Immediate binding. Returns nil when no default StorageClass is configured and the
-// env var is unset, or when auto-detection finds no matching StorageClass.
+// tests, derived from the main StorageClass (STORAGE_CLASS_NAME or the cluster default):
+// the main class itself when it uses WaitForFirstConsumer, or another StorageClass on the
+// same CSI driver when it uses Immediate binding. Returns nil when no main StorageClass is
+// resolvable, or when auto-detection finds no matching StorageClass.
 func ResolveWFFCStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
-	if sc, err := resolveStorageClassFromEnv(scList, WFFCStorageClassEnv); err != nil || sc != nil {
-		return sc, err
+	mainSC, err := ResolveTemplateStorageClass(scList)
+	if err != nil {
+		return nil, err
 	}
-
-	defaultSC := FindDefaultStorageClass(scList)
-	if defaultSC == nil {
+	if mainSC == nil {
 		return nil, nil
 	}
 
-	if IsWFFCBinding(defaultSC) {
-		return defaultSC, nil
+	if IsWFFCBinding(mainSC) {
+		return mainSC, nil
 	}
 
-	if IsImmediateBinding(defaultSC) {
-		return FindStorageClassWithProvisionerAndBinding(scList, defaultSC.Provisioner, true), nil
+	if IsImmediateBinding(mainSC) {
+		return FindStorageClassWithProvisionerAndBinding(scList, mainSC.Provisioner, true), nil
 	}
 
 	return nil, nil
@@ -187,26 +179,30 @@ func ResolveWFFCStorageClass(scList *storagev1.StorageClassList) (*storagev1.Sto
 
 // ResolveImmediateStorageClass returns the Immediate StorageClass for block-device tests.
 // When IMMEDIATE_STORAGE_CLASS is set, that StorageClass is returned. Otherwise the class
-// is derived from the default StorageClass: the default itself when it uses Immediate
-// binding, or another StorageClass on the same CSI driver when the default uses
-// WaitForFirstConsumer. Returns nil when no default StorageClass is configured and the
-// env var is unset, or when auto-detection finds no matching StorageClass.
+// is derived from the main StorageClass (STORAGE_CLASS_NAME or the cluster default): the
+// main class itself when it uses Immediate binding, or another StorageClass on the same
+// CSI driver when it uses WaitForFirstConsumer. Returns nil when no main StorageClass is
+// resolvable and the env var is unset, or when auto-detection finds no matching
+// StorageClass.
 func ResolveImmediateStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
 	if sc, err := resolveStorageClassFromEnv(scList, ImmediateStorageClassEnv); err != nil || sc != nil {
 		return sc, err
 	}
 
-	defaultSC := FindDefaultStorageClass(scList)
-	if defaultSC == nil {
+	mainSC, err := ResolveTemplateStorageClass(scList)
+	if err != nil {
+		return nil, err
+	}
+	if mainSC == nil {
 		return nil, nil
 	}
 
-	if IsImmediateBinding(defaultSC) {
-		return defaultSC, nil
+	if IsImmediateBinding(mainSC) {
+		return mainSC, nil
 	}
 
-	if IsWFFCBinding(defaultSC) {
-		return FindStorageClassWithProvisionerAndBinding(scList, defaultSC.Provisioner, false), nil
+	if IsWFFCBinding(mainSC) {
+		return FindStorageClassWithProvisionerAndBinding(scList, mainSC.Provisioner, false), nil
 	}
 
 	return nil, nil
@@ -230,7 +226,9 @@ func ResolveTemplateStorageClass(scList *storagev1.StorageClassList) (*storagev1
 }
 
 // SetStorageClasses discovers cluster StorageClasses and populates Config.StorageClass fields.
-// TemplateStorageClass is taken from StorageClassNameEnv when set, otherwise DefaultStorageClass is used.
+// TemplateStorageClass is taken from StorageClassNameEnv when set, otherwise DefaultStorageClass
+// is used; it is the main StorageClass the derived (WFFC, Immediate, different-CSI) classes are
+// anchored to.
 func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client) error {
 	var scList storagev1.StorageClassList
 	if err := k8sClient.List(ctx, &scList); err != nil {
@@ -238,6 +236,14 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 	}
 
 	c.StorageClass.DefaultStorageClass = FindDefaultStorageClass(&scList)
+
+	templateSC, err := ResolveTemplateStorageClass(&scList)
+	if err != nil {
+		return err
+	}
+	if templateSC != nil {
+		c.StorageClass.TemplateStorageClass = templateSC
+	}
 
 	wffcSC, err := ResolveWFFCStorageClass(&scList)
 	if err != nil {
@@ -251,22 +257,14 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 	}
 	c.StorageClass.ImmediateStorageClass = immediateSC
 
-	if c.StorageClass.WFFCStorageClass != nil {
+	if templateSC != nil {
 		var csiDrivers storagev1.CSIDriverList
 		if err := k8sClient.List(ctx, &csiDrivers); err != nil {
 			return fmt.Errorf("failed to list CSIDrivers: %w", err)
 		}
 		c.StorageClass.DifferentCSIDriverStorageClass = FindStorageClassWithDifferentProvisioner(
-			&scList, &csiDrivers, c.StorageClass.WFFCStorageClass.Provisioner,
+			&scList, &csiDrivers, templateSC.Provisioner,
 		)
-	}
-
-	templateSC, err := ResolveTemplateStorageClass(&scList)
-	if err != nil {
-		return err
-	}
-	if templateSC != nil {
-		c.StorageClass.TemplateStorageClass = templateSC
 	}
 
 	return nil

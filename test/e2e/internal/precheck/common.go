@@ -55,6 +55,7 @@ type specReport struct {
 	ContainerHierarchyLabels [][]string `json:"ContainerHierarchyLabels"`
 	LeafNodeText             string     `json:"LeafNodeText"`
 	LeafNodeType             string     `json:"LeafNodeType"`
+	State                    string     `json:"State"`
 }
 
 // Precheck defines interface for precheck implementations.
@@ -107,6 +108,12 @@ func LoadSpecLabelsFromFile(filename, labelFilter string) {
 				continue
 			}
 
+			// The dry-run report includes specs filtered out by --focus/--label-filter
+			// with the "skipped" state; their labels must not trigger prechecks.
+			if r.State == "skipped" {
+				continue
+			}
+
 			location := ""
 			if len(r.ContainerHierarchyTexts) > 0 {
 				location = r.ContainerHierarchyTexts[0]
@@ -134,13 +141,12 @@ func LoadSpecLabelsFromFile(filename, labelFilter string) {
 		}
 	}
 
-	// Filter specs based on FOCUS or LABELS filter.
-	// FOCUS filters by spec location (description), LABELS filters by labels.
-	// Parameter labelFilter takes precedence over LABELS env var.
-	focusRegex := os.Getenv("FOCUS")
-	if labelFilter == "" {
-		labelFilter = os.Getenv("LABELS")
-	}
+	// Filter specs by the actual run configuration reported by ginkgo itself
+	// (--focus / --label-filter), so the selection works no matter how the flags
+	// were passed. The focus regexps filter by spec location (description), the
+	// label filter by labels.
+	suiteConfig, _ := GinkgoConfiguration()
+	focusRegex := strings.Join(suiteConfig.FocusStrings, "|")
 
 	filteredSpecs := allSpecs
 	if focusRegex != "" || labelFilter != "" {

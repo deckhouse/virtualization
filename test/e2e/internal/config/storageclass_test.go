@@ -124,47 +124,83 @@ func TestResolveWFFCStorageClass(t *testing.T) {
 		},
 	}}
 
-	got, err := ResolveWFFCStorageClass(scList)
-	if err != nil {
-		t.Fatalf("ResolveWFFCStorageClass() error = %v", err)
-	}
-	if got == nil || got.Name != "rv-thin-r1-wffc" {
-		t.Fatalf("ResolveWFFCStorageClass() = %#v, want rv-thin-r1-wffc", got)
-	}
+	t.Run("derives from the immediate default StorageClass", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
 
-	scList.Items[0].VolumeBindingMode = &wffc
-	scList.Items[0].Annotations = map[string]string{
-		"storageclass.kubernetes.io/is-default-class": "true",
-	}
-	scList.Items[1].VolumeBindingMode = &immediate
+		got, err := ResolveWFFCStorageClass(scList)
+		if err != nil {
+			t.Fatalf("ResolveWFFCStorageClass() error = %v", err)
+		}
+		if got == nil || got.Name != "rv-thin-r1-wffc" {
+			t.Fatalf("ResolveWFFCStorageClass() = %#v, want rv-thin-r1-wffc", got)
+		}
+	})
 
-	got, err = ResolveWFFCStorageClass(scList)
-	if err != nil {
-		t.Fatalf("ResolveWFFCStorageClass() error = %v", err)
-	}
-	if got == nil || got.Name != "rv-thin-r1" {
-		t.Fatalf("ResolveWFFCStorageClass() = %#v, want rv-thin-r1", got)
-	}
+	t.Run("returns the default StorageClass when it is WFFC", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
 
-	t.Setenv(WFFCStorageClassEnv, "rv-thin-r1-wffc")
-	got, err = ResolveWFFCStorageClass(scList)
-	if err != nil {
-		t.Fatalf("ResolveWFFCStorageClass() with env error = %v", err)
-	}
-	if got == nil || got.Name != "rv-thin-r1-wffc" {
-		t.Fatalf("ResolveWFFCStorageClass() with env = %#v, want rv-thin-r1-wffc", got)
-	}
+		flipped := scList.DeepCopy()
+		flipped.Items[0].VolumeBindingMode = &wffc
+		flipped.Items[1].VolumeBindingMode = &immediate
 
-	t.Setenv(WFFCStorageClassEnv, "missing-sc")
-	if _, err := ResolveWFFCStorageClass(scList); err == nil {
-		t.Fatal("ResolveWFFCStorageClass() with missing env SC expected error")
-	}
+		got, err := ResolveWFFCStorageClass(flipped)
+		if err != nil {
+			t.Fatalf("ResolveWFFCStorageClass() error = %v", err)
+		}
+		if got == nil || got.Name != "rv-thin-r1" {
+			t.Fatalf("ResolveWFFCStorageClass() = %#v, want rv-thin-r1", got)
+		}
+	})
 
-	t.Setenv(WFFCStorageClassEnv, "")
-	scList.Items[0].Annotations = nil
-	if got, err := ResolveWFFCStorageClass(scList); err != nil || got != nil {
-		t.Fatalf("ResolveWFFCStorageClass() without default = (%#v, %v), want (nil, nil)", got, err)
-	}
+	t.Run("anchors to STORAGE_CLASS_NAME instead of the default StorageClass", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
+
+		// The main StorageClass lives on a different CSI driver than the default one;
+		// the WFFC class must derive from the main class, not from the default.
+		withOtherDriver := scList.DeepCopy()
+		withOtherDriver.Items = append(withOtherDriver.Items,
+			storagev1.StorageClass{
+				ObjectMeta:        metav1.ObjectMeta{Name: "local"},
+				Provisioner:       "local.csi.storage.deckhouse.io",
+				VolumeBindingMode: &immediate,
+			},
+			storagev1.StorageClass{
+				ObjectMeta:        metav1.ObjectMeta{Name: "local-wffc"},
+				Provisioner:       "local.csi.storage.deckhouse.io",
+				VolumeBindingMode: &wffc,
+			},
+		)
+
+		t.Setenv(StorageClassNameEnv, "local")
+		got, err := ResolveWFFCStorageClass(withOtherDriver)
+		if err != nil {
+			t.Fatalf("ResolveWFFCStorageClass() with %s error = %v", StorageClassNameEnv, err)
+		}
+		if got == nil || got.Name != "local-wffc" {
+			t.Fatalf("ResolveWFFCStorageClass() with %s = %#v, want local-wffc", StorageClassNameEnv, got)
+		}
+
+		// Pointing STORAGE_CLASS_NAME directly at a WFFC class returns that class.
+		t.Setenv(StorageClassNameEnv, "local-wffc")
+		got, err = ResolveWFFCStorageClass(withOtherDriver)
+		if err != nil {
+			t.Fatalf("ResolveWFFCStorageClass() with WFFC %s error = %v", StorageClassNameEnv, err)
+		}
+		if got == nil || got.Name != "local-wffc" {
+			t.Fatalf("ResolveWFFCStorageClass() with WFFC %s = %#v, want local-wffc", StorageClassNameEnv, got)
+		}
+	})
+
+	t.Run("returns nil without default and env", func(t *testing.T) {
+		unsetStorageClassNameEnv(t)
+
+		withoutDefault := scList.DeepCopy()
+		withoutDefault.Items[0].Annotations = nil
+
+		if got, err := ResolveWFFCStorageClass(withoutDefault); err != nil || got != nil {
+			t.Fatalf("ResolveWFFCStorageClass() without default = (%#v, %v), want (nil, nil)", got, err)
+		}
+	})
 }
 
 func unsetStorageClassNameEnv(t *testing.T) {
@@ -182,6 +218,8 @@ func unsetStorageClassNameEnv(t *testing.T) {
 }
 
 func TestResolveImmediateStorageClass(t *testing.T) {
+	unsetStorageClassNameEnv(t)
+
 	wffc := storagev1.VolumeBindingWaitForFirstConsumer
 	immediate := storagev1.VolumeBindingImmediate
 	provisioner := "replicated.csi.storage.deckhouse.io"

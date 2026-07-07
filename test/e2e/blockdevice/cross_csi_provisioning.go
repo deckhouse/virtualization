@@ -29,6 +29,7 @@ import (
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -53,9 +54,10 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 		f.Before()
 		DeferCleanup(f.After)
 
-		// Sources live on the immediate StorageClass: they are provisioned standalone
-		// (no VM consumer), and on a WFFC StorageClass they would never become Ready.
-		scPtr = immediateStorageClass()
+		// Sources live on the main StorageClass, whatever its volume binding mode:
+		// images provision standalone on any mode, and WaitForFirstConsumer disks
+		// are provisioned through a temporary VM consumer (see readySourceVD).
+		scPtr = mainStorageClass()
 		differentSCPtr = differentCSIDriverStorageClass()
 	})
 
@@ -80,13 +82,7 @@ var _ = Describe("CrossCSIDriverProvisioning", Label(precheck.PrecheckDifferentC
 	})
 
 	It("rejects creating a VirtualImage from a VirtualDisk backed by a different CSI driver", Label(precheck.PrecheckDifferentCSIDriverStorageClass), func() {
-		sourceVD := vdbuilder.New(
-			vdbuilder.WithName("vd-source-main-csi"),
-			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
-			vdbuilder.WithStorageClass(scPtr),
-		)
-		createVirtualDiskAndWait(ctx, f, sourceVD)
+		sourceVD := readySourceVD(ctx, f, scPtr, "vd-source-main-csi")
 
 		target := vibuilder.New(
 			vibuilder.WithName("vi-from-vd-cross-csi"),
@@ -261,6 +257,44 @@ func readyConditionMessage(conds []metav1.Condition) string {
 	return ""
 }
 
+// mainStorageClass returns a pointer to the name of the main StorageClass the suite is
+// pointed at (STORAGE_CLASS_NAME or the cluster default), with no constraint on its
+// volume binding mode. Its presence is enforced by
+// precheck.PrecheckDifferentCSIDriverStorageClass.
+func mainStorageClass() *string {
+	GinkgoHelper()
+
+	sc := framework.GetConfig().StorageClass.TemplateStorageClass
+	Expect(sc).NotTo(BeNil(),
+		"main StorageClass not found: set %s or configure a default StorageClass (enforced by the %q precheck)",
+		config.StorageClassNameEnv, precheck.PrecheckDifferentCSIDriverStorageClass)
+
+	return ptr.To(sc.Name)
+}
+
+// readySourceVD provisions a source VirtualDisk on sc and returns it Ready and
+// unattached, regardless of the storage class volume binding mode: an Immediate disk
+// provisions standalone, while a WaitForFirstConsumer one is provisioned through a
+// temporary VirtualMachine consumer that is deleted once the disk detaches (see
+// createSourceVirtualDiskAndWait).
+func readySourceVD(ctx context.Context, f *framework.Framework, sc *string, name string) *v1alpha2.VirtualDisk {
+	GinkgoHelper()
+
+	if storageClassIsWaitForFirstConsumer(ctx, f, ptr.Deref(sc, "")) {
+		return createSourceVirtualDiskAndWait(ctx, f, name, sc)
+	}
+
+	sourceVD := vdbuilder.New(
+		vdbuilder.WithName(name),
+		vdbuilder.WithNamespace(f.Namespace().Name),
+		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
+		vdbuilder.WithStorageClass(sc),
+	)
+	createVirtualDiskAndWait(ctx, f, sourceVD)
+
+	return sourceVD
+}
+
 // differentCSIDriverStorageClass returns a pointer to the name of a StorageClass backed
 // by a different CSI driver than the main one. Its presence and distinct CSI driver are
 // enforced by precheck.PrecheckDifferentCSIDriverStorageClass.
@@ -277,17 +311,12 @@ func differentCSIDriverStorageClass() *string {
 }
 
 // createSourceSnapshotOnMainSC provisions a VirtualDisk on the main storage class and a
-// ready VirtualDiskSnapshot of it, returning the snapshot.
+// ready VirtualDiskSnapshot of it, returning the snapshot. The disk is unattached by the
+// time it is snapshotted, so the snapshot is consistent on any volume binding mode.
 func createSourceSnapshotOnMainSC(ctx context.Context, f *framework.Framework, sc *string, vdName, snapshotName string) *v1alpha2.VirtualDiskSnapshot {
 	GinkgoHelper()
 
-	sourceVD := vdbuilder.New(
-		vdbuilder.WithName(vdName),
-		vdbuilder.WithNamespace(f.Namespace().Name),
-		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageTestDataQCOW}),
-		vdbuilder.WithStorageClass(sc),
-	)
-	createVirtualDiskAndWait(ctx, f, sourceVD)
+	sourceVD := readySourceVD(ctx, f, sc, vdName)
 
 	snapshot := vdsnapshotbuilder.New(
 		vdsnapshotbuilder.WithName(snapshotName),

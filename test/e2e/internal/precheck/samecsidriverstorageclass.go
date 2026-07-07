@@ -64,8 +64,9 @@ func (c *sameCSIDriverStorageClassPrecheck) Run(ctx context.Context, f *framewor
 	}
 	if wffcSC == nil || immediateSC == nil {
 		return fmt.Errorf(
-			"%s=no to disable this precheck: both the WFFC StorageClass (%s) and the immediate StorageClass (%s) must be configured",
-			sameCSIDriverStorageClassPrecheckEnvName, config.WFFCStorageClassEnv, config.ImmediateStorageClassEnv,
+			"%s=no to disable this precheck: both the WFFC and the immediate StorageClasses must be resolvable "+
+				"from the main StorageClass (%s or the cluster default); the immediate one can be overridden with %s",
+			sameCSIDriverStorageClassPrecheckEnvName, config.StorageClassNameEnv, config.ImmediateStorageClassEnv,
 		)
 	}
 
