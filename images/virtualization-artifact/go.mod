@@ -40,6 +40,8 @@ require (
 	sigs.k8s.io/yaml v1.6.0
 )
 
+require github.com/golang-jwt/jwt/v5 v5.2.2
+
 require (
 	cel.dev/expr v0.25.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect

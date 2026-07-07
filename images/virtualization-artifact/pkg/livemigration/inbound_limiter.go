@@ -97,28 +97,6 @@ func (l *InboundMigrationLimiter) TryAcquire(kvvmi *virtv1.VirtualMachineInstanc
 	return true
 }
 
-// ReleaseVMI frees any slots held by migrations of the given VMI on any node.
-// It covers the case when the VMI is deleted mid-migration: the regular release
-// path never observes a terminal migrationState, so without this the slot would
-// leak until the controller restarts.
-func (l *InboundMigrationLimiter) ReleaseVMI(namespace, name string) {
-	prefix := fmt.Sprintf("%s/%s/", namespace, name)
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	for node, owners := range l.slots {
-		for owner := range owners {
-			if strings.HasPrefix(owner, prefix) {
-				delete(owners, owner)
-			}
-		}
-		if len(owners) == 0 {
-			delete(l.slots, node)
-		}
-	}
-}
-
 // Release frees the slot held by the migration owning kvvmi on targetNode.
 // It is idempotent: releasing a slot that is not held is a no-op.
 func (l *InboundMigrationLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, targetNode string) {
@@ -140,6 +118,29 @@ func (l *InboundMigrationLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, 
 	delete(owners, owner)
 	if len(owners) == 0 {
 		delete(l.slots, targetNode)
+	}
+}
+
+// ReleaseByKVVMI frees any slot held by the given VMI on any node, regardless of
+// the migration UID. A deleted VMI can no longer have an active migration, so
+// dropping every owner keyed by this VMI is safe. This covers the case where a
+// VMI is removed before its migration reaches a terminal state, which would
+// otherwise leak the slot and starve subsequent inbound migrations to that node.
+func (l *InboundMigrationLimiter) ReleaseByKVVMI(namespace, name string) {
+	prefix := namespace + "/" + name + "/"
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for targetNode, owners := range l.slots {
+		for owner := range owners {
+			if strings.HasPrefix(owner, prefix) {
+				delete(owners, owner)
+			}
+		}
+		if len(owners) == 0 {
+			delete(l.slots, targetNode)
+		}
 	}
 }
 

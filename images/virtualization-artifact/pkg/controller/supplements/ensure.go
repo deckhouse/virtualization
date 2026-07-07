@@ -30,6 +30,7 @@ import (
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
 
 type DataSource interface {
@@ -41,7 +42,7 @@ type DataSource interface {
 // EnsureForPod make supplements for importer or uploader Pod:
 // - It creates ConfigMap with caBundle for http and containerImage data sources.
 // - It copies DVCR auth Secret to use DVCR as destination.
-func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings) error {
+func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings, scope []registrytoken.Access) error {
 	// Create ConfigMap with caBundle.
 	if ds.HasCABundle() {
 		caBundleCM := supGen.CABundleConfigMap()
@@ -55,23 +56,15 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 		}
 	}
 
-	// Create Secret with auth config to use DVCR as destination.
-	if ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
-		authSecret := supGen.DVCRAuthSecret()
-		authCopier := copier.AuthSecret{
-			Secret: copier.Secret{
-				Source: types.NamespacedName{
-					Name:      dvcrSettings.AuthSecret,
-					Namespace: dvcrSettings.AuthSecretNamespace,
-				},
-				Destination:    authSecret,
-				OwnerReference: podutil.MakeOwnerReference(pod),
-			},
-		}
-		err := authCopier.Copy(ctx, client)
-		if err != nil {
-			return err
-		}
+	// Create Secret with a scoped token to use DVCR as destination.
+	authCopier := copier.AuthSecret{
+		Secret: copier.Secret{
+			Destination:    supGen.DVCRAuthSecret(),
+			OwnerReference: podutil.MakeOwnerReference(pod),
+		},
+	}
+	if err := authCopier.CreateScopedTokenDockerConfig(ctx, client, dvcrSettings.TokenSigner, scope, dvcrSettings.RegistryURL); err != nil {
+		return err
 	}
 
 	// Copy imagePullSecret if namespaces are differ (e.g. CVMI).
@@ -94,14 +87,6 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 	// TODO(future): ensure ca ConfigMap and auth Secret for proxy.
 
 	return nil
-}
-
-func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen Generator) bool {
-	if dvcrSettings.AuthSecret == "" {
-		return false
-	}
-	// Should copy if namespaces are different.
-	return dvcrSettings.AuthSecretNamespace != supGen.Namespace()
 }
 
 func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen Generator) bool {

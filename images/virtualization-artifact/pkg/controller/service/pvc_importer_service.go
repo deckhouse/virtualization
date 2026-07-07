@@ -40,6 +40,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
 
 const (
@@ -112,7 +113,7 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		return s.importFromPVC(ctx, target, source, owner, sup, nodePlacement)
 	}
 
-	if err := s.ensureSupplements(ctx, target, owner, sup); err != nil {
+	if err := s.ensureSupplements(ctx, target, source, sup); err != nil {
 		return err
 	}
 
@@ -389,10 +390,10 @@ func (s *PVCImporterService) CleanUp(ctx context.Context, sup supplements.Genera
 	return deleted, nil
 }
 
-// ensureSupplements copies the DVCR auth secret and CA bundle into the
-// target's namespace under stable supplemental names, owned by target so
-// they get garbage-collected together with it.
-func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *corev1.PersistentVolumeClaim, _ client.Object, supGen supplements.Generator) error {
+// ensureSupplements mints a scoped DVCR auth secret and copies the CA bundle
+// into the target's namespace under stable supplemental names, owned by target
+// so they get garbage-collected together with it.
+func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, supGen supplements.Generator) error {
 	if s.dvcrSettings == nil {
 		return nil
 	}
@@ -406,19 +407,18 @@ func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *core
 		BlockOwnerDeletion: ptr.To(true),
 	}
 
-	if s.dvcrSettings.AuthSecret != "" {
+	// The pvc-importer only reads from DVCR (it writes to a PVC), so the token
+	// is scoped to pull-only access on the source repository.
+	if source != nil && source.Registry != nil && source.Registry.URL != "" {
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
-				Source: types.NamespacedName{
-					Name:      s.dvcrSettings.AuthSecret,
-					Namespace: s.dvcrSettings.AuthSecretNamespace,
-				},
 				Destination:    supGen.DVCRAuthSecretForDV(),
 				OwnerReference: ownerRef,
 			},
 		}
-		if err := authCopier.CopyCDICompatible(ctx, s.client, s.dvcrSettings.RegistryURL); err != nil {
-			return fmt.Errorf("copy dvcr auth secret: %w", err)
+		scope := []registrytoken.Access{repoAccess(s.dvcrSettings.RepoPath(source.Registry.URL), "pull")}
+		if err := authCopier.CreateScopedTokenCDI(ctx, s.client, s.dvcrSettings.TokenSigner, scope); err != nil {
+			return fmt.Errorf("create scoped dvcr auth secret: %w", err)
 		}
 	}
 
