@@ -72,7 +72,7 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, Label(precheck.PrecheckSn
 	It("should prepare environment", func() {
 		By("create vm", func() {
 			vd = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-				vdbuilder.WithSize(ptr.To(resource.MustParse("512Mi"))),
+				vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
 			)
 
 			vm = object.NewMinimalVM("vmsop-origin-", f.Namespace().Name,
