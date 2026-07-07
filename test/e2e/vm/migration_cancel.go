@@ -91,7 +91,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	Expect(err).NotTo(HaveOccurred())
 
 	util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-	util.UntilSSHReady(f, vm, framework.LongTimeout)
+	util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 
 	By("Create memory pressure inside the virtual machine")
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, stressngCmd)
@@ -117,7 +117,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	// The VMOP stays Pending until virt-controller grants a migration slot
 	// (parallelMigrationsPerCluster/parallelOutboundMigrationsPerNode), which
 	// takes minutes when parallel specs keep long-running migrations busy.
-	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.LongTimeout, evictVMOP)
+	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, evictVMOP)
 
 	By("Ensure the KVVMI has a migration state")
 	untilKVVMIMigrationStateExists(ctx, framework.MiddleTimeout, vm)
@@ -131,7 +131,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	// delivers the abort signal to the VMI only once the migration reaches the
 	// Running phase — under stress-ng load the target preparation alone can take
 	// minutes, so the graceful cancellation needs the long timeout too.
-	util.UntilObjectsDeleted(ctx, framework.LongTimeout, evictVMOP)
+	util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, evictVMOP)
 
 	By("Ensure stress-ng error log is empty")
 	err = checkStressNGErrorLogIsEmpty(f, vm)

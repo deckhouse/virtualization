@@ -279,7 +279,7 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 
 			By("Wait until the virtual machine is accessible via SSH after migration.")
 			for vm := range vmOriginalDiskCount {
-				util.UntilSSHReady(f, vm, framework.LongTimeout)
+				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 			}
 
 			By("Check that the disk count of the virtual machine is equal to the disk count before migration.")
@@ -305,8 +305,8 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 		})
 
 		By("Check VM can reach external network", func() {
-			util.UntilSSHReady(f, vmBIOS, framework.LongTimeout)
-			util.UntilSSHReady(f, vmUEFI, framework.LongTimeout)
+			util.UntilSSHReady(f, vmBIOS, framework.MiddleTimeout)
+			util.UntilSSHReady(f, vmUEFI, framework.MiddleTimeout)
 			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalConnectivityHosts)
 			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalConnectivityHosts)
 		})

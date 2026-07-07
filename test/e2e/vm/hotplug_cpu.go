@@ -179,7 +179,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.MaxTimeout)
 	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmop)
 
-	util.UntilSSHReady(t.Framework, t.VM, framework.LongTimeout)
+	util.UntilSSHReady(t.Framework, t.VM, framework.MiddleTimeout)
 
 	By("Checking changed CPU configuration")
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -239,7 +239,7 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 		util.ExpectVMOnNode(ctx, t.Framework, t.VM, initialNode)
 	}
 
-	util.UntilSSHReady(t.Framework, t.VM, framework.LongTimeout)
+	util.UntilSSHReady(t.Framework, t.VM, framework.MiddleTimeout)
 
 	By("Checking changed CPU configuration")
 	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)

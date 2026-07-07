@@ -82,7 +82,7 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
-			util.UntilSSHReady(f, t.VM, framework.LongTimeout)
+			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			util.UntilGuestCommandsReady(f, t.VM, []string{"sudo", "tee", "udevadm"}, framework.LongTimeout)
 		})
 

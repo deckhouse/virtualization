@@ -107,7 +107,7 @@ var _ = Describe("DiskAttachment", Label(precheck.NoPrecheck), func() {
 			By("Wait for resources to be ready", func() {
 				util.UntilObjectPhase(ctx, expectedDiskPhase, framework.LongTimeout, vdBlank)
 				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-				util.UntilSSHReady(f, vm, framework.LongTimeout)
+				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 			})
 		})
 
