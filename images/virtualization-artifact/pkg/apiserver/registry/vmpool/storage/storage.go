@@ -22,6 +22,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	genericreq "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	vmpoolrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/rest"
@@ -31,9 +32,11 @@ import (
 )
 
 // VirtualMachinePoolStorage is the meta-object storage for VirtualMachinePool in
-// the subresources API group. The meta-object itself is not served (Get returns
-// NotFound); clients always address a subresource such as scaleDownWith.
+// the subresources API group. Clients normally address a subresource such as
+// scaleDownWith; Get is served only so the meta-object resolves for an existing
+// pool, mirroring the VirtualMachine storage.
 type VirtualMachinePoolStorage struct {
+	client        virtclient.Interface
 	scaleDownWith *vmpoolrest.ScaleDownWithREST
 }
 
@@ -47,6 +50,7 @@ var (
 
 func NewStorage(c virtclient.Interface) *VirtualMachinePoolStorage {
 	return &VirtualMachinePoolStorage{
+		client:        c,
 		scaleDownWith: vmpoolrest.NewScaleDownWithREST(c),
 	}
 }
@@ -78,8 +82,22 @@ func (store VirtualMachinePoolStorage) GetSingularName() string {
 	return "virtualmachinepool"
 }
 
-// Get implements rest.Getter. The meta-object is intentionally not served — the
-// client must address a subresource (see package doc / ADR).
-func (store VirtualMachinePoolStorage) Get(_ context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
-	return nil, k8serrors.NewNotFound(subresources.Resource("virtualmachinepools"), name)
+// Get implements rest.Getter. Like the VirtualMachine storage, it returns a
+// meta-object for a pool that exists and NotFound only when it truly does not.
+func (store VirtualMachinePoolStorage) Get(ctx context.Context, name string, opts *metav1.GetOptions) (runtime.Object, error) {
+	namespace := genericreq.NamespaceValue(ctx)
+	pool, err := store.client.VirtualizationV1alpha2().VirtualMachinePools(namespace).Get(ctx, name, *opts)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, k8serrors.NewNotFound(subresources.Resource("virtualmachinepools"), name)
+		}
+		return nil, k8serrors.NewInternalError(err)
+	}
+	return &subresources.VirtualMachinePool{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: subresources.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachinePool",
+		},
+		ObjectMeta: pool.ObjectMeta,
+	}, nil
 }
