@@ -1,0 +1,11 @@
+# ElasticStorageClass backed by Ceph RBD, replica-2.
+# AvailabilityWithoutConsistency == replica-2 (more usable space, host failure-domain).
+# Creates a K8s StorageClass (provisioner rbd.csi.ceph.com) plus a VolumeSnapshotClass.
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: ElasticStorageClass
+metadata:
+  name: nested-ceph-rbd
+spec:
+  clusterRef: elastic
+  type: RBD
+  replication: AvailabilityWithoutConsistency
