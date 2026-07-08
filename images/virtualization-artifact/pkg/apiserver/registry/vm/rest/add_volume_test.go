@@ -53,8 +53,8 @@ func TestGenMutateRequestHookBus(t *testing.T) {
 	if cdrom.Disk.CDRom == nil {
 		t.Fatal("expected CDRom device for cdrom hotplug")
 	}
-	if cdrom.Disk.CDRom.Bus != virtv1.DiskBusSCSI {
-		t.Errorf("cdrom bus = %q, want scsi", cdrom.Disk.CDRom.Bus)
+	if cdrom.Disk.CDRom.Bus != virtv1.DiskBusUSB {
+		t.Errorf("cdrom bus = %q, want usb", cdrom.Disk.CDRom.Bus)
 	}
 
 	disk := hotplugBus(t, &subresources.VirtualMachineAddVolume{VolumeKind: "VirtualDisk", Name: "vd", PVCName: "pvc"})

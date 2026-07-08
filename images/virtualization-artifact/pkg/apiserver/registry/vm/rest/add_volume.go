@@ -100,8 +100,15 @@ func (r AddVolumeREST) requestFromKubevirt(opts *subresources.VirtualMachineAddV
 func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAddVolume) (mutateRequestHook, error) {
 	var dd virtv1.DiskDevice
 	if opts.IsCdrom {
+		// Hot-plug CD-ROMs on the USB bus (usb-storage): the inbox Windows USB
+		// Mass Storage driver (usbstor.sys) enumerates them via plug-and-play with
+		// no rescan and no virtio-scsi driver, so a running Windows guest (Server or
+		// Desktop) sees the media the moment it is attached. The xhci controller is
+		// always present (added for the tablet input device). Boot/install ISOs are
+		// unaffected: they stay cold-plug on SATA (see kvbuilder presets) because
+		// usb-cdrom is not a UEFI-bootable device under OVMF.
 		dd.CDRom = &virtv1.CDRomTarget{
-			Bus: virtv1.DiskBusSCSI,
+			Bus: virtv1.DiskBusUSB,
 		}
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
