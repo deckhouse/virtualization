@@ -68,7 +68,7 @@ func (s Sources) Changed(_ context.Context, vi *v1alpha2.VirtualImage) bool {
 
 func (s Sources) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error) {
 	var requeue bool
-	var reason string
+	var reasons []string
 
 	for _, source := range s.sources {
 		sourceRequeue, sourceReason, err := source.CleanUp(ctx, vi)
@@ -77,7 +77,12 @@ func (s Sources) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, 
 		}
 
 		requeue = requeue || sourceRequeue
-		reason = service.MergeCleanUpReasons(reason, sourceReason)
+		reasons = append(reasons, sourceReason)
+	}
+
+	reason := service.MergeCleanUpReasons(reasons...)
+	if requeue && reason == "" {
+		reason = service.DefaultCleanUpReason
 	}
 
 	return requeue, reason, nil

@@ -21,10 +21,8 @@ import (
 	"errors"
 	"log/slog"
 	"sort"
-	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -70,9 +68,6 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		}
 
 		if requeue {
-			if reason == "" {
-				reason = "Waiting for cleanup to finish"
-			}
 			h.setDeletingCondition(vd, vdcondition.DeletionCleanupPending, reason)
 			log.Info("VirtualDisk cleanup is pending", slog.String("reason", reason))
 			return reconcile.Result{RequeueAfter: time.Second}, nil
@@ -94,14 +89,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 }
 
 func (h DeletionHandler) setDeletingCondition(vd *v1alpha2.VirtualDisk, reason vdcondition.DeletingReason, message string) {
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vdcondition.DeletingType).
-			Generation(vd.Generation).
-			Status(metav1.ConditionFalse).
-			Reason(reason).
-			Message(service.CapitalizeFirstLetter(message)+"."),
-		&vd.Status.Conditions,
-	)
+	service.SetDeletingCondition(&vd.Status.Conditions, vdcondition.DeletingType, reason, vd.Generation, message)
 }
 
 func (h DeletionHandler) cleanupPersistentVolumeClaims(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
@@ -132,12 +120,5 @@ func deletionBlockedByProtectionMessage(vd *v1alpha2.VirtualDisk) string {
 
 	sort.Strings(mountedVMs)
 
-	switch len(mountedVMs) {
-	case 0:
-		return "The VirtualDisk is protected from deletion by the protection finalizer"
-	case 1:
-		return "The VirtualDisk is protected from deletion because it is attached to VirtualMachine " + mountedVMs[0]
-	default:
-		return "The VirtualDisk is protected from deletion because it is attached to VirtualMachines: " + strings.Join(mountedVMs, ", ")
-	}
+	return service.DeletionBlockedByProtectionMessage("VirtualDisk", mountedVMs)
 }

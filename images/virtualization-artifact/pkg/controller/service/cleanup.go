@@ -20,8 +20,15 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 )
+
+// DefaultCleanUpReason is the reason reported while a resource cleanup is still
+// in progress but no more specific reason was produced.
+const DefaultCleanUpReason = "Waiting for cleanup to finish"
 
 func CleanUpReasonForObject(action string, obj client.Object) string {
 	if obj == nil {
@@ -49,4 +56,31 @@ func MergeCleanUpReasons(reasons ...string) string {
 	}
 
 	return strings.Join(merged, "; ")
+}
+
+// DeletionBlockedByProtectionMessage builds the human-readable message reported on
+// the Deleting condition when a resource is protected from deletion because it is
+// attached to one or more VirtualMachines.
+func DeletionBlockedByProtectionMessage(resourceKind string, vmNames []string) string {
+	switch len(vmNames) {
+	case 0:
+		return fmt.Sprintf("The %s is protected from deletion by the protection finalizer", resourceKind)
+	case 1:
+		return fmt.Sprintf("The %s is protected from deletion because it is attached to VirtualMachine %s", resourceKind, vmNames[0])
+	default:
+		return fmt.Sprintf("The %s is protected from deletion because it is attached to VirtualMachines: %s", resourceKind, strings.Join(vmNames, ", "))
+	}
+}
+
+// SetDeletingCondition sets a Deleting condition (Status=False) with the provided
+// reason and message. The message is capitalized and terminated with a period.
+func SetDeletingCondition(conds *[]metav1.Condition, conditionType, reason conditions.Stringer, generation int64, message string) {
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(conditionType).
+			Generation(generation).
+			Status(metav1.ConditionFalse).
+			Reason(reason).
+			Message(CapitalizeFirstLetter(message)+"."),
+		conds,
+	)
 }

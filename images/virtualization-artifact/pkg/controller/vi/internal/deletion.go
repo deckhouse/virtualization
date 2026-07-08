@@ -19,11 +19,8 @@ package internal
 import (
 	"context"
 	"log/slog"
-	"sort"
-	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -56,7 +53,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) 
 
 	if vi.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(vi, v1alpha2.FinalizerVIProtection) {
-			attachedVMs, err := h.attachedVirtualMachineNames(ctx, vi)
+			attachedVMs, err := commonvm.MountedVirtualMachineNames(ctx, h.client, v1alpha2.ImageDevice, vi.GetName(), vi.GetNamespace(), false)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -64,7 +61,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) 
 			h.setDeletingCondition(
 				vi,
 				vicondition.DeletionBlockedByProtection,
-				deletionBlockedByProtectionMessage(attachedVMs),
+				service.DeletionBlockedByProtectionMessage("VirtualImage", attachedVMs),
 			)
 			return reconcile.Result{}, nil
 		}
@@ -75,9 +72,6 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) 
 		}
 
 		if requeue {
-			if reason == "" {
-				reason = "Waiting for cleanup to finish"
-			}
 			h.setDeletingCondition(vi, vicondition.DeletionCleanupPending, reason)
 			log.Info("VirtualImage cleanup is pending", slog.String("reason", reason))
 			return reconcile.Result{RequeueAfter: time.Second}, nil
@@ -95,48 +89,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) 
 }
 
 func (h DeletionHandler) setDeletingCondition(vi *v1alpha2.VirtualImage, reason vicondition.DeletingReason, message string) {
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vicondition.DeletingType).
-			Generation(vi.Generation).
-			Status(metav1.ConditionFalse).
-			Reason(reason).
-			Message(service.CapitalizeFirstLetter(message)+"."),
-		&vi.Status.Conditions,
-	)
-}
-
-func (h DeletionHandler) attachedVirtualMachineNames(ctx context.Context, vi *v1alpha2.VirtualImage) ([]string, error) {
-	var vms v1alpha2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.ListOptions{Namespace: vi.GetNamespace()})
-	if err != nil {
-		return nil, err
-	}
-
-	var attachedVMs []string
-	for _, vm := range vms.Items {
-		_, mounted, err := commonvm.BlockDeviceUsage(ctx, h.client, vm, v1alpha2.ImageDevice, vi.GetName())
-		if err != nil {
-			return nil, err
-		}
-
-		if mounted {
-			attachedVMs = append(attachedVMs, vm.Name)
-		}
-	}
-
-	sort.Strings(attachedVMs)
-	return attachedVMs, nil
-}
-
-func deletionBlockedByProtectionMessage(attachedVMs []string) string {
-	switch len(attachedVMs) {
-	case 0:
-		return "The VirtualImage is protected from deletion by the protection finalizer"
-	case 1:
-		return "The VirtualImage is protected from deletion because it is attached to VirtualMachine " + attachedVMs[0]
-	default:
-		return "The VirtualImage is protected from deletion because it is attached to VirtualMachines: " + strings.Join(attachedVMs, ", ")
-	}
+	service.SetDeletingCondition(&vi.Status.Conditions, vicondition.DeletingType, reason, vi.Generation, message)
 }
 
 func (h DeletionHandler) Name() string {

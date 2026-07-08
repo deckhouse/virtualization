@@ -23,7 +23,6 @@ import (
 	"log/slog"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -94,14 +93,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 }
 
 func (h *DeletionHandler) setDeletingCondition(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, reason vmbdacondition.DeletingReason, message string) {
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmbdacondition.DeletingType).
-			Generation(vmbda.Generation).
-			Status(metav1.ConditionFalse).
-			Reason(reason).
-			Message(service.CapitalizeFirstLetter(message)+"."),
-		&vmbda.Status.Conditions,
-	)
+	service.SetDeletingCondition(&vmbda.Status.Conditions, vmbdacondition.DeletingType, reason, vmbda.Generation, message)
 }
 
 func detachPendingMessage(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) string {
