@@ -207,13 +207,13 @@ spec:
   code: VIRT_COMPONENT_CREATED
   category: Runtime
   severity: Low
-  description: "Virtualization component pod created in d8-virtualization namespace"
-  descriptionRu: "Под компонента виртуализации создан в неймспейсе d8-virtualization"
+  description: "Virtualization component created"
+  descriptionRu: "Компонент виртуализации создан"
   metadata:
     docs:
       desc:
-        en: "Detected creation of a virtualization component pod (e.g. virt-controller, virt-api)."
-        ru: "Обнаружено создание пода компонента виртуализации (например, virt-controller, virt-api)."
+        en: "Detected creation of a virtualization component (e.g. virt-controller, virt-api)."
+        ru: "Обнаружено создание компонента виртуализации (например, virt-controller, virt-api)."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -256,13 +256,13 @@ spec:
   code: VIRT_COMPONENT_DELETED
   category: Runtime
   severity: Medium
-  description: "Virtualization component pod deleted in d8-virtualization namespace"
-  descriptionRu: "Под компонента виртуализации удалён из неймспейса d8-virtualization"
+  description: "Virtualization component deleted"
+  descriptionRu: "Компонент виртуализации удалён"
   metadata:
     docs:
       desc:
-        en: "Detected deletion of a virtualization component pod."
-        ru: "Обнаружено удаление пода компонента виртуализации."
+        en: "Detected deletion of a virtualization component."
+        ru: "Обнаружено удаление компонента виртуализации."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -322,6 +322,8 @@ spec:
       required: true
     - name: actor.id
       required: false
+    - name: object.name
+      required: false
     - name: object.uid
       required: false
     - name: object.name
@@ -374,6 +376,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -428,6 +432,8 @@ spec:
       required: true
     - name: actor.id
       required: false
+    - name: object.name
+      required: false
     - name: object.uid
       required: false
     - name: object.name
@@ -468,13 +474,13 @@ spec:
   code: VIRT_VM_STARTED
   category: Runtime
   severity: Low
-  description: "Virtual machine started via VirtualMachineOperation"
-  descriptionRu: "Виртуальная машина запущена через VirtualMachineOperation"
+  description: "Virtual machine started"
+  descriptionRu: "Виртуальная машина запущена"
   metadata:
     docs:
       desc:
-        en: "A user started a virtual machine via VirtualMachineOperation resource (type=Start)."
-        ru: "Пользователь запустил виртуальную машину через ресурс VirtualMachineOperation (type=Start)."
+        en: "A user started a virtual machine."
+        ru: "Пользователь запустил виртуальную машину."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -482,6 +488,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -521,13 +529,13 @@ spec:
   code: VIRT_VM_STOPPED
   category: Runtime
   severity: Medium
-  description: "Virtual machine stopped via VirtualMachineOperation"
-  descriptionRu: "Виртуальная машина остановлена через VirtualMachineOperation"
+  description: "Virtual machine stopped"
+  descriptionRu: "Виртуальная машина остановлена"
   metadata:
     docs:
       desc:
-        en: "A user stopped a virtual machine via VirtualMachineOperation resource (type=Stop)."
-        ru: "Пользователь остановил виртуальную машину через ресурс VirtualMachineOperation (type=Stop)."
+        en: "A user stopped a virtual machine."
+        ru: "Пользователь остановил виртуальную машину."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -535,6 +543,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -574,13 +584,13 @@ spec:
   code: VIRT_VM_RESTARTED
   category: Runtime
   severity: Medium
-  description: "Virtual machine restarted via VirtualMachineOperation"
-  descriptionRu: "Виртуальная машина перезагружена через VirtualMachineOperation"
+  description: "Virtual machine restarted"
+  descriptionRu: "Виртуальная машина перезагружена"
   metadata:
     docs:
       desc:
-        en: "A user restarted a virtual machine via VirtualMachineOperation resource (type=Restart)."
-        ru: "Пользователь перезагрузил виртуальную машину через ресурс VirtualMachineOperation (type=Restart)."
+        en: "A user restarted a virtual machine."
+        ru: "Пользователь перезагрузил виртуальную машину."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -588,6 +598,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -627,13 +639,13 @@ spec:
   code: VIRT_VM_MIGRATED
   category: Runtime
   severity: Medium
-  description: "Virtual machine migrated via VirtualMachineOperation"
-  descriptionRu: "Виртуальная машина мигрирована через VirtualMachineOperation"
+  description: "Virtual machine migrated"
+  descriptionRu: "Виртуальная машина мигрирована"
   metadata:
     docs:
       desc:
-        en: "A user initiated migration of a virtual machine via VirtualMachineOperation resource (type=Migrate)."
-        ru: "Пользователь инициировал миграцию виртуальной машины через ресурс VirtualMachineOperation (type=Migrate)."
+        en: "A user initiated migration of a virtual machine."
+        ru: "Пользователь инициировал миграцию виртуальной машины."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -641,6 +653,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -680,13 +694,13 @@ spec:
   code: VIRT_VM_EVICTED
   category: Runtime
   severity: Medium
-  description: "Virtual machine evicted via VirtualMachineOperation"
-  descriptionRu: "Виртуальная машина выселена через VirtualMachineOperation"
+  description: "Virtual machine evicted"
+  descriptionRu: "Виртуальная машина выселена"
   metadata:
     docs:
       desc:
-        en: "A user initiated eviction of a virtual machine via VirtualMachineOperation resource (type=Evict)."
-        ru: "Пользователь инициировал выселение виртуальной машины через ресурс VirtualMachineOperation (type=Evict)."
+        en: "A user initiated eviction of a virtual machine."
+        ru: "Пользователь инициировал выселение виртуальной машины."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -694,6 +708,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -740,8 +756,8 @@ spec:
   metadata:
     docs:
       desc:
-        en: "A user established a connection to a virtual machine console (subresource=console). Both connection initiation and completion are recorded."
-        ru: "Пользователь установил соединение с консолью виртуальной машины (subresource=console). Фиксируется как инициация, так и завершение соединения."
+        en: "A user established a connection to a virtual machine console. Both connection initiation and completion are recorded."
+        ru: "Пользователь установил соединение с консолью виртуальной машины. Фиксируется как инициация, так и завершение соединения."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -749,6 +765,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -793,8 +811,8 @@ spec:
   metadata:
     docs:
       desc:
-        en: "A user established a VNC connection to a virtual machine (subresource=vnc). Both connection initiation and completion are recorded."
-        ru: "Пользователь установил VNC-соединение с виртуальной машиной (subresource=vnc). Фиксируется как инициация, так и завершение соединения."
+        en: "A user established a VNC connection to a virtual machine. Both connection initiation and completion are recorded."
+        ru: "Пользователь установил VNC-соединение с виртуальной машиной. Фиксируется как инициация, так и завершение соединения."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -802,6 +820,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -846,8 +866,8 @@ spec:
   metadata:
     docs:
       desc:
-        en: "A user established a port-forward connection to a virtual machine (subresource=portforward). Both connection initiation and completion are recorded."
-        ru: "Пользователь установил соединение с виртуальной машиной через проброс портов (subresource=portforward). Фиксируется как инициация, так и завершение соединения."
+        en: "A user established a port-forward connection to a virtual machine. Both connection initiation and completion are recorded."
+        ru: "Пользователь установил соединение с виртуальной машиной через проброс портов. Фиксируется как инициация, так и завершение соединения."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -855,6 +875,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -896,13 +918,13 @@ spec:
   code: VIRT_VM_CREATED
   category: Runtime
   severity: Low
-  description: "Virtual machine created via API"
-  descriptionRu: "Виртуальная машина создана через API"
+  description: "Virtual machine created"
+  descriptionRu: "Виртуальная машина создана"
   metadata:
     docs:
       desc:
-        en: "A user created a virtual machine via API (verb=create on virtualmachines resource)."
-        ru: "Пользователь создал виртуальную машину через API (verb=create на ресурсе virtualmachines)."
+        en: "A user created a virtual machine."
+        ru: "Пользователь создал виртуальную машину."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -910,6 +932,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -949,13 +973,13 @@ spec:
   code: VIRT_VM_UPDATED
   category: Runtime
   severity: Low
-  description: "Virtual machine updated via API"
-  descriptionRu: "Виртуальная машина обновлена через API"
+  description: "Virtual machine updated"
+  descriptionRu: "Виртуальная машина обновлена"
   metadata:
     docs:
       desc:
-        en: "A user updated a virtual machine configuration via API (verb=update/patch)."
-        ru: "Пользователь обновил конфигурацию виртуальной машины через API (verb=update/patch)."
+        en: "A user updated a virtual machine configuration."
+        ru: "Пользователь обновил конфигурацию виртуальной машины."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -963,6 +987,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -1002,13 +1028,13 @@ spec:
   code: VIRT_VM_DELETED
   category: Runtime
   severity: Medium
-  description: "Virtual machine deleted via API"
-  descriptionRu: "Виртуальная машина удалена через API"
+  description: "Virtual machine deleted"
+  descriptionRu: "Виртуальная машина удалена"
   metadata:
     docs:
       desc:
-        en: "A user deleted a virtual machine via API (verb=delete)."
-        ru: "Пользователь удалил виртуальную машину через API (verb=delete)."
+        en: "A user deleted a virtual machine."
+        ru: "Пользователь удалил виртуальную машину."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -1016,6 +1042,8 @@ spec:
     - name: source.component
       required: true
     - name: actor.id
+      required: false
+    - name: object.name
       required: false
     - name: object.uid
       required: false
@@ -1108,13 +1136,13 @@ spec:
   code: VIRT_FORBIDDEN_OPERATION
   category: Auth
   severity: High
-  description: "User attempted a forbidden operation on a virtualization resource"
-  descriptionRu: "Пользователь попытался выполнить запрещённую операцию над ресурсом виртуализации"
+  description: "User attempted a forbidden operation"
+  descriptionRu: "Пользователь попытался выполнить запрещённую операцию"
   metadata:
     docs:
       desc:
-        en: "A user attempted an operation that was denied by the access policy (admission webhook returned a forbid decision). The event includes the source IP, the forbid reason, and whether the user is an administrator."
-        ru: "Пользователь попытался выполнить операцию, которая была запрещена политикой доступа (admission webhook вернул решение forbid). Событие включает IP-адрес источника, причину запрета и признак того, является ли пользователь администратором."
+        en: "A user attempted an operation that was denied by the access policy. The event includes the source IP, the forbid reason, and whether the user is an administrator."
+        ru: "Пользователь попытался выполнить операцию, которая была запрещена политикой доступа. Событие включает IP-адрес источника, причину запрета и признак того, является ли пользователь администратором."
   source: virtualization-audit
   fields:
     - name: event.code
@@ -1165,7 +1193,17 @@ spec:
     parser:
       - name: virtualization-audit
         parser:
-          type: JSON
+          type: Regex
+          regex:
+            # Pattern 1: VM events — extracts vm_name from "Virtual machine '<name>' ..." in the name field.
+            patterns:
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"[^"]*Virtual machine ''(?P<vm_name>[^'']+)''[^"]*".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"action_type":"(?P<action_type>[^"]+)".*"node_network_address":"(?P<node_network_address>[^"]+)".*"virtualmachine_uid":"(?P<virtualmachine_uid>[^"]+)".*"virtualmachine_os":"(?P<virtualmachine_os>[^"]+)".*"storageclasses":"(?P<storageclasses>[^"]+)".*"qemu_version":"(?P<qemu_version>[^"]+)".*"libvirt_version":"(?P<libvirt_version>[^"]+)".*'
+              # Pattern 2: Integrity check — extracts vm_name from virtual_machine_name JSON field.
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"(?P<name>[^"]+)".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"object_type":"(?P<object_type>[^"]+)".*"virtual_machine_name":"(?P<virtual_machine_name>[^"]+)".*"control_method":"(?P<control_method>[^"]+)".*"reaction_type":"(?P<reaction_type>[^"]+)".*"integrity_check_algo":"(?P<integrity_check_algo>[^"]+)".*"reference_checksum":"(?P<reference_checksum>[^"]+)".*"current_checksum":"(?P<current_checksum>[^"]+)".*'
+              # Pattern 3: Module control / Virtualization control — extracts component name.
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"(?P<name>[^"]+)".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"action_type":"(?P<action_type>[^"]+)".*"component":"(?P<component>[^"]+)".*"node_network_address":"(?P<node_network_address>[^"]+)".*"virtualization_version":"(?P<virtualization_version>[^"]+)".*"virtualization_name":"(?P<virtualization_name>[^"]+)".*"qemu_version":"(?P<qemu_version>[^"]+)".*"libvirt_version":"(?P<libvirt_version>[^"]+)".*'
+              # Pattern 4: Forbidden operation — extracts is_admin, source_ip, forbid_reason.
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"(?P<name>[^"]+)".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"is_admin":(?P<is_admin>true|false).*"source_ip":"(?P<source_ip>[^"]+)".*"forbid_reason":"(?P<forbid_reason>[^"]+)".*'
         drop_raw: false
     producesDefaults:
       transform:
