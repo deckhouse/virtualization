@@ -107,6 +107,14 @@ const (
 	// AnnVMRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
 	AnnVMRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 
+	// AnnVMRestorePowerState is an annotation on VirtualMachine that records the VM power state captured before a
+	// restore operation, so restore restores it. It is kept on the VM (not the KVVM, which is deleted during the
+	// restore maintenance window) so it survives KVVM recreation. The value is a MachinePhase string:
+	// "Running" means start the VM again after restore (see checkNeedStartVM); "Stopped" means keep it stopped,
+	// which for AlwaysOnUnlessStoppedManually requires overriding the implicit RunStrategy=Always on KVVM create
+	// (see createKVVM) to honor the "unless stopped manually" contract.
+	AnnVMRestorePowerState = AnnAPIGroupV + "/restore-power-state"
+
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"
 	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"
