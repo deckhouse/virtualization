@@ -17,20 +17,15 @@ limitations under the License.
 package legacy
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
@@ -110,9 +105,6 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), Label(precheck.NoPrech
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-			})
-			By("Pinning the `VirtualMachine` to the PVC-backed image node and starting it", func() {
-				pinVMToPVCImageNodeAndStart(ns, testCaseLabel)
 			})
 			By(fmt.Sprintf("`VirtualDisk` should be in the %q phase", v1alpha2.DiskReady), func() {
 				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
@@ -298,112 +290,6 @@ var _ = Describe("ImageHotplug", Ordered, label.Legacy(), Label(precheck.NoPrech
 type Image struct {
 	Kind string
 	Name string
-}
-
-// pinVMToPVCImageNodeAndStart pins the test VirtualMachine to the node where the
-// PVC-backed VirtualImage was provisioned and then starts it.
-//
-// The suite may run on a node-local StorageClass (e.g. sds-replicated-volume with
-// allowRemoteVolumeAccess=false): such a volume is usable only on the node holding
-// its data replica, and the PV carries the matching node affinity. The image's PVC
-// is provisioned on an arbitrary node (wherever its importer/bounder pod lands),
-// so if the VM scheduled independently, the vmbda webhook (PVNodeAffinityValidator)
-// would reject the hotplug with "the disk is not available on node ... where the VM
-// is running" whenever the nodes diverge. To make the attach possible by
-// construction, the VM manifest is applied with runPolicy AlwaysOff; once the
-// images are Ready we read the node from the image PV's affinity, set it as the
-// VM's nodeSelector and switch the VM on. The root VirtualDisk provisions only
-// after the VM is scheduled (WaitForFirstConsumer), so it lands on the same node.
-func pinVMToPVCImageNodeAndStart(ns string, labels map[string]string) {
-	GinkgoHelper()
-
-	ctx := context.Background()
-	genericClient := framework.GetClients().GenericClient()
-
-	viObjs := &v1alpha2.VirtualImageList{}
-	err := GetObjects(v1alpha2.VirtualImageResource, viObjs, kc.GetOptions{
-		Labels:    labels,
-		Namespace: ns,
-	})
-	Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualImages`: %s", err)
-
-	node := ""
-	for _, viObj := range viObjs.Items {
-		if viObj.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
-			continue
-		}
-		node = nodeOfPVC(ctx, ns, viObj.Status.Target.PersistentVolumeClaim)
-		if node != "" {
-			break
-		}
-	}
-
-	vmObjs := &v1alpha2.VirtualMachineList{}
-	err = GetObjects(v1alpha2.VirtualMachineResource, vmObjs, kc.GetOptions{
-		Labels:    labels,
-		Namespace: ns,
-	})
-	Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualMachines`: %s", err)
-	Expect(vmObjs.Items).NotTo(BeEmpty())
-
-	for i := range vmObjs.Items {
-		vmObj := &vmObjs.Items[i]
-		patched := vmObj.DeepCopy()
-		if node != "" {
-			if patched.Spec.NodeSelector == nil {
-				patched.Spec.NodeSelector = map[string]string{}
-			}
-			patched.Spec.NodeSelector[corev1.LabelHostname] = node
-		}
-		patched.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
-		err = genericClient.Patch(ctx, patched, crclient.MergeFrom(vmObj))
-		Expect(err).NotTo(HaveOccurred(), "failed to pin and start `VirtualMachine` %q: %s", vmObj.Name, err)
-	}
-}
-
-// nodeOfPVC returns the node the PVC's volume is pinned to, extracted from the
-// PV node affinity, or "" when the volume has no node affinity (shared storage).
-func nodeOfPVC(ctx context.Context, ns, pvcName string) string {
-	GinkgoHelper()
-
-	if pvcName == "" {
-		return ""
-	}
-
-	genericClient := framework.GetClients().GenericClient()
-
-	pvc := &corev1.PersistentVolumeClaim{}
-	err := genericClient.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: ns}, pvc)
-	Expect(err).NotTo(HaveOccurred(), "failed to get PVC %s/%s: %s", ns, pvcName, err)
-	if pvc.Spec.VolumeName == "" {
-		return ""
-	}
-
-	pv := &corev1.PersistentVolume{}
-	err = genericClient.Get(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, pv)
-	Expect(err).NotTo(HaveOccurred(), "failed to get PV %q: %s", pvc.Spec.VolumeName, err)
-
-	if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
-		return ""
-	}
-
-	// The affinity key is CSI-specific (kubernetes.io/hostname,
-	// storage.deckhouse.io/sds-replicated-volume-hostname, ...), but for the
-	// node-local storage classes used by e2e its values are node names.
-	var candidates []string
-	for _, term := range pv.Spec.NodeAffinity.Required.NodeSelectorTerms {
-		for _, expr := range term.MatchExpressions {
-			if expr.Operator == corev1.NodeSelectorOpIn {
-				candidates = append(candidates, expr.Values...)
-			}
-		}
-	}
-	if len(candidates) == 0 {
-		return ""
-	}
-
-	sort.Strings(candidates)
-	return candidates[0]
 }
 
 func IsBlockDeviceCdRom(vmNamespace, vmName, blockDeviceName string) (bool, error) {
