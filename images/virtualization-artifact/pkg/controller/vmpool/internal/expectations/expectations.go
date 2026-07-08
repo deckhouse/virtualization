@@ -105,7 +105,7 @@ func (e *Expectations) ExpectCreations(key string, n int) {
 // ExpectDeletions records that the controller has just deleted the children
 // with the given UIDs for key and expects to observe their deletion events. It
 // resets the expectation's timestamp.
-func (e *Expectations) ExpectDeletions(key string, uids []types.UID) {
+func (e *Expectations) ExpectDeletions(key string, uids ...types.UID) {
 	if len(uids) == 0 {
 		return
 	}

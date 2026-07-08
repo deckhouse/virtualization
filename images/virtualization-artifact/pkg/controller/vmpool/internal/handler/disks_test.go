@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	testingclock "k8s.io/utils/clock/testing"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
@@ -299,7 +300,7 @@ var _ = Describe("DisksHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		h := NewDisksHandler(c)
-		h.now = func() time.Time { return referenceTime }
+		h.clock = testingclock.NewFakePassiveClock(referenceTime)
 		_, err = h.Handle(ctx, pool)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -360,7 +361,7 @@ var _ = Describe("DisksHandler", func() {
 
 		handlerAt := func(c client.Client, now time.Time) *DisksHandler {
 			h := NewDisksHandler(c)
-			h.now = func() time.Time { return now }
+			h.clock = testingclock.NewFakePassiveClock(now)
 			return h
 		}
 

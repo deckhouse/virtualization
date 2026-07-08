@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -119,7 +119,7 @@ func (h *SyncHandler) scaleUp(ctx context.Context, pool *v1alpha2.VirtualMachine
 	// before we start waiting for it.
 	h.exp.ExpectCreations(key, n)
 	var errs error
-	for i := 0; i < n; i++ {
+	for range n {
 		vm := h.newMember(pool)
 		if err := h.client.Create(ctx, vm); err != nil {
 			// This creation will never be observed — stop waiting for it.
@@ -164,7 +164,7 @@ func (h *SyncHandler) scaleDown(ctx context.Context, pool *v1alpha2.VirtualMachi
 	for i := range victims {
 		uids = append(uids, victims[i].GetUID())
 	}
-	h.exp.ExpectDeletions(key, uids)
+	h.exp.ExpectDeletions(key, uids...)
 
 	var errs error
 	for i := range victims {
@@ -192,13 +192,12 @@ func pickVictims(policy v1alpha2.ScaleDownPolicy, candidates []v1alpha2.VirtualM
 		return nil
 	}
 	oldestFirst := policy == v1alpha2.ScaleDownPolicyOldestFirst
-	sort.SliceStable(candidates, func(i, j int) bool {
-		ti := candidates[i].GetCreationTimestamp().Time
-		tj := candidates[j].GetCreationTimestamp().Time
+	slices.SortStableFunc(candidates, func(a, b v1alpha2.VirtualMachine) int {
+		c := a.GetCreationTimestamp().Compare(b.GetCreationTimestamp().Time)
 		if oldestFirst {
-			return ti.Before(tj)
+			return c
 		}
-		return tj.Before(ti) // NewestFirst: youngest removed first
+		return -c // NewestFirst: youngest removed first
 	})
 	if n > len(candidates) {
 		n = len(candidates)
@@ -209,6 +208,8 @@ func pickVictims(policy v1alpha2.ScaleDownPolicy, candidates []v1alpha2.VirtualM
 func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.VirtualMachine {
 	tmpl := pool.Spec.VirtualMachineTemplate
 
+	// +3 for the managed labels stamped below: pool-uid and pool (via
+	// poollabels.Member) plus the template-hash.
 	labels := make(map[string]string, len(tmpl.Metadata.Labels)+3)
 	for k, v := range tmpl.Metadata.Labels {
 		labels[k] = v

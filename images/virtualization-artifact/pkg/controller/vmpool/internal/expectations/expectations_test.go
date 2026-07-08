@@ -80,7 +80,7 @@ var _ = Describe("Expectations", func() {
 
 		It("is unsatisfied until every expected UID is observed deleted", func() {
 			e := New()
-			e.ExpectDeletions(key, []types.UID{uidA, uidB})
+			e.ExpectDeletions(key, uidA, uidB)
 			Expect(e.Satisfied(key)).To(BeFalse())
 
 			e.DeletionObserved(key, uidA)
@@ -92,7 +92,7 @@ var _ = Describe("Expectations", func() {
 
 		It("is not fooled by duplicate or unrelated deletion events", func() {
 			e := New()
-			e.ExpectDeletions(key, []types.UID{uidA})
+			e.ExpectDeletions(key, uidA)
 
 			// An unrelated UID must not satisfy the expectation.
 			e.DeletionObserved(key, types.UID("unrelated"))
@@ -111,7 +111,7 @@ var _ = Describe("Expectations", func() {
 		It("requires both to be cleared", func() {
 			e := New()
 			e.ExpectCreations(key, 1)
-			e.ExpectDeletions(key, []types.UID{"x"})
+			e.ExpectDeletions(key, "x")
 
 			e.CreationObserved(key)
 			Expect(e.Satisfied(key)).To(BeFalse()) // deletion still pending
