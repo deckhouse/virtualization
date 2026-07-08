@@ -261,6 +261,21 @@ func (s *SpecChanges) UpgradeBlockDeviceChangesToRestartMatching(shouldUpgrade f
 	}
 }
 
+// DowngradeBlockDeviceChangesToApplyImmediateMatching reverts block-device changes
+// that the comparator marked as restart back to apply-immediate when shouldDowngrade
+// reports the change can be applied live. It is the inverse of
+// UpgradeBlockDeviceChangesToRestartMatching and is used to let CD-ROMs (which hot-plug
+// on the USB bus) be attached live on non-paravirtualized guests, where every
+// block-device change is otherwise classified as restart.
+func (s *SpecChanges) DowngradeBlockDeviceChangesToApplyImmediateMatching(shouldDowngrade func(FieldChange) bool) {
+	for i := range s.changes {
+		isBlockDeviceChange := s.changes[i].Path == blockDevicesPath || strings.HasPrefix(s.changes[i].Path, blockDevicesPath+".")
+		if isBlockDeviceChange && s.changes[i].ActionRequired == ActionRestart && (shouldDowngrade == nil || shouldDowngrade(s.changes[i])) {
+			s.changes[i].ActionRequired = ActionApplyImmediate
+		}
+	}
+}
+
 func (s *SpecChanges) UpgradeHotplugComputeChangesToRestart() {
 	s.UpgradeHotplugComputeChangesToRestartWithMessage("")
 }

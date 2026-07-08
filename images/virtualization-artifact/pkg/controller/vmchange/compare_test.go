@@ -751,6 +751,33 @@ func TestUpgradeHotplugComputeChangesToRestart(t *testing.T) {
 	require.Equal(t, []string{quotaReason}, changes.GetRestartMessages())
 }
 
+func TestDowngradeBlockDeviceChangesToApplyImmediateMatching(t *testing.T) {
+	changes := SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "blockDeviceRefs.0", ActionRequired: ActionRestart}, // cdrom -> downgrade
+		FieldChange{Path: "blockDeviceRefs.1", ActionRequired: ActionRestart}, // disk -> keep
+		FieldChange{Path: "cpu.cores", ActionRequired: ActionRestart},         // not a block device -> keep
+	)
+
+	changes.DowngradeBlockDeviceChangesToApplyImmediateMatching(func(c FieldChange) bool {
+		return c.Path == "blockDeviceRefs.0"
+	})
+
+	require.Equal(t, ActionApplyImmediate, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[1].ActionRequired)
+	require.Equal(t, ActionRestart, changes.GetAll()[2].ActionRequired)
+
+	// A nil predicate downgrades every restart block-device change.
+	changes = SpecChanges{}
+	changes.Add(
+		FieldChange{Path: "blockDeviceRefs.0", ActionRequired: ActionRestart},
+		FieldChange{Path: "blockDeviceRefs", ActionRequired: ActionApplyImmediate}, // already immediate -> untouched
+	)
+	changes.DowngradeBlockDeviceChangesToApplyImmediateMatching(nil)
+	require.Equal(t, ActionApplyImmediate, changes.GetAll()[0].ActionRequired)
+	require.Equal(t, ActionApplyImmediate, changes.GetAll()[1].ActionRequired)
+}
+
 func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {
 	t.Helper()
 	var spec v1alpha2.VirtualMachineSpec

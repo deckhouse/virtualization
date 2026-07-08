@@ -160,6 +160,16 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		if !changes.IsEmpty() {
 			kvvmi, kvvmiErr := s.KVVMI(ctx)
 			if kvvmiErr == nil {
+				// A non-paravirtualized guest gets every block-device change classified as
+				// restart by the comparator, but CD-ROMs hot-plug on the USB bus. Downgrade
+				// CD-ROM changes to apply-immediate so they attach/detach live; the restart
+				// upgrade below re-promotes the ones that touch a cold-plug (non-hotpluggable)
+				// volume, e.g. removing a boot ISO that landed on SATA.
+				if !current.Spec.IsParavirtualizationEnabled() {
+					changes.DowngradeBlockDeviceChangesToApplyImmediateMatching(func(change vmchange.FieldChange) bool {
+						return h.blockDeviceChangeIsCdrom(ctx, current, change)
+					})
+				}
 				nonHotpluggableVolumes := nonHotpluggableVolumeRefs(kvvmi)
 				changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
 					return blockDeviceChangeTouchesRefs(change, nonHotpluggableVolumes)
@@ -1214,6 +1224,38 @@ func nonHotpluggableVolumeRefs(kvvmi *virtv1.VirtualMachineInstance) map[nameKin
 	}
 
 	return refs
+}
+
+// blockDeviceChangeIsCdrom reports whether the block device added or removed by the
+// change resolves to a CD-ROM VirtualImage/ClusterVirtualImage. A device that cannot
+// be resolved is treated as non-CD-ROM so the change keeps its restart action.
+func (h *SyncKvvmHandler) blockDeviceChangeIsCdrom(ctx context.Context, vm *v1alpha2.VirtualMachine, change vmchange.FieldChange) bool {
+	refs := append(blockDeviceRefsFromValue(change.CurrentValue), blockDeviceRefsFromValue(change.DesiredValue)...)
+	for _, ref := range refs {
+		if h.blockDeviceRefIsCdrom(ctx, vm.GetNamespace(), ref) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *SyncKvvmHandler) blockDeviceRefIsCdrom(ctx context.Context, namespace string, ref v1alpha2.BlockDeviceSpecRef) bool {
+	switch ref.Kind {
+	case v1alpha2.ImageDevice:
+		vi, err := object.FetchObject(ctx, types.NamespacedName{Name: ref.Name, Namespace: namespace}, h.client, &v1alpha2.VirtualImage{})
+		if err != nil || vi == nil {
+			return false
+		}
+		return vi.Status.CDROM
+	case v1alpha2.ClusterImageDevice:
+		cvi, err := object.FetchObject(ctx, types.NamespacedName{Name: ref.Name}, h.client, &v1alpha2.ClusterVirtualImage{})
+		if err != nil || cvi == nil {
+			return false
+		}
+		return cvi.Status.CDROM
+	default:
+		return false
+	}
 }
 
 func blockDeviceChangeTouchesRefs(change vmchange.FieldChange, refs map[nameKindKey]struct{}) bool {
