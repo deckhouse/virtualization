@@ -4,7 +4,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
   annotations:
-    werf.io/weight: "10"
+    werf.io/weight: "0"
   name: "virtualization-controller-admission-webhook"
 webhooks:
   - name: "vm.virtualization-controller.validate.d8-virtualization"
