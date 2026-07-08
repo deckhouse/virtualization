@@ -74,10 +74,12 @@ elastic_blockdevices_ready() {
 }
 
 # Waits until the ElasticCluster reaches phase Ready and Ceph reports HEALTH_OK.
-# Rook cluster bring-up (mon/mgr/osd) can take many minutes, so the timeout is generous.
+# Rook cluster bring-up (mon/mgr/osd) on nested VMs is slow: with several OSDs per node
+# plus occasional sds-node-configurator restarts a full bring-up can take ~50 min, so the
+# timeout is deliberately generous (240 x 15s = 60 min).
 elastic_cluster_ready() {
   local ec_name="$1"
-  local count=120
+  local count=240
   local phase
   local health
 
@@ -96,7 +98,7 @@ elastic_cluster_ready() {
       echo "[DEBUG] ElasticCluster status"
       kubectl get ec "$ec_name" -o wide || true
       echo "[DEBUG] CephCluster status"
-      kubectl -n d8-csi-ceph get cephcluster -o wide 2>/dev/null || true
+      kubectl get cephcluster -A -o wide 2>/dev/null || true
       echo "[DEBUG] Show queue (first 25 lines)"
       d8 s queue list | head -n25 || echo "No queues"
     fi
@@ -111,7 +113,7 @@ elastic_cluster_ready() {
   kubectl get lvmvolumegroup -o wide || true
   echo "::endgroup::"
   echo "::group::CephCluster"
-  kubectl -n d8-csi-ceph get cephcluster -o yaml 2>/dev/null || true
+  kubectl get cephcluster -A -o yaml 2>/dev/null || true
   echo "::endgroup::"
   echo "::group::deckhouse logs"
   d8 s logs | tail -n 100 || true
