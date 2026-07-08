@@ -203,7 +203,8 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	stopIPerfClient(t.framework, t.iperfClient.vm)
 
 	By("Validating the iperf report spans the module upgrade")
-	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
+	iperfServer := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
+	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath, iperfServer)
 	Expect(isExpectedIPerfReportError(report.Error)).To(BeTrue(), "iperf3 report contains an unexpected error: %q", report.Error)
 
 	upgradeStartedAt, err := strconv.ParseInt(mustGetEnv(releaseUpgradeStartedAtEnv), 10, 64)
