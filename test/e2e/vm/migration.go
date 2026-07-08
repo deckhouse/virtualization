@@ -274,7 +274,7 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 
 				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+			}).WithPolling(time.Second).WithTimeout(framework.MaxTimeout).To(Succeed())
 
 			vmOriginalDiskCount := map[*v1alpha2.VirtualMachine]string{
 				vmBIOS: biosDiskCountOriginal,

@@ -115,7 +115,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 
 		By("Migrate the iPerf server", func() {
 			util.MigrateVirtualMachine(f, iperfServer)
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
+			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(iperfServer), framework.MaxTimeout)
 		})
 
 		By("Wait 10s for packets to be transmitted after migration", func() {

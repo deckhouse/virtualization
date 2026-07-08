@@ -125,7 +125,7 @@ var _ = Describe("VirtualMachineSupersede", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 		// Migration slot contention in parallel e2e runs can keep the VMOP
 		// Pending for a while before the migration actually starts.
-		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.LongTimeout, migrateVMOP)
+		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MaxTimeout, migrateVMOP)
 
 		By("Supersede the Migrate with a " + string(supersederType))
 		superseder := vmopbuilder.New(

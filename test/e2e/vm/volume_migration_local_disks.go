@@ -347,7 +347,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			}
 
 			return slap(vm)
-		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
 		untilVirtualDisksMigrationsFailed(f)
 	},
@@ -480,7 +480,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 				}
 
 				return fmt.Errorf("pending pod is not unschedulable")
-			}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
 			err = f.VirtClient().VirtualMachineOperations(ns).Delete(ctx, vmopName, metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())

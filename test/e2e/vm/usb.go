@@ -115,7 +115,7 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 
 		By("Migrating VM", func() {
 			util.MigrateVirtualMachine(f, t.VM)
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.MaxTimeout)
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)

@@ -139,8 +139,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Wait for migration to complete", func() {
-				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
-				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
+				// MaxTimeout: with parallelMigrationsPerCluster=3 the two VMIMs of this spec
+				// queue behind slow migrations from parallel suites and may wait longer than 300s.
+				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmFoo), framework.MaxTimeout)
+				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBar), framework.MaxTimeout)
 			})
 
 			By("Check Cilium agents after migration", func() {
