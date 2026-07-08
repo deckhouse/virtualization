@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
-fromImage: {{ .ModuleNamePrefix }}distroless
+fromImage: base/distroless
 git:
   {{- include "image mount points" . }}
 import:
@@ -16,99 +16,21 @@ imageSpec:
 ---
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
-altLibs:
-  - libxfs-devel
-  - libpci-devel
-  - libgvnc-devel
-  - libdrm-devel
-  - libxdp-devel
-  - libSDL2-devel
-  - libSDL2_image-devel
-  - libalsa-devel
-  - libpulseaudio-devel
-  - pipewire-libs
-  - pipewire-jack-libs-devel
-  - libsoundio-devel
-  - libjpeg-devel
-  - xkeyboard-config-devel
-  - libgtk+3-devel
-  - libvte
-  - libvte-devel
-  - libvte3-devel
-  - libvirglrenderer-devel
-  - libdbus
-  - libusb-devel
-  - libusb
-  - libbpf-devel
-  - libspice-server-devel
-  - ceph-devel
-  - libnfs-devel
-  - libblkio-devel
-  - libpmem-devel
-  - libdaxctl-devel
-  - libcacard-devel
-  - libusbredir-devel
-  - libepoxy-devel
-  - libgbm-devel
-  - libvitastor-devel
-  - libiscsi-devel
-  - libglusterfs11-api-devel
-  - libvdeplug-devel
-  - libpciaccess-devel
-  - libyajl-devel
-  - sanlock-devel
-  - libpcap-devel
-  - libparted-devel
-  - libdevmapper-devel
-  - libglusterfs-devel
-  - systemtap-sdt-devel
-  - libclocale
-  - libLLVMSPIRVLib-devel
-  - ethtool
-  - fdisk
-  - hwclock
-  - passt
-  - procps
-  - policycoreutils
-  - psmisc
-  - msulogin
-  - strace
-binaries:
-  # GNU utils (required to run swtpm).
-  - /usr/bin/certtool
-  - /usr/bin/gnutls-cli
-  - /usr/bin/ocsptool
-  - /usr/bin/p11tool
-  - /usr/bin/psktool
-  # Xorriso (Creates an image of an ISO9660 filesystem)
-  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
-  # Swtpm
-  - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
-  # Dmidecode
-  - /usr/sbin/biosdecode /usr/sbin/dmidecode
-  # Numactl
-  - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
-  # qemu
-  # commented out due to automatic relocate in `beforeInstall` step
-  # - /usr/bin/elf2dmp
-  # gobuilder
-  - /usr/bin/node-labeller
-  - /usr/bin/vlctl
 packages:
 - swtpm libtpms numactl dmidecode
-- libisoburn libburn libattr libaudit
+- xorriso libburn attr libaudit
 - gnutls acl libbsd libgcrypt libmd
-- util-linux libfuse3 libfuse2 nettle libgsasl
-- libnbd libcap-ng libcapstone libcurl
-- libjson-c5 keyutils libisofs
+- util-linux libfuse nettle
+- libnbd libcap-ng libcapstone curl
+- json-c keyutils libisofs
 - zlib zstd p11-kit
 - libssh libssh2
-- libpixman libqpl rdma-core
+- pixman rdma-core
 - krb5 xz libxml2
 - readline
-- selinux
+- libselinux
 - linux-pam
-- cyrus-sasl2
+- cyrus-sasl
 - snappy
 - libtasn1 libtirpc
 - glib2
@@ -116,15 +38,14 @@ packages:
 - libaio
 - liburing libunistring
 - libslirp ncurses libpng libseccomp
-- systemd multipath-tools bzip2 libnl3
+- systemd multipath-tools bzip2 libnl
 - pcre2
-- glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 libgmp
+- gnu-glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 gmp
 - openldap openssl
-- e2fsprogs libxcrypt lvm2 libjson-glib
-- libvirt
+- e2fsprogs libxcrypt lvm2 json-glib
 - libffi
-- libbrotli libntlm gcc libcap libgpg-error lz4
-- libuserspace-rcu lzo dtc
+- brotli libstdc++ libcap libgpg-error lz4
+- userspace-rcu lzo dtc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -134,7 +55,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: builder/distroless
 git:
   # Add qemu and virtqemud configs
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
@@ -164,10 +85,9 @@ import:
   to: /libvirt-bins
   before: install
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /BINS
+  add: /qemu-img
   to: /qemu-bins
   before: install
-
 # EDK2 (uefi firmware)
 - image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
@@ -207,13 +127,11 @@ import:
   before: setup
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
-  to: /usr/bin
+  to: /relocate/usr/bin
   before: setup
   includePaths:
   - node-labeller
   - vlctl
-
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 
 # Statically built.
 - image: {{ .ModuleNamePrefix }}packages/openssl
@@ -253,73 +171,23 @@ import:
   includePaths:
   - temp_pod
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install -y \
-      {{ $builderDependencies.altLibs | join " " }} \
-      {{ $builderDependencies.altPackages | join " " }}
-
-    {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
-    echo "Install packages"
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
+    echo "Install packages into /relocate"
+    pm install {{ $builderDependencies.packages | join " " }} -d /relocate
 
-    echo "Create folder hierarchy in VBINS"
-    mkdir -p /VBINS/{etc,root}
-    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
+    echo "Copy libvirt and qemu binaries into /relocate"
+    cp -a /libvirt-bins/. /relocate/
+    cp -a /qemu-bins/. /relocate/
+    rm -rf /libvirt-bins /qemu-bins
 
-    echo "=====Copy libvirt binaries to temp folder======"
-    cp -a /libvirt-bins/. /VBINS/
-
-    echo "=====Copy qemu binaries to temp folder======"
-    cp -a /qemu-bins/. /VBINS/
-
-
-    echo "find and copy additional libs"
-    FILES=$(find /VBINS/usr/bin/ -type f)
-    FILES+=" $(find /VBINS/usr/sbin/ -type f)"
-
-    LIBS="/usr/lib64/libbsd.s* /usr/lib64/libnbd.s* /usr/lib64/libfuse3.s*"
-    LIBS+=" /usr/lib64/libjson-c.s* /usr/lib64/libssh.s* /usr/lib64/libssh2.s*"
-    LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
-    LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
-    LIBS+=" /usr/lib64/libisoburn.s* /usr/lib64/libacl.s*"
-    LIBS+=" /usr/lib64/libusb-*"
-
-    echo "Relocate additional libs for files in /VBINS"
-    ./relocate_binaries.sh -i "$FILES" -o /VBINS
-
-    echo "Relocate additional libs to /VBINS"
-    ./relocate_binaries.sh -i "$LIBS" -o /VBINS
-
-    cp -a /VBINS/. /relocate
-
-    echo "Show libs after relocation in /relocate/usr/lib64"
-    ls -la /relocate/usr/lib64
-    # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins}
+    echo "Create runtime folder hierarchy"
+    mkdir -p /relocate/{etc,root}
+    mkdir -p /relocate/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
+  {{- include "rebuild relocate ld cache" . | nindent 2 }}
 
   setup:
   - |
-    echo "Copy binaries to /relocate"
-    ./relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
-
-    echo "Copy additional config swtpm"
-    cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
-
-    echo "Copy xattr config"
-    cp -a /etc/xattr.conf /relocate/etc
-
-    # glibc-gconv-modules
-    # This package contains helper modules necessary to convert data between various charsets
-    cp -a /usr/lib64/gconv /relocate/usr/lib64/gconv
-
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
     echo "root:x:::::::" >> /relocate/etc/shadow
@@ -347,41 +215,6 @@ shell:
     cd /
 
   - |
-    convert_version() {
-      local version="${1#v}"
-      IFS='.' read -r major minor patch <<< "$version"
-      printf "%d%03d\n" "$major" "$minor"
-    }
-
-    libvirt_version=$(convert_version {{ $version }})
-
-    echo "libvirt_version: $libvirt_version"
-
-    SYMLINC_LIST=$(cat <<EOF
-    libvirt.so.0.${libvirt_version}.0        libvirt.so.0
-    libvirt.so.0                             libvirt.so
-    libvirt-qemu.so.0.${libvirt_version}.0   libvirt-qemu.so.0
-    libvirt-qemu.so.0                        libvirt-qemu.so
-    libvirt-lxc.so.0.${libvirt_version}.0    libvirt-lxc.so.0
-    libvirt-lxc.so.0                         libvirt-lxc.so
-    libvirt-admin.so.0.${libvirt_version}.0  libvirt-admin.so.0
-    libvirt-admin.so.0                       libvirt-admin.so
-    EOF
-    )
-
-    cd /relocate
-
-    while IFS= read -r LINE; do
-      echo "Create symlinc for $LINE"
-      TARGET=$(echo $LINE | awk -F' ' '{print $1}')
-      SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
-    done <<< "$SYMLINC_LIST"
-
-    echo "List files in /relocate/usr/local/lib64"
-    ls -la usr/local/lib64
-
-  - |
     cd /relocate
 
     echo "Create symlinks for container-disk"
@@ -392,8 +225,9 @@ shell:
     ln -s var/run run
 
   - |
-    setcap cap_net_bind_service=+ep /relocate/usr/bin/virt-launcher-monitor
-    setcap cap_net_bind_service=+ep /relocate/usr/bin/tini
+    SETCAP="/relocate/lib64/ld-linux-x86-64.so.2 --library-path /relocate/lib64:/relocate/usr/lib:/relocate/usr/lib64 /relocate/usr/sbin/setcap"
+    $SETCAP cap_net_bind_service=+ep /relocate/usr/bin/virt-launcher-monitor
+    $SETCAP cap_net_bind_service=+ep /relocate/usr/bin/tini
 
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
@@ -403,7 +237,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-1.25" }}
+fromImage: builder/golang-1.25
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
@@ -419,20 +253,13 @@ git:
     stageDependencies:
       install:
       - '**/*'
-import:
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 shell:
   install:
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
+    pm install pkgconf libvirt libvirt-devel glib2 glib2-devel openssl libssh -d /
   - mkdir -p /binaries
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - export CGO_ENABLED=1

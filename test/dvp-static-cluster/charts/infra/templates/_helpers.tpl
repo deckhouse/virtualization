@@ -2,7 +2,7 @@
 {{- if contains "release" .Values.namespace -}}
 test: release
 {{- else -}}
-test: nightly-e2e
+test: pr2088
 {{- end -}}
 {{- end }}
 

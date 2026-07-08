@@ -24,28 +24,27 @@ shell:
 
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
-altPackages:
-- pkg-config
-- libtool
-- gcc-c++
-- clang
-- libbpf-devel
 packages:
+- git
+- pkgconf
 - libmnl
 - ncurses
-- libcurl
-- libxml2 libnl3 libssh numactl libjson-c5 libbsd glib2
+- curl
+- libxml2 libnl libssh
+- numactl json-c libbsd
+- glib2 glib2-devel
 - libtirpc libmd util-linux
 - pcre2
-- glibc
-- libvirt
+- openssl
+- libvirt libvirt-devel
+- clang libbpf-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-1.25" }}
+fromImage: builder/golang-1.25
 mount:
 {{- include "mount points for golang builds" . }}
 secrets:
@@ -58,24 +57,10 @@ import:
   add: /src/kubevirt
   to: /kubevirt
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install -y \
-      {{ $builderDependencies.altPackages | join " " }}
-
-  {{- include "alt packages clean" . | nindent 2 }}
-
   install:
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
+    pm install {{ $builderDependencies.packages | join " " }} -d /
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
     cd /kubevirt

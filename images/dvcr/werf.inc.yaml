@@ -19,7 +19,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+fromImage: base/distroless
 git:
   {{- include "image mount points" . }}
 import:
