@@ -322,8 +322,13 @@ func applyBlockDeviceRefs(
 	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
-		// When VM is stopped, update disks unconditionally.
-		if isVmRunning && isParavirtualizationEnabled && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		// When VM is stopped, update disks unconditionally. On a running VM a newly
+		// referenced device is left to the hotplug handler instead of being baked into
+		// the template: for paravirtualized guests that covers every device; for
+		// non-paravirtualized guests only CD-ROMs hot-plug (on USB), so a new non-CD-ROM
+		// device still falls through and is rendered (applied on the next restart).
+		isNewOnRunningVM := isVmRunning && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName })
+		if isNewOnRunningVM && (isParavirtualizationEnabled || isCdromBlockDevice(bd, viByName, cviByName)) {
 			continue
 		}
 

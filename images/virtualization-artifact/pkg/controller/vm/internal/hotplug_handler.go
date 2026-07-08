@@ -57,9 +57,10 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		return reconcile.Result{}, err
 	}
 
-	if !current.Spec.IsParavirtualizationEnabled() {
-		return reconcile.Result{}, nil
-	}
+	// Non-paravirtualized guests keep their disks on the SATA bus, which cannot be
+	// hot-plugged, so only CD-ROMs (attached on the hot-pluggable USB bus) may be
+	// plugged/unplugged live; every other block device change waits for a restart.
+	paravirt := current.Spec.IsParavirtualizationEnabled()
 
 	if current.Status.Phase == v1alpha2.MachineMigrating {
 		log.Info("VM is migrating, skip hotplug")
@@ -123,6 +124,9 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 			log.Info("Block device not ready for hotplug", "kind", key.kind, "name", key.name)
 			continue
 		}
+		if !paravirt && !ad.IsCdrom {
+			continue
+		}
 
 		if err = h.svc.HotPlugDisk(ctx, ad, current, kvvm); err != nil {
 			errs = append(errs, fmt.Errorf("hotplug %s/%s: %w", key.kind, key.name, err))
@@ -139,6 +143,19 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		}
 		if _, ok := pending[vol.name]; ok {
 			continue
+		}
+		// A non-paravirtualized guest only ever hot-plugs CD-ROMs (on the USB bus),
+		// so only a CD-ROM may be unplugged live; cold-plug SATA devices are left for
+		// a restart to remove. A device whose source no longer resolves is skipped.
+		if !paravirt {
+			ad, adErr := h.buildAttachmentDisk(ctx, key, s)
+			if adErr != nil {
+				errs = append(errs, fmt.Errorf("build attachment disk %s/%s: %w", key.kind, key.name, adErr))
+				continue
+			}
+			if ad == nil || !ad.IsCdrom {
+				continue
+			}
 		}
 
 		if err = h.svc.UnplugDisk(ctx, kvvm, vol.name); err != nil {

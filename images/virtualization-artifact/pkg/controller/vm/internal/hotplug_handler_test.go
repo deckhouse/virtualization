@@ -304,6 +304,29 @@ var _ = Describe("HotplugHandler", func() {
 			Expect(mockSvc.UnplugDiskCalls()).To(BeEmpty())
 		})
 
+		It("should hotplug a CD-ROM", func() {
+			const viName = "test-iso"
+			vm := newVM(v1alpha2.MachineRunning, v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.ImageDevice, Name: viName,
+			})
+			vm.Spec.EnableParavirtualization = ptr.To(false)
+			kvvm := newKVVM(nil)
+			kvvmi := newEmptyKVVMI(vmName, vmNamespace)
+			vi := &v1alpha2.VirtualImage{
+				ObjectMeta: metav1.ObjectMeta{Name: viName, Namespace: vmNamespace},
+				Status: v1alpha2.VirtualImageStatus{
+					CDROM: true,
+					Phase: v1alpha2.ImageReady,
+				},
+			}
+
+			result, err := runHandle(vm, kvvm, kvvmi, vi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+			Expect(mockSvc.HotPlugDiskCalls()).To(HaveLen(1))
+			Expect(mockSvc.HotPlugDiskCalls()[0].Ad.IsCdrom).To(BeTrue())
+		})
+
 		It("should not unplug a hotpluggable disk removed from spec", func() {
 			vm := newVM(v1alpha2.MachineRunning)
 			vm.Spec.EnableParavirtualization = ptr.To(false)

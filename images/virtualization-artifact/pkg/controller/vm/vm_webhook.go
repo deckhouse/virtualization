@@ -47,7 +47,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 		validators: []VirtualMachineValidator{
 			validators.NewMetaValidator(client),
 			validators.NewIPAMValidator(client),
-			validators.NewBlockDeviceSpecRefsValidator(),
+			validators.NewBlockDeviceSpecRefsValidator(client),
 			validators.NewSizingPolicyValidator(client),
 			validators.NewBlockDeviceLimiterValidator(blockDeviceService, log),
 			validators.NewAffinityValidator(),

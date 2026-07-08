@@ -20,8 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -30,10 +33,12 @@ type blockDeviceKey struct {
 	Name string
 }
 
-type BlockDeviceSpecRefsValidator struct{}
+type BlockDeviceSpecRefsValidator struct {
+	client client.Client
+}
 
-func NewBlockDeviceSpecRefsValidator() *BlockDeviceSpecRefsValidator {
-	return &BlockDeviceSpecRefsValidator{}
+func NewBlockDeviceSpecRefsValidator(client client.Client) *BlockDeviceSpecRefsValidator {
+	return &BlockDeviceSpecRefsValidator{client: client}
 }
 
 func (v *BlockDeviceSpecRefsValidator) validate(vm *v1alpha2.VirtualMachine) error {
@@ -56,10 +61,14 @@ func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1a
 	return nil, v.validate(vm)
 }
 
-func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	var warnings admission.Warnings
 
-	if !newVM.Spec.IsParavirtualizationEnabled() && hasBlockDeviceChanges(oldVM, newVM) {
+	// Non-paravirtualized guests keep their disks on the SATA bus, which cannot be
+	// hot-plugged, so a block-device change only applies after a restart. CD-ROMs are
+	// the exception: they hot-plug on the USB bus (usbstor) regardless of the virtio
+	// driver, so a change touching only CD-ROMs is applied live and must not warn.
+	if !newVM.Spec.IsParavirtualizationEnabled() && v.hasNonCdromChange(ctx, oldVM, newVM) {
 		warnings = append(warnings, "Hot-plugging block devices with enableParavirtualization=false is not supported. Restart the VM to apply changes.")
 	}
 
@@ -81,7 +90,20 @@ func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) er
 	return nil
 }
 
-func hasBlockDeviceChanges(oldVM, newVM *v1alpha2.VirtualMachine) bool {
+// hasNonCdromChange reports whether any block device added or removed between
+// oldVM and newVM is something other than a CD-ROM. A device whose CD-ROM status
+// cannot be resolved is treated as non-CD-ROM, so the restart warning is emitted
+// conservatively.
+func (v *BlockDeviceSpecRefsValidator) hasNonCdromChange(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) bool {
+	for _, key := range changedBlockDevices(oldVM, newVM) {
+		if !v.isCdrom(ctx, key, newVM.GetNamespace()) {
+			return true
+		}
+	}
+	return false
+}
+
+func changedBlockDevices(oldVM, newVM *v1alpha2.VirtualMachine) []blockDeviceKey {
 	oldRefs := make(map[blockDeviceKey]struct{}, len(oldVM.Spec.BlockDeviceRefs))
 	for _, bd := range oldVM.Spec.BlockDeviceRefs {
 		oldRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
@@ -90,17 +112,38 @@ func hasBlockDeviceChanges(oldVM, newVM *v1alpha2.VirtualMachine) bool {
 	for _, bd := range newVM.Spec.BlockDeviceRefs {
 		newRefs[blockDeviceKey{Kind: bd.Kind, Name: bd.Name}] = struct{}{}
 	}
+
+	var changed []blockDeviceKey
 	for key := range oldRefs {
 		if _, ok := newRefs[key]; !ok {
-			return true
+			changed = append(changed, key)
 		}
 	}
 	for key := range newRefs {
 		if _, ok := oldRefs[key]; !ok {
-			return true
+			changed = append(changed, key)
 		}
 	}
-	return false
+	return changed
+}
+
+func (v *BlockDeviceSpecRefsValidator) isCdrom(ctx context.Context, key blockDeviceKey, namespace string) bool {
+	switch key.Kind {
+	case v1alpha2.ImageDevice:
+		vi, err := object.FetchObject(ctx, types.NamespacedName{Name: key.Name, Namespace: namespace}, v.client, &v1alpha2.VirtualImage{})
+		if err != nil || vi == nil {
+			return false
+		}
+		return vi.Status.CDROM
+	case v1alpha2.ClusterImageDevice:
+		cvi, err := object.FetchObject(ctx, types.NamespacedName{Name: key.Name}, v.client, &v1alpha2.ClusterVirtualImage{})
+		if err != nil || cvi == nil {
+			return false
+		}
+		return cvi.Status.CDROM
+	default:
+		return false
+	}
 }
 
 func (v *BlockDeviceSpecRefsValidator) validateBootOrder(vm *v1alpha2.VirtualMachine) error {

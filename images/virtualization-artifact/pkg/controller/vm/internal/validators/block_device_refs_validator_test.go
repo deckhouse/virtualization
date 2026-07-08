@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -30,7 +31,9 @@ var _ = Describe("BlockDeviceSpecRefsValidator", func() {
 	var validator *validators.BlockDeviceSpecRefsValidator
 
 	BeforeEach(func() {
-		validator = validators.NewBlockDeviceSpecRefsValidator()
+		fakeClient, err := testutil.NewFakeClientWithObjects()
+		Expect(err).NotTo(HaveOccurred())
+		validator = validators.NewBlockDeviceSpecRefsValidator(fakeClient)
 	})
 
 	DescribeTable("ValidateCreate with valid refs", func(refs []v1alpha2.BlockDeviceSpecRef) {
