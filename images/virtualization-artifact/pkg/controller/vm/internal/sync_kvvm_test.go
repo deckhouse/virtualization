@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -322,6 +324,40 @@ var _ = Describe("SyncKvvmHandler", func() {
 			newVM := &v1alpha2.VirtualMachine{}
 			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
 			Expect(newVM.Annotations).NotTo(HaveKey(annotations.AnnVMRestorePowerState))
+		})
+
+		It("keeps the restore intent when KVVM creation fails so a retry can honor it", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineStopped)}
+
+			createFails := interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*virtv1.VirtualMachine); ok {
+						return errors.New("create rejected")
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			}
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(createFails, vm, makeVMIP(), makeVMClass())
+			Expect(err).NotTo(HaveOccurred())
+
+			reconcileObj = reconciler.NewResource(client.ObjectKeyFromObject(vm), fakeClient,
+				func() *v1alpha2.VirtualMachine { return &v1alpha2.VirtualMachine{} },
+				func(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus { return obj.Status })
+			Expect(reconcileObj.Fetch(ctx)).To(Succeed())
+			vmState = state.New(fakeClient, reconcileObj)
+
+			h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+			_, handleErr := h.Handle(ctx, vmState)
+			Expect(handleErr).To(HaveOccurred())
+			Expect(reconcileObj.Update(ctx)).To(Succeed())
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+			Expect(newVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestorePowerState, string(v1alpha2.MachineStopped)))
 		})
 
 		It("starts AlwaysOnUnlessStoppedManually VM on create without the keep-stopped intent", func() {
