@@ -40,7 +40,7 @@ const (
 
 	// WaitForUserUploadTimeout limits how long the uploader waits for the user to start the upload
 	// before the import process is considered failed.
-	WaitForUserUploadTimeout = 30 * time.Minute
+	WaitForUserUploadTimeout = 10 * time.Minute
 )
 
 // WaitForUserUploadTimeoutMessage explains the failure when the upload was not started within WaitForUserUploadTimeout.
