@@ -591,13 +591,13 @@ spec:
                 gpuDevices:
                   description: |
                     Список GPU-устройств для подключения к виртуальной машине.
-                    Устройства запрашиваются по модели GPU.
-                    Для использования требуется feature gate `GPU` и DeviceClass `gpu.deckhouse.io`.
+                    Каждое устройство ссылается на DRA DeviceClass по имени.
+                    Для использования требуется feature gate `GPU`.
                   items:
                     properties:
-                      model:
+                      deviceClassName:
                         description: |
-                          Название продукта GPU, например `NVIDIA H100`.
+                          Имя DRA DeviceClass, который выбирает подключаемый GPU, например `nvidia-h100`.
                       name:
                         description: |
                           Уникальное имя GPU-устройства внутри спецификации виртуальной машины.

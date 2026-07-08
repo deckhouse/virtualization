@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -117,29 +116,22 @@ func buildGPUResourceClaimTemplate(vm *v1alpha2.VirtualMachine, name string, spe
 
 func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1.ResourceClaimTemplateSpec {
 	requestName := kvbuilder.GPUResourceClaimName(device.Name)
-	selector := fmt.Sprintf(
-		`device.attributes["gpu.deckhouse.io"].productName == %s && device.attributes["gpu.deckhouse.io"].deviceType == "physical" && !has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`,
-		strconv.Quote(device.Model),
-	)
 	return resourcev1.ResourceClaimTemplateSpec{
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{
 				Requests: []resourcev1.DeviceRequest{{
 					Name: requestName,
 					Exactly: &resourcev1.ExactDeviceRequest{
-						DeviceClassName: kvbuilder.GPUDeviceClassName,
+						DeviceClassName: device.DeviceClassName,
 						AllocationMode:  resourcev1.DeviceAllocationModeExactCount,
 						Count:           1,
-						Selectors: []resourcev1.DeviceSelector{{
-							CEL: &resourcev1.CELDeviceSelector{Expression: selector},
-						}},
 					},
 				}},
 				Config: []resourcev1.DeviceClaimConfiguration{{
 					Requests: []string{requestName},
 					DeviceConfiguration: resourcev1.DeviceConfiguration{
 						Opaque: &resourcev1.OpaqueDeviceConfiguration{
-							Driver:     kvbuilder.GPUDeviceClassName,
+							Driver:     kvbuilder.GPUDRADriverName,
 							Parameters: runtime.RawExtension{Raw: []byte(`{"apiVersion":"resource.gpu.deckhouse.io/v1alpha1","kind":"VfioDeviceConfig"}`)},
 						},
 					},

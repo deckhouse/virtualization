@@ -46,7 +46,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", Model: "NVIDIA H100"}})
+			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "nvidia-h100"}})
 			validator := NewGPUDevicesValidator(newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)

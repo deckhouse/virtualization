@@ -4021,13 +4021,14 @@ As a result, a VM named `clone-database-prod` and a disk named `clone-database-r
 GPU device passthrough is an experimental feature. It requires the Enterprise Edition (EE), Kubernetes DRA support, and an external GPU DRA provider that publishes GPUs as DRA resources with `gpu.deckhouse.io` device attributes.
 {{< /alert >}}
 
-The virtualization module can attach physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A GPU is requested by product model through the `.spec.gpuDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+The virtualization module can attach physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A GPU is requested by referencing a DRA [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) through the `.spec.gpuDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
 
 GPU device passthrough requires:
 
 - Kubernetes version 1.34 or higher with DRA feature gates required by the cluster configuration.
 - The `GPU` feature gate enabled in the `virtualization` module settings.
-- A GPU DRA provider installed in the cluster that publishes GPUs with `gpu.deckhouse.io` device attributes. The `gpu.deckhouse.io` [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) is created by the module.
+- A GPU DRA provider installed in the cluster that publishes GPUs with `gpu.deckhouse.io` device attributes.
+- A DRA [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) that selects the GPU, referenced from `.spec.gpuDevices[].deviceClassName`.
 
 To enable the module feature gate:
 
@@ -4053,10 +4054,10 @@ spec:
   # ... other VM settings ...
   gpuDevices:
     - name: gpu0
-      model: NVIDIA H100
+      deviceClassName: nvidia-h100
 ```
 
-The `name` field must be unique within `.spec.gpuDevices` and can contain up to 59 DNS-label characters. The `model` field must match the GPU product name exposed by the GPU DRA provider in the `device.attributes["gpu.deckhouse.io"].productName` device attribute.
+The `name` field must be unique within `.spec.gpuDevices` and can contain up to 59 DNS-label characters. The `deviceClassName` field must be the name of an existing DRA `DeviceClass` that selects the GPU to attach.
 
 Changing `.spec.gpuDevices` requires restarting the virtual machine to apply the new configuration.
 

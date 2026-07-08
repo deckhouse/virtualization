@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	GPUNamePrefix      = "gpu-"
-	GPUDeviceClassName = "gpu.deckhouse.io"
+	GPUNamePrefix    = "gpu-"
+	GPUDRADriverName = "gpu.deckhouse.io"
 )
 
 func GPUResourceClaimName(deviceName string) string {

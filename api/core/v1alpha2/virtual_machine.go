@@ -124,8 +124,8 @@ type VirtualMachineSpec struct {
 	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
 	// List of GPU devices to attach to the virtual machine.
-	// Devices are requested by GPU model.
-	// This feature requires the GPU feature gate and the gpu.deckhouse.io DeviceClass.
+	// Each device references a DRA DeviceClass by name.
+	// This feature requires the GPU feature gate.
 	// +kubebuilder:validation:MaxItems:=16
 	// +listType=map
 	// +listMapKey=name
@@ -512,7 +512,7 @@ type USBDeviceSpecRef struct {
 	Name string `json:"name"`
 }
 
-// GPUDeviceSpec requests a GPU device by model.
+// GPUDeviceSpec requests a GPU device by DRA DeviceClass.
 type GPUDeviceSpec struct {
 	// A unique GPU device name inside the virtual machine spec.
 	// The value is used to generate DRA claim and request names.
@@ -520,10 +520,11 @@ type GPUDeviceSpec struct {
 	// +kubebuilder:validation:MaxLength:=59
 	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	Name string `json:"name"`
-	// GPU product name, for example NVIDIA H100.
+	// Name of the DRA DeviceClass that selects the GPU to attach, for example nvidia-h100.
 	// +kubebuilder:validation:MinLength:=1
-	// +kubebuilder:validation:MaxLength:=128
-	Model string `json:"model"`
+	// +kubebuilder:validation:MaxLength:=253
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	DeviceClassName string `json:"deviceClassName"`
 }
 
 // USBDeviceStatusRef represents the status of a USB device attached to the virtual machine.

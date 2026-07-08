@@ -1066,20 +1066,21 @@ spec:
                   x-kubernetes-list-type: map
                   description: |
                     List of GPU devices to attach to the virtual machine.
-                    Devices are requested by GPU model.
-                    This feature requires the GPU feature gate and the gpu.deckhouse.io DeviceClass.
+                    Each device references a DRA DeviceClass by name.
+                    This feature requires the GPU feature gate.
                   items:
                     type: object
                     required:
-                      - model
+                      - deviceClassName
                       - name
                     properties:
-                      model:
+                      deviceClassName:
                         minLength: 1
-                        maxLength: 128
+                        maxLength: 253
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                         description: |
-                          GPU product name, for example NVIDIA H100.
+                          Name of the DRA DeviceClass that selects the GPU to attach, for example nvidia-h100.
                       name:
                         minLength: 1
                         maxLength: 59
