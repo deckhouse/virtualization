@@ -59,6 +59,11 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`productName == "NVIDIA H100"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`deviceType == "physical"`))
 		Expect(request.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring(`!has(device.attributes["gpu.deckhouse.io"].sharingStrategy)`))
+		Expect(template.Spec.Spec.Devices.Config).To(HaveLen(1))
+		config := template.Spec.Spec.Devices.Config[0]
+		Expect(config.Requests).To(ConsistOf(kvbuilder.GPUResourceClaimName("gpu0")))
+		Expect(config.Opaque.Driver).To(Equal(kvbuilder.GPUDeviceClassName))
+		Expect(string(config.Opaque.Parameters.Raw)).To(ContainSubstring(`"kind":"VfioDeviceConfig"`))
 	})
 
 	It("should delete owned GPU ResourceClaimTemplate when annotation is removed", func() {
