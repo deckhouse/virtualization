@@ -63,34 +63,22 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 
 	var errs error
 	for i := range members {
-		m := &members[i]
-		if m.GetDeletionTimestamp() != nil {
+		vm := &members[i]
+		if vm.GetDeletionTimestamp() != nil {
 			continue
 		}
 
 		// Step 1: bring the spec to the desired revision. Keyed on an annotation,
 		// not a spec diff, because the apiserver mutates the spec (defaulting,
 		// id allocation) and a diff would re-patch forever.
-		if m.GetAnnotations()[poollabels.PatchedTemplateHash] != desiredHash {
-			patched := m.DeepCopy()
-			patched.Spec = *tmplSpec.DeepCopy()
-			// Keep the member's own blockDeviceRefs instead of the template's. The
-			// template lists disk-template placeholders (kind VirtualDisk, name = a
-			// virtualDiskTemplates entry) plus any shared images; the disks handler
-			// has already resolved each placeholder to this member's concrete disk
-			// (e.g. "system" -> "web-a-system", or a reuse disk). Re-copying the
-			// template placeholders would dangle (no such disk) and duplicate the
-			// resolved ref. Disk add/remove is reconciled by the disks handler;
-			// blockDeviceRefs edits (reorder, added/removed image) reach a live
-			// replica on its next recreation (rotation/scale-up), like other
-			// disruptive template changes the pool does not force.
-			patched.Spec.BlockDeviceRefs = append([]v1alpha2.BlockDeviceSpecRef(nil), m.Spec.BlockDeviceRefs...)
+		if vm.GetAnnotations()[poollabels.PatchedTemplateHash] != desiredHash {
+			patched := applyTemplateSpec(vm, tmplSpec)
 			if patched.Annotations == nil {
-				patched.Annotations = map[string]string{}
+				patched.Annotations = make(map[string]string)
 			}
 			patched.Annotations[poollabels.PatchedTemplateHash] = desiredHash
 			if err := h.client.Update(ctx, patched); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("patch replica %s to template: %w", m.GetName(), err))
+				errs = errors.Join(errs, fmt.Errorf("patch replica %s to template: %w", vm.GetName(), err))
 			}
 			continue
 		}
@@ -98,22 +86,40 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 		// Step 2: the spec is on the desired revision. Mark the revision label as
 		// effectively applied only once the disruptive part is no longer pending;
 		// while the VM awaits a restart the label stays on the old revision.
-		if awaitingRestart(m) {
+		if awaitingRestart(vm) {
 			continue
 		}
-		if m.GetLabels()[poollabels.TemplateHash] != desiredHash {
-			updated := m.DeepCopy()
+		if vm.GetLabels()[poollabels.TemplateHash] != desiredHash {
+			updated := vm.DeepCopy()
 			if updated.Labels == nil {
-				updated.Labels = map[string]string{}
+				updated.Labels = make(map[string]string)
 			}
 			updated.Labels[poollabels.TemplateHash] = desiredHash
 			if err := h.client.Update(ctx, updated); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("mark replica %s on current template: %w", m.GetName(), err))
+				errs = errors.Join(errs, fmt.Errorf("mark replica %s on current template: %w", vm.GetName(), err))
 			}
 		}
 	}
 
 	return reconcile.Result{}, errs
+}
+
+// applyTemplateSpec returns a copy of vm with its spec brought to the pool
+// template's spec while keeping the member's own blockDeviceRefs. The template
+// lists disk-template placeholders (kind VirtualDisk, name = a virtualDiskTemplates
+// entry) plus any shared images; the disks handler has already resolved each
+// placeholder to this member's concrete disk (e.g. "system" -> "web-a-system", or a
+// reuse disk). Re-copying the template placeholders would dangle (no such disk) and
+// duplicate the resolved ref. Disk add/remove is reconciled by the disks handler;
+// blockDeviceRefs edits (reorder, added/removed image) reach a live replica on its
+// next recreation (rotation/scale-up), like other disruptive template changes the
+// pool does not force.
+func applyTemplateSpec(vm *v1alpha2.VirtualMachine, tmplSpec v1alpha2.VirtualMachineSpec) *v1alpha2.VirtualMachine {
+	patched := vm.DeepCopy()
+	refs := patched.Spec.BlockDeviceRefs
+	patched.Spec = *tmplSpec.DeepCopy()
+	patched.Spec.BlockDeviceRefs = refs
+	return patched
 }
 
 // awaitingRestart reports whether the VM has pending disruptive changes waiting
