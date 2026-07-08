@@ -39,11 +39,17 @@ import (
 )
 
 // quotaExhaustedQuotaName is the name of the project ResourceQuota that
-// blocks every Pod and PersistentVolumeClaim creation in the test namespace,
-// forcing the virtualization-controller to surface the quota-exceeded condition
-// on resources that create backing PVCs. Importer/ bounder Pods carry the
-// resource-quota-overrides.deckhouse.io/ignore label and are not blocked.
-const quotaExhaustedQuotaName = "v12n-e2e-block-pods-and-pvcs"
+// blocks every PersistentVolumeClaim creation in the test namespace, forcing
+// the virtualization-controller to surface the quota-exceeded condition on
+// resources that create backing PVCs.
+//
+// Pods are deliberately NOT capped: on a WaitForFirstConsumer StorageClass the
+// VirtualDisk creates its target PVC only after the consumer VirtualMachine is
+// scheduled (see PVCImportStep), and the VM's virt-launcher Pod carries no
+// resource-quota-overrides.deckhouse.io/ignore label — a Pod cap would reject
+// it, the VM would never schedule, and the disk would park in
+// WaitingForFirstConsumer forever instead of reporting QuotaExceeded.
+const quotaExhaustedQuotaName = "v12n-e2e-block-pvcs"
 
 var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorageClass), func() {
 	var (
@@ -110,9 +116,10 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorag
 		// On a WaitForFirstConsumer StorageClass the disk parks in the
 		// WaitForFirstConsumer phase and never attempts to create its target
 		// PVC (see PVCImportStep), so the quota would never be exercised.
-		// Give the disk a consumer: the VM's virt-launcher pod is quota-exempt
-		// (resource-quota-overrides.deckhouse.io/ignore), so the VM schedules
-		// and the disk proceeds to the PVC creation the quota then rejects.
+		// Give the disk a consumer: the quota caps only PVCs, so the VM's
+		// virt-launcher pod schedules, the VM gets a node (PVCImportStep gates
+		// target-PVC creation on it), and the disk proceeds to the PVC creation
+		// the quota then rejects.
 		// The VM never becomes Running — its disk never provisions — so don't
 		// wait for it.
 		if storageClassIsWaitForFirstConsumer(ctx, f, ptr.Deref(scPtr, "")) {
@@ -148,9 +155,11 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorag
 })
 
 // applyBlockingResourceQuota installs a ResourceQuota in the framework
-// namespace that hard-limits Pods and PersistentVolumeClaims to zero,
-// thereby rejecting every importer/uploader Pod and every backing PVC
-// the virtualization-controller tries to create for new resources.
+// namespace that hard-limits PersistentVolumeClaims to zero, thereby
+// rejecting every backing PVC the virtualization-controller tries to
+// create for new resources. Pods are left uncapped so the consumer
+// VirtualMachine of the WaitForFirstConsumer test can schedule (see
+// quotaExhaustedQuotaName).
 //
 // The function blocks until the kube-apiserver has populated the
 // ResourceQuota .status.hard fields, ensuring that admission-time
@@ -165,7 +174,6 @@ func applyBlockingResourceQuota(ctx context.Context, f *framework.Framework) {
 		},
 		Spec: corev1.ResourceQuotaSpec{
 			Hard: corev1.ResourceList{
-				corev1.ResourceName("count/pods"):                   resource.MustParse("0"),
 				corev1.ResourceName("count/persistentvolumeclaims"): resource.MustParse("0"),
 			},
 		},
