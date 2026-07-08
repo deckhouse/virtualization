@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -82,6 +83,32 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		)
 
 		return nil, nil
+	}
+
+	// Preserve the VM power state across restore. The maintenance window deletes the KVVM (and with it the
+	// implicit run-strategy state), so capture whether the VM was running or stopped before restore and store it
+	// as an annotation. ProcessRestore preserves it across the annotation overwrite, and it is consumed once
+	// restore completes: a running VM is started again (see checkNeedStartVM), a stopped VM is kept stopped
+	// (see createKVVM for the AlwaysOnUnlessStoppedManually policy).
+	var powerState string
+	switch vm.Status.Phase {
+	case v1alpha2.MachineRunning, v1alpha2.MachinePending:
+		powerState = string(v1alpha2.MachineRunning)
+	case v1alpha2.MachineStopped:
+		powerState = string(v1alpha2.MachineStopped)
+	}
+	if powerState != "" && vm.Annotations[annotations.AnnVMRestorePowerState] != powerState {
+		if vm.Annotations == nil {
+			vm.Annotations = make(map[string]string)
+		}
+		vm.Annotations[annotations.AnnVMRestorePowerState] = powerState
+		if err = s.client.Update(ctx, vm); err != nil {
+			if apierrors.IsConflict(err) {
+				return &reconcile.Result{}, nil
+			}
+			s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to record VM power state for restore: "+err.Error())
+			return &reconcile.Result{}, err
+		}
 	}
 
 	conditions.SetCondition(
