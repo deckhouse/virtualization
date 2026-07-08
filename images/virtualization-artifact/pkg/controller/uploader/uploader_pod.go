@@ -46,10 +46,8 @@ const (
 // WaitForUserUploadTimeoutMessage explains the failure when the upload was not started within WaitForUserUploadTimeout.
 var WaitForUserUploadTimeoutMessage = fmt.Sprintf("The user upload has not started within %s: the import process has failed. Recreate the resource to start the upload again.", WaitForUserUploadTimeout)
 
-// IsWaitForUserUploadTimeoutExpired reports whether the uploader pod has been waiting
-// for the user to start the upload longer than WaitForUserUploadTimeout.
-func IsWaitForUserUploadTimeoutExpired(pod *corev1.Pod) bool {
-	return pod != nil && time.Since(pod.CreationTimestamp.Time) > WaitForUserUploadTimeout
+func IsWaitForUserUploadTimeoutExpired(waitStartedAt metav1.Time) bool {
+	return !waitStartedAt.IsZero() && time.Since(waitStartedAt.Time) > WaitForUserUploadTimeout
 }
 
 // These constants can't be imported from "images/dvcr-artifact/pkg/uploader/uploader.go" due to conflicts with the CDI version.

@@ -150,7 +150,12 @@ var _ = Describe("Upload DataSource", func() {
 	})
 
 	It("fails the import when the upload has not started within the timeout", func() {
-		pod.CreationTimestamp = metav1.NewTime(time.Now().Add(-uploader.WaitForUserUploadTimeout - time.Minute))
+		cvi.Status.Conditions = []metav1.Condition{{
+			Type:               cvicondition.ReadyType.String(),
+			Status:             metav1.ConditionFalse,
+			Reason:             cvicondition.WaitForUserUpload.String(),
+			LastTransitionTime: metav1.NewTime(time.Now().Add(-uploader.WaitForUserUploadTimeout - time.Minute)),
+		}}
 		ds = newUploadDataSource()
 
 		res, err := ds.Sync(ctx, cvi)

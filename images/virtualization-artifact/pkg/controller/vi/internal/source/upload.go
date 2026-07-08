@@ -213,7 +213,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		}
 
 		if !ds.statService.IsUploadStarted(vi.GetUID(), pod) {
-			if uploader.IsWaitForUserUploadTimeoutExpired(pod) {
+			if condition.Reason == vicondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime) {
 				log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
 				ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
 
@@ -546,7 +546,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		}
 
 		log.Info("Provisioning...", "pod.phase", pod.Status.Phase)
-	case uploader.IsWaitForUserUploadTimeoutExpired(pod):
+	case condition.Reason == vicondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
 		log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
 		ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
 

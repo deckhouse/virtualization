@@ -221,7 +221,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		}
 
 		if !ds.statService.IsUploadStarted(vd.GetUID(), pod) {
-			if uploader.IsWaitForUserUploadTimeoutExpired(pod) {
+			if condition.Reason == vdcondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime) {
 				log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
 				ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
 

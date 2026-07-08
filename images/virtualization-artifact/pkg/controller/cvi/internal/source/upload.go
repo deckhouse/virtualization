@@ -267,7 +267,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		}
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
-	case uploader.IsWaitForUserUploadTimeoutExpired(pod):
+	case condition.Reason == cvicondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
 		log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
 		ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
 
