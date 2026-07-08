@@ -19,7 +19,6 @@ package vm
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -249,28 +248,8 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 					vmbdaNames, metav1.ListOptions{})
 			}()
 
-			Eventually(func(g Gomega) {
-				// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
-				// controller may revert volume migration (VM not running, VM not migrating, etc.).
-				util.SkipIfVDMigrationReverted(f.Namespace().Name)
-
-				err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmBIOS), vmBIOS)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmUEFI), vmUEFI)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				// TODO: remove temporary migration skip logic when both known issues are fixed:
-				// kubevirt "client socket is closed" and Volume(s)UpdateError.
-				util.SkipIfKnownMigrationFailure(vmBIOS)
-				util.SkipIfKnownMigrationFailure(vmUEFI)
-
-				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-
-				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-			}).WithPolling(time.Second).WithTimeout(framework.MaxTimeout).To(Succeed())
+			util.UntilVMOPMigrationSucceeded(ctx, vmopMigrateBIOS, framework.MaxTimeout)
+			util.UntilVMOPMigrationSucceeded(ctx, vmopMigrateUEFI, framework.MaxTimeout)
 
 			vmOriginalDiskCount := map[*v1alpha2.VirtualMachine]string{
 				vmBIOS: biosDiskCountOriginal,

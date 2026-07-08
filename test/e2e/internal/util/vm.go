@@ -246,9 +246,33 @@ func ExpectVMOnNode(ctx context.Context, f *framework.Framework, vm *v1alpha2.Vi
 	Expect(node).To(Equal(expectedNode))
 }
 
+// UntilVMMigrationSucceeded waits for the newest migration VMOP of the VM to reach a terminal
+// phase and for the VM's migration state to report success. The VMOP is discovered by listing,
+// so it also covers flows where the operation is created asynchronously (workload updater,
+// storage class change). A VMOP that turns Failed fails the test immediately.
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	var vmop *v1alpha2.VirtualMachineOperation
+	Eventually(func() error {
+		vmops, err := framework.GetClients().VirtClient().VirtualMachineOperations(key.Namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		vmop = newestMigrationVMOP(vmops, key.Name)
+		if vmop == nil {
+			return fmt.Errorf("no migration vmop found for vm %s/%s", key.Namespace, key.Name)
+		}
+		return nil
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+
+	UntilVMOPMigrationSucceeded(ctx, vmop, timeout)
+
+	// The VM object mirrors the migration state of the completed VMOP with a small lag; keep
+	// asserting the same final state as before.
 	Eventually(func() error {
 		// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
 		// controller may revert volume migration (VM not running, VM not migrating, etc.).
@@ -278,7 +302,24 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 		}
 
 		return nil
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func newestMigrationVMOP(vmops *v1alpha2.VirtualMachineOperationList, vmName string) *v1alpha2.VirtualMachineOperation {
+	var newest *v1alpha2.VirtualMachineOperation
+	for i := range vmops.Items {
+		vmop := &vmops.Items[i]
+		if vmop.Spec.VirtualMachine != vmName {
+			continue
+		}
+		if vmop.Spec.Type != v1alpha2.VMOPTypeEvict && vmop.Spec.Type != v1alpha2.VMOPTypeMigrate {
+			continue
+		}
+		if newest == nil || vmop.CreationTimestamp.After(newest.CreationTimestamp.Time) {
+			newest = vmop
+		}
+	}
+	return newest
 }
 
 func UntilDisksAreAttachedInVMStatus(
@@ -300,7 +341,7 @@ func UntilDisksAreAttachedInVMStatus(
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
-func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {
+func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
 	GinkgoHelper()
 
 	opts := []vmopbuilder.Option{
@@ -314,6 +355,8 @@ func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 
 	err := f.CreateWithDeferredDeletion(context.Background(), vmop)
 	Expect(err).NotTo(HaveOccurred())
+
+	return vmop
 }
 
 func StartVirtualMachine(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {

@@ -240,49 +240,6 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), Label
 			err = patchStorageClassName(ctx, f, sc, vdForMigration)
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() error {
-				// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
-				// controller may revert volume migration (VM not running, VM not migrating, etc.).
-				util.SkipIfVDMigrationReverted(ns)
-
-				vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				// TODO: remove temporary migration skip logic when both known issues are fixed:
-				// kubevirt "client socket is closed" and Volume(s)UpdateError.
-				util.SkipIfKnownMigrationFailure(vm)
-
-				var lastVMOP *v1alpha2.VirtualMachineOperation
-				vmops, err := f.VirtClient().VirtualMachineOperations(ns).List(ctx, metav1.ListOptions{})
-				if err != nil {
-					return err
-				}
-
-				for _, vmop := range vmops.Items {
-					if vmop.Spec.VirtualMachine == vm.Name {
-						if lastVMOP == nil {
-							lastVMOP = &vmop
-							continue
-						}
-						if vmop.CreationTimestamp.After(lastVMOP.CreationTimestamp.Time) {
-							lastVMOP = &vmop
-							continue
-						}
-					}
-				}
-
-				if lastVMOP == nil {
-					return fmt.Errorf("lastVMOP is not found")
-				}
-
-				if lastVMOP.Status.Phase == v1alpha2.VMOPPhaseCompleted {
-					return nil
-				}
-
-				return fmt.Errorf("migration is not completed")
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
-
 			By("Wait until VM migration succeeded")
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)
 
