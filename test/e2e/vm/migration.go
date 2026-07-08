@@ -81,18 +81,14 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-				vd.WithSize(ptr.To(resource.MustParse("350Mi"))),
-			)
+			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
 			vdBlankBIOS = vd.New(
 				vd.WithName("vd-blank-bios"),
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
 
-			vdRootUEFI = object.NewVDFromCVI("vd-root-uefi", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
-				vd.WithSize(ptr.To(resource.MustParse("350Mi"))),
-			)
+			vdRootUEFI = object.NewVDFromCVI("vd-root-uefi", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI)
 			vdBlankUEFI = vd.New(
 				vd.WithName("vd-blank-uefi"),
 				vd.WithNamespace(f.Namespace().Name),
