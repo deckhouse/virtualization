@@ -3,7 +3,7 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: chore/virt-launcher/reduce-logs
+  3p-kubevirt: fix/virt-launcher/not-read-env-every-tick2
   3p-containerized-data-importer: v1.60.3-v12n.21
   distribution: 3.1.1
 package:
