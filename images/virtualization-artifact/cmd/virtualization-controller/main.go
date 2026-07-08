@@ -495,6 +495,11 @@ func main() {
 	}
 	// Guards anonymous scale-down for scaleDownPolicy: Explicit; self-gated by the VirtualMachinePool feature gate.
 	vmpool.SetupScaleWebhook(mgr)
+	// Validates the embedded virtualMachineTemplate spec on pool create/update; self-gated by the feature gate.
+	if err = vmpool.SetupValidationWebhook(mgr, vmpoolLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 
 	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, clusterUUID, virtClient); err != nil {
