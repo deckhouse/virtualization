@@ -44,8 +44,6 @@ type VirtualMachineMACAddressLeaseExpansion interface{}
 
 type VirtualMachineOperationExpansion interface{}
 
-type VirtualMachinePoolExpansion interface{}
-
 type VirtualMachineSnapshotExpansion interface{}
 
 type VirtualMachineSnapshotOperationExpansion interface{}
