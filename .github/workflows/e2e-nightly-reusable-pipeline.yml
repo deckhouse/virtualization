@@ -40,6 +40,11 @@ on:
         type: string
         default: "50Gi"
         description: "Set additional disk size for workers node in cluster config"
+      cluster_config_additional_disk_count:
+        required: false
+        type: string
+        default: "1"
+        description: "Number of additional disks per worker node (each of cluster_config_additional_disk_size). sds-elastic uses more than one to run multiple Ceph OSDs per node."
       storage_type:
         required: true
         type: string
@@ -257,6 +262,7 @@ jobs:
           APT_MIRROR_URL: ${{ inputs.apt_mirror_url }}
           CLUSTER_CONFIG_WORKERS_MEMORY: ${{ inputs.cluster_config_workers_memory }}
           ADDITIONAL_DISK_SIZE: ${{ inputs.cluster_config_additional_disk_size }}
+          ADDITIONAL_DISK_COUNT: ${{ inputs.cluster_config_additional_disk_count }}
           ENABLED_MODULES: ""
           NESTED_CLUSTER_NETWORK_NAME: ${{ inputs.nested_cluster_network_name }}
         run: bash "${E2E_SCRIPT_DIR}/render-dvp-static-values.sh"
@@ -500,6 +506,8 @@ jobs:
           # registry; pull them from prod via the same ModuleSource deckhouse-prod that
           # enable-sdn.sh creates for the stage profile.
           MODULE_SOURCE_REGISTRY_CFG: ${{ inputs.registry_profile == 'stage' && secrets.PROD_IO_REGISTRY_DOCKER_CFG || '' }}
+          # One OSD per additional disk per worker; the wait expects workers x this count.
+          ELASTIC_OSD_DISKS_PER_NODE: ${{ inputs.cluster_config_additional_disk_count }}
         run: bash "${E2E_SCRIPT_DIR}/configure-sds-elastic.sh"
 
   configure-virtualization:

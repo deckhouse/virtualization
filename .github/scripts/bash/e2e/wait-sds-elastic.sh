@@ -22,12 +22,15 @@ source "${SCRIPT_DIR}/common.sh"
 # shellcheck source=.github/scripts/bash/e2e/deckhouse.sh
 source "${SCRIPT_DIR}/deckhouse.sh"
 
-# Waits until at least one Consumable BlockDevice per worker node is discovered by
-# sds-node-configurator. These are the raw additional disks that back the Ceph OSDs.
+# Waits until the raw additional disks that back the Ceph OSDs are discovered by
+# sds-node-configurator. Expects ELASTIC_OSD_DISKS_PER_NODE consumable BlockDevices
+# per worker node (one OSD per additional disk).
 elastic_blockdevices_ready() {
   local count=60
   local workers
   local blockdevices
+  local disks_per_node="${ELASTIC_OSD_DISKS_PER_NODE:-1}"
+  local expected
 
   workers="$(kubectl get nodes -o name | grep -c worker || true)"
   workers=$((workers))
@@ -37,16 +40,18 @@ elastic_blockdevices_ready() {
     return 1
   fi
 
+  expected=$(( workers * disks_per_node ))
+
   for i in $(seq 1 "$count"); do
     blockdevices="$(kubectl get blockdevices.storage.deckhouse.io -o json | jq '[.items[] | select(.status.consumable == true)] | length' || echo 0)"
     blockdevices=$((blockdevices))
-    if [[ "$blockdevices" -ge "$workers" ]]; then
-      echo "[SUCCESS] Consumable blockdevices (${blockdevices}) is greater or equal to workers (${workers})"
+    if [[ "$blockdevices" -ge "$expected" ]]; then
+      echo "[SUCCESS] Consumable blockdevices (${blockdevices}) is greater or equal to expected (${expected} = ${workers} workers x ${disks_per_node} disks)"
       kubectl get blockdevices.storage.deckhouse.io -o wide
       return 0
     fi
 
-    echo "[INFO] Wait 10s until consumable blockdevices >= ${workers} (attempt ${i}/${count})"
+    echo "[INFO] Wait 10s until consumable blockdevices >= ${expected} (attempt ${i}/${count})"
     if (( i % 5 == 0 )); then
       echo "[DEBUG] Show blockdevices"
       kubectl get blockdevices.storage.deckhouse.io -o wide || true
@@ -56,7 +61,7 @@ elastic_blockdevices_ready() {
     sleep 10
   done
 
-  echo "[ERROR] Consumable blockdevices did not reach ${workers} in time"
+  echo "[ERROR] Consumable blockdevices did not reach ${expected} in time"
   echo "[DEBUG] Show cluster nodes"
   kubectl get nodes || true
   echo "[DEBUG] Show blockdevices"

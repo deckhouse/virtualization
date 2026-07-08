@@ -197,6 +197,8 @@ jobs:
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
       cluster_config_additional_disk_size: "50Gi"
+      # Two 50Gi disks per worker -> two Ceph OSDs per node for more throughput.
+      cluster_config_additional_disk_count: "2"
       cluster_config_k8s_version: "Automatic"
       apt_mirror_enabled: true
     secrets:
