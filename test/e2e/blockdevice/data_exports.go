@@ -309,8 +309,18 @@ func uploadFile(ctx context.Context, f *framework.Framework, vd *v1alpha2.Virtua
 	}
 	uploadURL := vd.Status.ImageUploadURLs.External
 
-	err = doUploadAttempt(httpClient, uploadURL, filePath)
-	Expect(err).NotTo(HaveOccurred(), "Upload failed")
+	// TODO: remove this retry once the controller sets the WaitForUserUpload phase
+	// only after the upload Ingress is actually served by the ingress controller.
+	// For now IsUploaderReady probes the uploader via the Service ClusterIP, so the
+	// external URL may still return 503 from nginx for a few seconds after
+	// ImageUploadURLs is published.
+	Eventually(func() error {
+		err := doUploadAttempt(httpClient, uploadURL, filePath)
+		if err != nil && !errors.Is(err, errUploadServiceUnavailable) {
+			return StopTrying("upload failed with a non-retryable error").Wrap(err)
+		}
+		return err
+	}, framework.ShortTimeout, 5*time.Second).Should(Succeed(), "Upload failed")
 }
 
 func doUploadAttempt(client *http.Client, url, filePath string) error {
@@ -351,6 +361,10 @@ func doUploadAttempt(client *http.Client, url, filePath string) error {
 	return handleUploadResponse(resp)
 }
 
+// errUploadServiceUnavailable marks a 503 response: the ingress controller has
+// not started serving the upload Ingress yet, so the attempt can be retried.
+var errUploadServiceUnavailable = errors.New("upload endpoint is not ready yet")
+
 func handleUploadResponse(resp *http.Response) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -359,6 +373,10 @@ func handleUploadResponse(resp *http.Response) error {
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
+	}
+
+	if resp.StatusCode == http.StatusServiceUnavailable {
+		return fmt.Errorf("%w: upload failed with status %d: %s", errUploadServiceUnavailable, resp.StatusCode, body)
 	}
 
 	return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, body)
