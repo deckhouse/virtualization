@@ -35,13 +35,14 @@ type IntegrityCheckEventLog struct {
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
 
-	ObjectType         string `json:"object_type"`
-	VirtualMachineName string `json:"virtual_machine_name"`
-	ControlMethod      string `json:"control_method"`
-	ReactionType       string `json:"reaction_type"`
-	IntegrityCheckAlgo string `json:"integrity_check_algo"`
-	ReferenceChecksum  string `json:"reference_checksum"`
-	CurrentChecksum    string `json:"current_checksum"`
+	ObjectType              string `json:"object_type"`
+	VirtualMachineName      string `json:"virtual_machine_name"`
+	VirtualMachineNamespace string `json:"virtual_machine_namespace"`
+	ControlMethod           string `json:"control_method"`
+	ReactionType            string `json:"reaction_type"`
+	IntegrityCheckAlgo      string `json:"integrity_check_algo"`
+	ReferenceChecksum       string `json:"reference_checksum"`
+	CurrentChecksum         string `json:"current_checksum"`
 
 	shouldLog bool
 }
@@ -56,13 +57,14 @@ func NewIntegrityCheckEventLog(event *audit.Event) *IntegrityCheckEventLog {
 		RequestSubject:  event.User.Username,
 		OperationResult: "unknown",
 
-		ObjectType:         "unknown",
-		VirtualMachineName: "unknown",
-		ControlMethod:      "unknown",
-		ReactionType:       "unknown",
-		IntegrityCheckAlgo: "unknown",
-		ReferenceChecksum:  "unknown",
-		CurrentChecksum:    "unknown",
+		ObjectType:              "unknown",
+		VirtualMachineName:      "unknown",
+		VirtualMachineNamespace: "unknown",
+		ControlMethod:           "unknown",
+		ReactionType:            "unknown",
+		IntegrityCheckAlgo:      "unknown",
+		ReferenceChecksum:       "unknown",
+		CurrentChecksum:         "unknown",
 
 		shouldLog: true,
 	}

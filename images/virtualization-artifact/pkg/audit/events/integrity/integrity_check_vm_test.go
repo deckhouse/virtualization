@@ -173,6 +173,7 @@ var _ = Describe("Integrity Check VM Events", func() {
 
 			Expect(eventLog.eventLog.ObjectType).To(Equal("Virtual machine configuration"))
 			Expect(eventLog.eventLog.VirtualMachineName).To(Equal("test-vm"))
+			Expect(eventLog.eventLog.VirtualMachineNamespace).To(Equal("test"))
 			Expect(eventLog.eventLog.ControlMethod).To(Equal("Integrity Check"))
 			Expect(eventLog.eventLog.ReactionType).To(Equal("info"))
 			Expect(eventLog.eventLog.IntegrityCheckAlgo).To(Equal("sha256"))
