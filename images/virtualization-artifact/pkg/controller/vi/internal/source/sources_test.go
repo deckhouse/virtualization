@@ -212,7 +212,7 @@ var _ = Describe("Sources helpers", func() {
 			Expect(cb.Condition().Reason).To(Equal(expectedReason))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
 		},
-		Entry("marks pvc lost when pvc is missing", nil, v1alpha2.ImagePVCLost, metav1.ConditionFalse, vicondition.PVCLost.String(), "PVC default/d8v-vi-image-uid not found."),
+		Entry("marks pvc lost when pvc is missing", nil, v1alpha2.ImagePVCLost, metav1.ConditionFalse, vicondition.PVCLost.String(), "The underlying PersistentVolumeClaim \"default/d8v-vi-image-uid\" was not found."),
 		Entry("marks image ready when pvc exists", &corev1.PersistentVolumeClaim{}, v1alpha2.ImageReady, metav1.ConditionTrue, vicondition.Ready.String(), ""),
 	)
 
@@ -242,8 +242,8 @@ var _ = Describe("Sources helpers", func() {
 			Expect(cb.Condition().Reason).To(Equal(expectedReason))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
 		},
-		Entry("waits for pvc importer creation when dv is absent", nil, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Waiting for the pvc importer to be created", nil),
-		Entry("reports provisioning in progress", &cdiv1.DataVolume{}, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Import is in the process of provisioning to PVC.", nil),
+		Entry("waits for pvc importer creation when dv is absent", nil, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Preparing the PersistentVolumeClaim for the image.", nil),
+		Entry("reports provisioning in progress", &cdiv1.DataVolume{}, nil, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.Provisioning.String(), "Importing data into the PersistentVolumeClaim.", nil),
 		Entry("handles data volume not running", &cdiv1.DataVolume{}, service.ErrDataVolumeNotRunning, v1alpha2.ImageProvisioning, metav1.ConditionFalse, vicondition.ProvisioningFailed.String(), "Pvc importer is not running", nil),
 		Entry("handles missing default storage class", &cdiv1.DataVolume{}, service.ErrDefaultStorageClassNotFound, v1alpha2.ImagePending, metav1.ConditionFalse, vicondition.ProvisioningFailed.String(), "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.", nil),
 		Entry("returns unexpected error", &cdiv1.DataVolume{}, errors.New("boom"), v1alpha2.ImagePhase(""), metav1.ConditionUnknown, conditions.ReasonUnknown.String(), "", errors.New("boom")),
@@ -303,7 +303,7 @@ var _ = Describe("Sources helpers", func() {
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
 		},
 		Entry("no error", nil, false, nil, v1alpha2.ImagePhase(""), conditions.ReasonUnknown.String(), ""),
-		Entry("storage profile missing", volumemode.ErrStorageProfileNotFound, true, nil, v1alpha2.ImageFailed, vicondition.ProvisioningFailed.String(), "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."),
+		Entry("storage profile missing", volumemode.ErrStorageProfileNotFound, true, nil, v1alpha2.ImageFailed, vicondition.ProvisioningFailed.String(), "The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass."),
 		Entry("default storage class missing", service.ErrDefaultStorageClassNotFound, true, nil, v1alpha2.ImagePending, vicondition.ProvisioningFailed.String(), "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."),
 		Entry("unexpected error", errors.New("boom"), false, errors.New("boom"), v1alpha2.ImagePhase(""), conditions.ReasonUnknown.String(), ""),
 	)

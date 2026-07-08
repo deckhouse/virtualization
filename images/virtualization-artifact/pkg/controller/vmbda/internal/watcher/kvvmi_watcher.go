@@ -103,7 +103,10 @@ func (eh KVVMIEventHandler) enqueueRequests(ctx context.Context, ns string, vsTo
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		_, ok := vsToReconcile[vmbda.Spec.BlockDeviceRef.Name]
+		// Match by the derived KubeVirt volume name: the derivation is
+		// deterministic, so forward-mapping the VMBDA reference handles
+		// shortened/hashed names that prefix-strip cannot reverse.
+		_, ok := vsToReconcile[kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef)]
 		if ok {
 			q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 				Namespace: vmbda.Namespace,
@@ -123,13 +126,10 @@ func (eh KVVMIEventHandler) getHotPluggedVolumeStatuses(obj client.Object) map[s
 
 	for _, vs := range kvvmi.Status.VolumeStatus {
 		if vs.HotplugVolume != nil {
-			name, kind := kvbuilder.GetOriginalDiskName(vs.Name)
-			if kind == "" {
-				slog.Default().Warn("VolumeStatus is not a Disk", "vsName", vs.Name, "name", kvvmi.Name, "ns", kvvmi.Namespace)
-				continue
-			}
-
-			volumeStatuses[name] = vs
+			// Key by the KubeVirt volume name; matching happens by forward-mapping
+			// VMBDA references in enqueueRequests (reverse is not derivable for
+			// shortened/hashed names).
+			volumeStatuses[vs.Name] = vs
 		}
 	}
 

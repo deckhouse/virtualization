@@ -369,6 +369,26 @@ var _ = Describe("LifecycleHandler", func() {
 			),
 		)
 
+		It("should keep migration pending for inbound target node limit", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.Status.Phase = virtv1.MigrationPending
+			mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
+				Type:    virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded),
+				Status:  corev1.ConditionTrue,
+				Reason:  reasonTargetNodeIncomingMigrationLimitExceeded,
+				Message: messageTargetNodeIncomingMigrationLimitExceeded,
+			}}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
+			Expect(msg).To(Equal(messageTargetNodeIncomingMigrationLimitExceeded))
+		})
+
 		DescribeTable("should build in-progress reason and message", func(
 			phase virtv1.VirtualMachineInstanceMigrationPhase,
 			state *virtv1.VirtualMachineInstanceMigrationState,
@@ -455,7 +475,6 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(h.calculateMigrationProgress(vmop, mig, reason)).To(Equal(expected))
 		},
 			Entry("migration pending", vmopcondition.ReasonMigrationPending, nil, int32(0)),
-			Entry("disks preparing", vmopcondition.ReasonDisksPreparing, nil, int32(1)),
 			Entry("target scheduling", vmopcondition.ReasonTargetScheduling, nil, int32(2)),
 			Entry("target unschedulable", vmopcondition.ReasonTargetUnschedulable, nil, int32(2)),
 			Entry("target preparing", vmopcondition.ReasonTargetPreparing, nil, int32(3)),
@@ -675,7 +694,7 @@ var _ = Describe("LifecycleHandler", func() {
 			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
 			Expect(found).To(BeTrue())
 			Expect(completed.Message).NotTo(ContainSubstring("Migration info for 7d38a63b-ffa9-4d56-a924-6017f5832110:"))
-			Expect(completed.Message).To(ContainSubstring("Syncing source and target. TimeElapsed:30s"))
+			Expect(completed.Message).To(ContainSubstring("Source and target are being synchronized. TimeElapsed:30s"))
 			Expect(completed.Message).To(ContainSubstring("DataProcessed:3529MiB DataRemaining:12049MiB DataTotal:16405MiB"))
 			Expect(completed.Message).To(ContainSubstring("Iteration:1 AutoConvergeThrottleSet:true AutoConvergeThrottle:0"))
 		})

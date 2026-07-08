@@ -98,7 +98,7 @@ func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
-			Message("Trying to schedule the PersistentVolumeClaim provisioner.")
+			Message("Scheduling the disk provisioner.")
 		return &reconcile.Result{}, nil
 	}
 
@@ -112,6 +112,6 @@ func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).
-		Message("The PersistentVolumeClaim provisioner will be recreated due to changes in the virtual machine tolerations.")
+		Message("The disk provisioner will be recreated due to changes in the virtual machine tolerations.")
 	return &reconcile.Result{}, nil
 }

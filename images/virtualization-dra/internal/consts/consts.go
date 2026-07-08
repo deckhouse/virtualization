@@ -17,6 +17,8 @@ limitations under the License.
 package consts
 
 const (
+	// USBGatewayLabelShort is used in Cilium policies because virtualization.deckhouse.io node labels are excluded by Cilium.
+	USBGatewayLabelShort      = "usb-gateway"
 	USBGatewayLabel           = "virtualization.deckhouse.io/usb-gateway"
 	USBGatewayNodeLabel       = "virtualization.deckhouse.io/usb-gateway-node"
 	USBGatewayHighSpeedLabel  = "virtualization.deckhouse.io/usb-gateway-high-speed"

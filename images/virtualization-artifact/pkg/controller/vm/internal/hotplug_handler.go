@@ -57,7 +57,7 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		return reconcile.Result{}, err
 	}
 
-	if !current.Spec.EnableParavirtualization {
+	if !current.Spec.IsParavirtualizationEnabled() {
 		return reconcile.Result{}, nil
 	}
 
@@ -89,7 +89,17 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		vmbdaDevices[nameKindKey{kind: v1alpha2.BlockDeviceKind(ref.Kind), name: ref.Name}] = struct{}{}
 	}
 
-	kvvmDevices, pending := parseKVVMVolumes(kvvm)
+	// Seed the resolver with the resources this VM references so derived (possibly
+	// shortened/hashed) KubeVirt volume names map back to the right user resource.
+	resolver := kvbuilder.NewVolumeNameResolver()
+	for _, bd := range current.Spec.BlockDeviceRefs {
+		resolver.Add(bd.Kind, bd.Name)
+	}
+	for ref := range vmbdaMap {
+		resolver.Add(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
+	}
+
+	kvvmDevices, pending := parseKVVMVolumes(kvvm, resolver)
 
 	var errs []error
 
@@ -152,13 +162,13 @@ type kvvmVolume struct {
 	hotpluggable bool
 }
 
-func parseKVVMVolumes(kvvm *virtv1.VirtualMachine) (map[nameKindKey]kvvmVolume, map[string]struct{}) {
+func parseKVVMVolumes(kvvm *virtv1.VirtualMachine, resolver *kvbuilder.VolumeNameResolver) (map[nameKindKey]kvvmVolume, map[string]struct{}) {
 	devices := make(map[nameKindKey]kvvmVolume)
 	pending := make(map[string]struct{})
 
 	if kvvm.Spec.Template != nil {
 		for _, vol := range kvvm.Spec.Template.Spec.Volumes {
-			name, kind := kvbuilder.GetOriginalDiskName(vol.Name)
+			name, kind := resolver.Resolve(vol.Name)
 			if kind == "" {
 				continue
 			}

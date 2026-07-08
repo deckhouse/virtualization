@@ -18,4 +18,6 @@ dirs:
   - /run/kubevirt
   - /run/kubevirt-libvirt-runtimes
   - /run/kubevirt-private
+  # Cilium agent socket, mounted from the host.
+  - /run/cilium
 

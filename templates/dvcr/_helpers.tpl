@@ -14,13 +14,6 @@ true
 - name: REGISTRY_HTTP_TLS_KEY
   value: /etc/ssl/docker/tls.key
 
-- name: REGISTRY_AUTH
-  value: "htpasswd"
-- name: REGISTRY_AUTH_HTPASSWD_REALM
-  value: "Registry Realm"
-- name: REGISTRY_AUTH_HTPASSWD_PATH
-  value: "/auth/htpasswd"
-
 - name: REGISTRY_HTTP_SECRET
   valueFrom:
     secretKeyRef:
@@ -91,6 +84,12 @@ true
     items:
     - key: htpasswd
       path: htpasswd
+    - key: passwordRW
+      path: passwordRW
+    - key: passwordRO
+      path: passwordRO
+    - key: tokenPublicKey
+      path: tokenPublicKey
 {{- end -}}
 
 

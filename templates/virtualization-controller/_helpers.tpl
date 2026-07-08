@@ -40,6 +40,11 @@ true
   value: "*/5 * * * *"
 - name: DVCR_GC_SCHEDULE
   value: "{{ .Values.virtualization.internal.moduleConfig | dig "dvcr" "gc" "schedule" "" }}"
+- name: DVCR_TOKEN_PRIVATE_KEY
+  valueFrom:
+    secretKeyRef:
+      name: dvcr-secrets
+      key: tokenPrivateKey
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualImages") }}
@@ -97,6 +102,10 @@ true
   value: {{ $systemNetworkName | quote }}
 {{- end }}
 {{- end }}
+- name: PARALLEL_INBOUND_MIGRATIONS_PER_NODE
+  value: {{ .Values.virtualization.internal | dig "virtConfig" "parallelInboundMigrationsPerNode" 1 | quote }}
+- name: INBOUND_MIGRATION_LIMIT
+  value: {{ .Values.virtualization.internal | dig "virtConfig" "inboundMigrationLimit" "" | quote }}
 - name: METRICS_BIND_ADDRESS
   value: "127.0.0.1:8080"
 {{- if eq (include "moduleLogLevel" .) "debug" }}

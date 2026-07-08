@@ -89,9 +89,6 @@ const (
 	// ReasonMigrationRunning is a ReasonCompleted indicating that the migration process is currently in progress.
 	ReasonMigrationRunning ReasonCompleted = "MigrationRunning"
 
-	// ReasonDisksPreparing indicates that migration-related disk preparation is in progress.
-	ReasonDisksPreparing ReasonCompleted = "DisksPreparing"
-
 	// ReasonTargetScheduling indicates that the target pod is being scheduled.
 	ReasonTargetScheduling ReasonCompleted = "TargetScheduling"
 

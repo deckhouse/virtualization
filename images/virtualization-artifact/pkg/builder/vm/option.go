@@ -135,7 +135,7 @@ func WithRunPolicy(runPolicy v1alpha2.RunPolicy) Option {
 	}
 }
 
-func WithEnableParavirtualization(enableParavirtualization bool) Option {
+func WithEnableParavirtualization(enableParavirtualization *bool) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.EnableParavirtualization = enableParavirtualization
 	}

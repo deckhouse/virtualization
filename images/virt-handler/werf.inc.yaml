@@ -120,3 +120,4 @@ shell:
     mkdir -p /relocate/home/deckhouse
     chown -R 64535:64535 /relocate/home/deckhouse
 
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}

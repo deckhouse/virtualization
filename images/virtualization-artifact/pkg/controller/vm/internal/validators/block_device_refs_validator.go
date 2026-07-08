@@ -22,7 +22,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -46,23 +45,9 @@ func (v *BlockDeviceSpecRefsValidator) validate(vm *v1alpha2.VirtualMachine) err
 		return err
 	}
 
-	for _, bdRef := range vm.Spec.BlockDeviceRefs {
-		var maxLen int
-		switch bdRef.Kind {
-		case v1alpha2.DiskDevice:
-			maxLen = validate.MaxDiskNameLen
-		case v1alpha2.ImageDevice:
-			maxLen = validate.MaxVirtualImageNameLen
-		case v1alpha2.ClusterImageDevice:
-			maxLen = validate.MaxClusterVirtualImageNameLen
-		default:
-			continue
-		}
-
-		if len(bdRef.Name) > maxLen {
-			return fmt.Errorf("%s name %q is too long: it must be no more than %d characters", bdRef.Kind, bdRef.Name, maxLen)
-		}
-	}
+	// The referenced resource's name is validated by its own webhook and bounded
+	// by Kubernetes; a reference longer than that simply cannot match any existing
+	// resource (the VM stays Pending), so no length check is needed here.
 
 	return nil
 }
@@ -74,7 +59,7 @@ func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1a
 func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	var warnings admission.Warnings
 
-	if !newVM.Spec.EnableParavirtualization && hasBlockDeviceChanges(oldVM, newVM) {
+	if !newVM.Spec.IsParavirtualizationEnabled() && hasBlockDeviceChanges(oldVM, newVM) {
 		warnings = append(warnings, "Hot-plugging block devices with enableParavirtualization=false is not supported. Restart the VM to apply changes.")
 	}
 

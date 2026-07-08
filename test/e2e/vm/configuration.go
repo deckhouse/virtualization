@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -67,7 +68,7 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Spec.RunPolicy).To(Equal(initialRunPolicy))
-		Expect(t.VM.Spec.EnableParavirtualization).To(Equal(initialEnableParavirtualization))
+		Expect(t.VM.Spec.EnableParavirtualization).To(HaveValue(Equal(initialEnableParavirtualization)))
 
 		By("Applying changes")
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -97,7 +98,7 @@ var _ = Describe("VirtualMachineConfiguration", Label(precheck.NoPrecheck), func
 		err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(t.VM.Spec.RunPolicy).To(Equal(changedRunPolicy))
-		Expect(t.VM.Spec.EnableParavirtualization).To(Equal(changedEnableParavirtualization))
+		Expect(t.VM.Spec.EnableParavirtualization).To(HaveValue(Equal(changedEnableParavirtualization)))
 
 		Consistently(func(g Gomega) {
 			err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -129,7 +130,7 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
 
 	t.VM = object.NewMinimalVM("vm", t.Framework.Namespace().Name,
-		vmbuilder.WithEnableParavirtualization(initialEnableParavirtualization),
+		vmbuilder.WithEnableParavirtualization(ptr.To(initialEnableParavirtualization)),
 		vmbuilder.WithRunPolicy(initialRunPolicy),
 		vmbuilder.WithDisks(t.VDRoot),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),

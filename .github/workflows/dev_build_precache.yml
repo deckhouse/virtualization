@@ -66,7 +66,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v4
+      - uses: deckhouse/modules-actions/build@v15
         env:
           WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
         with:
@@ -75,6 +75,8 @@ jobs:
           module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
           source_repo: ${{secrets.DECKHOUSE_PRIVATE_3P_REPO}}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - name: Cleanup Docker config
         run: |

@@ -112,7 +112,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.StorageClassNotReady).
-				Message("Storage class in not ready")
+				Message("The StorageClass is not ready.")
 			conditions.SetCondition(cb, &vi.Status.Conditions)
 
 			return reconcile.Result{}, nil

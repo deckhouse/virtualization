@@ -38,36 +38,78 @@ func TestSetDVCRSecrets(t *testing.T) {
 	RunSpecs(t, "DVCR Secrets Suite")
 }
 
+var _ = Describe("validateECKeypair", func() {
+	It("accepts a matching pair", func() {
+		priv, pub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(priv, pub)).To(BeTrue())
+	})
+
+	It("rejects a public key from a different pair", func() {
+		priv, _, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		_, otherPub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(priv, otherPub)).To(BeFalse())
+	})
+
+	It("rejects a missing or corrupt public key", func() {
+		priv, _, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(priv, nil)).To(BeFalse())
+		Expect(validateECKeypair(priv, []byte("not a pem"))).To(BeFalse())
+	})
+
+	It("rejects a missing or corrupt private key", func() {
+		_, pub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(validateECKeypair(nil, pub)).To(BeFalse())
+		Expect(validateECKeypair([]byte("not a pem"), pub)).To(BeFalse())
+	})
+})
+
 var _ = Describe("DVCR Secrets", func() {
 	const (
 		defaultPasswordBase64 = "dkREU0I1N1JXeVVFd1NwN3VubDA3SHlnWUx3MzlOTlY="                                             // "vDDSB57RWyUEwSp7unl07HygYLw39NNV"
+		defaultPullerBase64   = "bm9kZVB1bGxlclNlY3JldDAxMjM0NTY3ODlhYmNkZWY="                                             // "nodePullerSecret0123456789abcdef"
 		defaultSaltBase64     = "bldlM01vZjVySlFNc3I2MDVFNDdBM1pYOU9IQ1dnVkY="                                             // "nWe3Mof5rJQMsr605E47A3ZX9OHCWgVF"
 		defaultHtpasswdBase64 = "YWRtaW46JDJhJDEwJHZza21wTjVLSERKUlpNU1pWd3RZWU91YmtEcTEueEF2MXVRQkkvSzFHQ1dpNUpxSnF5amdt" // "admin:$2a$10$vskmpN5KHDJRZMSZVwtYYOubkDq1.xAv1uQBI/K1GCWi5JqJqyjgm"
 	)
 	var (
-		dc        *mock.DependencyContainerMock
-		snapshots *mock.SnapshotsMock
-		values    *mock.OutputPatchableValuesCollectorMock
+		dc            *mock.DependencyContainerMock
+		snapshots     *mock.SnapshotsMock
+		values        *mock.OutputPatchableValuesCollectorMock
+		validTokenKey string
+		validTokenPub string
 	)
 
-	prepareValuesGet := func(passwordRW, salt, htpasswd string) {
+	// prepareValuesGet mocks the values-side reads. The token keypair is always a
+	// valid pair matching the snapshot, so these tests never exercise keypair
+	// regeneration (its own coverage lives in signer_test.go and the hook helpers).
+	prepareValuesGet := func(passwordRW, passwordRO, salt, htpasswd string) {
 		values.GetMock.When(passwordRWValuePath).Then(gjson.Result{Type: gjson.String, Str: passwordRW})
+		values.GetMock.When(passwordROValuePath).Then(gjson.Result{Type: gjson.String, Str: passwordRO})
 		values.GetMock.When(saltValuePath).Then(gjson.Result{Type: gjson.String, Str: salt})
 		values.GetMock.When(htpasswdValuePath).Then(gjson.Result{Type: gjson.String, Str: htpasswd})
+		values.GetMock.When(tokenPrivateKeyValuePath).Then(gjson.Result{Type: gjson.String, Str: validTokenKey})
+		values.GetMock.When(tokenPublicKeyValuePath).Then(gjson.Result{Type: gjson.String, Str: validTokenPub})
 	}
 
 	setSnapshots := func(snaps ...pkg.Snapshot) {
 		snapshots.GetMock.When(dvcrSecrets).Then(snaps)
 	}
 
-	newSnapshot := func(passwordRW, salt, htpasswd string) pkg.Snapshot {
+	newSnapshot := func(passwordRW, passwordRO, salt, htpasswd string) pkg.Snapshot {
 		return mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
 			data, ok := v.(*dvcrSecretData)
 			Expect(ok).To(BeTrue())
 
 			data.PasswordRW = passwordRW
+			data.PasswordRO = passwordRO
 			data.Salt = salt
 			data.Htpasswd = htpasswd
+			data.TokenPrivateKey = validTokenKey
+			data.TokenPublicKey = validTokenPub
 			return nil
 		})
 	}
@@ -91,6 +133,11 @@ var _ = Describe("DVCR Secrets", func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
 		values.GetMock.When(settings.InternalValuesConfigCopyPath).Then(gjson.Result{})
+
+		priv, pub, err := generateECKeypair()
+		Expect(err).ToNot(HaveOccurred())
+		validTokenKey = base64.StdEncoding.EncodeToString(priv)
+		validTokenPub = base64.StdEncoding.EncodeToString(pub)
 	})
 
 	AfterEach(func() {
@@ -100,8 +147,8 @@ var _ = Describe("DVCR Secrets", func() {
 	})
 
 	It("Should set secrets from secret to values", func() {
-		prepareValuesGet("", "", "")
-		setSnapshots(newSnapshot(defaultPasswordBase64, defaultSaltBase64, defaultHtpasswdBase64))
+		prepareValuesGet("", "", "", "")
+		setSnapshots(newSnapshot(defaultPasswordBase64, defaultPullerBase64, defaultSaltBase64, defaultHtpasswdBase64))
 
 		values.SetMock.Set(func(path string, v any) {
 			value, ok := v.(string)
@@ -110,6 +157,8 @@ var _ = Describe("DVCR Secrets", func() {
 			switch path {
 			case passwordRWValuePath:
 				Expect(value).To(Equal(defaultPasswordBase64))
+			case passwordROValuePath:
+				Expect(value).To(Equal(defaultPullerBase64))
 			case saltValuePath:
 				Expect(value).To(Equal(defaultSaltBase64))
 			case htpasswdValuePath:
@@ -123,8 +172,8 @@ var _ = Describe("DVCR Secrets", func() {
 	})
 
 	It("Should regenerate all secrets", func() {
-		prepareValuesGet("", "", "")
-		setSnapshots(newSnapshot("", "", ""))
+		prepareValuesGet("", "", "", "")
+		setSnapshots(newSnapshot("", "", "", ""))
 
 		var (
 			passwordRW string
@@ -144,6 +193,8 @@ var _ = Describe("DVCR Secrets", func() {
 			case passwordRWValuePath:
 				passwordRW = value
 				Expect(value).To(HaveLen(32))
+			case passwordROValuePath:
+				Expect(value).To(HaveLen(32))
 			case saltValuePath:
 				Expect(value).To(HaveLen(32))
 			case htpasswdValuePath:
@@ -159,8 +210,8 @@ var _ = Describe("DVCR Secrets", func() {
 	})
 
 	It("Should regenerate only salt", func() {
-		prepareValuesGet(defaultPasswordBase64, "", defaultHtpasswdBase64)
-		setSnapshots(newSnapshot(defaultPasswordBase64, "", defaultHtpasswdBase64))
+		prepareValuesGet(defaultPasswordBase64, defaultPullerBase64, "", defaultHtpasswdBase64)
+		setSnapshots(newSnapshot(defaultPasswordBase64, defaultPullerBase64, "", defaultHtpasswdBase64))
 
 		values.SetMock.Set(func(path string, v any) {
 			valueBase64, ok := v.(string)
@@ -183,8 +234,8 @@ var _ = Describe("DVCR Secrets", func() {
 	})
 
 	DescribeTable("Should regenerate only password and htpasswd", func(passwordRW, htpasswd string) {
-		prepareValuesGet(passwordRW, "salt", htpasswd)
-		setSnapshots(newSnapshot(passwordRW, "salt", htpasswd))
+		prepareValuesGet(passwordRW, defaultPullerBase64, "salt", htpasswd)
+		setSnapshots(newSnapshot(passwordRW, defaultPullerBase64, "salt", htpasswd))
 
 		bytes, err := base64.StdEncoding.DecodeString(passwordRW)
 		Expect(err).ToNot(HaveOccurred())

@@ -29,7 +29,7 @@ func IsInProgressOrPending(vmop *v1alpha2.VirtualMachineOperation) bool {
 }
 
 func IsFinished(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return vmop != nil && (vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted)
+	return vmop != nil && (vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseSuperseded)
 }
 
 func IsTerminating(vmop *v1alpha2.VirtualMachineOperation) bool {

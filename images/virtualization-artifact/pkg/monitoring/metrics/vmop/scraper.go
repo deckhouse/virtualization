@@ -56,6 +56,7 @@ func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 		{phase == v1alpha2.VMOPPhaseCompleted, string(v1alpha2.VMOPPhaseCompleted)},
 		{phase == v1alpha2.VMOPPhaseFailed, string(v1alpha2.VMOPPhaseFailed)},
 		{phase == v1alpha2.VMOPPhaseTerminating, string(v1alpha2.VMOPPhaseTerminating)},
+		{phase == v1alpha2.VMOPPhaseSuperseded, string(v1alpha2.VMOPPhaseSuperseded)},
 	}
 
 	for _, p := range phases {

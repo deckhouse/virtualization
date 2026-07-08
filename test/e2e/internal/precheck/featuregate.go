@@ -18,8 +18,11 @@ package precheck
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"sort"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +60,7 @@ func (p featureGatePrecheck) Run(ctx context.Context, f *framework.Framework) er
 
 	for _, gate := range p.gates {
 		if !slices.Contains(gates, gate) {
-			return fmt.Errorf("%s=no to disable this precheck: feature gate %s is not enabled in virtualization module config spec", p.env, gate)
+			return fmt.Errorf("%s=no to disable this precheck: feature gate %s is not enabled in virtualization module config spec. Command for enable: %s", p.env, gate, buildPatchCommand(gates, append(gates, gate)))
 		}
 	}
 
@@ -91,9 +94,13 @@ func init() {
 }
 
 func getFeatureGates(mc *dv1alpha1.ModuleConfig) ([]string, error) {
-	gates, ok := mc.Spec.Settings["featureGates"].([]interface{})
+	featureGates, ok := mc.Spec.Settings["featureGates"]
 	if !ok {
-		return nil, fmt.Errorf("failed to get feature gates from virtualization module config spec: %T", gates)
+		return nil, nil
+	}
+	gates, ok := featureGates.([]interface{})
+	if !ok {
+		return nil, errors.New("failed to get feature gates from virtualization module config spec. invalid config, please report a bug")
 	}
 	var result []string
 	for _, g := range gates {
@@ -105,4 +112,35 @@ func getFeatureGates(mc *dv1alpha1.ModuleConfig) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+func buildPatchCommand(oldGates, newGates []string) string {
+	cmd := "kubectl patch moduleconfig virtualization --type json --patch "
+
+	op := "add"
+	if len(oldGates) > 0 {
+		op = "replace"
+	}
+	featureGates := mergeGates(oldGates, newGates)
+
+	cmd += fmt.Sprintf(`'[{"op": "%s", "path": "/spec/settings/featureGates", "value": [%s]}]'`, op, strings.Join(featureGates, ","))
+
+	return cmd
+}
+
+func mergeGates(oldGates, newGates []string) []string {
+	gates := make(map[string]struct{})
+	for _, gate := range oldGates {
+		gates[gate] = struct{}{}
+	}
+	for _, gate := range newGates {
+		gates[gate] = struct{}{}
+	}
+
+	featureGates := make([]string, 0, len(gates))
+	for gate := range gates {
+		featureGates = append(featureGates, gate)
+	}
+	sort.Strings(featureGates)
+	return featureGates
 }

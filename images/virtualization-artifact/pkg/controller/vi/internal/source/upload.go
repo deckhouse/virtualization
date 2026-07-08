@@ -109,6 +109,22 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		return reconcile.Result{}, err
 	}
 
+	// Sync the uploader Ingress host before the readiness probe:
+	// IsUploaderReady HTTPS-probes the Ingress host, so a stale host (e.g. after
+	// publicDomainTemplate changed) makes readiness fail with a TLS error.
+	// Initial creation is handled by Start, so skip when the pod is absent.
+	if pod != nil && ds.uploaderService.IngressHostDrifted(ing) {
+		var oldHost string
+		if ing != nil && len(ing.Spec.Rules) > 0 {
+			oldHost = ing.Spec.Rules[0].Host
+		}
+		log.Info("Syncing uploader Ingress: host drifted", "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
+		ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -174,7 +190,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Preparing to import the image.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case !podutil.IsPodComplete(pod):
@@ -216,7 +232,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
@@ -281,7 +297,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
+			Message("Preparing the PersistentVolumeClaim for the image.")
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
@@ -304,7 +320,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("PVC not found: waiting for creation.")
+			Message("Waiting for the PersistentVolumeClaim to be created.")
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
@@ -376,6 +392,22 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		return reconcile.Result{}, err
 	}
 
+	// Sync the uploader Ingress host before the readiness probe:
+	// IsUploaderReady HTTPS-probes the Ingress host, so a stale host (e.g. after
+	// publicDomainTemplate changed) makes readiness fail with a TLS error.
+	// Initial creation is handled by Start, so skip when the pod is absent.
+	if pod != nil && ds.uploaderService.IngressHostDrifted(ing) {
+		var oldHost string
+		if ing != nil && len(ing.Spec.Rules) > 0 {
+			oldHost = ing.Spec.Rules[0].Host
+		}
+		log.Info("Syncing uploader Ingress: host drifted", "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
+		ing, err = ds.uploaderService.EnsureIngress(ctx, vi, supgen)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -420,7 +452,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Preparing to import the image.")
 
 		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
 
@@ -465,7 +497,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)

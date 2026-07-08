@@ -147,7 +147,65 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
 		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
 	})
+
+	It("should keep VMBDA ClusterVirtualImage volume when the image is not resolved yet", func() {
+		volName := GenerateCVIDiskName("cvi-hotplug")
+		kvvm := newKVVMWithVMBDAImageVolume(volName)
+
+		err := syncAttachedVMBDAHotplugVolumes(
+			kvvm,
+			nil,
+			nil,
+			map[string]*v1alpha2.ClusterVirtualImage{},
+			map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+				{Kind: v1alpha2.VMBDAObjectRefKindClusterVirtualImage, Name: "cvi-hotplug"}: nil,
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
+	})
+
+	It("should keep VMBDA VirtualImage volume when the image is not resolved yet", func() {
+		volName := GenerateVIDiskName("vi-hotplug")
+		kvvm := newKVVMWithVMBDAImageVolume(volName)
+
+		err := syncAttachedVMBDAHotplugVolumes(
+			kvvm,
+			nil,
+			map[string]*v1alpha2.VirtualImage{},
+			nil,
+			map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment{
+				{Kind: v1alpha2.VMBDAObjectRefKindVirtualImage, Name: "vi-hotplug"}: nil,
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
+	})
 })
+
+func newKVVMWithVMBDAImageVolume(volName string) *KVVM {
+	kvvm := NewEmptyKVVM(
+		namespacedName("test-vm", "test-ns"),
+		KVVMOptions{},
+	)
+	kvvm.Resource.Spec.Template.Spec.Volumes = []virtv1.Volume{
+		{
+			Name: volName,
+			VolumeSource: virtv1.VolumeSource{
+				ContainerDisk: &virtv1.ContainerDiskSource{
+					Image:        "dvcr.example/image:tag",
+					Hotpluggable: true,
+				},
+			},
+		},
+	}
+	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = []virtv1.Disk{
+		{Name: volName},
+	}
+	return kvvm
+}
 
 var _ = Describe("ApplyMigrationVolumes", func() {
 	const (

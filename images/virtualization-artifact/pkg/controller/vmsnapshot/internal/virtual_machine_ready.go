@@ -70,7 +70,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
-			Message(fmt.Sprintf("The virtual machine %q not found.", vmSnapshot.Spec.VirtualMachineName))
+			Message(fmt.Sprintf("The virtual machine %q was not found.", vmSnapshot.Spec.VirtualMachineName))
 		return reconcile.Result{}, nil
 	}
 
@@ -78,7 +78,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.VirtualMachineNotReadyForSnapshotting).
-			Message(fmt.Sprintf("The virtual machine %q is in process of deletion.", vm.Name))
+			Message(fmt.Sprintf("The virtual machine %q is in the process of deletion.", vm.Name))
 		return reconcile.Result{}, nil
 	}
 

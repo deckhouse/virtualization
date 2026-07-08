@@ -97,7 +97,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 	})
 
 	Context("creating VM with empty virtualMachineClassName", func() {
-		It("should keep virtualMachineClassName empty if no default class", func() {
+		It("should return a clear error if no default class", func() {
 			// Initialize fake client with some classes.
 			name := "single-custom-class"
 			setup(
@@ -107,7 +107,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 
 			vm := newVMWithEmptyClass("vm-with-empty-class")
 			err := classDefaulter.Default(ctx, vm)
-			Expect(err).Should(BeNil())
+			Expect(err).Should(MatchError(ContainSubstring("spec.virtualMachineClassName is empty and no default VirtualMachineClass is configured")))
 			Expect(vm.Spec.VirtualMachineClassName).Should(BeEmpty())
 		})
 

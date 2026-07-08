@@ -33,6 +33,7 @@ The controller does not mirror KubeVirt migration phases one-to-one. It converts
 | `MigrationState.Completed == true` | `SourceSuspended` | `InProgress` | `91%` |
 | `TargetNodeDomainReadyTimestamp != nil` | `TargetResumed` | `InProgress` | `92%` |
 | `MigrationSucceeded` | `Completed` | `Completed` | `100%` |
+| Superseded by a newer VMOP | `Superseded` | `Superseded` | keep current |
 
 ## Reason semantics
 
@@ -50,6 +51,7 @@ The controller does not mirror KubeVirt migration phases one-to-one. It converts
 | `Completed` | Migration completed successfully. |
 | `Aborted` | Migration was aborted. |
 | `Failed` | Migration failed for an unspecified reason. |
+| `Superseded` | Operation was superseded by a newer VMOP for the same VM. |
 
 ## Progress model
 
@@ -58,7 +60,6 @@ Fixed progress values:
 | Reason | Progress |
 |---|---:|
 | `MigrationPending` | `0%` |
-| `DisksPreparing` | `1%` |
 | `TargetScheduling` | `2%` |
 | `TargetUnschedulable` | `2%` |
 | `TargetPreparing` | `3%` |
@@ -216,7 +217,7 @@ Important messages:
 |---|---|
 | `MigrationPending` | `Migration is awaiting start.` |
 | `TargetScheduling` | `Migration is in progress: target pod is being scheduled.` |
-| `MigrationPrepareTarget`, `TargetPreparing`, `DisksPreparing` | `Migration is in progress: target pod is being scheduled and prepared.` |
+| `MigrationPrepareTarget`, `TargetPreparing` | `Migration is in progress: target pod is being scheduled and prepared.` |
 | `MigrationTargetReady`, `Syncing`, `SourceSuspended`, `TargetResumed` | `Migration is in progress: source and target are being synchronized.` |
 
 ## Practical examples
@@ -235,3 +236,4 @@ Important messages:
 | Source suspended during final handoff | `InProgress` | `SourceSuspended` | `91%` |
 | Target resumed | `InProgress` | `TargetResumed` | `92%` |
 | Migration succeeds | `Completed` | `Completed` | `100%` |
+| Migration VMOP is superseded | `Superseded` | `Superseded` | keep current |
