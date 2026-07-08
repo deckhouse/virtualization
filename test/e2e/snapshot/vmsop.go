@@ -122,7 +122,7 @@ var _ = Describe("VMSOPCreateVirtualMachine", Ordered, Label(precheck.PrecheckSn
 			err := f.CreateWithDeferredDeletion(ctx, vmsnapshot)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(ctx, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.LongTimeout, vmsnapshot)
+			util.UntilVMSnapshotsReady(ctx, f, framework.LongTimeout, vmsnapshot)
 		})
 	})
 

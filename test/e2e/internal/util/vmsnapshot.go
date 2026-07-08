@@ -24,24 +24,23 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-// UntilVDSnapshotsReady waits until every VirtualDiskSnapshot becomes Ready.
+// UntilVMSnapshotsReady waits until every VirtualMachineSnapshot becomes Ready.
 //
 // TODO: will be refactored to observers.
 //
-// A snapshot that turns Failed because the CSI driver could not create the
+// A snapshot that turns Failed because the CSI driver could not create an
 // underlying VolumeSnapshot (the failure message relays a VolumeSnapshot error)
 // skips the spec: that is a storage-infrastructure problem, not a
 // virtualization one. Any other Failed reason fails the spec immediately
 // instead of burning the whole timeout.
-func UntilVDSnapshotsReady(ctx context.Context, f *framework.Framework, timeout time.Duration, snapshots ...*v1alpha2.VirtualDiskSnapshot) {
+func UntilVMSnapshotsReady(ctx context.Context, f *framework.Framework, timeout time.Duration, snapshots ...*v1alpha2.VirtualMachineSnapshot) {
 	GinkgoHelper()
 
 	deadline := time.Now().Add(timeout)
@@ -52,17 +51,17 @@ func UntilVDSnapshotsReady(ctx context.Context, f *framework.Framework, timeout 
 			Expect(err).NotTo(HaveOccurred())
 
 			switch snapshot.Status.Phase {
-			case v1alpha2.VirtualDiskSnapshotPhaseReady:
-			case v1alpha2.VirtualDiskSnapshotPhaseFailed:
-				message := readyConditionMessage(snapshot.Status.Conditions, string(vdscondition.VirtualDiskSnapshotReadyType))
+			case v1alpha2.VirtualMachineSnapshotPhaseReady:
+			case v1alpha2.VirtualMachineSnapshotPhaseFailed:
+				message := readyConditionMessage(snapshot.Status.Conditions, string(vmscondition.VirtualMachineSnapshotReadyType))
 				if isCSIVolumeSnapshotError(message) {
 					Skip(fmt.Sprintf(
-						"VirtualDiskSnapshot %s/%s failed on the CSI side, skipping: %s",
+						"VirtualMachineSnapshot %s/%s failed on the CSI side, skipping: %s",
 						snapshot.Namespace, snapshot.Name, message,
 					))
 				}
 				Fail(fmt.Sprintf(
-					"VirtualDiskSnapshot %s/%s failed: %s",
+					"VirtualMachineSnapshot %s/%s failed: %s",
 					snapshot.Namespace, snapshot.Name, message,
 				))
 			default:
@@ -78,28 +77,9 @@ func UntilVDSnapshotsReady(ctx context.Context, f *framework.Framework, timeout 
 			for _, snapshot := range snapshots {
 				names = append(names, fmt.Sprintf("%s=%s", snapshot.Name, snapshot.Status.Phase))
 			}
-			Fail(fmt.Sprintf("timed out after %s waiting for VirtualDiskSnapshots to be Ready: %s", timeout, strings.Join(names, ", ")))
+			Fail(fmt.Sprintf("timed out after %s waiting for VirtualMachineSnapshots to be Ready: %s", timeout, strings.Join(names, ", ")))
 		}
 
 		time.Sleep(2 * time.Second)
 	}
-}
-
-// readyConditionMessage returns the message of the condition with the given
-// type, or an empty string when the condition is not present.
-func readyConditionMessage(conditions []metav1.Condition, conditionType string) string {
-	for _, cond := range conditions {
-		if cond.Type == conditionType {
-			return cond.Message
-		}
-	}
-	return ""
-}
-
-// isCSIVolumeSnapshotError reports whether the failure message relays an error
-// of the underlying VolumeSnapshot, i.e. the snapshot was accepted by the
-// virtualization controller but the CSI driver failed to take it (see the
-// "VolumeSnapshot %q has an error: ..." message in the vdsnapshot lifecycle).
-func isCSIVolumeSnapshotError(message string) bool {
-	return strings.Contains(message, "VolumeSnapshot") && strings.Contains(message, "has an error")
 }

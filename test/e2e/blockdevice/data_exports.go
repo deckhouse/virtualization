@@ -149,7 +149,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 
 			err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout, vdSnapshot)
+			util.UntilVDSnapshotsReady(ctx, f, framework.ShortTimeout, vdSnapshot)
 		})
 
 		By("Exporting VirtualDisk to local file", func() {
