@@ -19,6 +19,17 @@ data:
         readonly:
           enabled: true
 {{- end }}
+    auth:
+      dvcr-k8s:
+        realm: "dvcr"
+        adminusername: "admin"
+        adminpasswordfile: /auth/passwordRW
+        pullerusername: "node-puller"
+        pullerpasswordfile: /auth/passwordRO
+        jwtissuer: "virtualization-controller"
+        jwtaudience: "dvcr"
+        jwtkeyid: "dvcr"
+        jwtpublickeyfile: /auth/tokenPublicKey
     http:
       addr: :5000
       headers:

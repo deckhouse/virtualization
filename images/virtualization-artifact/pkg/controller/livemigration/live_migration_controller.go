@@ -52,7 +52,7 @@ func SetupController(
 	handlers := []Handler{
 		internal.NewDynamicSettingsHandler(client, limiter),
 	}
-	r := NewReconciler(client, handlers...)
+	r := NewReconciler(client, limiter, handlers...)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
