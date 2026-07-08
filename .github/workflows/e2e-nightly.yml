@@ -16,12 +16,6 @@ name: E2E Nightly
 
 on:
   workflow_dispatch:
-  # TEMPORARY: run on PR to exercise the sds-elastic pipeline. REVERT BEFORE MERGE.
-  pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-    branches:
-      - main
-      - chore/ci/add-sds-elastic-e2e-tests
 
 env:
   E2E_IMAGE_BASE_URL: "http://share.e2e-test-images.svc.cluster.local"
@@ -36,7 +30,6 @@ defaults:
 
 jobs:
   cleanup-nested-clusters:
-    if: github.event_name != 'pull_request' # TEMPORARY: skip on PR. REVERT BEFORE MERGE.
     name: Cleanup nested clusters
     runs-on: ubuntu-latest
     steps:
@@ -60,7 +53,6 @@ jobs:
         run: bash .github/scripts/bash/e2e/cleanup-nightly-resources.sh
 
   power-off-vms-for-nested:
-    if: github.event_name != 'pull_request' # TEMPORARY: skip on PR. REVERT BEFORE MERGE.
     name: Power off VMs for nested clusters
     needs: cleanup-nested-clusters
     runs-on: ubuntu-latest
@@ -80,8 +72,7 @@ jobs:
 
   set-vars:
     name: Set vars
-    # TEMPORARY: decoupled from power-off (skipped on PR). UNCOMMENT BEFORE MERGE.
-    # needs: power-off-vms-for-nested
+    needs: power-off-vms-for-nested
     runs-on: ubuntu-latest
     outputs:
       date_start: ${{ steps.vars.outputs.date_start }}
@@ -106,7 +97,6 @@ jobs:
         run: bash .github/scripts/bash/e2e/resolve-registry-profile.sh
 
   e2e-replicated:
-    if: github.event_name != 'pull_request' # TEMPORARY: skip on PR. REVERT BEFORE MERGE.
     name: E2E Pipeline (Replicated)
     needs:
       - set-vars
@@ -140,7 +130,6 @@ jobs:
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
 
   e2e-nfs:
-    if: github.event_name != 'pull_request' # TEMPORARY: skip on PR. REVERT BEFORE MERGE.
     name: E2E Pipeline (NFS)
     needs:
       - set-vars
@@ -184,7 +173,7 @@ jobs:
       nested_storageclass_name: nested-ceph-rbd
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
-      virtualization_tag: pr2608 # TEMPORARY: use PR image. REVERT to main BEFORE MERGE.
+      virtualization_tag: main
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
@@ -252,7 +241,7 @@ jobs:
         env:
           EXPECTED_STORAGE_TYPES: '["replicated","nfs","sds-elastic"]'
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
-          LOOP_CHANNEL_ID: ${{ secrets.LOOP_TEST_CHANNEL_ID }} # TEMPORARY: report to test channel. REVERT to LOOP_CHANNEL_ID BEFORE MERGE.
+          LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
         with:
           script: |

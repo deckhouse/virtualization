@@ -567,9 +567,6 @@ jobs:
       - configure-virtualization
     steps:
       - uses: actions/checkout@v6
-        # TEMPORARY: pin e2e test code to the feature branch. REVERT BEFORE MERGE.
-        with:
-          ref: chore/ci/add-sds-elastic-e2e-tests
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -608,7 +605,6 @@ jobs:
 
       - name: Run E2E
         id: e2e-report
-        continue-on-error: true # TEMPORARY: don't fail the job on test failures. REVERT BEFORE MERGE.
         env:
           TIMEOUT: ${{ inputs.e2e_timeout }}
           CSI: ${{ inputs.storage_type }}
@@ -712,8 +708,7 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    # TEMPORARY: keep the cluster for debugging even on success. REVERT to "cancelled() || success()" BEFORE MERGE.
-    if: cancelled()
+    if: cancelled() || success()
     steps:
       - uses: actions/checkout@v6
 
