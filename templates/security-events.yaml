@@ -324,6 +324,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -373,6 +377,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -421,6 +429,10 @@ spec:
     - name: actor.id
       required: false
     - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
       required: false
     - name: metadata.extra.auditID
       required: false
@@ -473,6 +485,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -521,6 +537,10 @@ spec:
     - name: actor.id
       required: false
     - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
       required: false
     - name: metadata.extra.auditID
       required: false
@@ -571,6 +591,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -620,6 +644,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -668,6 +696,10 @@ spec:
     - name: actor.id
       required: false
     - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
       required: false
     - name: metadata.extra.auditID
       required: false
@@ -720,6 +752,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -769,6 +805,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -817,6 +857,10 @@ spec:
     - name: actor.id
       required: false
     - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
       required: false
     - name: metadata.extra.auditID
       required: false
@@ -869,6 +913,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -918,6 +966,10 @@ spec:
       required: false
     - name: object.uid
       required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
     - name: metadata.extra.auditID
       required: false
     - name: metadata.extra.auditLevel
@@ -966,6 +1018,10 @@ spec:
     - name: actor.id
       required: false
     - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
       required: false
     - name: metadata.extra.auditID
       required: false
@@ -1024,7 +1080,9 @@ spec:
       required: false
     - name: metadata.extra.operationResult
       required: false
-    - name: metadata.extra.virtualMachineName
+    - name: object.name
+      required: false
+    - name: object.namespace
       required: false
     - name: metadata.extra.objectType
       required: false
@@ -1286,6 +1344,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1310,6 +1372,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1334,6 +1400,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1359,6 +1429,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1384,6 +1458,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1409,6 +1487,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1433,6 +1515,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1457,6 +1543,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1482,6 +1572,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1506,6 +1600,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1530,6 +1628,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1555,6 +1657,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1579,6 +1685,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1603,6 +1713,10 @@ spec:
             value: virtualmachine_uid
           - key: metadata.extra.virtualmachineOS
             value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.storageClasses
             value: storageclasses
           - key: metadata.extra.nodeNetworkAddress
@@ -1620,8 +1734,10 @@ spec:
           values:
             - '.*"type":"Integrity check".*config integrity check failed.*'
         transform:
-          - key: metadata.extra.virtualMachineName
+          - key: object.name
             value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
           - key: metadata.extra.objectType
             value: object_type
           - key: metadata.extra.controlMethod
