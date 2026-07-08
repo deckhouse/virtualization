@@ -1,0 +1,25 @@
+# ElasticStorageClasses backed by Ceph RBD.
+# Two classes are provisioned so StorageClassMigration can migrate a VM disk between
+# them: both use provisioner rbd.csi.ceph.com and the same (Block) volume mode, which
+# is what getTargetStorageClass requires to pick a migration target.
+# Creates K8s StorageClasses plus VolumeSnapshotClasses.
+#
+# nested-ceph-rbd    -- default/template, replica-2 (AvailabilityWithoutConsistency).
+# nested-ceph-rbd-r3 -- migration target, replica-3 (ConsistencyAndAvailability).
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: ElasticStorageClass
+metadata:
+  name: nested-ceph-rbd
+spec:
+  clusterRef: elastic
+  type: RBD
+  replication: AvailabilityWithoutConsistency
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: ElasticStorageClass
+metadata:
+  name: nested-ceph-rbd-r3
+spec:
+  clusterRef: elastic
+  type: RBD
+  replication: ConsistencyAndAvailability
