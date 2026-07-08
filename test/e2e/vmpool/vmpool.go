@@ -18,7 +18,6 @@ package vmpool
 
 import (
 	"context"
-	"encoding/json"
 	"slices"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -64,13 +64,9 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 	// placeholder the controller resolves per replica); the bijection with
 	// virtualDiskTemplates is enforced by admission.
 	buildPool := func(replicas int32, policy v1alpha2.ScaleDownPolicy, reclaim v1alpha2.VirtualDiskReclaim) *v1alpha2.VirtualMachinePool {
-		tmpl := vmbuilder.New(
-			vmbuilder.WithCPU(1, ptr.To("20%")),
-			vmbuilder.WithMemory(*resource.NewQuantity(object.Mi512, resource.BinarySI)),
+		tmpl := object.NewMinimalVM("", f.Namespace().Name,
 			vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 			vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnPolicy),
-			vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-			vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 		)
 		tmpl.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{
 			{Kind: v1alpha2.DiskDevice, Name: "root"},
@@ -119,18 +115,12 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 		return n
 	}
 
-	// scaleDownWith POSTs to the aggregated-apiserver scaleDownWith subresource,
-	// the same call `kubectl create --raw` makes. Returns the request error so
-	// both the success and the rejection paths can be asserted.
+	// scaleDownWith calls the aggregated-apiserver scaleDownWith subresource
+	// through the typed client. Returns the request error so both the success and
+	// the rejection paths can be asserted.
 	scaleDownWith := func(poolName string, targets ...string) error {
-		body, err := json.Marshal(map[string][]string{"targets": targets})
-		Expect(err).NotTo(HaveOccurred())
-		return f.KubeClient().Discovery().RESTClient().Post().
-			AbsPath("apis", "subresources.virtualization.deckhouse.io", "v1alpha2",
-				"namespaces", f.Namespace().Name, "virtualmachinepools", poolName, "scaledownwith").
-			Body(body).
-			SetHeader("Content-Type", "application/json").
-			Do(ctx).Error()
+		return f.VirtClient().VirtualMachinePools(f.Namespace().Name).
+			ScaleDownWith(ctx, poolName, subv1alpha2.VirtualMachinePoolScaleDownWith{Targets: targets})
 	}
 
 	It("maintains the requested number of tiny replicas, each with its own root disk, and scales", func() {
@@ -252,6 +242,31 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 				TTL:         &metav1.Duration{Duration: time.Hour},
 			})
 			Expect(f.CreateWithDeferredDeletion(ctx, pool)).To(Succeed())
+		})
+	})
+
+	// The bijection between blockDeviceRefs (kind Disk) and virtualDiskTemplates is
+	// enforced by a spec-level CEL rule in the apiserver, so it is exercised
+	// end-to-end. These pools use replicas: 0, so admission is checked without
+	// booting any VM.
+	Context("blockDeviceRefs/virtualDiskTemplates bijection (CEL)", func() {
+		It("rejects a Disk in blockDeviceRefs with no matching virtualDiskTemplate", func() {
+			p := buildPool(0, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
+			p.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs = append(
+				p.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs,
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "orphan"},
+			)
+			Expect(f.GenericClient().Create(ctx, p)).NotTo(Succeed())
+		})
+
+		It("rejects a virtualDiskTemplate not referenced in blockDeviceRefs", func() {
+			p := buildPool(0, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
+			p.Spec.VirtualDiskTemplates = append(p.Spec.VirtualDiskTemplates, v1alpha2.VirtualDiskTemplateSpec{
+				Name:    "extra",
+				Reclaim: deleteReclaim,
+				Spec:    p.Spec.VirtualDiskTemplates[0].Spec,
+			})
+			Expect(f.GenericClient().Create(ctx, p)).NotTo(Succeed())
 		})
 	})
 })
