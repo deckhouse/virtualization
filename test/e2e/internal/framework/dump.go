@@ -68,6 +68,7 @@ func (f *Framework) saveTestCaseDump(ctx context.Context) {
 	}
 
 	f.saveTestCaseResources(dumpDir)
+	f.saveVMScreenshots(dumpDir)
 	f.savePodAdditionalInfo(ctx, dumpDir)
 	f.saveIntvirtvmDescriptions(dumpDir)
 	f.saveIntvirtvmiDescriptions(dumpDir)
