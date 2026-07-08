@@ -63,7 +63,8 @@ envsubst "${envsubst_variables}" \
 additional_disk_count="${ADDITIONAL_DISK_COUNT:-1}"
 if (( additional_disk_count > 1 )); then
   for (( d = 2; d <= additional_disk_count; d++ )); do
-    ADDITIONAL_DISK_SIZE="${ADDITIONAL_DISK_SIZE}" yq eval --inplace \
+    # ADDITIONAL_DISK_SIZE is exported by the workflow step env and read by yq's env().
+    yq eval --inplace \
       '(.instances.additionalNodes[] | select(.name == "worker") | .cfg.additionalDisks) += [{"size": env(ADDITIONAL_DISK_SIZE)}]' \
       values.yaml
   done
