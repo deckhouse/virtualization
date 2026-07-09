@@ -4,9 +4,12 @@ weight: 70
 ---
 
 ## v1.9.3
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: July 7, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
@@ -14,9 +17,12 @@ Release date: July 7, 2026.
 - [vm] Fixed a volume mount leak that could leave a VM with hotplugged images stuck in the Terminating state during deletion.
 
 ## v1.9.2
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: July 1, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
@@ -25,9 +31,12 @@ Release date: July 1, 2026.
 - [observability] Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during certificate rotation of the `virtualization-audit` pod.
 
 ## v1.9.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 24, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
@@ -44,9 +53,12 @@ Release date: June 24, 2026.
   - CVE-2026-42507
 
 ## v1.9.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 10, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### New features
 
@@ -80,9 +92,12 @@ Release date: June 10, 2026.
 - [vm] System virtual machine resources (pods with `d8v-hp-` and `d8v-vm-` prefixes) now run as the `deckhouse` user, without root privileges.
 
 ## v1.8.3
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 3, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
@@ -90,9 +105,12 @@ Release date: June 3, 2026.
 - [vm] Fixed duplicate service pods (`d8v-hp-*`) when hot-unplugging disks from VMs.
 
 ## v1.8.2
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: May 20, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Security
 
@@ -109,6 +127,7 @@ Release date: May 20, 2026.
   - CVE-2026-42499
 
 ## v1.8.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: April 28, 2026.
 </span>
@@ -122,6 +141,7 @@ Release date: April 28, 2026.
 - [observability] Fixed CPU usage calculation on the virtual machine dashboard in HA clusters, where duplicated controller metrics could affect the displayed value.
 
 ## v1.8.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: April 22, 2026.
 </span>
@@ -160,9 +180,12 @@ Release date: April 22, 2026.
   - CVE-2026-33997
 
 ## v1.7.2
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: May 20, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Security
 
@@ -179,9 +202,12 @@ Release date: May 20, 2026.
   - CVE-2026-42499
 
 ## v1.7.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: April 21, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
@@ -213,9 +239,12 @@ Release date: April 21, 2026.
   - CVE-2026-33186
 
 ## v1.7.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 31, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### New features
 
@@ -241,9 +270,12 @@ Release date: March 31, 2026.
 - [usb] Fixed USB device detection on the host: duplicate USB devices could previously appear.
 
 ## v1.6.3
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: April 21, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Security
 
@@ -265,15 +297,19 @@ Release date: April 21, 2026.
   - CVE-2026-33186
 
 ## v1.6.2
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 23, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
 - [module] The `virtualization` module requires Deckhouse Kubernetes Platform version 1.74.2 or later. This version includes a fix for quota validation when creating disks.
 
 ## v1.6.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 10, 2026.
 </span>
@@ -289,6 +325,7 @@ Release date: March 10, 2026.
 - [module] Fixed vulnerabilities CVE-2026-24051 and CVE-2025-15558.
 
 ## v1.6.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 2, 2026.
 </span>
@@ -316,15 +353,19 @@ Release date: March 2, 2026.
 - [vm] Added the `--from-file` flag to the `vlctl` utility for viewing domain information from a local libvirt XML file.
 
 ## v1.5.2
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: March 5, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
 - [vd] Fixed a potential `OOMKill` during the virtual disk creation on NFS.
 
 ## v1.5.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: February 16, 2026.
 </span>
@@ -334,6 +375,7 @@ Release date: February 16, 2026.
 - [vd] Fixed an issue with creating a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`).
 
 ## v1.5.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: February 9, 2026.
 </span>
@@ -359,18 +401,24 @@ Release date: February 9, 2026.
 - [vd] When viewing disks, the name of the virtual machine they are attached to is now displayed (`d8 k get vd`).
 
 ## v1.4.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: February 16, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Security
 
 - [module] Fixed vulnerabilities CVE-2025-61726, CVE-2025-61728, CVE-2025-61730, and CVE-2025-68121.
 
 ## v1.4.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: January 23, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### New features
 
@@ -386,9 +434,12 @@ Release date: January 23, 2026.
 - [vm] Added support for cloning virtual machines in the `Running` phase via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) of type `Clone`.
 
 ## v1.3.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: December 16, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### New features
 
@@ -402,15 +453,19 @@ Release date: December 16, 2025.
 - [observability] Fixed the display of virtual machine charts in clusters running in HA mode.
 
 ## v1.2.2
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: December 5, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
 - [module] Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
 
 ## v1.2.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: December 4, 2025.
 </span>
@@ -420,9 +475,12 @@ Release date: December 4, 2025.
 - [module] The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
 
 ## v1.2.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: November 28, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### New features
 
@@ -458,9 +516,12 @@ Release date: November 28, 2025.
 - [module] Fixed vulnerability CVE-2025-64324.
 
 ## v1.1.3
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: November 21, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Security
 
@@ -471,9 +532,12 @@ Release date: November 21, 2025.
 - [observability] The virtual machine overview dashboards (`Namespace / Virtual Machine` and `Namespace / Virtual Machines`) have been improved: in addition to the cluster level, they are now also available at the project level.
 
 ## v1.1.2
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: November 5, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
@@ -482,9 +546,12 @@ Release date: November 5, 2025.
 - [vm] In the `Migrating` state, detailed error information is now displayed when a live migration of a virtual machine fails.
 
 ## v1.1.1
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: October 16, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
@@ -505,9 +572,12 @@ Release date: October 16, 2025.
 - [module] Fixed vulnerabilities CVE-2025-58058 and CVE-2025-54410.
 
 ## v1.1.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: October 6, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### New features
 
@@ -535,9 +605,12 @@ Release date: October 6, 2025.
 - [observability] Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration.
 
 ## v1.0.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: September 11, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### New features
 
@@ -557,9 +630,12 @@ Release date: September 11, 2025.
 - Fixed CVE-2025-47907.
 
 ## v0.25.0
+
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: August 29, 2025.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Important notes before update
 
