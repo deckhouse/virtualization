@@ -1,7 +1,0 @@
----
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}pvc-importer
-imageSpec:
-  config:
-    entrypoint: ["/usr/bin/pvc-importer", "-alsologtostderr"]
-    user: 64535

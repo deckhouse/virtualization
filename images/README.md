@@ -4,5 +4,5 @@ Kubevirt is built as a single bundle as a virt-artifact. Then all necessary virt
 
 https://github.com/kubevirt/kubevirt/blob/v1.3.1/BUILD.bazel#L215-L224
 
-The CDI importer code used by virtual-disk-importer is vendored in
+The importer code used by pvc-importer is vendored in
 images/pvc-artifact and built from this repository.

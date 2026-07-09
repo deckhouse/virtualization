@@ -19,9 +19,6 @@ git:
 
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
-binaries:
-- /pvc-binaries/pvc-importer
-- /pvc-binaries/pvc-target-importer
 packages:
 - libnbd
 - libxml2
