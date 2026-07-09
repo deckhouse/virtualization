@@ -40,8 +40,8 @@ github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.22 h1:3
 github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.22/go.mod h1:wGZLfRa/b4w/V/hakmfcK0CmrAZGfpj+jN7BMt0s19E=
 github.com/deckhouse/deckhouse/pkg/log v0.2.0 h1:6tmZQLwNb1o/hP1gzJQBjcwfA/bubbgObovXzxq+Exo=
 github.com/deckhouse/deckhouse/pkg/log v0.2.0/go.mod h1:pbAxTSDcPmwyl3wwKDcEB3qdxHnRxqTV+J0K+sha8bw=
-github.com/deckhouse/module-sdk v0.11.1 h1:dMhL08TbKNhtBdI+1eVVk7iR2OnRp4mSoeyEMg6uVtQ=
-github.com/deckhouse/module-sdk v0.11.1/go.mod h1:v3pnOUIY8hCv7qQ5YaffiAYKj5oH8WBonG614KvRPXw=
+github.com/deckhouse/module-sdk v0.10.13 h1:BDY0uui8mhAM0iSKRdWmBwtuSTF8p96wnvgegVspu70=
+github.com/deckhouse/module-sdk v0.10.13/go.mod h1:yuowe5M8qpsUQ2JjE9CjkgBjd0OP+XtO69y7k4Om97w=
 github.com/docker/cli v29.4.0+incompatible h1:+IjXULMetlvWJiuSI0Nbor36lcJ5BTcVpUmB21KBoVM=
 github.com/docker/cli v29.4.0+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/distribution v2.8.3+incompatible h1:AtKxIZ36LoNK51+Z6RpzLpddBirtxJnzDrHLEKxTAYk=

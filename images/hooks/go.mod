@@ -6,7 +6,7 @@ tool github.com/onsi/ginkgo/v2/ginkgo
 
 require (
 	github.com/deckhouse/deckhouse/pkg/log v0.2.0
-	github.com/deckhouse/module-sdk v0.11.1
+	github.com/deckhouse/module-sdk v0.10.13
 	github.com/deckhouse/virtualization-controller v0.0.0
 	github.com/deckhouse/virtualization/api v0.15.0
 	github.com/onsi/ginkgo/v2 v2.23.3

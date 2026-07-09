@@ -79,9 +79,6 @@ var _ Client = &ClientMock{}
 //
 //		// make and configure a mocked Client
 //		mockedClient := &ClientMock{
-//			ApplyFunc: func(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
-//				panic("mock out the Apply method")
-//			},
 //			CreateFunc: func(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 //				panic("mock out the Create method")
 //			},
@@ -128,9 +125,6 @@ var _ Client = &ClientMock{}
 //
 //	}
 type ClientMock struct {
-	// ApplyFunc mocks the Apply method.
-	ApplyFunc func(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error
-
 	// CreateFunc mocks the Create method.
 	CreateFunc func(ctx context.Context, obj client.Object, opts ...client.CreateOption) error
 
@@ -172,15 +166,6 @@ type ClientMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// Apply holds details about calls to the Apply method.
-		Apply []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj runtime.ApplyConfiguration
-			// Opts is the opts argument value.
-			Opts []client.ApplyOption
-		}
 		// Create holds details about calls to the Create method.
 		Create []struct {
 			// Ctx is the ctx argument value.
@@ -273,7 +258,6 @@ type ClientMock struct {
 			Opts []client.UpdateOption
 		}
 	}
-	lockApply               sync.RWMutex
 	lockCreate              sync.RWMutex
 	lockDelete              sync.RWMutex
 	lockDeleteAllOf         sync.RWMutex
@@ -287,46 +271,6 @@ type ClientMock struct {
 	lockStatus              sync.RWMutex
 	lockSubResource         sync.RWMutex
 	lockUpdate              sync.RWMutex
-}
-
-// Apply calls ApplyFunc.
-func (mock *ClientMock) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
-	if mock.ApplyFunc == nil {
-		panic("ClientMock.ApplyFunc: method is nil but Client.Apply was just called")
-	}
-	callInfo := struct {
-		Ctx  context.Context
-		Obj  runtime.ApplyConfiguration
-		Opts []client.ApplyOption
-	}{
-		Ctx:  ctx,
-		Obj:  obj,
-		Opts: opts,
-	}
-	mock.lockApply.Lock()
-	mock.calls.Apply = append(mock.calls.Apply, callInfo)
-	mock.lockApply.Unlock()
-	return mock.ApplyFunc(ctx, obj, opts...)
-}
-
-// ApplyCalls gets all the calls that were made to Apply.
-// Check the length with:
-//
-//	len(mockedClient.ApplyCalls())
-func (mock *ClientMock) ApplyCalls() []struct {
-	Ctx  context.Context
-	Obj  runtime.ApplyConfiguration
-	Opts []client.ApplyOption
-} {
-	var calls []struct {
-		Ctx  context.Context
-		Obj  runtime.ApplyConfiguration
-		Opts []client.ApplyOption
-	}
-	mock.lockApply.RLock()
-	calls = mock.calls.Apply
-	mock.lockApply.RUnlock()
-	return calls
 }
 
 // Create calls CreateFunc.
