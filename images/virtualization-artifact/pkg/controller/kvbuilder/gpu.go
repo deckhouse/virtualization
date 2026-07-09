@@ -66,10 +66,6 @@ func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
 		},
 	)
 
-	if len(devices) == 0 {
-		return
-	}
-
 	for _, device := range devices {
 		claimName := GPUResourceClaimName(device.Name)
 		b.Resource.Spec.Template.Spec.ResourceClaims = append(b.Resource.Spec.Template.Spec.ResourceClaims, virtv1.ResourceClaim{
