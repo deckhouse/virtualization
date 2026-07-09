@@ -188,6 +188,48 @@ var _ = Describe("Test action getters for different run policy", func() {
 			Expect(action).To(Equal(Stop))
 		})
 
+		It("should return stop action on failed phase with pod completed", func() {
+			kvvmi.Status.Phase = virtv1.Failed
+
+			action := handler.handleManualPolicy(
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{PodCompleted: true},
+			)
+
+			Expect(action).To(Equal(Stop))
+		})
+
+		It("should return restart action on failed phase with pod completed and guest reset reason", func() {
+			kvvmi.Status.Phase = virtv1.Failed
+			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true, Reason: powerstate.GuestResetReason}
+
+			action := handler.handleManualPolicy(
+				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
+			)
+
+			Expect(action).To(Equal(Restart))
+		})
+
+		It("should return start action on failed phase when start requested", func() {
+			setupKVVMAnnotations(kvvm, annotations.AnnVMStartRequested)
+			kvvmi.Status.Phase = virtv1.Failed
+
+			action := handler.handleManualPolicy(
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+			)
+
+			Expect(action).To(Equal(Start))
+		})
+
+		It("should return nothing action on failed phase without pod completed", func() {
+			kvvmi.Status.Phase = virtv1.Failed
+
+			action := handler.handleManualPolicy(
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+			)
+
+			Expect(action).To(Equal(Nothing))
+		})
+
 		It("should return restart action", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running

@@ -63,6 +63,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
@@ -497,6 +498,12 @@ func main() {
 
 	volumeMigrationLogger := logger.NewControllerLogger(volumemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if err = volumemigration.SetupController(ctx, mgr, volumeMigrationLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmpoolLogger := logger.NewControllerLogger(vmpool.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmpool.SetupController(ctx, mgr, vmpoolLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

@@ -109,3 +109,19 @@ type VirtualMachineRemoveResourceClaim struct {
 	Name   string
 	DryRun []string
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachinePool struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachinePoolScaleDownWith struct {
+	metav1.TypeMeta
+
+	Targets []string
+	DryRun  []string
+}

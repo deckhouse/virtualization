@@ -23,6 +23,10 @@ source "${SCRIPT_DIR}/common.sh"
 LABEL_SELECTOR="${LABEL_SELECTOR:-test=nightly-e2e}"
 KEEP_HOURS="${KEEP_HOURS:-47}"
 FRIDAY_KEEP_HOURS="${FRIDAY_KEEP_HOURS:-71}"
+# sds-elastic (Ceph) nested clusters are heavy, so they are torn down sooner (~1 day)
+# and are not granted the Friday extension. Matched by storage type in the resource name.
+ELASTIC_KEEP_HOURS="${ELASTIC_KEEP_HOURS:-23}"
+ELASTIC_NAME_PATTERN="${ELASTIC_NAME_PATTERN:-sds-elastic}"
 
 current_date_seconds="$(date -u +%s)"
 
@@ -35,20 +39,28 @@ collect_items_json() {
 
 should_keep() {
   local created_at="$1"
+  local name="$2"
   local resource_created_at_seconds
   local age_seconds
   local weekday_of_day
+  local keep_hours="${KEEP_HOURS}"
+  local friday_keep_hours="${FRIDAY_KEEP_HOURS}"
+
+  if [[ "${name}" == *"${ELASTIC_NAME_PATTERN}"* ]]; then
+    keep_hours="${ELASTIC_KEEP_HOURS}"
+    friday_keep_hours="${ELASTIC_KEEP_HOURS}"
+  fi
 
   resource_created_at_seconds="$(date -d "${created_at}" -u +%s)"
   age_seconds="$(( current_date_seconds - resource_created_at_seconds ))"
   weekday_of_day="$(date -d "${created_at}" -u +%u)"
 
-  if [ "${age_seconds}" -lt "$(( KEEP_HOURS * 3600 ))" ]; then
+  if [ "${age_seconds}" -lt "$(( keep_hours * 3600 ))" ]; then
     echo "keep"
     return 0
   fi
 
-  if [ "${weekday_of_day}" -eq 5 ] && [ "${age_seconds}" -lt "$(( FRIDAY_KEEP_HOURS * 3600 ))" ]; then
+  if [ "${weekday_of_day}" -eq 5 ] && [ "${age_seconds}" -lt "$(( friday_keep_hours * 3600 ))" ]; then
     echo "keep"
     return 0
   fi
@@ -69,7 +81,7 @@ cleanup_kind() {
     created_at="$(echo "${item}" | jq -r '.created_at')"
     [ -z "${name}" ] && continue
 
-    decision="$(should_keep "${created_at}")"
+    decision="$(should_keep "${created_at}" "${name}")"
     if [ "${decision}" = "keep" ]; then
       printf "%-63s %22s\n" "[INFO] Keep ${kind}/${name}:" "created_at ${created_at}"
       continue
