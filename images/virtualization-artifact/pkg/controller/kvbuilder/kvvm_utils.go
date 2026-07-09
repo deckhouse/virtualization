@@ -465,6 +465,9 @@ func setBlockDeviceDisk(
 		switch vi.Spec.Storage {
 		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
 			opts.PersistentVolumeClaim = ptr.To(vi.Status.Target.PersistentVolumeClaim)
+			// Images are immutable: a PVC-backed image should be read-only inside the VM,
+			// like a registry-backed image (ContainerDisk is always read-only).
+			opts.IsReadOnly = true
 		case v1alpha2.StorageContainerRegistry:
 			opts.ContainerDisk = ptr.To(vi.Status.Target.RegistryURL)
 		default:
