@@ -65,11 +65,15 @@ type VirtualMachinePoolList struct {
 // The disks a replica gets are declared in two places that must stay in sync:
 // virtualDiskTemplates describes each per-replica disk, and the template's
 // blockDeviceRefs references those disks (by name, kind VirtualDisk) to set the
-// boot order and interleave shared images. The rule below enforces a bijection —
-// every template is referenced exactly once, and every VirtualDisk reference
-// resolves to a template — so neither list can carry a dangling entry.
+// boot order and interleave shared images. The three rules below enforce a
+// bijection between them so neither list can carry a dangling entry.
 //
-// +kubebuilder:validation:XValidation:rule="has(self.virtualMachineTemplate.spec) && has(self.virtualMachineTemplate.spec.blockDeviceRefs) && self.virtualDiskTemplates.all(t, self.virtualMachineTemplate.spec.blockDeviceRefs.exists(r, r.kind == 'VirtualDisk' && r.name == t.name)) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').all(r, self.virtualDiskTemplates.exists(t, t.name == r.name)) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').size() == self.virtualDiskTemplates.size()",message="each virtualDiskTemplates entry must be referenced exactly once by a VirtualDisk entry in virtualMachineTemplate.spec.blockDeviceRefs, and every VirtualDisk reference must name a virtualDiskTemplates entry"
+// Every virtualDiskTemplates entry must be referenced by a VirtualDisk in the template.
+// +kubebuilder:validation:XValidation:rule="has(self.virtualMachineTemplate.spec) && has(self.virtualMachineTemplate.spec.blockDeviceRefs) && self.virtualDiskTemplates.all(t, self.virtualMachineTemplate.spec.blockDeviceRefs.exists(r, r.kind == 'VirtualDisk' && r.name == t.name))",message="each virtualDiskTemplates entry must be referenced by a VirtualDisk entry in virtualMachineTemplate.spec.blockDeviceRefs"
+// Every VirtualDisk reference in the template must name a virtualDiskTemplates entry.
+// +kubebuilder:validation:XValidation:rule="has(self.virtualMachineTemplate.spec) && has(self.virtualMachineTemplate.spec.blockDeviceRefs) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').all(r, self.virtualDiskTemplates.exists(t, t.name == r.name))",message="each VirtualDisk reference in virtualMachineTemplate.spec.blockDeviceRefs must name a virtualDiskTemplates entry"
+// The reference is one-to-one: no virtualDiskTemplates entry is referenced twice.
+// +kubebuilder:validation:XValidation:rule="has(self.virtualMachineTemplate.spec) && has(self.virtualMachineTemplate.spec.blockDeviceRefs) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').size() == self.virtualDiskTemplates.size()",message="each virtualDiskTemplates entry must be referenced exactly once (no duplicate VirtualDisk references)"
 type VirtualMachinePoolSpec struct {
 	// Replicas is the desired number of virtual machines in the pool.
 	//
