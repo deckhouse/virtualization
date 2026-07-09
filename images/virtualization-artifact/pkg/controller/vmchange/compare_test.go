@@ -689,31 +689,31 @@ networks:
 			`
 gpuDevices:
 - name: gpu1
-  model: NVIDIA H100
+  deviceClassName: nvidia-h100
 - name: gpu0
-  model: NVIDIA A100-SXM4-40GB
+  deviceClassName: nvidia-a100
 `,
 			`
 gpuDevices:
 - name: gpu0
-  model: NVIDIA A100-SXM4-40GB
+  deviceClassName: nvidia-a100
 - name: gpu1
-  model: NVIDIA H100
+  deviceClassName: nvidia-h100
 `,
 			nil,
 			assertNoChanges(),
 		},
 		{
-			"restart when gpu device model changes",
+			"restart when gpu device deviceClassName changes",
 			`
 gpuDevices:
 - name: gpu0
-  model: NVIDIA A100-SXM4-40GB
+  deviceClassName: nvidia-a100
 `,
 			`
 gpuDevices:
 - name: gpu0
-  model: NVIDIA H100
+  deviceClassName: nvidia-h100
 `,
 			nil,
 			assertChanges(

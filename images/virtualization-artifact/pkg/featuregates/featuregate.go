@@ -25,14 +25,14 @@ import (
 )
 
 const (
-	SDN                                 featuregate.Feature = "SDN"
-	AutoMigrationIfNodePlacementChanged featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
-	VolumeMigration                     featuregate.Feature = "VolumeMigration"
-	TargetMigration                     featuregate.Feature = "TargetMigration"
-	USB                                 featuregate.Feature = "USB"
-	GPU                                 featuregate.Feature = "GPU"
-	HotplugCPUWithLiveMigration         featuregate.Feature = "HotplugCPUWithLiveMigration"
-	HotplugMemoryWithLiveMigration      featuregate.Feature = "HotplugMemoryWithLiveMigration"
+	SDN                                  featuregate.Feature = "SDN"
+	AutoMigrationIfNodePlacementChanged  featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
+	VolumeMigration                      featuregate.Feature = "VolumeMigration"
+	TargetMigration                      featuregate.Feature = "TargetMigration"
+	USB                                  featuregate.Feature = "USB"
+	GPU                                  featuregate.Feature = "GPU"
+	HotplugCPUWithLiveMigration          featuregate.Feature = "HotplugCPUWithLiveMigration"
+	HotplugMemoryWithLiveMigration       featuregate.Feature = "HotplugMemoryWithLiveMigration"
 	HotplugCPUAndMemoryWithInPlaceResize featuregate.Feature = "HotplugCPUAndMemoryWithInPlaceResize"
 	VirtualMachinePool                   featuregate.Feature = "VirtualMachinePool"
 )
