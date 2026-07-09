@@ -375,6 +375,7 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 	if sourcePVC == nil {
 		return fmt.Errorf("source pvc %s/%s not found", sourceNamespace, sourceName)
 	}
+	sourcePVC.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"))
 
 	vs := &vsv1.VolumeSnapshot{
 		TypeMeta: metav1.TypeMeta{Kind: "VolumeSnapshot", APIVersion: "snapshot.storage.k8s.io/v1"},
