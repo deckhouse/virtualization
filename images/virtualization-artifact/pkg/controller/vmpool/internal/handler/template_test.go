@@ -1,0 +1,160 @@
+/*
+Copyright 2026 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package handler
+
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+)
+
+func getVM(ctx context.Context, c client.Client, name string) *v1alpha2.VirtualMachine {
+	vm := &v1alpha2.VirtualMachine{}
+	Expect(c.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: name}, vm)).To(Succeed())
+	return vm
+}
+
+var _ = Describe("TemplateHandler", func() {
+	var ctx context.Context
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	poolWithRunPolicy := func() *v1alpha2.VirtualMachinePool {
+		pool := newPool(1)
+		pool.Spec.VirtualMachineTemplate.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
+		return pool
+	}
+
+	It("patches a lagging replica's spec and records the patched revision", func() {
+		pool := poolWithRunPolicy()
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs from template
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		got := getVM(ctx, c, "web-a")
+		Expect(got.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOnPolicy))
+		Expect(got.Annotations).To(HaveKeyWithValue(poollabels.PatchedTemplateHash, poollabels.ComputeTemplateHash(pool)))
+		// The effectively-applied label is only set on a subsequent pass.
+		Expect(got.Labels).NotTo(HaveKeyWithValue(poollabels.TemplateHash, poollabels.ComputeTemplateHash(pool)))
+	})
+
+	It("preserves per-replica disk refs when patching the spec", func() {
+		pool := poolWithRunPolicy()
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs → triggers a spec patch
+		// A per-replica disk the pool attached; it is not part of the template and
+		// must survive the patch.
+		m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		got := getVM(ctx, c, "web-a")
+		Expect(got.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOnPolicy)) // template applied
+		Expect(got.Spec.BlockDeviceRefs).To(ContainElement(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}))
+	})
+
+	It("does not reintroduce a template placeholder over the resolved per-replica ref", func() {
+		pool := poolWithRunPolicy()
+		// The template references a disk template by name (placeholder); the member
+		// already has it resolved to a concrete per-replica disk.
+		pool.Spec.VirtualMachineTemplate.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "system"}}
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually // differs → triggers a spec patch
+		m.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		got := getVM(ctx, c, "web-a")
+		Expect(got.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOnPolicy)) // template applied
+		// The resolved ref survives untouched: no "system" placeholder re-added,
+		// no duplicate (which VM admission would reject as a double reference).
+		Expect(got.Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-a-system"}}))
+	})
+
+	It("marks the replica on the current template once patched and not awaiting restart", func() {
+		pool := poolWithRunPolicy()
+		hash := poollabels.ComputeTemplateHash(pool)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
+		m.Labels[poollabels.TemplateHash] = "old"
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(getVM(ctx, c, "web-a").Labels).To(HaveKeyWithValue(poollabels.TemplateHash, hash))
+	})
+
+	It("keeps the old revision label while the replica awaits a restart", func() {
+		pool := poolWithRunPolicy()
+		hash := poollabels.ComputeTemplateHash(pool)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
+		m.Labels[poollabels.TemplateHash] = "old"
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
+		m.Status.Conditions = []metav1.Condition{{
+			Type:   vmcondition.TypeAwaitingRestartToApplyConfiguration.String(),
+			Status: metav1.ConditionTrue,
+			Reason: "PendingRestart",
+		}}
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(getVM(ctx, c, "web-a").Labels[poollabels.TemplateHash]).To(Equal("old"))
+	})
+
+	It("does not re-patch or relabel a stable replica", func() {
+		pool := poolWithRunPolicy()
+		hash := poollabels.ComputeTemplateHash(pool)
+		m := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+		m.Annotations = map[string]string{poollabels.PatchedTemplateHash: hash}
+		m.Labels[poollabels.TemplateHash] = hash
+		m.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
+		c, err := testutil.NewFakeClientWithObjects(pool, m)
+		Expect(err).NotTo(HaveOccurred())
+
+		before := getVM(ctx, c, "web-a").ResourceVersion
+		_, err = NewTemplateHandler(c).Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(getVM(ctx, c, "web-a").ResourceVersion).To(Equal(before)) // no write happened
+	})
+})

@@ -54,6 +54,7 @@ type Client interface {
 	kubernetes.Interface
 	ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface
 	VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface
+	VirtualMachinePools(namespace string) virtualizationv1alpha2.VirtualMachinePoolInterface
 	VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface
 	VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface
 	VirtualDiskSnapshots(namespace string) virtualizationv1alpha2.VirtualDiskSnapshotInterface
@@ -82,6 +83,15 @@ func (c client) VirtualMachines(namespace string) virtualizationv1alpha2.Virtual
 		config:                  c.config,
 		namespace:               namespace,
 		resource:                "virtualmachines",
+	}
+}
+
+func (c client) VirtualMachinePools(namespace string) virtualizationv1alpha2.VirtualMachinePoolInterface {
+	return &vmpool{
+		VirtualMachinePoolInterface: c.virtClient.VirtualizationV1alpha2().VirtualMachinePools(namespace),
+		restClient:                  c.restClient,
+		namespace:                   namespace,
+		resource:                    "virtualmachinepools",
 	}
 }
 

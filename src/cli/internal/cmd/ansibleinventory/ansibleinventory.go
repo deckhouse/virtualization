@@ -36,6 +36,7 @@ import (
 const (
 	annotationPrefix        = "provisioning.virtualization.deckhouse.io/"
 	groupsAnnotationKey     = annotationPrefix + "groups"
+	varsAnnotationPrefix    = "vars.provisioning.virtualization.deckhouse.io/"
 	ansibleSSHCommonArgs    = `-o ProxyCommand='d8 v port-forward --stdio=true %h %p'`
 	ansibleSSHCommonArgsKey = "ansible_ssh_common_args"
 )
@@ -89,7 +90,7 @@ Arguments:
 Host names format: <vmname>.<namespace> (e.g., myvm.default)
 
 VM annotations:
-  - Annotations with prefix 'provisioning.virtualization.deckhouse.io/' are included
+  - Annotations with prefix 'vars.provisioning.virtualization.deckhouse.io/' are included
     as host variables (prefix is stripped from variable name)
   - Use 'provisioning.virtualization.deckhouse.io/groups' annotation to add VMs to groups
     (comma-separated list of group names)
@@ -353,20 +354,19 @@ func (a *AnsibleInventory) getHostName(vm v1alpha2.VirtualMachine) string {
 func (a *AnsibleInventory) getHostVars(vm v1alpha2.VirtualMachine) map[string]string {
 	hostVars := make(map[string]string)
 
-	// Add annotations as host variables
-	// Only process annotations with prefix provisioning.virtualization.deckhouse.io/
-	if len(vm.Annotations) > 0 {
-		for key, value := range vm.Annotations {
-			if !strings.HasPrefix(key, annotationPrefix) {
-				continue
-			}
-			if key == groupsAnnotationKey {
-				continue
-			}
-			varName := strings.TrimPrefix(key, annotationPrefix)
-			if varName != "" {
-				hostVars[varName] = value
-			}
+	// Add annotations as host variables.
+	// Only annotations with the vars.provisioning.virtualization.deckhouse.io/
+	// prefix become host variables; the prefix is stripped from the variable
+	// name. This matches the annotation scheme used by the virtualization-provisioner
+	// module, where groups live under provisioning.virtualization.deckhouse.io/groups
+	// and host variables live under the separate vars. prefix.
+	for key, value := range vm.Annotations {
+		if !strings.HasPrefix(key, varsAnnotationPrefix) {
+			continue
+		}
+		varName := strings.TrimPrefix(key, varsAnnotationPrefix)
+		if varName != "" {
+			hostVars[varName] = value
 		}
 	}
 
@@ -464,8 +464,8 @@ func usage() string {
   # Add VM to groups (comma-separated):
   #   kubectl annotate vm myvm provisioning.virtualization.deckhouse.io/groups="web,production" -n default
   #
-  # Add custom host variable:
-  #   kubectl annotate vm myvm provisioning.virtualization.deckhouse.io/ansible_user="admin" -n default
+  # Add custom host variable (note the 'vars.' prefix):
+  #   kubectl annotate vm myvm vars.provisioning.virtualization.deckhouse.io/ansible_user="admin" -n default
   #   # This will be available as 'ansible_user' variable in Ansible
   #
   # Note: Only VMs with assigned IP addresses are included in the inventory.

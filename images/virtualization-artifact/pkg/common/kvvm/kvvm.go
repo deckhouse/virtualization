@@ -69,9 +69,13 @@ func GetVMPod(kvvmi *virtv1.VirtualMachineInstance, podList *corev1.PodList) *co
 		return nil
 	}
 
+	nodeName := kvvmi.Status.NodeName
+
 	var pods []corev1.Pod
 	for _, pod := range podList.Items {
-		if pod.Spec.NodeName != kvvmi.Status.NodeName {
+		// if KVVMI completed, nodeName can be empty
+		kvvmCompletedWithEmptyNodeName := kvvmiCompleted(kvvmi) && nodeName == ""
+		if !kvvmCompletedWithEmptyNodeName && nodeName != pod.Spec.NodeName {
 			continue
 		}
 		if _, exists := kvvmi.Status.ActivePods[pod.GetUID()]; !exists {
@@ -126,4 +130,8 @@ func RemoveStartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.V
 
 func RemoveRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
 	return object.RemoveAnnotation(ctx, cl, kvvm, annotations.AnnVMRestartRequested)
+}
+
+func kvvmiCompleted(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed
 }
