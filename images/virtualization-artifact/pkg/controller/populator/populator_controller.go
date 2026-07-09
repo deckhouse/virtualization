@@ -98,6 +98,22 @@ func hasPopulationStrategy(obj client.Object) bool {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	res, err := r.reconcile(ctx, req)
+	if err != nil && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+		// The namespace is being deleted: admission rejects every create in it and
+		// the PVC will be garbage-collected along with the namespace, so retrying
+		// only floods the log with Reconciler errors.
+		r.log.Info("PVC population canceled: namespace is terminating",
+			"namespace", req.Namespace,
+			"pvc", req.Name,
+			"err", err.Error(),
+		)
+		return reconcile.Result{}, nil
+	}
+	return res, err
+}
+
+func (r *Reconciler) reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	pvc, err := object.FetchObject(ctx, req.NamespacedName, r.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
