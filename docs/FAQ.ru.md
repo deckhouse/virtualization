@@ -808,7 +808,7 @@ ansible -m shell -a "uptime" \
 1. При необходимости задайте переменные хоста через аннотации (например, пользователя для SSH):
 
    ```bash
-   d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud"
+   d8 k -n demo-app annotate vm frontend vars.provisioning.virtualization.deckhouse.io/ansible_user="cloud"
    ```
 
 1. Запустите Ansible с динамически сформированным инвентарём:
