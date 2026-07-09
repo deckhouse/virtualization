@@ -226,11 +226,9 @@ properties:
       - `HotplugCPUWithLiveMigration` — enable live changing of cpu cores number via LiveMigration. (Not available in CE);
       - `HotplugMemoryWithLiveMigration` — enable live changing of memory size via LiveMigration. (Not available in CE);
       - `HotplugCPUAndMemoryWithInPlaceResize` - enable live changing of cpu cores number or memory size via InPlaceResize. (Not available in CE);
-      - `VirtualMachinePool` — enable the VirtualMachinePool resource for group management of virtual machines. (Not available in CE);
     items:
       type: string
       enum:
         - "HotplugCPUWithLiveMigration"
         - "HotplugMemoryWithLiveMigration"
         - "HotplugCPUAndMemoryWithInPlaceResize"
-        - "VirtualMachinePool"
