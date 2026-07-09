@@ -54,13 +54,15 @@ func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
 	b.Resource.Spec.Template.Spec.ResourceClaims = slices.DeleteFunc(
 		b.Resource.Spec.Template.Spec.ResourceClaims,
 		func(claim virtv1.ResourceClaim) bool {
-			return strings.HasPrefix(claim.Name, GPUNamePrefix)
+			return strings.HasPrefix(claim.Name, GPUNamePrefix) &&
+				claim.ResourceClaimTemplateName != nil &&
+				IsGPUResourceClaimTemplateName(vmName, *claim.ResourceClaimTemplateName)
 		},
 	)
 	b.Resource.Spec.Template.Spec.Domain.Devices.GPUs = slices.DeleteFunc(
 		b.Resource.Spec.Template.Spec.Domain.Devices.GPUs,
 		func(gpu virtv1.GPU) bool {
-			return strings.HasPrefix(gpu.Name, GPUNamePrefix)
+			return strings.HasPrefix(gpu.Name, GPUNamePrefix) && gpu.ClaimRequest != nil
 		},
 	)
 

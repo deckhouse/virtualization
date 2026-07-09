@@ -19,7 +19,10 @@ package kvbuilder
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -70,6 +73,35 @@ var _ = Describe("GPU", func() {
 		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(GPUResourceClaimTemplateName("vm-a", "gpu1")))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(1))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu1"))
+	})
+
+	It("should not touch resource claims and GPUs it does not own", func() {
+		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
+		res := kvvm.GetResource()
+		res.Spec.Template.Spec.ResourceClaims = []virtv1.ResourceClaim{{
+			PodResourceClaim: corev1.PodResourceClaim{
+				Name:                      "gpu-foreign",
+				ResourceClaimTemplateName: ptr.To("foreign-template"),
+			},
+		}}
+		res.Spec.Template.Spec.Domain.Devices.GPUs = []virtv1.GPU{{
+			Name:       "gpu-legacy",
+			DeviceName: "nvidia.com/GH100",
+		}}
+
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "nvidia-h100"}})
+		res = kvvm.GetResource()
+
+		claimNames := make([]string, 0)
+		for _, c := range res.Spec.Template.Spec.ResourceClaims {
+			claimNames = append(claimNames, c.Name)
+		}
+		gpuNames := make([]string, 0)
+		for _, g := range res.Spec.Template.Spec.Domain.Devices.GPUs {
+			gpuNames = append(gpuNames, g.Name)
+		}
+		Expect(claimNames).To(ConsistOf("gpu-foreign", "gpu-gpu0"))
+		Expect(gpuNames).To(ConsistOf("gpu-legacy", "gpu-gpu0"))
 	})
 
 	It("should remove rendered DRA GPU resource claims", func() {
