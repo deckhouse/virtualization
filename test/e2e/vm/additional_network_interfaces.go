@@ -52,8 +52,8 @@ type additionalNetworkTestCase struct {
 }
 
 const (
-	additionalInterfaceVLANID       = 4006
-	secondAdditionalInterfaceVLANID = 4007
+	additionalInterfaceVLANID       = 4007
+	secondAdditionalInterfaceVLANID = 4006
 )
 
 func expectClusterNetworkExists(f *framework.Framework, vlanID int) {
@@ -61,7 +61,7 @@ func expectClusterNetworkExists(f *framework.Framework, vlanID int) {
 		fmt.Sprintf("Cluster network %s does not exist. Create it first: %s", util.ClusterNetworkName(vlanID), util.ClusterNetworkCreateCommand(vlanID)))
 }
 
-var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoPrecheck, precheck.PrecheckSDN), func() {
+var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.PrecheckSDN), func() {
 	var (
 		vdFooRoot *v1alpha2.VirtualDisk
 		vdBarRoot *v1alpha2.VirtualDisk
