@@ -1,0 +1,16 @@
+# ElasticCluster with host networking (network omitted -> provider "host").
+# replica-2 (AvailabilityWithoutConsistency in ElasticStorageClass) relies on
+# failure-domain=host across the 3 worker nodes, each exposing a raw additional disk.
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: ElasticCluster
+metadata:
+  name: elastic
+spec:
+  storage:
+    nodeSelector:
+      matchExpressions:
+        - key: storage.deckhouse.io/sds-elastic-node
+          operator: Exists
+    blockDeviceSelector:
+      matchLabels:
+        app: elastic-osd

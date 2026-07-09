@@ -46,6 +46,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/migrationiface"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
@@ -62,6 +63,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
@@ -97,6 +99,8 @@ const (
 
 	SdnEnabledEnv  = "SDN_ENABLED"
 	clusterUUIDEnv = "CLUSTER_UUID"
+
+	migrationSystemNetworkNameEnv = "MIGRATION_SYSTEM_NETWORK_NAME"
 )
 
 func main() {
@@ -271,6 +275,11 @@ func main() {
 			BindAddress: metricsBindAddr,
 		},
 		HealthProbeBindAddress: healthProbeBindAddr,
+		// Route unstructured reads through the cache so field-index lookups are served locally
+		// instead of hitting the apiserver.
+		Client: client.Options{
+			Cache: &client.CacheOptions{Unstructured: true},
+		},
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
@@ -414,6 +423,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	migrationIfaceLogger := logger.NewControllerLogger(migrationiface.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = migrationiface.NewController(ctx, mgr, migrationIfaceLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	resourceSliceLogger := logger.NewControllerLogger(resourceslice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = resourceslice.NewController(ctx, mgr, resourceSliceLogger); err != nil {
 		log.Error(err.Error())
@@ -439,7 +454,7 @@ func main() {
 	}
 
 	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmop.SetupController(ctx, mgr, vmopLogger); err != nil {
+	if err = vmop.SetupController(ctx, mgr, vmopLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -483,6 +498,12 @@ func main() {
 
 	volumeMigrationLogger := logger.NewControllerLogger(volumemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if err = volumemigration.SetupController(ctx, mgr, volumeMigrationLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmpoolLogger := logger.NewControllerLogger(vmpool.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmpool.SetupController(ctx, mgr, vmpoolLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

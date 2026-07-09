@@ -209,27 +209,30 @@ func (h *SyncPowerStateHandler) handleManualPolicy(
 	isConfigurationApplied bool,
 	shutdownInfo powerstate.ShutdownInfo,
 ) VMAction {
-	if kvvmi == nil || kvvmi.DeletionTimestamp != nil {
+	if kvvmi == nil || kvvmi.DeletionTimestamp != nil || kvvmiCompleted(kvvmi) {
 		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, v1alpha2.ManualPolicy) {
 			return Start
 		}
-		return Nothing
+
+		if !kvvmiCompleted(kvvmi) {
+			return Nothing
+		}
 	}
 
 	if kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
 		h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated "+
 			"by VirtualMachineOparation for Manual runPolicy")
 		return Restart
-	} else if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
+	} else if kvvmiCompleted(kvvmi) && shutdownInfo.PodCompleted {
 		if shutdownInfo.Reason == powerstate.GuestResetReason {
 			h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated by inside "+
 				"the guest VirtualMachine for Manual runPolicy")
 			return Restart
-		} else {
-			h.recordStopEventf(ctx, s.VirtualMachine().Current(), "Stop initiated from inside "+
-				"the guest VirtualMachine")
-			return Stop
 		}
+
+		h.recordStopEventf(ctx, s.VirtualMachine().Current(), "Stop initiated from inside "+
+			"the guest VirtualMachine")
+		return Stop
 	}
 
 	return Nothing
@@ -520,4 +523,8 @@ func (h *SyncPowerStateHandler) recordRestartEventf(ctx context.Context, obj cli
 		v1alpha2.ReasonVMRestarted,
 		messageFmt,
 	)
+}
+
+func kvvmiCompleted(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi != nil && (kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed)
 }

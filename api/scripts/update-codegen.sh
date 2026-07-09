@@ -41,7 +41,8 @@ function source::settings {
                               "VirtualImage"
                               "ClusterVirtualImage"
                               "NodeUSBDevice"
-                              "USBDevice")
+                              "USBDevice"
+                              "VirtualMachinePool")
 
     # shellcheck source=/dev/null
     source "${CODEGEN_PKG}/kube_codegen.sh"

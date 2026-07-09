@@ -49,13 +49,18 @@ func NewModuleConfigValidator(client client.Client, clusterSubnets *appconfig.Cl
 	reduceCIDRs := newRemoveCIDRsValidator(client)
 	viStorageClasses := newViStorageClassValidator(client)
 	dvcrValidator := newDvcrValidator(client)
+	liveMigration := newLiveMigrationValidator(client)
 
 	return validator.NewValidator[*mcapi.ModuleConfig](logger).
 		WithPredicate(&validator.Predicate[*mcapi.ModuleConfig]{
+			Create: func(newMC *mcapi.ModuleConfig) bool {
+				return newMC.GetName() == moduleConfigName
+			},
 			Update: func(oldMC, newMC *mcapi.ModuleConfig) bool {
 				return newMC.GetName() == moduleConfigName &&
 					oldMC.GetGeneration() != newMC.GetGeneration()
 			},
 		}).
-		WithUpdateValidators(cidrs, reduceCIDRs, viStorageClasses, dvcrValidator)
+		WithCreateValidators(liveMigration).
+		WithUpdateValidators(cidrs, reduceCIDRs, viStorageClasses, dvcrValidator, liveMigration)
 }

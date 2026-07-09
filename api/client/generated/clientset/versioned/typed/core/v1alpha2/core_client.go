@@ -42,6 +42,7 @@ type VirtualizationV1alpha2Interface interface {
 	VirtualMachineMACAddressesGetter
 	VirtualMachineMACAddressLeasesGetter
 	VirtualMachineOperationsGetter
+	VirtualMachinePoolsGetter
 	VirtualMachineSnapshotsGetter
 	VirtualMachineSnapshotOperationsGetter
 }
@@ -105,6 +106,10 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineMACAddressLeases() VirtualM
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineOperations(namespace string) VirtualMachineOperationInterface {
 	return newVirtualMachineOperations(c, namespace)
+}
+
+func (c *VirtualizationV1alpha2Client) VirtualMachinePools(namespace string) VirtualMachinePoolInterface {
+	return newVirtualMachinePools(c, namespace)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineSnapshots(namespace string) VirtualMachineSnapshotInterface {

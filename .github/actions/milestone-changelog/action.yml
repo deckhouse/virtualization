@@ -36,6 +36,7 @@ runs:
           vdsnapshot
           vmsnapshot
           vmrestore
+          vmpool
           disks
           vd
           images

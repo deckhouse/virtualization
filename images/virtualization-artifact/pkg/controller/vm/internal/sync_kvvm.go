@@ -414,15 +414,36 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
 
+	// Restore the pre-restore power state captured by EnterMaintenance onto the freshly (re)created KVVM.
+	// "Running" is turned into the regular start-request annotation so the existing power-state machinery
+	// starts the VM and retries on a failed first boot. "Stopped" must override the implicit RunStrategy=Always
+	// that AlwaysOnUnlessStoppedManually gets on create, to honor the "unless stopped manually" contract.
+	changed := s.VirtualMachine().Changed()
+	switch changed.GetAnnotations()[annotations.AnnVMRestorePowerState] {
+	case string(v1alpha2.MachineRunning):
+		annotations.AddAnnotation(kvvm, annotations.AnnVMStartRequested, "true")
+	case string(v1alpha2.MachineStopped):
+		if changed.Spec.RunPolicy == v1alpha2.AlwaysOnUnlessStoppedManually {
+			runStrategy := virtv1.RunStrategyManual
+			kvvm.Spec.RunStrategy = &runStrategy
+		}
+	}
+
 	err = h.client.Create(ctx, kvvm)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			log.Warn("The KubeVirt VM already exists", "name", kvvm.Name)
+			delete(changed.Annotations, annotations.AnnVMRestorePowerState)
 			return nil
 		}
 
 		return fmt.Errorf("failed to create the internal virtual machine: %w", err)
 	}
+
+	// Clear the one-shot restore intent only once the KVVM actually exists. Doing it before Create would
+	// persist the removal (metadata patch runs regardless of handler errors) even on a failed Create, so a
+	// retry would lose the intent and bring the VM up in the wrong power state.
+	delete(changed.Annotations, annotations.AnnVMRestorePowerState)
 
 	log.Info("Created new KubeVirt VM", "name", kvvm.Name)
 	log.Debug("Created new KubeVirt VM", "name", kvvm.Name, "kvvm", kvvm)
