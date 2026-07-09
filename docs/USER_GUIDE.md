@@ -3012,22 +3012,10 @@ After executing the command, you will receive a `debug-info.tar.gz` archive that
 ## Virtual machine pools
 
 {{< alert level="warning" >}}
-Available in the EE and SE+ editions. Requires the `VirtualMachinePool` feature gate.
+Available in the EE and SE+ editions.
 {{< /alert >}}
 
 The [VirtualMachinePool](cr.html#virtualmachinepool) resource maintains a requested number of identical virtual machines and lets you scale them via the `scale` subresource, a HorizontalPodAutoscaler (HPA), or KEDA. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
-
-This functionality is disabled by default. To enable it, add `VirtualMachinePool` to the `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
-
-```yaml
-kind: ModuleConfig
-metadata:
-  name: virtualization
-spec:
-  settings:
-    featureGates:
-    - VirtualMachinePool
-```
 
 Create a pool with the desired number of replicas and a template. Each per-replica disk is described once in `virtualDiskTemplates` (reclaim policy, size, data source), and the template's `blockDeviceRefs` references those disks — by name, with `kind: VirtualDisk` — to set the device (boot) order, exactly as in a plain `VirtualMachine`. Every `virtualDiskTemplates` entry must be referenced exactly once (admission enforces this bijection; disk-template names are unique). Alongside the per-replica disks you may list shared read-only images (`VirtualImage`/`ClusterVirtualImage`) — for example a common ISO/CD-ROM attached to every replica — they are not per-replica and need no `virtualDiskTemplates` entry.
 

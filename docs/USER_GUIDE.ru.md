@@ -3041,22 +3041,10 @@ d8 v collect-debug-info linux-vm.mynamespace > debug-info.tar.gz
 ## Пулы виртуальных машин
 
 {{< alert level="warning" >}}
-Доступно в редакциях EE и SE+. Требует включения feature gate `VirtualMachinePool`.
+Доступно в редакциях EE и SE+.
 {{< /alert >}}
 
 Ресурс [VirtualMachinePool](cr.html#virtualmachinepool) поддерживает заданное число одинаковых виртуальных машин и позволяет масштабировать их через сабресурс `scale`, HorizontalPodAutoscaler (HPA) или KEDA. Поле `virtualMachineTemplate.spec` совпадает с обычным `VirtualMachineSpec`, поэтому реплика ничем не отличается от вручную созданной виртуальной машины.
-
-По умолчанию функциональность выключена. Чтобы включить, добавьте `VirtualMachinePool` в массив `.spec.settings.featureGates` в ModuleConfig `virtualization`:
-
-```yaml
-kind: ModuleConfig
-metadata:
-  name: virtualization
-spec:
-  settings:
-    featureGates:
-    - VirtualMachinePool
-```
 
 Создайте пул с нужным числом реплик и шаблоном. Каждый per-replica диск описывается один раз в `virtualDiskTemplates` (политика reclaim, размер, источник данных), а `blockDeviceRefs` шаблона ссылается на эти диски — по имени, с `kind: VirtualDisk` — задавая порядок устройств (загрузки), ровно как в обычной `VirtualMachine`. Каждая запись `virtualDiskTemplates` должна быть указана в `blockDeviceRefs` ровно один раз (биекция проверяется на admission; имена шаблонов дисков уникальны). Помимо per-replica дисков в `blockDeviceRefs` можно перечислить общие read-only образы (`VirtualImage`/`ClusterVirtualImage`) — например, общий ISO/CD-ROM, подключаемый ко всем репликам, — они не per-replica и записи в `virtualDiskTemplates` не требуют.
 
