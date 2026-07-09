@@ -33,11 +33,10 @@ import (
 
 const templateHandlerName = "template"
 
-// TemplateHandler propagates virtualMachineTemplate changes to live replicas
-// in place (the pool owns the member spec): it patches each replica's spec to
-// the desired revision, then marks the replica as effectively on that revision
-// once the change has taken effect. Whether a change is applied hot or needs a
-// restart is decided by the VM layer — the pool does not duplicate that.
+// TemplateHandler propagates virtualMachineTemplate changes to live replicas in
+// place: it patches each replica's spec to the desired revision, then marks the
+// replica as on that revision once the change has taken effect. Hot vs restart is
+// decided by the VM layer.
 type TemplateHandler struct {
 	client client.Client
 }
@@ -68,34 +67,32 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 			continue
 		}
 
-		// Step 1: bring the spec to the desired revision. Keyed on an annotation,
-		// not a spec diff, because the apiserver mutates the spec (defaulting,
-		// id allocation) and a diff would re-patch forever.
+		// Step 1: patch the spec to the desired revision. Keyed on an annotation,
+		// not a spec diff — the apiserver defaults fields, so a diff would re-patch
+		// forever.
 		if vm.GetAnnotations()[poollabels.PatchedTemplateHash] != desiredHash {
-			patched := applyTemplateSpec(vm, tmplSpec)
-			if patched.Annotations == nil {
-				patched.Annotations = make(map[string]string)
+			applyTemplateSpec(vm, tmplSpec)
+			if vm.Annotations == nil {
+				vm.Annotations = make(map[string]string)
 			}
-			patched.Annotations[poollabels.PatchedTemplateHash] = desiredHash
-			if err := h.client.Update(ctx, patched); err != nil {
+			vm.Annotations[poollabels.PatchedTemplateHash] = desiredHash
+			if err := h.client.Update(ctx, vm); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("patch replica %s to template: %w", vm.GetName(), err))
 			}
 			continue
 		}
 
-		// Step 2: the spec is on the desired revision. Mark the revision label as
-		// effectively applied only once the disruptive part is no longer pending;
-		// while the VM awaits a restart the label stays on the old revision.
+		// Step 2: spec is on the desired revision. Advance the revision label only
+		// once the VM is no longer awaiting a restart to apply it.
 		if awaitingRestart(vm) {
 			continue
 		}
 		if vm.GetLabels()[poollabels.TemplateHash] != desiredHash {
-			updated := vm.DeepCopy()
-			if updated.Labels == nil {
-				updated.Labels = make(map[string]string)
+			if vm.Labels == nil {
+				vm.Labels = make(map[string]string)
 			}
-			updated.Labels[poollabels.TemplateHash] = desiredHash
-			if err := h.client.Update(ctx, updated); err != nil {
+			vm.Labels[poollabels.TemplateHash] = desiredHash
+			if err := h.client.Update(ctx, vm); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("mark replica %s on current template: %w", vm.GetName(), err))
 			}
 		}
@@ -104,22 +101,14 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 	return reconcile.Result{}, errs
 }
 
-// applyTemplateSpec returns a copy of vm with its spec brought to the pool
-// template's spec while keeping the member's own blockDeviceRefs. The template
-// lists disk-template placeholders (kind VirtualDisk, name = a virtualDiskTemplates
-// entry) plus any shared images; the disks handler has already resolved each
-// placeholder to this member's concrete disk (e.g. "system" -> "web-a-system", or a
-// reuse disk). Re-copying the template placeholders would dangle (no such disk) and
-// duplicate the resolved ref. Disk add/remove is reconciled by the disks handler;
-// blockDeviceRefs edits (reorder, added/removed image) reach a live replica on its
-// next recreation (rotation/scale-up), like other disruptive template changes the
-// pool does not force.
-func applyTemplateSpec(vm *v1alpha2.VirtualMachine, tmplSpec v1alpha2.VirtualMachineSpec) *v1alpha2.VirtualMachine {
-	patched := vm.DeepCopy()
-	refs := patched.Spec.BlockDeviceRefs
-	patched.Spec = *tmplSpec.DeepCopy()
-	patched.Spec.BlockDeviceRefs = refs
-	return patched
+// applyTemplateSpec sets vm's spec to the template's but keeps the member's own
+// blockDeviceRefs: the disks handler has already resolved the template's disk
+// placeholders to this member's real disks, so copying the placeholders back would
+// dangle. blockDeviceRefs edits reach a replica on its next recreation, not in place.
+func applyTemplateSpec(vm *v1alpha2.VirtualMachine, tmplSpec v1alpha2.VirtualMachineSpec) {
+	refs := vm.Spec.BlockDeviceRefs
+	vm.Spec = *tmplSpec.DeepCopy()
+	vm.Spec.BlockDeviceRefs = refs
 }
 
 // awaitingRestart reports whether the VM has pending disruptive changes waiting

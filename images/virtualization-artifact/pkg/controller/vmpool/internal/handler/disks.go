@@ -107,12 +107,12 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 			continue
 		}
 		for j := range pool.Spec.VirtualDiskTemplates {
-			dt := pool.Spec.VirtualDiskTemplates[j]
+			diskTemplate := pool.Spec.VirtualDiskTemplates[j]
 			var derr error
-			if isDeletePolicy(dt) {
-				derr = h.ensureDeleteDisk(ctx, pool, vm, dt)
+			if isDeletePolicy(diskTemplate) {
+				derr = h.ensureDeleteDisk(ctx, pool, vm, diskTemplate)
 			} else {
-				derr = h.ensureRetainDisk(ctx, pool, vm, dt, referenced, assignedThisPass)
+				derr = h.ensureRetainDisk(ctx, pool, vm, diskTemplate, referenced, assignedThisPass)
 			}
 			if derr != nil {
 				errs = errors.Join(errs, derr)
@@ -131,11 +131,11 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 	// collection fires even when nothing else triggers a reconcile (idle pool).
 	var requeueAfter time.Duration
 	for i := range pool.Spec.VirtualDiskTemplates {
-		dt := pool.Spec.VirtualDiskTemplates[i]
-		if isDeletePolicy(dt) {
+		diskTemplate := pool.Spec.VirtualDiskTemplates[i]
+		if isDeletePolicy(diskTemplate) {
 			continue
 		}
-		after, err := h.gcReuseDisks(ctx, pool, dt, referenced, assignedThisPass)
+		after, err := h.gcReuseDisks(ctx, pool, diskTemplate, referenced, assignedThisPass)
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -146,12 +146,10 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 	return reconcile.Result{RequeueAfter: requeueAfter}, errs
 }
 
-// pruneRemovedTemplates deletes disks whose disk template is no longer present
-// in the pool spec — the template was removed, as opposed to a disk merely freed
-// from a scaled-down replica (that one is kept for reuse and aged out by ttl).
-// An attached disk is detached first (hot-unplug); a disk that is a replica's
-// first (boot) device cannot be hot-unplugged, so it is left in place until the
-// replica is recreated.
+// pruneRemovedTemplates deletes disks whose template was removed from the spec
+// (unlike a disk merely freed by scale-down, which is kept for reuse). An attached
+// disk is detached first; a boot device can't be hot-unplugged, so it stays until
+// the replica is recreated.
 func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMachine) error {
 	current := make(map[string]bool, len(pool.Spec.VirtualDiskTemplates))
 	for i := range pool.Spec.VirtualDiskTemplates {
@@ -176,10 +174,9 @@ func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2
 		}
 
 		isBoot := false
-		// attached stays true while any live member still references the disk — a
-		// boot device (cannot hot-unplug) or a detach that has not succeeded yet.
-		// A disk is deleted only once nothing references it, otherwise the VM would
-		// hang waiting for a block device that is terminating under it.
+		// attached stays true while any live member still references the disk. Never
+		// delete a referenced disk — the VM would hang on a block device vanishing
+		// under it.
 		attached := false
 		for k := range members {
 			vm := &members[k]
@@ -221,17 +218,17 @@ func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2
 func (h *DisksHandler) reconcileDiskSizes(ctx context.Context, pool *v1alpha2.VirtualMachinePool) error {
 	var errs error
 	for i := range pool.Spec.VirtualDiskTemplates {
-		dt := pool.Spec.VirtualDiskTemplates[i]
-		want := dt.Spec.PersistentVolumeClaim.Size
+		diskTemplate := pool.Spec.VirtualDiskTemplates[i]
+		want := diskTemplate.Spec.PersistentVolumeClaim.Size
 		if want == nil {
 			continue
 		}
 		var list v1alpha2.VirtualDiskList
 		if err := h.client.List(ctx, &list,
 			client.InNamespace(pool.GetNamespace()),
-			client.MatchingLabels{poollabels.PoolUID: string(pool.GetUID()), poollabels.DiskTemplate: dt.Name},
+			client.MatchingLabels{poollabels.PoolUID: string(pool.GetUID()), poollabels.DiskTemplate: diskTemplate.Name},
 		); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("list disks of template %s: %w", dt.Name, err))
+			errs = errors.Join(errs, fmt.Errorf("list disks of template %s: %w", diskTemplate.Name, err))
 			continue
 		}
 		for i := range list.Items {
@@ -242,7 +239,7 @@ func (h *DisksHandler) reconcileDiskSizes(ctx context.Context, pool *v1alpha2.Vi
 			patched := d.DeepCopy()
 			size := want.DeepCopy()
 			patched.Spec.PersistentVolumeClaim.Size = &size
-			logf.FromContext(ctx).Info("resizing disk", "disk", d.Name, "diskTemplate", dt.Name, "to", want.String())
+			logf.FromContext(ctx).Info("resizing disk", "disk", d.Name, "diskTemplate", diskTemplate.Name, "to", want.String())
 			if err := h.client.Update(ctx, patched); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("resize disk %s: %w", d.Name, err))
 			}
@@ -262,20 +259,17 @@ func diskRefIndex(vm *v1alpha2.VirtualMachine, diskName string) int {
 	return -1
 }
 
-// gcReuseDisks stamps free reuse disks with a free-since time, clears it when a
-// disk is back in use, and deletes free disks that are outside the warm buffer
-// (keep) and older than the ttl.
-// gcReuseDisks returns how long until the next free disk of this template becomes
-// eligible for collection (0 if none is pending), so the caller can requeue —
-// otherwise ttl-based GC would only fire on an unrelated reconcile and free disks
-// would linger on an idle pool.
+// gcReuseDisks ages out free reuse disks: it stamps a free-since time, clears it
+// when a disk is reused, and deletes free disks past the ttl that are outside the
+// warm buffer (keep). Returns when the next disk becomes GC-eligible so the caller
+// can requeue — otherwise ttl GC would never fire on an idle pool.
 func (h *DisksHandler) gcReuseDisks(
 	ctx context.Context,
 	pool *v1alpha2.VirtualMachinePool,
-	dt v1alpha2.VirtualDiskTemplateSpec,
+	diskTemplate v1alpha2.VirtualDiskTemplateSpec,
 	referenced, assignedThisPass map[string]bool,
 ) (time.Duration, error) {
-	disks, err := h.listReuseDisks(ctx, pool, dt)
+	disks, err := h.listReuseDisks(ctx, pool, diskTemplate)
 	if err != nil {
 		return 0, err
 	}
@@ -315,7 +309,7 @@ func (h *DisksHandler) gcReuseDisks(
 
 	// No ttl configured — keep all free disks (only the warm buffer semantics
 	// would apply, and without a ttl nothing ages out).
-	if dt.Reclaim.TTL == nil {
+	if diskTemplate.Reclaim.TTL == nil {
 		return 0, errs
 	}
 
@@ -323,10 +317,10 @@ func (h *DisksHandler) gcReuseDisks(
 	slices.SortStableFunc(free, func(a, b *v1alpha2.VirtualDisk) int {
 		return freeSince(b).Compare(freeSince(a)) // most-recently-freed first
 	})
-	ttl := dt.Reclaim.TTL.Duration
+	ttl := diskTemplate.Reclaim.TTL.Duration
 	var requeueAfter time.Duration
 	for i, d := range free {
-		if i < int(dt.Reclaim.Keep) {
+		if i < int(diskTemplate.Reclaim.Keep) {
 			continue
 		}
 		if age := now.Sub(freeSince(d)); age <= ttl {
@@ -343,7 +337,7 @@ func (h *DisksHandler) gcReuseDisks(
 		}
 		// Conditional delete: skip if the disk changed since we read it (e.g. was
 		// just handed to a new replica).
-		logf.FromContext(ctx).Info("garbage-collecting a free reuse disk past ttl", "disk", d.Name, "diskTemplate", dt.Name)
+		logf.FromContext(ctx).Info("garbage-collecting a free reuse disk past ttl", "disk", d.Name, "diskTemplate", diskTemplate.Name)
 		if err := h.client.Delete(ctx, d, client.Preconditions{ResourceVersion: &d.ResourceVersion}); err != nil && !apierrors.IsNotFound(err) && !apierrors.IsConflict(err) {
 			errs = errors.Join(errs, fmt.Errorf("gc free disk %s: %w", d.Name, err))
 		}
@@ -456,17 +450,8 @@ func (h *DisksHandler) detachDisk(ctx context.Context, vm *v1alpha2.VirtualMachi
 			}
 			refs = append(refs, ref)
 		}
-		if len(refs) == len(cur.Spec.BlockDeviceRefs) {
-			cur.DeepCopyInto(vm) // already detached; sync the caller's copy
-			return nil
-		}
 		cur.Spec.BlockDeviceRefs = refs
-		if err := h.client.Update(ctx, cur); err != nil {
-			return err
-		}
-		cur.DeepCopyInto(vm)
-		logf.FromContext(ctx).Info("detached disk from member", "member", vm.GetName(), "disk", diskName)
-		return nil
+		return h.client.Update(ctx, cur)
 	})
 	if err != nil {
 		return fmt.Errorf("detach disk %s from %s: %w", diskName, vm.GetName(), err)
@@ -490,10 +475,10 @@ func (h *DisksHandler) ensureRetainDisk(
 	ctx context.Context,
 	pool *v1alpha2.VirtualMachinePool,
 	vm *v1alpha2.VirtualMachine,
-	dt v1alpha2.VirtualDiskTemplateSpec,
+	diskTemplate v1alpha2.VirtualDiskTemplateSpec,
 	referenced, assignedThisPass map[string]bool,
 ) error {
-	reuseDisks, err := h.listReuseDisks(ctx, pool, dt)
+	reuseDisks, err := h.listReuseDisks(ctx, pool, diskTemplate)
 	if err != nil {
 		return err
 	}
@@ -509,12 +494,9 @@ func (h *DisksHandler) ensureRetainDisk(
 		}
 	}
 
-	// Reuse a free disk (pool-owned, held by no live member). Prefer a Ready one,
-	// but otherwise take a still-provisioning free disk anyway: attaching it is
-	// exactly what lets a WaitForFirstConsumer disk bind, and — crucially — it
-	// stops us creating a fresh disk on every reconcile while the first one is
-	// still provisioning or while the attach we just did is not yet visible in
-	// the informer cache (which otherwise over-creates reuse disks).
+	// Reuse a free pool-owned disk (held by no live member). Prefer a Ready one, but
+	// take a still-provisioning one too: attaching it lets a WaitForFirstConsumer disk
+	// bind and stops us over-creating disks on every reconcile while it provisions.
 	var freeReady, freeAny *v1alpha2.VirtualDisk
 	for i := range reuseDisks {
 		d := &reuseDisks[i]
@@ -534,25 +516,25 @@ func (h *DisksHandler) ensureRetainDisk(
 			pick = freeAny
 		}
 		assignedThisPass[pick.Name] = true
-		logf.FromContext(ctx).Info("reusing a free pool disk", "member", vm.GetName(), "disk", pick.Name, "diskTemplate", dt.Name)
-		return h.attachDisk(ctx, vm, pick.Name, dt.Name)
+		logf.FromContext(ctx).Info("reusing a free pool disk", "member", vm.GetName(), "disk", pick.Name, "diskTemplate", diskTemplate.Name)
+		return h.attachDisk(ctx, vm, pick.Name, diskTemplate.Name)
 	}
 
 	// No free disk at all — create a new pool-owned disk and attach it.
-	name := fmt.Sprintf("%s-%s-%s", pool.GetName(), dt.Name, rand.String(6))
-	logf.FromContext(ctx).Info("creating a reuse disk", "member", vm.GetName(), "disk", name, "diskTemplate", dt.Name)
-	if err := h.client.Create(ctx, h.newRetainDisk(pool, dt, name)); client.IgnoreAlreadyExists(err) != nil {
+	name := fmt.Sprintf("%s-%s-%s", pool.GetName(), diskTemplate.Name, rand.String(6))
+	logf.FromContext(ctx).Info("creating a reuse disk", "member", vm.GetName(), "disk", name, "diskTemplate", diskTemplate.Name)
+	if err := h.client.Create(ctx, h.newRetainDisk(pool, diskTemplate, name)); client.IgnoreAlreadyExists(err) != nil {
 		return fmt.Errorf("create reuse disk %s: %w", name, err)
 	}
 	assignedThisPass[name] = true
-	return h.attachDisk(ctx, vm, name, dt.Name)
+	return h.attachDisk(ctx, vm, name, diskTemplate.Name)
 }
 
-func (h *DisksHandler) listReuseDisks(ctx context.Context, pool *v1alpha2.VirtualMachinePool, dt v1alpha2.VirtualDiskTemplateSpec) ([]v1alpha2.VirtualDisk, error) {
+func (h *DisksHandler) listReuseDisks(ctx context.Context, pool *v1alpha2.VirtualMachinePool, diskTemplate v1alpha2.VirtualDiskTemplateSpec) ([]v1alpha2.VirtualDisk, error) {
 	var list v1alpha2.VirtualDiskList
 	if err := h.client.List(ctx, &list,
 		client.InNamespace(pool.GetNamespace()),
-		client.MatchingLabels{poollabels.PoolUID: string(pool.GetUID()), poollabels.DiskTemplate: dt.Name},
+		client.MatchingLabels{poollabels.PoolUID: string(pool.GetUID()), poollabels.DiskTemplate: diskTemplate.Name},
 	); err != nil {
 		return nil, fmt.Errorf("list reuse disks: %w", err)
 	}
@@ -566,7 +548,7 @@ func (h *DisksHandler) listReuseDisks(ctx context.Context, pool *v1alpha2.Virtua
 	return owned, nil
 }
 
-func (h *DisksHandler) newRetainDisk(pool *v1alpha2.VirtualMachinePool, dt v1alpha2.VirtualDiskTemplateSpec, name string) *v1alpha2.VirtualDisk {
+func (h *DisksHandler) newRetainDisk(pool *v1alpha2.VirtualMachinePool, diskTemplate v1alpha2.VirtualDiskTemplateSpec, name string) *v1alpha2.VirtualDisk {
 	return &v1alpha2.VirtualDisk{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -574,14 +556,14 @@ func (h *DisksHandler) newRetainDisk(pool *v1alpha2.VirtualMachinePool, dt v1alp
 			Labels: map[string]string{
 				poollabels.PoolUID:      string(pool.GetUID()),
 				poollabels.Pool:         pool.GetName(),
-				poollabels.DiskTemplate: dt.Name,
+				poollabels.DiskTemplate: diskTemplate.Name,
 			},
 			// Owned by the pool: the disk outlives the replica and is reused.
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(pool, v1alpha2.VirtualMachinePoolGVK),
 			},
 		},
-		Spec: *dt.Spec.DeepCopy(),
+		Spec: *diskTemplate.Spec.DeepCopy(),
 	}
 }
 
@@ -620,29 +602,31 @@ func (h *DisksHandler) attachDisk(ctx context.Context, vm *v1alpha2.VirtualMachi
 	return nil
 }
 
-func isDeletePolicy(dt v1alpha2.VirtualDiskTemplateSpec) bool {
-	return dt.Reclaim.OnScaleDown == "" || dt.Reclaim.OnScaleDown == v1alpha2.VirtualDiskReclaimDelete
+func isDeletePolicy(diskTemplate v1alpha2.VirtualDiskTemplateSpec) bool {
+	return diskTemplate.Reclaim.OnScaleDown == "" || diskTemplate.Reclaim.OnScaleDown == v1alpha2.VirtualDiskReclaimDelete
 }
 
-func (h *DisksHandler) ensureDeleteDisk(ctx context.Context, pool *v1alpha2.VirtualMachinePool, vm *v1alpha2.VirtualMachine, dt v1alpha2.VirtualDiskTemplateSpec) error {
-	diskName := poollabels.DeleteDiskName(vm.GetName(), dt.Name)
+func (h *DisksHandler) ensureDeleteDisk(ctx context.Context, pool *v1alpha2.VirtualMachinePool, vm *v1alpha2.VirtualMachine, diskTemplate v1alpha2.VirtualDiskTemplateSpec) error {
+	diskName := poollabels.DeleteDiskName(vm.GetName(), diskTemplate.Name)
 
 	var disk v1alpha2.VirtualDisk
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: vm.GetNamespace(), Name: diskName}, &disk)
 	switch {
-	case err != nil && !apierrors.IsNotFound(err):
-		return fmt.Errorf("get disk %s: %w", diskName, err)
+	case err == nil:
+		// The disk already exists.
 	case apierrors.IsNotFound(err):
-		logf.FromContext(ctx).Info("creating a per-replica disk", "member", vm.GetName(), "disk", diskName, "diskTemplate", dt.Name)
-		if err := h.client.Create(ctx, buildDeleteDisk(pool, vm, dt, diskName)); client.IgnoreAlreadyExists(err) != nil {
+		logf.FromContext(ctx).Info("creating a per-replica disk", "member", vm.GetName(), "disk", diskName, "diskTemplate", diskTemplate.Name)
+		if err := h.client.Create(ctx, buildDeleteDisk(pool, vm, diskTemplate, diskName)); client.IgnoreAlreadyExists(err) != nil {
 			return fmt.Errorf("create disk %s: %w", diskName, err)
 		}
+	default:
+		return fmt.Errorf("get disk %s: %w", diskName, err)
 	}
 
-	return h.attachDisk(ctx, vm, diskName, dt.Name)
+	return h.attachDisk(ctx, vm, diskName, diskTemplate.Name)
 }
 
-func buildDeleteDisk(pool *v1alpha2.VirtualMachinePool, vm *v1alpha2.VirtualMachine, dt v1alpha2.VirtualDiskTemplateSpec, name string) *v1alpha2.VirtualDisk {
+func buildDeleteDisk(pool *v1alpha2.VirtualMachinePool, vm *v1alpha2.VirtualMachine, diskTemplate v1alpha2.VirtualDiskTemplateSpec, name string) *v1alpha2.VirtualDisk {
 	return &v1alpha2.VirtualDisk{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -650,14 +634,14 @@ func buildDeleteDisk(pool *v1alpha2.VirtualMachinePool, vm *v1alpha2.VirtualMach
 			Labels: map[string]string{
 				poollabels.PoolUID:      string(pool.GetUID()),
 				poollabels.Pool:         pool.GetName(),
-				poollabels.DiskTemplate: dt.Name,
+				poollabels.DiskTemplate: diskTemplate.Name,
 			},
 			// Owned by the VirtualMachine: the disk cascades away with the replica.
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vm, v1alpha2.SchemeGroupVersion.WithKind(v1alpha2.VirtualMachineKind)),
 			},
 		},
-		Spec: *dt.Spec.DeepCopy(),
+		Spec: *diskTemplate.Spec.DeepCopy(),
 	}
 }
 
