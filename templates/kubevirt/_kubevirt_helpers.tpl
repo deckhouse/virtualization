@@ -68,6 +68,7 @@ because its business logic does not yet have their default behavior implemented.
 - HostDevicesWithDRA
 - HostDevices
 - HotplugHostDevicesWithDRA # custom feature gate - added in our KubeVirt fork, not present in upstream
+- GPUsWithDRA
 {{- if has "HotplugCPUAndMemoryWithInPlaceResize" .Values.virtualization.internal.moduleConfig.featureGates }}
 - InPlaceResize # custom feature gate - added in our KubeVirt fork, not present in upstream
 {{- end }}
