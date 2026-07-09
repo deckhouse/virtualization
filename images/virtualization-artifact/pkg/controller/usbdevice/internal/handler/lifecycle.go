@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -155,9 +156,7 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 	}
 
 	if !apierrors.IsNotFound(err) {
-		// The stored spec is not compared directly: API-server defaulting could make
-		// it permanently differ from the rendered spec and loop delete/recreate.
-		if template.Annotations[annotations.AnnUSBClaimSpecHash] != claimSpecHash(desiredSpec) {
+		if !claimTemplateUpToDate(template, desiredSpec) {
 			if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete outdated ResourceClaimTemplate: %w", err)
 			}
@@ -267,6 +266,19 @@ func buildResourceClaimTemplate(usbDevice *v1alpha2.USBDevice, name string, spec
 		},
 		Spec: spec,
 	}
+}
+
+// claimTemplateUpToDate prefers the spec-hash annotation over comparing the
+// stored spec directly: API-server defaulting could make the stored spec
+// permanently differ from the rendered one and loop delete/recreate.
+// Templates created before the annotation existed fall back to DeepEqual and
+// migrate to the hash on their next legitimate recreation.
+func claimTemplateUpToDate(template *resourcev1.ResourceClaimTemplate, desiredSpec resourcev1.ResourceClaimTemplateSpec) bool {
+	storedHash, ok := template.Annotations[annotations.AnnUSBClaimSpecHash]
+	if !ok {
+		return reflect.DeepEqual(template.Spec, desiredSpec)
+	}
+	return storedHash == claimSpecHash(desiredSpec)
 }
 
 func claimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {
