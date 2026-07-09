@@ -88,7 +88,6 @@ replace (
 	k8s.io/controller-manager => k8s.io/controller-manager v0.30.2
 	k8s.io/cri-api => k8s.io/cri-api v0.30.2
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.30.2
-	k8s.io/dynamic-resource-allocation => dynamic-resource-allocation v0.30.2
 	k8s.io/endpointslice => k8s.io/endpointslice v0.30.2
 	k8s.io/kms => k8s.io/kms v0.30.2
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.30.2
@@ -109,7 +108,7 @@ replace (
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.18.4
 )
 
-replace golang.org/x/crypto => golang.org/x/crypto v0.45.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914
+replace golang.org/x/crypto => golang.org/x/crypto v0.52.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914
 
 // Use reduced github.com/docker/docker module: only compare is needed for CDI.
 replace github.com/docker/docker => ./staging/src/github.com/docker/docker // CVE-2026-34040,CVE-2026-33997,CVE-2026-41567,CVE-2026-42306,CVE-2026-41568

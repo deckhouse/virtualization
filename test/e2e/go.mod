@@ -88,6 +88,7 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.19.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
 
 replace (
@@ -99,5 +100,5 @@ replace (
 	k8s.io/apiserver => k8s.io/apiserver v0.33.3
 	k8s.io/client-go => k8s.io/client-go v0.33.3
 	k8s.io/component-base => k8s.io/component-base v0.33.3
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
 )
