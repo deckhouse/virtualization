@@ -69,7 +69,7 @@ var _ = Describe("MigrationConfig", func() {
 	BeforeEach(func() {
 		dc = mock.NewDependencyContainerMock(GinkgoT())
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
-		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 	})
 
 	AfterEach(func() {

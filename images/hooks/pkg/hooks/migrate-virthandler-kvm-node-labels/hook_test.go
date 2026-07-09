@@ -60,7 +60,7 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 
 	BeforeEach(func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
-		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 		patchCollector = mock.NewPatchCollectorMock(GinkgoT())
 
 		buf = bytes.NewBuffer([]byte{})
@@ -68,15 +68,15 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 		input = &pkg.HookInput{
 			Values:    values,
 			Snapshots: snapshots,
-			Logger: log.NewLogger(log.Options{
-				Level:  log.LevelDebug.Level(),
-				Output: buf,
-				TimeFunc: func(_ time.Time) time.Time {
+			Logger: log.NewLogger(
+				log.WithLevel(log.LevelDebug.Level()),
+				log.WithOutput(buf),
+				log.WithTimeFunc(func(_ time.Time) time.Time {
 					parsedTime, err := time.Parse(time.DateTime, "2006-01-02 15:04:05")
 					Expect(err).ShouldNot(HaveOccurred())
 					return parsedTime
-				},
-			}),
+				}),
+			),
 			PatchCollector: patchCollector,
 		}
 	})

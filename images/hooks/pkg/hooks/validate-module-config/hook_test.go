@@ -151,8 +151,8 @@ var _ = Describe("ModuleConfig validation hook", func() {
 
 	BeforeEach(func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
-		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
-		configValues = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
+		configValues = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 	})
 
 	AfterEach(func() {
