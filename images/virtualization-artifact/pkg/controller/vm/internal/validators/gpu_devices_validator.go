@@ -65,6 +65,13 @@ func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alph
 		return fmt.Errorf("GPU device attachment requires the GPU feature gate")
 	}
 
+	// A nil client means template validation (e.g. a VirtualMachinePool template):
+	// DeviceClass existence is verified when the actual replica VM is created,
+	// so that a pool may be defined before the GPU provider and its classes exist.
+	if v.client == nil {
+		return nil
+	}
+
 	for _, device := range vm.Spec.GPUDevices {
 		deviceClass := &resourcev1.DeviceClass{}
 		err := v.client.Get(ctx, types.NamespacedName{Name: device.DeviceClassName}, deviceClass)

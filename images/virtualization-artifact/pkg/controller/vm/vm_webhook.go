@@ -79,6 +79,7 @@ func NewTemplateSpecValidator(client client.Client, featureGate featuregate.Feat
 			validators.NewSizingPolicyValidator(client),
 			validators.NewNetworksValidator(client, featureGate),
 			validators.NewFirstDiskValidator(client),
+			validators.NewGPUDevicesValidator(nil, featureGate),
 		},
 		log: log.With("webhook", "vmpool-template-validation"),
 	}

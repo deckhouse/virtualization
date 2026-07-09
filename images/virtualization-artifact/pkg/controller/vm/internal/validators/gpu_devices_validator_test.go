@@ -132,6 +132,37 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 	}
 }
 
+func TestGPUDevicesValidatorTemplateMode(t *testing.T) {
+	// A nil client (template validation) enforces the feature gate but skips
+	// DeviceClass existence.
+	tests := []struct {
+		name           string
+		featureEnabled bool
+		wantErrorPart  string
+	}{
+		{
+			name:           "gate disabled is rejected in template mode",
+			featureEnabled: false,
+			wantErrorPart:  "GPU feature gate",
+		},
+		{
+			name:           "missing DeviceClass is allowed in template mode",
+			featureEnabled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "does-not-exist"}})
+			validator := NewGPUDevicesValidator(nil, newGPUFeatureGate(t, tt.featureEnabled))
+
+			_, err := validator.ValidateCreate(t.Context(), vm)
+
+			assertValidationError(t, err, tt.wantErrorPart)
+		})
+	}
+}
+
 func assertValidationError(t *testing.T, err error, wantErrorPart string) {
 	t.Helper()
 
