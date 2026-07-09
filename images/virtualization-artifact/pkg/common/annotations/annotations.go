@@ -232,6 +232,8 @@ const (
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+	// AnnTapProvisionByDVPSupported is the annotation that indicates DVP supports TAP provision for the Pod.
+	AnnTapProvisionByDVPSupported = "network.deckhouse.io/tap-provision-by-dvp-supported"
 
 	// AnnMigrationIface names the kernel interface that virt-handler binds
 	// live-migration traffic to. Written on Nodes by the migrationiface
