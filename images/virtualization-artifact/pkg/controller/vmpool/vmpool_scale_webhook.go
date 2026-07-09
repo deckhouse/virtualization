@@ -42,9 +42,9 @@ const ScaleWebhookPath = "/validate-virtualization-deckhouse-io-v1alpha2-virtual
 // SetupScaleWebhook registers the guard that rejects anonymous scale-down via
 // the scale subresource for pools with scaleDownPolicy: Explicit.
 func SetupScaleWebhook(mgr manager.Manager) {
-	// Gated like the controller: while the feature gate is off the guard is not
-	// registered (the CRD's scale subresource is still served, just unguarded —
-	// there is no controller to act on it either).
+	// Gated like the controller: in CE the guard is not registered (the CRD's
+	// scale subresource is still served, just unguarded — there is no controller
+	// to act on it either).
 	if !featuregates.Default().Enabled(featuregates.VirtualMachinePool) {
 		return
 	}

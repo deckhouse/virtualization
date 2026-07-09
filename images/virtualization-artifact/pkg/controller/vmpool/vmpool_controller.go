@@ -38,10 +38,11 @@ const (
 
 // SetupController wires the VirtualMachinePool controller into the manager.
 //
-// The resource is gated behind the VirtualMachinePool feature gate: while the
-// gate is off the controller is not set up at all (the CRD is still installed,
-// so objects can be created — they simply are not reconciled). See ADR
-// "VirtualMachinePool", section "Feature gate".
+// The resource is available only in paid editions (EE/SE+): in CE the controller
+// is not set up at all (the CRD is still installed, so objects can be created —
+// they simply are not reconciled). The edition check rides on the
+// VirtualMachinePool feature gate, which is locked on in EE/SE+ and off in CE.
+// See ADR "VirtualMachinePool", section "Feature gate".
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
