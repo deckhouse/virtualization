@@ -41,7 +41,7 @@ linters-settings:
           - test/performance/ssh
           - test/e2e/legacy/testdata/sshkeys
           - images/dvcr-artifact/staging
-          - images/pvc-artifact
+          - images/pvc-artifact/staging
   container:
     exclude-rules:
       readiness-probe:
