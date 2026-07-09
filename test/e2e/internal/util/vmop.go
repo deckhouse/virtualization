@@ -22,7 +22,6 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,6 +45,7 @@ func UntilVMOPMigrationSucceeded(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err == nil {
 		ok, predicateErr := vmopobserver.BeCompleted()(current)
 		if predicateErr != nil {
+			//nolint:contextcheck // the skip checks intentionally use a fresh context, see skipIfKnownMigrationIssue
 			failVMOPMigration(vmop, predicateErr)
 		}
 		if ok {
@@ -54,6 +54,7 @@ func UntilVMOPMigrationSucceeded(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	if err := obs.WaitFor(vmopobserver.BeCompleted(), timeout); err != nil {
+		//nolint:contextcheck // the skip checks intentionally use a fresh context, see skipIfKnownMigrationIssue
 		failVMOPMigration(vmop, err)
 	}
 }

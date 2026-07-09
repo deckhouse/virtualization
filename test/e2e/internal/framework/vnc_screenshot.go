@@ -42,8 +42,8 @@ const vncScreenshotTimeout = 30 * time.Second
 // namespace. A screenshot is the only way to see where a guest is stuck when it
 // boots but never brings up SSH and the guest agent: serial console output is
 // not logged anywhere, and the virt-launcher pod dies with the namespace.
-func (f *Framework) saveVMScreenshots(dumpDir string) {
-	vms, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
+func (f *Framework) saveVMScreenshots(ctx context.Context, dumpDir string) {
+	vms, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to list VirtualMachines for screenshots:\nError: %v\n", err)
 		return
