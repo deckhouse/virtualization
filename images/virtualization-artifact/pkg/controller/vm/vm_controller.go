@@ -68,6 +68,7 @@ func SetupController(
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
 		internal.NewMACHandler(netmanager.NewMACManager(), client, recorder),
+		internal.NewIPAddressHandler(client),
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
 		internal.NewUSBDeviceDetachHandler(client, virtClient),
 		internal.NewUSBDeviceAttachHandler(client, virtClient),

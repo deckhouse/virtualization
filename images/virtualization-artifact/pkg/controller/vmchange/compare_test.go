@@ -595,6 +595,31 @@ networks:
 			),
 		},
 		{
+			"apply immediate when only ipAddressName is added",
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+`,
+			`
+networks:
+- type: Main
+  id: 1
+- type: Network
+  name: net1
+  id: 2
+  ipAddressName: my-ip
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
 			"restart when main network is removed",
 			`
 networks:
