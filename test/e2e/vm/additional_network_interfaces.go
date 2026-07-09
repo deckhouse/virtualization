@@ -93,10 +93,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				ns := f.Namespace().Name
 
 				vdFooRoot = object.NewVDFromCVI("vd-foo-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
-					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
+					vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				)
 				vdBarRoot = object.NewVDFromCVI("vd-bar-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
-					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
+					vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				)
 
 				// vm-foo always has Main + ClusterNetwork so we can SSH to it.
@@ -139,8 +139,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 			})
 
 			By("Wait for migration to complete", func() {
-				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmFoo), framework.LongTimeout)
-				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBar), framework.LongTimeout)
+				// MaxTimeout: with parallelMigrationsPerCluster=3 the two VMIMs of this spec
+				// queue behind slow migrations from parallel suites and may wait longer than 300s.
+				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmFoo), framework.MaxTimeout)
+				util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmBar), framework.MaxTimeout)
 			})
 
 			By("Check Cilium agents after migration", func() {

@@ -57,6 +57,7 @@ const (
 
 func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error) {
 	dvcrSettings := &dvcr.Settings{
+		ControllerNamespace:  controllerNamespace,
 		AuthSecret:           os.Getenv(DVCRAuthSecretVar),
 		AuthSecretNamespace:  os.Getenv(DVCRAuthSecretNSVar),
 		CertsSecret:          os.Getenv(DVCRCertsSecretVar),

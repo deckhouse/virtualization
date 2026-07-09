@@ -61,6 +61,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineCancelEvacuation{},
 		&VirtualMachineAddResourceClaim{},
 		&VirtualMachineRemoveResourceClaim{},
+		&VirtualMachinePool{},
+		&VirtualMachinePoolScaleDownWith{},
 	)
 	return nil
 }

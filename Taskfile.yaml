@@ -15,6 +15,9 @@ includes:
   gohooks:
     taskfile: ./images/hooks
     dir: ./images/hooks
+  pvc-artifact:
+    taskfile: ./images/pvc-artifact
+    dir: ./images/pvc-artifact
   e2e:
     taskfile: ./test/e2e
     dir: ./test/e2e
@@ -162,7 +165,6 @@ tasks:
         TARGETS=(
           "images/hooks"
           "images/dvcr-artifact"
-          "images/cdi-cloner/cloner-startup"
           "images/virtualization-dra"
           "src/cli"
           "test/e2e"

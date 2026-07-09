@@ -24,6 +24,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
@@ -71,7 +74,62 @@ func (a *affinityTolerationPrecheck) Run(ctx context.Context, f *framework.Frame
 		return fmt.Errorf("%s=no to disable this precheck: at least %d ready KVM-enabled worker nodes are required, got %d", affinityTolerationPrecheckEnvName, minReadyKVMWorkerNodes, len(workerNodes))
 	}
 
+	if err := validateDefaultVMClassPermitsMaster(ctx, f, masterNodes); err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: %w", affinityTolerationPrecheckEnvName, err)
+	}
+
 	return nil
+}
+
+// validateDefaultVMClassPermitsMaster ensures the default VirtualMachineClass
+// (the class the test VMs are created with) permits scheduling on a master
+// node: the class placement requirements are merged into the launcher pod
+// affinity, so a class that excludes control-plane nodes makes the
+// master-placement scenario impossible regardless of the VM node affinity.
+func validateDefaultVMClassPermitsMaster(ctx context.Context, f *framework.Framework, masterNodes []corev1.Node) error {
+	var classes v1alpha2.VirtualMachineClassList
+	if err := f.GenericClient().List(ctx, &classes); err != nil {
+		return fmt.Errorf("failed to list VirtualMachineClasses: %w", err)
+	}
+
+	var defaultClass *v1alpha2.VirtualMachineClass
+	for i := range classes.Items {
+		if classes.Items[i].Annotations[annotations.AnnVirtualMachineClassDefault] == "true" {
+			defaultClass = &classes.Items[i]
+			break
+		}
+	}
+	if defaultClass == nil {
+		return fmt.Errorf("no default VirtualMachineClass found (annotation %s)", annotations.AnnVirtualMachineClassDefault)
+	}
+
+	// The probe VM carries the same catch-all NoSchedule toleration the test
+	// VMs are created with, so only the class placement is actually probed.
+	probeVM := &v1alpha2.VirtualMachine{
+		Spec: v1alpha2.VirtualMachineSpec{
+			Tolerations: []corev1.Toleration{{
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffectNoSchedule,
+			}},
+		},
+	}
+
+	for i := range masterNodes {
+		matches, err := nodeaffinity.MatchesVMPlacement(&masterNodes[i], probeVM, defaultClass)
+		if err != nil {
+			return fmt.Errorf("failed to match the default VirtualMachineClass %q against master node %q: %w", defaultClass.Name, masterNodes[i].Name, err)
+		}
+		if matches {
+			return nil
+		}
+	}
+
+	return fmt.Errorf(
+		"the default VirtualMachineClass %q does not permit scheduling on any master node; "+
+			"remove the control-plane restriction from its placement, e.g.: "+
+			"kubectl patch vmclass %s --type=merge -p '{\"spec\":{\"nodeSelector\":null}}'",
+		defaultClass.Name, defaultClass.Name,
+	)
 }
 
 func listReadyNodesByLabels(ctx context.Context, f *framework.Framework, labels map[string]string) ([]corev1.Node, error) {

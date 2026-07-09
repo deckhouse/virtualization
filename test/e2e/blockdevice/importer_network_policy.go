@@ -21,7 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -68,7 +71,7 @@ var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
 		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
 
 		By("Create virtual disk")
-		vd := object.NewHTTPVDAlpineBIOS("vd", project.Name)
+		vd := object.NewHTTPVDAlpineBIOS("vd", project.Name, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 		err = f.CreateWithDeferredDeletion(ctx, vd)
 		Expect(err).NotTo(HaveOccurred())
 

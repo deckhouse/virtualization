@@ -36,14 +36,16 @@ const deletionHandlerName = "DeletionHandler"
 
 func NewDeletionHandler(client client.Client) *DeletionHandler {
 	return &DeletionHandler{
-		client:     client,
-		protection: service.NewProtectionService(client, v1alpha2.FinalizerKVVMProtection), //nolint:staticcheck // FinalizerKVVMProtection is deprecated but still required until migration is complete.
+		client:        client,
+		protection:    service.NewProtectionService(client, v1alpha2.FinalizerKVVMProtection), //nolint:staticcheck // FinalizerKVVMProtection is deprecated but still required until migration is complete.
+		pvcProtection: service.NewProtectionService(client, v1alpha2.FinalizerPVCProtection),
 	}
 }
 
 type DeletionHandler struct {
-	client     client.Client
-	protection *service.ProtectionService
+	client        client.Client
+	protection    *service.ProtectionService
+	pvcProtection *service.ProtectionService
 }
 
 func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -79,6 +81,28 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			}
 		}
 		return reconcile.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	// The KVVM is gone, but the KVVMI and virt-launcher pods may still be
+	// finalizing: hotplug volumes stay bind-mounted into the virt-launcher
+	// pod until virt-handler unmounts them. Keep the VirtualMachine (and the
+	// pvc-protection finalizers with it) until the runtime objects are gone,
+	// otherwise the storage backend may destroy data under a live mount.
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if kvvmi != nil || len(pods.Items) > 0 {
+		log.Info("Deletion observed: waiting for the KVVMI and virt-launcher pods to be removed")
+		return reconcile.Result{RequeueAfter: 15 * time.Second}, nil
+	}
+
+	if err := reconcilePVCProtection(ctx, h.client, h.pvcProtection, s.VirtualMachine().Current().GetNamespace()); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to release PVC protection: %w", err)
 	}
 
 	log.Info("Deletion observed: remove cleanup finalizer from VirtualMachine")

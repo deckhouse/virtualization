@@ -27,6 +27,8 @@ import (
 )
 
 type Settings struct {
+	// ControllerNamespace is the namespace where the virtualization-controller runs.
+	ControllerNamespace string
 	// AuthSecret is a name of the Secret with docker authentication.
 	AuthSecret string
 	// AuthSecretNamespace is a namespace for the AuthSecret.

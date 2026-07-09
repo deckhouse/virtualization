@@ -21,8 +21,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -47,7 +47,7 @@ type StorageClassService interface {
 	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
+	GetStorageProfile(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error)
 	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
-	ValidateClaimPropertySets(sp *cdiv1.StorageProfile) error
+	ValidateClaimPropertySets(sp *storagev1alpha1.StorageProfile) error
 }

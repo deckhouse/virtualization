@@ -23,7 +23,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -38,15 +37,21 @@ import (
 
 type ObjectRefVirtualImage struct {
 	diskService ObjectRefVirtualImageDiskService
+	pvcService  DataSourcePVCService
+	statService ObjectRefVirtualImageStatService
 	client      client.Client
 }
 
 func NewObjectRefVirtualImage(
 	diskService ObjectRefVirtualImageDiskService,
+	pvcService DataSourcePVCService,
+	statService ObjectRefVirtualImageStatService,
 	client client.Client,
 ) *ObjectRefVirtualImage {
 	return &ObjectRefVirtualImage{
 		diskService: diskService,
+		pvcService:  pvcService,
+		statService: statService,
 		client:      client,
 	}
 }
@@ -66,18 +71,11 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	dv, err := object.FetchObject(ctx, supgen.DataVolume(), ds.client, &cdiv1.DataVolume{})
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
-	}
-
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreateDataVolumeFromVirtualImageStep(pvc, dv, ds.diskService, ds.client, cb),
-		step.NewEnsureNodePlacementStep(pvc, dv, ds.diskService, ds.client, cb),
-		step.NewWaitForDVStep(pvc, dv, ds.diskService, ds.client, cb),
-		step.NewWaitForPVCStep(pvc, ds.client, cb),
+		step.NewCreatePVCFromVirtualImageStep(pvc, ds.diskService, ds.pvcService, ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.VirtualImagePVCImportSource(ds.client), ds.pvcService, ds.statService, nil, ds.client, cb),
 	).Run(ctx, vd)
 }
 

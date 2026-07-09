@@ -3,6 +3,8 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+  annotations:
+    werf.io/weight: "0"
   name: "virtualization-controller-admission-webhook"
 webhooks:
   - name: "vm.virtualization-controller.validate.d8-virtualization"
@@ -250,4 +252,42 @@ webhooks:
       - name: 'match-virtualization'
         expression: 'request.name == "virtualization"'
     {{- end }}
+  {{- if ne .Values.global.deckhouseEdition "CE" }}
+  - name: "vmpool-scale.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v1alpha2"]
+        operations:  ["UPDATE"]
+        resources:   ["virtualmachinepools/scale"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinepool-scale
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+  - name: "vmpool.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v1alpha2"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["virtualmachinepools"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinepool
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+  {{- end }}
 {{- end }}

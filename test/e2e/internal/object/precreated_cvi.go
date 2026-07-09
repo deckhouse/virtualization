@@ -43,6 +43,7 @@ const (
 	PrecreatedCVIDebian         = "v12n-e2e-debian"
 	PrecreatedCVITestDataQCOW   = "v12n-e2e-testdata-qcow"
 	PrecreatedCVITestDataISO    = "v12n-e2e-testdata-iso"
+	PrecreatedCVIMyOS           = "v12n-e2e-myos"
 
 	// Container image URLs
 	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
@@ -63,6 +64,9 @@ var (
 	// Test data (not bootable)
 	ImageTestDataQCOW = imageURL("/test/test.qcow2")
 	ImageTestDataISO  = imageURL("/test/test.iso")
+
+	// Minimal fast-boot image used by the VirtualMachinePool suite.
+	ImageURLMyOS = imageURL("/upmeter/myos-latest.qcow2")
 )
 
 // PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by e2e tests.
@@ -80,6 +84,7 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 		newPrecreatedHTTPCVI(PrecreatedCVIDebian, ImageURLDebian),
 		newPrecreatedHTTPCVI(PrecreatedCVITestDataQCOW, ImageTestDataQCOW),
 		newPrecreatedHTTPCVI(PrecreatedCVITestDataISO, ImageTestDataISO),
+		newPrecreatedHTTPCVI(PrecreatedCVIMyOS, ImageURLMyOS),
 	}
 }
 

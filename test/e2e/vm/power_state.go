@@ -19,6 +19,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -100,7 +101,7 @@ var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(ctx, f, t.VM)
-				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				untilVMRunningSkippingStuckGuestShutdown(ctx, t.VM, framework.MiddleTimeout)
 				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			}
@@ -128,7 +129,7 @@ var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(ctx, f, t.VM)
-				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				untilVMRunningSkippingStuckGuestShutdown(ctx, t.VM, framework.MiddleTimeout)
 				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			}
@@ -218,7 +219,7 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 	)
 
 	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	t.VDBlank = vdbuilder.New(
@@ -259,4 +260,26 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 		vmbdabuilder.WithVirtualMachineName(t.VM.Name),
 		vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, t.VDBlank.Name),
 	)
+}
+
+// untilVMRunningSkippingStuckGuestShutdown waits for the VirtualMachine to
+// become Running, skipping the spec when the controller hit the known
+// lost-guest-shutdown-reason race and will never process the start request
+// (see util.SkipIfGuestPowerActionStuck for the details).
+func untilVMRunningSkippingStuckGuestShutdown(ctx context.Context, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+	GinkgoHelper()
+
+	key := crclient.ObjectKeyFromObject(vm)
+	Eventually(func() error {
+		util.SkipIfGuestPowerActionStuck(ctx, key)
+
+		got := &v1alpha2.VirtualMachine{}
+		if err := framework.GetClients().GenericClient().Get(ctx, key, got); err != nil {
+			return fmt.Errorf("failed to get virtual machine: %w", err)
+		}
+		if got.Status.Phase != v1alpha2.MachineRunning {
+			return fmt.Errorf("virtual machine %s status.phase is %s, expected %s", key, got.Status.Phase, v1alpha2.MachineRunning)
+		}
+		return nil
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }

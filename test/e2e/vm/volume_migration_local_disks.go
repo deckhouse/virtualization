@@ -38,7 +38,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -65,9 +64,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("volume-migration-local-disks")
-		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		storageClass = framework.GetConfig().StorageClass.DefaultStorageClass
 		if storageClass == nil {
-			Skip("TemplateStorageClass is not set.")
+			Skip("DefaultStorageClass is not set.")
 		}
 
 		f.Before()
@@ -125,27 +124,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		const vmopName = "local-disks-migration"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
+		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
-		Eventually(func() error {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			// TODO: remove temporary migration skip logic when both known issues are fixed:
-			// kubevirt "client socket is closed" and Volume(s)UpdateError.
-			util.SkipIfKnownMigrationFailure(vm)
-
-			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			if vmop.Status.Phase != v1alpha2.VMOPPhaseCompleted {
-				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-				return fmt.Errorf("migration is not completed: phase: %s, reason: %s, message: %s", vmop.Status.Phase, completed.Reason, completed.Message)
-			}
-			return nil
-		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
 		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
@@ -217,27 +198,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			vmopName := "local-disks-migration-" + strconv.Itoa(i)
 
 			By("Starting migrations for virtual machines")
-			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
+			vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
-			Eventually(func() error {
-				vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				// TODO: remove temporary migration skip logic when both known issues are fixed:
-				// kubevirt "client socket is closed" and Volume(s)UpdateError.
-				util.SkipIfKnownMigrationFailure(vm)
-
-				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if vmop.Status.Phase != v1alpha2.VMOPPhaseCompleted {
-					completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-					return fmt.Errorf("migration is not completed: phase: %s, reason: %s, message: %s", vmop.Status.Phase, completed.Reason, completed.Message)
-				}
-				return nil
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+			util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
 			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -283,21 +246,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		const vmopName2 = "local-disks-migration-2"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName2))
+		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName2))
 
-		Eventually(func(g Gomega) {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-			g.Expect(err).NotTo(HaveOccurred())
-			// TODO: remove temporary migration skip logic when both known issues are fixed:
-			// kubevirt "client socket is closed" and Volume(s)UpdateError.
-			util.SkipIfKnownMigrationFailure(vm)
-
-			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName2, metav1.GetOptions{})
-			g.Expect(err).NotTo(HaveOccurred())
-
-			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-			g.Expect(completed.Status).To(Equal(metav1.ConditionTrue), "Reason: %s, Message: %s", completed.Reason, completed.Message)
-		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
 		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
@@ -347,7 +298,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			}
 
 			return slap(vm)
-		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
 		untilVirtualDisksMigrationsFailed(f)
 	},
@@ -480,7 +431,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 				}
 
 				return fmt.Errorf("pending pod is not unschedulable")
-			}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
 			err = f.VirtClient().VirtualMachineOperations(ns).Delete(ctx, vmopName, metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -526,27 +477,9 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		const vmopName = "local-disks-migration-with-rwo-vmbda"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
+		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
-		Eventually(func() error {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			// TODO: remove temporary migration skip logic when both known issues are fixed:
-			// kubevirt "client socket is closed" and Volume(s)UpdateError.
-			util.SkipIfKnownMigrationFailure(vm)
-
-			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(ctx, vmopName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			if vmop.Status.Phase != v1alpha2.VMOPPhaseCompleted {
-				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-				return fmt.Errorf("migration is not completed: phase: %s, reason: %s, message: %s", vmop.Status.Phase, completed.Reason, completed.Message)
-			}
-			return nil
-		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
 		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())

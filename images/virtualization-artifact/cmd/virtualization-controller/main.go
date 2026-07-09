@@ -31,7 +31,6 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -40,16 +39,20 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	dvcrgarbagecollection "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/migrationiface"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/populator"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/storageprofile"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
@@ -62,6 +65,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
@@ -97,6 +101,8 @@ const (
 
 	SdnEnabledEnv  = "SDN_ENABLED"
 	clusterUUIDEnv = "CLUSTER_UUID"
+
+	migrationSystemNetworkNameEnv = "MIGRATION_SYSTEM_NETWORK_NAME"
 )
 
 func main() {
@@ -115,7 +121,6 @@ func main() {
 	}
 
 	var logDebugControllerList []string
-	fmt.Print(len(logDebugControllerList))
 	logDebugControllerListRaw := os.Getenv(logDebugControllerListEnv)
 	if logDebugControllerListRaw != "" {
 		logDebugControllerListRaw = strings.ReplaceAll(logDebugControllerListRaw, " ", "")
@@ -244,7 +249,7 @@ func main() {
 		resourcev1.AddToScheme,
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
-		cdiv1beta1.AddToScheme,
+		storagev1alpha1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
 		mcapi.AddToScheme,
@@ -271,6 +276,11 @@ func main() {
 			BindAddress: metricsBindAddr,
 		},
 		HealthProbeBindAddress: healthProbeBindAddr,
+		// Route unstructured reads through the cache so field-index lookups are served locally
+		// instead of hitting the apiserver.
+		Client: client.Options{
+			Cache: &client.CacheOptions{Unstructured: true},
+		},
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
@@ -359,13 +369,25 @@ func main() {
 	}
 
 	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	populatorLogger := logger.NewControllerLogger(populator.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, dvcrSettings); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	storageProfileLogger := logger.NewControllerLogger(storageprofile.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = storageprofile.NewController(mgr, storageProfileLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -414,6 +436,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	migrationIfaceLogger := logger.NewControllerLogger(migrationiface.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = migrationiface.NewController(ctx, mgr, migrationIfaceLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	resourceSliceLogger := logger.NewControllerLogger(resourceslice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = resourceslice.NewController(ctx, mgr, resourceSliceLogger); err != nil {
 		log.Error(err.Error())
@@ -439,7 +467,7 @@ func main() {
 	}
 
 	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmop.SetupController(ctx, mgr, vmopLogger); err != nil {
+	if err = vmop.SetupController(ctx, mgr, vmopLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -483,6 +511,12 @@ func main() {
 
 	volumeMigrationLogger := logger.NewControllerLogger(volumemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if err = volumemigration.SetupController(ctx, mgr, volumeMigrationLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmpoolLogger := logger.NewControllerLogger(vmpool.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmpool.SetupController(ctx, mgr, vmpoolLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

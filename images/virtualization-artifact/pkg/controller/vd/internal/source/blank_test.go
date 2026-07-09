@@ -29,11 +29,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -75,9 +75,6 @@ var _ = Describe("Blank", func() {
 			},
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
-			},
-			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
-				return nil
 			},
 		}
 
@@ -143,7 +140,8 @@ var _ = Describe("Blank", func() {
 					},
 				}).Build()
 
-			syncer := NewBlankDataSource(recorder, svc, client)
+			pvcSvc := service.NewPersistentVolumeClaimService(client, nil, nil, service.DiskImporterConfig{})
+			syncer := NewBlankDataSource(recorder, svc, pvcSvc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -159,7 +157,7 @@ var _ = Describe("Blank", func() {
 
 		It("checks size in spec", func() {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
-			syncer := NewBlankDataSource(nil, nil, client)
+			syncer := NewBlankDataSource(nil, nil, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).To(HaveOccurred())
@@ -168,7 +166,7 @@ var _ = Describe("Blank", func() {
 
 		It("checks storage class is set in status", func() {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
-			syncer := NewBlankDataSource(nil, nil, client)
+			syncer := NewBlankDataSource(nil, nil, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).To(HaveOccurred())
@@ -182,7 +180,7 @@ var _ = Describe("Blank", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewBlankDataSource(nil, nil, client)
+			syncer := NewBlankDataSource(nil, nil, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -197,7 +195,7 @@ var _ = Describe("Blank", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewBlankDataSource(nil, nil, client)
+			syncer := NewBlankDataSource(nil, nil, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -213,7 +211,7 @@ var _ = Describe("Blank", func() {
 			pvc.Status.Phase = corev1.ClaimBound
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewBlankDataSource(nil, svc, client)
+			syncer := NewBlankDataSource(nil, svc, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -241,7 +239,7 @@ var _ = Describe("Blank", func() {
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewBlankDataSource(nil, svc, client)
+			syncer := NewBlankDataSource(nil, svc, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -257,7 +255,7 @@ var _ = Describe("Blank", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewBlankDataSource(nil, svc, client)
+			syncer := NewBlankDataSource(nil, svc, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())

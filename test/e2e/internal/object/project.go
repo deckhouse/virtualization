@@ -24,7 +24,22 @@ import (
 	dv1alpha2 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha2"
 )
 
+// NewIsolatedProject builds a Project with the "Isolated" network policy: all traffic is
+// denied by default except in-namespace, DNS, metrics scraping and ingress. Use it for
+// tests that specifically assert behaviour under network isolation.
 func NewIsolatedProject(prefix, basePrefix string) *dv1alpha2.Project {
+	return newProject(prefix, basePrefix, "Isolated")
+}
+
+// NewNonIsolatedProject builds a Project with the "NotRestricted" network policy: all
+// traffic is allowed by default. Use it for tests that boot VirtualMachines whose guests
+// need outbound access (e.g. cloud-init installing the qemu-guest-agent over the network);
+// the "Isolated" policy would block that and the guest agent would never become ready.
+func NewNonIsolatedProject(prefix, basePrefix string) *dv1alpha2.Project {
+	return newProject(prefix, basePrefix, "NotRestricted")
+}
+
+func newProject(prefix, basePrefix, networkPolicy string) *dv1alpha2.Project {
 	return &dv1alpha2.Project{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "deckhouse.io/v1alpha2",
@@ -43,7 +58,7 @@ func NewIsolatedProject(prefix, basePrefix string) *dv1alpha2.Project {
 						"memory": "20Gi",
 					},
 				},
-				"networkPolicy": "Isolated",
+				"networkPolicy": networkPolicy,
 			},
 		},
 	}

@@ -26,12 +26,12 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -49,7 +49,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
 		virtv1.AddToScheme,
-		cdiv1.AddToScheme,
+		storagev1alpha1.AddToScheme,
 		clientgoscheme.AddToScheme,
 	} {
 		err := f(scheme)
@@ -79,7 +79,7 @@ func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
 		virtv1.AddToScheme,
-		cdiv1.AddToScheme,
+		storagev1alpha1.AddToScheme,
 		clientgoscheme.AddToScheme,
 	} {
 		err := f(scheme)

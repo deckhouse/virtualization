@@ -24,8 +24,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
@@ -121,19 +121,21 @@ func (svc *VirtualImageStorageClassService) GetModuleStorageClass(ctx context.Co
 	return svc.GetStorageClass(ctx, svc.storageClassSettings.DefaultStorageClassName)
 }
 
-func (svc *VirtualImageStorageClassService) ValidateClaimPropertySets(sp *cdiv1.StorageProfile) error {
+func (svc *VirtualImageStorageClassService) ValidateClaimPropertySets(sp *storagev1alpha1.StorageProfile) error {
 	if sp == nil {
 		return fmt.Errorf("the storage profile cannot be nil; please report a bug")
 	}
 
 	for _, cps := range sp.Status.ClaimPropertySets {
-		if slices.Contains(cps.AccessModes, corev1.ReadWriteMany) && *cps.VolumeMode == corev1.PersistentVolumeBlock {
+		if (slices.Contains(cps.AccessModes, corev1.ReadWriteOnce) || slices.Contains(cps.AccessModes, corev1.ReadWriteMany)) &&
+			cps.VolumeMode != nil &&
+			(*cps.VolumeMode == corev1.PersistentVolumeBlock || *cps.VolumeMode == corev1.PersistentVolumeFilesystem) {
 			return nil
 		}
 	}
 
 	return fmt.Errorf(
-		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' and access mode 'ReadWriteMany'",
+		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' or 'Filesystem' and access mode 'ReadWriteOnce' or 'ReadWriteMany'",
 		sp.Name,
 	)
 }
