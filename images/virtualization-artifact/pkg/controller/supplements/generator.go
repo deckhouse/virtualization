@@ -25,16 +25,20 @@ import (
 )
 
 const (
-	tplCommon              = "d8v-%s-%s-%s"
-	tplDVCRAuthSecret      = "d8v-%s-dvcr-auth-%s-%s"
-	tplDVCRAuthSecretForDV = "d8v-%s-dvcr-auth-dv-%s-%s"
-	tplDVCRCABundle        = "d8v-%s-dvcr-ca-%s-%s"
-	tplCABundle            = "d8v-%s-ca-%s-%s"
-	tplImagePullSecret     = "d8v-%s-pull-image-%s-%s"
-	tplImporterPod         = "d8v-%s-importer-%s-%s"
-	tplBounderPod          = "d8v-%s-bounder-%s-%s"
-	tplUploaderPod         = "d8v-%s-uploader-%s-%s"
-	tplUploaderTLSSecret   = "d8v-%s-tls-%s-%s"
+	tplCommon                       = "d8v-%s-%s-%s"
+	tplDVCRAuthSecret               = "d8v-%s-dvcr-auth-%s-%s"
+	tplDVCRAuthSecretForPVCImporter = "d8v-%s-dvcr-auth-dv-%s-%s"
+	tplDVCRCABundle                 = "d8v-%s-dvcr-ca-%s-%s"
+	tplCABundle                     = "d8v-%s-ca-%s-%s"
+	tplImagePullSecret              = "d8v-%s-pull-image-%s-%s"
+	tplImporterPod                  = "d8v-%s-importer-%s"
+	tplPVCImporterPod               = "d8v-%s-pvc-importer-%s"
+	tplPVCSourceImporterPod         = "d8v-%s-pvc-source-importer-%s"
+	tplPVCSourceImporterService     = "d8v-%s-pvc-source-nbd-%s"
+	tplPVCTargetImporterPod         = "d8v-%s-pvc-target-importer-%s"
+	tplBounderPod                   = "d8v-%s-bounder-%s-%s"
+	tplUploaderPod                  = "d8v-%s-uploader-%s-%s"
+	tplUploaderTLSSecret            = "d8v-%s-tls-%s-%s"
 )
 
 type Generator interface {
@@ -44,31 +48,35 @@ type Generator interface {
 
 	BounderPod() types.NamespacedName
 	ImporterPod() types.NamespacedName
+	PVCImporterPod() types.NamespacedName
+	PVCSourceImporterPod() types.NamespacedName
+	PVCSourceImporterService() types.NamespacedName
+	PVCTargetImporterPod() types.NamespacedName
 	UploaderPod() types.NamespacedName
 	UploaderService() types.NamespacedName
 	UploaderIngress() types.NamespacedName
-	DataVolume() types.NamespacedName
 	PersistentVolumeClaim() types.NamespacedName
 	CABundleConfigMap() types.NamespacedName
 	DVCRAuthSecret() types.NamespacedName
-	DVCRCABundleConfigMapForDV() types.NamespacedName
-	DVCRAuthSecretForDV() types.NamespacedName
+	DVCRCABundleConfigMapForPVCImporter() types.NamespacedName
+	DVCRAuthSecretForPVCImporter() types.NamespacedName
 	UploaderTLSSecretForIngress() types.NamespacedName
 	ImagePullSecret() types.NamespacedName
 	NetworkPolicy() types.NamespacedName
 	CommonSupplement() types.NamespacedName
+	CommonResourceName() types.NamespacedName
 
 	LegacyBounderPod() types.NamespacedName
 	LegacyImporterPod() types.NamespacedName
 	LegacyUploaderPod() types.NamespacedName
 	LegacyUploaderService() types.NamespacedName
 	LegacyUploaderIngress() types.NamespacedName
-	LegacyDataVolume() types.NamespacedName
+	LegacyCommonResourceName() types.NamespacedName
 	LegacyPersistentVolumeClaim() types.NamespacedName
 	LegacyCABundleConfigMap() types.NamespacedName
 	LegacyDVCRAuthSecret() types.NamespacedName
-	LegacyDVCRCABundleConfigMapForDV() types.NamespacedName
-	LegacyDVCRAuthSecretForDV() types.NamespacedName
+	LegacyDVCRCABundleConfigMapForPVCImporter() types.NamespacedName
+	LegacyDVCRAuthSecretForPVCImporter() types.NamespacedName
 	LegacyUploaderTLSSecretForIngress() types.NamespacedName
 	LegacyImagePullSecret() types.NamespacedName
 }
@@ -116,14 +124,14 @@ func (g *generator) DVCRAuthSecret() types.NamespacedName {
 	return g.generateName(tplDVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
-// DVCRAuthSecretForDV returns name and namespace for auth Secret copy
-// compatible with DataVolume: with accessKeyId and secretKey fields.
-func (g *generator) DVCRAuthSecretForDV() types.NamespacedName {
-	return g.generateName(tplDVCRAuthSecretForDV, kvalidation.DNS1123SubdomainMaxLength)
+// DVCRAuthSecretForPVCImporter returns name and namespace for the auth Secret
+// copy consumed by the pvc-importer (Opaque accessKeyId/secretKey format).
+func (g *generator) DVCRAuthSecretForPVCImporter() types.NamespacedName {
+	return g.generateName(tplDVCRAuthSecretForPVCImporter, kvalidation.DNS1123SubdomainMaxLength)
 }
 
-// DVCRCABundleConfigMapForDV returns name and namespace for ConfigMap with ca.crt.
-func (g *generator) DVCRCABundleConfigMapForDV() types.NamespacedName {
+// DVCRCABundleConfigMapForPVCImporter returns name and namespace for ConfigMap with ca.crt.
+func (g *generator) DVCRCABundleConfigMapForPVCImporter() types.NamespacedName {
 	return g.generateName(tplDVCRCABundle, kvalidation.DNS1123SubdomainMaxLength)
 }
 
@@ -139,7 +147,47 @@ func (g *generator) ImagePullSecret() types.NamespacedName {
 
 // ImporterPod generates name for importer Pod.
 func (g *generator) ImporterPod() types.NamespacedName {
-	return g.generateName(tplImporterPod, kvalidation.DNS1123SubdomainMaxLength)
+	name := fmt.Sprintf(tplImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+// PVCImporterPod generates name for the pvc-importer Pod that imports data
+// from DVCR into the target PersistentVolumeClaim. It is intentionally
+// distinct from ImporterPod() to avoid colliding with the dvcr-importer Pod
+// that runs in the first import phase.
+func (g *generator) PVCImporterPod() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+func (g *generator) PVCSourceImporterPod() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCSourceImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+func (g *generator) PVCSourceImporterService() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCSourceImporterService, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
+}
+
+func (g *generator) PVCTargetImporterPod() types.NamespacedName {
+	name := fmt.Sprintf(tplPVCTargetImporterPod, g.prefix, g.UID())
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: g.namespace,
+	}
 }
 
 // BounderPod generates name for bounder Pod.
@@ -167,9 +215,8 @@ func (g *generator) UploaderTLSSecretForIngress() types.NamespacedName {
 	return g.generateName(tplUploaderTLSSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
-// DataVolume generates name for underlying DataVolume.
-// DataVolume is always one for vmd/vmi, so prefix is used.
-func (g *generator) DataVolume() types.NamespacedName {
+// CommonResourceName generates the shared resource name used by older resource layouts.
+func (g *generator) CommonResourceName() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
 
@@ -204,15 +251,14 @@ func (g *generator) LegacyDVCRAuthSecret() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
-// LegacyDVCRAuthSecretForDV returns old format name for auth Secret copy
-// compatible with DataVolume: with accessKeyId and secretKey fields.
-func (g *generator) LegacyDVCRAuthSecretForDV() types.NamespacedName {
+// LegacyDVCRAuthSecretForPVCImporter returns old format name for the pvc-importer auth Secret copy.
+func (g *generator) LegacyDVCRAuthSecretForPVCImporter() types.NamespacedName {
 	name := fmt.Sprintf("%s-dvcr-auth-dv-%s", g.prefix, g.name)
 	return g.shortenNamespaced(name)
 }
 
-// LegacyDVCRCABundleConfigMapForDV returns old format name for ConfigMap with ca.crt.
-func (g *generator) LegacyDVCRCABundleConfigMapForDV() types.NamespacedName {
+// LegacyDVCRCABundleConfigMapForPVCImporter returns old format name for ConfigMap with ca.crt.
+func (g *generator) LegacyDVCRCABundleConfigMapForPVCImporter() types.NamespacedName {
 	name := fmt.Sprintf("%s-dvcr-ca-dv-%s", g.prefix, g.name)
 	return g.shortenNamespaced(name)
 }
@@ -265,14 +311,13 @@ func (g *generator) LegacyUploaderTLSSecretForIngress() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
-// LegacyDataVolume generates old format name for underlying DataVolume.
-// DataVolume is always one for vmd/vmi, so prefix is used.
-func (g *generator) LegacyDataVolume() types.NamespacedName {
-	dvName := fmt.Sprintf("%s-%s-%s", g.prefix, g.name, string(g.uid))
-	return g.shortenNamespaced(dvName)
+// LegacyCommonResourceName generates the shared resource name used by older resource layouts.
+func (g *generator) LegacyCommonResourceName() types.NamespacedName {
+	name := fmt.Sprintf("%s-%s-%s", g.prefix, g.name, string(g.uid))
+	return g.shortenNamespaced(name)
 }
 
 // LegacyPersistentVolumeClaim generates old format name for underlying PersistentVolumeClaim.
 func (g *generator) LegacyPersistentVolumeClaim() types.NamespacedName {
-	return g.LegacyDataVolume()
+	return g.LegacyCommonResourceName()
 }

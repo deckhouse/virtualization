@@ -118,7 +118,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.
 
 			err = f.CreateWithDeferredDeletion(ctx, t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(ctx, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.MiddleTimeout, t.VMSnapshot)
+			util.UntilVMSnapshotsReady(ctx, f, framework.MiddleTimeout, t.VMSnapshot)
 		})
 		By("Changing VM", func() {
 			util.WriteFile(f, t.VM, fileDataPath, changedValueOnDisk)

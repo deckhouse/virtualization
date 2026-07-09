@@ -67,7 +67,7 @@ var _ = Describe("DiskAttachment", Label(precheck.NoPrecheck), func() {
 
 			// Create VD from CVI for VM root disk
 			vdRoot = object.NewVDFromCVI(longName("vd-root"), f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-				vdbuilder.WithSize(ptr.To(resource.MustParse("512Mi"))),
+				vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			)
 
 			// Create blank VD without consumer (for attachment test)
@@ -108,6 +108,9 @@ var _ = Describe("DiskAttachment", Label(precheck.NoPrecheck), func() {
 				util.UntilObjectPhase(ctx, expectedDiskPhase, framework.LongTimeout, vdBlank)
 				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 				util.UntilSSHReady(f, vm, framework.MiddleTimeout)
+				// lsblk is installed by cloud-init after SSH becomes available,
+				// so wait for it before counting disks in the guest.
+				util.UntilGuestCommandsReady(f, vm, []string{"lsblk"}, framework.MiddleTimeout)
 			})
 		})
 

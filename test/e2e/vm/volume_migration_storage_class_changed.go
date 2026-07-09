@@ -29,9 +29,9 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -56,9 +56,9 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), Label
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("volume-migration-storage-class-changed")
-		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		storageClass = framework.GetConfig().StorageClass.DefaultStorageClass
 		if storageClass == nil {
-			Skip("TemplateStorageClass is not set.")
+			Skip("DefaultStorageClass is not set.")
 		}
 		targetStorageClass, err := getTargetStorageClass(ctx, f, storageClass)
 		Expect(err).NotTo(HaveOccurred())
@@ -240,49 +240,6 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), Label
 			err = patchStorageClassName(ctx, f, sc, vdForMigration)
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() error {
-				// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
-				// controller may revert volume migration (VM not running, VM not migrating, etc.).
-				util.SkipIfVDMigrationReverted(ns)
-
-				vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				// TODO: remove temporary migration skip logic when both known issues are fixed:
-				// kubevirt "client socket is closed" and Volume(s)UpdateError.
-				util.SkipIfKnownMigrationFailure(vm)
-
-				var lastVMOP *v1alpha2.VirtualMachineOperation
-				vmops, err := f.VirtClient().VirtualMachineOperations(ns).List(ctx, metav1.ListOptions{})
-				if err != nil {
-					return err
-				}
-
-				for _, vmop := range vmops.Items {
-					if vmop.Spec.VirtualMachine == vm.Name {
-						if lastVMOP == nil {
-							lastVMOP = &vmop
-							continue
-						}
-						if vmop.CreationTimestamp.After(lastVMOP.CreationTimestamp.Time) {
-							lastVMOP = &vmop
-							continue
-						}
-					}
-				}
-
-				if lastVMOP == nil {
-					return fmt.Errorf("lastVMOP is not found")
-				}
-
-				if lastVMOP.Status.Phase == v1alpha2.VMOPPhaseCompleted {
-					return nil
-				}
-
-				return fmt.Errorf("migration is not completed")
-			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
-
 			By("Wait until VM migration succeeded")
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)
 
@@ -355,8 +312,8 @@ func patchStorageClassName(ctx context.Context, f *framework.Framework, scName s
 	return nil
 }
 
-func getStorageProfile(f *framework.Framework) func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
-	return func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+func getStorageProfile(f *framework.Framework) func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
+	return func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 		obj := &rewrite.StorageProfile{}
 		err := f.RewriteClient().Get(ctx, name, obj)
 		if err != nil {

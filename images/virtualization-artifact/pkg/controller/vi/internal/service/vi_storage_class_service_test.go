@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 )
 
@@ -206,16 +207,36 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			service = NewVirtualImageStorageClassService(nil, config.VirtualImageStorageClassSettings{})
 		})
 		When("a storage profile has the volume mode `Filesystem` and the access mode `ReadWriteMany`", func() {
-			It("returns an error", func() {
-				sp := &cdiv1.StorageProfile{
+			It("does not return an error", func() {
+				sp := &storagev1alpha1.StorageProfile{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "FilesystemStorageClass",
 					},
-					Spec: cdiv1.StorageProfileSpec{},
-					Status: cdiv1.StorageProfileStatus{
+					Spec: storagev1alpha1.StorageProfileSpec{},
+					Status: storagev1alpha1.StorageProfileStatus{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{
 								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeFilesystem),
+							},
+						},
+					},
+				}
+				err := service.ValidateClaimPropertySets(sp)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+		When("a storage profile has the volume mode `Filesystem` and the access mode `ReadOnlyMany`", func() {
+			It("returns an error", func() {
+				sp := &storagev1alpha1.StorageProfile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ReadOnlyFilesystemStorageClass",
+					},
+					Spec: storagev1alpha1.StorageProfileSpec{},
+					Status: storagev1alpha1.StorageProfileStatus{
+						ClaimPropertySets: []cdiv1.ClaimPropertySet{
+							{
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
 								VolumeMode:  ptr.To(corev1.PersistentVolumeFilesystem),
 							},
 						},
@@ -227,12 +248,12 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 		})
 		When("a storage profile has the volume mode `Block` and the access mode `ReadWriteMany`", func() {
 			It("does not return an error", func() {
-				sp := &cdiv1.StorageProfile{
+				sp := &storagev1alpha1.StorageProfile{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "BlockStorageClass",
 					},
-					Spec: cdiv1.StorageProfileSpec{},
-					Status: cdiv1.StorageProfileStatus{
+					Spec: storagev1alpha1.StorageProfileSpec{},
+					Status: storagev1alpha1.StorageProfileStatus{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{
 								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -254,13 +275,13 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			})
 		})
 		When("a storage profile has the volume mode `Block` and the access mode `ReadWriteOnce`", func() {
-			It("returns an error", func() {
-				sp := &cdiv1.StorageProfile{
+			It("does not return an error", func() {
+				sp := &storagev1alpha1.StorageProfile{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "BlockStorageClass",
 					},
-					Spec: cdiv1.StorageProfileSpec{},
-					Status: cdiv1.StorageProfileStatus{
+					Spec: storagev1alpha1.StorageProfileSpec{},
+					Status: storagev1alpha1.StorageProfileStatus{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{
 								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -274,7 +295,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 					},
 				}
 				err := service.ValidateClaimPropertySets(sp)
-				Expect(err).To(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

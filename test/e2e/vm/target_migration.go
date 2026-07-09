@@ -26,10 +26,13 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -67,6 +70,7 @@ var _ = Describe("TargetMigration", Label(precheck.PrecheckTargetMigration), fun
 				"vd-root",
 				f.Namespace().Name,
 				object.PrecreatedCVIAlpineBIOS,
+				vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			)
 
 			virtualMachine = object.NewMinimalVM(

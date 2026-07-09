@@ -19,7 +19,6 @@ rules:
       - virtualmachinemacaddresses
       - virtualmachineoperations
       - virtualmachinesnapshotoperations
-      - virtualmachinerestores
       - virtualmachines
       - virtualmachinesnapshots
       - usbdevices

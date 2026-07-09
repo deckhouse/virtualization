@@ -30,7 +30,23 @@ func ScalePercentage(percent string, low, high float64) string {
 	}
 
 	scaled := pctVal*((high-low)/100) + low
-	return fmt.Sprintf("%.1f%%", scaled)
+	return Format(scaled)
+}
+
+// Format renders an import-progress percentage for display. The boundary values
+// 0 and 100 are rendered without a fractional part ("0%", "100%"); every other
+// value keeps a single decimal ("32.1%", "50.0%"). This keeps the reported
+// progress consistent (e.g. always "50.0%" instead of a mix of "50%" and
+// "50.0%").
+func Format(value float64) string {
+	switch value {
+	case 0:
+		return "0%"
+	case 100:
+		return "100%"
+	default:
+		return fmt.Sprintf("%.1f%%", value)
+	}
 }
 
 var possibleFloatRe = regexp.MustCompile(`[0-9eE\-+.]+`)

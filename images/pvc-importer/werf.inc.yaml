@@ -1,0 +1,15 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
+import:
+- image: {{ .ModuleNamePrefix }}pvc-artifact-bins
+  add: /relocate
+  to: /
+  before: setup
+# Binaries are built from images/pvc-artifact by images/pvc-artifact/werf.inc.yaml.
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/pvc-importer", "-alsologtostderr"]
+    user: 64535

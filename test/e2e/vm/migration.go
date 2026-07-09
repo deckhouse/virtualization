@@ -19,7 +19,6 @@ package vm
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -81,18 +80,14 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 
 	It("verifies that migrations are successful", func() {
 		By("Environment preparation", func() {
-			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
-			)
+			vdRootBIOS = object.NewVDFromCVI("vd-root-bios", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vd.WithSize(ptr.To(resource.MustParse("400Mi"))))
 			vdBlankBIOS = vd.New(
 				vd.WithName("vd-blank-bios"),
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("100Mi"))),
 			)
 
-			vdRootUEFI = object.NewVDFromCVI("vd-root-uefi", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
-				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
-			)
+			vdRootUEFI = object.NewVDFromCVI("vd-root-uefi", f.Namespace().Name, object.PrecreatedCVIAlpineUEFI, vd.WithSize(ptr.To(resource.MustParse("400Mi"))))
 			vdBlankUEFI = vd.New(
 				vd.WithName("vd-blank-uefi"),
 				vd.WithNamespace(f.Namespace().Name),
@@ -253,24 +248,8 @@ var _ = Describe("VirtualMachineMigration", Label(precheck.NoPrecheck), func() {
 					vmbdaNames, metav1.ListOptions{})
 			}()
 
-			Eventually(func(g Gomega) {
-				err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmBIOS), vmBIOS)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmUEFI), vmUEFI)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				// TODO: remove temporary migration skip logic when both known issues are fixed:
-				// kubevirt "client socket is closed" and Volume(s)UpdateError.
-				util.SkipIfKnownMigrationFailure(vmBIOS)
-				util.SkipIfKnownMigrationFailure(vmUEFI)
-
-				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmopMigrateBIOS), vmopMigrateBIOS)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-				err = f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmopMigrateUEFI), vmopMigrateUEFI)
-				Expect(err).NotTo(HaveOccurred()) // Intentionally fail the test on a single error, so g.Expect is not needed
-
-				g.Expect(vmopMigrateBIOS.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-				g.Expect(vmopMigrateUEFI.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
-			}).WithPolling(time.Second).WithTimeout(framework.LongTimeout).To(Succeed())
+			util.UntilVMOPMigrationSucceeded(ctx, vmopMigrateBIOS, framework.MaxTimeout)
+			util.UntilVMOPMigrationSucceeded(ctx, vmopMigrateUEFI, framework.MaxTimeout)
 
 			vmOriginalDiskCount := map[*v1alpha2.VirtualMachine]string{
 				vmBIOS: biosDiskCountOriginal,
