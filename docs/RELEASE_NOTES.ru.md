@@ -91,6 +91,19 @@ weight: 70
 
 - [vm] Системные ресурсы виртуальной машины (поды с префиксами `d8v-hp-` и `d8v-vm-`) теперь работают от пользователя `deckhouse`, без root-прав.
 
+## v1.8.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 9 июля 2026.
+</span>
+
+### Безопасность
+
+- [module] Исправлены уязвимости:
+  - CVE-2026-42504
+  - CVE-2026-27145
+  - CVE-2026-42507
+
 ## v1.8.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
