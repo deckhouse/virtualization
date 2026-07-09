@@ -331,32 +331,9 @@ jobs:
           task virtualization-controller:init
           task virtualization-controller:test:unit
 
-  pvc_artifact:
-    runs-on: ubuntu-22.04
-    name: pvc-artifact lint and unit tests
-    steps:
-      - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-
-      - name: Install Task
-        uses: go-task/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Install golangci-lint
+      - name: Run unit test pvc-artifact
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${{ env.GOLANGCI_LINT_VERSION}}
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
-      - name: Run pvc-artifact lint and unit tests
-        run: task pvc-artifact:ci
+          task pvc-artifact:test:unit
 
   test_scripts_js:
     runs-on: ubuntu-22.04
