@@ -332,9 +332,9 @@ jobs:
           task virtualization-controller:init
           task virtualization-controller:test:unit
 
-  cdi_artifact:
+  pvc_artifact:
     runs-on: ubuntu-22.04
-    name: cdi-artifact lint and unit tests
+    name: pvc-artifact lint and unit tests
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -356,8 +356,8 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${{ env.GOLANGCI_LINT_VERSION}}
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-      - name: Run cdi-artifact lint and unit tests
-        run: task cdi-artifact:ci
+      - name: Run pvc-artifact lint and unit tests
+        run: task pvc-artifact:ci
 
   test_scripts_js:
     runs-on: ubuntu-22.04

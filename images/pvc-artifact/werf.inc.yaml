@@ -1,0 +1,151 @@
+---
+{{- $version := "local" }}
+
+{{- $name := print .ImageName "-dependencies" -}}
+{{- define "$name" -}}
+binaries:
+- /pvc-binaries/pvc-importer
+- /pvc-binaries/pvc-target-importer
+packages:
+- libnbd
+- libxml2
+- xz
+- libtasn1
+- libunistring
+- libffi libgmp gnutls
+- nettle libidn2
+- p11-kit zlib
+- glibc
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-1.25" }}
+mount:
+{{- include "mount points for golang builds" . }}
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src
+  stageDependencies:
+    install:
+    - go.mod
+    - go.sum
+    setup:
+    - '**/*'
+  excludePaths:
+  - .git
+  - werf.inc.yaml
+import:
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+  - |
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
+
+    echo Download Go modules.
+    cd /src
+    go mod download
+
+  setup:
+  - mkdir /pvc-binaries
+  - cd /src
+
+  - export GOOS=linux
+  - export GOARCH=amd64
+  - export CGO_ENABLED=0
+  - export CGO_ENABLED=1
+
+  - echo ============== Build pvc-importer ===========
+  - |
+    {{- $_ := set $ "ProjectName" (list .ImageName "pvc-importer" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /pvc-binaries/pvc-importer ./cmd/pvc-importer`) | nindent 6 }}
+
+  - echo ============== Build pvc-target-importer ===========
+  - |
+    {{- $_ := set $ "ProjectName" (list .ImageName "pvc-target-importer" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /pvc-binaries/pvc-target-importer ./cmd/pvc-target-importer`) | nindent 6 }}
+
+  - chown -R 64535:64535 /pvc-binaries/*
+  - ls -la /pvc-binaries
+
+---
+{{- $nameBins := print .ImageName "-bins-dependencies" -}}
+{{- define "$nameBins" -}}
+binaries:
+  # nbd bins and libs
+  - /usr/sbin/nbdkit
+  - /usr/bin/nbdcopy
+  - /usr/lib64/nbdkit/filters/*.so
+  - /usr/lib64/nbdkit/plugins/*.so
+  # PVC importer binary
+  - /usr/bin/pvc-importer
+  - /usr/bin/pvc-target-importer
+  # QEMU bins
+  - /usr/bin/qemu-img
+# do not include glibc, it will be replaced by one from qemu-img
+packages:
+- nbdkit libnbd
+- libtasn1 libxml2
+- xz
+- libunistring
+- libffi libgmp gnutls
+- nettle libidn2
+- p11-kit zlib
+- glib2 libbsd libfuse3
+- gcc ubdsrv liburing
+- libaio libaudit libcap-ng numactl
+- linux-pam zstd
+{{- end -}}
+
+{{ $binsDependencies := include "$nameBins" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
+final: false
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+import:
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/blockdev
+  - bin/mount
+  - bin/umount
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+  add: /pvc-binaries
+  to: /usr/bin
+  before: setup
+  includePaths:
+  - pvc-importer
+  - pvc-target-importer
+- image: {{ .ModuleNamePrefix }}qemu
+  add: /qemu-img
+  to: /qemu-img
+  before: install
+{{- include "importPackageImages" (list . $binsDependencies.packages "install") -}}
+shell:
+  install:
+  - |
+    echo "Install packages"
+    PKGS="{{ $binsDependencies.packages | join " " }}"
+    PKGS+=" qemu-img"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+  setup:
+  - |
+    /relocate_binaries.sh -i "{{ $binsDependencies.binaries | join " " }}" -o /relocate

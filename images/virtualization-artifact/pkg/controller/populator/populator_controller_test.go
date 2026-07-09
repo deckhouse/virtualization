@@ -18,12 +18,14 @@ package populator
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -132,6 +135,48 @@ func TestPopulatorStartsVirtualImageWFFCDVCRImportWithoutSelectedNode(t *testing
 	if err := c.Get(ctx, types.NamespacedName{Name: "d8v-vi-pvc-importer-" + string(vi.UID), Namespace: vi.Namespace}, pod); err != nil {
 		t.Fatalf("expected pvc-importer pod: %v", err)
 	}
+}
+
+func TestPopulatorIgnoresNamespaceTerminatingErrors(t *testing.T) {
+	ctx := context.Background()
+	vd := testVD()
+	pvc := testTargetPVC(vd)
+	pvc.Annotations[annotations.AnnPVCPopulationStrategy] = service.PopulationStrategyDVCR
+	pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR] = "docker://registry.example/disk:tag"
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme(t)).
+		WithObjects(vd, pvc).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+				return namespaceTerminatingError(obj)
+			},
+		}).
+		Build()
+	r := testReconciler(c)
+
+	result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(pvc)})
+	if err != nil {
+		t.Fatalf("expected namespace-terminating error to be dropped, got: %v", err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("expected no requeue for a terminating namespace, got %#v", result)
+	}
+}
+
+// namespaceTerminatingError mimics the error the NamespaceLifecycle admission
+// plugin returns for creates in a terminating namespace.
+func namespaceTerminatingError(obj client.Object) error {
+	err := k8serrors.NewForbidden(
+		corev1.Resource("persistentvolumeclaims"),
+		obj.GetName(),
+		fmt.Errorf("unable to create new content in namespace %s because it is being terminated", obj.GetNamespace()),
+	)
+	err.ErrStatus.Details.Causes = append(err.ErrStatus.Details.Causes, metav1.StatusCause{
+		Type:    corev1.NamespaceTerminatingCause,
+		Message: fmt.Sprintf("namespace %s is being terminated", obj.GetNamespace()),
+	})
+	return err
 }
 
 func TestPopulatorStartsStandaloneDVCRImport(t *testing.T) {

@@ -15,9 +15,9 @@ includes:
   gohooks:
     taskfile: ./images/hooks
     dir: ./images/hooks
-  cdi-artifact:
-    taskfile: ./images/cdi-artifact
-    dir: ./images/cdi-artifact
+  pvc-artifact:
+    taskfile: ./images/pvc-artifact
+    dir: ./images/pvc-artifact
   e2e:
     taskfile: ./test/e2e
     dir: ./test/e2e

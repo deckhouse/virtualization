@@ -1,4 +1,4 @@
-# Virtualization CDI Importer Runtime
+# Virtualization PVC Importer Runtime
 
 This directory contains the reduced importer runtime used by the Deckhouse virtualization module.
 It is based on the KubeVirt Containerized Data Importer codebase and keeps the original Apache 2.0 licensing.
