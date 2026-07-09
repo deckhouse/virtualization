@@ -2,11 +2,11 @@ go 1.25.11
 
 use (
 	./api
-	./images/dvcr-artifact
 	./images/dvcr/dvcr-k8s-auth
 	./images/hooks
 	./images/kube-api-rewriter
 	./images/pre-delete-hook
+	./images/pvc-artifact
 	./images/virt-launcher/vlctl
 	./images/virtualization-artifact
 	./images/virtualization-dra
@@ -34,50 +34,8 @@ replace k8s.io/client-go => k8s.io/client-go v0.34.2
 
 replace k8s.io/component-base => k8s.io/component-base v0.34.2
 
-replace golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0
-
-replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
-
-replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.48
-
-replace k8s.io/cli-runtime => k8s.io/cli-runtime v0.34.2
-
-replace k8s.io/cloud-provider => k8s.io/cloud-provider v0.34.2
-
-replace k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.34.2
-
-replace k8s.io/code-generator => k8s.io/code-generator v0.34.2
-
-replace k8s.io/cri-api => k8s.io/cri-api v0.34.2
-
-replace k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.34.2
-
-replace k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.34.2
-
-replace k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.34.2
-
-replace k8s.io/kube-proxy => k8s.io/kube-proxy v0.34.2
-
-replace k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.34.2
-
-replace k8s.io/kubectl => k8s.io/kubectl v0.34.2
-
-replace k8s.io/kubelet => k8s.io/kubelet v0.34.2
-
-replace k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.34.2
-
-replace k8s.io/metrics => k8s.io/metrics v0.34.2
-
-replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.34.2
-
-replace k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.34.2
-
-replace k8s.io/sample-controller => k8s.io/sample-controller v0.34.2
-
-replace github.com/openshift/api => github.com/openshift/api v0.0.0-20230406152840-ce21e3fe5da2
-
-replace github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20230324103026-3f1513df25e0
+replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.50
 
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.5
 
-replace k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.34.2
+replace k8s.io/kubelet => k8s.io/kubelet v0.34.2
