@@ -287,8 +287,13 @@ func runConsumerPod(ctx context.Context, f *framework.Framework, podName, pvcNam
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyNever,
+			// runAsGroup must match fsGroup: NFS servers check permissions against
+			// the primary gid and may ignore supplementary gids, so a group-writable
+			// mount is not enough for a non-root writer.
 			SecurityContext: &corev1.PodSecurityContext{
-				FSGroup: ptr.To[int64](65532),
+				RunAsUser:  ptr.To[int64](65532),
+				RunAsGroup: ptr.To[int64](65532),
+				FSGroup:    ptr.To[int64](65532),
 			},
 			Containers: []corev1.Container{{
 				Name:    "consumer",
