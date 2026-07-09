@@ -24,14 +24,16 @@ import (
 // from spec, so admission-time enforcement is in effect.
 func BeEnforced() Predicate {
 	return func(rq *corev1.ResourceQuota) (bool, error) {
-		pods, ok := rq.Status.Hard[corev1.ResourceName("count/pods")]
-		if !ok || pods.Sign() != 0 {
+		for resourceName, hardLimit := range rq.Spec.Hard {
+			statusLimit, ok := rq.Status.Hard[resourceName]
+			if !ok || statusLimit.Cmp(hardLimit) != 0 {
+				return false, nil
+			}
+		}
+		if len(rq.Spec.Hard) == 0 {
 			return false, nil
 		}
-		pvcs, ok := rq.Status.Hard[corev1.ResourceName("count/persistentvolumeclaims")]
-		if !ok || pvcs.Sign() != 0 {
-			return false, nil
-		}
+
 		return true, nil
 	}
 }
