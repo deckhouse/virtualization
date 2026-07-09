@@ -15,7 +15,6 @@ secrets:
 shell:
   install:
   - |
-    echo 'Cache bust install: {{ now | date "Mon Jan 2 15:04:05 MST 2006" }}'
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
@@ -69,7 +68,6 @@ shell:
 
   install:
   - |
-    echo 'Cache bust install: {{ now | date "Mon Jan 2 15:04:05 MST 2006" }}'
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
@@ -89,8 +87,6 @@ shell:
     done
 
   setup:
-    - |
-      echo 'Cache bust setup: {{ now | date "Mon Jan 2 15:04:05 MST 2006" }}'
     - mkdir /kubevirt-binaries
     - mkdir /kubevirt-config-files
     - cd /kubevirt
