@@ -63,13 +63,10 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 	}
 }
 
-// NewTemplateSpecValidator builds a Validator for a VirtualMachine spec embedded
-// in a template (e.g. a VirtualMachinePool's virtualMachineTemplate), where the
-// concrete per-replica disks and IP address do not exist at admission time. It
-// runs the spec-level checks and deliberately omits the validators that resolve
-// those absent objects — IPAM (looks up a VirtualMachineIPAddress by the VM name),
-// the block-device limiter and PV node affinity (resolve the replica's disks) —
-// which would otherwise reject a valid template.
+// NewTemplateSpecValidator validates a VirtualMachine spec embedded in a template
+// (e.g. a VirtualMachinePool), where the replica's real disks and IP don't exist
+// yet. It runs the spec-level checks and omits the ones that resolve those absent
+// objects (IPAM, block-device limiter, PV node affinity).
 func NewTemplateSpecValidator(client client.Client, featureGate featuregate.FeatureGate, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{

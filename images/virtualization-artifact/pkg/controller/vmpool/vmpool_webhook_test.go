@@ -25,6 +25,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -34,7 +35,10 @@ var _ = Describe("pool validation webhook", func() {
 	newValidator := func() *poolValidator {
 		c, err := testutil.NewFakeClientWithObjects()
 		Expect(err).NotTo(HaveOccurred())
-		return &poolValidator{vmValidator: vm.NewTemplateSpecValidator(c, featuregates.Default(), log.NewNop())}
+		return &poolValidator{
+			vmValidator:   vm.NewTemplateSpecValidator(c, featuregates.Default(), log.NewNop()),
+			diskValidator: vd.NewTemplateSpecValidator(c),
+		}
 	}
 
 	Describe("vmFromTemplate", func() {

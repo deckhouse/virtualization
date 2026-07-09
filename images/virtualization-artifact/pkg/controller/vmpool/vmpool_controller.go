@@ -81,6 +81,14 @@ func SetupController(
 		return err
 	}
 
+	// Guards anonymous scale-down for scaleDownPolicy: Explicit.
+	SetupScaleWebhook(mgr)
+	// Validates the embedded virtualMachineTemplate and virtualDiskTemplates specs
+	// on pool create/update.
+	if err = SetupValidationWebhook(mgr, log); err != nil {
+		return err
+	}
+
 	log.Info("Initialized VirtualMachinePool controller")
 	return nil
 }
