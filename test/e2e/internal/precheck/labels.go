@@ -25,16 +25,13 @@ const (
 	PrecheckSDN = "sdn-precheck"
 
 	// PrecheckVMC - test requires VMC module to be enabled.
-	PrecheckVMC = "vmc-precheck"
+	PrecheckVMC = "vmclass-precheck"
 
 	// PrecheckSVDM - test requires SVDM module to be enabled.
 	PrecheckSVDM = "svdm-precheck"
 
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
-	PrecheckDefaultStorageClass = "defaultstorageclass-precheck"
-
-	// PrecheckImmediateStorageClass - test requires immediate StorageClass with same provisioner as default.
-	PrecheckImmediateStorageClass = "immediatestorageclass-precheck"
+	PrecheckDefaultStorageClass = "default-sc-precheck"
 
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
 	PrecheckSnapshot = "snapshot-precheck"
@@ -52,11 +49,11 @@ const (
 	PrecheckTargetMigration = "target-migration-precheck"
 
 	// PrecheckPostCleanup - test requires postcleanup to be configured.
-	PrecheckPostCleanup = "postcleanup-precheck"
+	PrecheckPostCleanup = "post-cleanup-precheck"
 
 	// PrecheckPrecreatedCVI - test requires precreated ClusterVirtualImages to be available.
 	// This is a common precheck that runs for all tests automatically.
-	PrecheckPrecreatedCVI = "precreatedcvi-precheck"
+	PrecheckPrecreatedCVI = "precreated-cvi-precheck"
 
 	// NoPrecheck - test doesn't require any prechecks.
 	// Use this label for tests that don't depend on cluster configuration.
@@ -79,7 +76,6 @@ func KnownPrecheckLabels() []string {
 		PrecheckVMC,
 		PrecheckSVDM,
 		PrecheckDefaultStorageClass,
-		PrecheckImmediateStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,

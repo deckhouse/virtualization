@@ -10,7 +10,6 @@ images/**/mount-points.yaml
 CHANGELOG/*.yml
 CHANGELOG/*.yaml
 crds/embedded
-images/cdi-artifact/__containerized-data-importer*
 images/virt-artifact/__kubevirt*
 .gitlab-ci.yml
 tools/kubeconform

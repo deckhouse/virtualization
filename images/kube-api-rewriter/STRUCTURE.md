@@ -123,49 +123,6 @@ flowchart
   virt-api-proxy <----> kube-api
   virt-handler-proxy <----> kube-api
 
-  subgraph cdi ["CDI"]
-    subgraph cdi-operator-deploy ["`Deploy/cdi-operator`"]
-      cdi-operator-proxy{{"container:
-        proxy"}}
-      cdi-operator("`container:
-        virt-handler`")
-      cdi-operator --> cdi-operator-proxy
-      cdi-operator-proxy --> cdi-operator
-    end
-  
-    subgraph cdi-deployment-deploy ["`Deploy/cdi-deployment`"]
-      cdi-deployment-proxy{{"container:
-        proxy"}}
-      cdi-deployment("`container:
-        cdi-eployment`")
-      cdi-deployment --> cdi-deployment-proxy
-      cdi-deployment-proxy --> cdi-deployment
-    end
-  
-    subgraph cdi-api-deploy ["`Deploy/cdi-api`"]
-      cdi-api-proxy{{"container:
-        proxy"}}
-      cdi-api("`container:
-        cdi-api`")
-      cdi-api --> cdi-api-proxy
-      cdi-api-proxy --> cdi-api
-    end
-  
-    subgraph cdi-exportproxy-deploy ["`Deploy/cdi-exportproxy`"]
-      cdi-exportproxy-proxy{{"container:
-          proxy"}}
-      cdi-exportproxy("`container:
-          cdi-exportproxy`")
-      cdi-exportproxy --> cdi-exportproxy-proxy
-      cdi-exportproxy-proxy --> cdi-exportproxy
-    end
-  end
-  kube-api <----> cdi-operator-proxy
-  kube-api <----> cdi-deployment-proxy
-  kube-api <----> cdi-api-proxy
-  kube-api <----> cdi-exportproxy-proxy
-  
-
   subgraph d8virt ["D8 API"]
     subgraph d8-virt-deploy ["Deploy/virtualization-controller"]
         d8-virt-controller-proxy("`container:
@@ -223,31 +180,13 @@ block-beta
     virtexportproxyproxy --> kubeapiserver
 
     space:5
-    cdioperatorproxy --> kubeapiserver
-    cdiapiproxy --> kubeapiserver
-    cdideploymentproxy --> kubeapiserver
-    cdiuploadproxyproxy --> kubeapiserver
     virtualizationcontrollerproxy --> kubeapiserver
 
-    %% Proxies in CDI Pods.
-    cdioperatorproxy(["proxy"])
-    cdiapiproxy(["proxy"])
-    cdideploymentproxy(["proxy"])
-    cdiuploadproxyproxy(["proxy"])
     virtualizationcontrollerproxy(["proxy"])
 
-    %% Links inside CDI Pods.
     space:5
-    cdioperator --> cdioperatorproxy
-    cdiapi--> cdiapiproxy
-    cdideployment --> cdideploymentproxy
-    cdiuploadproxy --> cdiuploadproxyproxy
     virtualizationcontroller --> virtualizationcontrollerproxy
     
-    cdioperator["cdi-operator"]
-    cdiapi["cdi-api"]
-    cdideployment["cdi-deployment"]
-    cdiuploadproxy["cdi-uploadproxy"]
     virtualizationcontroller["virtualization-
     controller"]
 ```
@@ -263,7 +202,7 @@ block-beta
     ```
 - Add a volume and a volumeMount to pass new kubeconfig as file to the main container.
 - Set KUBECONFIG variable in the main container. File should contain configuration to connect to proxy port.
-  - Note: kubevirt containers use --kubeconfig flag, cdi containers use KUBECONFIG env variable.
+  - Note: KubeVirt containers use --kubeconfig flag.
 - Add a new sidecar container with the proxy.
   - Set WEBHOOK_ADDRESS if webhook proxying is required.
   - Add volumeMount with a certificate and set WEBHOOK_CERT_FILE and WEBHOOK_KEY_FILE to use the certificate.

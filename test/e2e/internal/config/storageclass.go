@@ -29,7 +29,7 @@ import (
 const (
 	NFS = "nfs.csi.k8s.io"
 
-	// StorageClassNameEnv overrides TemplateStorageClass for tests (see README).
+	// StorageClassNameEnv overrides DefaultStorageClass for tests (see README).
 	StorageClassNameEnv = "STORAGE_CLASS_NAME"
 )
 
@@ -62,84 +62,46 @@ func FindDefaultStorageClass(scList *storagev1.StorageClassList) *storagev1.Stor
 	return &defaultClasses[0]
 }
 
-// FindImmediateStorageClass finds an immediate StorageClass with the same provisioner as defaultSC.
-// It checks if defaultSC has Immediate binding mode first, then searches for an immediate SC with same provisioner.
-// Returns the immediate StorageClass if found, or nil if not found.
-func FindImmediateStorageClass(defaultSC *storagev1.StorageClass, scList *storagev1.StorageClassList) *storagev1.StorageClass {
-	if defaultSC == nil {
-		return nil
-	}
-
-	// If default StorageClass already has Immediate binding mode, use it
-	if defaultSC.VolumeBindingMode != nil &&
-		*defaultSC.VolumeBindingMode == storagev1.VolumeBindingImmediate {
-		return defaultSC
-	}
-
-	// Find immediate StorageClass with same provisioner
-	for i := range scList.Items {
-		sc := &scList.Items[i]
-		if sc.VolumeBindingMode == nil {
-			continue
+// ResolveDefaultStorageClass returns the StorageClass for the suite: an explicit
+// STORAGE_CLASS_NAME override when set, otherwise the cluster default StorageClass.
+func ResolveDefaultStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
+	scName, ok := os.LookupEnv(StorageClassNameEnv)
+	if ok {
+		if scName == "" {
+			return nil, fmt.Errorf("%s env is set but empty", StorageClassNameEnv)
 		}
-		if *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate &&
-			sc.Provisioner == defaultSC.Provisioner {
-			return sc
+		if sc := findStorageClassInList(scList, scName); sc != nil {
+			return sc, nil
 		}
+		return nil, fmt.Errorf("StorageClass %q from %s env not found", scName, StorageClassNameEnv)
 	}
 
-	return nil
+	return FindDefaultStorageClass(scList), nil
 }
 
 // SetStorageClasses discovers cluster StorageClasses and populates Config.StorageClass fields.
-// TemplateStorageClass is taken from StorageClassNameEnv when set, otherwise DefaultStorageClass is used.
+// DefaultStorageClass is taken from StorageClassNameEnv when set, otherwise the cluster default
+// StorageClass is used.
 func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client) error {
 	var scList storagev1.StorageClassList
 	if err := k8sClient.List(ctx, &scList); err != nil {
 		return fmt.Errorf("failed to list StorageClasses: %w", err)
 	}
 
-	c.StorageClass.DefaultStorageClass = FindDefaultStorageClass(&scList)
-	if c.StorageClass.DefaultStorageClass == nil {
-		return fmt.Errorf("default StorageClass not found in the cluster")
-	}
-
-	c.StorageClass.ImmediateStorageClass = FindImmediateStorageClass(c.StorageClass.DefaultStorageClass, &scList)
-
-	templateSC, err := findStorageClassFromEnv(ctx, k8sClient, StorageClassNameEnv, &scList)
+	defaultSC, err := ResolveDefaultStorageClass(&scList)
 	if err != nil {
 		return err
 	}
-	if templateSC != nil {
-		c.StorageClass.TemplateStorageClass = templateSC
-	} else {
-		c.StorageClass.TemplateStorageClass = c.StorageClass.DefaultStorageClass
-	}
+	c.StorageClass.DefaultStorageClass = defaultSC
 
 	return nil
 }
 
-func findStorageClassFromEnv(
-	ctx context.Context,
-	k8sClient client.Client,
-	envName string,
-	scList *storagev1.StorageClassList,
-) (*storagev1.StorageClass, error) {
-	scName, ok := os.LookupEnv(envName)
-	if !ok {
-		return nil, nil
-	}
-
+func findStorageClassInList(scList *storagev1.StorageClassList, name string) *storagev1.StorageClass {
 	for i := range scList.Items {
-		if scList.Items[i].Name == scName {
-			return &scList.Items[i], nil
+		if scList.Items[i].Name == name {
+			return &scList.Items[i]
 		}
 	}
-
-	sc := &storagev1.StorageClass{}
-	if err := k8sClient.Get(ctx, client.ObjectKey{Name: scName}, sc); err != nil {
-		return nil, fmt.Errorf("failed to get StorageClass %q from %s env: %w", scName, envName, err)
-	}
-
-	return sc, nil
+	return nil
 }

@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -66,8 +68,12 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 		return false, err
 	}
 
-	if commonvmop.InProgressOrPendingExists(unmanagedVMOPs) {
-		log.Debug("The virtual machine is either in the process of migration or waiting to start migration. Skipping...")
+	// Any unfinished operation blocks a new one on the vmop webhook side,
+	// including a Terminating operation (e.g. an evict whose migration is being
+	// cancelled), so trying to create a VMOP while one exists is guaranteed to
+	// be denied. Wait for the existing operation to finish instead.
+	if len(unmanagedVMOPs) > 0 {
+		log.Debug("The virtual machine has an unfinished migration operation. Skipping...")
 		return false, nil
 	}
 
@@ -77,6 +83,13 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 		log.Info("Create VMOP")
 		vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName())
 		if err = s.client.Create(ctx, vmop); err != nil {
+			// The cached VMOP list can lag behind the webhook's live view, so a
+			// concurrent operation may still be detected only at admission time.
+			// That is a wait-and-retry situation, not a reconcile failure.
+			if isDeniedByActiveVMOP(err) {
+				log.Debug("VMOP creation denied because another operation is active. Skipping...", logger.SlogErr(err))
+				return false, nil
+			}
 			return false, err
 		}
 	}
@@ -111,6 +124,13 @@ func (s *OneShotMigrationService) listVMOPMigrate(ctx context.Context, vmName, v
 
 func (s *OneShotMigrationService) setAnnoExpectedValueToKVVMI(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, annotationKey, annotationExpectedValue string) error {
 	return object.EnsureAnnotation(ctx, s.client, kvvmi, annotationKey, annotationExpectedValue)
+}
+
+// isDeniedByActiveVMOP reports whether the creation was rejected by the vmop
+// admission webhook because another unfinished operation exists for the same
+// virtual machine.
+func isDeniedByActiveVMOP(err error) bool {
+	return k8serrors.IsForbidden(err) || (err != nil && strings.Contains(err.Error(), "should finish first"))
 }
 
 func newVMOP(prefix, namespace, vmName string) *v1alpha2.VirtualMachineOperation {

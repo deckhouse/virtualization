@@ -24,11 +24,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -127,7 +129,7 @@ func newConfigurationTest(f *framework.Framework) *configurationTest {
 }
 
 func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.RestartApprovalMode) {
-	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 
 	t.VM = object.NewMinimalVM("vm", t.Framework.Namespace().Name,
 		vmbuilder.WithEnableParavirtualization(ptr.To(initialEnableParavirtualization)),

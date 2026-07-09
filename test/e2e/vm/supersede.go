@@ -123,7 +123,9 @@ var _ = Describe("VirtualMachineSupersede", Label(precheck.NoPrecheck), func() {
 		)
 		err = f.CreateWithDeferredDeletion(ctx, migrateVMOP)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, migrateVMOP)
+		// Migration slot contention in parallel e2e runs can keep the VMOP
+		// Pending for a while before the migration actually starts.
+		util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MaxTimeout, migrateVMOP)
 
 		By("Supersede the Migrate with a " + string(supersederType))
 		superseder := vmopbuilder.New(

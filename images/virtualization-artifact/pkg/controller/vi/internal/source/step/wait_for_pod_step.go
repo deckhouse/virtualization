@@ -126,7 +126,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 		Message("The image is being imported.")
 
 	vi.Status.Phase = v1alpha2.ImageProvisioning
-	vi.Status.Progress = s.stat.GetProgress(vi.GetUID(), s.pod, vi.Status.Progress)
+	vi.Status.Progress = service.CapProgressBelow(s.stat.GetProgress(vi.GetUID(), s.pod, vi.Status.Progress), 100)
 	vi.Status.Target.RegistryURL = s.stat.GetDVCRImageName(s.pod)
 
 	return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil

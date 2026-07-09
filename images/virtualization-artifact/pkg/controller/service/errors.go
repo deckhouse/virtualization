@@ -23,9 +23,9 @@ import (
 )
 
 var (
-	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
-	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
+	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
+	ErrImporterNotRunning          = errors.New("pvc importer is not running")
+	ErrProvisionerUnschedulable    = errors.New("provisioner unschedulable")
 )
 
 // CoreRange is an inclusive CPU core range allowed by a sizing policy.

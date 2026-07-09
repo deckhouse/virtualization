@@ -31,7 +31,7 @@ import (
 const (
 	replicatedStorageClass = "nested-thin-r1"
 	localThinStorageClass  = "nested-local-thin"
-	defaultRootDiskSize    = "350Mi"
+	defaultRootDiskSize    = "400Mi"
 	defaultDataDiskSize    = "100Mi"
 	releaseNamespaceName   = "v12n-test-release"
 )

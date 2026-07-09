@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -124,6 +125,48 @@ func ResolveStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk, reso
 	return "", fmt.Errorf("storage class for VirtualDisk %q cannot be determined", vd.Name)
 }
 
+// GetNodePlacement resolves the node and tolerations import helpers must use
+// so they can run wherever the consuming VirtualMachine is scheduled.
+func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.VirtualDisk) (*provisioner.NodePlacement, error) {
+	if len(vd.Status.AttachedToVirtualMachines) != 1 {
+		return nil, nil
+	}
+
+	vmKey := types.NamespacedName{Name: vd.Status.AttachedToVirtualMachines[0].Name, Namespace: vd.Namespace}
+	vm, err := object.FetchObject(ctx, vmKey, c, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get the virtual machine %s: %w", vmKey, err)
+	}
+
+	if vm == nil {
+		return nil, nil
+	}
+
+	var nodePlacement provisioner.NodePlacement
+	// The node the VM is scheduled on (empty until the VM's virt-launcher pod is
+	// scheduled). Import helpers (prime PVC, importer pod) are pinned here so a
+	// WaitForFirstConsumer node-local volume is provisioned on the VM's node.
+	nodePlacement.Node = vm.Status.Node
+	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
+
+	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}
+	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &v1alpha2.VirtualMachineClass{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get the virtual machine class %s: %w", vmClassKey, err)
+	}
+
+	if vmClass == nil {
+		return &nodePlacement, nil
+	}
+
+	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vmClass.Spec.Tolerations...)
+
+	return &nodePlacement, nil
+}
+
+// ValidateVirtualImageStorageClassProvisionerCompatibility forbids provisioning a
+// VirtualDisk from a PVC-backed VirtualImage that lives on a storage class backed
+// by a different CSI driver: the PVC-to-PVC copy cannot cross the driver boundary.
 func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, client client.Client) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 		return nil

@@ -23,9 +23,14 @@ const (
 	// FinalizerKVVMProtection protects KVVMs from deletion.
 	//
 	// Deprecated: FinalizerKVVMProtection is deprecated and should be deleted in the next versions.
-	FinalizerKVVMProtection                       = "virtualization.deckhouse.io/kvvm-protection"
-	FinalizerIPAddressProtection                  = "virtualization.deckhouse.io/vmip-protection"
-	FinalizerPodProtection                        = "virtualization.deckhouse.io/pod-protection"
+	FinalizerKVVMProtection      = "virtualization.deckhouse.io/kvvm-protection"
+	FinalizerIPAddressProtection = "virtualization.deckhouse.io/vmip-protection"
+	FinalizerPodProtection       = "virtualization.deckhouse.io/pod-protection"
+	// FinalizerPVCProtection keeps PVCs backing block device volumes of a
+	// virtual machine while those volumes may be mounted on a node. It is
+	// released only after the KVVM, KVVMI and virt-launcher pods are gone,
+	// so the storage backend cannot destroy data under a live mount.
+	FinalizerPVCProtection                        = "virtualization.deckhouse.io/pvc-protection"
 	FinalizerVDSnapshotProtection                 = "virtualization.deckhouse.io/vdsnapshot-protection"
 	FinalizerVMSnapshotProtection                 = "virtualization.deckhouse.io/vmsnapshot-protection"
 	FinalizerVMOPProtectionByEvacuationController = "virtualization.deckhouse.io/vmop-protection-by-evacuation-controller"

@@ -174,19 +174,19 @@ var _ = Describe("Source validations and helpers", func() {
 		})
 
 		It("constructs syncer", func() {
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 			Expect(syncer).ToNot(BeNil())
 		})
 
 		It("returns error for non virtual disk source", func() {
 			vi.Spec.DataSource.ObjectRef.Kind = v1alpha2.VirtualImageObjectRefKindVirtualImage
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("not a VirtualDisk data source"))
 		})
 
 		It("returns not ready when virtual disk is absent", func() {
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("VirtualDisk vd not ready"))
 		})
@@ -205,7 +205,7 @@ var _ = Describe("Source validations and helpers", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("the VirtualDisk vd not ready for use"))
 		})
@@ -224,7 +224,7 @@ var _ = Describe("Source validations and helpers", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(Succeed())
 		})
@@ -243,7 +243,7 @@ var _ = Describe("Source validations and helpers", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(MatchError("the VirtualDisk vd attached to VirtualMachine"))
 		})
@@ -255,14 +255,14 @@ var _ = Describe("Source validations and helpers", func() {
 				Status:     v1alpha2.VirtualDiskStatus{Phase: v1alpha2.DiskReady},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, client, nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, client, nil, settings, nil)
 
 			Expect(syncer.Validate(ctx, vi)).To(Succeed())
 		})
 
 		It("builds importer settings for filesystem and block pvc", func() {
 			supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
-			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
+			syncer := NewObjectRefVirtualDisk(newRecorder(), nil, nil, fake.NewClientBuilder().WithScheme(scheme).Build(), nil, settings, nil)
 
 			fsSettings := syncer.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeFilesystem))
 			blockSettings := syncer.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))
@@ -389,7 +389,28 @@ var _ = Describe("Source validations and helpers", func() {
 
 			source, err := ds.getSource(supgen, dvcrSource)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*source.Registry.URL).To(Equal("docker://registry.example/source"))
+			Expect(source.Registry.URL).To(Equal("docker://registry.example/source"))
+		})
+
+		It("aligns pvc size up to the block boundary for unaligned image sizes", func() {
+			vi.Spec.DataSource.ObjectRef = &v1alpha2.VirtualImageObjectRef{Kind: v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, Name: "cvi"}
+			cvi := &v1alpha2.ClusterVirtualImage{
+				ObjectMeta: metav1.ObjectMeta{Name: "cvi", UID: "cvi-uid"},
+				Status: v1alpha2.ClusterVirtualImageStatus{
+					Phase:  v1alpha2.ImageReady,
+					Format: "qcow2",
+					Size:   v1alpha2.ImageStatusSize{UnpackedBytes: "1607484928"},
+					Target: v1alpha2.ClusterVirtualImageStatusTarget{RegistryURL: "registry.example/source"},
+				},
+			}
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi).Build()
+			ds := NewObjectRefDataSource(newRecorder(), nil, nil, nil, settings, client, nil)
+			dvcrSource, err := controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, client)
+			Expect(err).ToNot(HaveOccurred())
+
+			pvcSize, err := ds.getPVCSize(dvcrSource)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pvcSize.Value()).To(Equal(int64(1608515584)))
 		})
 
 		It("rejects not ready dvcr source in helper methods", func() {
@@ -441,7 +462,7 @@ var _ = Describe("Source validations and helpers", func() {
 			q, err := registry.getPVCSize(&corev1.Pod{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(Equal(resource.MustParse("2Gi")))
-			Expect(*registry.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
+			Expect(registry.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
 		})
 
 		It("covers http helpers", func() {
@@ -455,7 +476,7 @@ var _ = Describe("Source validations and helpers", func() {
 			q, err := httpDS.getPVCSize(&corev1.Pod{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(Equal(resource.MustParse("3Gi")))
-			Expect(*httpDS.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
+			Expect(httpDS.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
 		})
 
 		It("covers upload helpers", func() {
@@ -469,7 +490,7 @@ var _ = Describe("Source validations and helpers", func() {
 			q, err := upload.getPVCSize(&corev1.Pod{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(q).To(Equal(resource.MustParse("4Gi")))
-			Expect(*upload.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
+			Expect(upload.getSource(supgen, "registry.example/image").Registry.URL).To(Equal("docker://registry.example/image"))
 		})
 	})
 
@@ -480,6 +501,18 @@ var _ = Describe("Source validations and helpers", func() {
 			setPhaseConditionToFailed(cb, &phase, errors.New("plain error"))
 			Expect(phase).To(Equal(v1alpha2.ImageFailed))
 			Expect(cb.Condition().Message).To(Equal("Plain error"))
+		})
+
+		It("keeps upload status in Provisioning after upload progress appears", func() {
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+			vi := newVI()
+			vi.Status.Progress = "41.9%"
+
+			Expect(hasUploadProgress(vi.Status.Progress)).To(BeTrue())
+			setUploadProvisioningPhaseCondition(cb, vi)
+
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
+			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
 		})
 	})
 })

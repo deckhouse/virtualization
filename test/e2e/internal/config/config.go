@@ -118,9 +118,10 @@ type TestData struct {
 }
 
 type StorageClass struct {
-	DefaultStorageClass   *storagev1.StorageClass
-	ImmediateStorageClass *storagev1.StorageClass
-	TemplateStorageClass  *storagev1.StorageClass
+	// DefaultStorageClass is the StorageClass the suite is pointed at:
+	// STORAGE_CLASS_NAME when set, otherwise the cluster default StorageClass. Its volume
+	// binding mode is not constrained.
+	DefaultStorageClass *storagev1.StorageClass
 }
 
 type ClusterTransport struct {

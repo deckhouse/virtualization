@@ -91,6 +91,7 @@ rules:
   - storage.k8s.io
   resources:
   - storageclasses
+  - csidrivers
   verbs:
   - get
   - list
@@ -138,9 +139,9 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - cdi.internal.virtualization.deckhouse.io
+  - storage.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationdatavolumes
+  - storageprofiles
   verbs:
   - get
   - create
@@ -164,17 +165,18 @@ rules:
   - list
   - delete
 - apiGroups:
-    - snapshot.storage.k8s.io
+  - snapshot.storage.k8s.io
   resources:
-    - volumesnapshots
+  - volumesnapshots
+  - volumesnapshotclasses
   verbs:
-    - get
-    - watch
-    - create
-    - patch
-    - update
-    - list
-    - delete
+  - get
+  - watch
+  - create
+  - patch
+  - update
+  - list
+  - delete
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:

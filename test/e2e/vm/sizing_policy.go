@@ -156,7 +156,7 @@ func newSizingPolicyTest(f *framework.Framework) *sizingPolicyTest {
 
 func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNameInVM string) {
 	t.VD = object.NewVDFromCVI("vd", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	t.VM = vmbuilder.New(

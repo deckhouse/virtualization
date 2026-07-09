@@ -31,6 +31,11 @@ type NodePlacement struct {
 	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
 	// These are additional tolerations other than default ones.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// Node is the name of the node the consuming VirtualMachine is scheduled on.
+	// It is used to pin import helper resources (prime PVC, importer pod) to the
+	// VM's node so a WaitForFirstConsumer node-local volume is provisioned there
+	// and can be attached to the VM. Empty when the VM is not yet scheduled.
+	Node string `json:"-"`
 }
 
 func IsNodePlacementChanged(nodePlacement *NodePlacement, obj client.Object) (bool, error) {
