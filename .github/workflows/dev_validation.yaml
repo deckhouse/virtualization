@@ -76,7 +76,7 @@ jobs:
 
       - name: Run validation "No cyrillic"
         run: |
-          task validation:no-cyrillic
+          task modtools:no-cyrillic
 
   doc_changes:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/doc_changes')"
@@ -101,7 +101,7 @@ jobs:
 
       - name: Run validation "Doc changes"
         run: |
-          task validation:doc-changes
+          task modtools:doc-changes
 
   shellcheck:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/shellcheck')"

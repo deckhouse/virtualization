@@ -14,23 +14,43 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+// Package docchanges implements the `doc-changes` command: it checks that a
+// changed documentation or resource file also updates its related language file.
+package docchanges
 
 import (
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/deckhouse/virtualization/tools/modtools/internal/diff"
+	"github.com/deckhouse/virtualization/tools/modtools/internal/report"
 )
+
+func NewCommand(load diff.Loader) *cobra.Command {
+	return &cobra.Command{
+		Use:   "doc-changes",
+		Short: "Check that documentation and resource changes update related language files",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			info, err := load()
+			if err != nil {
+				return err
+			}
+			return report.Result(validate(info))
+		},
+	}
+}
 
 var (
 	resourceFileRe = regexp.MustCompile(`openapi/config-values.y[a]?ml$|crds/.+.y[a]?ml$`)
 	docFileRe      = regexp.MustCompile(`\.md$`)
-
-	excludeFileRe = regexp.MustCompile("crds/embedded/.+.y[a]?ml$")
+	excludeFileRe  = regexp.MustCompile("crds/embedded/.+.y[a]?ml$")
 )
 
-func RunDocChangesValidation(info *DiffInfo) (exitCode int) {
+func validate(info *diff.DiffInfo) (exitCode int) {
 	fmt.Printf("Run 'doc changes' validation ...\n")
 
 	if len(info.Files) == 0 {
@@ -38,8 +58,7 @@ func RunDocChangesValidation(info *DiffInfo) (exitCode int) {
 		return 0
 	}
 
-	exitCode = 0
-	msgs := NewMessages()
+	msgs := report.NewMessages()
 	for _, fileInfo := range info.Files {
 		if !fileInfo.HasContent() {
 			continue
@@ -47,62 +66,57 @@ func RunDocChangesValidation(info *DiffInfo) (exitCode int) {
 
 		fileName := fileInfo.NewFileName
 
-		if strings.Contains(fileName, "testdata") {
-			msgs.Add(NewSkip(fileName, ""))
-			continue
-		}
-
-		if docFileRe.MatchString(fileName) {
+		switch {
+		case strings.Contains(fileName, "testdata"):
+			msgs.Add(report.NewSkip(fileName, ""))
+		case docFileRe.MatchString(fileName):
 			msgs.Add(checkDocFile(fileName, info))
-			continue
-		}
-
-		if resourceFileRe.MatchString(fileName) && !excludeFileRe.MatchString(fileName) {
+		case resourceFileRe.MatchString(fileName) && !excludeFileRe.MatchString(fileName):
 			msgs.Add(checkResourceFile(fileName, info))
-			continue
+		default:
+			msgs.Add(report.NewSkip(fileName, ""))
 		}
-
-		msgs.Add(NewSkip(fileName, ""))
 	}
 	msgs.PrintReport()
 
 	if msgs.CountErrors() > 0 {
-		exitCode = 1
+		return 1
 	}
-
-	return exitCode
+	return 0
 }
 
-var possibleDocRootsRe = regexp.MustCompile(`docs/|docs/documentation`)
-var docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|ADMIN_GUIDE|USER_GUIDE|CHARACTERISTICS_DESCRIPTION|INSTALL|RELEASE_NOTES)(\.ru)?.md`)
-var docsDirFileRe = regexp.MustCompile(`docs/[^/]+.md`)
+var (
+	possibleDocRootsRe   = regexp.MustCompile(`docs/|docs/documentation`)
+	docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|ADMIN_GUIDE|USER_GUIDE|CHARACTERISTICS_DESCRIPTION|INSTALL|RELEASE_NOTES)(\.ru)?.md`)
+	docsDirFileRe        = regexp.MustCompile(`docs/[^/]+.md`)
+)
 
-func checkDocFile(fName string, diffInfo *DiffInfo) (msg Message) {
+func checkDocFile(fName string, diffInfo *diff.DiffInfo) report.Message {
 	if !possibleDocRootsRe.MatchString(fName) {
-		return NewSkip(fName, "")
+		return report.NewSkip(fName, "")
 	}
 
 	if docsDirFileRe.MatchString(fName) && !docsDirAllowedFileRe.MatchString(fName) {
-		return NewError(
+		return report.NewError(
 			fName,
 			"name is not allowed",
 			`Rename this file or move it, for example, into 'internal' folder.
 Only following file names are allowed in the module '/docs/' directory:
-    CLUSTER_CONFIGURATION.md
     CONFIGURATION.md
     CR.md
     FAQ.md
     README.md
-    RELEASE_NOTES.md
     ADMIN_GUIDE.md
     USER_GUIDE.md
     CHARACTERISTICS_DESCRIPTION.md
+    INSTALL.md
+    RELEASE_NOTES.md
 (also their Russian versions ended with '.ru.md')`,
 		)
 	}
 
 	// Check if documentation for other language file is also modified.
-	var otherFileName = fName
+	var otherFileName string
 	if strings.HasSuffix(fName, `.ru.md`) {
 		otherFileName = strings.TrimSuffix(fName, ".ru.md") + ".md"
 	} else {
@@ -111,12 +125,14 @@ Only following file names are allowed in the module '/docs/' directory:
 	return checkRelatedFileExists(fName, otherFileName, diffInfo)
 }
 
-var docRuResourceRe = regexp.MustCompile(`doc-ru-.+.y[a]?ml$`)
-var notDocRuResourceRe = regexp.MustCompile(`([^/]+\.y[a]?ml)$`)
+var (
+	docRuResourceRe    = regexp.MustCompile(`doc-ru-.+.y[a]?ml$`)
+	notDocRuResourceRe = regexp.MustCompile(`([^/]+\.y[a]?ml)$`)
+)
 
 // Check if resource for other language is also modified.
-func checkResourceFile(fName string, diffInfo *DiffInfo) (msg Message) {
-	otherFileName := fName
+func checkResourceFile(fName string, diffInfo *diff.DiffInfo) report.Message {
+	var otherFileName string
 	if docRuResourceRe.MatchString(fName) {
 		otherFileName = strings.Replace(fName, "doc-ru-", "", 1)
 	} else {
@@ -125,19 +141,19 @@ func checkResourceFile(fName string, diffInfo *DiffInfo) (msg Message) {
 	return checkRelatedFileExists(fName, otherFileName, diffInfo)
 }
 
-func checkRelatedFileExists(origName string, otherName string, diffInfo *DiffInfo) Message {
+func checkRelatedFileExists(origName, otherName string, diffInfo *diff.DiffInfo) report.Message {
 	file, err := os.Open(otherName)
 	if err != nil {
-		return NewError(origName, "related is absent", fmt.Sprintf(`Documentation or resource file is changed
+		return report.NewError(origName, "related is absent", fmt.Sprintf(`Documentation or resource file is changed
 while related language file '%s' is absent.`, otherName))
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	for _, fileInfo := range diffInfo.Files {
 		if fileInfo.NewFileName == otherName {
-			return NewOK(origName)
+			return report.NewOK(origName)
 		}
 	}
-	return NewError(origName, "related not changed", fmt.Sprintf(`Documentation or resource file is changed
+	return report.NewError(origName, "related not changed", fmt.Sprintf(`Documentation or resource file is changed
 while related language file '%s' is not changed`, otherName))
 }

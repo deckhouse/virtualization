@@ -1,0 +1,64 @@
+# https://taskfile.dev
+
+version: "3"
+
+silent: true
+
+vars:
+  # Built once; the checks run from the repo root so diff paths and related
+  # language files resolve correctly.
+  BIN: /tmp/dvp-modtools
+
+tasks:
+  build:
+    internal: true
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - go build -o {{.BIN}} ./cmd
+
+  no-cyrillic:
+    desc: "No cyrillic"
+    dir: '{{.ROOT_DIR}}'
+    deps: [build]
+    cmds:
+      - '{{.BIN}} no-cyrillic'
+
+  doc-changes:
+    desc: "Doc-changes"
+    dir: '{{.ROOT_DIR}}'
+    deps: [build]
+    cmds:
+      - '{{.BIN}} doc-changes'
+
+  dump:
+    desc: "Dump the parsed git diff (debug)"
+    dir: '{{.ROOT_DIR}}'
+    deps: [build]
+    cmds:
+      - '{{.BIN}} dump'
+
+  license-add:
+    desc: 'Add Flant CE license headers (pass a dir: task modtools:license-add -- <dir>)'
+    dir: '{{.ROOT_DIR}}'
+    deps: [build]
+    cmds:
+      - '{{.BIN}} license add --directory {{.CLI_ARGS | default "./"}}'
+
+  license-check:
+    desc: 'Check Flant CE license headers are present (pass a dir: task modtools:license-check -- <dir>)'
+    dir: '{{.ROOT_DIR}}'
+    deps: [build]
+    cmds:
+      - '{{.BIN}} license check --directory {{.CLI_ARGS | default "./"}}'
+
+  test:
+    desc: "Unit tests for the modtools tool"
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - go test ./...
+
+  lint:
+    desc: "Lint the modtools tool"
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - golangci-lint run ./...
