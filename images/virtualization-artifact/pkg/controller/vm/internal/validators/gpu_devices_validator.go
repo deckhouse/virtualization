@@ -19,6 +19,7 @@ package validators
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -39,7 +40,13 @@ func (v *GPUDevicesValidator) ValidateCreate(_ context.Context, vm *v1alpha2.Vir
 	return nil, v.validateGPUDevices(vm)
 }
 
-func (v *GPUDevicesValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *GPUDevicesValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	// The feature gate is required only when GPU devices are introduced or changed.
+	// Unchanged GPU devices must not block unrelated updates (or removal) of a VM
+	// created while the gate was enabled and later disabled.
+	if reflect.DeepEqual(oldVM.Spec.GPUDevices, newVM.Spec.GPUDevices) {
+		return nil, nil
+	}
 	return nil, v.validateGPUDevices(newVM)
 }
 

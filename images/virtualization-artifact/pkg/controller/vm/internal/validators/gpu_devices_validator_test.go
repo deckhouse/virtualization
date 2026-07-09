@@ -68,6 +68,76 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 	}
 }
 
+func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
+	gpu := func(class string) []v1alpha2.GPUDeviceSpec {
+		return []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: class}}
+	}
+
+	tests := []struct {
+		name           string
+		featureEnabled bool
+		oldGPU         []v1alpha2.GPUDeviceSpec
+		newGPU         []v1alpha2.GPUDeviceSpec
+		wantErrorPart  string
+	}{
+		{
+			name:           "unchanged GPU devices are allowed when feature is disabled",
+			featureEnabled: false,
+			oldGPU:         gpu("nvidia-h100"),
+			newGPU:         gpu("nvidia-h100"),
+		},
+		{
+			name:           "removing GPU devices is allowed when feature is disabled",
+			featureEnabled: false,
+			oldGPU:         gpu("nvidia-h100"),
+			newGPU:         nil,
+		},
+		{
+			name:           "adding GPU devices is rejected when feature is disabled",
+			featureEnabled: false,
+			oldGPU:         nil,
+			newGPU:         gpu("nvidia-h100"),
+			wantErrorPart:  "GPU feature gate",
+		},
+		{
+			name:           "changing GPU devices is rejected when feature is disabled",
+			featureEnabled: false,
+			oldGPU:         gpu("nvidia-h100"),
+			newGPU:         gpu("nvidia-a100"),
+			wantErrorPart:  "GPU feature gate",
+		},
+		{
+			name:           "changing GPU devices is allowed when feature is enabled",
+			featureEnabled: true,
+			oldGPU:         gpu("nvidia-h100"),
+			newGPU:         gpu("nvidia-a100"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldVM := newVirtualMachineWithGPU("vm-current", tt.oldGPU)
+			newVM := newVirtualMachineWithGPU("vm-current", tt.newGPU)
+			validator := NewGPUDevicesValidator(newGPUFeatureGate(t, tt.featureEnabled))
+
+			_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
+
+			if tt.wantErrorPart == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErrorPart) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErrorPart, err)
+			}
+		})
+	}
+}
+
 func newVirtualMachineWithGPU(name string, gpuDevices []v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
