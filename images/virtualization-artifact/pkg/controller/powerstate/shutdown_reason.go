@@ -47,7 +47,7 @@ const (
 // {"event":"SHUTDOWN","details":"{\"guest\":true,\"reason\":\"guest-reset\"}"}
 // {"event":"SHUTDOWN","details":"{\"guest\":false,\"reason\":\"host-signal\"}"}
 func ShutdownReason(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, kvPods *corev1.PodList) ShutdownInfo {
-	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Succeeded {
+	if kvvmi == nil || !kvvmiCompleted(kvvmi) {
 		return ShutdownInfo{}
 	}
 	if kvPods == nil || len(kvPods.Items) == 0 {
@@ -59,7 +59,7 @@ func ShutdownReason(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineIns
 	}
 
 	// Power events are not available in Running state, only Completed Pod has termination message.
-	if activePod.Status.Phase != corev1.PodSucceeded {
+	if !podCompleted(activePod) {
 		return ShutdownInfo{}
 	}
 
@@ -105,4 +105,12 @@ type ShutdownInfo struct {
 	Reason       GuestSignalReason
 	PodCompleted bool
 	Pod          corev1.Pod
+}
+
+func kvvmiCompleted(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed
+}
+
+func podCompleted(pod corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
