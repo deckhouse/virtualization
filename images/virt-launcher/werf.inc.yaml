@@ -184,7 +184,6 @@ shell:
     echo "Create runtime folder hierarchy"
     mkdir -p /relocate/{etc,root}
     mkdir -p /relocate/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
-  {{- include "rebuild relocate ld cache" . | nindent 2 }}
 
   setup:
   - |

@@ -12,3 +12,4 @@ fromContainerFactory:
   - builder/golang-alt-1.25
   - builder/distroless
   - builder/golang-debian-1.25
+  - base/distroless

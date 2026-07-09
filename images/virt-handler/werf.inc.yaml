@@ -98,7 +98,6 @@ shell:
     pm install {{ $builderDependencies.packages | join " " }} -d /relocate
 
   setup:
-  {{- include "rebuild relocate ld cache" . | nindent 2 }}
   - |
     mkdir -p /relocate/etc /relocate/root
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd

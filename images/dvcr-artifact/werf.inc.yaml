@@ -92,6 +92,4 @@ import:
   before: install
 shell:
   install:
-  - |
-    pm install {{ $builderDependencies.packages | join " " }} -d /relocate
-  {{- include "rebuild relocate ld cache" . | nindent 2 }}
+  - pm install {{ $builderDependencies.packages | join " " }} -d /relocate
