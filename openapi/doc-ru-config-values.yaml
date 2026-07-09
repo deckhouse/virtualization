@@ -179,7 +179,6 @@ properties:
       - `HotplugCPUWithLiveMigration` — включить изменение количества ядер процессора без перезагрузки через живую миграцию. (Не доступно в CE);
       - `HotplugMemoryWithLiveMigration` — включить изменение размера памяти без перезагрузки через живую миграцию. (Не доступно в CE);
       - `HotplugCPUAndMemoryWithInPlaceResize` - включить изменение количества ядер процессора или размера памяти без перезагрузки через InPlaceResize (Не доступно в CE)
-      - `VirtualMachinePool` — включить ресурс VirtualMachinePool для группового управления виртуальными машинами. (Не доступно в CE)
       - `GPU` — включить подключение GPU-устройств к виртуальным машинам через DRA по ссылке на DeviceClass. (Не доступно в CE);
     items:
       type: string
