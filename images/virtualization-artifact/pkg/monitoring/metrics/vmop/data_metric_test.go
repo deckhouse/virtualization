@@ -38,6 +38,11 @@ func TestIsTerminalCompletedCondition(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "superseded reason is terminal",
+			cond: metav1.Condition{Status: metav1.ConditionTrue, Reason: vmopcondition.ReasonSuperseded.String()},
+			want: true,
+		},
+		{
 			name: "target disk error reason is terminal",
 			cond: metav1.Condition{Status: metav1.ConditionFalse, Reason: vmopcondition.ReasonTargetDiskError.String()},
 			want: true,
@@ -65,6 +70,40 @@ func TestIsTerminalCompletedCondition(t *testing.T) {
 				t.Fatalf("isTerminalCompletedCondition() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNewDataMetric_SetsFinishedAtForSupersededPhase(t *testing.T) {
+	finishedAt := metav1.NewTime(time.Unix(1710000000, 0))
+	vmop := &v1alpha2.VirtualMachineOperation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "vmop-test",
+			Namespace:         "default",
+			CreationTimestamp: metav1.NewTime(time.Unix(1700000000, 0)),
+		},
+		Spec: v1alpha2.VirtualMachineOperationSpec{
+			Type:           v1alpha2.VMOPTypeStart,
+			VirtualMachine: "test-vm",
+		},
+		Status: v1alpha2.VirtualMachineOperationStatus{
+			Phase: v1alpha2.VMOPPhaseSuperseded,
+			Conditions: []metav1.Condition{
+				{
+					Type:               vmopcondition.TypeCompleted.String(),
+					Status:             metav1.ConditionTrue,
+					Reason:             vmopcondition.ReasonSuperseded.String(),
+					LastTransitionTime: finishedAt,
+				},
+			},
+		},
+	}
+
+	metric := newDataMetric(vmop)
+	if metric == nil {
+		t.Fatal("expected metric to be created")
+	}
+	if metric.FinishedAt != finishedAt.Unix() {
+		t.Fatalf("expected FinishedAt=%d, got %d", finishedAt.Unix(), metric.FinishedAt)
 	}
 }
 

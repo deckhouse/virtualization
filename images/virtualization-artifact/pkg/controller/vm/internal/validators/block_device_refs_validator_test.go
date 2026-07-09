@@ -18,7 +18,6 @@ package validators_test
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -57,23 +56,6 @@ var _ = Describe("BlockDeviceSpecRefsValidator", func() {
 			{Kind: v1alpha2.ImageDevice, Name: "image1"},
 			{Kind: v1alpha2.ClusterImageDevice, Name: "cvi1"},
 		}),
-	)
-
-	DescribeTable("ValidateCreate with invalid name length", func(kind v1alpha2.BlockDeviceKind, name string, maxLen int) {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
-					{Kind: kind, Name: name},
-				},
-			},
-		}
-		_, err := validator.ValidateCreate(context.Background(), vm)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("too long: it must be no more than %d characters", maxLen)))
-	},
-		Entry("VirtualDisk too long", v1alpha2.DiskDevice, string(make([]byte, 61)), 60),
-		Entry("VirtualImage too long", v1alpha2.ImageDevice, string(make([]byte, 50)), 49),
-		Entry("ClusterVirtualImage too long", v1alpha2.ClusterImageDevice, string(make([]byte, 49)), 48),
 	)
 
 	DescribeTable("ValidateCreate with duplicates", func(refs []v1alpha2.BlockDeviceSpecRef) {

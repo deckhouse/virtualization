@@ -65,7 +65,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	maintenanced, foundMaintenance := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
 
 	// Ignore if VMOP is in final state or failed.
-	if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted || vmop.Status.Phase == v1alpha2.VMOPPhaseFailed {
+	if commonvmop.IsFinished(vmop) {
 		// Skip: not a restore operation OR already exited maintenance
 		if vmop.Spec.Restore == nil || !foundMaintenance || maintenanced.Status == metav1.ConditionFalse {
 			return reconcile.Result{}, nil
@@ -74,7 +74,11 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	completed, completedFound := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 	if completedFound && completed.Status == metav1.ConditionTrue {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
+		if completed.Reason == vmopcondition.ReasonSuperseded.String() {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseSuperseded
+		} else {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
+		}
 		return reconcile.Result{}, nil
 	}
 
@@ -122,7 +126,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 			Generation(vmop.GetGeneration()).
 			Reason(reason).
-			Message("Wait for operation to complete").
+			Message("Waiting for the operation to complete.").
 			Status(metav1.ConditionFalse),
 		&vmop.Status.Conditions)
 

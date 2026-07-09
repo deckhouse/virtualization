@@ -25,8 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/inplaceresize"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
@@ -42,17 +44,25 @@ func SetupController(
 	firmwareImage,
 	namespace,
 	virtControllerName string,
+	disableFirmwareUpdate bool,
 ) error {
 	client := mgr.GetClient()
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	handlers := []Handler{
-		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName),
+		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName, disableFirmwareUpdate),
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, "nodeplacement-update-")),
 	}
 	isMemoryHotplug := featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration)
 	isCPUHotplug := featuregates.Default().Enabled(featuregates.HotplugCPUWithLiveMigration)
 	if isMemoryHotplug || isCPUHotplug {
-		hotplugHandler := handler.NewHotplugHandler(client, service.NewOneShotMigrationService(client, "hotplug-resources-"))
+		hotplugHandler := handler.NewHotplugHandler(
+			client,
+			service.NewOneShotMigrationService(client, "hotplug-resources-"),
+			inplaceresize.New(featuregates.Default(), client),
+			featuregates.Default(),
+			recorder,
+		)
 		handlers = append(handlers, hotplugHandler)
 	}
 	r := NewReconciler(client, handlers)

@@ -94,7 +94,7 @@ func (s ImporterService) Start(
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
 
-	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, importerTokenScope(s.dvcrSettings, settings))
 }
 
 func (s ImporterService) StartWithPodSetting(
@@ -118,7 +118,7 @@ func (s ImporterService) StartWithPodSetting(
 		return err
 	}
 
-	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, importerTokenScope(s.dvcrSettings, settings))
 }
 
 func (s ImporterService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {

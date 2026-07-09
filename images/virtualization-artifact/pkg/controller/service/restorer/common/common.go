@@ -73,16 +73,12 @@ func OverrideName(kind, name string, rules []v1alpha2.NameReplacement) string {
 
 // ValidateResourceNameLength checks if the given resource name exceeds
 // the maximum allowed length for the specified Kubernetes resource kind.
-// By default, the maximum length is set to MaxKubernetesResourceNameLength,
-// but for VirtualMachine and VirtualDisk resources, it uses
-// MaxVirtualMachineNameLen and MaxDiskNameLen respectively.
+// By default, the maximum length is MaxKubernetesResourceNameLength (253);
+// VirtualMachine uses the tighter MaxVirtualMachineNameLen.
 func ValidateResourceNameLength(resourceName, kind string) error {
 	maxLength := MaxKubernetesResourceNameLength
-	switch kind {
-	case v1alpha2.VirtualMachineKind:
+	if kind == v1alpha2.VirtualMachineKind {
 		maxLength = validate.MaxVirtualMachineNameLen
-	case v1alpha2.VirtualDiskKind:
-		maxLength = validate.MaxDiskNameLen
 	}
 	if len(resourceName) > maxLength {
 		return fmt.Errorf("name %q too long (%d > %d): %w",

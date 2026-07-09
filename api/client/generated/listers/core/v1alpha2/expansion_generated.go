@@ -110,6 +110,14 @@ type VirtualMachineOperationListerExpansion interface{}
 // VirtualMachineOperationNamespaceLister.
 type VirtualMachineOperationNamespaceListerExpansion interface{}
 
+// VirtualMachinePoolListerExpansion allows custom methods to be added to
+// VirtualMachinePoolLister.
+type VirtualMachinePoolListerExpansion interface{}
+
+// VirtualMachinePoolNamespaceListerExpansion allows custom methods to be added to
+// VirtualMachinePoolNamespaceLister.
+type VirtualMachinePoolNamespaceListerExpansion interface{}
+
 // VirtualMachineSnapshotListerExpansion allows custom methods to be added to
 // VirtualMachineSnapshotLister.
 type VirtualMachineSnapshotListerExpansion interface{}

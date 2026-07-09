@@ -20,11 +20,13 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"slices"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -32,10 +34,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -44,28 +44,140 @@ const (
 	CVIDiskPrefix = "cvi-"
 )
 
+// Budgets for the user-controlled part of a derived KubeVirt volume/disk name.
+//
+// A KubeVirt volume/disk name must be a valid DNS-1123 label (<=63), because it
+// can become a container name. For containerDisks (VirtualImage/ClusterVirtualImage)
+// KubeVirt additionally wraps the volume name as "volume<volumeName>-init", so the
+// effective budget is tighter. These values keep the final container name within 63:
+//
+//	VD : "vd-"+X                       , X <= 60
+//	VI : "volume"+"vi-"+X+"-init"  <=63 , X <= 49
+//	CVI: "volume"+"cvi-"+X+"-init" <=63 , X <= 48
+const (
+	vdNameBudget  = 60
+	viNameBudget  = 49
+	cviNameBudget = 48
+)
+
 func GenerateVDDiskName(name string) string {
-	return VDDiskPrefix + name
+	return VDDiskPrefix + shortenDiskName(name, vdNameBudget)
 }
 
 func GenerateVIDiskName(name string) string {
-	return VIDiskPrefix + name
+	return VIDiskPrefix + shortenDiskName(name, viNameBudget)
 }
 
 func GenerateCVIDiskName(name string) string {
-	return CVIDiskPrefix + name
+	return CVIDiskPrefix + shortenDiskName(name, cviNameBudget)
 }
 
 func GenerateDiskName(kind v1alpha2.BlockDeviceKind, name string) string {
 	switch kind {
 	case v1alpha2.DiskDevice:
-		return VDDiskPrefix + name
+		return GenerateVDDiskName(name)
 	case v1alpha2.ImageDevice:
-		return VIDiskPrefix + name
+		return GenerateVIDiskName(name)
 	case v1alpha2.ClusterImageDevice:
-		return CVIDiskPrefix + name
+		return GenerateCVIDiskName(name)
 	}
 	return ""
+}
+
+// GenerateVMBDADiskName returns the derived KubeVirt volume/disk name for a VMBDA
+// block device reference.
+func GenerateVMBDADiskName(ref v1alpha2.VMBDAObjectRef) string {
+	switch ref.Kind {
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		return GenerateVDDiskName(ref.Name)
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		return GenerateVIDiskName(ref.Name)
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		return GenerateCVIDiskName(ref.Name)
+	}
+	return ""
+}
+
+type nameKind struct {
+	name string
+	kind v1alpha2.BlockDeviceKind
+}
+
+// VolumeNameResolver reverses a derived KubeVirt volume/disk name back to the user
+// resource it was generated from. Shortened/hashed names are not reversible by
+// prefix-strip, so callers seed the resolver with the resources they already know
+// (VM spec refs, VMBDA refs); the resolver matches by forward-generating each
+// candidate's volume name. Names without a matching candidate fall back to
+// prefix-strip, which stays correct for legacy names that were never shortened.
+type VolumeNameResolver struct {
+	byVolumeName map[string]nameKind
+}
+
+func NewVolumeNameResolver() *VolumeNameResolver {
+	return &VolumeNameResolver{byVolumeName: make(map[string]nameKind)}
+}
+
+// Add registers a candidate user resource by its kind and name.
+func (r *VolumeNameResolver) Add(kind v1alpha2.BlockDeviceKind, name string) {
+	if volumeName := GenerateDiskName(kind, name); volumeName != "" {
+		r.byVolumeName[volumeName] = nameKind{name: name, kind: kind}
+	}
+}
+
+// Resolve returns the user resource (name, kind) for a derived volume name, or
+// ("", "") for volumes that are not vd/vi/cvi block devices. It matches the
+// seeded candidates first and falls back to prefix-strip for legacy short names.
+func (r *VolumeNameResolver) Resolve(volumeName string) (string, v1alpha2.BlockDeviceKind) {
+	if nk, ok := r.byVolumeName[volumeName]; ok {
+		return nk.name, nk.kind
+	}
+	return GetOriginalDiskName(volumeName)
+}
+
+// shortenDiskName maps a user resource name onto the user-controlled part of a
+// KubeVirt volume/disk name within the given budget.
+//
+// If the name already fits the budget and is a valid DNS-1123 label, it is
+// returned unchanged (passthrough) — this keeps derived names byte-identical for
+// every name allowed by the previous validation, so existing KubeVirt volumes are
+// never renamed. Otherwise the name is deterministically shortened to a readable
+// prefix plus an FNV-1a 64-bit hash of the full name, keeping the result a valid
+// label within the budget. The hash is taken from the full name so that distinct
+// names never share a derived name due to truncation or sanitization.
+func shortenDiskName(name string, budget int) string {
+	if len(name) <= budget && len(kvalidation.IsDNS1123Label(name)) == 0 {
+		return name
+	}
+
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(name))
+	suffix := hex.EncodeToString(h.Sum(nil)) // 16 hex chars for a 64-bit hash
+
+	readable := strings.Trim(sanitizeLabel(name), "-")
+	if maxReadable := budget - 1 - len(suffix); len(readable) > maxReadable {
+		readable = strings.TrimRight(readable[:maxReadable], "-")
+	}
+	if readable == "" {
+		return suffix
+	}
+	return readable + "-" + suffix
+}
+
+// sanitizeLabel replaces every character that is not allowed in a DNS-1123 label
+// with '-'. Resource names are already lowercase DNS subdomains, so in practice
+// this only rewrites '.'.
+func sanitizeLabel(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return b.String()
 }
 
 func GetOriginalDiskName(prefixedName string) (string, v1alpha2.BlockDeviceKind) {
@@ -168,6 +280,16 @@ func applyBlockDeviceRefs(
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
+	// Backstop against a derived-name collision. The derivation is collision-
+	// resistant (64-bit hash), so this is astronomically unlikely, but SetDisk
+	// replaces an existing disk/volume by name, so a silent collision would drop
+	// one disk and mount another's PVC. Fail loudly instead of corrupting the VM.
+	if err := detectDiskNameCollisions(vm, vmbdaByBlockDeviceRef); err != nil {
+		return err
+	}
+
+	isParavirtualizationEnabled := vm.Spec.IsParavirtualizationEnabled()
+
 	hasExplicitBootOrder := false
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		if bd.BootOrder != nil {
@@ -201,7 +323,7 @@ func applyBlockDeviceRefs(
 	for i, bd := range vm.Spec.BlockDeviceRefs {
 		diskName := GenerateDiskName(bd.Kind, bd.Name)
 		// When VM is stopped, update disks unconditionally.
-		if isVmRunning && vm.Spec.EnableParavirtualization && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+		if isVmRunning && isParavirtualizationEnabled && len(kvvmVolumes) > 0 && !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			continue
 		}
 
@@ -215,7 +337,7 @@ func applyBlockDeviceRefs(
 		}
 
 		_, hotpluggable := hotpluggableVolumes[diskName]
-		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (vm.Spec.EnableParavirtualization && !isVmRunning), vdByName, viByName, cviByName); err != nil {
+		if err := setBlockDeviceDisk(kvvm, bd, kvBootOrder, hotpluggable || (isParavirtualizationEnabled && !isVmRunning), vdByName, viByName, cviByName); err != nil {
 			return err
 		}
 	}
@@ -224,6 +346,37 @@ func applyBlockDeviceRefs(
 		return err
 	}
 
+	return nil
+}
+
+// detectDiskNameCollisions returns an error if two distinct block devices of this
+// VM (spec refs or VMBDA-attached) derive the same KubeVirt volume/disk name.
+func detectDiskNameCollisions(vm *v1alpha2.VirtualMachine, vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment) error {
+	owners := make(map[string]nameKind)
+	check := func(kind v1alpha2.BlockDeviceKind, name string) error {
+		diskName := GenerateDiskName(kind, name)
+		if diskName == "" {
+			return nil
+		}
+		cur := nameKind{name: name, kind: kind}
+		if prev, ok := owners[diskName]; ok && prev != cur {
+			return fmt.Errorf("%s %q and %s %q resolve to the same internal disk name and cannot be attached to the same virtual machine; recreate one of them with a different name",
+				prev.kind, prev.name, kind, name)
+		}
+		owners[diskName] = cur
+		return nil
+	}
+
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		if err := check(bd.Kind, bd.Name); err != nil {
+			return err
+		}
+	}
+	for ref := range vmbdaByBlockDeviceRef {
+		if err := check(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -278,8 +431,7 @@ func syncAttachedVMBDAHotplugVolumes(
 		}
 
 		if vd, ok := vdByName[ref.Name]; ok && vd != nil {
-			migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-			if migrating.Status == metav1.ConditionTrue {
+			if isVolumeMigrating(vd) {
 				continue
 			}
 		}
@@ -380,8 +532,19 @@ func setVMBDABlockDeviceDisk(
 			IsHotplugged:          true,
 		})
 	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		// The image ref may not be reflected in block device refs yet during the hotplug
+		// attach window: the volume is already present in KVVM, disk options will be set on a
+		// later reconcile. Skip instead of aborting the whole reconcile (do not removeDisk —
+		// an attached image is finalizer-protected, so a missing map entry means the status
+		// lagged, not that the image is gone). Mirrors the tolerant VirtualDisk branch above.
+		if vi, ok := viByName[ref.Name]; !ok || vi == nil {
+			return nil
+		}
 		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		if cvi, ok := cviByName[ref.Name]; !ok || cvi == nil {
+			return nil
+		}
 		return setBlockDeviceDisk(kvvm, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ClusterImageDevice, Name: ref.Name}, 0, true, vdByName, viByName, cviByName)
 	default:
 		return fmt.Errorf("unknown VMBDA block device kind %q. %w", ref.Kind, common.ErrUnknownType)
@@ -397,6 +560,10 @@ func removeDisk(kvvm *KVVM, name string) {
 		kvvm.Resource.Spec.Template.Spec.Volumes,
 		func(v virtv1.Volume) bool { return v.Name == name },
 	)
+}
+
+func isVolumeMigrating(vd *v1alpha2.VirtualDisk) bool {
+	return !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
 }
 
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
@@ -417,8 +584,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 		}
 
 		var pvcName string
-		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-		if migrating.Status == metav1.ConditionTrue && conditions.IsLastUpdated(migrating, vd) && vd.Status.MigrationState.TargetPVC != "" {
+		if isVolumeMigrating(vd) && vd.Status.MigrationState.TargetPVC != "" {
 			pvcName = vd.Status.MigrationState.TargetPVC
 			updateVolumesStrategy = ptr.To(virtv1.UpdateVolumesStrategyMigration)
 		}

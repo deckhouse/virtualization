@@ -38,6 +38,7 @@ type VirtualMachineClassState interface {
 	VirtualMachineClass() *reconciler.Resource[*v1alpha2.VirtualMachineClass, v1alpha2.VirtualMachineClassStatus]
 	VirtualMachines(ctx context.Context) ([]v1alpha2.VirtualMachine, error)
 	Nodes(ctx context.Context) ([]corev1.Node, error)
+	DiscoveryNodes(ctx context.Context) ([]corev1.Node, error)
 	AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error)
 }
 
@@ -98,14 +99,10 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	case v1alpha2.CPUTypeHost, v1alpha2.CPUTypeHostPassthrough:
 		// Node is always has the "Host" CPU type, no additional filters required.
 	case v1alpha2.CPUTypeDiscovery:
-		var matchExpressions []metav1.LabelSelectorRequirement
-		if discovery := curr.Spec.CPU.Discovery; discovery != nil {
-			matchLabels = discovery.NodeSelector.MatchLabels
-			matchExpressions = discovery.NodeSelector.MatchExpressions
-		}
-		filters = append(filters, func(node *corev1.Node) bool {
-			return annotations.MatchExpressions(node.GetLabels(), matchExpressions)
-		})
+		// Discovery selects the feature-discovery pool via DiscoveryNodes;
+		// here we list all virt-handler nodes so AvailableNodes can derive
+		// schedulable nodes from spec.nodeSelector filtered by discovered
+		// features.
 	case v1alpha2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}
 	case v1alpha2.CPUTypeFeatures:
@@ -117,6 +114,55 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	default:
 		return nil, fmt.Errorf("unexpected cpu type %s", curr.Spec.CPU.Type)
 	}
+	nodes := &corev1.NodeList{}
+	err = s.client.List(
+		ctx,
+		nodes,
+		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(matchLabels)})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	return nodeFilter(nodes.Items, filters...), nil
+}
+
+// DiscoveryNodes returns the pool of virt-handler nodes selected by
+// spec.cpu.discovery.nodeSelector. This pool is the basis for intersecting
+// CPU features into a universal CPU model; it does not restrict where VMs
+// can schedule. Schedulable nodes are derived in AvailableNodes from
+// spec.nodeSelector and filtered by the discovered features by the handler.
+func (s *state) DiscoveryNodes(ctx context.Context) ([]corev1.Node, error) {
+	if s.vmClass == nil || s.vmClass.IsEmpty() {
+		return nil, nil
+	}
+	curr := s.vmClass.Current()
+	if curr.Spec.CPU.Type != v1alpha2.CPUTypeDiscovery {
+		return nil, nil
+	}
+
+	var (
+		matchLabels      map[string]string
+		matchExpressions []metav1.LabelSelectorRequirement
+	)
+	if discovery := curr.Spec.CPU.Discovery; discovery != nil {
+		matchLabels = discovery.NodeSelector.MatchLabels
+		matchExpressions = discovery.NodeSelector.MatchExpressions
+	}
+
+	virtHandlerNodes, err := s.getVirtHandlerNodeNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filters := []array.FilterFunc[corev1.Node]{
+		func(node *corev1.Node) bool {
+			_, found := virtHandlerNodes[node.GetName()]
+			return found
+		},
+		func(node *corev1.Node) bool {
+			return annotations.MatchExpressions(node.GetLabels(), matchExpressions)
+		},
+	}
+
 	nodes := &corev1.NodeList{}
 	err = s.client.List(
 		ctx,

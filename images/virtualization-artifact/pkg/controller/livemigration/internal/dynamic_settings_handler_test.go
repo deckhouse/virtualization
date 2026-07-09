@@ -20,11 +20,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -55,6 +57,13 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			},
 		}
 		return vmi
+	}
+
+	withMigrationState := func(kvvmi *virtv1.VirtualMachineInstance, migrationUID string) {
+		kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+			TargetNode:   "node-a",
+			MigrationUID: types.UID(migrationUID),
+		}
 	}
 
 	newVMOPEvict := func(force *bool) *v1alpha2.VirtualMachineOperation {
@@ -98,21 +107,44 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 		It("Should set migrationConfiguration", func() {
 			vm := newVM()
 			kvvmi := newKVVMI()
-
-			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+			withMigrationState(kvvmi, "migration-uid")
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient)
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotAcquired))
+		})
+
+		It("Should wait without migrationConfiguration when inbound slot is busy", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+
+			otherKVVMI := newKVVMI()
+			otherKVVMI.Name = "other-vm"
+			withMigrationState(otherKVVMI, "other-migration-uid")
+
+			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newKVConfig())
+			limiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			Expect(limiter.TryAcquire(otherKVVMI, "node-a")).To(BeTrue())
+
+			h := NewDynamicSettingsHandler(fakeClient, limiter)
+			res, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(res.RequeueAfter).To(BeNumerically(">", 0))
+			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).Should(BeNil(), "Should not set migrationConfiguration")
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotWaiting))
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationTargetNodeAnnotation, "node-a"))
 		})
 
 		It("Should propagate DisableTLS from KubeVirt config", func() {
 			vm := newVM()
 			kvvmi := newKVVMI()
-			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+			withMigrationState(kvvmi, "migration-uid")
 
 			kvConfig := newKVConfig()
 			kvConfig.Spec.Configuration.MigrationConfiguration = &virtv1.MigrationConfiguration{
@@ -120,7 +152,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			}
 
 			fakeClient := setupEnvironment(kvvmi, vm, kvConfig)
-			h := NewDynamicSettingsHandler(fakeClient)
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -140,7 +172,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			}
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient)
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -154,12 +186,12 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			vm.Spec.LiveMigrationPolicy = policy
 
 			kvvmi := newKVVMI()
-			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+			withMigrationState(kvvmi, "migration-uid")
 
 			vmop := newVMOPEvict(force)
 
 			fakeClient := setupEnvironment(kvvmi, vm, vmop, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient)
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 

@@ -90,6 +90,16 @@ spec:
               name: audit
               protocol: TCP
             {{- include "delvePorts" (list $delve "delve/virtualization-audit") | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: audit
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: audit
+            periodSeconds: 10
+            failureThreshold: 3
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

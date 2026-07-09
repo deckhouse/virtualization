@@ -324,9 +324,9 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *v1alpha2.VirtualMachine,
 			} else {
 				var msg string
 				if wffc && vm.Status.Phase == v1alpha2.MachineStopped {
-					msg = fmt.Sprintf("Virtual disk %s is waiting for the virtual machine to be starting", vd.Name)
+					msg = fmt.Sprintf("Virtual disk %q is waiting for the virtual machine to start", vd.Name)
 				} else {
-					msg = fmt.Sprintf("Virtual disk %s is waiting for the underlying PVC to be bound", vd.Name)
+					msg = fmt.Sprintf("Virtual disk %q is waiting for its storage to be provisioned", vd.Name)
 				}
 
 				warnings = append(warnings, msg)

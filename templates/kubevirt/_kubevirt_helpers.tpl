@@ -43,6 +43,36 @@ spec:
   {{- end -}}
 {{- end -}}
 
+{{- define "kubevirt.featureGates" -}}
+- HotplugVolumes
+- Snapshot
+- ExpandDisks
+- CPUManager
+- Sidecar
+- VolumeSnapshotDataSource
+{{/*
+Even though these feature gates are enabled by default in KubeVirt 1.6.2, they still must not be removed from the config:
+- VMLiveUpdateFeatures
+- VolumeMigration
+- VolumesUpdateStrategy
+
+When rolling from KubeVirt 1.3.1 to KubeVirt 1.6.2, the config is updated first,
+and only after some significant time is the virt-controller updated.
+That is, the old version of virt-controller runs with the new config for a fairly long time.
+It is important for the old version of virt-controller to see these feature gates in the new configuration,
+because its business logic does not yet have their default behavior implemented.
+*/}}
+- VMLiveUpdateFeatures
+- VolumeMigration
+- VolumesUpdateStrategy
+- HostDevicesWithDRA
+- HostDevices
+- HotplugHostDevicesWithDRA # custom feature gate - added in our KubeVirt fork, not present in upstream
+{{- if has "HotplugCPUAndMemoryWithInPlaceResize" .Values.virtualization.internal.moduleConfig.featureGates }}
+- InPlaceResize # custom feature gate - added in our KubeVirt fork, not present in upstream
+{{- end }}
+{{- end -}}
+
 {{- define "kubevirt.delve_strategic_patch" -}}
 {{- $image := index . 0 }}
 spec:
@@ -241,7 +271,12 @@ spec:
 {{- end -}}
 
 {{- define "kubevirt.parallel_outbound_migrations_per_node" -}}
+{{- if eq (.Values.virtualization.internal | dig "virtConfig" "outboundMigrationLimit" "") "disabled" -}}
+{{- /* "disabled" lifts the per-node outbound cap; cluster total still bounds it. */ -}}
+{{- 1000000 -}}
+{{- else -}}
 {{- .Values.virtualization.internal | dig "virtConfig" "parallelOutboundMigrationsPerNode" 2 -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "kubevirt.progress_timeout" -}}

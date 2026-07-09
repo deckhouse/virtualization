@@ -243,21 +243,21 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
-			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound.",
+			"Waiting for block device \"vd1\" to be ready; Virtual disk \"vd1\" is waiting for its storage to be provisioned.",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Running VM",
 			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
-			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound.",
+			"Waiting for block device \"vd1\" to be ready; Virtual disk \"vd1\" is waiting for its storage to be provisioned.",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Stopped VM",
 			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
-			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the virtual machine to be starting.",
+			"Waiting for block device \"vd1\" to be ready; Virtual disk \"vd1\" is waiting for the virtual machine to start.",
 		),
 		// --
 		Entry(
@@ -279,7 +279,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			getWFFCVD(metav1.ConditionFalse, vdcondition.NotInUse.String()),
 			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
-			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the virtual machine to be starting.",
+			"Waiting for block device \"vd1\" to be ready; Virtual disk \"vd1\" is waiting for the virtual machine to start.",
 		),
 	)
 
@@ -1156,7 +1156,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
-			Expect(bdCond.Message).To(Equal("Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound."))
+			Expect(bdCond.Message).To(Equal("Waiting for block device \"vd1\" to be ready; Virtual disk \"vd1\" is waiting for its storage to be provisioned."))
 			Expect(bdCond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(bdCond.Reason).To(Equal(vmcondition.ReasonBlockDevicesNotReady.String()))
 		})

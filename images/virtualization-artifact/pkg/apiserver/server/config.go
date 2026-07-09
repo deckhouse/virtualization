@@ -26,6 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -80,10 +81,19 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
+	// Write-capable typed client used by enterprise subresources (e.g.
+	// scaleDownWith) to delete pool members and adjust spec.replicas from the
+	// apiserver's own identity.
+	virtCli, err := virtclient.NewForConfig(c.Rest)
+	if err != nil {
+		return nil, err
+	}
+
 	err = api.Install(vmInformer.Lister(),
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,
+		virtCli,
 	)
 	if err != nil {
 		return nil, err

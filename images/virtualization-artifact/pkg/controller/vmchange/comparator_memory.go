@@ -59,7 +59,7 @@ func (c *comparatorMemory) Compare(current, desired *v1alpha2.VirtualMachineSpec
 	}
 
 	// Require reboot if memory hotplug is not enabled.
-	if !c.featureGate.Enabled(featuregates.HotplugMemoryWithLiveMigration) {
+	if !c.featureGate.Enabled(featuregates.HotplugMemoryWithLiveMigration) && !c.featureGate.Enabled(featuregates.HotplugCPUAndMemoryWithInPlaceResize) {
 		actionType = ActionRestart
 	}
 

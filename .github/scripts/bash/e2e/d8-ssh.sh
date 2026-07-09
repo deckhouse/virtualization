@@ -20,6 +20,25 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=.github/scripts/bash/e2e/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
+# Retry a d8 command on transient transport failures (websocket "close 1006",
+# "Broken pipe", ssh "exit status 255"). d8 reports all of these as exit 1, so
+# any non-zero exit is retried.
+# ponytail: also retries long readiness waits (deckhouse-queue.sh); their re-run
+# re-checks state and stays within the e2e step timeout, so no per-call opt-out.
+d8_retry() {
+  local i
+  for ((i = 1; i <= 3; i++)); do
+    if "$@"; then
+      return 0
+    fi
+    if [ "$i" -lt 3 ]; then
+      echo "[WARN] d8 command failed (attempt ${i}/3), retrying in 15s..." >&2
+      sleep 15
+    fi
+  done
+  return 1
+}
+
 d8vssh() {
   require_env DEFAULT_USER
   require_env NAMESPACE
@@ -45,7 +64,7 @@ d8vssh() {
     ;;
   esac
 
-  d8 v ssh -i ./tmp/ssh/cloud \
+  d8_retry d8 v ssh -i ./tmp/ssh/cloud \
     --local-ssh=true \
     --local-ssh-opts="-o StrictHostKeyChecking=no" \
     --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
@@ -60,10 +79,9 @@ d8vscp() {
   local source=$1
   local dest=$2
 
-  d8 v scp -i ./tmp/ssh/cloud \
+  d8_retry d8 v scp -i ./tmp/ssh/cloud \
     --local-ssh=true \
     --local-ssh-opts="-o StrictHostKeyChecking=no" \
     --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
     "$source" "$dest"
-  echo "d8vscp: ${source} -> ${dest} - done"
 }

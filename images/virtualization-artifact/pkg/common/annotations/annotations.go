@@ -107,6 +107,14 @@ const (
 	// AnnVMRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
 	AnnVMRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 
+	// AnnVMRestorePowerState is an annotation on VirtualMachine that records the VM power state captured before a
+	// restore operation, so restore restores it. It is kept on the VM (not the KVVM, which is deleted during the
+	// restore maintenance window) so it survives KVVM recreation. The value is a MachinePhase string:
+	// "Running" means start the VM again after restore (see checkNeedStartVM); "Stopped" means keep it stopped,
+	// which for AlwaysOnUnlessStoppedManually requires overriding the implicit RunStrategy=Always on KVVM create
+	// (see createKVVM) to honor the "unless stopped manually" contract.
+	AnnVMRestorePowerState = AnnAPIGroupV + "/restore-power-state"
+
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"
 	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"
@@ -209,6 +217,12 @@ const (
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+
+	// AnnMigrationIface names the kernel interface that virt-handler binds
+	// live-migration traffic to. Written on Nodes by the migrationiface
+	// controller from a SystemNetwork CR (sdn module); read by virt-handler
+	// on startup.
+	AnnMigrationIface = AnnAPIGroupV + "/migration-iface"
 
 	// AnnVirtualDiskOriginalAnnotations is the annotation for storing original VirtualDisk annotations.
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"

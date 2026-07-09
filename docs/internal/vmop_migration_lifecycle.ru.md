@@ -33,6 +33,7 @@
 | `MigrationState.Completed == true` | `SourceSuspended` | `InProgress` | `91%` |
 | `TargetNodeDomainReadyTimestamp != nil` | `TargetResumed` | `InProgress` | `92%` |
 | `MigrationSucceeded` | `Completed` | `Completed` | `100%` |
+| Вытеснена более новым VMOP | `Superseded` | `Superseded` | сохранить текущий |
 
 ## Семантика причин
 
@@ -50,6 +51,7 @@
 | `Completed` | Миграция успешно завершена. |
 | `Aborted` | Миграция была прервана. |
 | `Failed` | Миграция завершилась ошибкой без уточненной причины. |
+| `Superseded` | Операция вытеснена более новым VMOP для той же VM. |
 
 ## Модель прогресса
 
@@ -58,7 +60,6 @@
 | Причина | Прогресс |
 |---|---:|
 | `MigrationPending` | `0%` |
-| `DisksPreparing` | `1%` |
 | `TargetScheduling` | `2%` |
 | `TargetUnschedulable` | `2%` |
 | `TargetPreparing` | `3%` |
@@ -216,7 +217,7 @@ PodScheduled=False, Reason=Unschedulable
 |---|---|
 | `MigrationPending` | `Migration is awaiting start.` |
 | `TargetScheduling` | `Migration is in progress: target pod is being scheduled.` |
-| `MigrationPrepareTarget`, `TargetPreparing`, `DisksPreparing` | `Migration is in progress: target pod is being scheduled and prepared.` |
+| `MigrationPrepareTarget`, `TargetPreparing` | `Migration is in progress: target pod is being scheduled and prepared.` |
 | `MigrationTargetReady`, `Syncing`, `SourceSuspended`, `TargetResumed` | `Migration is in progress: source and target are being synchronized.` |
 
 ## Практические примеры
@@ -235,3 +236,4 @@ PodScheduled=False, Reason=Unschedulable
 | Источник приостановлен во время финальной передачи | `InProgress` | `SourceSuspended` | `91%` |
 | Цель возобновлена | `InProgress` | `TargetResumed` | `92%` |
 | Миграция успешно завершена | `Completed` | `Completed` | `100%` |
+| VMOP миграции вытеснен | `Superseded` | `Superseded` | сохранить текущий |

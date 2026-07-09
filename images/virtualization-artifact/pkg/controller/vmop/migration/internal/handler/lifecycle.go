@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -50,7 +51,6 @@ const timeElapsedUpdateInterval = 10 * time.Second
 
 const (
 	progressMigrationPending   int32 = 0
-	progressDisksPreparing     int32 = 1
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
 	progressSourceSuspended    int32 = 91
@@ -60,16 +60,19 @@ const (
 
 const (
 	messageMigrationPending       = "The VirtualMachineOperation for migrating the virtual machine has been queued. Waiting for the queue to be processed and for this operation to be executed."
-	messageSyncingSourceAndTarget = "Syncing source and target"
-	messageTargetPodScheduling    = "Target pod is being scheduled"
-	messageTargetPodPreparing     = "Target pod is being prepared"
-	messageTargetVMResumed        = "Target VM resumed"
-	messageSourceVMSuspended      = "Source VM suspended"
+	messageSyncingSourceAndTarget = "Source and target are being synchronized"
+	messageTargetPodScheduling    = "Scheduling the migration target"
+	messageTargetPodPreparing     = "Preparing the migration target"
+	messageTargetVMResumed        = "The virtual machine has resumed on the target"
+	messageSourceVMSuspended      = "The virtual machine has been suspended on the source"
 )
 
 const (
 	reasonFailedAttachVolume = "FailedAttachVolume"
 	reasonFailedMount        = "FailedMount"
+
+	reasonTargetNodeIncomingMigrationLimitExceeded  = "TargetNodeIncomingMigrationLimitExceeded"
+	messageTargetNodeIncomingMigrationLimitExceeded = "Target node has no free inbound migration slots."
 )
 
 type Base interface {
@@ -79,20 +82,22 @@ type Base interface {
 	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool
 }
 type LifecycleHandler struct {
-	client           client.Client
-	migration        *migrationservice.MigrationService
-	base             Base
-	recorder         eventrecord.EventRecorderLogger
-	progressStrategy migrationprogress.Strategy
+	client            client.Client
+	migration         *migrationservice.MigrationService
+	base              Base
+	recorder          eventrecord.EventRecorderLogger
+	progressStrategy  migrationprogress.Strategy
+	systemNetworkName string
 }
 
-func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, migration *migrationservice.MigrationService, base Base, recorder eventrecord.EventRecorderLogger, systemNetworkName string) *LifecycleHandler {
 	return &LifecycleHandler{
-		client:           client,
-		migration:        migration,
-		base:             base,
-		recorder:         recorder,
-		progressStrategy: migrationprogress.NewProgress(),
+		client:            client,
+		migration:         migration,
+		base:              base,
+		recorder:          recorder,
+		progressStrategy:  migrationprogress.NewProgress(),
+		systemNetworkName: systemNetworkName,
 	}
 }
 
@@ -202,6 +207,21 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	isApplicable := h.base.IsApplicableOrSetFailedPhase(h.migration, vmop, vm)
 	if !isApplicable {
 		return reconcile.Result{}, nil
+	}
+
+	// Check if SystemNetwork is configured and ready
+	if h.systemNetworkName != "" {
+		if msg, ok := h.checkMigrationNetwork(ctx, vm); !ok {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
+			conditions.SetCondition(
+				completedCond.
+					Reason(vmopcondition.ReasonMigrationNetworkUnavailable).
+					Status(metav1.ConditionFalse).
+					Message(msg),
+				&vmop.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 	}
 
 	// 6.1 Check if force flag is applicable for effective liveMigrationPolicy.
@@ -421,7 +441,6 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	if migratable.Status == metav1.ConditionTrue {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
-		vmop.Status.Progress = migrationprogress.FormatPercent(1)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -591,6 +610,13 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
 		reason = vmopcondition.ReasonMigrationPending
 		message = messageMigrationPending
+		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
+			message = messageTargetNodeIncomingMigrationLimitExceeded
+		} else if waiting, err := h.isWaitingForInboundMigrationSlot(ctx, mig); err != nil {
+			return reason, message, err
+		} else if waiting {
+			message = messageTargetNodeIncomingMigrationLimitExceeded
+		}
 	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
 		message = messageTargetPodScheduling
@@ -681,8 +707,6 @@ func (h LifecycleHandler) calculateMigrationProgress(
 	switch reason {
 	case vmopcondition.ReasonMigrationPending:
 		return progressMigrationPending
-	case vmopcondition.ReasonDisksPreparing:
-		return progressDisksPreparing
 	case vmopcondition.ReasonTargetScheduling:
 		return progressTargetScheduling
 	case vmopcondition.ReasonTargetUnschedulable:
@@ -751,6 +775,20 @@ func humanizeMigrationFailedMessage(message string) string {
 	return message
 }
 
+func (h LifecycleHandler) isWaitingForInboundMigrationSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (bool, error) {
+	if mig == nil || mig.Spec.VMIName == "" {
+		return false, nil
+	}
+
+	var kvvmi virtv1.VirtualMachineInstance
+	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
+	if err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+
+	return livemigration.IsInboundMigrationSlotWaiting(&kvvmi), nil
+}
+
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -785,6 +823,24 @@ func isContainerCreating(pod *corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func (h *LifecycleHandler) checkMigrationNetwork(ctx context.Context, vm *v1alpha2.VirtualMachine) (string, bool) {
+	nodeName := vm.Status.Node
+	if nodeName == "" {
+		return "Virtual machine is not scheduled to any node", false
+	}
+	var node corev1.Node
+	if err := h.client.Get(ctx, client.ObjectKey{Name: nodeName}, &node); err != nil {
+		return fmt.Sprintf("failed to get source node %q: %v", nodeName, err), false
+	}
+	if node.Annotations[annotations.AnnMigrationIface] == "" {
+		return fmt.Sprintf(
+			"source node %q has no dedicated migration interface for network %q",
+			nodeName, h.systemNetworkName,
+		), false
+	}
+	return "", true
 }
 
 func getPodPendingUnschedulableMessage(pod *corev1.Pod) (string, bool) {

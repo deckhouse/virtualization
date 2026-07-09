@@ -25,7 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -40,10 +42,17 @@ func SetupController(
 ) error {
 	client := mgr.GetClient()
 
-	handlers := []Handler{
-		internal.NewDynamicSettingsHandler(client),
+	limiterEnabled, limit := config.LoadInboundMigrationLimitFromEnv()
+	limiter := livemigration.NewInboundMigrationLimiter(limiterEnabled, limit)
+	// Use the direct API reader: the manager cache is not started yet at setup time.
+	if err := limiter.Restore(ctx, mgr.GetAPIReader()); err != nil {
+		return err
 	}
-	r := NewReconciler(client, handlers...)
+
+	handlers := []Handler{
+		internal.NewDynamicSettingsHandler(client, limiter),
+	}
+	r := NewReconciler(client, limiter, handlers...)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,

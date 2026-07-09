@@ -79,7 +79,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, s state.NodeUSBDeviceState
 
 	attachedCondition := meta.FindStatusCondition(usbDevice.Status.Conditions, string(usbdevicecondition.AttachedType))
 	if attachedCondition == nil {
-		setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, nodeusbdevicecondition.AttachedAvailable, fmt.Sprintf("Attached condition not found in USBDevice %s/%s.", usbDevice.Namespace, usbDevice.Name))
+		setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, nodeusbdevicecondition.AttachedAvailable, fmt.Sprintf("Waiting for the attachment status of USBDevice %s/%s.", usbDevice.Namespace, usbDevice.Name))
 		return reconcile.Result{}, nil
 	}
 

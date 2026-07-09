@@ -33,12 +33,16 @@ defaults:
     shell: bash
 
 jobs:
-  lint:
+  cleanup:
     runs-on: [self-hosted, regular]
     name: Run cleanup
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: deckhouse/modules-actions/setup@v4
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
@@ -47,5 +51,9 @@ jobs:
       - name: Cleanup
         run: |
           werf cleanup \
-          --repo ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} \
+          --repo "${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}" \
           --without-kube=true --config werf_cleanup.yaml
+
+      - name: Cleanup custom release tags
+        run: |
+          bash .github/scripts/bash/registry-module-cleanup.sh

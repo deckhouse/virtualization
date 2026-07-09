@@ -952,6 +952,9 @@ var _ VirtClient = &VirtClientMock{}
 //			VirtualMachineOperationsFunc: func(namespace string) corev1alpha2.VirtualMachineOperationInterface {
 //				panic("mock out the VirtualMachineOperations method")
 //			},
+//			VirtualMachinePoolsFunc: func(namespace string) corev1alpha2.VirtualMachinePoolInterface {
+//				panic("mock out the VirtualMachinePools method")
+//			},
 //			VirtualMachinesFunc: func(namespace string) corev1alpha2.VirtualMachineInterface {
 //				panic("mock out the VirtualMachines method")
 //			},
@@ -1165,6 +1168,9 @@ type VirtClientMock struct {
 
 	// VirtualMachineOperationsFunc mocks the VirtualMachineOperations method.
 	VirtualMachineOperationsFunc func(namespace string) corev1alpha2.VirtualMachineOperationInterface
+
+	// VirtualMachinePoolsFunc mocks the VirtualMachinePools method.
+	VirtualMachinePoolsFunc func(namespace string) corev1alpha2.VirtualMachinePoolInterface
 
 	// VirtualMachinesFunc mocks the VirtualMachines method.
 	VirtualMachinesFunc func(namespace string) corev1alpha2.VirtualMachineInterface
@@ -1389,6 +1395,11 @@ type VirtClientMock struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
+		// VirtualMachinePools holds details about calls to the VirtualMachinePools method.
+		VirtualMachinePools []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
 		// VirtualMachines holds details about calls to the VirtualMachines method.
 		VirtualMachines []struct {
 			// Namespace is the namespace argument value.
@@ -1463,6 +1474,7 @@ type VirtClientMock struct {
 	lockVirtualMachineMACAddressLeases       sync.RWMutex
 	lockVirtualMachineMACAddresses           sync.RWMutex
 	lockVirtualMachineOperations             sync.RWMutex
+	lockVirtualMachinePools                  sync.RWMutex
 	lockVirtualMachines                      sync.RWMutex
 }
 
@@ -3334,6 +3346,38 @@ func (mock *VirtClientMock) VirtualMachineOperationsCalls() []struct {
 	mock.lockVirtualMachineOperations.RLock()
 	calls = mock.calls.VirtualMachineOperations
 	mock.lockVirtualMachineOperations.RUnlock()
+	return calls
+}
+
+// VirtualMachinePools calls VirtualMachinePoolsFunc.
+func (mock *VirtClientMock) VirtualMachinePools(namespace string) corev1alpha2.VirtualMachinePoolInterface {
+	if mock.VirtualMachinePoolsFunc == nil {
+		panic("VirtClientMock.VirtualMachinePoolsFunc: method is nil but VirtClient.VirtualMachinePools was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachinePools.Lock()
+	mock.calls.VirtualMachinePools = append(mock.calls.VirtualMachinePools, callInfo)
+	mock.lockVirtualMachinePools.Unlock()
+	return mock.VirtualMachinePoolsFunc(namespace)
+}
+
+// VirtualMachinePoolsCalls gets all the calls that were made to VirtualMachinePools.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachinePoolsCalls())
+func (mock *VirtClientMock) VirtualMachinePoolsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachinePools.RLock()
+	calls = mock.calls.VirtualMachinePools
+	mock.lockVirtualMachinePools.RUnlock()
 	return calls
 }
 

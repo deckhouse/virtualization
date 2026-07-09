@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,8 +30,10 @@ import (
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -174,6 +177,29 @@ var _ = Describe("SyncKvvmHandler", func() {
 		return kvvmi
 	}
 
+	makeResizingKVVMI := func(reason, message string, conditionType virtv1.VirtualMachineInstanceConditionType) *virtv1.VirtualMachineInstance {
+		kvvmi := makeKVVMI()
+		kvvmi.Annotations = map[string]string{
+			virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn: "true",
+		}
+		kvvmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
+			{
+				Type:    virtv1.VirtualMachineInstancePodResourceResizeInProgress,
+				Status:  corev1.ConditionTrue,
+				Reason:  reason,
+				Message: message,
+			},
+		}
+		if conditionType != "" {
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:   conditionType,
+				Status: corev1.ConditionTrue,
+			})
+		}
+
+		return kvvmi
+	}
+
 	makeVMIP := func() *v1alpha2.VirtualMachineIPAddress {
 		return &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{
@@ -261,6 +287,93 @@ var _ = Describe("SyncKvvmHandler", func() {
 			vm.Spec.Memory.Size = memSize
 		}
 	}
+
+	Context("restore-power-state intent on KVVM creation", func() {
+		It("requests start for a VM that was running before restore and clears the intent", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.ManualPolicy
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineRunning)}
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, makeVMIP(), makeVMClass())
+
+			reconcile()
+
+			kvvm := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), kvvm)).To(Succeed())
+			Expect(kvvm.Annotations).To(HaveKeyWithValue(annotations.AnnVMStartRequested, "true"))
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+			Expect(newVM.Annotations).NotTo(HaveKey(annotations.AnnVMRestorePowerState))
+		})
+
+		It("keeps AlwaysOnUnlessStoppedManually VM stopped and clears the intent", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineStopped)}
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, makeVMIP(), makeVMClass())
+
+			reconcile()
+
+			kvvm := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), kvvm)).To(Succeed())
+			Expect(kvvm.Spec.RunStrategy).NotTo(BeNil())
+			Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyManual))
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+			Expect(newVM.Annotations).NotTo(HaveKey(annotations.AnnVMRestorePowerState))
+		})
+
+		It("keeps the restore intent when KVVM creation fails so a retry can honor it", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+			vm.Annotations = map[string]string{annotations.AnnVMRestorePowerState: string(v1alpha2.MachineStopped)}
+
+			createFails := interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*virtv1.VirtualMachine); ok {
+						return errors.New("create rejected")
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			}
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(createFails, vm, makeVMIP(), makeVMClass())
+			Expect(err).NotTo(HaveOccurred())
+
+			reconcileObj = reconciler.NewResource(client.ObjectKeyFromObject(vm), fakeClient,
+				func() *v1alpha2.VirtualMachine { return &v1alpha2.VirtualMachine{} },
+				func(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus { return obj.Status })
+			Expect(reconcileObj.Fetch(ctx)).To(Succeed())
+			vmState = state.New(fakeClient, reconcileObj)
+
+			h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+			_, handleErr := h.Handle(ctx, vmState)
+			Expect(handleErr).To(HaveOccurred())
+			Expect(reconcileObj.Update(ctx)).To(Succeed())
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+			Expect(newVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestorePowerState, string(v1alpha2.MachineStopped)))
+		})
+
+		It("starts AlwaysOnUnlessStoppedManually VM on create without the keep-stopped intent", func() {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, makeVMIP(), makeVMClass())
+
+			reconcile()
+
+			kvvm := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), kvvm)).To(Succeed())
+			Expect(kvvm.Spec.RunStrategy).NotTo(BeNil())
+			Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyAlways))
+		})
+	})
 
 	DescribeTable("AwaitingRestart Condition Tests",
 		func(phase v1alpha2.MachinePhase, needChange bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
@@ -471,6 +584,104 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase with changes not applied, condition should not exist", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
 	)
 
+	DescribeTable("ConfigurationApplied Condition for in-place resize",
+		func(featureGate featuregate.FeatureGate, kvvmi *virtv1.VirtualMachineInstance, expectedMessage string) {
+			ip := makeVMIP()
+			vmClass := makeVMClass()
+			vm := makeVM(v1alpha2.MachineRunning)
+			kvvm := makeKVVM(vm)
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+			featureGates = featureGate
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			confAppliedCond, confAppliedExists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+			Expect(confAppliedExists).To(BeTrue())
+			Expect(confAppliedCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(confAppliedCond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
+			Expect(confAppliedCond.Message).To(Equal(expectedMessage))
+		},
+		Entry(
+			"cpu hotplug pending",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizePending, "Waiting for kubelet", virtv1.VirtualMachineInstanceVCPUChange),
+			"CPU hotplug is in progress. Waiting for kubelet",
+		),
+		Entry(
+			"memory hotplug in progress",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeInProgress, "Resizing pod resources", virtv1.VirtualMachineInstanceMemoryChange),
+			"Memory hotplug is in progress. Resizing pod resources",
+		),
+		Entry(
+			"resize completed",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeCompleted, "Completed", virtv1.VirtualMachineInstanceVCPUChange),
+			"CPU hotplug is in progress. Waiting when cpu and memory will be hotplugged on virtual machine.",
+		),
+		Entry(
+			"unexpected resize reason",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI("UnexpectedReason", "unexpected", ""),
+			"Hotplug is in progress. reason: UnexpectedReason, message: unexpected",
+		),
+	)
+
+	It("does not expose apply-immediate block device changes in RestartAwaitingChanges while dependencies are not ready", func() {
+		ip := makeVMIP()
+		vmClass := makeVMClass()
+
+		rootRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "root"}
+		blankRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "blank-disk"}
+
+		vm := makeVM(v1alpha2.MachineRunning)
+		vm.Spec.EnableParavirtualization = ptr.To(true)
+		vm.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{rootRef, blankRef}
+		vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+			Type:   vmcondition.TypeBlockDevicesReady.String(),
+			Status: metav1.ConditionFalse,
+			Reason: "BlockDevicesNotReady",
+		})
+
+		kvvm := makeKVVM(vm)
+		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				CPU: v1alpha2.CPUSpec{
+					Cores: vm.Spec.CPU.Cores,
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: vm.Spec.Memory.Size,
+				},
+				VirtualMachineIPAddress:       vm.Spec.VirtualMachineIPAddress,
+				RunPolicy:                     vm.Spec.RunPolicy,
+				OsType:                        vm.Spec.OsType,
+				VirtualMachineClassName:       vm.Spec.VirtualMachineClassName,
+				EnableParavirtualization:      ptr.To(true),
+				BlockDeviceRefs:               []v1alpha2.BlockDeviceSpecRef{rootRef},
+				TerminationGracePeriodSeconds: vm.Spec.TerminationGracePeriodSeconds,
+				Disruptions: &v1alpha2.Disruptions{
+					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
+				},
+			},
+		})).To(Succeed())
+
+		kvvmi := makeKVVMI()
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+
+		reconcile()
+
+		updatedVM := &v1alpha2.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updatedVM)).To(Succeed())
+		Expect(updatedVM.Status.RestartAwaitingChanges).To(BeEmpty())
+		awaitCond, awaitExists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, updatedVM.Status.Conditions)
+		Expect(awaitExists).To(BeFalse(), "ApplyImmediate block device changes should not set %s, got %+v", vmcondition.TypeAwaitingRestartToApplyConfiguration, awaitCond)
+	})
+
 	It("keeps ConfigurationApplied False and requeues while SDN is not ready", func() {
 		ip := &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-ip", Namespace: namespace},
@@ -505,6 +716,48 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Expect(exists).To(BeTrue())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
+	})
+
+	It("upgrades only block device changes touching non-hotpluggable volumes", func() {
+		rootRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "root"}
+		dataRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "data"}
+		extraRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "extra"}
+
+		kvvmi := newEmptyKVVMI(name, namespace)
+		kvvmi.Spec.Volumes = []virtv1.Volume{
+			{
+				Name: kvbuilder.GenerateDiskName(rootRef.Kind, rootRef.Name),
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{Hotpluggable: false},
+				},
+			},
+			{
+				Name: kvbuilder.GenerateDiskName(dataRef.Kind, dataRef.Name),
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{Hotpluggable: true},
+				},
+			},
+		}
+
+		nonHotpluggableRefs := nonHotpluggableVolumeRefs(kvvmi)
+		changes := vmchange.SpecChanges{}
+		changes.Add(
+			vmchange.FieldChange{Path: "blockDeviceRefs.0", Operation: vmchange.ChangeRemove, CurrentValue: dataRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "blockDeviceRefs.1", Operation: vmchange.ChangeAdd, DesiredValue: extraRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "blockDeviceRefs.2", Operation: vmchange.ChangeReplace, CurrentValue: rootRef, DesiredValue: dataRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "blockDeviceRefs.3", Operation: vmchange.ChangeAdd, DesiredValue: rootRef, ActionRequired: vmchange.ActionApplyImmediate},
+			vmchange.FieldChange{Path: "cpu.cores", Operation: vmchange.ChangeReplace, ActionRequired: vmchange.ActionApplyImmediate},
+		)
+
+		changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
+			return blockDeviceChangeTouchesRefs(change, nonHotpluggableRefs)
+		})
+
+		Expect(changes.GetAll()[0].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
+		Expect(changes.GetAll()[1].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
+		Expect(changes.GetAll()[2].ActionRequired).To(Equal(vmchange.ActionRestart))
+		Expect(changes.GetAll()[3].ActionRequired).To(Equal(vmchange.ActionRestart))
+		Expect(changes.GetAll()[4].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
 	})
 
 	DescribeTable("isPlacementPolicyChanged",
@@ -548,6 +801,10 @@ func newFeatureGateEnableMemoryHotplug() featuregate.FeatureGate {
 
 func newFeatureGateEnableResourceHotplug() featuregate.FeatureGate {
 	return newFeatureGate(featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration)
+}
+
+func newFeatureGateEnableResourceInPlaceResize() featuregate.FeatureGate {
+	return newFeatureGate(featuregates.HotplugCPUAndMemoryWithInPlaceResize)
 }
 
 func newResourceQuota(cpuHard, memoryHard, cpuUsed, memoryUsed resource.Quantity) *corev1.ResourceQuota {

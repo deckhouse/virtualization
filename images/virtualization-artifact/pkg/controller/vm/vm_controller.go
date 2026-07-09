@@ -75,18 +75,22 @@ func SetupController(
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),
 		internal.NewSnapshottingHandler(client),
+		// StatisticHandler should be executed before PodHandler.
+		// PodHandler needs to get pods from virtual machine status.
+		// If StatisticHandler is executed after PodHandler, PodHandler will always get old pods (from previous reconciling)
+		internal.NewStatisticHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService),
 		internal.NewHotplugHandler(attachmentService),
+		// SyncPowerStateHandler should be executed after PodHandler, because PodHandler store SharedShutdownInfo, which is used by SyncPowerStateHandler.
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewMigratingHandler(migrateVolumesService),
 		internal.NewFirmwareHandler(firmwareImage),
 		internal.NewEvictHandler(),
-		internal.NewStatisticHandler(client),
 	}
 	r := NewReconciler(client, handlers...)
 

@@ -46,6 +46,7 @@ jobs:
             vdsnapshot
             vmsnapshot
             vmrestore
+            vmpool
             disks
             vd
             images

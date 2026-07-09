@@ -89,11 +89,26 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		}
 	}
 
+	// Resolve derived KubeVirt volume names back to user resources. Shortened/
+	// hashed names are not reversible by prefix-strip, so seed the resolver with
+	// the resources this VM references (spec + VMBDA-attached).
+	resolver := kvbuilder.NewVolumeNameResolver()
+	for _, bd := range specRefs {
+		resolver.Add(bd.Kind, bd.Name)
+	}
+	vmbdas, err := s.VirtualMachineBlockDeviceAttachments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for ref := range vmbdas {
+		resolver.Add(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
+	}
+
 	attachedBlockDeviceRefs := make(map[nameKindKey]struct{})
 
 	// 2. The kvvm already exists: populate block device refs with the kvvm volumes.
 	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
-		bdName, kind := kvbuilder.GetOriginalDiskName(volume.Name)
+		bdName, kind := resolver.Resolve(volume.Name)
 		if kind == "" {
 			// Reflect only vi, vd, or cvi block devices in status.
 			// This is neither of them, so skip.

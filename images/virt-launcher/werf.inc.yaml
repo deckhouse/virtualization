@@ -403,7 +403,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-svace-1.25" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-1.25" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
@@ -455,7 +455,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-debian-1.25" "builder/golang-alt-svace-1.25" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-debian-1.25" "builder/golang-alt-1.25" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries
@@ -482,3 +482,6 @@ shell:
     {{- $_ := set $ "ProjectName" (list .ImageName "temp_pod" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `musl-gcc -static -Os -o /bins/temp_pod temp_pod.c`) | nindent 6 }}
     strip /bins/temp_pod
+
+
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}

@@ -33,6 +33,15 @@ properties:
                 default: ""
           passwordRW:
             type: string
+          passwordRO:
+            type: string
+            default: ""
+          tokenPrivateKey:
+            type: string
+            default: ""
+          tokenPublicKey:
+            type: string
+            default: ""
           htpasswd:
             type: string
           salt:
@@ -139,10 +148,19 @@ properties:
             type: integer
           parallelOutboundMigrationsPerNode:
             type: integer
+          parallelInboundMigrationsPerNode:
+            type: integer
+          inboundMigrationLimit:
+            type: string
+          outboundMigrationLimit:
+            type: string
           progressTimeout:
             type: integer
           disableTLS:
             type: boolean
+      disableFirmwareUpdate:
+        type: boolean
+        default: false
       moduleConfig:
         type: object
         additionalProperties: true

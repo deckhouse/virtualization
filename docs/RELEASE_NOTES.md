@@ -3,6 +3,46 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.3
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 7, 2026.
+</span>
+
+### Fixes
+
+- [module] Fixed slow downloading of images from DVCR to the node when attaching them to a virtual machine.
+- [vm] Fixed a volume mount leak that could leave a VM with hotplugged images stuck in the Terminating state during deletion.
+
+## v1.9.2
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 1, 2026.
+</span>
+
+### Fixes
+
+- [vm] Fixed reduced throughput during live migration of running VMs compared to v1.8.3.
+- [dvcr] Fixed slow import and upload of images to DVCR when network bandwidth was not the bottleneck.
+- [observability] Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during certificate rotation of the `virtualization-audit` pod.
+
+## v1.9.1
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: June 24, 2026.
+</span>
+
+### Fixes
+
+- [vd] Fixed cancellation of virtual disk storage class changes and cancellation of local disk migration.
+- [vm] Fixed live migration of VMs with disks on local storage attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug). The target node no longer matches the source node.
+- [vm] Fixed an issue that prevented a VM from starting after a failed migration of a disk on local storage.
+- [vm] Fixed a false reboot requirement for VMs with only the Main network after upgrading to v1.9.1. Such VMs now do not receive the RestartRequired status if their configuration has not actually changed.
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-42504
+  - CVE-2026-27145
+  - CVE-2026-42507
+
 ## v1.9.0
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 10, 2026.

@@ -40,6 +40,11 @@ true
   value: "*/5 * * * *"
 - name: DVCR_GC_SCHEDULE
   value: "{{ .Values.virtualization.internal.moduleConfig | dig "dvcr" "gc" "schedule" "" }}"
+- name: DVCR_TOKEN_PRIVATE_KEY
+  valueFrom:
+    secretKeyRef:
+      name: dvcr-secrets
+      key: tokenPrivateKey
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualImages") }}
@@ -88,18 +93,19 @@ true
   value: "24h"
 - name: GC_VM_POD_SCHEDULE
   value: "0 0 * * *"
-{{- if (hasKey .Values.virtualization.internal.moduleConfig "liveMigration") }}
-- name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.bandwidthPerNode | quote }}
-- name: LIVE_MIGRATION_MAX_MIGRATIONS_PER_NODE
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.maxMigrationsPerNode | quote }}
-- name: LIVE_MIGRATION_NETWORK
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.network | quote }}
-{{- if (hasKey .Values.virtualization.internal.moduleConfig.liveMigration "dedicated") }}
-- name: LIVE_MIGRATION_DEDICATED_INTERFACE_NAME
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.dedicated.interfaceName | quote }}
+{{- $liveMigration := (.Values.virtualization | default dict).liveMigration | default dict }}
+{{- $migrationNetwork := $liveMigration.network | default dict }}
+{{- if eq $migrationNetwork.type "SystemNetwork" }}
+{{- $systemNetworkName := ($migrationNetwork.systemNetwork | default dict).name | default "" }}
+{{- if $systemNetworkName }}
+- name: MIGRATION_SYSTEM_NETWORK_NAME
+  value: {{ $systemNetworkName | quote }}
 {{- end }}
 {{- end }}
+- name: PARALLEL_INBOUND_MIGRATIONS_PER_NODE
+  value: {{ .Values.virtualization.internal | dig "virtConfig" "parallelInboundMigrationsPerNode" 1 | quote }}
+- name: INBOUND_MIGRATION_LIMIT
+  value: {{ .Values.virtualization.internal | dig "virtConfig" "inboundMigrationLimit" "" | quote }}
 - name: METRICS_BIND_ADDRESS
   value: "127.0.0.1:8080"
 {{- if eq (include "moduleLogLevel" .) "debug" }}
@@ -108,6 +114,8 @@ true
 {{- end }}
 - name: FIRMWARE_IMAGE
   value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
+- name: DISABLE_FIRMWARE_UPDATE
+  value: {{ .Values.virtualization.internal.disableFirmwareUpdate | default false | quote }}
 - name: CLUSTER_UUID
   value: {{ .Values.global.discovery.clusterUUID }}
 - name: CLUSTER_POD_SUBNET_CIDR

@@ -63,7 +63,7 @@ var _ = Describe("WaitForPVCStep", func() {
 			v1alpha2.ImageProvisioning,
 			metav1.ConditionFalse,
 			vicondition.Provisioning.String(),
-			"Waiting for the underlying PersistentVolumeClaim to be created by controller.",
+			"Waiting for the underlying PersistentVolumeClaim to be created.",
 			true,
 		),
 		Entry("returns nil for bound pvc",
@@ -82,7 +82,7 @@ var _ = Describe("WaitForPVCStep", func() {
 			v1alpha2.ImageProvisioning,
 			metav1.ConditionFalse,
 			vdcondition.Provisioning.String(),
-			"Waiting for the PVC image-pvc to be Bound.",
+			"Waiting for the PersistentVolumeClaim \"image-pvc\" to be Bound.",
 			true,
 		),
 	)
