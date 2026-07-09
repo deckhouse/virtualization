@@ -58,6 +58,8 @@ const (
 
 	// AnnTolerationsHash provides a const for annotation with hash of applied tolerations.
 	AnnTolerationsHash = AnnAPIGroup + "/tolerations-hash"
+	// AnnGPUClaimSpecHash provides a const for annotation with hash of the rendered GPU ResourceClaimTemplate spec.
+	AnnGPUClaimSpecHash = AnnAPIGroup + "/gpu-claim-spec-hash"
 	// AnnTolerationsHashLegacy provides a const for legacy annotation with hash of applied tolerations.
 	AnnTolerationsHashLegacy = AnnAPIGroupLegacy + "/tolerations-hash"
 

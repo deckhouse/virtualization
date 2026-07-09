@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -76,6 +77,22 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		stored := &resourcev1.ResourceClaimTemplate{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), Namespace: namespace}, stored)
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("should recreate GPU ResourceClaimTemplate when the desired spec changes", func() {
+		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: "nvidia-a100"})
+		templateName := kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0")
+		template := buildGPUResourceClaimTemplate(vm, templateName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		fakeClient, _, vmState := setupEnvironment(vm, template)
+		handler := NewGPUResourceClaimHandler(fakeClient)
+
+		_, err := handler.Handle(context.Background(), vmState)
+
+		Expect(err).NotTo(HaveOccurred())
+		stored := &resourcev1.ResourceClaimTemplate{}
+		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: templateName, Namespace: namespace}, stored)).To(Succeed())
+		Expect(stored.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("nvidia-a100"))
+		Expect(stored.Annotations).To(HaveKeyWithValue(annotations.AnnGPUClaimSpecHash, gpuClaimSpecHash(stored.Spec)))
 	})
 
 	It("should not replace GPU ResourceClaimTemplate owned by another controller", func() {

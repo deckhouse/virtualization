@@ -18,8 +18,8 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"reflect"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -84,7 +85,9 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 			return reconcile.Result{}, fmt.Errorf("GPU ResourceClaimTemplate %s/%s is not controlled by VirtualMachine %s/%s", template.Namespace, template.Name, vm.Namespace, vm.Name)
 		}
 
-		if reflect.DeepEqual(template.Spec, desiredSpec) {
+		// The stored spec is not compared directly: API-server defaulting could make
+		// it permanently differ from the rendered spec and loop delete/recreate.
+		if template.Annotations[annotations.AnnGPUClaimSpecHash] == gpuClaimSpecHash(desiredSpec) {
 			continue
 		}
 		if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
@@ -108,10 +111,18 @@ func buildGPUResourceClaimTemplate(vm *v1alpha2.VirtualMachine, name string, spe
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       vm.Namespace,
+			Annotations:     map[string]string{annotations.AnnGPUClaimSpecHash: gpuClaimSpecHash(spec)},
 			OwnerReferences: []metav1.OwnerReference{service.MakeControllerOwnerReference(vm)},
 		},
 		Spec: spec,
 	}
+}
+
+func gpuClaimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {
+	// Marshalling a plain API struct cannot fail; on the impossible failure both
+	// sides hash the same empty payload, so the comparison still converges.
+	raw, _ := json.Marshal(&spec)
+	return kvbuilder.GenerateSerial(string(raw))
 }
 
 func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1.ResourceClaimTemplateSpec {
