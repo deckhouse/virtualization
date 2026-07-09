@@ -34,6 +34,7 @@ import (
 const (
 	dynamicSettingsHandlerName = "DynamicSettingsHandler"
 	inboundSlotRequeueDelay    = 5 * time.Second
+	syncSlotRequeueDelay       = 5 * time.Second
 )
 
 type InboundMigrationLimiter interface {
@@ -42,16 +43,24 @@ type InboundMigrationLimiter interface {
 	Release(kvvmi *virtv1.VirtualMachineInstance, targetNode string)
 }
 
-func NewDynamicSettingsHandler(client client.Client, limiter InboundMigrationLimiter) *DynamicSettingsHandler {
+type SyncMigrationLimiter interface {
+	Enabled() bool
+	TryAcquire(kvvmi *virtv1.VirtualMachineInstance, sourceNode string) bool
+	Release(kvvmi *virtv1.VirtualMachineInstance, sourceNode string)
+}
+
+func NewDynamicSettingsHandler(client client.Client, limiter InboundMigrationLimiter, syncLimiter SyncMigrationLimiter) *DynamicSettingsHandler {
 	return &DynamicSettingsHandler{
-		client:  client,
-		limiter: limiter,
+		client:      client,
+		limiter:     limiter,
+		syncLimiter: syncLimiter,
 	}
 }
 
 type DynamicSettingsHandler struct {
-	client  client.Client
-	limiter InboundMigrationLimiter
+	client      client.Client
+	limiter     InboundMigrationLimiter
+	syncLimiter SyncMigrationLimiter
 }
 
 func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, error) {
@@ -60,6 +69,8 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 	if kvvmi.Status.MigrationState != nil && (kvvmi.Status.MigrationState.Completed || kvvmi.Status.MigrationState.Failed) {
 		h.limiter.Release(kvvmi, livemigration.InboundMigrationWaitingTargetNode(kvvmi))
 		livemigration.ClearInboundMigrationSlot(kvvmi)
+		h.syncLimiter.Release(kvvmi, livemigration.SyncMigrationWaitingSourceNode(kvvmi))
+		livemigration.ClearSyncMigrationSlot(kvvmi)
 		return reconcile.Result{}, nil
 	}
 
@@ -85,6 +96,23 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 			return reconcile.Result{RequeueAfter: inboundSlotRequeueDelay}, nil
 		}
 		livemigration.MarkInboundMigrationSlotAcquired(kvvmi, targetNode)
+	}
+
+	if h.syncLimiter.Enabled() {
+		sourceNode := resolveSourceNode(kvvmi)
+		if sourceNode == "" {
+			log.Debug("Source node is not resolved yet, waiting before setting migrationConfiguration")
+			return reconcile.Result{RequeueAfter: syncSlotRequeueDelay}, nil
+		}
+
+		if !h.syncLimiter.TryAcquire(kvvmi, sourceNode) {
+			livemigration.MarkSyncMigrationSlotWaiting(kvvmi, sourceNode)
+			log.Debug("Sync migration slot is not acquired, waiting before setting migrationConfiguration",
+				"sourceNode", sourceNode,
+			)
+			return reconcile.Result{RequeueAfter: syncSlotRequeueDelay}, nil
+		}
+		livemigration.MarkSyncMigrationSlotAcquired(kvvmi, sourceNode)
 	}
 
 	var vm v1alpha2.VirtualMachine
@@ -164,6 +192,13 @@ func (h *DynamicSettingsHandler) resolveTargetNode(ctx context.Context, kvvmi *v
 	}
 
 	return pod.Spec.NodeName, nil
+}
+
+func resolveSourceNode(kvvmi *virtv1.VirtualMachineInstance) string {
+	if kvvmi.Status.MigrationState != nil && kvvmi.Status.MigrationState.SourceNode != "" {
+		return kvvmi.Status.MigrationState.SourceNode
+	}
+	return kvvmi.Status.NodeName
 }
 
 // getVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.

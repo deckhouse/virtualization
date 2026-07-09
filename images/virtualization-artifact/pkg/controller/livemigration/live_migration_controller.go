@@ -44,15 +44,22 @@ func SetupController(
 
 	limiterEnabled, limit := config.LoadInboundMigrationLimitFromEnv()
 	limiter := livemigration.NewInboundMigrationLimiter(limiterEnabled, limit)
+
+	syncEnabled, syncLimit := config.LoadSyncMigrationLimitFromEnv()
+	syncLimiter := livemigration.NewSyncMigrationLimiter(syncEnabled, syncLimit)
+
 	// Use the direct API reader: the manager cache is not started yet at setup time.
 	if err := limiter.Restore(ctx, mgr.GetAPIReader()); err != nil {
 		return err
 	}
+	if err := syncLimiter.Restore(ctx, mgr.GetAPIReader()); err != nil {
+		return err
+	}
 
 	handlers := []Handler{
-		internal.NewDynamicSettingsHandler(client, limiter),
+		internal.NewDynamicSettingsHandler(client, limiter, syncLimiter),
 	}
-	r := NewReconciler(client, limiter, handlers...)
+	r := NewReconciler(client, limiter, syncLimiter, handlers...)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,

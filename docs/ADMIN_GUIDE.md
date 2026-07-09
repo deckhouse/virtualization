@@ -1174,10 +1174,35 @@ Virtual machine migration is an important feature in virtualized infrastructure 
 {{< alert level="warning" >}}
 Live migration has the following limitations:
 
-- Only one virtual machine can migrate from each node simultaneously.
+- By default, only one virtual machine is prepared and transfers memory at a time from each node. For more information on configuring the limits, see the [Tuning live migration concurrency](#tuning-live-migration-concurrency) section.
 - The total number of concurrent migrations in the cluster cannot exceed the number of nodes where running virtual machines is permitted.
 - The bandwidth for a single migration is limited to 5 Gbps.
 {{< /alert >}}
+
+#### Tuning live migration concurrency
+
+When several virtual machines migrate from the same node at once (for example, during node drain), the sync phase competes for network bandwidth. To avoid contention, live migration uses two independent per-source-node limits, configured via annotations on the `virtualization` ModuleConfig:
+
+- Preparation pool — annotation `virtualization.deckhouse.io/parallel-outbound-migrations-per-node` (default `1`): how many migrations from a node can be prepared in parallel (scheduling the target pod, mounting devices) up to the `TargetReady` state.
+- Sync pool — annotation `virtualization.deckhouse.io/parallel-sync-migrations-per-node` (default `1`): how many prepared migrations may be in the sync phase at the same time. Migrations above this limit wait for a free slot.
+
+Raising only the preparation pool lets a node drain run as a pipeline: the next virtual machine is prepared while the previous one transfers memory and starts transferring as soon as the previous migration finishes, while at most `parallel-sync-migrations-per-node` migrations transfer memory simultaneously, so no extra network contention is introduced.
+
+A migration that is prepared but waiting for a free sync slot stays in the `Pending` phase with the `WaitingForSyncSlot` reason in the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+
+Configure the limits with annotations on the ModuleConfig:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+  annotations:
+    # Maximum migrations prepared in parallel per source node.
+    virtualization.deckhouse.io/parallel-outbound-migrations-per-node: "2"
+    # Maximum migrations transferring memory at a time per source node.
+    virtualization.deckhouse.io/parallel-sync-migrations-per-node: "1"
+```
 
 #### Start migration of an arbitrary machine
 

@@ -110,7 +110,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			withMigrationState(kvvmi, "migration-uid")
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -131,7 +131,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			limiter := livemigration.NewInboundMigrationLimiter(true, 1)
 			Expect(limiter.TryAcquire(otherKVVMI, "node-a")).To(BeTrue())
 
-			h := NewDynamicSettingsHandler(fakeClient, limiter)
+			h := NewDynamicSettingsHandler(fakeClient, limiter, livemigration.NewSyncMigrationLimiter(false, 1))
 			res, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -152,13 +152,56 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			}
 
 			fakeClient := setupEnvironment(kvvmi, vm, kvConfig)
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration.DisableTLS).ShouldNot(BeNil(), "Should propagate DisableTLS")
 			Expect(*kvvmi.Status.MigrationState.MigrationConfiguration.DisableTLS).To(BeTrue())
+		})
+	})
+
+	When("Sync migration limiter is enabled", func() {
+		It("Should acquire a sync slot and set migrationConfiguration", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			kvvmi.Status.MigrationState.SourceNode = "node-src"
+
+			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(false, 1), livemigration.NewSyncMigrationLimiter(true, 1))
+			_, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotAcquired))
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSourceNodeAnnotation, "node-src"))
+		})
+
+		It("Should wait without migrationConfiguration when the sync slot is busy", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			kvvmi.Status.MigrationState.SourceNode = "node-src"
+
+			otherKVVMI := newKVVMI()
+			otherKVVMI.Name = "other-vm"
+			withMigrationState(otherKVVMI, "other-migration-uid")
+			otherKVVMI.Status.MigrationState.SourceNode = "node-src"
+
+			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newKVConfig())
+			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
+			Expect(syncLimiter.TryAcquire(otherKVVMI, "node-src")).To(BeTrue())
+
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(false, 1), syncLimiter)
+			res, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(res.RequeueAfter).To(BeNumerically(">", 0))
+			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).Should(BeNil(), "Should not set migrationConfiguration")
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotWaiting))
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSourceNodeAnnotation, "node-src"))
 		})
 	})
 
@@ -172,7 +215,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			}
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -191,7 +234,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			vmop := newVMOPEvict(force)
 
 			fakeClient := setupEnvironment(kvvmi, vm, vmop, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1))
+			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
