@@ -18,6 +18,7 @@ package validators
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -288,10 +289,10 @@ func (v *NetworksValidator) validateMainNetworkAllowed(ctx context.Context, netw
 
 	hasCIDRs, err := moduleconfig.ModuleConfigHasVirtualMachineCIDRs(ctx, v.client)
 	if err != nil {
-		return fmt.Errorf("unable to check ModuleConfig virtualization virtualMachineCIDRs: %w", err)
+		return fmt.Errorf("unable to check spec.settings.virtualMachineCIDRs in ModuleConfig/virtualization: %w", err)
 	}
 	if !hasCIDRs {
-		return fmt.Errorf("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization spec.settings.virtualMachineCIDRs is not configured")
+		return errors.New("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization has no static IP ranges in spec.settings.virtualMachineCIDRs")
 	}
 
 	return nil
