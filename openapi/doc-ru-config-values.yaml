@@ -41,7 +41,7 @@ properties:
         properties:
           secretName:
             description: |
-              Имя Secret'а в пространстве имён `d8-system`, который будет использоваться для web-интерфейса загрузки модуля CDI.
+              Имя Secret'а в пространстве имён `d8-system`, который будет использоваться для эндпоинта загрузки образов (Ingress, создаваемый для источников данных типа `Upload`).
 
               Secret должен быть в формате [kubernetes.io/tls](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#tls-secrets).
   dvcr:

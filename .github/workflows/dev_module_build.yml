@@ -248,7 +248,6 @@ jobs:
           # Find directories containing .golangci.yaml (excluding symlinks)
           mapfile -t config_dirs < <(
             find . \
-              -path ./images/cdi-cloner/cloner-startup -prune -o \
               -path ./images/dvcr-artifact -prune -o \
               -path ./test/performance/shatal -prune -o \
               -type f -name '.golangci.yaml' -not -type l -printf '%h\0' | \

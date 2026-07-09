@@ -165,7 +165,6 @@ tasks:
         TARGETS=(
           "images/hooks"
           "images/dvcr-artifact"
-          "images/cdi-cloner/cloner-startup"
           "images/virtualization-dra"
           "src/cli"
           "test/e2e"
