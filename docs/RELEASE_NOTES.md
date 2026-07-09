@@ -9,7 +9,7 @@ weight: 70
 Release date: July 7, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -22,7 +22,7 @@ Release date: July 7, 2026.
 Release date: July 1, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -36,7 +36,7 @@ Release date: July 1, 2026.
 Release date: June 24, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -58,7 +58,7 @@ Release date: June 24, 2026.
 Release date: June 10, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### New features
 
@@ -97,7 +97,7 @@ Release date: June 10, 2026.
 Release date: June 3, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -110,7 +110,7 @@ Release date: June 3, 2026.
 Release date: May 20, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Security
 
@@ -185,7 +185,7 @@ Release date: April 22, 2026.
 Release date: May 20, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Security
 
@@ -207,7 +207,7 @@ Release date: May 20, 2026.
 Release date: April 21, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -244,7 +244,7 @@ Release date: April 21, 2026.
 Release date: March 31, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### New features
 
@@ -275,7 +275,7 @@ Release date: March 31, 2026.
 Release date: April 21, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Security
 
@@ -302,7 +302,7 @@ Release date: April 21, 2026.
 Release date: March 23, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -358,7 +358,7 @@ Release date: March 2, 2026.
 Release date: March 5, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -406,7 +406,7 @@ Release date: February 9, 2026.
 Release date: February 16, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Security
 
@@ -418,7 +418,7 @@ Release date: February 16, 2026.
 Release date: January 23, 2026.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### New features
 
@@ -439,7 +439,7 @@ Release date: January 23, 2026.
 Release date: December 16, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### New features
 
@@ -458,7 +458,7 @@ Release date: December 16, 2025.
 Release date: December 5, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -480,7 +480,7 @@ Release date: December 4, 2025.
 Release date: November 28, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### New features
 
@@ -521,7 +521,7 @@ Release date: November 28, 2025.
 Release date: November 21, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Security
 
@@ -537,7 +537,7 @@ Release date: November 21, 2025.
 Release date: November 5, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -551,7 +551,7 @@ Release date: November 5, 2025.
 Release date: October 16, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Fixes
 
@@ -577,7 +577,7 @@ Release date: October 16, 2025.
 Release date: October 6, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### New features
 
@@ -610,7 +610,7 @@ Release date: October 6, 2025.
 Release date: September 11, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### New features
 
@@ -635,7 +635,7 @@ Release date: September 11, 2025.
 Release date: August 29, 2025.
 </span>
 
-**Note:** When upgrading to this version, virtual machine launcher components will be updated. Running virtual machines will be migrated automatically.
+**Note:** When upgrading to this version, virtual machine firmware will be updated. Running VMs will be migrated automatically.
 
 ### Important notes before update
 
