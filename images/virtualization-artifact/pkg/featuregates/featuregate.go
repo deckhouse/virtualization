@@ -33,6 +33,7 @@ const (
 	HotplugCPUWithLiveMigration          featuregate.Feature = "HotplugCPUWithLiveMigration"
 	HotplugMemoryWithLiveMigration       featuregate.Feature = "HotplugMemoryWithLiveMigration"
 	HotplugCPUAndMemoryWithInPlaceResize featuregate.Feature = "HotplugCPUAndMemoryWithInPlaceResize"
+	VirtualMachinePool                   featuregate.Feature = "VirtualMachinePool"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -71,6 +72,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	HotplugCPUAndMemoryWithInPlaceResize: {
+		Default:       false,
+		LockToDefault: version.GetEdition() == version.EditionCE,
+		PreRelease:    featuregate.Alpha,
+	},
+	VirtualMachinePool: {
 		Default:       false,
 		LockToDefault: version.GetEdition() == version.EditionCE,
 		PreRelease:    featuregate.Alpha,

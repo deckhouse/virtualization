@@ -26,7 +26,9 @@ import (
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
+	vmpoolstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
@@ -53,7 +55,7 @@ func init() {
 	)
 }
 
-func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
+func Build(store *storage.VirtualMachineStorage, poolStorage *vmpoolstorage.VirtualMachinePoolStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resourcesV1alpha2 := map[string]rest.Storage{
 		"virtualmachines":                     store,
@@ -68,6 +70,9 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 		"virtualmachines/addresourceclaim":    store.AddResourceClaimREST(),
 		"virtualmachines/removeresourceclaim": store.RemoveResourceClaimREST(),
 	}
+	// Enterprise-only resources (e.g. virtualmachinepools/scaledownwith) are added
+	// only in paid editions; poolStorage is nil in CE, leaving the map untouched.
+	installEnterpriseResources(resourcesV1alpha2, poolStorage)
 	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resourcesV1alpha2
 	return apiGroupInfo
 }
@@ -77,12 +82,21 @@ func Install(
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
+	virtCli virtclient.Interface,
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
 		kubevirt,
 		proxyCertManager,
 	)
-	info := Build(vmStorage)
+	// Enterprise (EE/SE+) subresources are constructed here and injected, the same
+	// way vmStorage is. They are registered unconditionally: the apiserver process
+	// has neither the runtime feature gate (not wired in here) nor the compiled-in
+	// edition (the virtualization-api binary is built without an edition tag), so
+	// it cannot gate them itself. Availability is enforced upstream — the pool CRD
+	// is installed only when the feature gate is on, and the controller self-gates;
+	// with no CRD the endpoint simply resolves to NotFound.
+	poolStorage := vmpoolstorage.NewStorage(virtCli)
+	info := Build(vmStorage, poolStorage)
 	return server.InstallAPIGroup(&info)
 }
