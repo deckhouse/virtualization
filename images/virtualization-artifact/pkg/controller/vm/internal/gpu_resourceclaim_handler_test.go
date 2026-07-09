@@ -93,4 +93,23 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: template.Name, Namespace: namespace}, stored)).To(Succeed())
 		Expect(stored.OwnerReferences).To(BeEmpty())
 	})
+
+	It("should not delete a ResourceClaimTemplate owned by another VM with a shared name prefix", func() {
+		vm := newVM()
+		vm.UID = "uid-vm-a"
+		otherVM := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: vmName + "-b", Namespace: namespace, UID: "uid-vm-a-b"},
+		}
+		otherName := kvbuilder.GPUResourceClaimTemplateName(otherVM.Name, "gpu0")
+		Expect(kvbuilder.IsGPUResourceClaimTemplateName(vmName, otherName)).To(BeTrue())
+		template := buildGPUResourceClaimTemplate(otherVM, otherName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		fakeClient, _, vmState := setupEnvironment(vm, template)
+		handler := NewGPUResourceClaimHandler(fakeClient)
+
+		_, err := handler.Handle(context.Background(), vmState)
+
+		Expect(err).NotTo(HaveOccurred())
+		stored := &resourcev1.ResourceClaimTemplate{}
+		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: otherName, Namespace: namespace}, stored)).To(Succeed())
+	})
 })
