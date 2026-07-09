@@ -1,4 +1,20 @@
 ---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src
+  stageDependencies:
+    install:
+    - go.mod
+    - go.sum
+    setup:
+    - '**/*'
+  excludePaths:
+  - .git
+  - werf.inc.yaml
+---
 {{- $version := "local" }}
 
 {{- $name := print .ImageName "-dependencies" -}}
@@ -28,19 +44,11 @@ mount:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
-git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src
-  stageDependencies:
-    install:
-    - go.mod
-    - go.sum
-    setup:
-    - '**/*'
-  excludePaths:
-  - .git
-  - werf.inc.yaml
 import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   install:
