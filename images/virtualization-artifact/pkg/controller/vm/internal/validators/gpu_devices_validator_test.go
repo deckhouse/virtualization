@@ -96,6 +96,18 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 			newGPU:         nil,
 		},
 		{
+			name:           "reordering GPU devices is allowed when feature is disabled",
+			featureEnabled: false,
+			oldGPU: []v1alpha2.GPUDeviceSpec{
+				{Name: "gpu0", DeviceClassName: "nvidia-h100"},
+				{Name: "gpu1", DeviceClassName: "nvidia-a100"},
+			},
+			newGPU: []v1alpha2.GPUDeviceSpec{
+				{Name: "gpu1", DeviceClassName: "nvidia-a100"},
+				{Name: "gpu0", DeviceClassName: "nvidia-h100"},
+			},
+		},
+		{
 			name:           "adding GPU devices is rejected when feature is disabled",
 			featureEnabled: false,
 			oldGPU:         nil,

@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -49,8 +50,9 @@ func (v *GPUDevicesValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *
 	// The feature gate and DeviceClass existence are checked only when GPU devices
 	// are introduced or changed. Unchanged GPU devices must not block unrelated
 	// updates (or removal) of a VM created while the gate was enabled and later
-	// disabled, or whose DeviceClass was removed out of band.
-	if reflect.DeepEqual(oldVM.Spec.GPUDevices, newVM.Spec.GPUDevices) {
+	// disabled, or whose DeviceClass was removed out of band. Order is ignored
+	// to match the vmchange comparator, which treats reordering as no change.
+	if reflect.DeepEqual(kvbuilder.SortGPUDevices(oldVM.Spec.GPUDevices), kvbuilder.SortGPUDevices(newVM.Spec.GPUDevices)) {
 		return nil, nil
 	}
 	return nil, v.validateGPUDevices(ctx, newVM)
