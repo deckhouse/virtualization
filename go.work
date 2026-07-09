@@ -36,6 +36,8 @@ replace k8s.io/component-base => k8s.io/component-base v0.34.2
 
 replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.50
 
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.5
-
 replace k8s.io/kubelet => k8s.io/kubelet v0.34.2
+
+replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
+
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.5
