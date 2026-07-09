@@ -3396,7 +3396,7 @@ Important considerations when working with additional network interfaces:
 - Adding or removing the main network (`type: Main`) still requires a VM reboot, because it is tied to the pod's primary network interface and cannot be reconfigured on a running pod.
 - To preserve the order of network interfaces inside the guest operating system, it is recommended to add new networks to the end of the `.spec.networks` list (do not change the order of existing ones).
 - Network security policies (NetworkPolicy) do not apply to additional network interfaces.
-- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init).
+- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init), unless IPAM is configured on the network (see [IPAM for additional network interfaces](#ipam-for-additional-network-interfaces)).
 
 {{< alert level="info" >}}
 When configuring network interfaces in the guest OS, use stable identifiers (predictable names `enpXsY` or MAC address binding) instead of `ethX` names. For more details, see the [Network interface naming in guest OS](#network-interface-naming-in-guest-os) section.
@@ -3519,6 +3519,103 @@ When a network is removed from the VM configuration:
 
 - The MAC address of the interface is released.
 - The associated `VirtualMachineMACAddress` and `VirtualMachineMACAddressLease` resources are automatically deleted.
+- The auto-allocated `IPAddress` (if IPAM was used) is deleted.
+
+### IPAM for additional network interfaces
+
+If the `sdn` module has IPAM (IP Address Management) configured for an additional network (a pool of IP addresses bound to the network via `spec.ipam.ipAddressPoolRef`), the virtualization module can automatically allocate IP addresses for additional VM interfaces and deliver them to the guest OS via DHCP.
+
+Two modes are supported:
+
+- **Automatic (DHCP):** if `ipAddressName` is not specified in `.spec.networks[]`, the controller automatically creates an `IPAddress` resource (type `Auto`) bound to the VM via `ownerReferences` and passes it to the SDN module. The SDN module allocates an address from the pool and delivers it to the guest OS via DHCP. The address is stable across VM restarts and migrations (it is bound to the VM, not the pod). The guest OS must have a DHCP client enabled on the corresponding interface.
+
+- **Static:** if `ipAddressName` is specified in `.spec.networks[]`, the controller uses the user-provided `IPAddress` resource (type `Static`, `network.deckhouse.io/v1alpha1`). The address is determined by the user and is stable.
+
+If the additional network does not have an IPAM pool configured, the IPAM feature is not enabled — the interface operates in L2-only mode, and IP addressing is configured manually in the guest OS.
+
+{{< alert level="info" >}}
+The `ipAddressName` field in `.spec.networks[]` determines the mode: if empty — automatic mode (the controller manages the `IPAddress`); if set — static mode (the user manages the `IPAddress`).
+{{< /alert >}}
+
+Example of a VM with automatic IP allocation on an additional network:
+
+```yaml
+spec:
+  networks:
+    - type: Main
+    - type: ClusterNetwork
+      name: corp-net
+      # ipAddressName is not specified → automatic mode (DHCP)
+```
+
+Example of a VM with a static IP on an additional network:
+
+```yaml
+spec:
+  networks:
+    - type: Main
+    - type: ClusterNetwork
+      name: corp-net
+      ipAddressName: my-static-ip # name of the IPAddress resource (SDN)
+```
+
+To create a static `IPAddress` resource:
+
+```yaml
+apiVersion: network.deckhouse.io/v1alpha1
+kind: IPAddress
+metadata:
+  name: my-static-ip
+  namespace: my-namespace
+spec:
+  networkRef:
+    kind: ClusterNetwork
+    name: corp-net
+  type: Static
+  static:
+    ip: 192.168.200.42
+```
+
+The allocated IP address is displayed in the VM status:
+
+```yaml
+status:
+  ipAddress: 10.66.10.2                     # Main network IP (as before)
+  virtualMachineIPAddressName: vm-01-main-ip # Main network IPAddress name
+  networks:
+    - type: Main
+    - type: ClusterNetwork
+      name: corp-net
+      macAddress: 32:a6:a1:0a:92:48
+      virtualMachineMACAddressName: vm-01-rxzd6
+      ipAddress: 192.168.200.4               # Additional network IP (from IPAM)
+```
+
+{{< alert level="warning" >}}
+If IPAM is enabled (the network has a pool), do not configure a static IP on the additional interface in the guest OS manually (via Cloud-Init). Use the automatic (DHCP) or static (`ipAddressName`) mode instead to avoid address conflicts.
+{{< /alert >}}
+
+{{< alert level="info" >}}
+If an additional network has an IPAM pool but the `IPAddress` resource is not yet allocated or is in a `Pending` state (e.g., the pool is exhausted), the interface is temporarily skipped — the VM starts without it, and the `NetworkReady` condition reports the error. Once the address becomes available, the interface is attached automatically (hotplug).
+{{< /alert >}}
+
+{{< alert level="warning" >}}
+When an additional network interface is attached via hotplug (after the VM has already started), the guest OS must be configured to automatically bring up new network interfaces and request a DHCP lease. Linux does not start a DHCP client on hotplugged interfaces by default.
+
+To ensure hotplugged interfaces are configured automatically, use one of the following approaches in the guest OS:
+
+- **NetworkManager** (Ubuntu, RHEL, CentOS) — automatically configures new interfaces with DHCP if the `network-manager` service is running.
+- **udev rule** (Alpine, others without NetworkManager) — add a udev rule to bring up new interfaces:
+
+```yaml
+write_files:
+  - path: /etc/udev/rules.d/90-hotplug-network.rules
+    content: |
+      SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
+```
+
+For interfaces present at VM boot (included in the initial network configuration), this is not an issue — the guest OS configures them during startup via Cloud-Init.
+{{< /alert >}}
 
 ## Snapshots
 
