@@ -77,8 +77,8 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	VirtualMachinePool: {
-		Default:       false,
-		LockToDefault: version.GetEdition() == version.EditionCE,
+		Default:       version.GetEdition() == version.EditionEE,
+		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
 	},
 }

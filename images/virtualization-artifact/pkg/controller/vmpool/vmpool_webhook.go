@@ -39,7 +39,7 @@ const maxPoolNameLength = 57
 
 // SetupValidationWebhook validates the pool's template specs on create/update, so
 // a bad template is rejected up front instead of only as a FailedCreate event.
-// Self-gated by the feature gate.
+// Gated like the controller: registered only in EE/SE+.
 func SetupValidationWebhook(mgr manager.Manager, log *log.Logger) error {
 	if !featuregates.Default().Enabled(featuregates.VirtualMachinePool) {
 		return nil
