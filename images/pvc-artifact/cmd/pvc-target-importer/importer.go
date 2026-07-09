@@ -16,6 +16,10 @@ limitations under the License.
 
 package main
 
+// importer.go copies an NBD source exported by the source importer into a target PVC.
+// This process expects several environmental variables:
+//    ImporterNBDEndpoint    NBD endpoint URL of the source to copy from.
+
 import (
 	"flag"
 	"fmt"
