@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -85,9 +86,7 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 			return reconcile.Result{}, fmt.Errorf("GPU ResourceClaimTemplate %s/%s is not controlled by VirtualMachine %s/%s", template.Namespace, template.Name, vm.Namespace, vm.Name)
 		}
 
-		// The stored spec is not compared directly: API-server defaulting could make
-		// it permanently differ from the rendered spec and loop delete/recreate.
-		if template.Annotations[annotations.AnnGPUClaimSpecHash] == gpuClaimSpecHash(desiredSpec) {
+		if gpuClaimTemplateUpToDate(template, desiredSpec) {
 			continue
 		}
 		if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
@@ -116,6 +115,19 @@ func buildGPUResourceClaimTemplate(vm *v1alpha2.VirtualMachine, name string, spe
 		},
 		Spec: spec,
 	}
+}
+
+// gpuClaimTemplateUpToDate prefers the spec-hash annotation over comparing the
+// stored spec directly: API-server defaulting could make the stored spec
+// permanently differ from the rendered one and loop delete/recreate.
+// Templates created before the annotation existed fall back to DeepEqual and
+// migrate to the hash on their next legitimate recreation.
+func gpuClaimTemplateUpToDate(template *resourcev1.ResourceClaimTemplate, desiredSpec resourcev1.ResourceClaimTemplateSpec) bool {
+	storedHash, ok := template.Annotations[annotations.AnnGPUClaimSpecHash]
+	if !ok {
+		return reflect.DeepEqual(template.Spec, desiredSpec)
+	}
+	return storedHash == gpuClaimSpecHash(desiredSpec)
 }
 
 func gpuClaimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {

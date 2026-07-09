@@ -95,6 +95,24 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		Expect(stored.Annotations).To(HaveKeyWithValue(annotations.AnnGPUClaimSpecHash, gpuClaimSpecHash(stored.Spec)))
 	})
 
+	It("should not recreate GPU ResourceClaimTemplate without hash annotation when spec matches", func() {
+		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass})
+		templateName := kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0")
+		template := buildGPUResourceClaimTemplate(vm, templateName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		template.Annotations = nil
+		template.Labels = map[string]string{"keep": "me"}
+		fakeClient, _, vmState := setupEnvironment(vm, template)
+		handler := NewGPUResourceClaimHandler(fakeClient)
+
+		_, err := handler.Handle(context.Background(), vmState)
+
+		Expect(err).NotTo(HaveOccurred())
+		stored := &resourcev1.ResourceClaimTemplate{}
+		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: templateName, Namespace: namespace}, stored)).To(Succeed())
+		Expect(stored.Labels).To(HaveKeyWithValue("keep", "me"))
+		Expect(stored.Annotations).NotTo(HaveKey(annotations.AnnGPUClaimSpecHash))
+	})
+
 	It("should not replace GPU ResourceClaimTemplate owned by another controller", func() {
 		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass})
 		template := &resourcev1.ResourceClaimTemplate{
