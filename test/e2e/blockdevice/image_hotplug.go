@@ -75,11 +75,11 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 		)
 
-		viHotplugBIOS := vibuilder.New(
-			vibuilder.WithName("vi-hotplug-bios"),
+		viHotplugPVC := vibuilder.New(
+			vibuilder.WithName("vi-hotplug-pvc"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOSPerf),
-			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
+			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
 		)
 
 		vm := vmbuilder.New(
@@ -95,10 +95,10 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 			}),
 		)
 
-		err := f.CreateWithDeferredDeletion(ctx, vdRoot, viHotplugQCOW, viHotplugBIOS, vm)
+		err := f.CreateWithDeferredDeletion(ctx, vdRoot, viHotplugQCOW, viHotplugPVC, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, viHotplugQCOW, viHotplugBIOS)
+		util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, viHotplugQCOW, viHotplugPVC)
 		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 		util.UntilSSHReady(f, vm, framework.MiddleTimeout)
 		util.UntilGuestCommandsReady(f, vm, []string{"lsblk"}, framework.ShortTimeout)
@@ -116,10 +116,10 @@ var _ = Describe("VirtualMachineImageHotplug", Label(precheck.NoPrecheck), func(
 				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualImage, viHotplugQCOW.Name),
 			),
 			vmbda.New(
-				vmbda.WithName("attach-vi-hotplug-bios"),
+				vmbda.WithName("attach-vi-hotplug-pvc"),
 				vmbda.WithNamespace(f.Namespace().Name),
 				vmbda.WithVirtualMachineName(vm.Name),
-				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualImage, viHotplugBIOS.Name),
+				vmbda.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualImage, viHotplugPVC.Name),
 			),
 			vmbda.New(
 				vmbda.WithName("attach-cvi-hotplug-bios"),
@@ -266,136 +266,29 @@ func isBlockDeviceCdRom(f *framework.Framework, vm *v1alpha2.VirtualMachine, blo
 	return disks.BlockDevices[0].Type == "rom", nil
 }
 
+// isBlockDeviceReadOnly reports whether the guest kernel exposes the block
+// device as read-only. It reads the device read-only flag directly (lsblk RO)
+// instead of trying to mount it: a genuinely read-only device with a
+// filesystem that needs journal recovery cannot be mounted even with -o ro,
+// which would produce a false negative for exactly the devices under test.
 func isBlockDeviceReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, blockDeviceByID string) (bool, error) {
 	if strings.HasPrefix(blockDeviceByID, cdRomByIDPrefix) {
 		return true, nil
 	}
 
 	devicePath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceByID)
-	mountPoint := fmt.Sprintf("/tmp/vm-image-hotplug-%s", blockDeviceByID)
-	isMounted, err := mountReadOnly(f, vm, devicePath, mountPoint)
-	if err != nil {
-		_ = unmountPath(f, vm, mountPoint)
-		return false, err
-	}
-	if !isMounted {
-		_ = unmountPath(f, vm, mountPoint)
-		return false, nil
-	}
-
-	if err := unmountPath(f, vm, mountPoint); err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-func mountReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath, mountPoint string) (bool, error) {
-	if _, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mkdir -p %q", mountPoint)); err != nil {
-		return false, err
-	}
-
-	isMounted, err := tryMountReadOnly(f, vm, sourcePath, mountPoint)
-	if err != nil {
-		return false, err
-	}
-	if isMounted {
-		return true, nil
-	}
-
-	partitionPath, err := firstPartitionPath(f, vm, sourcePath)
-	if err != nil {
-		return false, err
-	}
-	if partitionPath == "" {
-		return false, nil
-	}
-
-	return tryMountReadOnly(f, vm, partitionPath, mountPoint)
-}
-
-func tryMountReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath, mountPoint string) (bool, error) {
-	cmd := fmt.Sprintf(
-		"if sudo mount -o ro %q %q >/dev/null 2>&1; then echo true; else echo false; fi",
-		sourcePath,
-		mountPoint,
-	)
+	cmd := fmt.Sprintf("lsblk --nodeps --noheadings --output RO %q", devicePath)
 	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
 	if err != nil {
-		return false, fmt.Errorf("failed to try mounting %q read-only at %q: %w", sourcePath, mountPoint, err)
+		return false, fmt.Errorf("failed to read the read-only flag for %q: %w", devicePath, err)
 	}
 
 	switch strings.TrimSpace(out) {
-	case "true":
-		readOnly, err := isMountPointReadOnly(f, vm, mountPoint)
-		if err != nil {
-			_ = unmountPath(f, vm, mountPoint)
-			return false, fmt.Errorf("failed to validate read-only mount options for %q at %q: %w", sourcePath, mountPoint, err)
-		}
-		if !readOnly {
-			_ = unmountPath(f, vm, mountPoint)
-			return false, fmt.Errorf("mounted %q at %q, but mount point is not read-only", sourcePath, mountPoint)
-		}
-
+	case "1":
 		return true, nil
-	case "false":
+	case "0":
 		return false, nil
 	default:
-		return false, fmt.Errorf("unexpected read-only mount probe output for %q at %q: %q", sourcePath, mountPoint, out)
+		return false, fmt.Errorf("unexpected lsblk RO output for %q: %q", devicePath, out)
 	}
-}
-
-func firstPartitionPath(f *framework.Framework, vm *v1alpha2.VirtualMachine, sourcePath string) (string, error) {
-	cmd := fmt.Sprintf("lsblk --json --paths --output PATH %q 2>/dev/null; true", sourcePath)
-	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
-	if err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(out) == "" {
-		return "", nil
-	}
-
-	var lsblkOutput struct {
-		BlockDevices []struct {
-			Path     string `json:"path"`
-			Children []struct {
-				Path string `json:"path"`
-			} `json:"children"`
-		} `json:"blockdevices"`
-	}
-
-	if err = json.Unmarshal([]byte(out), &lsblkOutput); err != nil {
-		return "", err
-	}
-
-	if len(lsblkOutput.BlockDevices) == 0 || len(lsblkOutput.BlockDevices[0].Children) == 0 {
-		return "", nil
-	}
-
-	return lsblkOutput.BlockDevices[0].Children[0].Path, nil
-}
-
-func isMountPointReadOnly(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoint string) (bool, error) {
-	cmd := fmt.Sprintf("findmnt --noheadings --output OPTIONS --target %q 2>/dev/null; true", mountPoint)
-	out, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
-	if err != nil {
-		return false, err
-	}
-
-	options := strings.TrimSpace(out)
-	if options == "" {
-		return false, nil
-	}
-
-	return strings.Contains(","+options+",", ",ro,"), nil
-}
-
-func unmountPath(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) error {
-	cmd := fmt.Sprintf("sudo umount %q >/dev/null 2>&1; sudo rmdir %q >/dev/null 2>&1; true", path, path)
-	_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
