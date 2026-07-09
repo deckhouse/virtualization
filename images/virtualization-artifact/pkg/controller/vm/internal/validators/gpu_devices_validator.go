@@ -21,7 +21,11 @@ import (
 	"fmt"
 	"reflect"
 
+	resourcev1 "k8s.io/api/resource/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -29,34 +33,47 @@ import (
 )
 
 type GPUDevicesValidator struct {
+	client      client.Client
 	featureGate featuregate.FeatureGate
 }
 
-func NewGPUDevicesValidator(featureGate featuregate.FeatureGate) *GPUDevicesValidator {
-	return &GPUDevicesValidator{featureGate: featureGate}
+func NewGPUDevicesValidator(client client.Client, featureGate featuregate.FeatureGate) *GPUDevicesValidator {
+	return &GPUDevicesValidator{client: client, featureGate: featureGate}
 }
 
-func (v *GPUDevicesValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, v.validateGPUDevices(vm)
+func (v *GPUDevicesValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	return nil, v.validateGPUDevices(ctx, vm)
 }
 
-func (v *GPUDevicesValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	// The feature gate is required only when GPU devices are introduced or changed.
-	// Unchanged GPU devices must not block unrelated updates (or removal) of a VM
-	// created while the gate was enabled and later disabled.
+func (v *GPUDevicesValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	// The feature gate and DeviceClass existence are checked only when GPU devices
+	// are introduced or changed. Unchanged GPU devices must not block unrelated
+	// updates (or removal) of a VM created while the gate was enabled and later
+	// disabled, or whose DeviceClass was removed out of band.
 	if reflect.DeepEqual(oldVM.Spec.GPUDevices, newVM.Spec.GPUDevices) {
 		return nil, nil
 	}
-	return nil, v.validateGPUDevices(newVM)
+	return nil, v.validateGPUDevices(ctx, newVM)
 }
 
-func (v *GPUDevicesValidator) validateGPUDevices(vm *v1alpha2.VirtualMachine) error {
+func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
 	if len(vm.Spec.GPUDevices) == 0 {
 		return nil
 	}
 
 	if !v.featureGate.Enabled(featuregates.GPU) {
 		return fmt.Errorf("GPU device attachment requires the GPU feature gate")
+	}
+
+	for _, device := range vm.Spec.GPUDevices {
+		deviceClass := &resourcev1.DeviceClass{}
+		err := v.client.Get(ctx, types.NamespacedName{Name: device.DeviceClassName}, deviceClass)
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("GPU device %q references DeviceClass %q that does not exist", device.Name, device.DeviceClassName)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get DeviceClass %q for GPU device %q: %w", device.DeviceClassName, device.Name, err)
+		}
 	}
 
 	return nil

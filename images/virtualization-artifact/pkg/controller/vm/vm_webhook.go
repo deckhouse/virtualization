@@ -56,7 +56,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 			validators.NewNetworksValidator(client, featureGate),
 			validators.NewFirstDiskValidator(client),
 			validators.NewUSBDevicesValidator(client, featureGate),
-			validators.NewGPUDevicesValidator(featureGate),
+			validators.NewGPUDevicesValidator(client, featureGate),
 			validators.NewVMBDAConflictValidator(client),
 			validators.NewPVNodeAffinityValidator(client, attachmentService),
 		},

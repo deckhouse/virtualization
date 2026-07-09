@@ -20,9 +20,12 @@ import (
 	"strings"
 	"testing"
 
+	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/featuregate"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -31,39 +34,38 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 	tests := []struct {
 		name           string
 		featureEnabled bool
+		deviceClasses  []string
+		gpuClass       string
 		wantErrorPart  string
 	}{
 		{
 			name:           "should reject GPU devices when feature is disabled",
 			featureEnabled: false,
+			gpuClass:       "nvidia-h100",
 			wantErrorPart:  "GPU feature gate",
 		},
 		{
-			name:           "should accept GPU devices when feature is enabled",
+			name:           "should accept GPU devices when feature is enabled and DeviceClass exists",
 			featureEnabled: true,
+			deviceClasses:  []string{"nvidia-h100"},
+			gpuClass:       "nvidia-h100",
+		},
+		{
+			name:           "should reject GPU devices when DeviceClass does not exist",
+			featureEnabled: true,
+			gpuClass:       "nvidia-h100",
+			wantErrorPart:  "does not exist",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "nvidia-h100"}})
-			validator := NewGPUDevicesValidator(newGPUFeatureGate(t, tt.featureEnabled))
+			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: tt.gpuClass}})
+			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.deviceClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)
 
-			if tt.wantErrorPart == "" {
-				if err != nil {
-					t.Fatalf("expected no error, got %v", err)
-				}
-				return
-			}
-
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErrorPart) {
-				t.Fatalf("expected error containing %q, got %v", tt.wantErrorPart, err)
-			}
+			assertValidationError(t, err, tt.wantErrorPart)
 		})
 	}
 }
@@ -76,6 +78,7 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 	tests := []struct {
 		name           string
 		featureEnabled bool
+		deviceClasses  []string
 		oldGPU         []v1alpha2.GPUDeviceSpec
 		newGPU         []v1alpha2.GPUDeviceSpec
 		wantErrorPart  string
@@ -100,17 +103,19 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 			wantErrorPart:  "GPU feature gate",
 		},
 		{
-			name:           "changing GPU devices is rejected when feature is disabled",
-			featureEnabled: false,
+			name:           "changing to an existing DeviceClass is allowed when feature is enabled",
+			featureEnabled: true,
+			deviceClasses:  []string{"nvidia-h100", "nvidia-a100"},
 			oldGPU:         gpu("nvidia-h100"),
 			newGPU:         gpu("nvidia-a100"),
-			wantErrorPart:  "GPU feature gate",
 		},
 		{
-			name:           "changing GPU devices is allowed when feature is enabled",
+			name:           "changing to a missing DeviceClass is rejected",
 			featureEnabled: true,
+			deviceClasses:  []string{"nvidia-h100"},
 			oldGPU:         gpu("nvidia-h100"),
 			newGPU:         gpu("nvidia-a100"),
+			wantErrorPart:  "does not exist",
 		},
 	}
 
@@ -118,23 +123,29 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			oldVM := newVirtualMachineWithGPU("vm-current", tt.oldGPU)
 			newVM := newVirtualMachineWithGPU("vm-current", tt.newGPU)
-			validator := NewGPUDevicesValidator(newGPUFeatureGate(t, tt.featureEnabled))
+			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.deviceClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
 
-			if tt.wantErrorPart == "" {
-				if err != nil {
-					t.Fatalf("expected no error, got %v", err)
-				}
-				return
-			}
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErrorPart) {
-				t.Fatalf("expected error containing %q, got %v", tt.wantErrorPart, err)
-			}
+			assertValidationError(t, err, tt.wantErrorPart)
 		})
+	}
+}
+
+func assertValidationError(t *testing.T, err error, wantErrorPart string) {
+	t.Helper()
+
+	if wantErrorPart == "" {
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), wantErrorPart) {
+		t.Fatalf("expected error containing %q, got %v", wantErrorPart, err)
 	}
 }
 
@@ -143,6 +154,21 @@ func newVirtualMachineWithGPU(name string, gpuDevices []v1alpha2.GPUDeviceSpec) 
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
 		Spec:       v1alpha2.VirtualMachineSpec{GPUDevices: gpuDevices},
 	}
+}
+
+func newValidatorClient(t *testing.T, deviceClasses ...string) client.Client {
+	t.Helper()
+
+	objs := make([]client.Object, 0, len(deviceClasses))
+	for _, name := range deviceClasses {
+		objs = append(objs, &resourcev1.DeviceClass{ObjectMeta: metav1.ObjectMeta{Name: name}})
+	}
+
+	fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
+	if err != nil {
+		t.Fatalf("failed to create fake client: %v", err)
+	}
+	return fakeClient
 }
 
 func newGPUFeatureGate(t *testing.T, enabled bool) featuregate.FeatureGate {
