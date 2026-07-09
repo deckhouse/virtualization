@@ -18,8 +18,10 @@ package handler
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -153,19 +155,14 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 	}
 
 	if !apierrors.IsNotFound(err) {
-		if !reflect.DeepEqual(template.Spec, desiredSpec) {
+		// The stored spec is not compared directly: API-server defaulting could make
+		// it permanently differ from the rendered spec and loop delete/recreate.
+		if template.Annotations[annotations.AnnUSBClaimSpecHash] != claimSpecHash(desiredSpec) {
 			if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete outdated ResourceClaimTemplate: %w", err)
 			}
 
-			template = &resourcev1.ResourceClaimTemplate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            templateName,
-					Namespace:       usbDevice.Namespace,
-					OwnerReferences: []metav1.OwnerReference{service.MakeControllerOwnerReference(usbDevice)},
-				},
-				Spec: desiredSpec,
-			}
+			template = buildResourceClaimTemplate(usbDevice, templateName, desiredSpec)
 
 			if err := h.client.Create(ctx, template); err != nil {
 				if isAlreadyExistsResourceClaimTemplateError(err, templateName) {
@@ -180,14 +177,7 @@ func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s st
 		return nil
 	}
 
-	template = &resourcev1.ResourceClaimTemplate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            templateName,
-			Namespace:       usbDevice.Namespace,
-			OwnerReferences: []metav1.OwnerReference{service.MakeControllerOwnerReference(usbDevice)},
-		},
-		Spec: desiredSpec,
-	}
+	template = buildResourceClaimTemplate(usbDevice, templateName, desiredSpec)
 
 	if err := h.client.Create(ctx, template); err != nil {
 		if isAlreadyExistsResourceClaimTemplateError(err, templateName) {
@@ -265,6 +255,26 @@ func isAlreadyExistsResourceClaimTemplateError(err error, templateName string) b
 
 	errText := err.Error()
 	return strings.Contains(errText, "resourceclaimtemplates.resource.k8s.io") && strings.Contains(errText, templateName) && strings.Contains(errText, "already exists")
+}
+
+func buildResourceClaimTemplate(usbDevice *v1alpha2.USBDevice, name string, spec resourcev1.ResourceClaimTemplateSpec) *resourcev1.ResourceClaimTemplate {
+	return &resourcev1.ResourceClaimTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            name,
+			Namespace:       usbDevice.Namespace,
+			Annotations:     map[string]string{annotations.AnnUSBClaimSpecHash: claimSpecHash(spec)},
+			OwnerReferences: []metav1.OwnerReference{service.MakeControllerOwnerReference(usbDevice)},
+		},
+		Spec: spec,
+	}
+}
+
+func claimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {
+	// Marshalling a plain API struct cannot fail; on the impossible failure both
+	// sides hash the same empty payload, so the comparison still converges.
+	raw, _ := json.Marshal(&spec)
+	hash := md5.Sum(raw)
+	return hex.EncodeToString(hash[:])
 }
 
 func buildResourceClaimTemplateSpec(usbDevice *v1alpha2.USBDevice) resourcev1.ResourceClaimTemplateSpec {

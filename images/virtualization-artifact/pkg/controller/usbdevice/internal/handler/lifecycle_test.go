@@ -483,5 +483,47 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 		expr := updated.Spec.Spec.Devices.Requests[0].Exactly.Selectors[0].CEL.Expression
 		Expect(expr).To(ContainSubstring(`device.attributes["virtualization-usb"].name == "usb-new-name"`))
+		Expect(updated.Annotations).To(HaveKeyWithValue(annotations.AnnUSBClaimSpecHash, claimSpecHash(updated.Spec)))
+	})
+
+	It("should not recreate ResourceClaimTemplate when spec hash matches", func() {
+		usbDevice := &v1alpha2.USBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-cr", Namespace: "default", UID: "usb-uid-1"},
+			Status:     v1alpha2.USBDeviceStatus{Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-name", VendorID: "1234", ProductID: "5678"}},
+		}
+
+		nodeUSBDevice := &v1alpha2.NodeUSBDevice{
+			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-cr"},
+			Status: v1alpha2.NodeUSBDeviceStatus{
+				Attributes: v1alpha2.NodeUSBDeviceAttributes{Name: "usb-name", VendorID: "1234", ProductID: "5678"},
+				NodeName:   "node-1",
+				Conditions: []metav1.Condition{{Type: string(nodeusbdevicecondition.ReadyType), Status: metav1.ConditionTrue, Reason: string(nodeusbdevicecondition.Ready), Message: "Node status"}},
+			},
+		}
+
+		template := buildResourceClaimTemplate(usbDevice, ResourceClaimTemplateName("usb-device-cr"), buildResourceClaimTemplateSpec(usbDevice))
+		template.Labels = map[string]string{"keep": "me"}
+
+		vmObj, vmField, vmExtractValue := indexer.IndexVMByUSBDevice()
+		vmNodeObj, vmNodeField, vmNodeExtractValue := indexer.IndexVMByNode()
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(usbDevice, nodeUSBDevice, template).WithIndex(vmObj, vmField, vmExtractValue).WithIndex(vmNodeObj, vmNodeField, vmNodeExtractValue).Build()
+
+		res := reconciler.NewResource(
+			types.NamespacedName{Name: usbDevice.Name, Namespace: usbDevice.Namespace},
+			cl,
+			func() *v1alpha2.USBDevice { return &v1alpha2.USBDevice{} },
+			func(obj *v1alpha2.USBDevice) v1alpha2.USBDeviceStatus { return obj.Status },
+		)
+		Expect(res.Fetch(ctx)).To(Succeed())
+
+		st := state.New(cl, res)
+		h := NewLifecycleHandler(cl)
+		_, err := h.Handle(ctx, st)
+		Expect(err).NotTo(HaveOccurred())
+
+		stored := &resourcev1.ResourceClaimTemplate{}
+		err = cl.Get(ctx, types.NamespacedName{Name: ResourceClaimTemplateName("usb-device-cr"), Namespace: "default"}, stored)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stored.Labels).To(HaveKeyWithValue("keep", "me"))
 	})
 })
