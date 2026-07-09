@@ -392,36 +392,36 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	uploaderRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
+	uploaderRequeue, uploaderReason, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return uploaderRequeue || diskRequeue, nil
+	return uploaderRequeue || diskRequeue, service.MergeCleanUpReasons(uploaderReason, diskReason), nil
 }
 
 func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
+	uploaderRequeue, uploaderReason, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if uploaderRequeue || diskRequeue {
+	if reason := service.MergeCleanUpReasons(uploaderReason, diskReason); reason != "" || uploaderRequeue || diskRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil

@@ -102,16 +102,6 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	return reconcile.Result{}, nil
 }
 
-func (h InUseHandler) isVDAttachedToVM(vdName string, vm v1alpha2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == v1alpha2.DiskDevice && bda.Name == vdName {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	pvcName := vd.Status.Target.PersistentVolumeClaim
 	if pvcName == "" {
@@ -171,25 +161,16 @@ func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *v1alpha
 	usageMap := make(map[string]bool)
 
 	for _, vm := range vms.Items {
-		if !h.isVDAttachedToVM(vd.GetName(), vm) {
+		referenced, mounted, err := commonvm.BlockDeviceUsage(ctx, h.client, vm, v1alpha2.DiskDevice, vd.GetName())
+		if err != nil {
+			return nil, err
+		}
+
+		if !referenced {
 			continue
 		}
 
-		switch vm.Status.Phase {
-		case "":
-			usageMap[vm.GetName()] = false
-		case v1alpha2.MachinePending:
-			usageMap[vm.GetName()] = true
-		case v1alpha2.MachineStopped:
-			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
-			if err != nil {
-				return nil, err
-			}
-
-			usageMap[vm.GetName()] = vmIsActive
-		default:
-			usageMap[vm.GetName()] = true
-		}
+		usageMap[vm.GetName()] = mounted
 	}
 
 	return usageMap, nil

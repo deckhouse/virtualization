@@ -38,6 +38,8 @@ const (
 	InUseType Type = "InUse"
 	// MigratingType indicates that the virtual disk is in the process of migrating data from one volume to another (during the migration of a local disk or migration to another storage class).
 	MigratingType Type = "Migrating"
+	// DeletingType indicates whether the VirtualDisk deletion can be completed.
+	DeletingType Type = "Deleting"
 )
 
 type (
@@ -55,6 +57,8 @@ type (
 	InUseReason string
 	// MigratingReason represents the various reasons for the Migration condition type.
 	MigratingReason string
+	// DeletingReason represents the various reasons for the Deleting condition type.
+	DeletingReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -82,6 +86,10 @@ func (s InUseReason) String() string {
 }
 
 func (s MigratingReason) String() string {
+	return string(s)
+}
+
+func (s DeletingReason) String() string {
 	return string(s)
 }
 
@@ -188,4 +196,11 @@ const (
 	ResizingInProgressReason     MigratingReason = "ResizingInProgress"
 	SnapshottingInProgressReason MigratingReason = "SnapshottingInProgress"
 	StorageClassNotFoundReason   MigratingReason = "StorageClassNotFound"
+)
+
+const (
+	// DeletionBlockedByProtection indicates that the VirtualDisk cannot be deleted while it is protected.
+	DeletionBlockedByProtection DeletingReason = "DeletionBlockedByProtection"
+	// DeletionCleanupPending indicates that the VirtualDisk cleanup is still in progress.
+	DeletionCleanupPending DeletingReason = "CleanupPending"
 )

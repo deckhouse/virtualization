@@ -38,8 +38,8 @@ import (
 type Importer interface {
 	Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	DeletePod(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error)
 	Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
@@ -49,7 +49,7 @@ type Importer interface {
 
 type Uploader interface {
 	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)

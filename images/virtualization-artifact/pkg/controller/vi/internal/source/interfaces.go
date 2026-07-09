@@ -38,8 +38,8 @@ import (
 type Importer interface {
 	step.CreatePodStepImporter
 	step.ReadyContainerRegistryStepImporter
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 	Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
@@ -48,8 +48,8 @@ type Importer interface {
 
 type Uploader interface {
 	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
@@ -73,11 +73,11 @@ type Stat interface {
 
 type Bounder interface {
 	step.CreateBounderPodStepBounder
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type Disk interface {
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }

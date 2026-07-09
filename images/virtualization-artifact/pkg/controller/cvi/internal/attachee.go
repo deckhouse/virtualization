@@ -69,35 +69,15 @@ func (h AttacheeHandler) hasAttachedVM(ctx context.Context, cvi client.Object) (
 	}
 
 	for _, vm := range vms.Items {
-		if vm.Status.Phase == "" {
-			continue
+		_, mounted, err := commonvm.BlockDeviceUsage(ctx, h.client, vm, v1alpha2.ClusterImageDevice, cvi.GetName())
+		if err != nil {
+			return false, err
 		}
 
-		if vm.Status.Phase == v1alpha2.MachineStopped {
-			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
-			if err != nil {
-				return false, err
-			}
-
-			if !vmIsActive {
-				continue
-			}
-		}
-
-		if h.isCVIAttachedToVM(cvi.GetName(), vm) {
+		if mounted {
 			return true, nil
 		}
 	}
 
 	return false, nil
-}
-
-func (h AttacheeHandler) isCVIAttachedToVM(cviName string, vm v1alpha2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == v1alpha2.ClusterImageDevice && bda.Name == cviName {
-			return true
-		}
-	}
-
-	return false
 }

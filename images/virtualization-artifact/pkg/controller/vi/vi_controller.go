@@ -91,8 +91,8 @@ func NewController(
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
 		internal.NewImagePresenceHandler(recorder, mgr.GetClient(), dvcr),
-		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
+		internal.NewDeletionHandler(sources, mgr.GetClient()),
 	)
 
 	viController, err := controller.New(ControllerName, mgr, controller.Options{

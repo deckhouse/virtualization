@@ -84,7 +84,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 			Phase: v1alpha2.ImagePending,
 		}
 
-		_, err := h.sources.CleanUp(ctx, vi)
+		_, _, err := h.sources.CleanUp(ctx, vi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

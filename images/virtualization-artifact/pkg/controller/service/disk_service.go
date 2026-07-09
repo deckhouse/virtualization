@@ -207,41 +207,41 @@ func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev
 	return nil
 }
 
-func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
-	subResourcesHaveDeleted, err := s.CleanUpSupplements(ctx, sup)
+func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
+	subResourcesRequeue, subResourcesReason, err := s.CleanUpSupplements(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	var resourcesHaveDeleted bool
+	var reason string
 
 	if pvc != nil {
-		resourcesHaveDeleted = true
+		reason = CleanUpReasonForObject("waiting for PersistentVolumeClaim deletion", pvc)
 
 		err = s.protection.RemoveProtection(ctx, pvc)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		err = s.client.Delete(ctx, pvc)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
-	return resourcesHaveDeleted || subResourcesHaveDeleted, nil
+	return reason != "" || subResourcesRequeue, MergeCleanUpReasons(reason, subResourcesReason), nil
 }
 
-func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	// 1. Update owner ref of pvc.
 	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	if pvc != nil {
@@ -253,7 +253,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 			pvc.OwnerReferences = ownerReferences
 			err = s.client.Update(ctx, pvc)
 			if err != nil && !k8serrors.IsNotFound(err) {
-				return false, fmt.Errorf("update owner ref of pvc: %w", err)
+				return false, "", fmt.Errorf("update owner ref of pvc: %w", err)
 			}
 		}
 	}
@@ -261,43 +261,47 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 	// 2. Delete network policy.
 	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyDataVolume(), sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
+	var networkPolicyReason string
 	if networkPolicy != nil {
+		networkPolicyReason = CleanUpReasonForObject("waiting for NetworkPolicy deletion", networkPolicy)
+
 		err = s.protection.RemoveProtection(ctx, networkPolicy)
 		if err != nil {
-			return false, fmt.Errorf("remove protection from network policy: %w", err)
+			return false, "", fmt.Errorf("remove protection from network policy: %w", err)
 		}
 
 		err = s.client.Delete(ctx, networkPolicy)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, fmt.Errorf("delete network policy: %w", err)
+			return false, "", fmt.Errorf("delete network policy: %w", err)
 		}
 	}
 
 	// 3. Delete DataVolume.
-	var hasDeleted bool
+	var reason string
 	dv, err := s.GetDataVolume(ctx, sup)
 	if err != nil {
-		return false, fmt.Errorf("get dv: %w", err)
+		return false, "", fmt.Errorf("get dv: %w", err)
 	}
 
 	if dv != nil {
 		err = s.protection.RemoveProtection(ctx, dv)
 		if err != nil {
-			return false, fmt.Errorf("remove protection from dv: %w", err)
+			return false, "", fmt.Errorf("remove protection from dv: %w", err)
 		}
 
 		err = s.client.Delete(ctx, dv)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, fmt.Errorf("delete dv: %w", err)
+			return false, "", fmt.Errorf("delete dv: %w", err)
 		}
 
-		hasDeleted = true
+		reason = CleanUpReasonForObject("waiting for DataVolume deletion", dv)
 	}
 
-	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
+	mergedReason := MergeCleanUpReasons(networkPolicyReason, reason)
+	return mergedReason != "", mergedReason, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
 }
 
 func (s DiskService) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {

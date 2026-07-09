@@ -40,7 +40,7 @@ const readyStep = "ready"
 
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 	Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
@@ -115,7 +115,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 		}
 
 		if object.ShouldCleanupSubResources(vd) {
-			_, err = s.diskService.CleanUpSupplements(ctx, supgen)
+			_, _, err = s.diskService.CleanUpSupplements(ctx, supgen)
 			if err != nil {
 				return nil, fmt.Errorf("clean up supplements: %w", err)
 			}

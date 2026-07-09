@@ -28,6 +28,8 @@ const (
 	AttachedType Type = "Attached"
 	// DiskAttachmentCapacityAvailableType indicates that the entity has not yet reached its predefined limit for block device attachments.
 	DiskAttachmentCapacityAvailableType Type = "DiskAttachmentCapacityAvailableType"
+	// DeletingType indicates whether the VirtualMachineBlockDeviceAttachment deletion can be completed.
+	DeletingType Type = "Deleting"
 )
 
 type (
@@ -39,6 +41,8 @@ type (
 	AttachedReason string
 	// DiskAttachmentCapacityAvailableReason represent the various reasons for the `DiskAttachmentCapacityAvailableType` condition type.
 	DiskAttachmentCapacityAvailableReason string
+	// DeletingReason represents the various reasons for the `Deleting` condition type.
+	DeletingReason string
 )
 
 const (
@@ -72,6 +76,9 @@ const (
 	CapacityReached DiskAttachmentCapacityAvailableReason = "CapacityReached"
 	// CapacityUnknown represents unknown condition state
 	CapacityUnknown DiskAttachmentCapacityAvailableReason = "CapacityUnknown"
+
+	// DeletionCleanupPending indicates that the VirtualMachineBlockDeviceAttachment cleanup is still in progress.
+	DeletionCleanupPending DeletingReason = "CleanupPending"
 )
 
 func (t Type) String() string {
@@ -91,5 +98,9 @@ func (t AttachedReason) String() string {
 }
 
 func (t DiskAttachmentCapacityAvailableReason) String() string {
+	return string(t)
+}
+
+func (t DeletingReason) String() string {
 	return string(t)
 }

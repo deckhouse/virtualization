@@ -466,25 +466,25 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virt
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
+func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, importerReason, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	bounderRequeue, err := ds.bounderService.CleanUp(ctx, supgen)
+	bounderRequeue, bounderReason, err := ds.bounderService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return importerRequeue || bounderRequeue || diskRequeue, nil
+	return importerRequeue || bounderRequeue || diskRequeue, service.MergeCleanUpReasons(importerReason, bounderReason, diskReason), nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *v1alpha2.VirtualImage) error {
@@ -568,17 +568,17 @@ func (ds ObjectRefDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, sup supp
 func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	importerRequeue, importerReason, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if importerRequeue || diskRequeue {
+	if reason := service.MergeCleanUpReasons(importerReason, diskReason); reason != "" || importerRequeue || diskRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil

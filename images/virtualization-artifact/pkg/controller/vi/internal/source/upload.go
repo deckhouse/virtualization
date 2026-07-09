@@ -538,20 +538,20 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	importerRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
+	uploaderRequeue, uploaderReason, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return uploaderRequeue || diskRequeue, service.MergeCleanUpReasons(uploaderReason, diskReason), nil
 }
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualImage) error {
@@ -574,17 +574,17 @@ func (ds UploadDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen supp
 func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
+	uploaderRequeue, uploaderReason, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if uploaderRequeue || diskRequeue {
+	if reason := service.MergeCleanUpReasons(uploaderReason, diskReason); reason != "" || uploaderRequeue || diskRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil

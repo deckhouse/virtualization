@@ -39,7 +39,7 @@ import (
 type Handler interface {
 	StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
 	StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
-	CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error)
+	CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error)
 	Validate(ctx context.Context, vi *v1alpha2.VirtualImage) error
 }
 
@@ -66,32 +66,39 @@ func (s Sources) Changed(_ context.Context, vi *v1alpha2.VirtualImage) bool {
 	return vi.Generation != vi.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
+func (s Sources) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error) {
 	var requeue bool
+	var reasons []string
 
 	for _, source := range s.sources {
-		ok, err := source.CleanUp(ctx, vi)
+		sourceRequeue, sourceReason, err := source.CleanUp(ctx, vi)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
-		requeue = requeue || ok
+		requeue = requeue || sourceRequeue
+		reasons = append(reasons, sourceReason)
 	}
 
-	return requeue, nil
+	reason := service.MergeCleanUpReasons(reasons...)
+	if requeue && reason == "" {
+		reason = service.DefaultCleanUpReason
+	}
+
+	return requeue, reason, nil
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error)
+	CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error)
 	CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
 }
 
-func CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage, c Cleaner) (bool, error) {
+func CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage, c Cleaner) (bool, string, error) {
 	if object.ShouldCleanupSubResources(vi) {
 		return c.CleanUp(ctx, vi)
 	}
 
-	return false, nil
+	return false, "", nil
 }
 
 func CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage, c Cleaner) (reconcile.Result, error) {

@@ -68,15 +68,15 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk
 	return reconcile.Result{}, fmt.Errorf("unexpected object ref kind %s, please report a bug", vd.Spec.DataSource.ObjectRef.Kind)
 }
 
-func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	requeue, err := ds.diskService.CleanUp(ctx, supgen)
+	requeue, reason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return requeue, nil
+	return requeue, reason, nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {

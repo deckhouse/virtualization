@@ -383,37 +383,37 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *v1alpha2.Virt
 func (ds ObjectRefVirtualDisk) CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	importerRequeue, importerReason, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if importerRequeue || diskRequeue {
+	if reason := service.MergeCleanUpReasons(importerReason, diskReason); reason != "" || importerRequeue || diskRequeue {
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil
 	}
 }
 
-func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
+func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, importerReason, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue || diskRequeue, service.MergeCleanUpReasons(importerReason, diskReason), nil
 }
 
 func (ds ObjectRefVirtualDisk) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {

@@ -106,7 +106,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirt
 			return reconcile.Result{}, err
 		}
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -224,7 +224,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirt
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds RegistryDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
+func (ds RegistryDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	return ds.importerService.CleanUp(ctx, supgen)

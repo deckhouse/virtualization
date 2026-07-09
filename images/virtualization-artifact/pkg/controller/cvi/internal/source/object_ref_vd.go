@@ -91,7 +91,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 			return reconcile.Result{}, err
 		}
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -216,9 +216,17 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
+func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, string, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
-	return ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
+	deleted, err := ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
+	if err != nil {
+		return false, "", err
+	}
+	if !deleted {
+		return false, "", nil
+	}
+
+	return true, "waiting for object-ref importer Pod deletion", nil
 }
 
 func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {

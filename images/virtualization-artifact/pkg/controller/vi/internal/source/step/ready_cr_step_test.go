@@ -41,13 +41,13 @@ type readyContainerRegistryStepCleanerStub struct {
 	calls      int
 }
 
-func (s *readyContainerRegistryStepCleanerStub) CleanUpSupplements(context.Context, supplements.Generator) (bool, error) {
+func (s *readyContainerRegistryStepCleanerStub) CleanUpSupplements(context.Context, supplements.Generator) (bool, string, error) {
 	s.calls++
 	if s.cleanupErr != nil {
-		return false, s.cleanupErr
+		return false, "", s.cleanupErr
 	}
 
-	return true, nil
+	return true, "waiting for cleanup", nil
 }
 
 type readyContainerRegistryStepStatStub struct {

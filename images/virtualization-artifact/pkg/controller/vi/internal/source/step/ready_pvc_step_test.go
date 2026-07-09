@@ -35,8 +35,8 @@ import (
 
 type noopReadyPersistentVolumeClaimStepBounder struct{}
 
-func (noopReadyPersistentVolumeClaimStepBounder) CleanUpSupplements(context.Context, supplements.Generator) (bool, error) {
-	return true, nil
+func (noopReadyPersistentVolumeClaimStepBounder) CleanUpSupplements(context.Context, supplements.Generator) (bool, string, error) {
+	return true, "waiting for cleanup", nil
 }
 
 func noopEvent(client.Object, string, string, string) {}

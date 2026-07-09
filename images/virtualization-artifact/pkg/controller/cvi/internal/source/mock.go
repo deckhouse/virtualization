@@ -29,10 +29,10 @@ var _ Importer = &ImporterMock{}
 //
 //		// make and configure a mocked Importer
 //		mockedImporter := &ImporterMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			DeletePodFunc: func(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error) {
@@ -64,10 +64,10 @@ var _ Importer = &ImporterMock{}
 //	}
 type ImporterMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// DeletePodFunc mocks the DeletePod method.
 	DeletePodFunc func(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error)
@@ -196,7 +196,7 @@ type ImporterMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("ImporterMock.CleanUpFunc: method is nil but Importer.CleanUp was just called")
 	}
@@ -232,7 +232,7 @@ func (mock *ImporterMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("ImporterMock.CleanUpSupplementsFunc: method is nil but Importer.CleanUpSupplements was just called")
 	}
@@ -585,7 +585,7 @@ var _ Uploader = &UploaderMock{}
 //
 //		// make and configure a mocked Uploader
 //		mockedUploader := &UploaderMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
 //			EnsureIngressFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
@@ -629,7 +629,7 @@ var _ Uploader = &UploaderMock{}
 //	}
 type UploaderMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// EnsureIngressFunc mocks the EnsureIngress method.
 	EnsureIngressFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
@@ -782,7 +782,7 @@ type UploaderMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("UploaderMock.CleanUpFunc: method is nil but Uploader.CleanUp was just called")
 	}

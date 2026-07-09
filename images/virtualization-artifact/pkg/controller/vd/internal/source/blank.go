@@ -80,15 +80,15 @@ func (ds BlankDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualDisk) e
 	return nil
 }
 
-func (ds BlankDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (ds BlankDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	requeue, err := ds.diskService.CleanUp(ctx, supgen)
+	requeue, reason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	return requeue, nil
+	return requeue, reason, nil
 }
 
 func (ds BlankDataSource) Name() string {

@@ -69,19 +69,26 @@ func (s Sources) Changed(_ context.Context, vd *v1alpha2.VirtualDisk) bool {
 	return vd.Generation != vd.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (s Sources) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 	var requeue bool
+	var reasons []string
 
 	for _, source := range s.sources {
-		ok, err := source.CleanUp(ctx, vd)
+		sourceRequeue, sourceReason, err := source.CleanUp(ctx, vd)
 		if err != nil {
-			return false, fmt.Errorf("clean up failed for data source %s: %w", source.Name(), err)
+			return false, "", fmt.Errorf("clean up failed for data source %s: %w", source.Name(), err)
 		}
 
-		requeue = requeue || ok
+		requeue = requeue || sourceRequeue
+		reasons = append(reasons, sourceReason)
 	}
 
-	return requeue, nil
+	reason := service.MergeCleanUpReasons(reasons...)
+	if requeue && reason == "" {
+		reason = service.DefaultCleanUpReason
+	}
+
+	return requeue, reason, nil
 }
 
 type SupplementsCleaner interface {
@@ -293,7 +300,7 @@ func setPhaseConditionFromPodError(
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 func setPhaseConditionFromProvisioningError(
@@ -326,7 +333,7 @@ func setPhaseConditionFromProvisioningError(
 		if isChanged {
 			supgen := vdsupplements.NewGenerator(vd)
 
-			_, err = cleaner.CleanUp(ctx, supgen)
+			_, _, err = cleaner.CleanUp(ctx, supgen)
 			if err != nil {
 				err = errors.Join(provisioningErr, err)
 				setPhaseConditionToFailed(vd, cb, &vd.Status.Phase, err)

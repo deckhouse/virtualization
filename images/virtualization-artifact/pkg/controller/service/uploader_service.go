@@ -114,68 +114,69 @@ func (s UploaderService) Start(
 	return supplements.EnsureForIngress(ctx, s.client, sup, ing, s.dvcrSettings)
 }
 
-func (s UploaderService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s UploaderService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s UploaderService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s UploaderService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	svc, err := s.GetService(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	ing, err := s.GetIngress(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyUploaderPod(), sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	err = s.protection.RemoveProtection(ctx, pod, svc, ing, networkPolicy)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	var haveDeleted bool
+	var reasons []string
 
 	if pod != nil {
-		haveDeleted = true
+		reasons = append(reasons, CleanUpReasonForObject("waiting for uploader Pod deletion", pod))
 		err = s.client.Delete(ctx, pod)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
 	if networkPolicy != nil {
-		haveDeleted = true
+		reasons = append(reasons, CleanUpReasonForObject("waiting for NetworkPolicy deletion", networkPolicy))
 		err = s.client.Delete(ctx, networkPolicy)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
 	if svc != nil {
-		haveDeleted = true
+		reasons = append(reasons, CleanUpReasonForObject("waiting for Service deletion", svc))
 		err = s.client.Delete(ctx, svc)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
 	if ing != nil {
-		haveDeleted = true
+		reasons = append(reasons, CleanUpReasonForObject("waiting for Ingress deletion", ing))
 		err = s.client.Delete(ctx, ing)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
-	return haveDeleted, nil
+	reason := MergeCleanUpReasons(reasons...)
+	return reason != "", reason, nil
 }
 
 func (s UploaderService) Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {

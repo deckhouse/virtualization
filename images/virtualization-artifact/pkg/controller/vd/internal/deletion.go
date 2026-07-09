@@ -19,15 +19,20 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"sort"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -49,15 +54,22 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 
 	if vd.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(vd, v1alpha2.FinalizerVDProtection) {
+			h.setDeletingCondition(
+				vd,
+				vdcondition.DeletionBlockedByProtection,
+				deletionBlockedByProtectionMessage(vd),
+			)
 			return reconcile.Result{}, nil
 		}
 
-		requeue, err := h.sources.CleanUp(ctx, vd)
+		requeue, reason, err := h.sources.CleanUp(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		if requeue {
+			h.setDeletingCondition(vd, vdcondition.DeletionCleanupPending, reason)
+			log.Info("VirtualDisk cleanup is pending", slog.String("reason", reason))
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
@@ -65,13 +77,19 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 			return reconcile.Result{}, err
 		}
 
+		conditions.RemoveCondition(vdcondition.DeletingType, &vd.Status.Conditions)
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualDisk")
 		controllerutil.RemoveFinalizer(vd, v1alpha2.FinalizerVDCleanup)
 		return reconcile.Result{}, nil
 	}
 
+	conditions.RemoveCondition(vdcondition.DeletingType, &vd.Status.Conditions)
 	controllerutil.AddFinalizer(vd, v1alpha2.FinalizerVDCleanup)
 	return reconcile.Result{}, nil
+}
+
+func (h DeletionHandler) setDeletingCondition(vd *v1alpha2.VirtualDisk, reason vdcondition.DeletingReason, message string) {
+	service.SetDeletingCondition(&vd.Status.Conditions, vdcondition.DeletingType, reason, vd.Generation, message)
 }
 
 func (h DeletionHandler) cleanupPersistentVolumeClaims(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
@@ -90,4 +108,17 @@ func (h DeletionHandler) cleanupPersistentVolumeClaims(ctx context.Context, vd *
 	}
 
 	return errs
+}
+
+func deletionBlockedByProtectionMessage(vd *v1alpha2.VirtualDisk) string {
+	mountedVMs := make([]string, 0, len(vd.Status.AttachedToVirtualMachines))
+	for _, vm := range vd.Status.AttachedToVirtualMachines {
+		if vm.Mounted {
+			mountedVMs = append(mountedVMs, vm.Name)
+		}
+	}
+
+	sort.Strings(mountedVMs)
+
+	return service.DeletionBlockedByProtectionMessage("VirtualDisk", mountedVMs)
 }

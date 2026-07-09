@@ -67,9 +67,9 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				},
 			}
 
-			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 				cleanUpCalled = true
-				return false, nil
+				return false, "", nil
 			}
 
 			sourcesMock.ChangedFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) bool {
@@ -168,9 +168,9 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				},
 			}
 
-			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 				cleanUpCalled = true
-				return false, nil
+				return false, "", nil
 			}
 
 			sourcesMock.ChangedFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) bool {

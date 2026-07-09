@@ -90,7 +90,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 			Phase: v1alpha2.DiskPending,
 		}
 
-		_, err := h.sources.CleanUp(ctx, vd)
+		_, _, err := h.sources.CleanUp(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}

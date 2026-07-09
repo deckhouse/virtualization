@@ -121,7 +121,7 @@ func (s ImporterService) StartWithPodSetting(
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, importerTokenScope(s.dvcrSettings, settings))
 }
 
-func (s ImporterService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s ImporterService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
@@ -170,45 +170,49 @@ func (s ImporterService) DeletePod(ctx context.Context, obj client.Object, contr
 	return false, nil
 }
 
-func (s ImporterService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s ImporterService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyImporterPod(), sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
+	var networkPolicyReason string
 	if networkPolicy != nil {
+		networkPolicyReason = CleanUpReasonForObject("waiting for NetworkPolicy deletion", networkPolicy)
+
 		err = s.protection.RemoveProtection(ctx, networkPolicy)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		err = s.client.Delete(ctx, networkPolicy)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	err = s.protection.RemoveProtection(ctx, pod)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	var hasDeleted bool
+	var podReason string
 
 	if pod != nil {
-		hasDeleted = true
+		podReason = CleanUpReasonForObject("waiting for importer Pod deletion", pod)
 		err = s.client.Delete(ctx, pod)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
-	return hasDeleted, nil
+	reason := MergeCleanUpReasons(networkPolicyReason, podReason)
+	return reason != "", reason, nil
 }
 
 func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) (err error) {

@@ -85,8 +85,8 @@ func NewController(
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewImagePresenceHandler(recorder, dvcr.NewImageChecker(mgr.GetClient(), dvcrSettings)),
-		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
+		internal.NewDeletionHandler(sources, mgr.GetClient()),
 	)
 
 	cviController, err := controller.New(ControllerName, mgr, controller.Options{

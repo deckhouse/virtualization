@@ -37,11 +37,11 @@ import (
 )
 
 type ReadyContainerRegistryStepDiskService interface {
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type ReadyContainerRegistryStepImporter interface {
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type ReadyContainerRegistryStepStat interface {
@@ -149,12 +149,12 @@ func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *v1alpha2.Virtu
 func (s ReadyContainerRegistryStep) cleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	_, err := s.importer.CleanUpSupplements(ctx, supgen)
+	_, _, err := s.importer.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.diskService.CleanUpSupplements(ctx, supgen)
+	_, _, err = s.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return err
 	}
