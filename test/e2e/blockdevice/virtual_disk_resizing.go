@@ -79,7 +79,9 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 
 		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 		util.UntilSSHReady(f, vm, framework.LongTimeout)
-		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, vmbda)
+		// The attachment pod is the first consumer of the WFFC-backed blank disk,
+		// so the hotplug includes full volume provisioning (~50s on LINSTOR).
+		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
 
 		vdRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
 		vdBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
