@@ -1,7 +1,7 @@
 version: "3"
 
 vars:
-  PROD_REGISTRY: registry.deckhouse.io/deckhouse
+  PROD_REGISTRY: registry.deckhouse.ru/deckhouse
   CHANNEL: '{{ .CHANNEL | default "alpha" }}'
   VERSION: "{{ .VERSION }}"
 
@@ -45,7 +45,7 @@ tasks:
     cmds:
       - |
         if [[ -z "{{ .VERSION }}" ]] || [[ -z "{{ .CHANNEL }}" ]]; then
-          echo "TAG and CHANNEL are required"
+          echo "VERSION (tag) and CHANNEL are required"
           exit 1
         fi
 
@@ -56,7 +56,7 @@ tasks:
 
         check_editions_version() {
           local editions=("ee" "fe" "ce" "se-plus")
-          local prod_registry="registry.deckhouse.io/deckhouse"
+          local prod_registry={{ .PROD_REGISTRY }}
           local channel=$1
           local version=$2
 
