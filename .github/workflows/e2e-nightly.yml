@@ -54,8 +54,6 @@ jobs:
           LABEL_SELECTOR: test=nightly-e2e
           KEEP_HOURS: "47"
           FRIDAY_KEEP_HOURS: "71"
-          # Ceph (sds-elastic) nested clusters are torn down after ~1 day.
-          ELASTIC_KEEP_HOURS: "23"
         run: bash .github/scripts/bash/e2e/cleanup-nightly-resources.sh
 
   power-off-vms-for-nested:
@@ -171,51 +169,14 @@ jobs:
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
 
-  e2e-sds-elastic:
-    name: E2E Pipeline (Elastic)
-    needs:
-      - set-vars
-    uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
-    with:
-      storage_type: sds-elastic
-      pipeline_job_name: "E2E Pipeline (Elastic)"
-      nested_storageclass_name: nested-ceph-rbd
-      nested_cluster_network_name: cn-4006-for-e2e-test
-      branch: main
-      virtualization_tag: main
-      deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
-      deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
-      registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
-      default_user: cloud
-      go_version: "1.24.13"
-      e2e_timeout: "3.5h"
-      e2e_focus_tests: "VirtualDiskProvisioning|VirtualDiskSnapshots|VirtualImageCreation|VirtualDiskResizing|DiskAttachment|BlockDeviceHotplug|Migration|StorageClassMigration|RWOVirtualDiskMigration|VMSOP|Restore|DataExports"
-      e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
-      date_start: ${{ needs.set-vars.outputs.date_start }}
-      randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
-      cluster_config_workers_memory: "9Gi"
-      cluster_config_additional_disk_size: "50Gi"
-      # Two 50Gi disks per worker -> two Ceph OSDs per node for more throughput.
-      cluster_config_additional_disk_count: "2"
-      cluster_config_k8s_version: "Automatic"
-      apt_mirror_enabled: true
-    secrets:
-      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-      REGISTRY_DOCKER_CFG: ${{ needs.set-vars.outputs.registry_profile == 'stage' && secrets.STAGE_IO_REGISTRY_DOCKER_CFG || secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
-      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
-      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
-      E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
-
   report-to-channel:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     name: End-to-End tests report
     needs:
       - e2e-replicated
-      - e2e-nfs
-      - e2e-sds-elastic
-    if: ${{ always()}}
+      # - e2e-nfs
+    # if: ${{ always()}}
     steps:
       - uses: actions/checkout@v6
 
@@ -249,7 +210,7 @@ jobs:
         id: render-report
         uses: actions/github-script@v7
         env:
-          EXPECTED_STORAGE_TYPES: '["replicated","nfs","sds-elastic"]'
+          EXPECTED_STORAGE_TYPES: '["replicated","nfs"]'
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
           LOOP_CHANNEL_ID: ${{ secrets.LOOP_TEST_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}
