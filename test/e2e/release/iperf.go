@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -116,7 +117,7 @@ func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 }
 
-func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string) *iperfReport {
+func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string, iperfServer *v1alpha2.VirtualMachine) *iperfReport {
 	GinkgoHelper()
 
 	command := fmt.Sprintf("cat %s", reportPath)
@@ -138,6 +139,24 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 
 	Expect(result).NotTo(BeNil())
+
+	iPerfClientStartTime, err := time.Parse(time.RFC1123, result.Start.Timestamp.Time)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(iPerfClientStartTime.Before(iperfServer.Status.MigrationState.StartTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should start before the virtual machine is migrated")
+
+	iPerfClientEndTimeSec := int64(result.Start.Timestamp.Timesecs) + int64(result.End.SumSent.End)
+	iPerfClientEndTimeNSec := int64((result.End.SumSent.End - float64(int64(result.End.SumSent.End))) * 1e9)
+	iPerfClientEndTime := time.Unix(iPerfClientEndTimeSec, iPerfClientEndTimeNSec).UTC()
+	Expect(iPerfClientEndTime.After(iperfServer.Status.MigrationState.EndTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should stop after the virtual machine is migrated")
+
+	zeroBytesIntervalCounter := 0
+	for _, i := range result.Intervals {
+		if i.Sum.Bytes == 0 {
+			zeroBytesIntervalCounter++
+		}
+	}
+	Expect(zeroBytesIntervalCounter).To(BeNumerically("<=", 1), "there should not be more than one zero-byte interval during the migration process")
+
 	return result
 }
 
