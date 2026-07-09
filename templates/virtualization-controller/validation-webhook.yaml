@@ -252,7 +252,7 @@ webhooks:
       - name: 'match-virtualization'
         expression: 'request.name == "virtualization"'
     {{- end }}
-  {{- if has "VirtualMachinePool" .Values.virtualization.internal.moduleConfig.featureGates }}
+  {{- if ne .Values.global.deckhouseEdition "CE" }}
   - name: "vmpool-scale.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
