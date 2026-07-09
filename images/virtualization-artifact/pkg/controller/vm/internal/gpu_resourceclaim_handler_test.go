@@ -64,7 +64,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		Expect(string(config.Opaque.Parameters.Raw)).To(ContainSubstring(`"kind":"VfioDeviceConfig"`))
 	})
 
-	It("should delete owned GPU ResourceClaimTemplate when annotation is removed", func() {
+	It("should delete owned GPU ResourceClaimTemplate when device is removed from spec", func() {
 		vm := newVM()
 		template := buildGPUResourceClaimTemplate(vm, kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
 		fakeClient, _, vmState := setupEnvironment(vm, template)

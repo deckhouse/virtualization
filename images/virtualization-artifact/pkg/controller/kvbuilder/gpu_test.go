@@ -41,7 +41,6 @@ var _ = Describe("GPU", func() {
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu0"))
 		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].ClaimName).To(Equal("gpu-gpu0"))
 		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].RequestName).To(Equal("gpu-gpu0"))
-		Expect(res.Annotations).To(BeEmpty())
 	})
 
 	It("should render DRA GPU resource claims in stable order", func() {
@@ -113,6 +112,5 @@ var _ = Describe("GPU", func() {
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(BeEmpty())
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(BeEmpty())
-		Expect(res.Annotations).To(BeEmpty())
 	})
 })
