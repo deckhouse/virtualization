@@ -93,7 +93,7 @@ var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckDefaultStorageClas
 		// storage class.
 		vd := object.NewVDFromVI("vd-from-vi-qcow2", f.Namespace().Name, vi,
 			vdbuilder.WithStorageClass(defaultStorageClass()),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})

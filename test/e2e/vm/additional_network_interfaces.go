@@ -93,10 +93,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				ns := f.Namespace().Name
 
 				vdFooRoot = object.NewVDFromCVI("vd-foo-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
-					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
+					vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				)
 				vdBarRoot = object.NewVDFromCVI("vd-bar-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
-					vd.WithSize(ptr.To(resource.MustParse("512Mi"))),
+					vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				)
 
 				// vm-foo always has Main + ClusterNetwork so we can SSH to it.

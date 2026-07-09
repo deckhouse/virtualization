@@ -43,11 +43,9 @@ type buildOption struct {
 }
 
 func newRootVD(f *framework.Framework, root buildOption, vi *v1alpha2.VirtualImage) *v1alpha2.VirtualDisk {
-	// No explicit size: the disk is auto-sized from the source image, which
-	// keeps it minimal — these disks are volume-migrated in the tests, and
-	// the copy time scales with the block device size.
 	disk := object.NewVDFromVI(root.name, f.Namespace().Name, vi)
 	vdbuilder.ApplyOptions(disk,
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 		vdbuilder.WithStorageClass(root.storageClass),
 	)
 

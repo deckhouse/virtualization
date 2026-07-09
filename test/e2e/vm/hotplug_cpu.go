@@ -262,7 +262,7 @@ func (t *cpuHotplugTest) generateResources(vmName string, cores int, disableInPl
 func (t *cpuHotplugTest) generateResourcesWithRestartApproval(vmName string, cores int, disableInPlaceResize bool, restartApprovalMode v1alpha2.RestartApprovalMode) {
 	vdName := fmt.Sprintf("vd-%s-root", vmName)
 	t.VD = object.NewVDFromCVI(vdName, t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	opts := []vmbuilder.Option{

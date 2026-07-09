@@ -23,6 +23,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -517,6 +519,7 @@ func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework,
 	// The disk that boots the VM is the scenario's main resource, so it uses the
 	// same default StorageClass as every other resource in this spec.
 	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi,
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 		vdbuilder.WithStorageClass(defaultStorageClass()),
 	)
 	createVirtualDiskAndRunVM(ctx, f, vd, opts...)
@@ -531,6 +534,7 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 		// Incidental source disk: provision from a precreated ClusterVirtualImage.
 		vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 		vdbuilder.WithStorageClass(sc),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	obs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())

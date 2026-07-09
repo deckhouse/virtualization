@@ -25,10 +25,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmipoption "github.com/deckhouse/virtualization-controller/pkg/builder/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -136,7 +139,7 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 			})
 
 			By("Create vm with static ip", func() {
-				vd := object.NewVDFromCVI("vd-with-static-ip", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+				vd := object.NewVDFromCVI("vd-with-static-ip", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 				err := f.CreateWithDeferredDeletion(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 

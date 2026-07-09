@@ -70,7 +70,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		})
 
 		By("Creating VirtualDisk", func() {
-			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 
 			err := f.CreateWithDeferredDeletion(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
@@ -116,7 +116,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		})
 
 		By("Creating VirtualDisk", func() {
-			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 			err := f.CreateWithDeferredDeletion(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -148,7 +148,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		)
 
 		By("Creating VirtualDisk", func() {
-			vd = object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			vd = object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 			err := f.CreateWithDeferredDeletion(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -180,7 +180,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		)
 
 		By("Creating VirtualDisk", func() {
-			vd = object.NewHTTPVDAlpineBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))))
+			vd = object.NewHTTPVDAlpineBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 			err := f.CreateWithDeferredDeletion(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
 		})

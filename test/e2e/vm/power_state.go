@@ -219,7 +219,7 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 	)
 
 	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	t.VDBlank = vdbuilder.New(

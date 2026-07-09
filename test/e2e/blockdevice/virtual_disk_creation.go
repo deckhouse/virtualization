@@ -94,6 +94,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-http"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -107,6 +108,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithDatasource(&v1alpha2.VirtualDiskDataSource{
 				Type: v1alpha2.DataSourceTypeUpload,
 			}),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -165,6 +167,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-registry"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, "", nil),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -198,6 +201,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -230,6 +234,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi-pvc"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -295,6 +300,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -318,6 +324,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			// The boot disk is incidental here (the scenario tests the blank disk), so
 			// source it from a precreated ClusterVirtualImage instead of HTTP.
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -338,6 +345,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 				vdbuilder.WithName("vd-source-for-snapshot"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
 				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
+				vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				vdbuilder.WithStorageClass(scPtr),
 			)
 

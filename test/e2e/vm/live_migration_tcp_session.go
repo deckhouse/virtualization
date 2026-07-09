@@ -83,7 +83,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 			)
 
 			iperfClientDisk := object.NewVDFromCVI(iperfClientName, f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
-				vd.WithSize(ptr.To(resource.MustParse("500Mi"))),
+				vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
 			)
 

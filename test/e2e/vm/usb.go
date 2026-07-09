@@ -31,6 +31,7 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
@@ -209,7 +210,7 @@ func (t *VMUSBTest) GenerateEnvironmentResources(ctx context.Context) {
 	usbNodeName := t.NodeUSBDevice.Status.NodeName
 	Expect(usbNodeName).NotTo(BeEmpty(), "USB device must have a node assigned")
 
-	t.VD = object.NewVDFromCVI("vd-usb-test", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+	t.VD = object.NewVDFromCVI("vd-usb-test", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm-usb-test"),

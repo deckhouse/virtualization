@@ -49,7 +49,7 @@ var _ = Describe("VirtualMachineVersions", Label(precheck.NoPrecheck), func() {
 	It("should expose qemu and libvirt versions in VM status", func() {
 		By("Generating VirtualDisk from precreated ClusterVirtualImage")
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-			vdbuilder.WithSize(ptr.To(resource.MustParse("512Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 		)
 
 		By("Generating VirtualMachine")

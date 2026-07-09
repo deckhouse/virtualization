@@ -273,7 +273,7 @@ func (t *memoryHotplugTest) generateResourcesWithRestartApproval(vmName, memSize
 
 	vdName := fmt.Sprintf("vd-%s-root", vmName)
 	t.VD = object.NewVDFromCVI(vdName, t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	opts := []vmbuilder.Option{

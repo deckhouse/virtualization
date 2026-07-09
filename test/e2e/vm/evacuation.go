@@ -123,7 +123,7 @@ func newEvacuationVM(name, namespace, cviName string, bootloader v1alpha2.Bootlo
 		name+"-root"+longSuffix,
 		namespace,
 		cviName,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	vdBlank := object.NewBlankVD(

@@ -67,7 +67,7 @@ var _ = Describe("DiskAttachment", Label(precheck.NoPrecheck), func() {
 
 			// Create VD from CVI for VM root disk
 			vdRoot = object.NewVDFromCVI(longName("vd-root"), f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-				vdbuilder.WithSize(ptr.To(resource.MustParse("512Mi"))),
+				vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			)
 
 			// Create blank VD without consumer (for attachment test)
