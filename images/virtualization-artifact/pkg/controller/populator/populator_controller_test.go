@@ -351,14 +351,14 @@ func testReconciler(c client.Client) *Reconciler {
 func assertContainerUsesDVCRSupplement(t *testing.T, container corev1.Container, sup supplements.Generator) {
 	t.Helper()
 
-	certName := sup.DVCRCABundleConfigMapForDV().Name
+	certName := sup.DVCRCABundleConfigMapForPVCImporter().Name
 	var hasCertDir bool
 	var hasAuthSecret bool
 	for _, env := range container.Env {
 		if env.Name == common.ImporterCertDirVar {
 			hasCertDir = true
 		}
-		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name == sup.DVCRAuthSecretForDV().Name {
+		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name == sup.DVCRAuthSecretForPVCImporter().Name {
 			hasAuthSecret = true
 		}
 	}
@@ -366,7 +366,7 @@ func assertContainerUsesDVCRSupplement(t *testing.T, container corev1.Container,
 		t.Fatalf("expected importer container to use DVCR CA configmap %q", certName)
 	}
 	if !hasAuthSecret {
-		t.Fatalf("expected importer container to use DVCR auth secret %q", sup.DVCRAuthSecretForDV().Name)
+		t.Fatalf("expected importer container to use DVCR auth secret %q", sup.DVCRAuthSecretForPVCImporter().Name)
 	}
 }
 

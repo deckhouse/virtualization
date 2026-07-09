@@ -258,8 +258,8 @@ func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string, s
 		secret := ""
 		certConfigMap := ""
 		if sup != nil {
-			secret = sup.DVCRAuthSecretForDV().Name
-			certConfigMap = sup.DVCRCABundleConfigMapForDV().Name
+			secret = sup.DVCRAuthSecretForPVCImporter().Name
+			certConfigMap = sup.DVCRCABundleConfigMapForPVCImporter().Name
 		}
 		return service.NewPVCRegistryImportSource(
 			pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR],

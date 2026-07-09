@@ -54,8 +54,8 @@ var _ = Describe("Generator", func() {
 				Expect(result.Name).To(HaveSuffix(string(uid)))
 			},
 			Entry("DVCRAuthSecret", func(g Generator) types.NamespacedName { return g.DVCRAuthSecret() }, "dvcr-auth"),
-			Entry("DVCRAuthSecretForDV", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForDV() }, "dvcr-auth-dv"),
-			Entry("DVCRCABundleConfigMapForDV", func(g Generator) types.NamespacedName { return g.DVCRCABundleConfigMapForDV() }, "dvcr-ca"),
+			Entry("DVCRAuthSecretForPVCImporter", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForPVCImporter() }, "dvcr-auth-dv"),
+			Entry("DVCRCABundleConfigMapForPVCImporter", func(g Generator) types.NamespacedName { return g.DVCRCABundleConfigMapForPVCImporter() }, "dvcr-ca"),
 			Entry("CABundleConfigMap", func(g Generator) types.NamespacedName { return g.CABundleConfigMap() }, "ca"),
 			Entry("ImagePullSecret", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, "pull-image"),
 			Entry("ImporterPod", func(g Generator) types.NamespacedName { return g.ImporterPod() }, "importer"),
@@ -85,8 +85,8 @@ var _ = Describe("Generator", func() {
 				Expect(result.Name).To(ContainSubstring(string(uid)))
 			},
 			Entry("DVCRAuthSecret - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRAuthSecret() }, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("DVCRAuthSecretForDV - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForDV() }, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("DVCRCABundleConfigMapForDV - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRCABundleConfigMapForDV() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("DVCRAuthSecretForPVCImporter - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForPVCImporter() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("DVCRCABundleConfigMapForPVCImporter - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRCABundleConfigMapForPVCImporter() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("CABundleConfigMap - 253 limit", func(g Generator) types.NamespacedName { return g.CABundleConfigMap() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("ImagePullSecret - 253 limit", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("ImporterPod - 253 limit", func(g Generator) types.NamespacedName { return g.ImporterPod() }, kvalidation.DNS1123SubdomainMaxLength),

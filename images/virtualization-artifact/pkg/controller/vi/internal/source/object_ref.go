@@ -516,8 +516,8 @@ func (ds ObjectRefDataSource) getSource(sup supplements.Generator, dvcrDataSourc
 	}
 
 	url := common.DockerRegistrySchemePrefix + dvcrDataSource.GetTarget()
-	secretName := sup.DVCRAuthSecretForDV().Name
-	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
+	secretName := sup.DVCRAuthSecretForPVCImporter().Name
+	certConfigMapName := sup.DVCRCABundleConfigMapForPVCImporter().Name
 
 	return service.NewPVCRegistryImportSource(url, secretName, certConfigMapName), nil
 }

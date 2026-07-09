@@ -380,8 +380,8 @@ func (ds RegistryDataSource) getSource(sup supplements.Generator, dvcrSourceImag
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
 	url := common.DockerRegistrySchemePrefix + dvcrSourceImageName
-	secretName := sup.DVCRAuthSecretForDV().Name
-	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
+	secretName := sup.DVCRAuthSecretForPVCImporter().Name
+	certConfigMapName := sup.DVCRCABundleConfigMapForPVCImporter().Name
 
 	return service.NewPVCRegistryImportSource(url, secretName, certConfigMapName)
 }

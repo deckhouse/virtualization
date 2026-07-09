@@ -25,20 +25,20 @@ import (
 )
 
 const (
-	tplCommon                   = "d8v-%s-%s-%s"
-	tplDVCRAuthSecret           = "d8v-%s-dvcr-auth-%s-%s"
-	tplDVCRAuthSecretForDV      = "d8v-%s-dvcr-auth-dv-%s-%s"
-	tplDVCRCABundle             = "d8v-%s-dvcr-ca-%s-%s"
-	tplCABundle                 = "d8v-%s-ca-%s-%s"
-	tplImagePullSecret          = "d8v-%s-pull-image-%s-%s"
-	tplImporterPod              = "d8v-%s-importer-%s"
-	tplPVCImporterPod           = "d8v-%s-pvc-importer-%s"
-	tplPVCSourceImporterPod     = "d8v-%s-pvc-source-importer-%s"
-	tplPVCSourceImporterService = "d8v-%s-pvc-source-nbd-%s"
-	tplPVCTargetImporterPod     = "d8v-%s-pvc-target-importer-%s"
-	tplBounderPod               = "d8v-%s-bounder-%s-%s"
-	tplUploaderPod              = "d8v-%s-uploader-%s-%s"
-	tplUploaderTLSSecret        = "d8v-%s-tls-%s-%s"
+	tplCommon                       = "d8v-%s-%s-%s"
+	tplDVCRAuthSecret               = "d8v-%s-dvcr-auth-%s-%s"
+	tplDVCRAuthSecretForPVCImporter = "d8v-%s-dvcr-auth-dv-%s-%s"
+	tplDVCRCABundle                 = "d8v-%s-dvcr-ca-%s-%s"
+	tplCABundle                     = "d8v-%s-ca-%s-%s"
+	tplImagePullSecret              = "d8v-%s-pull-image-%s-%s"
+	tplImporterPod                  = "d8v-%s-importer-%s"
+	tplPVCImporterPod               = "d8v-%s-pvc-importer-%s"
+	tplPVCSourceImporterPod         = "d8v-%s-pvc-source-importer-%s"
+	tplPVCSourceImporterService     = "d8v-%s-pvc-source-nbd-%s"
+	tplPVCTargetImporterPod         = "d8v-%s-pvc-target-importer-%s"
+	tplBounderPod                   = "d8v-%s-bounder-%s-%s"
+	tplUploaderPod                  = "d8v-%s-uploader-%s-%s"
+	tplUploaderTLSSecret            = "d8v-%s-tls-%s-%s"
 )
 
 type Generator interface {
@@ -58,8 +58,8 @@ type Generator interface {
 	PersistentVolumeClaim() types.NamespacedName
 	CABundleConfigMap() types.NamespacedName
 	DVCRAuthSecret() types.NamespacedName
-	DVCRCABundleConfigMapForDV() types.NamespacedName
-	DVCRAuthSecretForDV() types.NamespacedName
+	DVCRCABundleConfigMapForPVCImporter() types.NamespacedName
+	DVCRAuthSecretForPVCImporter() types.NamespacedName
 	UploaderTLSSecretForIngress() types.NamespacedName
 	ImagePullSecret() types.NamespacedName
 	NetworkPolicy() types.NamespacedName
@@ -75,8 +75,8 @@ type Generator interface {
 	LegacyPersistentVolumeClaim() types.NamespacedName
 	LegacyCABundleConfigMap() types.NamespacedName
 	LegacyDVCRAuthSecret() types.NamespacedName
-	LegacyDVCRCABundleConfigMapForDV() types.NamespacedName
-	LegacyDVCRAuthSecretForDV() types.NamespacedName
+	LegacyDVCRCABundleConfigMapForPVCImporter() types.NamespacedName
+	LegacyDVCRAuthSecretForPVCImporter() types.NamespacedName
 	LegacyUploaderTLSSecretForIngress() types.NamespacedName
 	LegacyImagePullSecret() types.NamespacedName
 }
@@ -124,13 +124,14 @@ func (g *generator) DVCRAuthSecret() types.NamespacedName {
 	return g.generateName(tplDVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
-// DVCRAuthSecretForDV returns name and namespace for CDI-compatible auth Secret copy.
-func (g *generator) DVCRAuthSecretForDV() types.NamespacedName {
-	return g.generateName(tplDVCRAuthSecretForDV, kvalidation.DNS1123SubdomainMaxLength)
+// DVCRAuthSecretForPVCImporter returns name and namespace for the auth Secret
+// copy consumed by the pvc-importer (Opaque accessKeyId/secretKey format).
+func (g *generator) DVCRAuthSecretForPVCImporter() types.NamespacedName {
+	return g.generateName(tplDVCRAuthSecretForPVCImporter, kvalidation.DNS1123SubdomainMaxLength)
 }
 
-// DVCRCABundleConfigMapForDV returns name and namespace for ConfigMap with ca.crt.
-func (g *generator) DVCRCABundleConfigMapForDV() types.NamespacedName {
+// DVCRCABundleConfigMapForPVCImporter returns name and namespace for ConfigMap with ca.crt.
+func (g *generator) DVCRCABundleConfigMapForPVCImporter() types.NamespacedName {
 	return g.generateName(tplDVCRCABundle, kvalidation.DNS1123SubdomainMaxLength)
 }
 
@@ -250,14 +251,14 @@ func (g *generator) LegacyDVCRAuthSecret() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
-// LegacyDVCRAuthSecretForDV returns old format name for CDI-compatible auth Secret copy.
-func (g *generator) LegacyDVCRAuthSecretForDV() types.NamespacedName {
+// LegacyDVCRAuthSecretForPVCImporter returns old format name for the pvc-importer auth Secret copy.
+func (g *generator) LegacyDVCRAuthSecretForPVCImporter() types.NamespacedName {
 	name := fmt.Sprintf("%s-dvcr-auth-dv-%s", g.prefix, g.name)
 	return g.shortenNamespaced(name)
 }
 
-// LegacyDVCRCABundleConfigMapForDV returns old format name for ConfigMap with ca.crt.
-func (g *generator) LegacyDVCRCABundleConfigMapForDV() types.NamespacedName {
+// LegacyDVCRCABundleConfigMapForPVCImporter returns old format name for ConfigMap with ca.crt.
+func (g *generator) LegacyDVCRCABundleConfigMapForPVCImporter() types.NamespacedName {
 	name := fmt.Sprintf("%s-dvcr-ca-dv-%s", g.prefix, g.name)
 	return g.shortenNamespaced(name)
 }

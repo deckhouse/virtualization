@@ -412,7 +412,7 @@ func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *core
 	if source != nil && source.Registry != nil && source.Registry.URL != "" {
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
-				Destination:    supGen.DVCRAuthSecretForDV(),
+				Destination:    supGen.DVCRAuthSecretForPVCImporter(),
 				OwnerReference: ownerRef,
 			},
 		}
@@ -428,7 +428,7 @@ func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *core
 				Name:      s.dvcrSettings.CertsSecret,
 				Namespace: s.dvcrSettings.CertsSecretNamespace,
 			},
-			Destination:    supGen.DVCRCABundleConfigMapForDV(),
+			Destination:    supGen.DVCRCABundleConfigMapForPVCImporter(),
 			OwnerReference: ownerRef,
 		}
 		if err := caBundleCopier.Copy(ctx, s.client); err != nil {

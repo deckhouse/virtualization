@@ -43,12 +43,12 @@ const (
 	SupplementPVC SupplementType = "PersistentVolumeClaim"
 
 	// ConfigMaps/Secrets
-	SupplementDVCRAuthSecret        SupplementType = "DVCRAuthSecret"
-	SupplementDVCRAuthSecretForDV   SupplementType = "DVCRAuthSecretForDV"
-	SupplementDVCRCABundleConfigMap SupplementType = "DVCRCABundleConfigMapForDV"
-	SupplementCABundleConfigMap     SupplementType = "CABundleConfigMap"
-	SupplementImagePullSecret       SupplementType = "ImagePullSecret"
-	SupplementUploaderTLSSecret     SupplementType = "UploaderTLSSecret"
+	SupplementDVCRAuthSecret               SupplementType = "DVCRAuthSecret"
+	SupplementDVCRAuthSecretForPVCImporter SupplementType = "DVCRAuthSecretForPVCImporter"
+	SupplementDVCRCABundleConfigMap        SupplementType = "DVCRCABundleConfigMapForPVCImporter"
+	SupplementCABundleConfigMap            SupplementType = "CABundleConfigMap"
+	SupplementImagePullSecret              SupplementType = "ImagePullSecret"
+	SupplementUploaderTLSSecret            SupplementType = "UploaderTLSSecret"
 )
 
 // GetSupplementName returns the name for the requested supplement type
@@ -75,10 +75,10 @@ func GetSupplementName(gen Generator, supplementType SupplementType) (types.Name
 	// ConfigMaps/Secrets
 	case SupplementDVCRAuthSecret:
 		return gen.DVCRAuthSecret(), nil
-	case SupplementDVCRAuthSecretForDV:
-		return gen.DVCRAuthSecretForDV(), nil
+	case SupplementDVCRAuthSecretForPVCImporter:
+		return gen.DVCRAuthSecretForPVCImporter(), nil
 	case SupplementDVCRCABundleConfigMap:
-		return gen.DVCRCABundleConfigMapForDV(), nil
+		return gen.DVCRCABundleConfigMapForPVCImporter(), nil
 	case SupplementCABundleConfigMap:
 		return gen.CABundleConfigMap(), nil
 	case SupplementImagePullSecret:
@@ -115,10 +115,10 @@ func GetLegacySupplementName(gen Generator, supplementType SupplementType) (type
 	// ConfigMaps/Secrets
 	case SupplementDVCRAuthSecret:
 		return gen.LegacyDVCRAuthSecret(), nil
-	case SupplementDVCRAuthSecretForDV:
-		return gen.LegacyDVCRAuthSecretForDV(), nil
+	case SupplementDVCRAuthSecretForPVCImporter:
+		return gen.LegacyDVCRAuthSecretForPVCImporter(), nil
 	case SupplementDVCRCABundleConfigMap:
-		return gen.LegacyDVCRCABundleConfigMapForDV(), nil
+		return gen.LegacyDVCRCABundleConfigMapForPVCImporter(), nil
 	case SupplementCABundleConfigMap:
 		return gen.LegacyCABundleConfigMap(), nil
 	case SupplementImagePullSecret:

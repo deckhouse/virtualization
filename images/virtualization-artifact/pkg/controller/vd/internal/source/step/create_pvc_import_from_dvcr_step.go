@@ -134,8 +134,8 @@ func BuildDVCRPVCImportSource(vd *v1alpha2.VirtualDisk, dvcrImageName string) *s
 	supgen := vdsupplements.NewGenerator(vd)
 
 	url := common.DockerRegistrySchemePrefix + dvcrImageName
-	secretName := supgen.DVCRAuthSecretForDV().Name
-	certConfigMapName := supgen.DVCRCABundleConfigMapForDV().Name
+	secretName := supgen.DVCRAuthSecretForPVCImporter().Name
+	certConfigMapName := supgen.DVCRCABundleConfigMapForPVCImporter().Name
 
 	return service.NewPVCRegistryImportSource(url, secretName, certConfigMapName)
 }
