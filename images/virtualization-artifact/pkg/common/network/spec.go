@@ -68,7 +68,7 @@ func createMainInterfaceSpec(net v1alpha2.NetworksSpec) InterfaceSpec {
 }
 
 func createAdditionalInterfaceSpec(net v1alpha2.NetworksSpec, mac string) InterfaceSpec {
-	return InterfaceSpec{
+	spec := InterfaceSpec{
 		ID:            ptr.Deref(net.ID, 0),
 		Type:          net.Type,
 		Name:          net.Name,
@@ -77,6 +77,10 @@ func createAdditionalInterfaceSpec(net v1alpha2.NetworksSpec, mac string) Interf
 		UID:           deckhouseUID,
 		GID:           deckhouseUID,
 	}
+	if net.IPAddressName != "" {
+		spec.IPAddressNames = []string{net.IPAddressName}
+	}
+	return spec
 }
 
 func generateInterfaceName(macAddress, networkType string) string {

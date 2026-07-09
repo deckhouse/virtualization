@@ -91,3 +91,47 @@ func isReadyTrue(obj *unstructured.Unstructured) (bool, error) {
 	}
 	return false, nil
 }
+
+// HasIPAM reports whether the referenced additional network has IPAM configured,
+// i.e. a pool bound to it via spec.ipam.ipAddressPoolRef.
+// Returns false for the Main network (no IPAM via SDN).
+func HasIPAM(ctx context.Context, c client.Client, namespace string, ns v1alpha2.NetworksSpec) (bool, error) {
+	if ns.Type == v1alpha2.NetworksTypeMain {
+		return false, nil
+	}
+	obj := &unstructured.Unstructured{}
+	key := types.NamespacedName{Name: ns.Name}
+	switch ns.Type {
+	case v1alpha2.NetworksTypeClusterNetwork:
+		obj.SetGroupVersionKind(ClusterNetworkGVK)
+	case v1alpha2.NetworksTypeNetwork:
+		obj.SetGroupVersionKind(NetworkGVK)
+		key.Namespace = namespace
+	default:
+		return false, nil
+	}
+	if err := c.Get(ctx, key, obj); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return hasIPAddressPoolRef(obj)
+}
+
+// hasIPAddressPoolRef reports whether the network object has spec.ipam.ipAddressPoolRef set.
+// The pool is considered configured if the ipAddressPoolRef object is present and has a name.
+func hasIPAddressPoolRef(obj *unstructured.Unstructured) (bool, error) {
+	poolRef, found, err := unstructured.NestedMap(obj.Object, "spec", "ipam", "ipAddressPoolRef")
+	if err != nil {
+		return false, fmt.Errorf("read spec.ipam.ipAddressPoolRef of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
+	}
+	if !found {
+		return false, nil
+	}
+	name, _, err := unstructured.NestedString(poolRef, "name")
+	if err != nil {
+		return false, fmt.Errorf("read spec.ipam.ipAddressPoolRef.name of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
+	}
+	return name != "", nil
+}

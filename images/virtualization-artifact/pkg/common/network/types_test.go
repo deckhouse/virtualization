@@ -66,5 +66,28 @@ var _ = Describe("Network types helpers", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(out).To(Equal(`[{"id":2,"type":"Network","name":"n1","ifName":"veth_n12345678","uid":0,"gid":0}]`))
 		})
+
+		It("should include ipAssignmentMode and ipAddressNames when set", func() {
+			list := InterfaceSpecList{
+				{ID: 1, Type: v1alpha2.NetworksTypeMain, Name: "main", InterfaceName: NameDefaultInterface},
+				{ID: 2, Type: v1alpha2.NetworksTypeNetwork, Name: "n1", InterfaceName: "veth_n1", IPAssignmentMode: IPAssignmentModeDHCP, IPAddressNames: []string{"my-ip"}},
+			}
+
+			out, err := list.ToString()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(`[{"id":2,"type":"Network","name":"n1","ifName":"veth_n1","uid":0,"gid":0,"ipAssignmentMode":"DHCP","ipAddressNames":["my-ip"]}]`))
+		})
+
+		It("should omit ipAssignmentMode and ipAddressNames when empty", func() {
+			list := InterfaceSpecList{
+				{ID: 2, Type: v1alpha2.NetworksTypeNetwork, Name: "n1", InterfaceName: "veth_n1"},
+			}
+
+			out, err := list.ToString()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal(`[{"id":2,"type":"Network","name":"n1","ifName":"veth_n1","uid":0,"gid":0}]`))
+		})
 	})
 })
