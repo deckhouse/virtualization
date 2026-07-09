@@ -28,6 +28,7 @@ const (
 // Represents a USB device available for attachment to virtual machines in a given namespace.
 // +genclient
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: USBDevice, metadata: {name: example-usb}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={usb},singular=usbdevice
 // +kubebuilder:subresource:status

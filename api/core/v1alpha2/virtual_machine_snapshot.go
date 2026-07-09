@@ -30,6 +30,7 @@ const (
 // VirtualMachineSnapshot provides a resource for creating snapshots of virtual machines.
 //
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: VirtualMachineSnapshot, metadata: {name: example-vm-snapshot}, spec: {keepIPAddress: Never, requiredConsistency: true, virtualMachineName: example-vm}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmsnapshot,vms},singular=virtualmachinesnapshot
