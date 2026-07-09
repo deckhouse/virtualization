@@ -109,6 +109,18 @@ rules:
   resources:
   - nodes
   verbs:
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - network.deckhouse.io
+  resources:
+  - systemnetworks
+  - systemnetworknodenetworkinterfaceattachments
+  - nodenetworkinterfaces
+  verbs:
+  - get
   - list
   - watch
 - apiGroups:

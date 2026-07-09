@@ -46,6 +46,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/migrationiface"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
@@ -100,6 +101,8 @@ const (
 
 	SdnEnabledEnv  = "SDN_ENABLED"
 	clusterUUIDEnv = "CLUSTER_UUID"
+
+	migrationSystemNetworkNameEnv = "MIGRATION_SYSTEM_NETWORK_NAME"
 )
 
 func main() {
@@ -273,6 +276,11 @@ func main() {
 			BindAddress: metricsBindAddr,
 		},
 		HealthProbeBindAddress: healthProbeBindAddr,
+		// Route unstructured reads through the cache so field-index lookups are served locally
+		// instead of hitting the apiserver.
+		Client: client.Options{
+			Cache: &client.CacheOptions{Unstructured: true},
+		},
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
@@ -428,6 +436,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	migrationIfaceLogger := logger.NewControllerLogger(migrationiface.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = migrationiface.NewController(ctx, mgr, migrationIfaceLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	resourceSliceLogger := logger.NewControllerLogger(resourceslice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = resourceslice.NewController(ctx, mgr, resourceSliceLogger); err != nil {
 		log.Error(err.Error())
@@ -453,7 +467,7 @@ func main() {
 	}
 
 	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmop.SetupController(ctx, mgr, vmopLogger); err != nil {
+	if err = vmop.SetupController(ctx, mgr, vmopLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
