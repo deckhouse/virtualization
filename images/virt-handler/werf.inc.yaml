@@ -32,6 +32,12 @@ import:
   includePaths:
   - .version
 - image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-binaries/network-bpf-bridge-binding-assets/
+  to: /usr/share/network-bpf-bridge-binding
+  after: install
+  includePaths:
+  - bpf_bridge.o
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt/cmd/{{ .ImageName }}/
   to: /etc
   after: install

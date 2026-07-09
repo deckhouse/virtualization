@@ -39,6 +39,11 @@ spec:
       {{- end }}
     evictionStrategy: LiveMigrate
     vmRolloutStrategy: LiveUpdate
+    network:
+      binding:
+        bpfbridge:
+          domainAttachmentType: tap
+          migration: {}
     developerConfiguration:
       logVerbosity:
         virtLauncher: {{ $logVerbosity }}
