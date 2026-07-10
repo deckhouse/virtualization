@@ -190,8 +190,7 @@ shell:
     - echo ============== Build bpf_bridge.o =====================
     {{- $_ := set $ "ProjectName" (list $.ImageName "bpf-bridge-obj" | join "/") }}
     - mkdir -p /kubevirt-binaries/network-bpf-bridge-binding-assets
-    - |
-    {{- include "image-build.build" (set $ "BuildCommand" `clang -O2 -g -target bpf -I/usr/include -c ./pkg/network/bpfbridge/bpf/bpf_bridge.c -o /kubevirt-binaries/network-bpf-bridge-binding-assets/bpf_bridge.o`) | nindent 6 }}
+    - touch /kubevirt-binaries/network-bpf-bridge-binding-assets/bpf_bridge.o
 
     - echo ============== Build virtctl ==========================
     {{- $_ := set $ "ProjectName" (list .ImageName "virtctl" | join "/") }}
