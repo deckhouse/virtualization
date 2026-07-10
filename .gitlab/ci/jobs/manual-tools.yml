@@ -34,12 +34,32 @@ mrs:summary:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh node npm
-    - corepack enable || true
-    - cd .gitlab/scripts/js
-    - npm ci --omit=dev || npm install --omit=dev
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker
   script:
-    - node mrs_notifier.mjs
+    - |
+      set -e
+      # The shell runner host has no Node.js (see test:scripts:js and
+      # variables.yml NODE_VERSION), so run the notifier inside
+      # node:${NODE_VERSION}. The repo is mounted read-only and copied to an
+      # ephemeral tmpdir so npm's node_modules never lands in the shared
+      # shell-executor workspace (root-owned files there break git clean).
+      # Runtime env is forwarded with -e; the container has outbound network
+      # for the GitLab API and the Loop webhook.
+      docker run --rm --platform linux/amd64 \
+        -v "${PWD}:/src:ro" \
+        -u "$(id -u):$(id -g)" \
+        -e HOME=/tmp \
+        -e CI_API_V4_URL -e CI_PROJECT_ID -e GITLAB_API_TOKEN \
+        -e LOOP_WEBHOOK_URL -e DOC_REVIEWER -e MANAGER_LOOP_NAME \
+        node:${NODE_VERSION} \
+        sh -c '
+          set -e
+          work="$(mktemp -d)"
+          cp -a /src/.gitlab/scripts/js/. "$work"/
+          cd "$work"
+          npm ci --omit=dev --no-audit --no-fund --cache /tmp/.npm
+          node mrs_notifier.mjs
+        '
   rules:
     # Manual trigger from "Run pipeline" UI.
     - if: $CI_PIPELINE_SOURCE == "web"
