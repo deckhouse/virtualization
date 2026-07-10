@@ -286,12 +286,13 @@ func main() {
 		managerOpts.PprofBindAddress = pprofBindAddr
 	}
 
+	virtualMachineCIDRs := make([]string, 0)
 	vmCIDRsRaw := os.Getenv(virtualMachineCIDRsEnv)
 	if vmCIDRsRaw == "" {
-		log.Error("Failed to get virtualMachineCIDRs: virtualMachineCIDRs not found, but required")
-		os.Exit(1)
+		log.Warn("virtualMachineCIDRs not found: IPAM operations are reduced: 'Main' network is forbidden, VMIP resources are forbidden")
+	} else {
+		virtualMachineCIDRs = strings.Split(vmCIDRsRaw, ",")
 	}
-	virtualMachineCIDRs := strings.Split(vmCIDRsRaw, ",")
 
 	virtualMachineIPLeasesRetentionDuration := os.Getenv(virtualMachineIPLeasesRetentionDurationEnv)
 	if virtualMachineIPLeasesRetentionDuration == "" {
