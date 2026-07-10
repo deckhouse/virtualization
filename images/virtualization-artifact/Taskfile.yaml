@@ -174,7 +174,7 @@ tasks:
                   "readinessProbe": null,
                   "livenessProbe": null,
                   "command": null,
-                  "args": [ "--leader-election=false" ]
+                  "env": [ { "name": "LEADER_ELECTION", "value": "false" } ]
                 },
                 {
                   "name": "proxy",

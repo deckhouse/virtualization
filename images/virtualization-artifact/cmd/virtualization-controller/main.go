@@ -98,6 +98,7 @@ const (
 	FirmwareImageEnv         = "FIRMWARE_IMAGE"
 	VirtControllerNameEnv    = "VIRT_CONTROLLER_NAME"
 	DisableFirmwareUpdateEnv = "DISABLE_FIRMWARE_UPDATE"
+	LeaderElectionEnv        = "LEADER_ELECTION"
 
 	SdnEnabledEnv  = "SDN_ENABLED"
 	clusterUUIDEnv = "CLUSTER_UUID"
@@ -159,8 +160,15 @@ func main() {
 	}
 	pflag.BoolVar(&disableFirmwareUpdate, "disable-firmware-update", disableFirmwareUpdate, "disable automatic firmware update migrations")
 
-	var leaderElection bool
-	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
+	leaderElection := true
+	if raw := os.Getenv(LeaderElectionEnv); raw != "" {
+		leaderElection, err = strconv.ParseBool(raw)
+		if err != nil {
+			slog.Default().Error(err.Error())
+			os.Exit(1)
+		}
+	}
+	pflag.BoolVar(&leaderElection, "leader-election", leaderElection, "Leader election")
 
 	pflag.NewFlagSet("feature-gates", pflag.ExitOnError)
 	featuregates.AddFlags(pflag.CommandLine)
