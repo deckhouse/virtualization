@@ -63,48 +63,6 @@ function push {
     docker push "${IMAGE}"
 }
 
-# shellcheck disable=SC2120
-function print_patches_controller {
-    local deployment=$1
-
-    cat <<EOF
-
-Run commands:
-kubectl -n d8-virtualization scale deployment ${deployment} --replicas 1
-kubectl -n d8-virtualization patch deployment ${deployment} --type='strategic' -p '{
-    "spec": {
-        "template": {
-            "spec": {
-                "containers": [
-                    {
-                        "name": "${deployment}",
-                        "image": "${IMAGE}",
-                        "ports": [{"containerPort": 2345, "name": "dlv"}],
-                        "readinessProbe": null,
-                        "livenessProbe": null,
-                        "command": null,
-                        "args": []
-                    },
-                    {
-                        "name": "proxy",
-                        "readinessProbe": null,
-                        "livenessProbe": null
-                    },
-                    {
-                        "name": "kube-rbac-proxy",
-                        "readinessProbe": null,
-                        "livenessProbe": null
-                    }
-                ]
-            }
-        }
-    }
-}'
-kubectl -n d8-virtualization port-forward deployments/${deployment} 2345:2345
-
-EOF
-}
-
 DIR="$(dirname "$0")"
 ROOT="${DIR}/../../../"
 cd "$ROOT"
@@ -147,19 +105,15 @@ case "$CMD" in
         echo "Built image ${IMAGE} successfully."
         ;;
     "push")
-        deployment=""
         case "$NAME" in
             "controller")
                 build_controller
-                deployment="virtualization-controller"
                 ;;
             "apiserver")
                 build_apiserver
-                deployment="virtualization-api"
                 ;;
             "audit")
                 build_audit
-                deployment="virtualization-audit"
                 ;;
             *)
                 usage_exit 1
@@ -168,7 +122,6 @@ case "$CMD" in
         echo "Built image ${IMAGE} successfully."
         push
         echo "Push image ${IMAGE} successfully."
-        print_patches_controller "${deployment}"
         ;;
     *)
         usage_exit 1
