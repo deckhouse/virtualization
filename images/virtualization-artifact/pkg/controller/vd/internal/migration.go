@@ -200,6 +200,29 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 }
 
 func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, log *slog.Logger) (action, error) {
+	// DEBUG(volmig-restart): diagnose revert-vs-complete decision under RestartRequired.
+	{
+		migDbg, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+		var vmMigResult, vmMigStart, vmMigEnd string
+		if vm.Status.MigrationState != nil {
+			vmMigResult = string(vm.Status.MigrationState.Result)
+			if vm.Status.MigrationState.StartTimestamp != nil {
+				vmMigStart = vm.Status.MigrationState.StartTimestamp.String()
+			}
+			vmMigEnd = vm.Status.MigrationState.EndTimestamp.String()
+		}
+		log.Info("DEBUG volmig-restart action inputs",
+			slog.Bool("migrationsMatched", isMigrationsMatched(vm, vd)),
+			slog.Bool("vmMigStateNil", vm.Status.MigrationState == nil),
+			slog.String("vmMigResult", vmMigResult),
+			slog.String("vmMigStart", vmMigStart),
+			slog.String("vmMigEnd", vmMigEnd),
+			slog.String("vdMigStart", vd.Status.MigrationState.StartTimestamp.String()),
+			slog.String("migratingReason", migDbg.Reason),
+			slog.String("migratingStatus", string(migDbg.Status)),
+		)
+	}
+
 	// If VirtualMachine is not running, we can't migrate it. Should be reverted.
 	running, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
 	if running.Status != metav1.ConditionTrue {
