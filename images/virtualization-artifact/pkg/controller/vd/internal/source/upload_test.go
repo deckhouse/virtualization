@@ -136,12 +136,17 @@ var _ = Describe("UploadDataSource", func() {
 		}
 
 		uploaderSvc = &UploadDataSourceUploaderServiceMock{
-			GetPodFunc:          func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
-			GetServiceFunc:      func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
-			GetIngressFunc:      func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return nil, nil },
-			CleanUpFunc:         func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
-			GetExternalURLFunc:  func(_ context.Context, _ *netv1.Ingress) string { return "https://upload.example.com" },
-			GetInClusterURLFunc: func(_ context.Context, _ *corev1.Service) string { return "http://upload.svc/upload" },
+			GetPodFunc:              func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
+			GetServiceFunc:          func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
+			GetIngressFunc:          func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return nil, nil },
+			CleanUpFunc:             func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			GetExternalURLFunc:      func(_ context.Context, _ *netv1.Ingress) string { return "https://upload.example.com" },
+			GetInClusterURLFunc:     func(_ context.Context, _ *corev1.Service) string { return "http://upload.svc/upload" },
+			IngressHostDriftedFunc:  func(_ *netv1.Ingress) bool { return false },
+			ExpectedIngressHostFunc: func() string { return "upload.example.com" },
+			EnsureIngressFunc: func(_ context.Context, _ client.Object, _ supplements.Generator) (*netv1.Ingress, error) {
+				return nil, nil
+			},
 		}
 
 		stat = &UploadDataSourceStatServiceMock{
@@ -252,6 +257,20 @@ var _ = Describe("UploadDataSource", func() {
 		It("reports Provisioning while the uploader is not yet ready", func() {
 			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
 				return false, nil
+			}
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+			res, err := newSyncer(cl).Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.RequeueAfter).ToNot(BeZero())
+
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
+		})
+
+		It("treats a readiness probe error as not-ready instead of failing the reconcile", func() {
+			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+				return false, errors.New("tls handshake failed")
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()

@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -108,7 +109,11 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 
 	isUploaderReady, err := s.stat.IsUploaderReady(s.pod, s.svc, s.ing, tlsSecret)
 	if err != nil {
-		return nil, fmt.Errorf("check uploader readiness: %w", err)
+		// A probe error means the public upload endpoint is not reachable yet
+		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
+		// keep retrying instead of failing the reconcile with an empty status.
+		logger.FromContext(ctx).Error("Uploader readiness probe failed; treating uploader as not ready", "err", err)
+		isUploaderReady = false
 	}
 
 	if isUploaderReady {

@@ -544,7 +544,11 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		}
 	}
 
-	if existingBus := b.getExistingDiskBus(name); existingBus != "" {
+	// Buses used by presets always follow the current paravirtualization mode,
+	// so flipping enableParavirtualization moves devices to the new preset bus
+	// on the restart it already requires. A bus outside the presets (e.g. usb)
+	// was chosen deliberately for a hot-plugged device — keep it.
+	if existingBus := b.getExistingDiskBus(name); existingBus != "" && !DeviceOptionsPresets.HasBus(existingBus) {
 		if opts.IsCdrom {
 			dd.CDRom.Bus = existingBus
 		} else {

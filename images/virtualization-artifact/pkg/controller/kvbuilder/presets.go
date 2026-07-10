@@ -41,6 +41,15 @@ func (l DeviceOptionsList) Find(enableParavirtualization bool) DeviceOptions {
 	panic(fmt.Sprintf("cannot find preset for enableParavirtualization=%v", enableParavirtualization))
 }
 
+func (l DeviceOptionsList) HasBus(bus virtv1.DiskBus) bool {
+	for _, opts := range l {
+		if bus == opts.DiskBus || bus == opts.CdromBus {
+			return true
+		}
+	}
+	return false
+}
+
 var DeviceOptionsPresets DeviceOptionsList = []DeviceOptions{
 	{
 		EnableParavirtualization: true,

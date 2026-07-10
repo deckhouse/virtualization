@@ -27,6 +27,7 @@ const (
 // Disks are always attached using the SCSI bus, regardless of the enableParavirtualization setting.
 //
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: VirtualMachineBlockDeviceAttachment, metadata: {name: attach-example-data-disk}, spec: {blockDeviceRef: {kind: VirtualDisk, name: example-data-disk}, virtualMachineName: example-vm}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmbda},singular=virtualmachineblockdeviceattachment
