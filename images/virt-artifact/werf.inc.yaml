@@ -28,6 +28,8 @@ altPackages:
 - pkg-config
 - libtool
 - gcc-c++
+- clang
+- libbpf-devel
 packages:
 - libmnl
 - ncurses
@@ -113,6 +115,7 @@ shell:
     - export GOOS=linux
     - export GOARCH=amd64
     - export CGO_ENABLED=0
+    - export BPF_CLANG=clang
 
     - echo ============== Build container-disk ===================
     {{- $_ := set $ "ProjectName" (list .ImageName "container-disk" | join "/") }}
@@ -200,6 +203,12 @@ shell:
     {{- $_ := set $ "ProjectName" (list .ImageName "sidecars" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/`) | nindent 6 }}
+
+    - echo ============== Build bpf_bridge.o =====================
+    {{- $_ := set $ "ProjectName" (list $.ImageName "bpf-bridge-obj" | join "/") }}
+    - mkdir -p /kubevirt-binaries/network-bpf-bridge-binding-assets
+    - |
+    {{- include "image-build.build" (set $ "BuildCommand" `clang -O2 -g -target bpf -I/usr/include -c ./pkg/network/bpfbridge/bpf/bpf_bridge.c -o /kubevirt-binaries/network-bpf-bridge-binding-assets/bpf_bridge.o`) | nindent 6 }}
 
     - echo ============== Build virtctl ==========================
     {{- $_ := set $ "ProjectName" (list .ImageName "virtctl" | join "/") }}
