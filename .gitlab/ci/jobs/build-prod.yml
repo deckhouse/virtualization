@@ -36,6 +36,13 @@ build_prod:
   stage: build
   resource_group: prod
   # interruptible: false is inherited from .prod_vars (via .prod_always).
+  # needs: [] opts into DAG mode with NO dependencies so build_prod does not
+  # inherit prior-stage dotenv. On a vX.Y.Z tag, set_vars (info stage) emits
+  # MODULE_EDITION=EE, and a dotenv var overrides variables: set in YAML —
+  # including the parallel:matrix. Without this, the ce leg's MODULE_EDITION: CE
+  # is clobbered to EE and the ce prod image is built as EE. build_prod needs no
+  # data from the tag pipeline; all its vars come from .prod_tag + the matrix.
+  needs: []
   extends:
     - .base_build
     - .prod_always
