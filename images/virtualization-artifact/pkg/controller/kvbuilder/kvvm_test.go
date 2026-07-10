@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
@@ -249,6 +250,71 @@ func TestSetOsType(t *testing.T) {
 
 		if builder.Resource.Spec.Template.Spec.Domain.Devices.TPM != nil {
 			t.Error("TPM should be removed after changing from Windows to Generic OS")
+		}
+	})
+}
+
+func TestSetDiskBusFollowsParavirtualizationFlip(t *testing.T) {
+	getBus := func(b *KVVM, name string) virtv1.DiskBus {
+		return b.getExistingDiskBus(name)
+	}
+
+	t.Run("new devices get preset bus", func(t *testing.T) {
+		b := newTestKVVM()
+		if err := b.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		if err := b.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		if bus := getBus(b, "cdrom"); bus != virtv1.DiskBusSCSI {
+			t.Errorf("expected scsi cdrom bus, got %q", bus)
+		}
+		if bus := getBus(b, "disk"); bus != virtv1.DiskBusSCSI {
+			t.Errorf("expected scsi disk bus, got %q", bus)
+		}
+	})
+
+	t.Run("non-preset bus is preserved", func(t *testing.T) {
+		b := newTestKVVM()
+		if err := b.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		b.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].CDRom.Bus = virtv1.DiskBusUSB
+		if err := b.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		if bus := getBus(b, "cdrom"); bus != virtv1.DiskBusUSB {
+			t.Errorf("expected usb bus preserved, got %q", bus)
+		}
+	})
+
+	t.Run("opposite preset bus is replaced on paravirtualization flip", func(t *testing.T) {
+		old := NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{
+			EnableParavirtualization: false,
+		})
+		if err := old.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		if err := old.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		if bus := getBus(old, "cdrom"); bus != virtv1.DiskBusSATA {
+			t.Fatalf("expected sata cdrom bus before flip, got %q", bus)
+		}
+
+		flipped := NewKVVM(old.Resource, KVVMOptions{EnableParavirtualization: true})
+		if err := flipped.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		if err := flipped.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
+			t.Fatal(err)
+		}
+		if bus := getBus(flipped, "cdrom"); bus != virtv1.DiskBusSCSI {
+			t.Errorf("expected scsi cdrom bus after flip, got %q", bus)
+		}
+		if bus := getBus(flipped, "disk"); bus != virtv1.DiskBusSCSI {
+			t.Errorf("expected scsi disk bus after flip, got %q", bus)
 		}
 	})
 }
