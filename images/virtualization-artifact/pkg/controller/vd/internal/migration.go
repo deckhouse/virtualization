@@ -193,12 +193,18 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 
 		if disksShouldBeMigrating {
 			// Do not start a new volume migration while the compute migration of the
-			// current cycle is being finalized (its end timestamp is set but the
-			// migrating state has not been cleared yet). Starting a prepare here races
-			// with that finalization: it overwrites the disk migration timestamp,
-			// breaks isMigrationsMatched on the next reconcile and gets reverted.
-			if vm.Status.MigrationState != nil && !vm.Status.MigrationState.EndTimestamp.IsZero() {
-				log.Info("Compute migration is finalizing, skip starting a new volume migration.")
+			// CURRENT operation is being finalized. Starting a prepare here races with
+			// that finalization: it overwrites the disk migration timestamp, breaks
+			// isMigrationsMatched on the next reconcile and gets reverted. Compare the
+			// compute migration end time against the operation creation time so a stale
+			// MigrationState from a previous migration does not block a new operation.
+			vmop, err := h.getInProgressMigratingVMOP(ctx, vm)
+			if err != nil {
+				return none, err
+			}
+			if vmop != nil && vm.Status.MigrationState != nil && !vm.Status.MigrationState.EndTimestamp.IsZero() &&
+				vm.Status.MigrationState.EndTimestamp.After(vmop.CreationTimestamp.Time) {
+				log.Info("Compute migration of the current operation is finalizing, skip starting a new volume migration.")
 				return none, nil
 			}
 			return h.getActionIfDisksShouldBeMigrating(ctx, vd, log)
