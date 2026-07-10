@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -210,6 +211,58 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 			untilVirtualDisksMigrationsSucceeded(f)
 		}
+	})
+
+	It("should be successful when a restart is pending", func() {
+		ns := f.Namespace().Name
+
+		vm, vds := localMigrationRootAndAdditionalBuild()
+
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		f.DeferDelete(vm)
+
+		for _, vd := range vds {
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			f.DeferDelete(vd)
+		}
+
+		By("Wait until VM agent is ready")
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+
+		By("Applying a delayed configuration change to make the VM restart-required")
+		Eventually(func(g Gomega) {
+			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)).To(Succeed())
+			vm.Spec.TerminationGracePeriodSeconds = ptr.To(int64(11))
+			g.Expect(f.Clients.GenericClient().Update(ctx, vm)).To(Succeed())
+		}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+
+		By("Wait until the restart-required condition appears")
+		Eventually(func(g Gomega) {
+			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)).To(Succeed())
+			awaitRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+			g.Expect(awaitRestart.Status).To(Equal(metav1.ConditionTrue))
+		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+
+		const vmopName = "local-disks-migration-under-restart"
+
+		By("Starting migration while the restart is still pending")
+		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
+
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.EndTimestamp).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+
+		untilVirtualDisksMigrationsSucceeded(f)
+
+		By("Restart is still pending after migration: the delayed change was neither lost nor applied without a restart")
+		awaitRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+		Expect(awaitRestart.Status).To(Equal(metav1.ConditionTrue))
 	})
 
 	It("should be reverted first and completed second", func() {
