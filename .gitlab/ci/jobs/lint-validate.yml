@@ -281,15 +281,19 @@ lint:helm-templates:
 # any drift against origin/main (or the current branch base).
 # ---------------------------------------------------------------------------
 
-check:gens-files:
+# One job per component instead of a single parallel:matrix job. GitLab cannot
+# gate individual matrix legs with rules:changes, so a matrix job would run all
+# three legs on any matching change — pulling the heavy vm-route-forge bpf2go
+# leg (docker) even for an api-only change. Splitting mirrors the GitHub
+# per-component gating: each job runs only when its own paths change (the
+# vm-route-forge docker leg fires only on vm-route-forge changes).
+.gens_check:
   stage: lint
   before_script:
     # git is needed by check_diffs (git diff). go/task are host tools.
-    # docker is needed by the vm-route-forge matrix leg, which runs bpf2go
-    # inside the cilium/ebpf-builder image (the runner has no sudo to apt-get
-    # clang/llvm-strip). The other legs don't use docker but it must be
-    # present for the matrix job to start.
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git docker
+    # docker is checked inside the vm-route-forge branch, which is the only one
+    # that needs it (bpf2go runs in the cilium/ebpf-builder image).
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
     - |
       # `go install tool` (used by all components) puts binaries in
       # $(go env GOPATH)/bin, but the shell runner does not add that dir to
@@ -326,6 +330,7 @@ check:gens-files:
           check_diffs images/virtualization-artifact
           ;;
         vm-route-forge)
+          bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker
           # bpf2go (go tool github.com/cilium/ebpf/cmd/bpf2go) needs clang,
           # llvm-strip and the libbpf/kernel headers. The GitLab shell runner
           # has no sudo, so instead of apt-get (as the GH workflow did) run
@@ -362,9 +367,13 @@ check:gens-files:
         *)
           echo "Unknown COMPONENT: $COMPONENT"; exit 1 ;;
       esac
-  parallel:
-    matrix:
-      - COMPONENT: [virtualization-artifact, api, vm-route-forge]
+
+# virtualization-artifact generation (mocks, deepcopy) can depend on api types,
+# so it also runs on api/** changes.
+check:gens-files:virtualization-artifact:
+  extends: .gens_check
+  variables:
+    COMPONENT: virtualization-artifact
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -373,10 +382,33 @@ check:gens-files:
           - "images/virtualization-artifact/**/*"
           - "go.mod"
           - "go.sum"
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+
+check:gens-files:api:
+  extends: .gens_check
+  variables:
+    COMPONENT: api
+  rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         paths:
-          - "images/vm-route-forge/bpf/route_watcher.c"
+          - "api/**/*"
+          - "go.mod"
+          - "go.sum"
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+
+# The heavy leg: bpf2go regeneration inside docker. Gated on vm-route-forge
+# changes only, so an unrelated change no longer pulls it in.
+check:gens-files:vm-route-forge:
+  extends: .gens_check
+  variables:
+    COMPONENT: vm-route-forge
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
           - "images/vm-route-forge/**/*"
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: "$CI_COMMIT_BRANCH =~ /^release-/"
