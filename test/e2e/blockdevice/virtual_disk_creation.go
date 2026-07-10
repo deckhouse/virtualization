@@ -93,7 +93,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-http"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
+			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLCustomBIOS}),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
@@ -115,7 +115,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		var uploadFilePath string
 		By("Downloading source image to upload", func() {
 			var err error
-			uploadFilePath, err = downloadImageToTempFile(object.ImageURLAlpineBIOS)
+			uploadFilePath, err = downloadImageToTempFile(object.ImageURLCustomBIOS)
 			Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 			DeferCleanup(func() {
 				removeErr := os.Remove(uploadFilePath)
@@ -166,7 +166,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-registry"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, "", nil),
+			vdbuilder.WithDataSourceContainerImage(object.ImageURLCustomContainer, "", nil),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
@@ -181,7 +181,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 			// The source image type is incidental here (the scenario tests a VD from a
 			// VI on DVCR), so create the base image from a precreated ClusterVirtualImage.
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 		)
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
@@ -213,7 +213,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vibuilder.WithName("vi-source-pvc"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLCustomBIOS, nil, nil),
 		)
 		baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
@@ -299,7 +299,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-from-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
@@ -323,7 +323,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			// The boot disk is incidental here (the scenario tests the blank disk), so
 			// source it from a precreated ClusterVirtualImage instead of HTTP.
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
@@ -344,7 +344,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			baseVD := vdbuilder.New(
 				vdbuilder.WithName("vd-source-for-snapshot"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
+				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLCustomBIOS}),
 				vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				vdbuilder.WithStorageClass(scPtr),
 			)
@@ -678,6 +678,11 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 
 	vmOpts := []vmbuilder.Option{
 		vmbuilder.WithDisks(vds...),
+		// VirtualDiskCreation only needs the VM as a disk consumer with a live guest
+		// agent (it never logs in over SSH), so drop the default cloud-init
+		// provisioning: the custom e2e-br image has no cloud-init, and no user needs
+		// to be created for this test. This overrides NewMinimalVM's AlpineCloudInit.
+		vmbuilder.WithProvisioning(nil),
 	}
 	if node, ok := scenarioNode(f); ok {
 		// TODO: remove this test-level pin once local PVC/snapshot sources and
