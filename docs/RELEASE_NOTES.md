@@ -3,6 +3,72 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.10.0
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 10, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### New features
+
+- [vmop] Added the `Superseded` phase for [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources interrupted by a newer operation on the same VM.
+- [observability] Added security events for virtualization audit, covering module control, VM lifecycle and access, management operations, integrity checks, and forbidden operations.
+- [vi] Added automatic recovery of [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) from the `ImageLost` phase when the image reappears in DVCR, without re-importing the data.
+- [module] Removed CDI. Disks and images are now provisioned by the module's own importer and PVC populator, with live import progress in the resource status.
+- [vd] [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) names may now use the full Kubernetes name length instead of being limited to 60 characters.
+- [vi] [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) names may now use the full Kubernetes name length instead of being limited to 49 and 48 characters.
+- [dvcr] Added per-namespace authorization for DVCR that isolates container image access between namespaces.
+- [module] Added a limit on concurrent inbound live migrations per target node. Configurable via the `virtualization.deckhouse.io/parallel-inbound-migrations-per-node` annotation on the ModuleConfig of the `virtualization` module.
+- [network] Added Prometheus metrics for conntrack synchronization during live migration.
+- [network] Added the ability to route live migration traffic over a dedicated SystemNetwork via `liveMigration.network` in the ModuleConfig of the `virtualization` module.
+- [vm] Added the ability to change CPU and memory of a running VM via in-place resize without live migration. To enable this functionality, add `HotplugCPUAndMemoryWithInPlaceResize` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+- [vm] Switched VM networks to an eBPF datapath, providing more stable connectivity for additional networks with lower overhead.
+- [vmpool] Added the [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) resource (EE/SE+) for declarative group management of identical virtual machines. The pool is scalable via the standard `scale` subresource, HPA, and KEDA.
+
+### Fixes
+
+- [vm] Fixed VM reconcile failures while a hotplug image is being attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment), which could interrupt VM updates during the attach window.
+- [vm] Fixed flapping of the `VirtualMachineIPAddressReady` condition when the VM had no guest-agent IP.
+- [vmclass] Fixed stale CPU feature discovery for `cpu.type=Discovery`: features are now recomputed from current nodes on every reconcile, and `discovery.nodeSelector` no longer restricts VM scheduling. Also restored population of `status.cpuFeatures.notEnabledCommon` for the `Discovery` and `Features` types.
+- [vd] Fixed Upload-type [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) getting stuck in `Pending` when the shared upload host certificate becomes invalid, and restored automatic recovery when the upload host changes (for example after `publicDomainTemplate` is updated).
+- [vi] Fixed Upload-type [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) getting stuck in `Pending` when the shared upload host certificate becomes invalid.
+- [vi] Fixed the upload endpoint keeping the host from creation time instead of following `publicDomainTemplate` changes.
+- [module] Restricted unauthorized access to the virtualization USB/IP gateway port.
+- [vm] Fixed disks and CD-ROMs remaining on the SATA bus after enabling paravirtualization, which prevented unplugging ISO drives from a running VM. Devices now move to the `virtio-scsi` bus on the restart required by this change.
+- [vm] Fixed live migrations failing by target timeout while waiting for a free inbound migration slot.
+- [vm] Fixed a VM getting stuck until a child KVVMI in the `Failed` phase was deleted manually.
+- [vm] Fixed unclear errors when creating a VM without an explicit class and no default [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) is configured. The error message now states that a default class is missing.
+- [vm] Fixed an issue that prevented a VM from starting after a failed local-disk migration restart when `kvvmi` was already deleted and migrated volumes, including volumes attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment), had to be restored from target PVCs back to the current source PVCs.
+- [vm] Fixed a false reboot requirement for VMs with only the `Main` network caused by implicit default network template synchronization.
+- [vm] Fixed incomplete hotplug volume cleanup after migration target pod termination, which could leave stale volumes behind.
+- [vm] Fixed incomplete pod volume error diagnostics: handling now includes `FailedMapVolume` and surfaces more complete volume failure details.
+- [vm] Fixed CPU and memory hotplug updates failing when project quota cannot fit migration-time resources. Such changes now fall back to a restart.
+- [vmclass] Fixed [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) sizing policy validation: errors now report the total memory to set and the field to change instead of per-core values, and CPU cores step and minimum-only memory limits are now enforced.
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-25680
+  - CVE-2026-25681
+  - CVE-2026-27136
+  - CVE-2026-33814
+  - CVE-2026-39821
+  - CVE-2026-39827
+  - CVE-2026-39828
+  - CVE-2026-39829
+  - CVE-2026-39830
+  - CVE-2026-39832
+  - CVE-2026-39835
+  - CVE-2026-41579
+  - CVE-2026-42502
+  - CVE-2026-42506
+  - CVE-2026-42508
+  - CVE-2026-46595
+  - CVE-2026-46597
+  - CVE-2026-2303
+
 ## v1.9.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
