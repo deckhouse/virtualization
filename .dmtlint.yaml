@@ -52,6 +52,10 @@ linters-settings:
         - kind: Deployment
           name: dvcr
           container: dvcr-garbage-collection
+  no-cyrillic:
+    exclude-rules:
+      files:
+        - templates/security-events.yaml # Ru information for docs
   templates:
     exclude-rules:
       # These mount-points.yaml directories pre-create mount points for containerd strict mode.

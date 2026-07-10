@@ -101,6 +101,9 @@ func (m *VMAccess) Fill() error {
 
 	m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' connection has been %s via %s by '%s'", vm.Name, stage, m.event.ObjectRef.Subresource, m.event.User.Username)
 
+	m.eventLog.VirtualMachineName = vm.Name
+	m.eventLog.VirtualMachineNamespace = vm.Namespace
+
 	m.eventLog.QemuVersion = vm.Status.Versions.Qemu
 	m.eventLog.LibvirtVersion = vm.Status.Versions.Libvirt
 
