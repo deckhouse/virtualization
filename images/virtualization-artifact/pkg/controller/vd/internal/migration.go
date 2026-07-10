@@ -198,11 +198,11 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 			// finished, a new prepare would race with the operation finalization: it
 			// overwrites the disk migration timestamp, breaks isMigrationsMatched on
 			// the next reconcile and gets reverted.
-			vmop, err := h.getInProgressMigratingVMOP(ctx, vm)
+			waiting, err := h.migratingIsWaitingForDisks(ctx, vm)
 			if err != nil {
 				return none, err
 			}
-			if !migratingIsWaitingForDisks(vmop) {
+			if !waiting {
 				log.Info("Operation is not waiting for disks to migrate, skip starting a new volume migration.")
 				return none, nil
 			}
@@ -658,16 +658,20 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 	return nil, nil
 }
 
-// migratingIsWaitingForDisks reports whether the migrating operation is in the
-// phase where it waits for the disks to become ready to migrate. Only then a new
-// disk target should be prepared; later phases mean the compute migration has
-// already started or is being finalized.
-func migratingIsWaitingForDisks(vmop *v1alpha2.VirtualMachineOperation) bool {
+// migratingIsWaitingForDisks reports whether the in-progress migrating operation
+// is in the phase where it waits for the disks to become ready to migrate. Only
+// then a new disk target should be prepared; later phases mean the compute
+// migration has already started or is being finalized.
+func (h MigrationHandler) migratingIsWaitingForDisks(ctx context.Context, vm *v1alpha2.VirtualMachine) (bool, error) {
+	vmop, err := h.getInProgressMigratingVMOP(ctx, vm)
+	if err != nil {
+		return false, err
+	}
 	if vmop == nil {
-		return false
+		return false, nil
 	}
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	return completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()
+	return completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String(), nil
 }
 
 func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string, volumeMode corev1.PersistentVolumeMode, accessMode corev1.PersistentVolumeAccessMode) (*corev1.PersistentVolumeClaim, error) {
