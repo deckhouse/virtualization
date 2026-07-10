@@ -154,11 +154,6 @@ spec:
           metadata:
             description: |
               Allow read-write access to /var/run hostPath volume.
-        - path: /sys
-          readOnly: false
-          metadata:
-            description: |
-              Allow read-write access to /sys hostPath volume.
 {{- end }}
 
 ---
@@ -281,8 +276,6 @@ spec:
               mountPath: /var/lib/kubelet/plugins_registry
             - name: plugins
               mountPath: /var/lib/kubelet/plugins
-            - name: sys
-              mountPath: /sys
             - name: var-run
               mountPath: /var/run
       volumes:
@@ -297,9 +290,6 @@ spec:
         - name: plugins
           hostPath:
             path: /var/lib/kubelet/plugins
-        - name: sys
-          hostPath:
-            path: /sys
         - name: var-run
           hostPath:
             path: /var/run
