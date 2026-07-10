@@ -3,6 +3,16 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.9.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 10 июля 2026.
+</span>
+
+### Исправления
+
+- [observability] Исправлен сбой запуска сервера аудита, когда пути к TLS-сертификатам не передаются явно.
+
 ## v1.9.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">

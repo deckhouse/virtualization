@@ -3,6 +3,16 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 10, 2026.
+</span>
+
+### Fixes
+
+- [observability] Fixed an issue that prevented the audit server from starting when TLS certificate paths were not passed explicitly.
+
 ## v1.9.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
