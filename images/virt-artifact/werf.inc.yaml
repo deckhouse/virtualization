@@ -15,7 +15,7 @@ secrets:
 shell:
   install:
   - |
-    echo kek1
+    echo kek123
 
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
