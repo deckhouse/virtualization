@@ -33,6 +33,14 @@ func ErrQuotaExceeded(err error) bool {
 	return strings.Contains(err.Error(), "exceeded quota:")
 }
 
+// ErrNamespaceTerminating reports whether err is an admission rejection caused by the
+// target namespace being terminated (e.g. "unable to create new content in namespace X
+// because it is being terminated"). This is a transient, environment-driven condition
+// (the namespace and its resources are being torn down), not a controller failure.
+func ErrNamespaceTerminating(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "because it is being terminated")
+}
+
 func BoolFloat64(b bool) float64 {
 	if b {
 		return 1

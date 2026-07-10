@@ -113,6 +113,9 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 				}
 				return nil, nil
 			},
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
+			},
 		}
 		settings = &dvcr.Settings{}
 
@@ -125,6 +128,9 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "vs",
+				Annotations: map[string]string{
+					annotations.AnnStorageClassName: sc.Name,
+				},
 			},
 			Status: &vsv1.VolumeSnapshotStatus{
 				ReadyToUse: ptr.To(true),
@@ -189,7 +195,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			var pvcCreated bool
 
 			vi.Status = v1alpha2.VirtualImageStatus{}
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs, sc).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						switch obj.(type) {
@@ -200,6 +206,9 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 						return nil
 					},
 				}).Build()
+			diskService.PersistentVolumeClaimFunc = func() *service.PersistentVolumeClaimService {
+				return service.NewPersistentVolumeClaimService(client, nil, nil, service.DiskImporterConfig{})
+			}
 
 			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return nil, nil

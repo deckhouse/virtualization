@@ -808,7 +808,7 @@ The command includes only virtual machines with assigned IP addresses in the `Ru
 1. Optionally set host variables via annotations (for example, the SSH user):
 
    ```bash
-   d8 k -n demo-app annotate vm frontend provisioning.virtualization.deckhouse.io/ansible_user="cloud"
+   d8 k -n demo-app annotate vm frontend vars.provisioning.virtualization.deckhouse.io/ansible_user="cloud"
    ```
 
 1. Run Ansible with a dynamically generated inventory:

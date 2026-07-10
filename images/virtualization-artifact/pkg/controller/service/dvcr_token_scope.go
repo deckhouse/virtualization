@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -40,15 +38,6 @@ func importerTokenScope(s *dvcr.Settings, settings *importer.Settings) []registr
 // destination repository (an uploader has no DVCR source).
 func uploaderTokenScope(s *dvcr.Settings, settings *uploader.Settings) []registrytoken.Access {
 	return []registrytoken.Access{repoAccess(s.RepoPath(settings.DestinationEndpoint), "pull", "push")}
-}
-
-// dataVolumeTokenScope is the DVCR access a CDI DataVolume needs: pull-only on the
-// source repository it imports from (it writes to a PVC, not to DVCR).
-func dataVolumeTokenScope(s *dvcr.Settings, source *cdiv1.DataVolumeSource) []registrytoken.Access {
-	if source == nil || source.Registry == nil || source.Registry.URL == nil {
-		return nil
-	}
-	return []registrytoken.Access{repoAccess(s.RepoPath(*source.Registry.URL), "pull")}
 }
 
 func repoAccess(name string, actions ...string) registrytoken.Access {

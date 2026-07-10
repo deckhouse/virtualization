@@ -152,6 +152,8 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 	Expect(err).NotTo(HaveOccurred())
 	Expect(guestCPUCount).To(Equal(initialCores))
 
+	skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
+
 	By("Applying CPU core changes")
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
@@ -219,6 +221,10 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	initialNode, err := util.GetVMNode(ctx, t.Framework, t.VM)
 	Expect(err).NotTo(HaveOccurred())
 
+	if liveMigration {
+		skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
+	}
+
 	By("Applying CPU core changes")
 	patch, err := json.Marshal([]map[string]interface{}{{
 		"op":    "replace",
@@ -256,7 +262,7 @@ func (t *cpuHotplugTest) generateResources(vmName string, cores int, disableInPl
 func (t *cpuHotplugTest) generateResourcesWithRestartApproval(vmName string, cores int, disableInPlaceResize bool, restartApprovalMode v1alpha2.RestartApprovalMode) {
 	vdName := fmt.Sprintf("vd-%s-root", vmName)
 	t.VD = object.NewVDFromCVI(vdName, t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	opts := []vmbuilder.Option{

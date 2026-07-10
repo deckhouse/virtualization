@@ -13,25 +13,15 @@ linters-settings:
         - "spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.contentType"
   rbac:
     exclude-rules:
-      # We exclude RBAC rules for virt-operator and cdi-operator because they create ClusterRoles and ClusterRoleBindings with wildcards.
-      # If we remove wildcard, virt-operator and cdi-operator will be unable to create them, as they do not have wildcard permissions themselves.
+      # We exclude RBAC rules for virt-operator because it creates ClusterRoles and ClusterRoleBindings with wildcards.
+      # If we remove wildcard, virt-operator will be unable to create them, as it does not have wildcard permissions itself.
       wildcards:
         - kind: ClusterRole
           name: d8:virtualization:kubevirt-operator
-        - kind: ClusterRole
-          name: d8:containerized-data-importer:cdi-operator
 
-      # We exclude RBAC rules for CDI and Kubevirt resources because they are used by upstream deployments.
+      # We exclude RBAC rules for Kubevirt resources because they are used by upstream deployments.
       # Changing these rules will require patching upstream code.
       placement:
-        - kind: ClusterRoleBinding
-          name: d8:containerized-data-importer:cdi-operator
-        - kind: ServiceAccount
-          name: cdi-operator
-        - kind: Role
-          name: cdi-operator
-        - kind: RoleBinding
-          name: cdi-operator
         - kind: ServiceAccount
           name: kubevirt-operator
         - kind: Role
@@ -40,10 +30,7 @@ linters-settings:
           name: kubevirt-operator
         - kind: RoleBinding
           name: virt-operator
-        - kind: ClusterRole
-          name: d8:containerized-data-importer:cdi-operator
       binding-subject:
-        - cdi-sa
         - kubevirt-internal-virtualization-controller
         - kubevirt-internal-virtualization-handler
   module:
@@ -54,6 +41,7 @@ linters-settings:
           - test/performance/ssh
           - test/e2e/legacy/testdata/sshkeys
           - images/dvcr-artifact/staging
+          - images/pvc-artifact/staging
   container:
     exclude-rules:
       readiness-probe:
@@ -68,3 +56,61 @@ linters-settings:
     exclude-rules:
       files:
         - templates/security-events.yaml # Ru information for docs
+  templates:
+    exclude-rules:
+      # These mount-points.yaml directories pre-create mount points for containerd strict mode.
+      # They are consumed by pods that are NOT rendered from this module's Helm templates:
+      # virt-launcher (created per-VM by KubeVirt at runtime), dvcr importer/uploader (created on
+      # demand by the controllers), and the virt-* components deployed by virt-operator.
+      # The mount-points linter only inspects Helm pod controllers, so it cannot see these
+      # mountPaths and reports false positives.
+      mount-points:
+        - /auth
+        - /certs
+        - /data
+        - /dev/bus/usb
+        - /dvcr-auth
+        - /dvcr-src-auth
+        - /etc/docker/registry
+        - /etc/libvirt
+        - /etc/podinfo
+        - /etc/ssl/docker
+        - /etc/virt-api/certificates
+        - /etc/virt-controller/certificates
+        - /etc/virt-controller/exportca
+        - /etc/virt-handler/clientcertificates
+        - /etc/virt-handler/servercertificates
+        - /etc/virt-operator/certificates
+        - /etc/virtualization-api-proxy/certificates
+        - /etc/virtualization-api/certificates
+        - /etc/virtualization-audit/certificates
+        - /init/usr/bin
+        - /kubeconfig.local
+        - /opt
+        - /path
+        - /pods
+        - /profile-data
+        - /proxycerts
+        - /run/cilium
+        - /run/kubevirt
+        - /run/kubevirt-libvirt-runtimes
+        - /run/kubevirt-private
+        - /scratch
+        - /shared
+        - /tmp/k8s-webhook-server/serving-certs
+        - /usr/lib/modules
+        - /var/cache/libvirt
+        - /var/lib/kubelet/device-plugins
+        - /var/lib/kubelet/plugins
+        - /var/lib/kubelet/plugins_registry
+        - /var/lib/kubelet/pods
+        - /var/lib/kubevirt
+        - /var/lib/kubevirt-node-labeller
+        - /var/lib/libvirt
+        - /var/lib/libvirt/qemu
+        - /var/lib/libvirt/qemu/nvram
+        - /var/lib/libvirt/swtpm
+        - /var/lib/registry
+        - /var/lib/swtpm-localca
+        - /var/log/libvirt
+        - /var/run/cdi

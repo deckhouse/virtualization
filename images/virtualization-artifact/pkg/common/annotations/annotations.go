@@ -63,7 +63,7 @@ const (
 
 	// AnnProvisionerTolerations provides a const for tolerations to use for provisioners.
 	AnnProvisionerTolerations = AnnAPIGroup + "/provisioner-tolerations"
-	// AnnProvisionerName provides a name of data volume provisioner.
+	// AnnProvisionerName provides a name of the PVC provisioner.
 	AnnProvisionerName = AnnAPIGroup + "/provisioner-name"
 	// AnnProvisionerNameLegacy provides a legacy name of data volume provisioner.
 	AnnProvisionerNameLegacy = AnnAPIGroupLegacy + "/provisioner-name"
@@ -107,6 +107,14 @@ const (
 	// AnnVMRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
 	AnnVMRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 
+	// AnnVMRestorePowerState is an annotation on VirtualMachine that records the VM power state captured before a
+	// restore operation, so restore restores it. It is kept on the VM (not the KVVM, which is deleted during the
+	// restore maintenance window) so it survives KVVM recreation. The value is a MachinePhase string:
+	// "Running" means start the VM again after restore (see checkNeedStartVM); "Stopped" means keep it stopped,
+	// which for AlwaysOnUnlessStoppedManually requires overriding the implicit RunStrategy=Always on KVVM create
+	// (see createKVVM) to honor the "unless stopped manually" contract.
+	AnnVMRestorePowerState = AnnAPIGroupV + "/restore-power-state"
+
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"
 	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"
@@ -144,6 +152,11 @@ const (
 
 	UploaderServiceLabel = "service"
 
+	// PVCImportRoleLabel distinguishes source/target importer pods in a host-assigned PVC clone.
+	PVCImportRoleLabel = LabelsPrefix + "/pvc-import-role"
+	// PVCImportRoleSource marks the nbdkit pod that serves the source PVC over NBD.
+	PVCImportRoleSource = "source"
+
 	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label.
@@ -166,6 +179,16 @@ const (
 
 	// AnnDataExportRequest is the annotation for indicating that export requested.
 	AnnDataExportRequest = "storage.deckhouse.io/data-export-request"
+
+	// PVC population annotations.
+	// AnnPVCPopulationStrategy stores the strategy used by populator-controller.
+	AnnPVCPopulationStrategy = AnnAPIGroupV + "/pvc-population-strategy"
+	// AnnPVCPopulationSourcePVC stores the source PVC name for PVC-backed population.
+	AnnPVCPopulationSourcePVC = AnnAPIGroupV + "/pvc-population-source-pvc"
+	// AnnPVCPopulationSourceDVCR stores the source DVCR image path for registry-backed population.
+	AnnPVCPopulationSourceDVCR = AnnAPIGroupV + "/pvc-population-source-dvcr"
+	// AnnPVCPopulationDone marks target PVCs already populated by populator-controller.
+	AnnPVCPopulationDone = AnnAPIGroupV + "/pvc-population-done"
 
 	// TODO: remove deprecated annotations in the v1 version.
 	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)
@@ -209,6 +232,14 @@ const (
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+	// AnnTapProvisionByDVPSupported is the annotation that indicates DVP supports TAP provision for the Pod.
+	AnnTapProvisionByDVPSupported = "network.deckhouse.io/tap-provision-by-dvp-supported"
+
+	// AnnMigrationIface names the kernel interface that virt-handler binds
+	// live-migration traffic to. Written on Nodes by the migrationiface
+	// controller from a SystemNetwork CR (sdn module); read by virt-handler
+	// on startup.
+	AnnMigrationIface = AnnAPIGroupV + "/migration-iface"
 
 	// AnnVirtualDiskOriginalAnnotations is the annotation for storing original VirtualDisk annotations.
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"

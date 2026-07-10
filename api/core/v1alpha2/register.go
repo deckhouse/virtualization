@@ -38,6 +38,9 @@ var VirtualImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, V
 // VirtualDiskGVK is group version kind for VirtualDisk
 var VirtualDiskGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VirtualDiskKind}
 
+// VirtualMachinePoolGVK is group version kind for VirtualMachinePool
+var VirtualMachinePoolGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VirtualMachinePoolKind}
+
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
@@ -70,6 +73,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualDiskList{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
+		&VirtualMachinePool{},
+		&VirtualMachinePoolList{},
 		&VirtualMachineBlockDeviceAttachment{},
 		&VirtualMachineBlockDeviceAttachmentList{},
 		&VirtualMachineClass{},

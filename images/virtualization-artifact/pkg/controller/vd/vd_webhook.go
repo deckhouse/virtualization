@@ -50,6 +50,19 @@ func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClas
 			validator.NewNameValidator(),
 			validator.NewMigrationStorageClassValidator(client, scService, modeGetter, featuregates.Default()),
 			validator.NewVirtualImagePVCStorageClassValidator(client, scService),
+			validator.NewVirtualDiskSnapshotStorageClassValidator(client, scService),
+		},
+	}
+}
+
+// NewTemplateSpecValidator validates a VirtualDisk spec embedded in a template
+// (e.g. a VirtualMachinePool). It runs only the spec-level checks (PVC size, ISO
+// source); storage-class and migration checks are left out.
+func NewTemplateSpecValidator(client client.Client) *Validator {
+	return &Validator{
+		validators: []VirtualDiskValidator{
+			validator.NewPVCSizeValidator(client),
+			validator.NewISOSourceValidator(client),
 		},
 	}
 }

@@ -46,6 +46,7 @@ func NewBlockDeviceHandler(cl client.Client, blockDeviceService BlockDeviceServi
 		viProtection:  service.NewProtectionService(cl, v1alpha2.FinalizerVIProtection),
 		cviProtection: service.NewProtectionService(cl, v1alpha2.FinalizerCVIProtection),
 		vdProtection:  service.NewProtectionService(cl, v1alpha2.FinalizerVDProtection),
+		pvcProtection: service.NewProtectionService(cl, v1alpha2.FinalizerPVCProtection),
 	}
 }
 
@@ -56,6 +57,7 @@ type BlockDeviceHandler struct {
 	viProtection  *service.ProtectionService
 	cviProtection *service.ProtectionService
 	vdProtection  *service.ProtectionService
+	pvcProtection *service.ProtectionService
 }
 
 var (
@@ -95,6 +97,10 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	if err = h.setFinalizersOnBlockDevices(ctx, changed, bdState); err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
+	}
+
+	if err = reconcilePVCProtection(ctx, h.client, h.pvcProtection, changed.GetNamespace()); err != nil {
+		return reconcile.Result{}, fmt.Errorf("unable to reconcile PVC protection: %w", err)
 	}
 
 	var shouldStop bool

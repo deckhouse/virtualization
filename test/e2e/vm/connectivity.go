@@ -31,6 +31,7 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/executor"
@@ -158,8 +159,8 @@ func NewVMConnectivityTest(f *framework.Framework) *VMConnectivityTest {
 }
 
 func (t *VMConnectivityTest) GenerateEnvironmentResources() {
-	t.VDa = object.NewVDFromCVI("vd-a", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
-	t.VDb = object.NewVDFromCVI("vd-b", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+	t.VDa = object.NewVDFromCVI("vd-a", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
+	t.VDb = object.NewVDFromCVI("vd-b", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 
 	t.VMa = vmbuilder.New(
 		vmbuilder.WithName("vm-a"),

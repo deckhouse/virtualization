@@ -126,7 +126,7 @@ jobs:
           severity: warning
           ignore_paths: >-
             vendor
-            images/cdi-artifact
+            images/pvc-artifact
             images/virt-api/__virt
             images/virt-controller/__virt
             images/virt-handler/__virt

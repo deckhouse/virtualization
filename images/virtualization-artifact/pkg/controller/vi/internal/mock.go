@@ -5,12 +5,12 @@ package internal
 
 import (
 	"context"
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sync"
 )
 
@@ -324,7 +324,7 @@ var _ StorageClassService = &StorageClassServiceMock{}
 //			GetStorageClassFunc: func(ctx context.Context, sc string) (*storagev1.StorageClass, error) {
 //				panic("mock out the GetStorageClass method")
 //			},
-//			GetStorageProfileFunc: func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+//			GetStorageProfileFunc: func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 //				panic("mock out the GetStorageProfile method")
 //			},
 //			IsStorageClassAllowedFunc: func(sc string) bool {
@@ -333,7 +333,7 @@ var _ StorageClassService = &StorageClassServiceMock{}
 //			IsStorageClassDeprecatedFunc: func(sc *storagev1.StorageClass) bool {
 //				panic("mock out the IsStorageClassDeprecated method")
 //			},
-//			ValidateClaimPropertySetsFunc: func(sp *cdiv1.StorageProfile) error {
+//			ValidateClaimPropertySetsFunc: func(sp *storagev1alpha1.StorageProfile) error {
 //				panic("mock out the ValidateClaimPropertySets method")
 //			},
 //		}
@@ -356,7 +356,7 @@ type StorageClassServiceMock struct {
 	GetStorageClassFunc func(ctx context.Context, sc string) (*storagev1.StorageClass, error)
 
 	// GetStorageProfileFunc mocks the GetStorageProfile method.
-	GetStorageProfileFunc func(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
+	GetStorageProfileFunc func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error)
 
 	// IsStorageClassAllowedFunc mocks the IsStorageClassAllowed method.
 	IsStorageClassAllowedFunc func(sc string) bool
@@ -365,7 +365,7 @@ type StorageClassServiceMock struct {
 	IsStorageClassDeprecatedFunc func(sc *storagev1.StorageClass) bool
 
 	// ValidateClaimPropertySetsFunc mocks the ValidateClaimPropertySets method.
-	ValidateClaimPropertySetsFunc func(sp *cdiv1.StorageProfile) error
+	ValidateClaimPropertySetsFunc func(sp *storagev1alpha1.StorageProfile) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -413,7 +413,7 @@ type StorageClassServiceMock struct {
 		// ValidateClaimPropertySets holds details about calls to the ValidateClaimPropertySets method.
 		ValidateClaimPropertySets []struct {
 			// Sp is the sp argument value.
-			Sp *cdiv1.StorageProfile
+			Sp *storagev1alpha1.StorageProfile
 		}
 	}
 	lockGetDefaultStorageClass    sync.RWMutex
@@ -563,7 +563,7 @@ func (mock *StorageClassServiceMock) GetStorageClassCalls() []struct {
 }
 
 // GetStorageProfile calls GetStorageProfileFunc.
-func (mock *StorageClassServiceMock) GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+func (mock *StorageClassServiceMock) GetStorageProfile(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
 	if mock.GetStorageProfileFunc == nil {
 		panic("StorageClassServiceMock.GetStorageProfileFunc: method is nil but StorageClassService.GetStorageProfile was just called")
 	}
@@ -663,12 +663,12 @@ func (mock *StorageClassServiceMock) IsStorageClassDeprecatedCalls() []struct {
 }
 
 // ValidateClaimPropertySets calls ValidateClaimPropertySetsFunc.
-func (mock *StorageClassServiceMock) ValidateClaimPropertySets(sp *cdiv1.StorageProfile) error {
+func (mock *StorageClassServiceMock) ValidateClaimPropertySets(sp *storagev1alpha1.StorageProfile) error {
 	if mock.ValidateClaimPropertySetsFunc == nil {
 		panic("StorageClassServiceMock.ValidateClaimPropertySetsFunc: method is nil but StorageClassService.ValidateClaimPropertySets was just called")
 	}
 	callInfo := struct {
-		Sp *cdiv1.StorageProfile
+		Sp *storagev1alpha1.StorageProfile
 	}{
 		Sp: sp,
 	}
@@ -683,10 +683,10 @@ func (mock *StorageClassServiceMock) ValidateClaimPropertySets(sp *cdiv1.Storage
 //
 //	len(mockedStorageClassService.ValidateClaimPropertySetsCalls())
 func (mock *StorageClassServiceMock) ValidateClaimPropertySetsCalls() []struct {
-	Sp *cdiv1.StorageProfile
+	Sp *storagev1alpha1.StorageProfile
 } {
 	var calls []struct {
-		Sp *cdiv1.StorageProfile
+		Sp *storagev1alpha1.StorageProfile
 	}
 	mock.lockValidateClaimPropertySets.RLock()
 	calls = mock.calls.ValidateClaimPropertySets
