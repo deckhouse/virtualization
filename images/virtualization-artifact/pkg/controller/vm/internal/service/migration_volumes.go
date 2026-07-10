@@ -69,12 +69,6 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	vm := vmState.VirtualMachine().Changed()
 
-	// TODO: refactor syncKVVM and allow migration
-	if restartRequired {
-		log.Info("Virtualmachine is restart required, skip volume migration.")
-		return reconcile.Result{}, nil
-	}
-
 	// not syncing if migrating
 	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	if migrating.Status == metav1.ConditionTrue {
@@ -155,6 +149,16 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if !equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes) {
+		// A difference here (ignoring migration target PVCs, which live in
+		// builtKVVMWithMigrationVolumes) means the desired volume set structurally
+		// differs from the running one, e.g. a disk was added or removed. Such a
+		// change may require a restart, so it must not be propagated to KVVM while
+		// the VM awaits restart. Volume migration itself (source PVC -> target PVC)
+		// keeps the structure intact and is allowed to proceed below.
+		if restartRequired {
+			log.Info("Virtualmachine is restart required, delay applying desired volumes to KVVM.")
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 	}
 

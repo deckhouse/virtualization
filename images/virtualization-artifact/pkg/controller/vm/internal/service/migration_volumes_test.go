@@ -124,6 +124,59 @@ var _ = Describe("MigrationVolumesService", func() {
 		return state.New(fakeClient, resource)
 	}
 
+	newKVVMIWithVolume := func(pvcName string) *virtv1.VirtualMachineInstance {
+		return &virtv1.VirtualMachineInstance{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: virtv1.GroupVersion.String(),
+				Kind:       "VirtualMachineInstance",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmName,
+				Namespace: namespace,
+			},
+			Spec: virtv1.VirtualMachineInstanceSpec{
+				Volumes: []virtv1.Volume{
+					{
+						Name: "rootdisk",
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	It("does not apply structural volume changes to kvvm while restart is required", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+
+		vm := newVM()
+		kvvmInCluster := newKVVMWithVolume(targetPVC, nil, "target-node")
+		kvvmi := newKVVMIWithVolume(targetPVC)
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "source-node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, true)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
+
 	It("forces volume rollback when kvvmi is missing", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()
 		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
