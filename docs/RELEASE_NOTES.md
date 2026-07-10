@@ -21,7 +21,7 @@ Release date: July 10, 2026.
 - [vi] [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) names may now use the full Kubernetes name length instead of being limited to 49 and 48 characters.
 - [dvcr] Added per-namespace authorization for DVCR that isolates container image access between namespaces.
 - [module] Added a limit on concurrent inbound live migrations per target node. Configurable via the `virtualization.deckhouse.io/parallel-inbound-migrations-per-node` annotation on the ModuleConfig of the `virtualization` module.
-- [network] Added Prometheus metrics for conntrack synchronization during live migration.
+- [network] Added Prometheus metrics for monitoring conntrack table synchronization during live migration.
 - [network] Added the ability to route live migration traffic over a dedicated SystemNetwork via `liveMigration.network` in the ModuleConfig of the `virtualization` module.
 - [vm] Added the ability to change CPU and memory of a running VM via in-place resize without live migration. To enable this functionality, add `HotplugCPUAndMemoryWithInPlaceResize` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
 - [vm] Switched VM networks to an eBPF datapath, providing more stable connectivity for additional networks with lower overhead.

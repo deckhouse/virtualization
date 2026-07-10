@@ -21,7 +21,7 @@ weight: 70
 - [vi] Имена [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) могут использовать полную длину имени Kubernetes вместо ограничений в 49 и 48 символов.
 - [dvcr] Добавлена авторизация DVCR на уровне неймспейса, изолирующая доступ к образам контейнеров между неймспейсами.
 - [module] Добавлено ограничение числа одновременных входящих живых миграций на целевой узел. Настраивается аннотацией `virtualization.deckhouse.io/parallel-inbound-migrations-per-node` на ModuleConfig модуля `virtualization`.
-- [network] Добавлены метрики Prometheus для синхронизации conntrack во время живой миграции.
+- [network] Добавлены метрики Prometheus для мониторинга синхронизации таблицы отслеживания соединений (conntrack) в ходе живой миграции.
 - [network] Добавлена возможность направлять трафик живой миграции через выделенный SystemNetwork с помощью параметра `liveMigration.network` в ModuleConfig модуля `virtualization`.
 - [vm] Добавлена возможность изменять CPU и память работающей ВМ через изменение размера на месте (in-place resize) без живой миграции. Чтобы включить функциональность, добавьте `HotplugCPUAndMemoryWithInPlaceResize` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
 - [vm] Сети ВМ переведены на eBPF datapath: более стабильное подключение дополнительных сетей при меньших накладных расходах.
