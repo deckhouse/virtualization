@@ -113,14 +113,21 @@ while [ "${i}" -lt "${COL_COUNT}" ]; do
   i=$((i + 1))
 done
 
-SUMMARY="## :dvp: **DVP | Release ${RELEASE_TAG} to ${RELEASE_CHANNEL}**\\n\\n"
-SUMMARY+="Date: ${DATE}\\n"
-SUMMARY+="[:link: GitLab CI Pipeline](${RUN_URL})\\n\\n"
-SUMMARY+="${HEADER_ROW}\\n${SEP}\\n${STATUS_ROW}\\n"
+SUMMARY="## :dvp: **DVP | Release ${RELEASE_TAG} to ${RELEASE_CHANNEL}**
 
-echo -e "${SUMMARY}"
+Date: ${DATE}
+[:link: GitLab CI Pipeline](${RUN_URL})
 
+${HEADER_ROW}
+${SEP}
+${STATUS_ROW}"
+
+echo "${SUMMARY}"
+
+# Build the JSON body with jq so RELEASE_TAG / RELEASE_CHANNEL (manual UI input)
+# and the newlines are escaped correctly; raw interpolation would break the
+# payload on any ", \ or newline and allow field injection.
 curl --silent --show-error --fail --request POST \
   --header "Content-Type: application/json" \
-  --data "{\"text\": \"${SUMMARY}\"}" \
+  --data "$(jq -nc --arg t "${SUMMARY}" '{text: $t}')" \
   "${LOOP_WEBHOOK_URL}"
