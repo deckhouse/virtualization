@@ -22,6 +22,12 @@ precache:build:main:
     - .main
   stage: build
   interruptible: false
+  # needs: [] blocks prior-stage dotenv inheritance. On a web "Run pipeline",
+  # svace:set-vars (info stage) fires unconditionally and emits
+  # MODULES_MODULE_TAG=<ref>-svace + MODULE_EDITION=EE; a dotenv var overrides
+  # variables: below, so without this guard precache would push the -svace tag
+  # instead of the branch tag. precache has no in-pipeline data dependency.
+  needs: []
   variables:
     MODULES_MODULE_TAG: "${CI_COMMIT_REF_NAME:-main}"
   rules:
@@ -39,6 +45,9 @@ precache:build:branch:
     - .dev_vars
   stage: build
   interruptible: false
+  # See precache:build:main: needs: [] stops the web-pipeline svace:set-vars
+  # dotenv from clobbering MODULES_MODULE_TAG.
+  needs: []
   variables:
     MODULES_MODULE_TAG: "${REF_BRANCH}"
   rules:
