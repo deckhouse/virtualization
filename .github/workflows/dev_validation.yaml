@@ -120,7 +120,6 @@ jobs:
           additional_files: >-
             api/scripts/update-codegen.sh
             images/virtualization-artifact/hack/args.sh
-            images/virtualization-artifact/hack/dlv.sh
             images/virtualization-artifact/hack/pyroscope.sh
           check_together: "yes"
           severity: warning
