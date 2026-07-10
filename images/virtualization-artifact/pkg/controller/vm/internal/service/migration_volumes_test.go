@@ -177,6 +177,72 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
 	})
 
+	It("maps only in-progress migrating disks source->target PVC", func() {
+		migrating := &v1alpha2.VirtualDisk{
+			Status: v1alpha2.VirtualDiskStatus{
+				MigrationState: v1alpha2.VirtualDiskMigrationState{
+					StartTimestamp: metav1.Now(),
+					SourcePVC:      "root-src",
+					TargetPVC:      "root-dst",
+				},
+			},
+		}
+		finished := &v1alpha2.VirtualDisk{
+			Status: v1alpha2.VirtualDiskStatus{
+				MigrationState: v1alpha2.VirtualDiskMigrationState{
+					StartTimestamp: metav1.Now(),
+					EndTimestamp:   metav1.Now(),
+					SourcePVC:      "done-src",
+					TargetPVC:      "done-dst",
+				},
+			},
+		}
+		idle := &v1alpha2.VirtualDisk{}
+
+		remap := migratingSourceToTargetPVC(map[string]*v1alpha2.VirtualDisk{
+			"m": migrating, "f": finished, "i": idle,
+		})
+
+		Expect(remap).To(Equal(map[string]string{"root-src": "root-dst"}))
+	})
+
+	It("keeps running volume structure and swaps only migrating PVCs", func() {
+		running := newKVVMWithVolume(sourcePVC, nil, "source-node")
+		running.Spec.Template.Spec.Volumes = append(running.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: "olddisk",
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "old-pvc"},
+				},
+			},
+		})
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+		desired := newKVVMWithVolume("some-other", &migrationStrategy, "target-node")
+		desired.Spec.Template.Spec.Volumes = append(desired.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: "newdisk",
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "new-pvc"},
+				},
+			},
+		})
+
+		migrated := rebaseMigrationOntoRunningVolumes(running, desired, map[string]string{sourcePVC: targetPVC})
+
+		By("migration strategy and affinity taken from desired")
+		Expect(migrated.Spec.UpdateVolumesStrategy).To(Equal(&migrationStrategy))
+		Expect(migrated.Spec.Template.Spec.Affinity).To(Equal(desired.Spec.Template.Spec.Affinity))
+
+		By("volume structure taken from running (no structural 'newdisk'), migrating PVC swapped")
+		vols := migrated.Spec.Template.Spec.Volumes
+		Expect(vols).To(HaveLen(2))
+		byName := map[string]string{}
+		for _, v := range vols {
+			byName[v.Name] = v.PersistentVolumeClaim.ClaimName
+		}
+		Expect(byName).To(Equal(map[string]string{"rootdisk": targetPVC, "olddisk": "old-pvc"}))
+	})
+
 	It("forces volume rollback when kvvmi is missing", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()
 		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
