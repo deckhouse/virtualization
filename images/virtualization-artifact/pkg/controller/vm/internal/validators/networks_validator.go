@@ -292,7 +292,7 @@ func (v *NetworksValidator) validateMainNetworkAllowed(ctx context.Context, netw
 		return fmt.Errorf("unable to check spec.settings.virtualMachineCIDRs in ModuleConfig/virtualization: %w", err)
 	}
 	if !hasCIDRs {
-		return errors.New("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization has no static IP ranges in spec.settings.virtualMachineCIDRs")
+		return errors.New("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
 	}
 
 	return nil

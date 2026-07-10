@@ -68,7 +68,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	err = v.validateSpecFields(vmip)
 	if err != nil {
-		return nil, fmt.Errorf("the VirtualMachineIPAddress validation is failed: %w", err)
+		return nil, err
 	}
 
 	if vmip.Spec.StaticIP != "" {
@@ -102,14 +102,18 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		"old.address", oldVmip.Spec.StaticIP, "new.address", newVmip.Spec.StaticIP,
 	)
 
-	err := v.validateVirtualMachineCIDRsConfigured(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error validating VirtualMachineIP update: %w", err)
+	// Forbid spec changes and allow changing metadata and status
+	// if ModuleConfig has no spec.settings.virtualMachineCIDRs field.
+	if oldVmip.Spec != newVmip.Spec {
+		err := v.validateVirtualMachineCIDRsConfigured(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	err = v.validateSpecFields(newVmip)
+	err := v.validateSpecFields(newVmip)
 	if err != nil {
-		return nil, fmt.Errorf("error validating VirtualMachineIP update: %w", err)
+		return nil, err
 	}
 
 	var warnings admission.Warnings
@@ -209,10 +213,10 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 func (v *Validator) validateVirtualMachineCIDRsConfigured(ctx context.Context) error {
 	hasCIDRs, err := moduleconfig.ModuleConfigHasVirtualMachineCIDRs(ctx, v.client)
 	if err != nil {
-		return fmt.Errorf("unable to check ModuleConfig virtualization virtualMachineCIDRs: %w", err)
+		return fmt.Errorf("unable to check ModuleConfig/virtualization spec.settings.virtualMachineCIDRs field: %w", err)
 	}
 	if !hasCIDRs {
-		return fmt.Errorf("the VirtualMachineIPAddress cannot be created: ModuleConfig/virtualization spec.settings.virtualMachineCIDRs is not configured")
+		return fmt.Errorf("operations with VirtualMachineIPAddresses are forbidden: ModuleConfig/virtualization spec.settings.virtualMachineCIDRs field is not configured")
 	}
 	return nil
 }
