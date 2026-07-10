@@ -3,10 +3,10 @@
 apiVersion: deckhouse.io/v1alpha1
 kind: ClusterLoggingConfig
 metadata:
-  name: virtualization-audit-apigroups
+  name: d8-virtualization-audit-apigroups
 spec:
   destinationRefs:
-  - to-virtualization-audit
+  - d8-virtualization-audit
   file:
     include:
       - /var/log/kube-audit/audit.log
@@ -22,10 +22,10 @@ spec:
 apiVersion: deckhouse.io/v1alpha1
 kind: ClusterLoggingConfig
 metadata:
-  name: virtualization-audit-resources
+  name: d8-virtualization-audit-resources
 spec:
   destinationRefs:
-  - to-virtualization-audit
+  - d8-virtualization-audit
   file:
     include:
       - /var/log/kube-audit/audit.log
@@ -40,10 +40,10 @@ spec:
 apiVersion: deckhouse.io/v1alpha1
 kind: ClusterLoggingConfig
 metadata:
-  name: virtualization-audit-namespaces
+  name: d8-virtualization-audit-namespaces
 spec:
   destinationRefs:
-  - to-virtualization-audit
+  - d8-virtualization-audit
   file:
     include:
       - /var/log/kube-audit/audit.log
@@ -57,7 +57,7 @@ spec:
 apiVersion: deckhouse.io/v1alpha1
 kind: ClusterLogDestination
 metadata:
-  name: to-virtualization-audit
+  name: d8-virtualization-audit
 spec:
   buffer:
     disk:
