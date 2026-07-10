@@ -570,6 +570,10 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 	vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
 	vd.Status.MigrationState.Message = "Migration reverted."
 
+	// Restore the active PVC to the source so the disk is left consistent after a
+	// revert, otherwise it stays pointing at the deleted target and the VM gets
+	// stuck (no valid target, no new migration possible).
+	vdsupplements.SetPVCName(vd, vd.Status.MigrationState.SourcePVC)
 	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
 	return nil
 }
