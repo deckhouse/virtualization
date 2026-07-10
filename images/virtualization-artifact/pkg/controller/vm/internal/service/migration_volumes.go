@@ -156,7 +156,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		// the VM awaits restart. An in-progress migration of the already-attached
 		// disks must still proceed though (e.g. node drain).
 		if restartRequired {
-			return s.migrateAttachedVolumesDelayingStructural(ctx, vmState, kvvmInCluster, builtKVVMWithMigrationVolumes)
+			return reconcile.Result{}, s.migrateAttachedVolumesDelayingStructural(ctx, vmState, kvvmInCluster, builtKVVMWithMigrationVolumes)
 		}
 		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 	}
@@ -257,12 +257,12 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 // It keeps the running volume structure (from the in-cluster KVVM, which still
 // holds the pre-restart volume set) and only points the currently migrating
 // disks at their target PVCs; strategy and affinity come from the desired build.
-func (s MigrationVolumesService) migrateAttachedVolumesDelayingStructural(ctx context.Context, vmState state.VirtualMachineState, runningKVVM, desiredWithMigration *virtv1.VirtualMachine) (reconcile.Result, error) {
+func (s MigrationVolumesService) migrateAttachedVolumesDelayingStructural(ctx context.Context, vmState state.VirtualMachineState, runningKVVM, desiredWithMigration *virtv1.VirtualMachine) error {
 	log := logger.FromContext(ctx)
 
 	vdByName, err := vmState.VirtualDisksByName(ctx)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	sourceToTarget := make(map[string]string)
@@ -289,12 +289,12 @@ func (s MigrationVolumesService) migrateAttachedVolumesDelayingStructural(ctx co
 
 		if s.shouldPatchVolumes(runningKVVM, migrated) {
 			log.Info("Virtualmachine is restart required, migrate attached volumes and delay structural changes.")
-			return reconcile.Result{}, s.patchVolumes(ctx, migrated)
+			return s.patchVolumes(ctx, migrated)
 		}
 	}
 
 	log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
