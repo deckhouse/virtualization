@@ -37,7 +37,6 @@ packages:
 - pcre2
 - openssl
 - libvirt libvirt-devel
-- clang libbpf-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -59,8 +58,7 @@ import:
   before: install
 shell:
   install:
-  - |
-    pm install {{ $builderDependencies.packages | join " " }} -d /
+  - pm install {{ $builderDependencies.packages | join " " }} clang libbpf-devel -d /
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
     cd /kubevirt
