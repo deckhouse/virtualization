@@ -143,6 +143,62 @@ tasks:
     desc: "Stop local pyroscope for vm-route-forge"
     cmd: ./hack/pyroscope.sh stop --namespace={{ .BaseNamespace }}
 
+  dlv:build:controller:
+    desc: "Build image virtualization-controller with dlv"
+    cmds:
+      - task: _dlv:build
+        vars: { DOCKERFILE: dlv-controller.Dockerfile }
+
+  dlv:build-push:controller:
+    desc: "Build and push image virtualization-controller with dlv"
+    cmds:
+      - task: _dlv:build-push
+        vars: { DOCKERFILE: dlv-controller.Dockerfile }
+
+  dlv:build:apiserver:
+    desc: "Build image virtualization-api with dlv"
+    cmds:
+      - task: _dlv:build
+        vars: { DOCKERFILE: dlv-apiserver.Dockerfile }
+
+  dlv:build-push:apiserver:
+    desc: "Build and push image virtualization-api with dlv"
+    cmds:
+      - task: _dlv:build-push
+        vars: { DOCKERFILE: dlv-apiserver.Dockerfile }
+
+  dlv:build:audit:
+    desc: "Build image virtualization-audit with dlv"
+    cmds:
+      - task: _dlv:build
+        vars: { DOCKERFILE: dlv-audit.Dockerfile }
+
+  dlv:build-push:audit:
+    desc: "Build and push image virtualization-audit with dlv"
+    cmds:
+      - task: _dlv:build-push
+        vars: { DOCKERFILE: dlv-audit.Dockerfile }
+
+  _dlv:build:
+    internal: true
+    dir: ../..
+    cmds:
+      - |
+        IMAGE="${DLV_IMAGE:-ttl.sh/$(uuidgen | tr '[:upper:]' '[:lower:]'):10m}"
+        docker build -f ./images/virtualization-artifact/hack/{{.DOCKERFILE}} -t "$IMAGE" --platform=linux/x86_64 .
+        echo "Built image $IMAGE successfully."
+
+  _dlv:build-push:
+    internal: true
+    dir: ../..
+    cmds:
+      - |
+        IMAGE="${DLV_IMAGE:-ttl.sh/$(uuidgen | tr '[:upper:]' '[:lower:]'):10m}"
+        docker build -f ./images/virtualization-artifact/hack/{{.DOCKERFILE}} -t "$IMAGE" --platform=linux/x86_64 .
+        echo "Built image $IMAGE successfully."
+        docker push "$IMAGE"
+        echo "Pushed image $IMAGE successfully."
+
   _ensure:kubectl:
     desc: "Ensure kubectl is installed"
     internal: true
