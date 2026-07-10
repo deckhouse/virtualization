@@ -49,6 +49,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 const migrationHandlerName = "MigrationHandler"
@@ -192,19 +193,17 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 		disksShouldBeMigrating := vmMigratable.Reason == vmcondition.ReasonDisksShouldBeMigrating.String()
 
 		if disksShouldBeMigrating {
-			// Do not start a new volume migration while the compute migration of the
-			// CURRENT operation is being finalized. Starting a prepare here races with
-			// that finalization: it overwrites the disk migration timestamp, breaks
-			// isMigrationsMatched on the next reconcile and gets reverted. Compare the
-			// compute migration end time against the operation creation time so a stale
-			// MigrationState from a previous migration does not block a new operation.
+			// Prepare disk targets only while the operation is still waiting for the
+			// disks to be ready to migrate. Once the compute migration has started or
+			// finished, a new prepare would race with the operation finalization: it
+			// overwrites the disk migration timestamp, breaks isMigrationsMatched on
+			// the next reconcile and gets reverted.
 			vmop, err := h.getInProgressMigratingVMOP(ctx, vm)
 			if err != nil {
 				return none, err
 			}
-			if vmop != nil && vm.Status.MigrationState != nil && !vm.Status.MigrationState.EndTimestamp.IsZero() &&
-				vm.Status.MigrationState.EndTimestamp.After(vmop.CreationTimestamp.Time) {
-				log.Info("Compute migration of the current operation is finalizing, skip starting a new volume migration.")
+			if !migratingIsWaitingForDisks(vmop) {
+				log.Info("Operation is not waiting for disks to migrate, skip starting a new volume migration.")
 				return none, nil
 			}
 			return h.getActionIfDisksShouldBeMigrating(ctx, vd, log)
@@ -233,16 +232,6 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 		case v1alpha2.MigrationResultSucceeded:
 			return complete, nil
 		}
-	}
-
-	// Safety net: if the compute migration of the running VM already succeeded,
-	// finalize the disk migration instead of reverting. A concurrent re-prepare
-	// (e.g. under a pending restart) can shift the disk migration start timestamp
-	// so isMigrationsMatched no longer holds, yet the data has already been
-	// migrated — reverting here would drop the migrated target. handleComplete
-	// still reverts safely if the target PVC turns out not to be bound.
-	if vm.Status.MigrationState != nil && vm.Status.MigrationState.Result == v1alpha2.MigrationResultSucceeded {
-		return complete, nil
 	}
 
 	// If migration is in progress. VirtualMachine must have the migrating condition.
@@ -667,6 +656,18 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 	}
 
 	return nil, nil
+}
+
+// migratingIsWaitingForDisks reports whether the migrating operation is in the
+// phase where it waits for the disks to become ready to migrate. Only then a new
+// disk target should be prepared; later phases mean the compute migration has
+// already started or is being finalized.
+func migratingIsWaitingForDisks(vmop *v1alpha2.VirtualMachineOperation) bool {
+	if vmop == nil {
+		return false
+	}
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	return completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()
 }
 
 func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string, volumeMode corev1.PersistentVolumeMode, accessMode corev1.PersistentVolumeAccessMode) (*corev1.PersistentVolumeClaim, error) {
