@@ -25,10 +25,10 @@ packages:
 - xz
 - libtasn1
 - libunistring
-- libffi libgmp gnutls
+- libffi gmp gnutls
 - nettle libidn2
 - p11-kit zlib
-- glibc
+- gnu-glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -46,17 +46,9 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   install:
-  - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
+  - pm install {{ $builderDependencies.packages | join " " }}
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
 
@@ -118,8 +110,19 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: builder/distroless
 import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+  add: /pvc-binaries
+  to: /relocate/usr/bin
+  before: install
+  includePaths:
+  - pvc-importer
+  - pvc-target-importer
+- image: {{ .ModuleNamePrefix }}qemu
+  add: /qemu-img
+  to: /relocate
+  before: install
 - image: tools/util-linux
   add: /
   to: /relocate/usr
@@ -128,28 +131,6 @@ import:
   - sbin/blockdev
   - bin/mount
   - bin/umount
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-  add: /pvc-binaries
-  to: /usr/bin
-  before: setup
-  includePaths:
-  - pvc-importer
-  - pvc-target-importer
-- image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
-  to: /qemu-img
-  before: install
-{{- include "importPackageImages" (list . $binsDependencies.packages "install") -}}
 shell:
   install:
-  - |
-    echo "Install packages"
-    PKGS="{{ $binsDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-  setup:
-  - |
-    /relocate_binaries.sh -i "{{ $binsDependencies.binaries | join " " }}" -o /relocate
+  - pm install nbdkit libnbd libtasn1 libxml2 xz libunistring libffi gmp gnutls nettle libidn2 p11-kit zlib glib2 libbsd libfuse liburing libaio libaudit libcap-ng numactl linux-pam zstd gnu-glibc -d /relocate
