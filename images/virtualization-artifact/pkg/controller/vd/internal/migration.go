@@ -192,6 +192,15 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 		disksShouldBeMigrating := vmMigratable.Reason == vmcondition.ReasonDisksShouldBeMigrating.String()
 
 		if disksShouldBeMigrating {
+			// Do not start a new volume migration while the compute migration of the
+			// current cycle is being finalized (its end timestamp is set but the
+			// migrating state has not been cleared yet). Starting a prepare here races
+			// with that finalization: it overwrites the disk migration timestamp,
+			// breaks isMigrationsMatched on the next reconcile and gets reverted.
+			if vm.Status.MigrationState != nil && !vm.Status.MigrationState.EndTimestamp.IsZero() {
+				log.Info("Compute migration is finalizing, skip starting a new volume migration.")
+				return none, nil
+			}
 			return h.getActionIfDisksShouldBeMigrating(ctx, vd, log)
 		}
 	}
@@ -200,29 +209,6 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 }
 
 func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, log *slog.Logger) (action, error) {
-	// DEBUG(volmig-restart): diagnose revert-vs-complete decision under RestartRequired.
-	{
-		migDbg, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-		var vmMigResult, vmMigStart, vmMigEnd string
-		if vm.Status.MigrationState != nil {
-			vmMigResult = string(vm.Status.MigrationState.Result)
-			if vm.Status.MigrationState.StartTimestamp != nil {
-				vmMigStart = vm.Status.MigrationState.StartTimestamp.String()
-			}
-			vmMigEnd = vm.Status.MigrationState.EndTimestamp.String()
-		}
-		log.Info("DEBUG volmig-restart action inputs",
-			slog.Bool("migrationsMatched", isMigrationsMatched(vm, vd)),
-			slog.Bool("vmMigStateNil", vm.Status.MigrationState == nil),
-			slog.String("vmMigResult", vmMigResult),
-			slog.String("vmMigStart", vmMigStart),
-			slog.String("vmMigEnd", vmMigEnd),
-			slog.String("vdMigStart", vd.Status.MigrationState.StartTimestamp.String()),
-			slog.String("migratingReason", migDbg.Reason),
-			slog.String("migratingStatus", string(migDbg.Status)),
-		)
-	}
-
 	// If VirtualMachine is not running, we can't migrate it. Should be reverted.
 	running, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
 	if running.Status != metav1.ConditionTrue {
@@ -241,6 +227,16 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 		case v1alpha2.MigrationResultSucceeded:
 			return complete, nil
 		}
+	}
+
+	// Safety net: if the compute migration of the running VM already succeeded,
+	// finalize the disk migration instead of reverting. A concurrent re-prepare
+	// (e.g. under a pending restart) can shift the disk migration start timestamp
+	// so isMigrationsMatched no longer holds, yet the data has already been
+	// migrated — reverting here would drop the migrated target. handleComplete
+	// still reverts safely if the target PVC turns out not to be bound.
+	if vm.Status.MigrationState != nil && vm.Status.MigrationState.Result == v1alpha2.MigrationResultSucceeded {
+		return complete, nil
 	}
 
 	// If migration is in progress. VirtualMachine must have the migrating condition.
