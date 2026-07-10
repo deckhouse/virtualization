@@ -28,13 +28,13 @@
 # corresponding job files.
 
 include:
-  # --- Upstream modules-gitlab-ci (deckhouse/3p) ---
-  # TODO: this ref points at the branch that carries the rules-free base split
-  # (.build_base / .deploy_base / .lint_base, upstream MR
-  # deckhouse/modules-gitlab-ci#89). Return it to `v13.0` (or a pinned HEAD SHA)
-  # once that MR is merged and mirrored into the v13.0 branch on fox.
+  # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
+  # Tracks the v13.0 branch so upstream fixes flow in automatically. The
+  # rules-free base split (.build_base / .deploy_base / .lint_base, upstream
+  # #89) has landed in v13.0 (HEAD f900bab at the time of writing); to pin for
+  # reproducibility, swap the ref for that SHA.
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
-    ref: "refactor/split-rules-free-base-templates"
+    ref: "v13.0"
     file:
       # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
       # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
