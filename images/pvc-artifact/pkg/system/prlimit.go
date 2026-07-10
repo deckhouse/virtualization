@@ -12,11 +12,11 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-*/
 
-// This file was initially copied from the Containerized Data Importer (CDI)
-// project (https://github.com/kubevirt/containerized-data-importer) and adapted
-// for the virtualization module.
+This file was initially copied from the Containerized Data Importer (CDI)
+project (https://github.com/kubevirt/containerized-data-importer),
+Copyright 2018 The CDI Authors, and adapted for the virtualization module.
+*/
 
 package system
 

@@ -12,12 +12,12 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-*/
 
-// To display the loading progress, code from CDI
-// (https://github.com/kubevirt/containerized-data-importer/blob/main/pkg/util/prometheus/prometheus.go)
-// was used. However, due to our modifications, we could not utilize the embedding
-// mechanism, so we had to resort to copying.
+To display the loading progress, code from CDI
+(https://github.com/kubevirt/containerized-data-importer/blob/main/pkg/util/prometheus/prometheus.go),
+Copyright 2018 The CDI Authors, was used. However, due to our modifications, we
+could not utilize the embedding mechanism, so we had to resort to copying.
+*/
 
 package monitoring
 
