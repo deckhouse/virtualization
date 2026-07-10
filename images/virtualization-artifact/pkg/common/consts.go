@@ -21,6 +21,8 @@ const (
 	FilesystemOverheadVar = "FILESYSTEM_OVERHEAD"
 	// OwnerUID provides the UID of the owner entity (either PVC or DV)
 	OwnerUID = "OWNER_UID"
+	// ImporterNBDEndpoint provides the NBD source URL for pvc-target-importer.
+	ImporterNBDEndpoint = "IMPORTER_NBD_ENDPOINT"
 
 	// BounderContainerName provides a constant to use as a name for bounder Container
 	BounderContainerName = "d8v-dvcr-bounder"
@@ -34,6 +36,8 @@ const (
 	UploaderPort = 80
 	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pod
 	ImporterPodImageNameVar = "IMPORTER_IMAGE"
+	// DiskImporterPodImageNameVar is a name of variable with the image name for the VirtualDisk CDI importer Pod.
+	DiskImporterPodImageNameVar = "DISK_IMPORTER_IMAGE"
 	// UploaderPodImageNameVar is a name of variable with the image name for the uploader Pod
 	UploaderPodImageNameVar = "UPLOADER_IMAGE"
 	// BounderPodImageNameVar is a name of variable with the image name for the bounder Pod

@@ -24,6 +24,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -48,14 +50,16 @@ type ObjectRefVirtualImageOnPvc struct {
 	importerService Importer
 	statService     Stat
 	dvcrSettings    *dvcr.Settings
+	client          client.Client
 	recorder        eventrecord.EventRecorderLogger
 }
 
-func NewObjectRefVirtualImageOnPvc(recorder eventrecord.EventRecorderLogger, importerService Importer, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
+func NewObjectRefVirtualImageOnPvc(recorder eventrecord.EventRecorderLogger, importerService Importer, client client.Client, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
 	return &ObjectRefVirtualImageOnPvc{
 		importerService: importerService,
 		statService:     statService,
 		dvcrSettings:    dvcrSettings,
+		client:          client,
 		recorder:        recorder,
 	}
 }
@@ -105,7 +109,13 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
-		envSettings := ds.getEnvSettings(cvi, supgen)
+		pvc := &corev1.PersistentVolumeClaim{}
+		err = ds.client.Get(ctx, types.NamespacedName{Name: viRef.Status.Target.PersistentVolumeClaim, Namespace: viRef.Namespace}, pvc)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		envSettings := ds.getEnvSettings(cvi, supgen, pvc.Spec.VolumeMode)
 
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
@@ -125,7 +135,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Preparing to import the image.")
 
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
@@ -193,7 +203,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
@@ -210,9 +220,13 @@ func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *v1alpha2.
 	return ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
 }
 
-func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {
 	var settings importer.Settings
-	importer.ApplyBlockDeviceSourceSettings(&settings)
+	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeBlock {
+		importer.ApplyBlockDeviceSourceSettings(&settings)
+	} else {
+		importer.ApplyFilesystemSourceSettings(&settings)
+	}
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,

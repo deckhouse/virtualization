@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -34,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -62,18 +62,15 @@ func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 }
 
 func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (requests []reconcile.Request) {
-	volumeByName := make(map[string]struct{})
+	volumeNames := make(map[string]struct{})
 	for _, v := range kvvmi.Status.VolumeStatus {
 		if v.PersistentVolumeClaimInfo == nil {
 			continue
 		}
-
-		if originalName, ok := strings.CutPrefix(v.Name, "vd-"); ok {
-			volumeByName[originalName] = struct{}{}
-		}
+		volumeNames[v.Name] = struct{}{}
 	}
 
-	if len(volumeByName) == 0 {
+	if len(volumeNames) == 0 {
 		return requests
 	}
 
@@ -87,7 +84,10 @@ func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.Virtual
 	}
 
 	for _, vdSnapshot := range vdSnapshots.Items {
-		_, ok := volumeByName[vdSnapshot.Spec.VirtualDiskName]
+		// Match by the derived KubeVirt volume name instead of reversing it:
+		// the derivation is deterministic, so forward-mapping the VirtualDisk
+		// name handles shortened/hashed names that prefix-strip cannot reverse.
+		_, ok := volumeNames[kvbuilder.GenerateVDDiskName(vdSnapshot.Spec.VirtualDiskName)]
 		if !ok {
 			continue
 		}

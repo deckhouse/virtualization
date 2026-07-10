@@ -20,9 +20,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=.github/scripts/bash/e2e/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
-# Constants (nested cluster: 1 master + 3 workers x2)
-REQUIRED_MEM_GI=86
-REQUIRED_CPU=26
+# Constants ((nested cluster: 1 master + 3 workers) x3: replicated + nfs + sds-elastic)
+REQUIRED_MEM_GI=129
+REQUIRED_CPU=39
 MIN_MEM_GI_PER_NODE=12
 MIN_CPU_PER_NODE=4
 MIN_NODES_FOR_PLACEMENT=3

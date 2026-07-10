@@ -19,26 +19,50 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var (
-	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
-	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
+	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
+	ErrImporterNotRunning          = errors.New("pvc importer is not running")
+	ErrProvisionerUnschedulable    = errors.New("provisioner unschedulable")
 )
 
-type NoSizingPolicyMatchError struct {
-	VMName    string
-	ClassName string
+// CoreRange is an inclusive CPU core range allowed by a sizing policy.
+type CoreRange struct {
+	Min int
+	Max int
 }
 
-func NewNoSizingPolicyMatchError(vmName, className string) *NoSizingPolicyMatchError {
+type NoSizingPolicyMatchError struct {
+	Cores     int
+	ClassName string
+	Ranges    []CoreRange
+}
+
+func NewNoSizingPolicyMatchError(cores int, className string, ranges []CoreRange) *NoSizingPolicyMatchError {
 	return &NoSizingPolicyMatchError{
-		VMName:    vmName,
+		Cores:     cores,
 		ClassName: className,
+		Ranges:    ranges,
 	}
 }
 
 func (e *NoSizingPolicyMatchError) Error() string {
-	return fmt.Sprintf("virtual machine %q resources do not match any sizing policies in class %q", e.VMName, e.ClassName)
+	if len(e.Ranges) == 0 {
+		return fmt.Sprintf(
+			"does not match any sizing policy of VirtualMachineClass %q: its %d CPU core(s) are not covered by any policy",
+			e.ClassName, e.Cores,
+		)
+	}
+
+	rangeStrs := make([]string, len(e.Ranges))
+	for i, r := range e.Ranges {
+		rangeStrs[i] = fmt.Sprintf("%d-%d", r.Min, r.Max)
+	}
+
+	return fmt.Sprintf(
+		"does not match any sizing policy of VirtualMachineClass %q: its %d CPU core(s) fall outside the allowed ranges (%s); set the number of cores (spec.cpu.cores) accordingly",
+		e.ClassName, e.Cores, strings.Join(rangeStrs, ", "),
+	)
 }

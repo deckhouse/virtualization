@@ -69,7 +69,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
-			Message(fmt.Sprintf("The virtual disk %q not found.", vdSnapshot.Spec.VirtualDiskName))
+			Message(fmt.Sprintf("The virtual disk %q was not found.", vdSnapshot.Spec.VirtualDiskName))
 		return reconcile.Result{}, nil
 	}
 
@@ -77,7 +77,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
-			Message(fmt.Sprintf("The virtual disk %q is in process of deletion.", vd.Name))
+			Message(fmt.Sprintf("The virtual disk %q is in the process of deletion.", vd.Name))
 		return reconcile.Result{}, nil
 	}
 

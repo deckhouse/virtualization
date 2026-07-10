@@ -54,8 +54,10 @@ type Client interface {
 	kubernetes.Interface
 	ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface
 	VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface
+	VirtualMachinePools(namespace string) virtualizationv1alpha2.VirtualMachinePoolInterface
 	VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface
 	VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface
+	VirtualDiskSnapshots(namespace string) virtualizationv1alpha2.VirtualDiskSnapshotInterface
 	VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface
 	VirtualMachineIPAddresses(namespace string) virtualizationv1alpha2.VirtualMachineIPAddressInterface
 	VirtualMachineIPAddressLeases() virtualizationv1alpha2.VirtualMachineIPAddressLeaseInterface
@@ -84,6 +86,15 @@ func (c client) VirtualMachines(namespace string) virtualizationv1alpha2.Virtual
 	}
 }
 
+func (c client) VirtualMachinePools(namespace string) virtualizationv1alpha2.VirtualMachinePoolInterface {
+	return &vmpool{
+		VirtualMachinePoolInterface: c.virtClient.VirtualizationV1alpha2().VirtualMachinePools(namespace),
+		restClient:                  c.restClient,
+		namespace:                   namespace,
+		resource:                    "virtualmachinepools",
+	}
+}
+
 func (c client) ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface {
 	return c.virtClient.VirtualizationV1alpha2().ClusterVirtualImages()
 }
@@ -94,6 +105,10 @@ func (c client) VirtualImages(namespace string) virtualizationv1alpha2.VirtualIm
 
 func (c client) VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface {
 	return c.virtClient.VirtualizationV1alpha2().VirtualDisks(namespace)
+}
+
+func (c client) VirtualDiskSnapshots(namespace string) virtualizationv1alpha2.VirtualDiskSnapshotInterface {
+	return c.virtClient.VirtualizationV1alpha2().VirtualDiskSnapshots(namespace)
 }
 
 func (c client) VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface {

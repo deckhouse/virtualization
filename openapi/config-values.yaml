@@ -79,7 +79,7 @@ properties:
           secretName:
             type: string
             description: |
-              The name of the secret in the `d8-system` namespace to use with CDI upload proxy.
+              The name of the secret in the `d8-system` namespace to use for the image upload endpoint (the Ingress created for `Upload` data sources).
 
               This secret must have the [kubernetes.io/tls](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#tls-secrets) format.
   dvcr:
@@ -193,6 +193,47 @@ properties:
               type: string
               minLength: 1
             x-examples: ["sc-1", "sc-2"]
+  liveMigration:
+    type: object
+    description: |
+      Live migration network configuration.
+
+      When omitted, live migration traffic flows over the default node network (pod network).
+    x-examples:
+      - network:
+          type: SystemNetwork
+          systemNetwork:
+            name: migration-net
+    properties:
+      network:
+        type: object
+        description: |
+          Dedicated network for VM live migration traffic between `virt-handler` pods.
+
+          When omitted or empty, migration traffic flows over the default node network (pod network).
+        properties:
+          type:
+            type: string
+            description: |
+              The network used for live migration traffic:
+              - `SystemNetwork` — migration traffic flows over a `SystemNetwork` (sdn module) whose per-host IP addresses are used. Requires the `sdn` module.
+            enum:
+              - SystemNetwork
+          systemNetwork:
+            type: object
+            description: |
+              Parameters of the `SystemNetwork` used for live migration traffic.
+            required: [name]
+            properties:
+              name:
+                type: string
+                minLength: 1
+                description: |
+                  Name of a `SystemNetwork` (sdn module) whose per-host IP addresses are used for VM live migration traffic between `virt-handler` pods.
+                x-examples: ["migration-net"]
+        oneOf:
+          - maxProperties: 0
+          - required: [type, systemNetwork]
   logLevel:
     type: string
     description: |

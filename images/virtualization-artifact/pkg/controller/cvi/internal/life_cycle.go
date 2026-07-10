@@ -101,5 +101,33 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtu
 		return reconcile.Result{}, err
 	}
 
+	normalizeProgress(cvi)
+
 	return result, nil
+}
+
+// normalizeProgress enforces the phase/progress invariants on the final status:
+//   - a CVI that has not yet entered Provisioning ("" or Pending) must NOT
+//     expose any progress percentage. Progress describes how far the import
+//     has advanced, so it is meaningful only once the import has actually
+//     started; any earlier setter (some source paths optimistically populate
+//     "0%" before they have decided whether the phase will advance to
+//     Provisioning in this reconcile) is unconditionally cleared here so that
+//     consumers never observe e.g. "Pending 0%";
+//   - a CVI in the Provisioning phase must always expose a progress
+//     percentage; until the importer reports real progress it defaults to
+//     "0%";
+//   - a CVI parked in WaitForUserUpload has not received any data yet, so
+//     its progress is always "0%".
+func normalizeProgress(cvi *v1alpha2.ClusterVirtualImage) {
+	switch cvi.Status.Phase {
+	case "", v1alpha2.ImagePending:
+		cvi.Status.Progress = ""
+	case v1alpha2.ImageProvisioning:
+		if cvi.Status.Progress == "" {
+			cvi.Status.Progress = "0%"
+		}
+	case v1alpha2.ImageWaitForUserUpload:
+		cvi.Status.Progress = "0%"
+	}
 }

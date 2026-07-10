@@ -60,7 +60,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vm-live-migration-tcp-session")
-		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		storageClass = framework.GetConfig().StorageClass.DefaultStorageClass
 
 		DeferCleanup(f.After)
 
@@ -83,7 +83,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 			)
 
 			iperfClientDisk := object.NewVDFromCVI(iperfClientName, f.Namespace().Name, object.PrecreatedCVIAlpineUEFI,
-				vd.WithSize(ptr.To(resource.MustParse("500Mi"))),
+				vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				vd.WithStorageClass(&storageClass.Name),
 			)
 
@@ -115,7 +115,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(precheck.NoPrech
 
 		By("Migrate the iPerf server", func() {
 			util.MigrateVirtualMachine(f, iperfServer)
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
+			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(iperfServer), framework.MaxTimeout)
 		})
 
 		By("Wait 10s for packets to be transmitted after migration", func() {

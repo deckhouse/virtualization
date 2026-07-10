@@ -77,7 +77,7 @@ func NewObjectRefDataSource(
 		controllerNamespace: controllerNamespace,
 		recorder:            recorder,
 
-		viOnPvcSyncer:    NewObjectRefVirtualImageOnPvc(recorder, importerService, dvcrSettings, statService),
+		viOnPvcSyncer:    NewObjectRefVirtualImageOnPvc(recorder, importerService, client, dvcrSettings, statService),
 		vdSyncer:         NewObjectRefVirtualDisk(recorder, importerService, client, controllerNamespace, dvcrSettings, statService),
 		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(recorder, importerService, diskService, client, controllerNamespace, dvcrSettings, statService),
 	}
@@ -205,7 +205,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("DVCR Provisioner not found: create the new one.")
+			Message("Preparing to import the image.")
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
@@ -245,7 +245,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(cvicondition.ProvisioningFailed).
-				Message("Failed to get stats from non-ready datasource: waiting for the DataSource to be ready.")
+				Message("Waiting for the source data to become ready.")
 			return reconcile.Result{}, nil
 		}
 
@@ -283,7 +283,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
-			Message("Import is in the process of provisioning to DVCR.")
+			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)

@@ -26,9 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
@@ -40,7 +40,7 @@ type VolumeAndAccessModesGetter interface {
 	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
-func NewVolumeAndAccessModesGetter(client client.Client, storageProfileGetter func(ctx context.Context, name string) (*cdiv1.StorageProfile, error)) VolumeAndAccessModesGetter {
+func NewVolumeAndAccessModesGetter(client client.Client, storageProfileGetter func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error)) VolumeAndAccessModesGetter {
 	getter := &volumeAndAccessModesGetter{
 		client:               client,
 		storageProfileGetter: storageProfileGetter,
@@ -53,7 +53,7 @@ func NewVolumeAndAccessModesGetter(client client.Client, storageProfileGetter fu
 
 type volumeAndAccessModesGetter struct {
 	client               client.Client
-	storageProfileGetter func(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
+	storageProfileGetter func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error)
 }
 
 func (s volumeAndAccessModesGetter) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
@@ -159,7 +159,7 @@ func (s volumeAndAccessModesGetter) parseAccessMode(obj client.Object) (corev1.P
 	}
 }
 
-func (s volumeAndAccessModesGetter) parseStorageCapabilities(status cdiv1.StorageProfileStatus) StorageCapabilities {
+func (s volumeAndAccessModesGetter) parseStorageCapabilities(status storagev1alpha1.StorageProfileStatus) StorageCapabilities {
 	var storageCapabilities []StorageCapabilities
 	for _, cp := range status.ClaimPropertySets {
 		var mode corev1.PersistentVolumeMode
@@ -190,8 +190,8 @@ func (s volumeAndAccessModesGetter) parseStorageCapabilities(status cdiv1.Storag
 	return storageCapabilities[len(storageCapabilities)-1]
 }
 
-func (s volumeAndAccessModesGetter) getStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &cdiv1.StorageProfile{})
+func (s volumeAndAccessModesGetter) getStorageProfile(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &storagev1alpha1.StorageProfile{})
 }
 
 type StorageCapabilities struct {

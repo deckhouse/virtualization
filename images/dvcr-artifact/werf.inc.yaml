@@ -55,9 +55,9 @@ shell:
     export GOARCH=amd64
   - |
     {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-importer" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -tags=dvcr_no_gost_tls -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
     {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-uploader" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -tags=dvcr_no_gost_tls -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader`) | nindent 6 }}
   - |
     export CGO_ENABLED=0
     {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-cleaner" | join "/") }}

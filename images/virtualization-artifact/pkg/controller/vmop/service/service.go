@@ -184,7 +184,7 @@ func (s *BaseVMOPService) markSuperseded(ctx context.Context, oldVMOP, newVMOP *
 		}
 
 		base := current.DeepCopy()
-		current.Status.Phase = v1alpha2.VMOPPhaseCompleted
+		current.Status.Phase = v1alpha2.VMOPPhaseSuperseded
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(current.GetGeneration()).

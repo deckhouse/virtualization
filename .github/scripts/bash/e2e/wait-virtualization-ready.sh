@@ -118,14 +118,17 @@ virtualization_ready() {
 virt_handler_ready() {
   local count=180
   local virt_handler_ready
-  local workers
+  local nodes_total
   local time_wait=10
 
   for i in $(seq 1 "$count"); do
-    workers="$(kubectl get nodes -o name | grep -c worker || true)"
-    workers=$((workers))
-    if [[ "$workers" -eq 0 ]]; then
-      echo "[WARNING] No worker nodes found, keep waiting"
+    # Count all nodes, not just workers: virt-handler is a per-node DaemonSet, and
+    # the master gets it later (slower to converge). "|| true" so a transient
+    # kubectl error doesn't abort under "set -eo pipefail" (falls back to 0).
+    nodes_total="$(kubectl get nodes -o name | wc -l || true)"
+    nodes_total=$((nodes_total))
+    if [[ "$nodes_total" -eq 0 ]]; then
+      echo "[WARNING] No nodes found (or kubectl failed), keep waiting"
       echo "[INFO] Wait ${time_wait}s virt-handler pods are ready (attempt ${i}/${count})"
       sleep "$time_wait"
       continue
@@ -133,12 +136,12 @@ virt_handler_ready() {
 
     virt_handler_ready="$(kubectl -n d8-virtualization get pods | grep -c "virt-handler.*Running" || true)"
 
-    if [[ "$virt_handler_ready" -ge "$workers" ]]; then
-      echo "[SUCCESS] virt-handlers pods are ready ${virt_handler_ready}/${workers}"
+    if [[ "$virt_handler_ready" -ge "$nodes_total" ]]; then
+      echo "[SUCCESS] virt-handler pods are ready ${virt_handler_ready}/${nodes_total}"
       return 0
     fi
 
-    echo "[INFO] virt-handler pods ${virt_handler_ready}/${workers}"
+    echo "[INFO] virt-handler pods ${virt_handler_ready}/${nodes_total}"
     echo "[INFO] Wait ${time_wait}s virt-handler pods are ready (attempt ${i}/${count})"
     if (( i % 5 == 0 )); then
       echo "[DEBUG] Show pods in namespace d8-virtualization"
@@ -176,6 +179,11 @@ enable_maintenance_mode() {
   nfs)
     echo "[INFO] Switch csi-nfs module to maintenance mode"
     kubectl patch mc csi-nfs --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+    ;;
+  sds-elastic)
+    echo "[INFO] Switch sds-elastic and csi-ceph modules to maintenance mode"
+    kubectl patch mc sds-elastic --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+    kubectl patch mc csi-ceph --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
     ;;
   local)
     echo "[INFO] Switch sds-local-volume module to maintenance mode"

@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -62,7 +63,7 @@ var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
 			blank *v1alpha2.VirtualDisk
 		)
 		By("Create VM", func() {
-			root := object.NewVDFromVI("root", f.Namespace().Name, vi)
+			root := object.NewVDFromVI("root", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 			blank = object.NewBlankVD("blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 			Expect(f.CreateWithDeferredDeletion(ctx, root, blank)).To(Succeed())
 

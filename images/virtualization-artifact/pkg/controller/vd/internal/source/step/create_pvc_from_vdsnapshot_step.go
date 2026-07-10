@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +34,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -46,19 +46,29 @@ import (
 
 type CreatePVCFromVDSnapshotStep struct {
 	pvc      *corev1.PersistentVolumeClaim
+	disk     service.VolumeAndAccessModesGetter
+	pvcSvc   CreatePVCFromVDSnapshotStepPVCService
 	recorder eventrecord.EventRecorderLogger
 	client   client.Client
 	cb       *conditions.ConditionBuilder
 }
 
+type CreatePVCFromVDSnapshotStepPVCService interface {
+	CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+}
+
 func NewCreatePVCFromVDSnapshotStep(
 	pvc *corev1.PersistentVolumeClaim,
+	disk service.VolumeAndAccessModesGetter,
+	pvcSvc CreatePVCFromVDSnapshotStepPVCService,
 	recorder eventrecord.EventRecorderLogger,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *CreatePVCFromVDSnapshotStep {
 	return &CreatePVCFromVDSnapshotStep{
 		pvc:      pvc,
+		disk:     disk,
+		pvcSvc:   pvcSvc,
 		recorder: recorder,
 		client:   client,
 		cb:       cb,
@@ -84,6 +94,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 
 	if vdSnapshot == nil {
 		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Progress = ""
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
@@ -98,6 +109,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 
 	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
 		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Progress = ""
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
@@ -120,7 +132,11 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		return &reconcile.Result{}, nil
 	}
 
-	pvc, err := s.buildPVC(vd, vs)
+	storageClassName := s.storageClassName(vd, vs)
+	if storageClassName != "" {
+		vd.Status.StorageClassName = storageClassName
+	}
+	size, err := s.getPVCSize(vd, vs)
 	if err != nil {
 		if errors.Is(err, service.ErrInsufficientPVCSize) {
 			vd.Status.Phase = v1alpha2.DiskFailed
@@ -140,7 +156,8 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		return nil, err
 	}
 
-	err = s.client.Create(ctx, pvc)
+	key := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
+	pvc, err := s.pvcSvc.CreateTargetFromVS(ctx, key, storageClassName, size, vd, vs, s.disk, nil)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("create pvc: %w", err)
 	}
@@ -149,7 +166,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).
-		Message("PVC has created: waiting to be Bound.")
+		Message("The PersistentVolumeClaim has been created; waiting for it to be Bound.")
 
 	vd.Status.Progress = "0%"
 	vd.Status.SourceUID = ptr.To(vdSnapshot.UID)
@@ -158,78 +175,15 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	return nil, nil
 }
 
-func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*corev1.PersistentVolumeClaim, error) {
-	var storageClassName string
+func (s CreatePVCFromVDSnapshotStep) storageClassName(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) string {
 	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
-		storageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
-	} else {
-		storageClassName = vs.Annotations[annotations.AnnStorageClassName]
-		if storageClassName == "" {
-			storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
-		}
+		return *vd.Spec.PersistentVolumeClaim.StorageClass
 	}
-
-	volumeMode := vs.Annotations[annotations.AnnVolumeMode]
-	if volumeMode == "" {
-		volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
+	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
+	if storageClassName == "" {
+		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
 	}
-	accessModesRaw := vs.Annotations[annotations.AnnAccessModes]
-	if accessModesRaw == "" {
-		accessModesRaw = vs.Annotations[annotations.AnnAccessModesDeprecated]
-	}
-
-	accessModesStr := strings.Split(accessModesRaw, ",")
-	accessModes := make([]corev1.PersistentVolumeAccessMode, 0, len(accessModesStr))
-	for _, accessModeStr := range accessModesStr {
-		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(accessModeStr))
-	}
-
-	spec := corev1.PersistentVolumeClaimSpec{
-		AccessModes: accessModes,
-		DataSource: &corev1.TypedLocalObjectReference{
-			APIGroup: ptr.To(vs.GroupVersionKind().Group),
-			Kind:     vs.Kind,
-			Name:     vs.Name,
-		},
-	}
-
-	if storageClassName != "" {
-		spec.StorageClassName = &storageClassName
-		vd.Status.StorageClassName = storageClassName
-	}
-
-	if volumeMode != "" {
-		spec.VolumeMode = ptr.To(corev1.PersistentVolumeMode(volumeMode))
-	}
-
-	size, err := s.getPVCSize(vd, vs)
-	if err != nil {
-		return nil, err
-	}
-
-	if size != nil {
-		spec.Resources = corev1.VolumeResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: *size,
-			},
-		}
-	}
-
-	pvcKey := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
-
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcKey.Name,
-			Namespace: pvcKey.Namespace,
-			Finalizers: []string{
-				v1alpha2.FinalizerVDProtection,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				service.MakeOwnerReference(vd),
-			},
-		},
-		Spec: spec,
-	}, nil
+	return storageClassName
 }
 
 func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*resource.Quantity, error) {

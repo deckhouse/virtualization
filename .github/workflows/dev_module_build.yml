@@ -248,7 +248,6 @@ jobs:
           # Find directories containing .golangci.yaml (excluding symlinks)
           mapfile -t config_dirs < <(
             find . \
-              -path ./images/cdi-cloner/cloner-startup -prune -o \
               -path ./images/dvcr-artifact -prune -o \
               -path ./test/performance/shatal -prune -o \
               -type f -name '.golangci.yaml' -not -type l -printf '%h\0' | \
@@ -331,6 +330,10 @@ jobs:
         run: |
           task virtualization-controller:init
           task virtualization-controller:test:unit
+
+      - name: Run unit test pvc-artifact
+        run: |
+          task pvc-artifact:test:unit
 
   test_scripts_js:
     runs-on: ubuntu-22.04
@@ -418,11 +421,13 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v4
+      - uses: deckhouse/modules-actions/build@v15
         with:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
           source_repo: ${{secrets.DECKHOUSE_PRIVATE_3P_REPO }}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           svace_enabled: ${{ inputs.svace_enabled || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}

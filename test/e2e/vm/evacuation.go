@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -98,7 +99,8 @@ var _ = Describe("VirtualMachineEvacuation", Label(precheck.NoPrecheck), func() 
 				if _, exists := vmop.Annotations[evacuationAnnotation]; !exists {
 					continue
 				}
-				if vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted {
+				switch vmop.Status.Phase {
+				case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseSuperseded:
 					finishedVMOPs[vmop.Spec.VirtualMachine] = struct{}{}
 				}
 			}
@@ -113,15 +115,19 @@ func newEvacuationVM(name, namespace, cviName string, bootloader v1alpha2.Bootlo
 	*v1alpha2.VirtualDisk,
 	*v1alpha2.VirtualDisk,
 ) {
+	// Long disk names (>60 chars, the former limit) to exercise live-migrating a VM
+	// whose disks use the full Kubernetes name length. The VM name itself stays
+	// short, as VirtualMachine names remain limited.
+	longSuffix := "-" + strings.Repeat("a", 80)
 	vdRoot := object.NewVDFromCVI(
-		name+"-root",
+		name+"-root"+longSuffix,
 		namespace,
 		cviName,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 	)
 
 	vdBlank := object.NewBlankVD(
-		name+"-blank",
+		name+"-blank"+longSuffix,
 		namespace,
 		nil,
 		ptr.To(resource.MustParse("100Mi")),

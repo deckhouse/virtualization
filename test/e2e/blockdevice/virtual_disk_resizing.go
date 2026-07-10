@@ -54,7 +54,7 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 
 	It("resizes virtual disks", func() {
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu, vd.WithSize(ptr.To(resource.MustParse("4Gi"))))
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu, vd.WithSize(ptr.To(resource.MustParse("2Gi"))))
 		vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 
@@ -79,7 +79,9 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 
 		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
 		util.UntilSSHReady(f, vm, framework.LongTimeout)
-		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, vmbda)
+		// The attachment pod is the first consumer of the WFFC-backed blank disk,
+		// so the hotplug includes full volume provisioning (~50s on LINSTOR).
+		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
 
 		vdRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
 		vdBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
@@ -130,13 +132,21 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 		Expect(newVDBlankSize.Cmp(resource.MustParse(vdBlank.Status.Capacity))).To(BeZero())
 		Expect(newVDAttachSize.Cmp(resource.MustParse(vdAttach.Status.Capacity))).To(BeZero())
 
-		newVDRootLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
-		newVDBlankLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
-		newVDAttachLsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdAttach.Name)
+		// The new size becomes visible in the guest asynchronously: the CSI volume
+		// expansion and the block-device capacity refresh in qemu finish after the
+		// VirtualDisk reports Ready, so poll lsblk instead of asserting once.
+		untilLsblkSizeGrows := func(vdName string, oldSize resource.Quantity) {
+			GinkgoHelper()
+			Eventually(func() int {
+				lsblkSize := util.GetBlockDeviceLsblkSize(ctx, f, vm, v1alpha2.VirtualDiskKind, vdName)
+				return lsblkSize.Cmp(oldSize)
+			}).WithTimeout(framework.MiddleTimeout).WithPolling(5*time.Second).Should(Equal(common.CmpGreater),
+				"the guest should observe the increased size of the %q disk", vdName)
+		}
 
-		Expect(newVDRootLsblkSize.Cmp(vdRootLsblkSize)).To(Equal(common.CmpGreater))
-		Expect(newVDBlankLsblkSize.Cmp(vdBlankLsblkSize)).To(Equal(common.CmpGreater))
-		Expect(newVDAttachLsblkSize.Cmp(vdAttachLsblkSize)).To(Equal(common.CmpGreater))
+		untilLsblkSizeGrows(vdRoot.Name, vdRootLsblkSize)
+		untilLsblkSizeGrows(vdBlank.Name, vdBlankLsblkSize)
+		untilLsblkSizeGrows(vdAttach.Name, vdAttachLsblkSize)
 
 		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdBlank, vdAttach)
 	})

@@ -55,7 +55,7 @@ var _ = Describe("FetchSupplement", func() {
 		It("should fetch the resource successfully", func() {
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "d8v-vi-importer-test-image-12345678-1234-1234-1234-123456789abc",
+					Name:      "d8v-vi-importer-12345678-1234-1234-1234-123456789abc",
 					Namespace: "default",
 				},
 				Spec: corev1.PodSpec{
@@ -115,7 +115,7 @@ var _ = Describe("FetchSupplement", func() {
 		It("should prefer the new naming", func() {
 			newPod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "d8v-vi-importer-test-image-12345678-1234-1234-1234-123456789abc",
+					Name:      "d8v-vi-importer-12345678-1234-1234-1234-123456789abc",
 					Namespace: "default",
 					Labels:    map[string]string{"version": "new"},
 				},

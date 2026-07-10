@@ -95,7 +95,7 @@ func (h *LifecycleHandler) syncReady(ctx context.Context, s state.USBDeviceState
 	}
 
 	if nodeUSBDevice == nil {
-		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotFound, "Corresponding NodeUSBDevice not found.", nil)
+		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotFound, "The USB device is no longer present on its node.", nil)
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func (h *LifecycleHandler) syncReady(ctx context.Context, s state.USBDeviceState
 
 	readyCondition := meta.FindStatusCondition(nodeUSBDevice.Status.Conditions, string(nodeusbdevicecondition.ReadyType))
 	if readyCondition == nil {
-		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotReady, "Ready condition not found in NodeUSBDevice.", nil)
+		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NotReady, "Waiting for the USB device readiness to be determined.", nil)
 		return nil
 	}
 
@@ -247,8 +247,8 @@ func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.USBDeviceSt
 		}
 
 		if !hasFreePort {
-			message := fmt.Sprintf("Device is requested by VirtualMachine %s/%s, but no free USBIP ports are available on node %s for speed %d.",
-				vm.Namespace, vm.Name, vm.Status.Node, changed.Status.Attributes.Speed)
+			message := fmt.Sprintf("The USB device is requested by VirtualMachine %s/%s, but node %s has no free USB passthrough capacity for this device.",
+				vm.Namespace, vm.Name, vm.Status.Node)
 			setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, usbdevicecondition.NoFreeUSBIPPort, message)
 			return nil
 		}

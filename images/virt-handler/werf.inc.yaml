@@ -32,6 +32,12 @@ import:
   includePaths:
   - .version
 - image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-binaries/network-bpf-bridge-binding-assets/
+  to: /usr/share/network-bpf-bridge-binding
+  after: install
+  includePaths:
+  - bpf_bridge.o
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt/cmd/{{ .ImageName }}/
   to: /etc
   after: install
@@ -118,3 +124,4 @@ shell:
     mkdir -p /relocate/home/deckhouse
     chown -R 64535:64535 /relocate/home/deckhouse
 
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}

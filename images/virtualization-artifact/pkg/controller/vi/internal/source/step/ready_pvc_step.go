@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -117,6 +118,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 
 		vi.Status.Phase = v1alpha2.ImageReady
 		vi.Status.Progress = "100%"
+		vi.Status.Format = imageformat.StorageFormat(s.pvc)
 
 		res := s.pvc.Status.Capacity[corev1.ResourceStorage]
 		intQ, ok := res.AsInt64()

@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -112,7 +113,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.StorageClassNotReady).
-				Message("Storage class in not ready")
+				Message("The StorageClass is not ready.")
 			conditions.SetCondition(cb, &vi.Status.Conditions)
 
 			return reconcile.Result{}, nil
@@ -128,13 +129,61 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 		return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vi.Spec.DataSource.Type)
 	}
 
+	var (
+		result reconcile.Result
+		err    error
+	)
 	switch vi.Spec.Storage {
 	case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
-		return ds.StoreToPVC(ctx, vi)
+		result, err = ds.StoreToPVC(ctx, vi)
 	case v1alpha2.StorageContainerRegistry:
-		return ds.StoreToDVCR(ctx, vi)
+		result, err = ds.StoreToDVCR(ctx, vi)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown spec storage: %s", vi.Spec.Storage)
+	}
+	if err != nil {
+		// The namespace is being torn down (e.g. Project/namespace cleanup): the
+		// VirtualImage is going away too, so creating helper objects is legitimately
+		// rejected. Surface it on the Ready condition instead of failing the reconcile.
+		if common.ErrNamespaceTerminating(err) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.Provisioning).
+				Message("Namespace is terminating: provisioning is paused.")
+			conditions.SetCondition(cb, &vi.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+		return result, err
+	}
+
+	normalizeProgress(vi)
+
+	return result, nil
+}
+
+// normalizeProgress enforces the phase/progress invariants on the final status:
+//   - an image that has not yet entered Provisioning ("" or Pending) must NOT
+//     expose any progress percentage. Progress describes how far the import
+//     has advanced, so it is meaningful only once the import has actually
+//     started; any earlier setter (some source paths optimistically populate
+//     "0%" before they have decided whether the phase will advance to
+//     Provisioning in this reconcile) is unconditionally cleared here so that
+//     consumers never observe e.g. "Pending 0%";
+//   - an image in the Provisioning phase must always expose a progress
+//     percentage; until the importer reports real progress it defaults to
+//     "0%";
+//   - an image parked in WaitForUserUpload has not received any data yet, so
+//     its progress is always "0%".
+func normalizeProgress(vi *v1alpha2.VirtualImage) {
+	switch vi.Status.Phase {
+	case "", v1alpha2.ImagePending:
+		vi.Status.Progress = ""
+	case v1alpha2.ImageProvisioning:
+		if vi.Status.Progress == "" {
+			vi.Status.Progress = "0%"
+		}
+	case v1alpha2.ImageWaitForUserUpload:
+		vi.Status.Progress = "0%"
 	}
 }
 

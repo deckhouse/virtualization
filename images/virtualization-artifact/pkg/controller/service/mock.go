@@ -925,6 +925,9 @@ var _ VirtClient = &VirtClientMock{}
 //			USBDevicesFunc: func(namespace string) corev1alpha2.USBDeviceInterface {
 //				panic("mock out the USBDevices method")
 //			},
+//			VirtualDiskSnapshotsFunc: func(namespace string) corev1alpha2.VirtualDiskSnapshotInterface {
+//				panic("mock out the VirtualDiskSnapshots method")
+//			},
 //			VirtualDisksFunc: func(namespace string) corev1alpha2.VirtualDiskInterface {
 //				panic("mock out the VirtualDisks method")
 //			},
@@ -951,6 +954,9 @@ var _ VirtClient = &VirtClientMock{}
 //			},
 //			VirtualMachineOperationsFunc: func(namespace string) corev1alpha2.VirtualMachineOperationInterface {
 //				panic("mock out the VirtualMachineOperations method")
+//			},
+//			VirtualMachinePoolsFunc: func(namespace string) corev1alpha2.VirtualMachinePoolInterface {
+//				panic("mock out the VirtualMachinePools method")
 //			},
 //			VirtualMachinesFunc: func(namespace string) corev1alpha2.VirtualMachineInterface {
 //				panic("mock out the VirtualMachines method")
@@ -1139,6 +1145,9 @@ type VirtClientMock struct {
 	// USBDevicesFunc mocks the USBDevices method.
 	USBDevicesFunc func(namespace string) corev1alpha2.USBDeviceInterface
 
+	// VirtualDiskSnapshotsFunc mocks the VirtualDiskSnapshots method.
+	VirtualDiskSnapshotsFunc func(namespace string) corev1alpha2.VirtualDiskSnapshotInterface
+
 	// VirtualDisksFunc mocks the VirtualDisks method.
 	VirtualDisksFunc func(namespace string) corev1alpha2.VirtualDiskInterface
 
@@ -1165,6 +1174,9 @@ type VirtClientMock struct {
 
 	// VirtualMachineOperationsFunc mocks the VirtualMachineOperations method.
 	VirtualMachineOperationsFunc func(namespace string) corev1alpha2.VirtualMachineOperationInterface
+
+	// VirtualMachinePoolsFunc mocks the VirtualMachinePools method.
+	VirtualMachinePoolsFunc func(namespace string) corev1alpha2.VirtualMachinePoolInterface
 
 	// VirtualMachinesFunc mocks the VirtualMachines method.
 	VirtualMachinesFunc func(namespace string) corev1alpha2.VirtualMachineInterface
@@ -1350,6 +1362,11 @@ type VirtClientMock struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
+		// VirtualDiskSnapshots holds details about calls to the VirtualDiskSnapshots method.
+		VirtualDiskSnapshots []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
 		// VirtualDisks holds details about calls to the VirtualDisks method.
 		VirtualDisks []struct {
 			// Namespace is the namespace argument value.
@@ -1386,6 +1403,11 @@ type VirtClientMock struct {
 		}
 		// VirtualMachineOperations holds details about calls to the VirtualMachineOperations method.
 		VirtualMachineOperations []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachinePools holds details about calls to the VirtualMachinePools method.
+		VirtualMachinePools []struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
@@ -1454,6 +1476,7 @@ type VirtClientMock struct {
 	lockStorageV1beta1                       sync.RWMutex
 	lockStoragemigrationV1alpha1             sync.RWMutex
 	lockUSBDevices                           sync.RWMutex
+	lockVirtualDiskSnapshots                 sync.RWMutex
 	lockVirtualDisks                         sync.RWMutex
 	lockVirtualImages                        sync.RWMutex
 	lockVirtualMachineBlockDeviceAttachments sync.RWMutex
@@ -1463,6 +1486,7 @@ type VirtClientMock struct {
 	lockVirtualMachineMACAddressLeases       sync.RWMutex
 	lockVirtualMachineMACAddresses           sync.RWMutex
 	lockVirtualMachineOperations             sync.RWMutex
+	lockVirtualMachinePools                  sync.RWMutex
 	lockVirtualMachines                      sync.RWMutex
 }
 
@@ -3064,6 +3088,38 @@ func (mock *VirtClientMock) USBDevicesCalls() []struct {
 	return calls
 }
 
+// VirtualDiskSnapshots calls VirtualDiskSnapshotsFunc.
+func (mock *VirtClientMock) VirtualDiskSnapshots(namespace string) corev1alpha2.VirtualDiskSnapshotInterface {
+	if mock.VirtualDiskSnapshotsFunc == nil {
+		panic("VirtClientMock.VirtualDiskSnapshotsFunc: method is nil but VirtClient.VirtualDiskSnapshots was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualDiskSnapshots.Lock()
+	mock.calls.VirtualDiskSnapshots = append(mock.calls.VirtualDiskSnapshots, callInfo)
+	mock.lockVirtualDiskSnapshots.Unlock()
+	return mock.VirtualDiskSnapshotsFunc(namespace)
+}
+
+// VirtualDiskSnapshotsCalls gets all the calls that were made to VirtualDiskSnapshots.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualDiskSnapshotsCalls())
+func (mock *VirtClientMock) VirtualDiskSnapshotsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualDiskSnapshots.RLock()
+	calls = mock.calls.VirtualDiskSnapshots
+	mock.lockVirtualDiskSnapshots.RUnlock()
+	return calls
+}
+
 // VirtualDisks calls VirtualDisksFunc.
 func (mock *VirtClientMock) VirtualDisks(namespace string) corev1alpha2.VirtualDiskInterface {
 	if mock.VirtualDisksFunc == nil {
@@ -3334,6 +3390,38 @@ func (mock *VirtClientMock) VirtualMachineOperationsCalls() []struct {
 	mock.lockVirtualMachineOperations.RLock()
 	calls = mock.calls.VirtualMachineOperations
 	mock.lockVirtualMachineOperations.RUnlock()
+	return calls
+}
+
+// VirtualMachinePools calls VirtualMachinePoolsFunc.
+func (mock *VirtClientMock) VirtualMachinePools(namespace string) corev1alpha2.VirtualMachinePoolInterface {
+	if mock.VirtualMachinePoolsFunc == nil {
+		panic("VirtClientMock.VirtualMachinePoolsFunc: method is nil but VirtClient.VirtualMachinePools was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachinePools.Lock()
+	mock.calls.VirtualMachinePools = append(mock.calls.VirtualMachinePools, callInfo)
+	mock.lockVirtualMachinePools.Unlock()
+	return mock.VirtualMachinePoolsFunc(namespace)
+}
+
+// VirtualMachinePoolsCalls gets all the calls that were made to VirtualMachinePools.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachinePoolsCalls())
+func (mock *VirtClientMock) VirtualMachinePoolsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachinePools.RLock()
+	calls = mock.calls.VirtualMachinePools
+	mock.lockVirtualMachinePools.RUnlock()
 	return calls
 }
 

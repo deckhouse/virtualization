@@ -78,7 +78,7 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	if class != nil && class.Status.Phase == v1alpha2.ClassPhaseReady {
 		if (class.Spec.CPU.Type == v1alpha2.CPUTypeDiscovery || class.Spec.CPU.Type == v1alpha2.CPUTypeFeatures) && len(class.Status.CpuFeatures.Enabled) == 0 {
 			mgr.Update(cb.
-				Message("No enabled processor features found").
+				Message("The VirtualMachineClass has no enabled CPU features.").
 				Reason(vmcondition.ReasonClassNotReady).
 				Status(metav1.ConditionFalse).
 				Condition())
@@ -90,10 +90,10 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		return reconcile.Result{}, nil
 	}
 	className := current.Spec.VirtualMachineClassName
-	msg := fmt.Sprintf("VirtualMachineClassName %q is not ready", className)
+	msg := fmt.Sprintf("VirtualMachineClass %q is not ready yet.", className)
 	reason := vmcondition.ReasonClassNotReady
 	if class == nil {
-		msg = fmt.Sprintf("VirtualMachineClassName %q not found", className)
+		msg = fmt.Sprintf("VirtualMachineClass %q not found. Specify an existing VirtualMachineClass in spec.virtualMachineClassName.", className)
 		h.recorder.Event(changed, corev1.EventTypeWarning, reason.String(), "VirtualMachineClass not available: waiting for the VirtualMachineClass")
 		log.Info("VirtualMachineClass not available: waiting for the VirtualMachineClass")
 	}

@@ -100,8 +100,7 @@ global:
       - deckhouse.io/v1alpha1/ClusterAuthorizationRule
       - deckhouse.io/v1alpha1/DexProvider
       - deckhouse.io/v1beta1/DeploymentMetric
-      - cdi.internal.virtualization.deckhouse.io/v1beta1/InternalVirtualizationCDI
-      - cdi.internal.virtualization.deckhouse.io/v1beta1/InternalVirtualizationDataVolume
+      - storage.virtualization.deckhouse.io/v1alpha1/StorageProfile
       - templates.gatekeeper.sh/v1alpha1/ConstraintTemplate
       - cilium.io/v2alpha1/CiliumNodeConfig
       - deckhouse.io/v1alpha1/LocalPathProvisioner
@@ -111,7 +110,6 @@ global:
       - deckhouse.io/v1alpha1/Instance
       - deckhouse.io/v1/DexProvider
       - deckhouse.io/v1alpha1/GrafanaDashboardDefinition
-      - virtualization.deckhouse.io/v1alpha2/VirtualMachineRestore
       - status.gatekeeper.sh/v1beta1/ExpansionTemplatePodStatus
       - cilium.io/v2alpha1/CiliumL2AnnouncementPolicy
       - snapshot.storage.k8s.io/v1/VolumeSnapshotClass
@@ -307,11 +305,6 @@ global:
       common:
         kubeRbacProxy: sha256:0000000000000000000000000000000000000000000000000000000000000000
       virtualization:
-        cdiApiserver: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        cdiCloner: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        cdiController: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        cdiImporter: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        cdiOperator: sha256:0000000000000000000000000000000000000000000000000000000000000000
         dvcr: sha256:0000000000000000000000000000000000000000000000000000000000000000
         dvcrImporter: sha256:0000000000000000000000000000000000000000000000000000000000000000
         dvcrUploader: sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -333,6 +326,7 @@ global:
         vmRouteForge: sha256:0000000000000000000000000000000000000000000000000000000000000000
         virtualizationDraUsb: sha256:0000000000000000000000000000000000000000000000000000000000000000
         usbModules: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        pvcImporter: sha256:0000000000000000000000000000000000000000000000000000000000000000
     registry:
       CA: ""
       address: some-registry.io

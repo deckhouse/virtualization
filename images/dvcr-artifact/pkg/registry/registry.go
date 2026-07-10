@@ -36,7 +36,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 
@@ -339,7 +338,12 @@ func (p DataProcessor) uploadLayersAndImage(
 		return fmt.Errorf("error constructing new repository: %w", err)
 	}
 
-	layer := stream.NewLayer(pipeReader)
+	// Upload the tar stream as an uncompressed layer. gzip compression
+	// (the default of stream.NewLayer) is single-threaded and CPU-bound, and
+	// caps the import speed of large disk images in the CPU-limited
+	// provisioning pod. Disk images barely compress, so skipping gzip removes
+	// the bottleneck without meaningfully growing the stored layer.
+	layer := newUncompressedLayer(pipeReader)
 
 	klog.Infoln("Uploading layer to registry")
 	if err := remote.WriteLayer(repo, layer, remoteOpts...); err != nil {

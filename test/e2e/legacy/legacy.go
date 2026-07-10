@@ -64,27 +64,39 @@ func Init() error {
 }
 
 func configure() (err error) {
-	conf = framework.GetConfig()
-
-	kubectl = framework.GetClients().Kubectl()
-
-	if conf.StorageClass.TemplateStorageClass == nil {
-		return fmt.Errorf("TemplateStorageClass is not set")
+	if err = initPerProcess(); err != nil {
+		return err
 	}
 
 	if err = SetStorageClass(testDataDir, map[string]string{
-		config.StorageClassNameEnv: conf.StorageClass.TemplateStorageClass.Name,
+		config.StorageClassNameEnv: conf.StorageClass.DefaultStorageClass.Name,
 	}); err != nil {
 		return err
 	}
 
-	//nolint:staticcheck // It can be used in legacy tests.
-	namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.TemplateStorageClass)
-	if err != nil {
+	if err = ChmodFile(conf.TestData.Sshkey, 0o600); err != nil {
 		return err
 	}
 
-	if err = ChmodFile(conf.TestData.Sshkey, 0o600); err != nil {
+	return nil
+}
+
+// initPerProcess populates the package state every ginkgo process needs
+// (config, clients, name prefix). It mutates no files under testDataDir, so
+// it is safe to run on every parallel process; file rendering stays in
+// configure(), which runs on process 1 only.
+func initPerProcess() (err error) {
+	conf = framework.GetConfig()
+
+	kubectl = framework.GetClients().Kubectl()
+
+	if conf.StorageClass.DefaultStorageClass == nil {
+		return fmt.Errorf("DefaultStorageClass is not set")
+	}
+
+	//nolint:staticcheck // It can be used in legacy tests.
+	namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.DefaultStorageClass)
+	if err != nil {
 		return err
 	}
 
@@ -126,6 +138,15 @@ func NewBeforeProcess1Body() {
 	}
 
 	Expect(Cleanup()).To(Succeed())
+}
+
+// NewAllProcessesBody initializes the legacy package state on every parallel
+// ginkgo process. Without it, workers other than process 1 run legacy specs
+// with a nil conf and panic on the first access.
+func NewAllProcessesBody() {
+	if err := initPerProcess(); err != nil {
+		panic(fmt.Errorf("failed to init legacy on parallel process: %w", err))
+	}
 }
 
 func NewAfterAllProcessBody() {

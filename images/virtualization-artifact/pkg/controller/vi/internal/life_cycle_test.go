@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -221,6 +223,90 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 	)
+
+	DescribeTable(
+		"Phase/progress invariants on the final status",
+		func(phase v1alpha2.ImagePhase, syncProgress, expectedProgress string) {
+			var sourcesMock SourcesMock
+			sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) bool {
+				return false
+			}
+			sourcesMock.ForFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
+				return &source.HandlerMock{StoreToDVCRFunc: func(_ context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
+					vi.Status.Phase = phase
+					vi.Status.Progress = syncProgress
+					return reconcile.Result{}, nil
+				}}, true
+			}
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+			vi := v1alpha2.VirtualImage{
+				Spec: v1alpha2.VirtualImageSpec{
+					Storage: v1alpha2.StorageContainerRegistry,
+				},
+				Status: v1alpha2.VirtualImageStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   vicondition.DatasourceReadyType.String(),
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			handler := NewLifeCycleHandler(recorder, &sourcesMock, nil)
+			_, err := handler.Handle(context.TODO(), &vi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vi.Status.Phase).To(Equal(phase))
+			Expect(vi.Status.Progress).To(Equal(expectedProgress))
+		},
+		Entry("Provisioning defaults empty progress to 0%", v1alpha2.ImageProvisioning, "", "0%"),
+		Entry("Provisioning keeps the reported progress", v1alpha2.ImageProvisioning, "42.0%", "42.0%"),
+		Entry("WaitForUserUpload forces empty progress to 0%", v1alpha2.ImageWaitForUserUpload, "", "0%"),
+		Entry("WaitForUserUpload forces progress to 0%", v1alpha2.ImageWaitForUserUpload, "73%", "0%"),
+		Entry("Pending clears any progress prematurely set by a source path", v1alpha2.ImagePending, "55%", ""),
+		Entry("Pending keeps progress empty", v1alpha2.ImagePending, "", ""),
+		Entry("empty phase clears any progress prematurely set by a source path", v1alpha2.ImagePhase(""), "10%", ""),
+		Entry("Ready keeps the reported progress untouched", v1alpha2.ImageReady, "100%", "100%"),
+	)
+
+	It("surfaces a namespace-terminating store error on the Ready condition without failing the reconcile", func() {
+		var sourcesMock SourcesMock
+		sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) bool {
+			return false
+		}
+		sourcesMock.ForFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
+			return &source.HandlerMock{StoreToDVCRFunc: func(_ context.Context, _ *v1alpha2.VirtualImage) (reconcile.Result, error) {
+				return reconcile.Result{}, errors.New(`secrets "d8v-vi-dvcr-auth" is forbidden: unable to create new content in namespace ns because it is being terminated`)
+			}}, true
+		}
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+		vi := v1alpha2.VirtualImage{
+			Spec: v1alpha2.VirtualImageSpec{
+				Storage: v1alpha2.StorageContainerRegistry,
+			},
+			Status: v1alpha2.VirtualImageStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vicondition.DatasourceReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
+		}
+
+		handler := NewLifeCycleHandler(recorder, &sourcesMock, nil)
+		_, err := handler.Handle(context.TODO(), &vi)
+		Expect(err).NotTo(HaveOccurred())
+
+		readyCond, ok := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+		Expect(ok).To(BeTrue())
+		Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(readyCond.Reason).To(Equal(vicondition.Provisioning.String()))
+	})
 })
 
 type cleanupAfterSpecChangeTestArgs struct {

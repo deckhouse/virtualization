@@ -24,8 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -75,5 +77,41 @@ var _ = Describe("ReadyPersistentVolumeClaimStep", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vi.Status.Size.Stored).To(Equal("12Gi"))
 		Expect(vi.Status.Size.Unpacked).To(Equal("12Gi"))
+		Expect(vi.Status.Format).To(Equal(imageformat.FormatQCOW2))
+	})
+
+	It("reports raw format for block PVCs", func() {
+		pvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "image-pvc"},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				VolumeMode: ptr.To(corev1.PersistentVolumeBlock),
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("200Mi"),
+					},
+				},
+			},
+			Status: corev1.PersistentVolumeClaimStatus{
+				Phase: corev1.ClaimBound,
+				Capacity: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("200Mi"),
+				},
+			},
+		}
+
+		vi := &v1alpha2.VirtualImage{}
+		var recorder *eventrecord.EventRecorderLoggerMock
+		recorder = &eventrecord.EventRecorderLoggerMock{
+			EventFunc: noopEvent,
+			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
+				return recorder
+			},
+		}
+		cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+		step := NewReadyPersistentVolumeClaimStep(pvc, noopReadyPersistentVolumeClaimStepBounder{}, recorder, cb)
+
+		_, err := step.Take(context.Background(), vi)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vi.Status.Format).To(Equal(imageformat.FormatRAW))
 	})
 })

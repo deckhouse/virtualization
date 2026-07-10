@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
 
 const (
@@ -40,6 +41,9 @@ const (
 	DVCRImageMonitorScheduleVar = "DVCR_IMAGE_MONITOR_SCHEDULE"
 	// DVCRGCScheduleVar is an env variable holds the cron schedule to run DVCR garbage collection.
 	DVCRGCScheduleVar = "DVCR_GC_SCHEDULE"
+	// DVCRTokenPrivateKeyVar holds the PEM ECDSA private key used to mint scoped
+	// per-namespace DVCR tokens.
+	DVCRTokenPrivateKeyVar = "DVCR_TOKEN_PRIVATE_KEY"
 
 	// UploaderIngressHostVar is a env variable
 	UploaderIngressHostVar = "UPLOADER_INGRESS_HOST"
@@ -53,6 +57,7 @@ const (
 
 func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error) {
 	dvcrSettings := &dvcr.Settings{
+		ControllerNamespace:  controllerNamespace,
 		AuthSecret:           os.Getenv(DVCRAuthSecretVar),
 		AuthSecretNamespace:  os.Getenv(DVCRAuthSecretNSVar),
 		CertsSecret:          os.Getenv(DVCRCertsSecretVar),
@@ -88,6 +93,16 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 	if dvcrSettings.GCSchedule == "" {
 		dvcrSettings.GCSchedule = dvcr.DefaultGCSchedule
 	}
+
+	keyPEM := os.Getenv(DVCRTokenPrivateKeyVar)
+	if keyPEM == "" {
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", DVCRTokenPrivateKeyVar)
+	}
+	signer, err := registrytoken.NewSignerFromPEM([]byte(keyPEM))
+	if err != nil {
+		return nil, fmt.Errorf("init DVCR token signer: %w", err)
+	}
+	dvcrSettings.TokenSigner = signer
 
 	return dvcrSettings, nil
 }

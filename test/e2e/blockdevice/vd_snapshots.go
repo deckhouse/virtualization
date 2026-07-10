@@ -19,6 +19,7 @@ package blockdevice
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,7 +43,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorageClass, precheck.PrecheckSnapshot), func() {
+var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
 	var (
 		ctx context.Context
 		cfg *config.Config
@@ -52,7 +53,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ctx = context.Background()
 
 		cfg = framework.GetConfig()
-		if cfg.StorageClass.TemplateStorageClass != nil && cfg.StorageClass.TemplateStorageClass.Provisioner == config.NFS {
+		if cfg.StorageClass.DefaultStorageClass != nil && cfg.StorageClass.DefaultStorageClass.Provisioner == config.NFS {
 			Skip("Concurrent snapshotting is not supported on NFS on the VolumeSnapshot side, skipping")
 		}
 	})
@@ -63,7 +64,9 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vd := object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIUbuntu)
+		// Long disk name (>60 chars, the former limit) to exercise snapshotting a
+		// disk whose name uses the full Kubernetes name length.
+		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVIUbuntu)
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm"),
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
@@ -85,7 +88,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
 
 		By("Waiting for ready snapshot phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshot)
+		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -107,13 +110,30 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 			"vd-no-consumer",
 			f.Namespace().Name,
 			object.PrecreatedCVIAlpineBIOS,
-			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.ImmediateStorageClass.Name)),
+			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.DefaultStorageClass.Name)),
 		)
 
-		err := f.CreateWithDeferredDeletion(ctx, vd)
+		// With a WaitForFirstConsumer storage class the disk stays in the
+		// WaitForFirstConsumer phase until a VM consumes it, so run a throwaway
+		// VM to get the disk provisioned, then delete it to snapshot the disk
+		// without a consumer.
+		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
+			vmbuilder.WithName("vm-first-consumer"),
+			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vd.Name,
+			}),
+		)
+
+		err := f.CreateWithDeferredDeletion(ctx, vd, vm)
 		Expect(err).NotTo(HaveOccurred())
 
 		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+
+		By("Deleting the VM so the disk has no consumer")
+		Expect(f.Delete(ctx, vm)).To(Succeed())
+		util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, vm)
 
 		By("Creating snapshot")
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
@@ -122,7 +142,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for ready snapshot phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshot)
+		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -161,7 +181,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
 
 		By("Waiting for ready snapshots phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
+		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotRoot)
@@ -203,7 +223,9 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckImmediateStorage
 		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
 
 		By("Waiting for ready snapshots phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.MiddleTimeout, util.ToObjects(vdSnapshots)...)
+		// 10 concurrent snapshots are processed nearly sequentially by the CSI
+		// driver (LINSTOR lock contention), so the tail does not fit in MiddleTimeout.
+		util.UntilVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshots...)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		for _, vdSnapshot := range vdSnapshots {

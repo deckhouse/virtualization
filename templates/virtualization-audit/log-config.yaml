@@ -60,9 +60,9 @@ metadata:
   name: to-virtualization-audit
 spec:
   buffer:
-    memory:
-      maxEvents: 4096
-    type: Memory
+    disk:
+      maxSize: 512Mi
+    type: Disk
     whenFull: Block
   socket:
     address: virtualization-audit.d8-virtualization.svc:443

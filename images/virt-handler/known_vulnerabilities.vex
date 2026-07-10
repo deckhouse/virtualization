@@ -1,0 +1,24 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-virtualization-virt-handler-runc-cve-2026-41579",
+  "author": "Deckhouse <contact@deckhouse.io>",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41579"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/opencontainers/runc@v1.2.9"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "Уязвимость CVE-2026-41579 требует запуска runc на злонамеренном container image, в котором /dev представлен как symlink, чтобы спровоцировать ограниченное нарушение целостности host filesystem при подготовке rootfs. В образе virt-handler наличие зависимости github.com/opencontainers/runc является транзитивным, однако компонент не предоставляет атакующему управляемый путь для запуска runc на произвольном malicious image с описанными предпосылками. Поэтому уязвимый сценарий для virt-handler и сопутствующего исполнимого файла virt-chroot в рамках ожидаемой модели эксплуатации компонента не достижим.",
+      "timestamp": "2026-06-29T00:00:00Z"
+    }
+  ],
+  "timestamp": "2026-06-29T00:00:00Z",
+  "last_updated": "2026-06-29T00:00:00Z"
+}

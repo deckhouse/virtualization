@@ -24,6 +24,8 @@ true
       fieldPath: metadata.namespace
 - name: IMPORTER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
+- name: DISK_IMPORTER_IMAGE
+  value: {{ include "helm_lib_module_image" (list . "pvcImporter") }}
 - name: UPLOADER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
 - name: BOUNDER_IMAGE
@@ -40,6 +42,11 @@ true
   value: "*/5 * * * *"
 - name: DVCR_GC_SCHEDULE
   value: "{{ .Values.virtualization.internal.moduleConfig | dig "dvcr" "gc" "schedule" "" }}"
+- name: DVCR_TOKEN_PRIVATE_KEY
+  valueFrom:
+    secretKeyRef:
+      name: dvcr-secrets
+      key: tokenPrivateKey
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualImages") }}
@@ -72,8 +79,12 @@ true
 {{- end }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
+# Keep parity with the podResourceRequirements of the removed CDI config:
+# cpu 1000m so image decompression and qemu-img convert are not throttled,
+# memory 3600M to avoid OOMKill during importing huge images ~2.9GiB on
+# linux kernels 6.12+ (page cache is charged to the pod cgroup).
 - name: PROVISIONING_POD_LIMITS
-  value: '{"cpu":"750m","memory":"600M"}'
+  value: '{"cpu":"1000m","memory":"3600M"}'
 - name: PROVISIONING_POD_REQUESTS
   value: '{"cpu":"100m","memory":"60M"}'
 - name: GC_VMOP_TTL
@@ -88,18 +99,19 @@ true
   value: "24h"
 - name: GC_VM_POD_SCHEDULE
   value: "0 0 * * *"
-{{- if (hasKey .Values.virtualization.internal.moduleConfig "liveMigration") }}
-- name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.bandwidthPerNode | quote }}
-- name: LIVE_MIGRATION_MAX_MIGRATIONS_PER_NODE
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.maxMigrationsPerNode | quote }}
-- name: LIVE_MIGRATION_NETWORK
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.network | quote }}
-{{- if (hasKey .Values.virtualization.internal.moduleConfig.liveMigration "dedicated") }}
-- name: LIVE_MIGRATION_DEDICATED_INTERFACE_NAME
-  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.dedicated.interfaceName | quote }}
+{{- $liveMigration := (.Values.virtualization | default dict).liveMigration | default dict }}
+{{- $migrationNetwork := $liveMigration.network | default dict }}
+{{- if eq $migrationNetwork.type "SystemNetwork" }}
+{{- $systemNetworkName := ($migrationNetwork.systemNetwork | default dict).name | default "" }}
+{{- if $systemNetworkName }}
+- name: MIGRATION_SYSTEM_NETWORK_NAME
+  value: {{ $systemNetworkName | quote }}
 {{- end }}
 {{- end }}
+- name: PARALLEL_INBOUND_MIGRATIONS_PER_NODE
+  value: {{ .Values.virtualization.internal | dig "virtConfig" "parallelInboundMigrationsPerNode" 1 | quote }}
+- name: INBOUND_MIGRATION_LIMIT
+  value: {{ .Values.virtualization.internal | dig "virtConfig" "inboundMigrationLimit" "" | quote }}
 - name: METRICS_BIND_ADDRESS
   value: "127.0.0.1:8080"
 {{- if eq (include "moduleLogLevel" .) "debug" }}

@@ -45,8 +45,8 @@ type buildOption struct {
 func newRootVD(f *framework.Framework, root buildOption, vi *v1alpha2.VirtualImage) *v1alpha2.VirtualDisk {
 	disk := object.NewVDFromVI(root.name, f.Namespace().Name, vi)
 	vdbuilder.ApplyOptions(disk,
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 		vdbuilder.WithStorageClass(root.storageClass),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("2Gi"))),
 	)
 
 	if root.rwo {
@@ -251,7 +251,7 @@ func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.F
 						return err
 					}
 				}
-			case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted:
+			case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseSuperseded:
 				someCompleted = true
 				return nil
 			}

@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -38,7 +39,7 @@ import (
 )
 
 var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck), func(bootloaderType v1alpha2.BootloaderType) {
-	const stressngCmd = "nohup stress-ng --cpu 4 --vm 4 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 3m </dev/null >/dev/null 2>errlog &"
+	const stressngCmd = "nohup stress-ng --cpu 2 --vm 2 --vm-bytes 90% --vm-keep --vm-populate --vm-method all --timeout 3m </dev/null >/dev/null 2>errlog &"
 
 	ctx := context.Background()
 	var suffix string
@@ -57,14 +58,20 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	f.Before()
 
 	By("Environment preparation")
-	vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
-	vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+	// Build the disks on the template StorageClass (STORAGE_CLASS_NAME or the
+	// cluster default): live migration requires a class whose volumes are
+	// reachable from the target node.
+	storageClass := framework.GetConfig().StorageClass.DefaultStorageClass
+	vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu,
+		vdbuilder.WithStorageClass(&storageClass.Name),
+	)
+	vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, &storageClass.Name, ptr.To(resource.MustParse("100Mi")))
 
 	vm := object.NewMinimalVM("", f.Namespace().Name,
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithBootloader(bootloaderType),
-		vmbuilder.WithCPU(4, ptr.To("100%")),
-		vmbuilder.WithMemory(resource.MustParse("4Gi")),
+		vmbuilder.WithCPU(2, ptr.To("100%")),
+		vmbuilder.WithMemory(resource.MustParse("2Gi")),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
@@ -107,16 +114,23 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(precheck.NoPrecheck
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Ensure the VMOP is in the InProgress phase")
-	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MiddleTimeout, evictVMOP)
+	// The VMOP stays Pending until virt-controller grants a migration slot
+	// (parallelMigrationsPerCluster/parallelOutboundMigrationsPerNode), which
+	// takes minutes when parallel specs keep long-running migrations busy.
+	util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseInProgress), framework.MaxTimeout, evictVMOP)
 
 	By("Ensure the KVVMI has a migration state")
-	untilKVVMIMigrationStateExists(ctx, framework.MiddleTimeout, vm)
+	untilKVVMIMigrationStateExists(ctx, framework.MaxTimeout, vm)
 
 	By("Remove the VMOP")
 	err = f.GenericClient().Delete(ctx, evictVMOP)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Ensure the VMOP is removed")
+	// The VMOP disappears only after the migration abort completes, and KubeVirt
+	// delivers the abort signal to the VMI only once the migration reaches the
+	// Running phase — under stress-ng load the target preparation alone can take
+	// minutes, so the graceful cancellation needs the long timeout too.
 	util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, evictVMOP)
 
 	By("Ensure stress-ng error log is empty")

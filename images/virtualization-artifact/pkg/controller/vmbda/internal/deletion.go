@@ -90,15 +90,7 @@ func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachin
 		return reconcile.Result{}, errors.New("intvirtvm not found to unplug")
 	}
 
-	var blockDeviceName string
-	switch vmbda.Spec.BlockDeviceRef.Kind {
-	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
-		blockDeviceName = kvbuilder.GenerateVDDiskName(vmbda.Spec.BlockDeviceRef.Name)
-	case v1alpha2.VMBDAObjectRefKindVirtualImage:
-		blockDeviceName = kvbuilder.GenerateVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
-	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
-		blockDeviceName = kvbuilder.GenerateCVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
-	}
+	blockDeviceName := kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef)
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 	log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))

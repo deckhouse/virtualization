@@ -49,7 +49,7 @@ var _ = Describe("ShutdownReason", func() {
 		})
 	})
 
-	Context("when kvvmi is not in Succeeded phase", func() {
+	Context("when kvvmi is not completed", func() {
 		BeforeEach(func() {
 			kvvmi = &virtv1.VirtualMachineInstance{
 				Status: virtv1.VirtualMachineInstanceStatus{
@@ -61,6 +61,55 @@ var _ = Describe("ShutdownReason", func() {
 		It("should return empty ShutdownInfo", func() {
 			result := ShutdownReason(vm, kvvmi, pods)
 			Expect(result).To(Equal(ShutdownInfo{}))
+		})
+	})
+
+	Context("when kvvmi is in Failed phase", func() {
+		BeforeEach(func() {
+			kvvmi = &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					Phase: virtv1.Failed,
+				},
+			}
+			vm.Status = v1alpha2.VirtualMachineStatus{
+				VirtualMachinePods: []v1alpha2.VirtualMachinePod{
+					{
+						Name:   "test-pod",
+						Active: true,
+					},
+				},
+			}
+		})
+
+		It("should return ShutdownInfo when pod is in Failed phase", func() {
+			pods = &corev1.PodList{
+				Items: []corev1.Pod{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "test-namespace",
+						},
+						Status: corev1.PodStatus{
+							Phase: corev1.PodFailed,
+							ContainerStatuses: []corev1.ContainerStatus{
+								{
+									Name: "test-compute",
+									State: corev1.ContainerState{
+										Terminated: &corev1.ContainerStateTerminated{
+											Message: `{"event":"SHUTDOWN","details":"{\"guest\":true,\"reason\":\"guest-shutdown\"}"}`,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			result := ShutdownReason(vm, kvvmi, pods)
+			Expect(result.PodCompleted).To(BeTrue())
+			Expect(result.Reason).To(Equal(GuestShutdownReason))
+			Expect(result.Pod.Name).To(Equal("test-pod"))
 		})
 	})
 
@@ -169,7 +218,7 @@ var _ = Describe("ShutdownReason", func() {
 		})
 	})
 
-	Context("when pod is not in Succeeded phase", func() {
+	Context("when pod is not completed", func() {
 		BeforeEach(func() {
 			kvvmi = &virtv1.VirtualMachineInstance{
 				Status: virtv1.VirtualMachineInstanceStatus{

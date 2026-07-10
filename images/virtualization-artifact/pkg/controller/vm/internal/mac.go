@@ -128,7 +128,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			}
 		}
 
-		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address to be created %d/%d", len(vmmacs), expectedMACAddresses))
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address to be created %d/%d.", len(vmmacs), expectedMACAddresses))
 		return reconcile.Result{}, nil
 	}
 

@@ -103,20 +103,34 @@ func DumpKVVMIMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) strin
 }
 
 func GenerateMigrationConfigurationPatch(current, changed *virtv1.VirtualMachineInstance) ([]byte, error) {
-	if current.Status.MigrationState == nil || changed.Status.MigrationState == nil {
+	jsonPatch := patch.NewJSONPatch()
+
+	if current.Status.MigrationState != nil && changed.Status.MigrationState != nil {
+		currentConf := current.Status.MigrationState.MigrationConfiguration
+		changedConf := changed.Status.MigrationState.MigrationConfiguration
+		if !equality.Semantic.DeepEqual(currentConf, changedConf) {
+			op := patch.PatchReplaceOp
+			if currentConf == nil {
+				op = patch.PatchAddOp
+			}
+			jsonPatch.Append(patch.NewJSONPatchOperation(op, "/status/migrationState/migrationConfiguration", changedConf))
+		}
+	}
+
+	if !equality.Semantic.DeepEqual(current.Annotations, changed.Annotations) {
+		switch {
+		case changed.Annotations == nil:
+			jsonPatch.Append(patch.NewJSONPatchOperation(patch.PatchRemoveOp, "/metadata/annotations", nil))
+		case current.Annotations == nil:
+			jsonPatch.Append(patch.NewJSONPatchOperation(patch.PatchAddOp, "/metadata/annotations", changed.Annotations))
+		default:
+			jsonPatch.Append(patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", changed.Annotations))
+		}
+	}
+
+	if jsonPatch.Len() == 0 {
 		return nil, nil
 	}
-	currentConf := current.Status.MigrationState.MigrationConfiguration
-	changedConf := changed.Status.MigrationState.MigrationConfiguration
 
-	if equality.Semantic.DeepEqual(currentConf, changedConf) {
-		return nil, nil
-	}
-
-	op := patch.PatchReplaceOp
-	if currentConf == nil {
-		op = patch.PatchAddOp
-	}
-
-	return patch.NewJSONPatch(patch.NewJSONPatchOperation(op, "/status/migrationState/migrationConfiguration", changedConf)).Bytes()
+	return jsonPatch.Bytes()
 }

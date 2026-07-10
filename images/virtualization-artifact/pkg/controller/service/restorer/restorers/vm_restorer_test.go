@@ -337,6 +337,38 @@ var _ = Describe("VirtualMachineRestorer", func() {
 		}),
 	)
 
+	DescribeTable("preserves the pre-restore power state across the annotation overwrite",
+		func(powerState string) {
+			liveVM := vm.DeepCopy()
+			liveVM.Annotations = map[string]string{
+				annotations.AnnVMRestorePowerState: powerState,
+			}
+			// Different spec so ProcessRestore takes the update path (full annotation overwrite).
+			liveVM.Spec.RunPolicy = v1alpha2.ManualPolicy
+
+			var updatedVM *v1alpha2.VirtualMachine
+			ic := interceptor.Funcs{
+				Update: func(_ context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+					if got, ok := obj.(*v1alpha2.VirtualMachine); ok {
+						updatedVM = got.DeepCopy()
+					}
+					return c.Update(ctx, obj, opts...)
+				},
+			}
+			fc, err := testutil.NewFakeClientWithInterceptorWithObjects(ic, liveVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler := NewVirtualMachineHandler(fc, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
+			Expect(handler.ProcessRestore(ctx)).To(Succeed())
+
+			Expect(updatedVM).ToNot(BeNil())
+			Expect(updatedVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestorePowerState, powerState))
+			Expect(updatedVM.Annotations).To(HaveKeyWithValue(annotations.AnnVMOPRestore, restoreUID))
+		},
+		Entry("running", string(v1alpha2.MachineRunning)),
+		Entry("stopped", string(v1alpha2.MachineStopped)),
+	)
+
 	Describe("Override", func() {
 		var rules []v1alpha2.NameReplacement
 

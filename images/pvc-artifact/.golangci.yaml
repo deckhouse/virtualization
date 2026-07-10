@@ -1,0 +1,104 @@
+# https://golangci-lint.run/usage/configuration/
+version: "2"
+
+run:
+  concurrency: 4
+  timeout: 10m
+
+issues:
+  # Show all errors.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude:
+    - "don't use an underscore in package name"
+
+output:
+  sort-results: true
+
+exclusions:
+  paths:
+    - "^staging/.*"
+    - "^zz_generated.*"
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(kubevirt.io/containerized-data-importer/)
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes: kubevirt.io/containerized-data-importer/
+
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - dogsled
+    - errcheck
+    - errname
+    - errorlint
+    - gocritic
+    - govet
+    - ineffassign
+    - misspell
+    - nolintlint
+    - reassign
+    - revive
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unparam
+    - unused
+    - usetesting
+    - testableexamples
+    - thelper
+    - tparallel
+    - whitespace
+    - wastedassign
+    - importas
+  settings:
+    errcheck:
+      exclude-functions:
+        - "(*os.File).Close"
+        - "(*net.TCPConn).Close"
+        - "(io.ReadCloser).Close"
+        - "(net.Listener).Close"
+        - "(net.Conn).Close"
+        - "(*golang.org/x/crypto/ssh.Session).Close"
+        - "(*github.com/fsnotify/fsnotify.Watcher).Close"
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/onsi/ginkgo/v2
+        - github.com/onsi/gomega
+    revive:
+      rules:
+        - name: dot-imports
+          disabled: true
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+    nolintlint:
+      allow-no-explanation: [funlen, gocognit, lll]
+      require-explanation: true
+      require-specific: true
+    importas:
+      no-unaliased: true
+      no-extra-aliases: false
+      alias:
+        - pkg: k8s.io/api/core/v1
+          alias: corev1
+        - pkg: k8s.io/apimachinery/pkg/api/resource
+          alias: ""

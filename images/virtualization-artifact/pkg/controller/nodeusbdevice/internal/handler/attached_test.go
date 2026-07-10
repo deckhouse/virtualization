@@ -106,6 +106,6 @@ var _ = Describe("AttachedHandler", func() {
 		}, metav1.ConditionFalse, string(nodeusbdevicecondition.NoFreeUSBIPPort), "No free USBIP ports are available."),
 		Entry("missing attached condition falls back to available", "test-ns", &v1alpha2.USBDevice{
 			ObjectMeta: metav1.ObjectMeta{Name: "usb-device-1", Namespace: "test-ns"},
-		}, metav1.ConditionFalse, string(nodeusbdevicecondition.AttachedAvailable), "Attached condition not found in USBDevice test-ns/usb-device-1."),
+		}, metav1.ConditionFalse, string(nodeusbdevicecondition.AttachedAvailable), "Waiting for the attachment status of USBDevice test-ns/usb-device-1."),
 	)
 })
