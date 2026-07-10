@@ -1,0 +1,1809 @@
+---
+# NOTE:
+# SecurityEventDefinitions and PodSecurityEventShipper for the virtualization-audit image.
+#
+# The virtualization-audit binary (built from images/virtualization-artifact/pkg/audit)
+# writes structured JSON security events to stdout via fmt.Println.
+# Each log line is a self-contained JSON object with a "type" field identifying
+# the event category and a "name" field containing a human-readable description.
+#
+# Event types emitted by the audit image:
+#   1. "Module control"         — module created/updated/deleted/disabled
+#   2. "Virtualization control" — component (pod) created/deleted in d8-virtualization
+#   3. "Control VM"             — VM lifecycle: stopped/restarted from OS, killed abnormally,
+#                                  started/stopped/restarted/migrated/evicted via VMOP
+#   4. "Access to VM"           — console/VNC/portforward connection initiated/finished
+#   5. "Manage VM"              — VM created/updated/deleted via API
+#   6. "Integrity check"        — VM configuration integrity check failed
+#   7. "Forbidden operation"    — user attempted a forbidden operation
+{{- if .Values.global.discovery.apiVersions | has "security.deckhouse.io/v1alpha1/SecurityEventDefinition" }}
+
+# ════════════════════════════════════════════════════════════════════
+# SecurityEventDefinition resources
+# ════════════════════════════════════════════════════════════════════
+
+# ── Module control events ──────────────────────────────────────────────
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-module-created
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_MODULE_CREATED
+  category: Config
+  severity: Low
+  description: "Deckhouse module created"
+  descriptionRu: "Модуль Deckhouse создан"
+  metadata:
+    docs:
+      desc:
+        en: "Detected creation of a Deckhouse module. The event records who enabled a module and when."
+        ru: "Обнаружено создание модуля Deckhouse. Событие фиксирует, кто и когда включил модуль в кластере."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.component
+      required: false
+    - name: metadata.extra.virtualizationVersion
+      required: false
+    - name: metadata.extra.virtualizationName
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-module-updated
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_MODULE_UPDATED
+  category: Config
+  severity: Low
+  description: "Deckhouse module updated"
+  descriptionRu: "Модуль Deckhouse обновлён"
+  metadata:
+    docs:
+      desc:
+        en: "Detected a configuration update of a Deckhouse module."
+        ru: "Обнаружено обновление конфигурации модуля Deckhouse."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.component
+      required: false
+    - name: metadata.extra.virtualizationVersion
+      required: false
+    - name: metadata.extra.virtualizationName
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-module-deleted
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_MODULE_DELETED
+  category: Config
+  severity: Medium
+  description: "Deckhouse module deleted"
+  descriptionRu: "Модуль Deckhouse удалён"
+  metadata:
+    docs:
+      desc:
+        en: "Detected deletion of a Deckhouse module. This may cause all module services to stop."
+        ru: "Обнаружено удаление модуля Deckhouse. Это может привести к остановке всех сервисов модуля."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.component
+      required: false
+    - name: metadata.extra.virtualizationVersion
+      required: false
+    - name: metadata.extra.virtualizationName
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-module-disabled
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_MODULE_DISABLED
+  category: Config
+  severity: Medium
+  description: "Deckhouse module disabled"
+  descriptionRu: "Модуль Deckhouse отключён"
+  metadata:
+    docs:
+      desc:
+        en: "Detected disabling of a Deckhouse module. The module was set to enabled=false."
+        ru: "Обнаружено отключение модуля Deckhouse. Модуль был переведён в состояние enabled=false."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.component
+      required: false
+    - name: metadata.extra.virtualizationVersion
+      required: false
+    - name: metadata.extra.virtualizationName
+      required: false
+
+# ── Virtualization control events (component pods) ─────────────────────
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-component-created
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_COMPONENT_CREATED
+  category: Runtime
+  severity: Low
+  description: "Virtualization component created"
+  descriptionRu: "Компонент виртуализации создан"
+  metadata:
+    docs:
+      desc:
+        en: "Detected creation of a virtualization component (e.g. virt-controller, virt-api)."
+        ru: "Обнаружено создание компонента виртуализации (например, virt-controller, virt-api)."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.component
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.virtualizationVersion
+      required: false
+    - name: metadata.extra.virtualizationName
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-component-deleted
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_COMPONENT_DELETED
+  category: Runtime
+  severity: Medium
+  description: "Virtualization component deleted"
+  descriptionRu: "Компонент виртуализации удалён"
+  metadata:
+    docs:
+      desc:
+        en: "Detected deletion of a virtualization component."
+        ru: "Обнаружено удаление компонента виртуализации."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.component
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.virtualizationVersion
+      required: false
+    - name: metadata.extra.virtualizationName
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+
+# ── Control VM: OS-initiated and abnormal lifecycle events ─────────────
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-stopped-from-os
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_STOPPED_FROM_OS
+  category: Runtime
+  severity: Medium
+  description: "Virtual machine stopped from inside the guest OS"
+  descriptionRu: "Виртуальная машина остановлена из гостевой ОС"
+  metadata:
+    docs:
+      desc:
+        en: "The virtual machine was stopped by a command from inside the guest OS (guest-shutdown)."
+        ru: "Виртуальная машина была остановлена командой изнутри гостевой операционной системы (guest-shutdown)."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-restarted-from-os
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_RESTARTED_FROM_OS
+  category: Runtime
+  severity: Medium
+  description: "Virtual machine restarted from inside the guest OS"
+  descriptionRu: "Виртуальная машина перезагружена из гостевой ОС"
+  metadata:
+    docs:
+      desc:
+        en: "The virtual machine was restarted by a command from inside the guest OS (guest-reset)."
+        ru: "Виртуальная машина была перезагружена командой изнутри гостевой операционной системы (guest-reset)."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-killed-abnormal
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_KILLED_ABNORMAL
+  category: Runtime
+  severity: Critical
+  description: "Virtual machine killed abnormally by a non-system user"
+  descriptionRu: "Виртуальная машина аварийно завершена не системным пользователем"
+  metadata:
+    docs:
+      desc:
+        en: "The virtual machine was killed abnormally by a non-system user. This may indicate unauthorized intervention."
+        ru: "Виртуальная машина была аварийно завершена (killed) не системным пользователем. Это может свидетельствовать о несанкционированном вмешательстве."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+
+# ── Control VM: VMOP lifecycle events (start/stop/restart/migrate/evict) ──
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-started
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_STARTED
+  category: Runtime
+  severity: Low
+  description: "Virtual machine started"
+  descriptionRu: "Виртуальная машина запущена"
+  metadata:
+    docs:
+      desc:
+        en: "A user started a virtual machine."
+        ru: "Пользователь запустил виртуальную машину."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-stopped
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_STOPPED
+  category: Runtime
+  severity: Medium
+  description: "Virtual machine stopped"
+  descriptionRu: "Виртуальная машина остановлена"
+  metadata:
+    docs:
+      desc:
+        en: "A user stopped a virtual machine."
+        ru: "Пользователь остановил виртуальную машину."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-restarted
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_RESTARTED
+  category: Runtime
+  severity: Medium
+  description: "Virtual machine restarted"
+  descriptionRu: "Виртуальная машина перезагружена"
+  metadata:
+    docs:
+      desc:
+        en: "A user restarted a virtual machine."
+        ru: "Пользователь перезагрузил виртуальную машину."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-migrated
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_MIGRATED
+  category: Runtime
+  severity: Medium
+  description: "Virtual machine migrated"
+  descriptionRu: "Виртуальная машина мигрирована"
+  metadata:
+    docs:
+      desc:
+        en: "A user initiated migration of a virtual machine."
+        ru: "Пользователь инициировал миграцию виртуальной машины."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-evicted
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_EVICTED
+  category: Runtime
+  severity: Medium
+  description: "Virtual machine evicted"
+  descriptionRu: "Виртуальная машина выселена"
+  metadata:
+    docs:
+      desc:
+        en: "A user initiated eviction of a virtual machine."
+        ru: "Пользователь инициировал выселение виртуальной машины."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+
+# ── Access to VM: console / VNC / portforward ──────────────────────────
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-access-console
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_ACCESS_CONSOLE
+  category: Auth
+  severity: Medium
+  description: "User accessed virtual machine console"
+  descriptionRu: "Пользователь получил доступ к консоли виртуальной машины"
+  metadata:
+    docs:
+      desc:
+        en: "A user established a connection to a virtual machine console. Both connection initiation and completion are recorded."
+        ru: "Пользователь установил соединение с консолью виртуальной машины. Фиксируется как инициация, так и завершение соединения."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-access-vnc
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_ACCESS_VNC
+  category: Auth
+  severity: Medium
+  description: "User accessed virtual machine via VNC"
+  descriptionRu: "Пользователь получил доступ к виртуальной машине через VNC"
+  metadata:
+    docs:
+      desc:
+        en: "A user established a VNC connection to a virtual machine. Both connection initiation and completion are recorded."
+        ru: "Пользователь установил VNC-соединение с виртуальной машиной. Фиксируется как инициация, так и завершение соединения."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-access-portforward
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_ACCESS_PORTFORWARD
+  category: Auth
+  severity: Medium
+  description: "User accessed virtual machine via port forwarding"
+  descriptionRu: "Пользователь получил доступ к виртуальной машине через проброс портов"
+  metadata:
+    docs:
+      desc:
+        en: "A user established a port-forward connection to a virtual machine. Both connection initiation and completion are recorded."
+        ru: "Пользователь установил соединение с виртуальной машиной через проброс портов. Фиксируется как инициация, так и завершение соединения."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+
+# ── Manage VM: create / update / delete via API ────────────────────────
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-created
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_CREATED
+  category: Runtime
+  severity: Low
+  description: "Virtual machine created"
+  descriptionRu: "Виртуальная машина создана"
+  metadata:
+    docs:
+      desc:
+        en: "A user created a virtual machine."
+        ru: "Пользователь создал виртуальную машину."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-updated
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_UPDATED
+  category: Runtime
+  severity: Low
+  description: "Virtual machine updated"
+  descriptionRu: "Виртуальная машина обновлена"
+  metadata:
+    docs:
+      desc:
+        en: "A user updated a virtual machine configuration."
+        ru: "Пользователь обновил конфигурацию виртуальной машины."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-deleted
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_DELETED
+  category: Runtime
+  severity: Medium
+  description: "Virtual machine deleted"
+  descriptionRu: "Виртуальная машина удалена"
+  metadata:
+    docs:
+      desc:
+        en: "A user deleted a virtual machine."
+        ru: "Пользователь удалил виртуальную машину."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: object.name
+      required: false
+    - name: object.uid
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.virtualmachineUID
+      required: false
+    - name: metadata.extra.virtualmachineOS
+      required: false
+    - name: metadata.extra.storageClasses
+      required: false
+    - name: metadata.extra.nodeNetworkAddress
+      required: false
+    - name: metadata.extra.qemuVersion
+      required: false
+    - name: metadata.extra.libvirtVersion
+      required: false
+
+# ── Integrity check: VM configuration integrity violation ──────────────
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-vm-integrity-check-failed
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_VM_INTEGRITY_CHECK_FAILED
+  category: Config
+  severity: Critical
+  description: "Virtual machine configuration integrity check failed"
+  descriptionRu: "Проверка целостности конфигурации виртуальной машины не пройдена"
+  metadata:
+    docs:
+      desc:
+        en: "The virtual machine configuration checksum does not match the reference checksum. This may indicate unauthorized modification of the VM configuration (e.g. direct libvirt XML modification bypassing the API)."
+        ru: "Контрольная сумма конфигурации виртуальной машины не совпадает с эталонной. Это может свидетельствовать о несанкционированном изменении конфигурации ВМ (например, прямое изменение libvirt XML в обход API)."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: object.name
+      required: false
+    - name: object.namespace
+      required: false
+    - name: metadata.extra.objectType
+      required: false
+    - name: metadata.extra.controlMethod
+      required: false
+    - name: metadata.extra.reactionType
+      required: false
+    - name: metadata.extra.integrityCheckAlgo
+      required: false
+    - name: metadata.extra.referenceChecksum
+      required: false
+    - name: metadata.extra.currentChecksum
+      required: false
+
+# ── Forbidden operation: user attempted a denied action ────────────────
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: SecurityEventDefinition
+metadata:
+  name: virt-forbidden-operation
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  code: VIRT_FORBIDDEN_OPERATION
+  category: Auth
+  severity: High
+  description: "User attempted a forbidden operation"
+  descriptionRu: "Пользователь попытался выполнить запрещённую операцию"
+  metadata:
+    docs:
+      desc:
+        en: "A user attempted an operation that was denied by the access policy. The event includes the source IP, the forbid reason, and whether the user is an administrator."
+        ru: "Пользователь попытался выполнить операцию, которая была запрещена политикой доступа. Событие включает IP-адрес источника, причину запрета и признак того, является ли пользователь администратором."
+  source: virtualization-audit
+  fields:
+    - name: event.code
+      required: true
+    - name: source.component
+      required: true
+    - name: actor.id
+      required: false
+    - name: metadata.extra.auditID
+      required: false
+    - name: metadata.extra.auditLevel
+      required: false
+    - name: metadata.extra.auditName
+      required: false
+    - name: metadata.extra.operationResult
+      required: false
+    - name: metadata.extra.actionType
+      required: false
+    - name: metadata.extra.isAdmin
+      required: false
+    - name: metadata.extra.sourceIP
+      required: false
+    - name: metadata.extra.forbidReason
+      required: false
+
+# ════════════════════════════════════════════════════════════════════
+# PodSecurityEventShipper
+# ════════════════════════════════════════════════════════════════════
+---
+apiVersion: security.deckhouse.io/v1alpha1
+kind: PodSecurityEventShipper
+metadata:
+  name: virtualization-audit
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "1"
+    helm.sh/hook-delete-policy: before-hook-creation
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  namespace: d8-{{ .Chart.Name }}
+spec:
+  - source: virtualization-audit
+    input:
+      type: KubernetesPods
+      kubernetesPods:
+        labelSelector:
+          matchLabels:
+            app: virtualization-audit
+    parser:
+      - name: virtualization-audit
+        parser:
+          type: Regex
+          regex:
+            # Pattern 1: VM events — extracts vm_name from "Virtual machine '<name>' ..." in the name field.
+            patterns:
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"[^"]*Virtual machine ''(?P<vm_name>[^'']+)''[^"]*".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"action_type":"(?P<action_type>[^"]+)".*"node_network_address":"(?P<node_network_address>[^"]+)".*"virtualmachine_uid":"(?P<virtualmachine_uid>[^"]+)".*"virtualmachine_os":"(?P<virtualmachine_os>[^"]+)".*"storageclasses":"(?P<storageclasses>[^"]+)".*"qemu_version":"(?P<qemu_version>[^"]+)".*"libvirt_version":"(?P<libvirt_version>[^"]+)".*'
+              # Pattern 2: Integrity check — extracts vm_name from virtual_machine_name JSON field.
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"(?P<name>[^"]+)".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"object_type":"(?P<object_type>[^"]+)".*"virtual_machine_name":"(?P<virtual_machine_name>[^"]+)".*"control_method":"(?P<control_method>[^"]+)".*"reaction_type":"(?P<reaction_type>[^"]+)".*"integrity_check_algo":"(?P<integrity_check_algo>[^"]+)".*"reference_checksum":"(?P<reference_checksum>[^"]+)".*"current_checksum":"(?P<current_checksum>[^"]+)".*'
+              # Pattern 3: Module control / Virtualization control — extracts component name.
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"(?P<name>[^"]+)".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"action_type":"(?P<action_type>[^"]+)".*"component":"(?P<component>[^"]+)".*"node_network_address":"(?P<node_network_address>[^"]+)".*"virtualization_version":"(?P<virtualization_version>[^"]+)".*"virtualization_name":"(?P<virtualization_name>[^"]+)".*"qemu_version":"(?P<qemu_version>[^"]+)".*"libvirt_version":"(?P<libvirt_version>[^"]+)".*'
+              # Pattern 4: Forbidden operation — extracts is_admin, source_ip, forbid_reason.
+              - '.*"type":"(?P<type>[^"]+)".*"level":"(?P<level>[^"]+)".*"name":"(?P<name>[^"]+)".*"datetime":"(?P<datetime>[^"]+)".*"uid":"(?P<uid>[^"]+)".*"request_subject":"(?P<request_subject>[^"]+)".*"operation_result":"(?P<operation_result>[^"]+)".*"is_admin":(?P<is_admin>true|false).*"source_ip":"(?P<source_ip>[^"]+)".*"forbid_reason":"(?P<forbid_reason>[^"]+)".*'
+        drop_raw: false
+    producesDefaults:
+      transform:
+        - key: timestamp
+          value: datetime
+        - key: actor.id
+          value: request_subject
+        - key: metadata.extra.auditID
+          value: uid
+        - key: metadata.extra.auditLevel
+          value: level
+        - key: metadata.extra.auditType
+          value: type
+        - key: metadata.extra.auditName
+          value: name
+        - key: metadata.extra.operationResult
+          value: operation_result
+      enrich:
+        - target: source.component
+          source: Static
+          value: virtualization-audit
+        - target: object.type
+          source: Static
+          value: VirtualMachine
+        - target: actor.type
+          source: Static
+          value: User
+    produces:
+      # ── Module control events ──────────────────────────────────────────
+      - eventCode: VIRT_MODULE_CREATED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Module control".*has been created by.*'
+        transform:
+          - key: object.name
+            value: component
+          - key: object.type
+            value: component
+          - key: metadata.extra.component
+            value: component
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualizationVersion
+            value: virtualization_version
+          - key: metadata.extra.virtualizationName
+            value: virtualization_name
+
+      - eventCode: VIRT_MODULE_UPDATED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Module control".*has been updated by.*'
+        transform:
+          - key: object.name
+            value: component
+          - key: object.type
+            value: component
+          - key: metadata.extra.component
+            value: component
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualizationVersion
+            value: virtualization_version
+          - key: metadata.extra.virtualizationName
+            value: virtualization_name
+
+      - eventCode: VIRT_MODULE_DELETED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Module control".*has been deleted by.*'
+        transform:
+          - key: object.name
+            value: component
+          - key: object.type
+            value: component
+          - key: metadata.extra.component
+            value: component
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualizationVersion
+            value: virtualization_version
+          - key: metadata.extra.virtualizationName
+            value: virtualization_name
+
+      - eventCode: VIRT_MODULE_DISABLED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Module control".*has been disabled by.*'
+        transform:
+          - key: object.name
+            value: component
+          - key: object.type
+            value: component
+          - key: metadata.extra.component
+            value: component
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualizationVersion
+            value: virtualization_version
+          - key: metadata.extra.virtualizationName
+            value: virtualization_name
+
+      # ── Virtualization control events (component pod create/delete) ────
+      - eventCode: VIRT_COMPONENT_CREATED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Virtualization control".*has been created by.*'
+        transform:
+          - key: object.name
+            value: component
+          - key: object.type
+            value: component
+          - key: metadata.extra.component
+            value: component
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.virtualizationVersion
+            value: virtualization_version
+          - key: metadata.extra.virtualizationName
+            value: virtualization_name
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_COMPONENT_DELETED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Virtualization control".*has been deleted by.*'
+        transform:
+          - key: object.name
+            value: component
+          - key: object.type
+            value: component
+          - key: metadata.extra.component
+            value: component
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.virtualizationVersion
+            value: virtualization_version
+          - key: metadata.extra.virtualizationName
+            value: virtualization_name
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      # ── Control VM: abnormal / OS-initiated lifecycle events ───────────
+      - eventCode: VIRT_VM_STOPPED_FROM_OS
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Control VM".*has been stopped from OS.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_RESTARTED_FROM_OS
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Control VM".*has been restarted from OS.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_KILLED_ABNORMAL
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Control VM".*has been killed abnormal way by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      # ── Control VM: VMOP lifecycle events (start/stop/restart/migrate/evict) ──
+      - eventCode: VIRT_VM_STARTED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Control VM".*has been started by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_STOPPED
+        extract:
+          field: message
+          operator: Regex
+          # has been stopped by — does NOT match has been stopped from OS
+          values:
+            - '.*"type":"Control VM".*has been stopped by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_RESTARTED
+        extract:
+          field: message
+          operator: Regex
+          # has been restarted by — does NOT match has been restarted from OS
+          values:
+            - '.*"type":"Control VM".*has been restarted by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_MIGRATED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Control VM".*has been migrated by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_EVICTED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Control VM".*has been evicted by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      # ── Access to VM: console / VNC / portforward ──────────────────────
+      - eventCode: VIRT_VM_ACCESS_CONSOLE
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Access to VM".*via console by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_ACCESS_VNC
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Access to VM".*via vnc by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_ACCESS_PORTFORWARD
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Access to VM".*via portforward by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      # ── Manage VM: create / update / delete via API ────────────────────
+      - eventCode: VIRT_VM_CREATED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Manage VM".*has been created by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_UPDATED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Manage VM".*has been updated by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      - eventCode: VIRT_VM_DELETED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Manage VM".*has been deleted by.*'
+        transform:
+          - key: object.uid
+            value: virtualmachine_uid
+          - key: metadata.extra.actionType
+            value: action_type
+          - key: metadata.extra.virtualmachineUID
+            value: virtualmachine_uid
+          - key: metadata.extra.virtualmachineOS
+            value: virtualmachine_os
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.storageClasses
+            value: storageclasses
+          - key: metadata.extra.nodeNetworkAddress
+            value: node_network_address
+          - key: metadata.extra.qemuVersion
+            value: qemu_version
+          - key: metadata.extra.libvirtVersion
+            value: libvirt_version
+
+      # ── Integrity check: VM configuration integrity violation ──────────
+      - eventCode: VIRT_VM_INTEGRITY_CHECK_FAILED
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Integrity check".*config integrity check failed.*'
+        transform:
+          - key: object.name
+            value: virtual_machine_name
+          - key: object.namespace
+            value: virtual_machine_namespace
+          - key: metadata.extra.objectType
+            value: object_type
+          - key: metadata.extra.controlMethod
+            value: control_method
+          - key: metadata.extra.reactionType
+            value: reaction_type
+          - key: metadata.extra.integrityCheckAlgo
+            value: integrity_check_algo
+          - key: metadata.extra.referenceChecksum
+            value: reference_checksum
+          - key: metadata.extra.currentChecksum
+            value: current_checksum
+
+      # ── Forbidden operation: user attempted a denied action ────────────
+      - eventCode: VIRT_FORBIDDEN_OPERATION
+        extract:
+          field: message
+          operator: Regex
+          values:
+            - '.*"type":"Forbidden operation".*'
+        transform:
+          - key: metadata.extra.isAdmin
+            value: is_admin
+          - key: metadata.extra.sourceIP
+            value: source_ip
+          - key: metadata.extra.forbidReason
+            value: forbid_reason
+          - key: metadata.extra.actionType
+            value: action_type
+
+{{- end }}

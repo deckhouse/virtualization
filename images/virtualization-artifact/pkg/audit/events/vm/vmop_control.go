@@ -125,6 +125,9 @@ func (m *VMOPControl) Fill() error {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
 
+	m.eventLog.VirtualMachineName = vm.Name
+	m.eventLog.VirtualMachineNamespace = vm.Namespace
+
 	m.eventLog.QemuVersion = vm.Status.Versions.Qemu
 	m.eventLog.LibvirtVersion = vm.Status.Versions.Libvirt
 
