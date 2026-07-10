@@ -42,6 +42,15 @@ type VirtualMachineVNC struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:conversion-gen:explicit-from=net/url.Values
 
+type VirtualMachineVNCScreenshot struct {
+	metav1.TypeMeta `json:",inline"`
+
+	MoveCursor bool `json:"moveCursor"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
 type VirtualMachinePortForward struct {
 	metav1.TypeMeta `json:",inline"`
 

@@ -107,6 +107,7 @@ rules:
   - virtualmachines/portforward
   - virtualmachines/removevolume
   - virtualmachines/removeresourceclaim
+  - virtualmachines/screenshot
   - virtualmachines/unfreeze
   - virtualmachines/vnc
   - virtualmachinepools
