@@ -58,6 +58,11 @@ import (
 
 const vdCreationBlankSize = "64Mi"
 
+// vdCreationImageSize is the size for image-backed disks in this test. The custom
+// e2e-br image is ~35 MiB and grows its root filesystem to the disk on first boot,
+// so a small disk is enough — 400Mi is no longer needed.
+const vdCreationImageSize = "50Mi"
+
 // TODO: LINSTOR thin pool lock contention can stall all storage writes on a node
 // for over a minute without surfacing any error. That makes time-based progress
 // checks unreliable: see vd/predicate.go HaveValidProgress for the disabled check.
@@ -94,7 +99,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-http"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLCustomBIOS}),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -108,7 +113,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithDatasource(&v1alpha2.VirtualDiskDataSource{
 				Type: v1alpha2.DataSourceTypeUpload,
 			}),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -167,7 +172,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-registry"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceContainerImage(object.ImageURLCustomContainer, "", nil),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -201,7 +206,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -234,7 +239,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi-pvc"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -300,7 +305,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -324,7 +329,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			// The boot disk is incidental here (the scenario tests the blank disk), so
 			// source it from a precreated ClusterVirtualImage instead of HTTP.
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -345,7 +350,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 				vdbuilder.WithName("vd-source-for-snapshot"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
 				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLCustomBIOS}),
-				vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+				vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 				vdbuilder.WithStorageClass(scPtr),
 			)
 
