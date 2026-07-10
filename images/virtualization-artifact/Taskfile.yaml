@@ -173,7 +173,8 @@ tasks:
                   "ports": [ { "containerPort": 2345, "name": "dlv" } ],
                   "readinessProbe": null,
                   "livenessProbe": null,
-                  "command": null
+                  "command": null,
+                  "args": [ "--leader-election=false" ]
                 },
                 {
                   "name": "proxy",
