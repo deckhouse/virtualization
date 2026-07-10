@@ -15,8 +15,8 @@ limitations under the License.
 
 To display the loading progress, code from CDI
 (https://github.com/kubevirt/containerized-data-importer/blob/main/pkg/util/prometheus/prometheus.go),
-Copyright 2018 The CDI Authors, was used. However, due to our modifications, we
-could not utilize the embedding mechanism, so we had to resort to copying.
+Copyright The CDI Authors, was used. However, due to our modifications, we could
+not utilize the embedding mechanism, so we had to resort to copying.
 */
 
 package monitoring
