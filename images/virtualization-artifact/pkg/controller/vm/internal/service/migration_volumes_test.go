@@ -251,3 +251,54 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Affinity).To(Equal(desiredKVVM.Spec.Template.Spec.Affinity))
 	})
 })
+
+var _ = Describe("isStructuralVolumeChange", func() {
+	// volumes builds a volume list from name -> claim pairs; the claim only
+	// exists to prove that isStructuralVolumeChange ignores it and looks at names.
+	volumes := func(nameToClaim map[string]string) []virtv1.Volume {
+		vols := make([]virtv1.Volume, 0, len(nameToClaim))
+		for name, claim := range nameToClaim {
+			vols = append(vols, virtv1.Volume{
+				Name: name,
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: claim,
+						},
+					},
+				},
+			})
+		}
+		return vols
+	}
+
+	built := func(nameToClaim map[string]string) *virtv1.VirtualMachine {
+		return &virtv1.VirtualMachine{
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{Volumes: volumes(nameToClaim)},
+				},
+			},
+		}
+	}
+
+	running := func(nameToClaim map[string]string) *virtv1.VirtualMachineInstance {
+		return &virtv1.VirtualMachineInstance{
+			Spec: virtv1.VirtualMachineInstanceSpec{Volumes: volumes(nameToClaim)},
+		}
+	}
+
+	DescribeTable("distinguishes structural changes from PVC swaps",
+		func(desired, current map[string]string, expected bool) {
+			Expect(isStructuralVolumeChange(built(desired), running(current))).To(Equal(expected))
+		},
+		Entry("identical single disk", map[string]string{"root": "a"}, map[string]string{"root": "a"}, false),
+		Entry("PVC swap on the same disk (migration/revert)", map[string]string{"root": "src"}, map[string]string{"root": "tgt"}, false),
+		Entry("PVC swap on some of many disks", map[string]string{"root": "a", "data": "new"}, map[string]string{"root": "a", "data": "old"}, false),
+		Entry("reordered volumes", map[string]string{"a": "1", "b": "2"}, map[string]string{"b": "2", "a": "1"}, false),
+		Entry("both empty", map[string]string{}, map[string]string{}, false),
+		Entry("disk added", map[string]string{"root": "a", "extra": "b"}, map[string]string{"root": "a"}, true),
+		Entry("disk removed", map[string]string{"root": "a"}, map[string]string{"root": "a", "extra": "b"}, true),
+		Entry("disk renamed (same count, different name)", map[string]string{"root": "a"}, map[string]string{"data": "a"}, true),
+	)
+})
