@@ -88,7 +88,13 @@ func handlerModuleCommonCA(_ context.Context, input *pkg.HookInput) error {
 		return fmt.Errorf("unmarshalTo: %w", err)
 	}
 
-	input.Values.Set(rootCAValuesPath, rootCA)
+	// Store the PEM as plain strings. rootCA.Crt/Key are []byte, and marshalling
+	// the struct back would base64-encode them, so the CA hooks would read an
+	// unparsable value and regenerate the CA on every run.
+	input.Values.Set(rootCAValuesPath, map[string]string{
+		"crt": string(rootCA.Crt),
+		"key": string(rootCA.Key),
+	})
 
 	return nil
 }
