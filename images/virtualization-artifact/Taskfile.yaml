@@ -145,59 +145,123 @@ tasks:
 
   dlv:build:controller:
     desc: "Build image virtualization-controller with dlv"
+    dir: ../..
     cmds:
-      - task: _dlv:build
-        vars: { DOCKERFILE: dlv-controller.Dockerfile }
+      - docker build -f ./images/virtualization-artifact/hack/dlv-controller.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:build-push:controller:
-    desc: "Build and push image virtualization-controller with dlv"
+    desc: "Build and Push image virtualization-controller with dlv"
     cmds:
-      - task: _dlv:build-push
-        vars: { DOCKERFILE: dlv-controller.Dockerfile }
+      - task: dlv:build:controller
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:print:controller
+
+  dlv:print:controller:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virtualization-controller --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "virtualization-controller",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null
+                }
+              ]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virtualization-controller 2345:2345
+      EOF
 
   dlv:build:apiserver:
     desc: "Build image virtualization-api with dlv"
+    dir: ../..
     cmds:
-      - task: _dlv:build
-        vars: { DOCKERFILE: dlv-apiserver.Dockerfile }
+      - docker build -f ./images/virtualization-artifact/hack/dlv-apiserver.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:build-push:apiserver:
-    desc: "Build and push image virtualization-api with dlv"
+    desc: "Build and Push image virtualization-api with dlv"
     cmds:
-      - task: _dlv:build-push
-        vars: { DOCKERFILE: dlv-apiserver.Dockerfile }
+      - task: dlv:build:apiserver
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:print:apiserver
+
+  dlv:print:apiserver:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virtualization-api --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "virtualization-api",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null
+                }
+              ]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virtualization-api 2345:2345
+      EOF
 
   dlv:build:audit:
     desc: "Build image virtualization-audit with dlv"
+    dir: ../..
     cmds:
-      - task: _dlv:build
-        vars: { DOCKERFILE: dlv-audit.Dockerfile }
+      - docker build -f ./images/virtualization-artifact/hack/dlv-audit.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:build-push:audit:
-    desc: "Build and push image virtualization-audit with dlv"
+    desc: "Build and Push image virtualization-audit with dlv"
     cmds:
-      - task: _dlv:build-push
-        vars: { DOCKERFILE: dlv-audit.Dockerfile }
+      - task: dlv:build:audit
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:print:audit
 
-  _dlv:build:
-    internal: true
-    dir: ../..
-    cmds:
-      - |
-        IMAGE="${DLV_IMAGE:-ttl.sh/$(uuidgen | tr '[:upper:]' '[:lower:]'):10m}"
-        docker build -f ./images/virtualization-artifact/hack/{{.DOCKERFILE}} -t "$IMAGE" --platform=linux/x86_64 .
-        echo "Built image $IMAGE successfully."
-
-  _dlv:build-push:
-    internal: true
-    dir: ../..
-    cmds:
-      - |
-        IMAGE="${DLV_IMAGE:-ttl.sh/$(uuidgen | tr '[:upper:]' '[:lower:]'):10m}"
-        docker build -f ./images/virtualization-artifact/hack/{{.DOCKERFILE}} -t "$IMAGE" --platform=linux/x86_64 .
-        echo "Built image $IMAGE successfully."
-        docker push "$IMAGE"
-        echo "Pushed image $IMAGE successfully."
+  dlv:print:audit:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virtualization-audit --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "virtualization-audit",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null
+                }
+              ]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virtualization-audit 2345:2345
+      EOF
 
   _ensure:kubectl:
     desc: "Ensure kubectl is installed"
