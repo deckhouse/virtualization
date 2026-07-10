@@ -95,7 +95,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 					rootVDNameForVM(vmA.Name),
 					f.Namespace().Name,
 					object.PrecreatedCVIAlpineBIOS,
-					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+					vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				),
 				vmA,
 			)
@@ -114,21 +114,21 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 					rootVDNameForVM(vmB.Name),
 					f.Namespace().Name,
 					object.PrecreatedCVIAlpineBIOS,
-					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+					vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				),
 				vmB,
 				object.NewVDFromCVI(
 					rootVDNameForVM(vmC.Name),
 					f.Namespace().Name,
 					object.PrecreatedCVIAlpineBIOS,
-					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+					vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				),
 				vmC,
 				object.NewVDFromCVI(
 					rootVDNameForVM(vmD.Name),
 					f.Namespace().Name,
 					object.PrecreatedCVIAlpineBIOS,
-					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+					vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				),
 				vmD,
 			}
@@ -237,7 +237,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 					rootVDNameForVM(vmNodeSelector.Name),
 					f.Namespace().Name,
 					object.PrecreatedCVIAlpineBIOS,
-					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+					vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				),
 				vmNodeSelector,
 			)
@@ -314,7 +314,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 					rootVDNameForVM(vmNodeAffinity.Name),
 					f.Namespace().Name,
 					object.PrecreatedCVIAlpineBIOS,
-					vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+					vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 				),
 				vmNodeAffinity,
 			)

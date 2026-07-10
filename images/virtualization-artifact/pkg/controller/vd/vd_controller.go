@@ -58,6 +58,7 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 	importerImage string,
+	diskImporterImage string,
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
@@ -67,18 +68,23 @@ func NewController(
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
+	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName, service.DiskImporterConfig{
+		Image:                diskImporterImage,
+		ResourceRequirements: requirements,
+		PullPolicy:           PodPullPolicy,
+		Verbose:              PodVerbose,
+	})
 	scService := intsvc.NewVirtualDiskStorageClassService(service.NewBaseStorageClassService(mgr.GetClient()), storageClassSettings)
 	dvcrService := service.NewDVCRService(mgr.GetClient())
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
-	blank := source.NewBlankDataSource(recorder, disk, mgr.GetClient())
-
 	sources := source.NewSources()
-	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
-	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
-	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, disk, mgr.GetClient()))
-	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, mgr.GetClient()))
+	pvcSvc := disk.PersistentVolumeClaim()
+	blank := source.NewBlankDataSource(recorder, disk, pvcSvc, mgr.GetClient())
+	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, pvcSvc, dvcr, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, pvcSvc, dvcr, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, disk, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, pvcSvc, dvcr, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),

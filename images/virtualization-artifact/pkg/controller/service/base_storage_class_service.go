@@ -23,9 +23,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -81,6 +81,6 @@ func (s BaseStorageClassService) IsStorageClassDeprecated(sc *storagev1.StorageC
 	return sc != nil && sc.Labels["module"] == "local-path-provisioner"
 }
 
-func (s BaseStorageClassService) GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &cdiv1.StorageProfile{})
+func (s BaseStorageClassService) GetStorageProfile(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &storagev1alpha1.StorageProfile{})
 }

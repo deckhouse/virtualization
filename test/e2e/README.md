@@ -51,6 +51,14 @@ Additionally, the storage class in the tests can be defined by the environment v
 STORAGE_CLASS_NAME=linstor-thin-r1 task run
 ```
 
+The StorageClass (`STORAGE_CLASS_NAME` or the cluster default) may use any volume binding
+mode. When the cluster has no default StorageClass, set `STORAGE_CLASS_NAME` explicitly.
+
+Note: `task run VAR=value` style passes variables to the Taskfile templates only, not to the
+environment of the test process. Environment variables consumed by the tests themselves
+(`STORAGE_CLASS_NAME` aside, which the Taskfile forwards, e.g. `*_PRECHECK=no` switches)
+must be passed as real environment variables: `DEFAULT_STORAGE_CLASS_PRECHECK=no task run ...`.
+
 ### E2E configuration
 
 Temp directories, prefixes, images and ssh settings can be set in the

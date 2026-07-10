@@ -19,9 +19,11 @@ package internal
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -86,12 +88,17 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 				return reconcile.Result{}, err
 			}
 
-			if canUnfreeze {
+			// A stopped VM has nothing to unfreeze: the filesystem thaws with the guest.
+			if canUnfreeze && kvvmi != nil && kvvmi.Status.Phase == virtv1.Running {
 				err = h.snapshotter.Unfreeze(ctx, kvvmi)
-				if err != nil {
-					if k8serrors.IsConflict(err) {
-						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-					}
+				switch {
+				case err == nil:
+				case k8serrors.IsConflict(err):
+					return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+				case strings.Contains(err.Error(), "is not Running"):
+					// The VM stopped between the phase check and the unfreeze call.
+					log.Info("VirtualMachine is not running anymore, skip unfreeze", "vm.name", vm.Name)
+				default:
 					return reconcile.Result{}, err
 				}
 			}

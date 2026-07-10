@@ -202,11 +202,11 @@ func ReadFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path string) 
 	return strings.TrimSpace(cmdOut)
 }
 
-// GetExpectedDiskPhaseByVolumeBindingMode returns the expected disk phase based on the TemplateStorageClass VolumeBindingMode.
+// GetExpectedDiskPhaseByVolumeBindingMode returns the expected disk phase based on the DefaultStorageClass VolumeBindingMode.
 // For Immediate binding mode, disks become Ready immediately.
 // For WaitForFirstConsumer binding mode, disks wait until attached to a VM.
 func GetExpectedDiskPhaseByVolumeBindingMode() string {
-	sc := framework.GetConfig().StorageClass.TemplateStorageClass
+	sc := framework.GetConfig().StorageClass.DefaultStorageClass
 	if sc == nil || sc.VolumeBindingMode == nil {
 		return string(v1alpha2.DiskReady)
 	}

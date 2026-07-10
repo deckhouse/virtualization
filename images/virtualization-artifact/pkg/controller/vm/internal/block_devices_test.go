@@ -1420,6 +1420,7 @@ var _ = Describe("Capacity check", func() {
 			for _, f := range []func(*apiruntime.Scheme) error{
 				v1alpha2.AddToScheme,
 				virtv1.AddToScheme,
+				corev1.AddToScheme,
 			} {
 				err := f(scheme)
 				Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)

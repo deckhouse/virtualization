@@ -24,6 +24,8 @@ true
       fieldPath: metadata.namespace
 - name: IMPORTER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
+- name: DISK_IMPORTER_IMAGE
+  value: {{ include "helm_lib_module_image" (list . "pvcImporter") }}
 - name: UPLOADER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
 - name: BOUNDER_IMAGE
@@ -77,8 +79,12 @@ true
 {{- end }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
+# Keep parity with the podResourceRequirements of the removed CDI config:
+# cpu 1000m so image decompression and qemu-img convert are not throttled,
+# memory 3600M to avoid OOMKill during importing huge images ~2.9GiB on
+# linux kernels 6.12+ (page cache is charged to the pod cgroup).
 - name: PROVISIONING_POD_LIMITS
-  value: '{"cpu":"750m","memory":"600M"}'
+  value: '{"cpu":"1000m","memory":"3600M"}'
 - name: PROVISIONING_POD_REQUESTS
   value: '{"cpu":"100m","memory":"60M"}'
 - name: GC_VMOP_TTL

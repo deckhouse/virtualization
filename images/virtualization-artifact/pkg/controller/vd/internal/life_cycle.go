@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -162,8 +163,52 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 
 	result, err := ds.Sync(ctx, vd)
 	if err != nil {
+		// The namespace is being torn down (e.g. Project/namespace cleanup): the
+		// VirtualDisk is going away too, so creating helper objects is legitimately
+		// rejected. Surface it on the Ready condition instead of failing the reconcile.
+		if common.ErrNamespaceTerminating(err) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.Provisioning).
+				Message("Namespace is terminating: provisioning is paused.")
+			conditions.SetCondition(cb, &vd.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
 	}
 
+	normalizeProgress(vd)
+
 	return result, nil
+}
+
+// normalizeProgress enforces the phase/progress invariants on the final status:
+//   - a disk that has not yet entered Provisioning ("" or Pending) must NOT
+//     expose any progress percentage. Progress describes how far the import
+//     has advanced, so it is meaningful only once the import has actually
+//     started; any earlier setter (some source steps optimistically populate
+//     "0%" before they have decided whether the phase will advance to
+//     Provisioning in this reconcile) is unconditionally cleared here so
+//     that consumers never observe e.g. "Pending 0%";
+//   - a disk in the Provisioning phase must always expose a progress
+//     percentage; until the importer reports real progress it defaults to
+//     "0%";
+//   - a disk parked in WaitForFirstConsumer is mid-import and merely
+//     waiting for a VirtualMachine consumer, so the previously reported
+//     progress is preserved verbatim. WaitForFirstConsumer is a legitimate
+//     intra-Provisioning pause, not a reset, and clearing it here would
+//     wipe import progress in flight;
+//   - a disk parked in WaitForUserUpload has not received any data yet, so
+//     its progress is always "0%".
+func normalizeProgress(vd *v1alpha2.VirtualDisk) {
+	switch vd.Status.Phase {
+	case "", v1alpha2.DiskPending:
+		vd.Status.Progress = ""
+	case v1alpha2.DiskProvisioning:
+		if vd.Status.Progress == "" {
+			vd.Status.Progress = "0%"
+		}
+	case v1alpha2.DiskWaitForUserUpload:
+		vd.Status.Progress = "0%"
+	}
 }

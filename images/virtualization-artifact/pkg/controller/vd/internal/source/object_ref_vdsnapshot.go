@@ -38,13 +38,15 @@ import (
 
 type ObjectRefVirtualDiskSnapshot struct {
 	diskService ObjectRefVirtualDiskSnapshotDiskService
+	pvcService  DataSourcePVCService
 	recorder    eventrecord.EventRecorderLogger
 	client      client.Client
 }
 
-func NewObjectRefVirtualDiskSnapshot(recorder eventrecord.EventRecorderLogger, diskService ObjectRefVirtualDiskSnapshotDiskService, client client.Client) *ObjectRefVirtualDiskSnapshot {
+func NewObjectRefVirtualDiskSnapshot(recorder eventrecord.EventRecorderLogger, diskService ObjectRefVirtualDiskSnapshotDiskService, pvcService DataSourcePVCService, client client.Client) *ObjectRefVirtualDiskSnapshot {
 	return &ObjectRefVirtualDiskSnapshot{
 		diskService: diskService,
+		pvcService:  pvcService,
 		recorder:    recorder,
 		client:      client,
 	}
@@ -69,7 +71,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *v1alpha2.Vi
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.recorder, ds.client, cb),
+		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.diskService, ds.pvcService, ds.recorder, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
 	).Run(ctx, vd)
 }

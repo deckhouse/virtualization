@@ -12,7 +12,6 @@ rules:
   resources:
   - virtualmachines
   - virtualmachinesnapshots
-  - virtualmachinerestores
   - clustervirtualimages
   - virtualdisks
   - virtualdisksnapshots
@@ -72,7 +71,6 @@ rules:
   resources:
   - virtualmachines
   - virtualmachinesnapshots
-  - virtualmachinerestores
   - virtualdisks
   - virtualimages
   - virtualdisksnapshots
@@ -176,14 +174,6 @@ rules:
   - internalvirtualizationvirtualmachines
   - internalvirtualizationvirtualmachineinstances
   - internalvirtualizationvirtualmachineinstancemigrations
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cdi.internal.virtualization.deckhouse.io
-  resources:
-  - internalvirtualizationdatavolumes
   verbs:
   - get
   - list

@@ -157,7 +157,7 @@ func setupVM(f *framework.Framework, withBlank bool) (
 	vdRoot = vdbuilder.New(
 		vdbuilder.WithName("vd-root"),
 		vdbuilder.WithNamespace(f.Namespace().Name),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("350Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 			URL: object.ImageURLAlpineBIOS,
 		}),

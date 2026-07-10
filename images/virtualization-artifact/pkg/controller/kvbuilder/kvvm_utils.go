@@ -664,5 +664,6 @@ func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) er
 		return err
 	}
 	kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
+	kvvm.SetKVVMIAnnotation(annotations.AnnTapProvisionByDVPSupported, "true")
 	return nil
 }

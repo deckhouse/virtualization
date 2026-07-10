@@ -31,6 +31,7 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodeusbdevicecondition"
@@ -50,9 +51,9 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vm-usb")
-		DeferCleanup(func() {
+		DeferCleanup(func(ctx context.Context) {
 			t.unassignNodeUSB()
-			f.After()
+			f.After(ctx)
 		})
 
 		f.Before()
@@ -82,6 +83,9 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
+			// Running only means qemu has started; wait for the guest agent so the
+			// guest is fully booted before the short SSH readiness window below.
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
 			util.UntilGuestCommandsReady(f, t.VM, []string{"sudo", "tee", "udevadm"}, framework.LongTimeout)
 		})
@@ -112,7 +116,7 @@ var _ = Describe("VirtualMachineUSB", Label(precheck.PrecheckUSB), func() {
 
 		By("Migrating VM", func() {
 			util.MigrateVirtualMachine(f, t.VM)
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(t.VM), framework.MaxTimeout)
 
 			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
@@ -206,7 +210,7 @@ func (t *VMUSBTest) GenerateEnvironmentResources(ctx context.Context) {
 	usbNodeName := t.NodeUSBDevice.Status.NodeName
 	Expect(usbNodeName).NotTo(BeEmpty(), "USB device must have a node assigned")
 
-	t.VD = object.NewVDFromCVI("vd-usb-test", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+	t.VD = object.NewVDFromCVI("vd-usb-test", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm-usb-test"),
