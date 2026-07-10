@@ -143,30 +143,6 @@ tasks:
     desc: "Stop local pyroscope for vm-route-forge"
     cmd: ./hack/pyroscope.sh stop --namespace={{ .BaseNamespace }}
 
-  dlv:build:controller:
-    desc: "Build image virtualization-controller with dlv"
-    cmd: ./hack/dlv.sh build controller --image="$DLV_IMAGE"
-
-  dlv:build-push:controller:
-    desc: "Push image virtualization-controller with dlv"
-    cmd: ./hack/dlv.sh push controller --image="$DLV_IMAGE"
-
-  dlv:build:apiserver:
-    desc: "Build image virtualization-api with dlv"
-    cmd: ./hack/dlv.sh build apiserver --image="$DLV_IMAGE"
-
-  dlv:build-push:apiserver:
-    desc: "Push image virtualization-api with dlv"
-    cmd: ./hack/dlv.sh push apiserver --image="$DLV_IMAGE"
-
-  dlv:build:audit:
-    desc: "Build image virtualization-audit with dlv"
-    cmd: ./hack/dlv.sh build audit --image="$DLV_IMAGE"
-
-  dlv:build-push:audit:
-    desc: "Push image virtualization-audit with dlv"
-    cmd: ./hack/dlv.sh push audit --image="$DLV_IMAGE"
-
   _ensure:kubectl:
     desc: "Ensure kubectl is installed"
     internal: true
