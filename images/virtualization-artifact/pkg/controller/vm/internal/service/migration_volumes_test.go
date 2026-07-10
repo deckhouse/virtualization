@@ -151,10 +151,55 @@ var _ = Describe("MigrationVolumesService", func() {
 		}
 	}
 
+	appendVolume := func(kvvm *virtv1.VirtualMachine, name, pvcName string) *virtv1.VirtualMachine {
+		kvvm.Spec.Template.Spec.Volumes = append(kvvm.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: name,
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+					},
+				},
+			},
+		})
+		return kvvm
+	}
+
 	It("does not apply structural volume changes to kvvm while restart is required", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()
 
 		vm := newVM()
+		kvvmInCluster := newKVVMWithVolume(sourcePVC, nil, "source-node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		// The desired spec adds a second disk: a structural change that may require
+		// a restart and must not be propagated to KVVM while the VM awaits restart.
+		desiredKVVM := appendVolume(newKVVMWithVolume(sourcePVC, nil, "source-node"), "extradisk", "disk-extra")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, true)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+	})
+
+	It("reverts a migration PVC swap to the source even while restart is required", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+
+		vm := newVM()
+		// KVVM/KVVMI are left pointing at a migration target PVC that must be
+		// reverted back to the source. It is not a structural change (same disk),
+		// so the revert must proceed despite the pending restart.
 		kvvmInCluster := newKVVMWithVolume(targetPVC, nil, "target-node")
 		kvvmi := newKVVMIWithVolume(targetPVC)
 		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "source-node")
@@ -174,7 +219,7 @@ var _ = Describe("MigrationVolumesService", func() {
 		updatedKVVM := &virtv1.VirtualMachine{}
 		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
-		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 	})
 
 	It("forces volume rollback when kvvmi is missing", func() {
