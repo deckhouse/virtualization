@@ -81,6 +81,11 @@ function generate::crds {
 
     go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/..." output:crd:dir="${OUTPUT_BASE}"
 
+    go tool crd-enricher \
+        paths="./core/v1alpha2/...,./core/v1alpha3/..." \
+        crds="${OUTPUT_BASE}" \
+        dir="${API_ROOT}"
+
     # shellcheck disable=SC2044
     for file in $(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml"); do
         # TODO: Temporary filter until all CRDs become auto-generated.

@@ -33,6 +33,7 @@ const (
 // the `VirtualMachinePool` module feature gate.
 //
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: VirtualMachinePool, metadata: {name: example-vms, namespace: workloads}, spec: {replicas: 3, scaleDownPolicy: NewestFirst, virtualMachineTemplate: {spec: {runPolicy: AlwaysOn, virtualMachineClassName: cpu-host-on-worker-nodes, cpu: {cores: 2}, memory: {size: 4Gi}, provisioning: {type: UserDataRef, userDataRef: {kind: Secret, name: cloudinit-for-vms}}, blockDeviceRefs: [{kind: VirtualDisk, name: root}, {kind: VirtualDisk, name: cache}, {kind: ClusterVirtualImage, name: example-tools-iso}]}}, virtualDiskTemplates: [{name: root, reclaim: {onScaleDown: Delete}, spec: {persistentVolumeClaim: {size: 30Gi}, dataSource: {type: ObjectRef, objectRef: {kind: VirtualImage, name: example-image}}}}, {name: cache, reclaim: {onScaleDown: Retain, keep: 5, ttl: 30m}, spec: {persistentVolumeClaim: {size: 50Gi}}}]}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.replicas,selectorpath=.status.selector

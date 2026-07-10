@@ -430,6 +430,17 @@ spec:
           required:
             - spec
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualImage
+              metadata:
+                name: example-image
+              spec:
+                dataSource:
+                  http:
+                    url: https://example.com/images/disk.img
+                  type: HTTP
+                storage: ContainerRegistry
       served: true
       storage: true
       subresources:
