@@ -372,6 +372,14 @@ spec:
           required:
             - spec
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineOperation
+              metadata:
+                generateName: restart-example-vm-
+              spec:
+                type: Restart
+                virtualMachineName: example-vm
       served: true
       storage: true
       subresources:

@@ -486,6 +486,20 @@ spec:
           required:
             - spec
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualDisk
+              metadata:
+                name: example-disk
+              spec:
+                dataSource:
+                  objectRef:
+                    kind: VirtualImage
+                    name: example-image
+                  type: ObjectRef
+                persistentVolumeClaim:
+                  size: 10Gi
+                  storageClassName: standard
       served: true
       storage: true
       subresources:

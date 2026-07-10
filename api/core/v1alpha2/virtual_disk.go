@@ -33,6 +33,7 @@ const (
 //
 // **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/).
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: VirtualDisk, metadata: {name: example-disk}, spec: {dataSource: {objectRef: {kind: VirtualImage, name: example-image}, type: ObjectRef}, persistentVolumeClaim: {size: 10Gi, storageClassName: standard}}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vd},singular=virtualdisk
 // +kubebuilder:subresource:status
