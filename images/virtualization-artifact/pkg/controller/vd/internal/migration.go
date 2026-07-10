@@ -667,10 +667,13 @@ func (h MigrationHandler) migratingIsWaitingForDisks(ctx context.Context, vm *v1
 	if err != nil {
 		return false, err
 	}
+
 	if vmop == nil {
 		return false, nil
 	}
+
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+
 	return completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String(), nil
 }
 
