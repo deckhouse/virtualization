@@ -233,6 +233,10 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 }
 
 func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*resource.Quantity, error) {
+	// userSpecified reports whether the size was explicitly requested by the user
+	// in the VirtualDisk spec, as opposed to being restored from the snapshot metadata.
+	userSpecified := vd.Spec.PersistentVolumeClaim.Size != nil
+
 	requestedSize := vd.Spec.PersistentVolumeClaim.Size
 	if requestedSize == nil {
 		originalSize := vs.Annotations[annotations.AnnVirtualDiskOriginalSize]
@@ -247,6 +251,16 @@ func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vs
 
 	if vs.Status == nil || vs.Status.RestoreSize == nil {
 		return requestedSize, nil
+	}
+
+	// The original size stored in the snapshot metadata is the size that was requested
+	// for the source VirtualDisk before provisioning. On storage backends that round
+	// volume sizes up (e.g. Ceph RBD rounds up to whole GiB), the actual provisioned
+	// volume — and therefore the VolumeSnapshot's restore size — can be larger than the
+	// originally requested size. In that case the restored size is not a user request but
+	// a lower bound, so use the restore size instead of failing with ErrInsufficientPVCSize.
+	if !userSpecified && requestedSize != nil && requestedSize.Cmp(*vs.Status.RestoreSize) < 0 {
+		requestedSize = vs.Status.RestoreSize
 	}
 
 	size, err := service.GetValidatedPVCSize(requestedSize, *vs.Status.RestoreSize)
