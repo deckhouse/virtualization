@@ -45,7 +45,7 @@
 #
 # We delegate to the upstream GitLab CI template at
 # https://fox.flant.com/deckhouse/3p/deckhouse/modules-gitlab-ci
-# (branch v13.0, HEAD 006d51c35904b434eca2045a449aafb5e37a8827).
+# (branch v13.0).
 
 include:
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"

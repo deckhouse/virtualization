@@ -11,10 +11,10 @@
 #   on: workflow_dispatch              -> when: manual (Run pipeline)
 #   matrix.branch: [main]              -> single .main job
 #
-# The actual build uses the local `.base_build` template, which mirrors the
-# upstream Build.gitlab-ci.yml script without inheriting its broad rules. This
-# file sets the trigger surface and the per-pipeline variables that the build
-# template expects.
+# The actual build uses the local `.base_build` template, which consumes the
+# upstream Build.gitlab-ci.yml `.build_base` script without inheriting its broad
+# rules. This file sets the trigger surface and the per-pipeline variables that
+# the build template expects.
 
 precache:build:main:
   extends:

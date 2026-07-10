@@ -19,10 +19,9 @@
 # environment).
 #
 # Extends:
-#   - .base_deploy    (this repo — mirrors upstream modules-gitlab-ci
-#                       Deploy.gitlab-ci.yml `.deploy` script body without
-#                       the upstream `rules:` that would override our
-#                       gating).
+#   - .base_deploy    (this repo — consumes upstream modules-gitlab-ci
+#                       Deploy.gitlab-ci.yml `.deploy_base` script body, which
+#                       is rules-free so it does not override our gating).
 #   - .prod_manual     (this repo — PROD registry vars + tag-match rule
 #                       with `when: manual`).
 #   - .dev_registry_pull_login (this repo — also login against DEV_REGISTRY).

@@ -6,26 +6,20 @@
 # stages: [build, deploy]; we explicitly extend stages via .gitlab/ci/stages.yml
 # so the final list is the union of both.
 #
-# Upstream template names (verified in
-# deckhouse/3p/deckhouse/modules-gitlab-ci, branch v13.0, HEAD 006d51c):
+# Upstream template names (deckhouse/3p/deckhouse/modules-gitlab-ci, v13.0):
 #   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
-#   - Build.gitlab-ci.yml           (extends .build — werf build + bundle copy +
-#                                   release-channel copy + module registration)
-#   - Deploy.gitlab-ci.yml          (extends .deploy — release-channel crane copy)
-#   - CVE_Scan.gitlab-ci.yml        (extends .cve_scan — Trivy scan via Vault)
-#   - gitleaks.gitlab-ci.yml        (extends .gitleaks_scan — secrets scanning)
-#   - Go_Checks.gitlab-ci.yml       (Go lint/test helpers)
-#   - Translate_Changelog.gitlab-ci.yml (CHANGELOG/*.ru.yml -> EN MR)
-#   - Merge_Release.gitlab-ci.yml   (release-label driven merge+tag+release)
-#   - Svace_Analayze.gitlab-ci.yml  (note: typo in upstream file name)
-#   - Antivirus_Scan.gitlab-ci.yml  (antivirus scan over recent releases)
-#   - Semgrep.gitlab-ci.yml         (semgrep SAST)
+#   - Build.gitlab-ci.yml           (.build_base — werf build + bundle/attestation
+#                                   copy + release-channel copy + registration;
+#                                   .lint_base — dmt lint)
+#   - Deploy.gitlab-ci.yml          (.deploy_base — release-channel crane copy)
+#   - CVE_Scan.gitlab-ci.yml        (.cve_scan — Trivy scan via Vault)
+#   - gitleaks.gitlab-ci.yml        (.gitleaks_scan — secrets scanning)
+#   - Svace_Analayze.gitlab-ci.yml  (.svace_analyze; note: typo in upstream name)
+#   - Translate_Changelog.gitlab-ci.yml (included from jobs/translate-changelog.yml)
 #
-# We only include the templates whose behavior is consumed by jobs owned by
-# this issue (Setup, Build, Deploy). The remaining upstream templates are
-# surfaced here for visibility — child issues that own cve-scan.yml,
-# gitleaks.yml, etc. add the matching `include: local:` entries for the
-# corresponding job files.
+# We include only the templates actually consumed by local jobs (Setup, Build,
+# Deploy, CVE_Scan, gitleaks, Svace_Analayze). The *_base bodies are rules-free,
+# so our own .dev / .main / .prod context templates drive gating.
 
 include:
   # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---

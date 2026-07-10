@@ -18,13 +18,11 @@
 # .github/workflows/dev_module_build.yml, which ran
 # deckhouse/modules-actions/lint@v2 with continue-on-error: true.
 #
-# The upstream modules-gitlab-ci Build.gitlab-ci.yml ships a hidden `.lint`
-# template that runs `dmt lint ./` with allow_failure: true. We do NOT
-# include Build.gitlab-ci.yml directly: its `.build`/`.deploy` hidden jobs
-# carry baked-in `rules:` that would bypass our strict .dev/.main/.prod
-# gating (see .gitlab/ci/includes.yml). Instead this job mirrors the `.lint`
-# script body and relies on the global `before_script` from
-# Setup.gitlab-ci.yml (already included) to install dmt via trdl.
+# Consumes the rules-free `.lint_base` from the upstream modules-gitlab-ci
+# Build.gitlab-ci.yml (included via .gitlab/ci/includes.yml): it provides the
+# `dmt lint ./` script and allow_failure: true. We override the stage to our
+# `lint` stage and add `.dev` for MR-only gating (`.lint_base` carries no rules,
+# so our context template drives it).
 #
 # dmt is NOT a host tool (it is installed per-job via trdl), so this job
 # intentionally does NOT override `before_script` with check-runner-tools.sh;
@@ -34,9 +32,7 @@
 # by dmt for metrics reporting.
 
 lint:dmt:
-  stage: lint
-  allow_failure: true
-  script:
-    - dmt lint ./
   extends:
+    - .lint_base
     - .dev
+  stage: lint

@@ -19,12 +19,12 @@
 
 # Shared base for the DEV-registry build jobs.
 #
-# - .base_build (this repo): same body as upstream modules-gitlab-ci
-#   Build.gitlab-ci.yml `.build` (werf build --save-build-report + bundle crane
-#   copy + release-channel crane copy + crane append to register the module),
-#   without the upstream `rules:` that would override our strict gating. Upstream
-#   uses WERF_REPO env instead of an explicit --repo flag, equivalent here
-#   because MODULES_MODULE_SOURCE is the same.
+# - .base_build (this repo): consumes the upstream modules-gitlab-ci
+#   Build.gitlab-ci.yml `.build_base` (werf build --save-build-report + bundle/
+#   attestation crane copy + release-channel crane copy + crane append to
+#   register the module), which is rules-free so it does not override our strict
+#   gating. Upstream uses WERF_REPO env instead of an explicit --repo flag,
+#   equivalent here because MODULES_MODULE_SOURCE is the same.
 #
 # - `needs: [set_vars]` (with artifacts) opts these jobs into DAG mode and pulls
 #   ONLY the set_vars dotenv (MODULE_EDITION, DEBUG_COMPONENT, RELEASE_IN_DEV).
