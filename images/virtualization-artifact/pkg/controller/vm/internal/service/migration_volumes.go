@@ -153,25 +153,10 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		// builtKVVMWithMigrationVolumes) means the desired volume set structurally
 		// differs from the running one, e.g. a disk was added or removed. Such a
 		// change may require a restart, so it must not be propagated to KVVM while
-		// the VM awaits restart. But an in-progress volume migration of the
-		// already-attached disks must still proceed (e.g. node drain), so keep the
-		// running volume structure and only swap the migrating disks to their
-		// target PVCs, delaying the structural change until the restart.
+		// the VM awaits restart. An in-progress migration of the already-attached
+		// disks must still proceed though (e.g. node drain).
 		if restartRequired {
-			vdByName, err := vmState.VirtualDisksByName(ctx)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			remap := migratingSourceToTargetPVC(vdByName)
-			if len(remap) > 0 {
-				migrated := rebaseMigrationOntoRunningVolumes(kvvmInCluster, builtKVVMWithMigrationVolumes, remap)
-				if s.shouldPatchVolumes(kvvmInCluster, migrated) {
-					log.Info("Virtualmachine is restart required, migrate running volumes and delay structural changes.")
-					return reconcile.Result{}, s.patchVolumes(ctx, migrated)
-				}
-			}
-			log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
-			return reconcile.Result{}, nil
+			return s.migrateAttachedVolumesDelayingStructural(ctx, vmState, kvvmInCluster, builtKVVMWithMigrationVolumes)
 		}
 		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 	}
@@ -266,40 +251,50 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 	return false
 }
 
-// migratingSourceToTargetPVC maps the source PVC to the target PVC for every
-// disk that is currently being migrated. A running VMI volume still references
-// the source PVC, so this map is used to redirect it to the migration target.
-func migratingSourceToTargetPVC(vdByName map[string]*v1alpha2.VirtualDisk) map[string]string {
-	remap := make(map[string]string)
+// migrateAttachedVolumesDelayingStructural lets an in-progress volume migration
+// of the already-attached disks proceed while the VM awaits a restart, keeping
+// the pending structural volume change (added/removed disk) delayed until then.
+// It keeps the running volume structure (from the in-cluster KVVM, which still
+// holds the pre-restart volume set) and only points the currently migrating
+// disks at their target PVCs; strategy and affinity come from the desired build.
+func (s MigrationVolumesService) migrateAttachedVolumesDelayingStructural(ctx context.Context, vmState state.VirtualMachineState, runningKVVM, desiredWithMigration *virtv1.VirtualMachine) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
+	vdByName, err := vmState.VirtualDisksByName(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	sourceToTarget := make(map[string]string)
 	for _, vd := range vdByName {
 		ms := vd.Status.MigrationState
 		if !ms.StartTimestamp.IsZero() && ms.EndTimestamp.IsZero() && ms.SourcePVC != "" && ms.TargetPVC != "" {
-			remap[ms.SourcePVC] = ms.TargetPVC
+			sourceToTarget[ms.SourcePVC] = ms.TargetPVC
 		}
 	}
-	return remap
-}
 
-// rebaseMigrationOntoRunningVolumes builds a KVVM whose volumes keep the running
-// structure (taken from the in-cluster KVVM, which still holds the pre-restart
-// volume set) with only the migrating disks pointed at their target PVCs. The
-// migration strategy and affinity are taken from the desired migration build.
-func rebaseMigrationOntoRunningVolumes(runningKVVM, desiredWithMigration *virtv1.VirtualMachine, sourceToTargetPVC map[string]string) *virtv1.VirtualMachine {
-	result := desiredWithMigration.DeepCopy()
-
-	volumes := make([]virtv1.Volume, 0, len(runningKVVM.Spec.Template.Spec.Volumes))
-	for _, v := range runningKVVM.Spec.Template.Spec.Volumes {
-		nv := *v.DeepCopy()
-		if nv.PersistentVolumeClaim != nil {
-			if target, ok := sourceToTargetPVC[nv.PersistentVolumeClaim.ClaimName]; ok {
-				nv.PersistentVolumeClaim.ClaimName = target
+	if len(sourceToTarget) > 0 {
+		migrated := desiredWithMigration.DeepCopy()
+		volumes := make([]virtv1.Volume, 0, len(runningKVVM.Spec.Template.Spec.Volumes))
+		for _, v := range runningKVVM.Spec.Template.Spec.Volumes {
+			nv := *v.DeepCopy()
+			if nv.PersistentVolumeClaim != nil {
+				if target, ok := sourceToTarget[nv.PersistentVolumeClaim.ClaimName]; ok {
+					nv.PersistentVolumeClaim.ClaimName = target
+				}
 			}
+			volumes = append(volumes, nv)
 		}
-		volumes = append(volumes, nv)
-	}
-	result.Spec.Template.Spec.Volumes = volumes
+		migrated.Spec.Template.Spec.Volumes = volumes
 
-	return result
+		if s.shouldPatchVolumes(runningKVVM, migrated) {
+			log.Info("Virtualmachine is restart required, migrate attached volumes and delay structural changes.")
+			return reconcile.Result{}, s.patchVolumes(ctx, migrated)
+		}
+	}
+
+	log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
+	return reconcile.Result{}, nil
 }
 
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
