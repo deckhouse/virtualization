@@ -47,6 +47,7 @@ const (
 
 	// Custom e2e-br image, used only by the VirtualDiskCreation test.
 	PrecreatedCVICustomBIOS = "v12n-e2e-custom-bios"
+	PrecreatedCVICustomISO  = "v12n-e2e-custom-iso"
 
 	// Container image URLs
 	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
@@ -76,6 +77,10 @@ var (
 
 	// Custom e2e-br qcow2 on Selectel (public HTTP), used only by the VirtualDiskCreation test.
 	ImageURLCustomBIOS = imageURL("/e2e/custom.qcow2")
+
+	// Custom e2e-br EFI-bootable ISO on Selectel (public HTTP), used only by the
+	// blockdevice ISO/format tests.
+	ImageURLCustomISO = imageURL("/e2e/custom.iso")
 )
 
 // PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by e2e tests.
@@ -95,6 +100,7 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 		newPrecreatedHTTPCVI(PrecreatedCVITestDataISO, ImageTestDataISO),
 		newPrecreatedHTTPCVI(PrecreatedCVIMyOS, ImageURLMyOS),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOS, ImageURLCustomBIOS),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomISO, ImageURLCustomISO),
 	}
 }
 

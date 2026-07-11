@@ -70,7 +70,7 @@ var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckDefaultStorageClass
 		// (the spec has its own Project) so the observer, which is started before the
 		// VirtualImage is created, watches the right object instead of an empty name.
 		vi := newVirtualImageOnDVCR("vi-iso",
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIUbuntuISO),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomISO),
 		)
 
 		createVirtualImageAndWait(ctx, f, vi)
