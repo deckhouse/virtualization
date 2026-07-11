@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,6 +38,11 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
+	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmbdaobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmbda"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -66,9 +70,10 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		By("Environment preparation")
 		// Long disk name (>60 chars, the former limit) to exercise snapshotting a
 		// disk whose name uses the full Kubernetes name length.
-		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVIUbuntu)
+		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVICustomBIOS)
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm"),
+			vmbuilder.WithProvisioning(nil),
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vd.Name,
@@ -78,17 +83,18 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		err := f.CreateWithDeferredDeletion(ctx, vd, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		vmObs := vmobs.StartObserver(ctx, f, vm)
+		vmObs.Never(vmobs.BeFailed())
+		Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
 
 		By("Creating snapshot")
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
-
-		err = f.CreateWithDeferredDeletion(ctx, vdSnapshot)
-		Expect(err).NotTo(HaveOccurred())
-		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
+		frozen := expectFilesystemFroze(vmObs)
+		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshot)).To(Succeed())
+		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
 		By("Waiting for ready snapshot phase")
-		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
+		waitVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -97,7 +103,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		checkVMUnfrozen(ctx, f, vm)
 
 		By("Ensuring the disk is attached to the VM")
-		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vd)
+		expectDisksAttached(vmObs, vd)
 	})
 
 	It("validates snapshots for a disk with no consumer", func() {
@@ -120,6 +126,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		// without a consumer.
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm-first-consumer"),
+			vmbuilder.WithProvisioning(nil),
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vd.Name,
@@ -129,20 +136,20 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		err := f.CreateWithDeferredDeletion(ctx, vd, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+		vdObs := vdobs.StartObserver(ctx, f, vd)
+		vdObs.Never(vdobs.BeFailed())
+		Expect(vdObs.WaitFor(vdobs.BeReady(), framework.LongTimeout)).To(Succeed())
 
 		By("Deleting the VM so the disk has no consumer")
 		Expect(f.Delete(ctx, vm)).To(Succeed())
-		util.UntilObjectsDeleted(ctx, framework.MiddleTimeout, vm)
+		Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualMachines(vm.Namespace), vm.Name, vm.Namespace, framework.MiddleTimeout, nil)).To(Succeed())
 
 		By("Creating snapshot")
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
-
-		err = f.CreateWithDeferredDeletion(ctx, vdSnapshot)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshot)).To(Succeed())
 
 		By("Waiting for ready snapshot phase")
-		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
+		waitVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -154,11 +161,12 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm-hotplug"),
+			vmbuilder.WithProvisioning(nil),
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vdRoot.Name,
@@ -169,19 +177,22 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vdAttach, vm, vmbda)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
+		vmObs := vmobs.StartObserver(ctx, f, vm)
+		vmObs.Never(vmobs.BeFailed())
+		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
+		vmbdaObs.Never(vmbdaobs.BeFailed())
+		Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
+		Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.MiddleTimeout)).To(Succeed())
 
 		By("Creating snapshots")
 		vdSnapshotRoot := generateVDSnapshot("vdsnapshot-root", vdRoot)
 		vdSnapshotAttach := generateVDSnapshot("vdsnapshot-attach", vdAttach)
-
-		err = f.CreateWithDeferredDeletion(ctx, vdSnapshotRoot, vdSnapshotAttach)
-		Expect(err).NotTo(HaveOccurred())
-		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
+		frozen := expectFilesystemFroze(vmObs)
+		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshotRoot, vdSnapshotAttach)).To(Succeed())
+		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
 		By("Waiting for ready snapshots phase")
-		util.UntilVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
+		waitVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotRoot)
@@ -191,7 +202,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		checkVMUnfrozen(ctx, f, vm)
 
 		By("Ensuring disks are attached to the VM")
-		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdAttach)
+		expectDisksAttached(vmObs, vdRoot, vdAttach)
 	})
 
 	It("validates concurrent snapshots", func() {
@@ -200,11 +211,12 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm-concurrent"),
+			vmbuilder.WithProvisioning(nil),
 			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.VirtualDiskKind,
 				Name: vdRoot.Name,
@@ -215,17 +227,22 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		err := f.CreateWithDeferredDeletion(ctx, vdRoot, vdAttach, vm, vmbda)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
+		vmObs := vmobs.StartObserver(ctx, f, vm)
+		vmObs.Never(vmobs.BeFailed())
+		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
+		vmbdaObs.Never(vmbdaobs.BeFailed())
+		Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
+		Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.MiddleTimeout)).To(Succeed())
 
 		By("Creating snapshots")
+		frozen := expectFilesystemFroze(vmObs)
 		vdSnapshots := concurentlyVDSnapshotsCreation(ctx, f, []*v1alpha2.VirtualDisk{vdRoot, vdAttach}, 5)
-		ensureVMWasFrozen(ctx, f, vm, framework.MiddleTimeout)
+		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
 		By("Waiting for ready snapshots phase")
 		// 10 concurrent snapshots are processed nearly sequentially by the CSI
 		// driver (LINSTOR lock contention), so the tail does not fit in MiddleTimeout.
-		util.UntilVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshots...)
+		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshots...)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		for _, vdSnapshot := range vdSnapshots {
@@ -236,7 +253,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		checkVMUnfrozen(ctx, f, vm)
 
 		By("Ensuring disks are attached to the VM")
-		util.UntilDisksAreAttachedInVMStatus(ctx, f, framework.ShortTimeout, vm, vdRoot, vdAttach)
+		expectDisksAttached(vmObs, vdRoot, vdAttach)
 	})
 })
 
@@ -253,26 +270,41 @@ func checkVdSnapshotConsistentlyAndReadyToUse(ctx context.Context, f *framework.
 	Expect(actualVDSnapshot.Status.VolumeSnapshotName).NotTo(BeEmpty(), "VirtualDiskSnapshot status.volumeSnapshotName must be set")
 }
 
-func ensureVMWasFrozen(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+// expectFilesystemFroze observes the transient FilesystemFrozen condition on vm.
+// Call it BEFORE creating the snapshot so the freeze is not missed, then read
+// the returned channel after creating the snapshot.
+func expectFilesystemFroze(vmObs vmobs.Observer) <-chan error {
+	ch := make(chan error, 1)
+	go func() {
+		defer GinkgoRecover()
+		ch <- vmObs.WaitFor(vmobs.BeFilesystemFrozen(), framework.MiddleTimeout)
+	}()
+	return ch
+}
+
+// waitVDSnapshotsReady waits for every snapshot to reach the Ready phase via an
+// Observer per snapshot.
+func waitVDSnapshotsReady(ctx context.Context, f *framework.Framework, timeout time.Duration, snapshots ...*v1alpha2.VirtualDiskSnapshot) {
 	GinkgoHelper()
+	for _, snapshot := range snapshots {
+		obs := vdsnapshotobs.StartObserver(ctx, f, snapshot)
+		Expect(obs.WaitFor(vdsnapshotobs.BeReady(), timeout)).To(Succeed(),
+			"VirtualDiskSnapshot %s/%s should become Ready", snapshot.Namespace, snapshot.Name)
+	}
+}
 
-	Eventually(func() error {
-		var currentVM v1alpha2.VirtualMachine
-		err := f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), &currentVM)
-		if err != nil {
-			return err
+// expectDisksAttached waits, via the VirtualMachine Observer, until every disk
+// appears attached in the VM status.
+func expectDisksAttached(vmObs vmobs.Observer, vds ...*v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+	Expect(vmObs.WaitFor(func(m *v1alpha2.VirtualMachine) (bool, error) {
+		for _, d := range vds {
+			if !util.IsVDAttached(m, d) {
+				return false, nil
+			}
 		}
-
-		frozenCondition, ok := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, currentVM.Status.Conditions)
-		if !ok {
-			return fmt.Errorf("filesystem frozen condition not found")
-		}
-		if frozenCondition.Status != metav1.ConditionTrue {
-			return fmt.Errorf("filesystem frozen condition is not true")
-		}
-
-		return nil
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+		return true, nil
+	}, framework.ShortTimeout)).To(Succeed())
 }
 
 func generateVDSnapshot(name string, vd *v1alpha2.VirtualDisk) *v1alpha2.VirtualDiskSnapshot {
