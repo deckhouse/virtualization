@@ -45,13 +45,13 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 			wantErrorPart:  "GPU feature gate",
 		},
 		{
-			name:           "should accept GPU devices when feature is enabled and DeviceClass exists",
+			name:           "should accept GPU devices when feature is enabled and GPUClass is ready",
 			featureEnabled: true,
 			deviceClasses:  []string{"nvidia-h100"},
 			gpuClass:       "nvidia-h100",
 		},
 		{
-			name:           "should reject GPU devices when DeviceClass does not exist",
+			name:           "should reject GPU devices when GPUClass is not ready",
 			featureEnabled: true,
 			gpuClass:       "nvidia-h100",
 			wantErrorPart:  "does not exist",
@@ -60,7 +60,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: tt.gpuClass}})
+			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: tt.gpuClass}})
 			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.deviceClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)
@@ -72,7 +72,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 
 func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 	gpu := func(class string) []v1alpha2.GPUDeviceSpec {
-		return []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: class}}
+		return []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: class}}
 	}
 
 	tests := []struct {
@@ -99,12 +99,12 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 			name:           "reordering GPU devices is allowed when feature is disabled",
 			featureEnabled: false,
 			oldGPU: []v1alpha2.GPUDeviceSpec{
-				{Name: "gpu0", DeviceClassName: "nvidia-h100"},
-				{Name: "gpu1", DeviceClassName: "nvidia-a100"},
+				{Name: "gpu0", GPUClassName: "nvidia-h100"},
+				{Name: "gpu1", GPUClassName: "nvidia-a100"},
 			},
 			newGPU: []v1alpha2.GPUDeviceSpec{
-				{Name: "gpu1", DeviceClassName: "nvidia-a100"},
-				{Name: "gpu0", DeviceClassName: "nvidia-h100"},
+				{Name: "gpu1", GPUClassName: "nvidia-a100"},
+				{Name: "gpu0", GPUClassName: "nvidia-h100"},
 			},
 		},
 		{
@@ -115,14 +115,14 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 			wantErrorPart:  "GPU feature gate",
 		},
 		{
-			name:           "changing to an existing DeviceClass is allowed when feature is enabled",
+			name:           "changing to a ready GPUClass is allowed when feature is enabled",
 			featureEnabled: true,
 			deviceClasses:  []string{"nvidia-h100", "nvidia-a100"},
 			oldGPU:         gpu("nvidia-h100"),
 			newGPU:         gpu("nvidia-a100"),
 		},
 		{
-			name:           "changing to a missing DeviceClass is rejected",
+			name:           "changing to an unready GPUClass is rejected",
 			featureEnabled: true,
 			deviceClasses:  []string{"nvidia-h100"},
 			oldGPU:         gpu("nvidia-h100"),
@@ -146,7 +146,7 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 
 func TestGPUDevicesValidatorTemplateMode(t *testing.T) {
 	// A nil client (template validation) enforces the feature gate but skips
-	// DeviceClass existence.
+	// GPUClass readiness (its DeviceClass existence).
 	tests := []struct {
 		name           string
 		featureEnabled bool
@@ -158,14 +158,14 @@ func TestGPUDevicesValidatorTemplateMode(t *testing.T) {
 			wantErrorPart:  "GPU feature gate",
 		},
 		{
-			name:           "missing DeviceClass is allowed in template mode",
+			name:           "unready GPUClass is allowed in template mode",
 			featureEnabled: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "does-not-exist"}})
+			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "does-not-exist"}})
 			validator := NewGPUDevicesValidator(nil, newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)

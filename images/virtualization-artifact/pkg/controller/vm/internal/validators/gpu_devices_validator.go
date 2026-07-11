@@ -68,20 +68,22 @@ func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alph
 	}
 
 	// A nil client means template validation (e.g. a VirtualMachinePool template):
-	// DeviceClass existence is verified when the actual replica VM is created,
-	// so that a pool may be defined before the GPU provider and its classes exist.
+	// GPUClass readiness is verified when the actual replica VM is created, so that
+	// a pool may be defined before the GPU provider and its classes exist.
 	if v.client == nil {
 		return nil
 	}
 
+	// The GPU module creates a DeviceClass named exactly after the GPUClass, so an
+	// existing DeviceClass with that name means the GPUClass is ready for allocation.
 	for _, device := range vm.Spec.GPUDevices {
 		deviceClass := &resourcev1.DeviceClass{}
-		err := v.client.Get(ctx, types.NamespacedName{Name: device.DeviceClassName}, deviceClass)
+		err := v.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, deviceClass)
 		if apierrors.IsNotFound(err) {
-			return fmt.Errorf("GPU device %q references DeviceClass %q that does not exist", device.Name, device.DeviceClassName)
+			return fmt.Errorf("GPU device %q references GPUClass %q that does not exist or is not ready", device.Name, device.GPUClassName)
 		}
 		if err != nil {
-			return fmt.Errorf("failed to get DeviceClass %q for GPU device %q: %w", device.DeviceClassName, device.Name, err)
+			return fmt.Errorf("failed to resolve GPUClass %q for GPU device %q: %w", device.GPUClassName, device.Name, err)
 		}
 	}
 

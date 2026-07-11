@@ -145,7 +145,8 @@ func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1
 				Requests: []resourcev1.DeviceRequest{{
 					Name: requestName,
 					Exactly: &resourcev1.ExactDeviceRequest{
-						DeviceClassName: device.DeviceClassName,
+						// The GPU module creates a DeviceClass named exactly after the GPUClass.
+						DeviceClassName: device.GPUClassName,
 						AllocationMode:  resourcev1.DeviceAllocationModeExactCount,
 						Count:           1,
 					},

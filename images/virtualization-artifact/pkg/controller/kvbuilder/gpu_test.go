@@ -31,7 +31,7 @@ var _ = Describe("GPU", func() {
 	It("should render DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
@@ -47,8 +47,8 @@ var _ = Describe("GPU", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
 
 		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{
-			{Name: "gpu1", DeviceClassName: "nvidia-h100"},
-			{Name: "gpu0", DeviceClassName: "nvidia-a100"},
+			{Name: "gpu1", GPUClassName: "nvidia-h100"},
+			{Name: "gpu0", GPUClassName: "nvidia-a100"},
 		})
 		res := kvvm.GetResource()
 
@@ -62,9 +62,9 @@ var _ = Describe("GPU", func() {
 
 	It("should replace rendered DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu1", DeviceClassName: "nvidia-a100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu1", GPUClassName: "nvidia-a100"}})
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
@@ -88,7 +88,7 @@ var _ = Describe("GPU", func() {
 			DeviceName: "nvidia.com/GH100",
 		}}
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
 		res = kvvm.GetResource()
 
 		claimNames := make([]string, 0)
@@ -105,7 +105,7 @@ var _ = Describe("GPU", func() {
 
 	It("should remove rendered DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", DeviceClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
 
 		kvvm.SetGPUDevices("vm-a", nil)
 		res := kvvm.GetResource()

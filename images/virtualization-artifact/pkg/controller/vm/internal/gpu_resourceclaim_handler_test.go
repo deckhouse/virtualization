@@ -45,7 +45,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 	}
 
 	It("should create GPU ResourceClaimTemplate", func() {
-		fakeClient, _, vmState := setupEnvironment(newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		fakeClient, _, vmState := setupEnvironment(newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass}))
 		handler := NewGPUResourceClaimHandler(fakeClient)
 
 		_, err := handler.Handle(context.Background(), vmState)
@@ -67,7 +67,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 
 	It("should delete owned GPU ResourceClaimTemplate when device is removed from spec", func() {
 		vm := newVM()
-		template := buildGPUResourceClaimTemplate(vm, kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		template := buildGPUResourceClaimTemplate(vm, kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass}))
 		fakeClient, _, vmState := setupEnvironment(vm, template)
 		handler := NewGPUResourceClaimHandler(fakeClient)
 
@@ -80,9 +80,9 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 	})
 
 	It("should recreate GPU ResourceClaimTemplate when the desired spec changes", func() {
-		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: "nvidia-a100"})
+		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: "nvidia-a100"})
 		templateName := kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0")
-		template := buildGPUResourceClaimTemplate(vm, templateName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		template := buildGPUResourceClaimTemplate(vm, templateName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass}))
 		fakeClient, _, vmState := setupEnvironment(vm, template)
 		handler := NewGPUResourceClaimHandler(fakeClient)
 
@@ -96,9 +96,9 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 	})
 
 	It("should not recreate GPU ResourceClaimTemplate without hash annotation when spec matches", func() {
-		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass})
+		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass})
 		templateName := kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0")
-		template := buildGPUResourceClaimTemplate(vm, templateName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		template := buildGPUResourceClaimTemplate(vm, templateName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass}))
 		template.Annotations = nil
 		template.Labels = map[string]string{"keep": "me"}
 		fakeClient, _, vmState := setupEnvironment(vm, template)
@@ -114,7 +114,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 	})
 
 	It("should not replace GPU ResourceClaimTemplate owned by another controller", func() {
-		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass})
+		vm := newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass})
 		template := &resourcev1.ResourceClaimTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: kvbuilder.GPUResourceClaimTemplateName(vmName, "gpu0"), Namespace: namespace},
 		}
@@ -137,7 +137,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		}
 		otherName := kvbuilder.GPUResourceClaimTemplateName(otherVM.Name, "gpu0")
 		Expect(kvbuilder.IsGPUResourceClaimTemplateName(vmName, otherName)).To(BeTrue())
-		template := buildGPUResourceClaimTemplate(otherVM, otherName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", DeviceClassName: deviceClass}))
+		template := buildGPUResourceClaimTemplate(otherVM, otherName, buildGPUResourceClaimTemplateSpec(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass}))
 		fakeClient, _, vmState := setupEnvironment(vm, template)
 		handler := NewGPUResourceClaimHandler(fakeClient)
 

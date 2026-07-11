@@ -1066,21 +1066,22 @@ spec:
                   x-kubernetes-list-type: map
                   description: |
                     List of GPU devices to attach to the virtual machine.
-                    Each device references a DRA DeviceClass by name.
+                    Each device references a GPUClass by name.
                     This feature requires the GPU feature gate.
                   items:
                     type: object
                     required:
-                      - deviceClassName
+                      - gpuClassName
                       - name
                     properties:
-                      deviceClassName:
+                      gpuClassName:
                         minLength: 1
                         maxLength: 253
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                         description: |
-                          Name of the DRA DeviceClass that selects the GPU to attach, for example nvidia-h100.
+                          Name of the GPUClass that selects the GPU to attach, for example nvidia-h100.
+                          The GPUClass must already exist: a DRA DeviceClass with the same name is created by the GPU module and is used to allocate the device.
                       name:
                         minLength: 1
                         maxLength: 59

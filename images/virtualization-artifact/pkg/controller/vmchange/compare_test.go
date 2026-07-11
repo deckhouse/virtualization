@@ -689,31 +689,31 @@ networks:
 			`
 gpuDevices:
 - name: gpu1
-  deviceClassName: nvidia-h100
+  gpuClassName: nvidia-h100
 - name: gpu0
-  deviceClassName: nvidia-a100
+  gpuClassName: nvidia-a100
 `,
 			`
 gpuDevices:
 - name: gpu0
-  deviceClassName: nvidia-a100
+  gpuClassName: nvidia-a100
 - name: gpu1
-  deviceClassName: nvidia-h100
+  gpuClassName: nvidia-h100
 `,
 			nil,
 			assertNoChanges(),
 		},
 		{
-			"restart when gpu device deviceClassName changes",
+			"restart when gpu device gpuClassName changes",
 			`
 gpuDevices:
 - name: gpu0
-  deviceClassName: nvidia-a100
+  gpuClassName: nvidia-a100
 `,
 			`
 gpuDevices:
 - name: gpu0
-  deviceClassName: nvidia-h100
+  gpuClassName: nvidia-h100
 `,
 			nil,
 			assertChanges(

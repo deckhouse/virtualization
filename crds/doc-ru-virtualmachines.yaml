@@ -591,13 +591,14 @@ spec:
                 gpuDevices:
                   description: |
                     Список GPU-устройств для подключения к виртуальной машине.
-                    Каждое устройство ссылается на DRA DeviceClass по имени.
+                    Каждое устройство ссылается на GPUClass по имени.
                     Для использования требуется feature gate `GPU`.
                   items:
                     properties:
-                      deviceClassName:
+                      gpuClassName:
                         description: |
-                          Имя DRA DeviceClass, который выбирает подключаемый GPU, например `nvidia-h100`.
+                          Имя GPUClass, который выбирает подключаемый GPU, например `nvidia-h100`.
+                          GPUClass должен уже существовать: DRA DeviceClass с тем же именем создаётся модулем GPU и используется для выделения устройства.
                       name:
                         description: |
                           Уникальное имя GPU-устройства внутри спецификации виртуальной машины.

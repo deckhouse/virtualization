@@ -4052,14 +4052,14 @@ spec:
 Проброс GPU-устройств — экспериментальная возможность. Для работы требуются Enterprise Edition (EE), поддержка Kubernetes DRA и внешний GPU DRA-провайдер, публикующий GPU как DRA-ресурсы с атрибутами устройства `gpu.deckhouse.io`.
 {{< /alert >}}
 
-Модуль виртуализации может подключать физические GPU-устройства к виртуальным машинам с помощью DRA (Dynamic Resource Allocation). GPU запрашивается по ссылке на DRA [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes) через поле `.spec.gpuDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+Модуль виртуализации может подключать физические GPU-устройства к виртуальным машинам с помощью DRA (Dynamic Resource Allocation). GPU запрашивается по ссылке на `GPUClass` через поле `.spec.gpuDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
 
 Для проброса GPU требуются:
 
 - Kubernetes версии 1.34 или выше с DRA feature gates, необходимыми для конфигурации кластера.
 - Feature gate `GPU`, включённый в настройках модуля `virtualization`.
 - Установленный в кластере GPU DRA-провайдер, публикующий GPU с атрибутами устройства `gpu.deckhouse.io`.
-- DRA [DeviceClass](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-classes), выбирающий GPU, на который ссылается `.spec.gpuDevices[].deviceClassName`.
+- `GPUClass`, выбирающий GPU, на который ссылается `.spec.gpuDevices[].gpuClassName`. Модуль GPU создаёт DRA DeviceClass с тем же именем, который используется для выделения устройства.
 
 Чтобы включить feature gate модуля:
 
@@ -4085,10 +4085,10 @@ spec:
   # ... другие настройки ВМ ...
   gpuDevices:
     - name: gpu0
-      deviceClassName: nvidia-h100
+      gpuClassName: nvidia-h100
 ```
 
-Поле `name` должно быть уникальным внутри `.spec.gpuDevices` и может содержать до 59 символов DNS label. Поле `deviceClassName` должно быть именем существующего DRA `DeviceClass`, который выбирает подключаемый GPU.
+Поле `name` должно быть уникальным внутри `.spec.gpuDevices` и может содержать до 59 символов DNS label. Поле `gpuClassName` должно быть именем существующего `GPUClass`, который выбирает подключаемый GPU.
 
 Изменение `.spec.gpuDevices` требует перезапуска виртуальной машины для применения новой конфигурации.
 
