@@ -173,6 +173,15 @@ func BeReady() Predicate {
 	}
 }
 
+// BeResizing reports the VirtualDisk has entered the Resizing phase. Resizing
+// is transient, so this is meant to be observed with [Observer.WaitFor] started
+// before the resize is triggered, to catch the phase as it passes through.
+func BeResizing() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return d.Status.Phase == v1alpha2.DiskResizing, nil
+	}
+}
+
 // BeDetached reports the VirtualDisk is not attached to any VirtualMachine.
 func BeDetached() Predicate {
 	return func(d *v1alpha2.VirtualDisk) (bool, error) {
