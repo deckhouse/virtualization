@@ -20,12 +20,13 @@ import (
 	"strings"
 	"testing"
 
-	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -34,7 +35,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 	tests := []struct {
 		name           string
 		featureEnabled bool
-		deviceClasses  []string
+		gpuClasses     []string
 		gpuClass       string
 		wantErrorPart  string
 	}{
@@ -47,7 +48,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 		{
 			name:           "should accept GPU devices when feature is enabled and GPUClass is ready",
 			featureEnabled: true,
-			deviceClasses:  []string{"nvidia-h100"},
+			gpuClasses:     []string{"nvidia-h100"},
 			gpuClass:       "nvidia-h100",
 		},
 		{
@@ -61,7 +62,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			vm := newVirtualMachineWithGPU([]v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: tt.gpuClass}})
-			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.deviceClasses...), newGPUFeatureGate(t, tt.featureEnabled))
+			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.gpuClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)
 
@@ -78,7 +79,7 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 	tests := []struct {
 		name           string
 		featureEnabled bool
-		deviceClasses  []string
+		gpuClasses     []string
 		oldGPU         []v1alpha2.GPUDeviceSpec
 		newGPU         []v1alpha2.GPUDeviceSpec
 		wantErrorPart  string
@@ -117,14 +118,14 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 		{
 			name:           "changing to a ready GPUClass is allowed when feature is enabled",
 			featureEnabled: true,
-			deviceClasses:  []string{"nvidia-h100", "nvidia-a100"},
+			gpuClasses:     []string{"nvidia-h100", "nvidia-a100"},
 			oldGPU:         gpu("nvidia-h100"),
 			newGPU:         gpu("nvidia-a100"),
 		},
 		{
 			name:           "changing to an unready GPUClass is rejected",
 			featureEnabled: true,
-			deviceClasses:  []string{"nvidia-h100"},
+			gpuClasses:     []string{"nvidia-h100"},
 			oldGPU:         gpu("nvidia-h100"),
 			newGPU:         gpu("nvidia-a100"),
 			wantErrorPart:  "does not exist",
@@ -135,7 +136,7 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			oldVM := newVirtualMachineWithGPU(tt.oldGPU)
 			newVM := newVirtualMachineWithGPU(tt.newGPU)
-			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.deviceClasses...), newGPUFeatureGate(t, tt.featureEnabled))
+			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.gpuClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
 
@@ -146,7 +147,7 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 
 func TestGPUDevicesValidatorTemplateMode(t *testing.T) {
 	// A nil client (template validation) enforces the feature gate but skips
-	// GPUClass readiness (its DeviceClass existence).
+	// GPUClass existence.
 	tests := []struct {
 		name           string
 		featureEnabled bool
@@ -199,19 +200,22 @@ func newVirtualMachineWithGPU(gpuDevices []v1alpha2.GPUDeviceSpec) *v1alpha2.Vir
 	}
 }
 
-func newValidatorClient(t *testing.T, deviceClasses ...string) client.Client {
+func newValidatorClient(t *testing.T, gpuClasses ...string) client.Client {
 	t.Helper()
 
-	objs := make([]client.Object, 0, len(deviceClasses))
-	for _, name := range deviceClasses {
-		objs = append(objs, &resourcev1.DeviceClass{ObjectMeta: metav1.ObjectMeta{Name: name}})
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(gpuClassGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(gpuClassGVK.GroupVersion().WithKind("GPUClassList"), &unstructured.UnstructuredList{})
+
+	objs := make([]client.Object, 0, len(gpuClasses))
+	for _, name := range gpuClasses {
+		gpuClass := &unstructured.Unstructured{}
+		gpuClass.SetGroupVersionKind(gpuClassGVK)
+		gpuClass.SetName(name)
+		objs = append(objs, gpuClass)
 	}
 
-	fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
-	if err != nil {
-		t.Fatalf("failed to create fake client: %v", err)
-	}
-	return fakeClient
+	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 }
 
 func newGPUFeatureGate(t *testing.T, enabled bool) featuregate.FeatureGate {

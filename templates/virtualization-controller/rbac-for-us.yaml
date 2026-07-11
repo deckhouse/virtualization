@@ -345,9 +345,9 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - resource.k8s.io
+  - gpu.deckhouse.io
   resources:
-  - deviceclasses
+  - gpuclasses
   verbs:
   - get
   - list
