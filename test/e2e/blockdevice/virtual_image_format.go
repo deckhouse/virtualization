@@ -84,7 +84,7 @@ var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckDefaultStorageClas
 			vibuilder.WithName("vi-qcow2"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
-			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLCustomBIOS, nil, nil),
 		)
 
 		createVirtualImageAndWait(ctx, f, vi)

@@ -257,7 +257,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
 				// The source image type is incidental here (the scenario tests cloning from
 				// a PVC-backed VI), so source the base image from a CVI.
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
 			baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
@@ -285,7 +285,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 				vdbuilder.WithNamespace(f.Namespace().Name),
 				// The boot disk is incidental here; the scenario checks that the
 				// cloned disk provisions and attaches successfully.
-				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 				vdbuilder.WithStorageClass(scPtr),
 			)
 

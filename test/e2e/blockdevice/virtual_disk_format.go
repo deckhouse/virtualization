@@ -57,7 +57,7 @@ var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckDefaultStorageClass
 	It("provisions a VirtualDisk from a qcow2 ClusterVirtualImage and runs a VirtualMachine with a ready agent", func() {
 		// The disk under test is the scenario's main resource, so it lives on the WFFC
 		// storage class.
-		vd := object.NewVDFromCVI("vd-qcow2", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
+		vd := object.NewVDFromCVI("vd-qcow2", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
 			vdbuilder.WithStorageClass(defaultStorageClass()),
 			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 

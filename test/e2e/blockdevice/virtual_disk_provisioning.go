@@ -59,7 +59,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		)
 
 		By("Creating VirtualImage from precreated CVI", func() {
-			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
 
 			err := f.CreateWithDeferredDeletion(ctx, vi)
 			Expect(err).NotTo(HaveOccurred())
@@ -106,7 +106,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 			vm *v1alpha2.VirtualMachine
 		)
 		By("Creating VirtualImage", func() {
-			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
 			err := f.CreateWithDeferredDeletion(ctx, vi)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -148,7 +148,7 @@ var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 		)
 
 		By("Creating VirtualDisk", func() {
-			vd = object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
+			vd = object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
 			err := f.CreateWithDeferredDeletion(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
 		})

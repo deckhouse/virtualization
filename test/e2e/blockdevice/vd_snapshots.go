@@ -109,7 +109,7 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 		vd := object.NewVDFromCVI(
 			"vd-no-consumer",
 			f.Namespace().Name,
-			object.PrecreatedCVIAlpineBIOS,
+			object.PrecreatedCVICustomBIOS,
 			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.DefaultStorageClass.Name)),
 		)

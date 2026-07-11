@@ -80,7 +80,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorag
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			// A bootable image: on a WaitForFirstConsumer StorageClass the
 			// disk is provisioned by booting a VM from it, see below.
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 		if storageClassIsWaitForFirstConsumer(ctx, f, ptr.Deref(scPtr, "")) {
