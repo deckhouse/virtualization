@@ -77,9 +77,6 @@ tasks:
           {{if .DRY -}}
           --dry-run \
           {{end -}}
-          {{if .REPEAT -}}
-          --repeat "{{ .REPEAT }}"
-          {{end -}}
 
   fzf:
     desc: "Select and run e2e suites with fzf"
