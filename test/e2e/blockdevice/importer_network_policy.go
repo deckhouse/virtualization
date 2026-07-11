@@ -27,6 +27,7 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
@@ -34,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
 	const testName = "importer-network-policy"
 
 	var (

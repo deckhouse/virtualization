@@ -28,6 +28,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
@@ -35,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context

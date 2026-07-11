@@ -29,6 +29,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -42,7 +43,7 @@ import (
 // The qcow2 spec provisions its main VirtualDisk on the WFFC StorageClass, so the precheck
 // label is declared on the Describe (the spec-label validator only reads container-hierarchy
 // labels, not leaf It labels).
-var _ = Describe("VirtualImageFormat", Label(precheck.PrecheckDefaultStorageClass), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualImageFormat", Label(precheck.PrecheckDefaultStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context

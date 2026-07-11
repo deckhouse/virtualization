@@ -32,6 +32,7 @@ import (
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
@@ -39,7 +40,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualImageCreation", Label(
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualImageCreation", Label(
 	precheck.PrecheckDefaultStorageClass,
 	precheck.PrecheckSnapshot,
 ), func() {

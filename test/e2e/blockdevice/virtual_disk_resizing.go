@@ -18,7 +18,6 @@ package blockdevice
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -34,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
@@ -42,7 +42,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -128,22 +128,16 @@ var _ = Describe("VirtualDiskResizing", Label(precheck.NoPrecheck), func() {
 			}
 		})
 
-		By("Waiting for the disks to become Ready again", func() {
-			Expect(vdRootObs.WaitFor(vdobs.BeReady(), framework.MiddleTimeout)).To(Succeed())
-			Expect(vdBlankObs.WaitFor(vdobs.BeReady(), framework.MiddleTimeout)).To(Succeed())
-			Expect(vdAttachObs.WaitFor(vdobs.BeReady(), framework.MiddleTimeout)).To(Succeed())
+		By("Waiting for the disks to finish resizing to the new size", func() {
+			// BeResized (not BeReady) is used here on purpose: right after a resize
+			// the disk passes through the transient Resizing phase, which BeReady
+			// treats as an inconsistency. BeResized waits for the disk to settle back
+			// on Ready and asserts its reported capacity equals the new size.
+			Expect(vdRootObs.WaitFor(vdobs.BeResized(newVDRootSize), framework.MiddleTimeout)).To(Succeed())
+			Expect(vdBlankObs.WaitFor(vdobs.BeResized(newVDBlankSize), framework.MiddleTimeout)).To(Succeed())
+			Expect(vdAttachObs.WaitFor(vdobs.BeResized(newVDAttachSize), framework.MiddleTimeout)).To(Succeed())
 			Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.ShortTimeout)).To(Succeed())
 			Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.ShortTimeout)).To(Succeed())
-		})
-
-		By("Checking the reported capacity matches the new size", func() {
-			Expect(f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdRoot), vdRoot)).To(Succeed())
-			Expect(f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdBlank), vdBlank)).To(Succeed())
-			Expect(f.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vdAttach), vdAttach)).To(Succeed())
-
-			Expect(newVDRootSize.Cmp(resource.MustParse(vdRoot.Status.Capacity))).To(BeZero())
-			Expect(newVDBlankSize.Cmp(resource.MustParse(vdBlank.Status.Capacity))).To(BeZero())
-			Expect(newVDAttachSize.Cmp(resource.MustParse(vdAttach.Status.Capacity))).To(BeZero())
 		})
 
 		By("Checking the guest observes the increased size", func() {
@@ -214,29 +208,20 @@ func waitGuestSSHReadyAsRoot(f *framework.Framework, vm *v1alpha2.VirtualMachine
 	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
 }
 
-// getBlockDeviceLsblkSizeAsRoot returns the lsblk-reported size of the block
-// device backing (bdKind,bdName), logging in as root without sudo. The custom
-// e2e-br image has no cloud user and no sudo, and lsblk needs neither; this is a
-// blockdevice-local variant of util.GetBlockDeviceLsblkSize so the shared helper
-// (used by other suites as the cloud user with sudo) is left untouched.
+// getBlockDeviceLsblkSizeAsRoot returns the lsblk-reported size (in bytes) of
+// the block device backing (bdKind,bdName), logging in as root without sudo.
+//
+// The custom e2e-br image has no cloud user and no sudo, and runs no udev, so
+// lsblk cannot populate the SERIAL column. The device is instead resolved by
+// serial through guestDeviceBySerial (which reads the SCSI VPD from sysfs), and
+// its size is read with "lsblk -b" (fed from sysfs, so it needs no udev either).
 func getBlockDeviceLsblkSizeAsRoot(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) resource.Quantity {
 	GinkgoHelper()
 
-	serial, ok := util.GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
-	Expect(ok).To(BeTrue(), "failed to get block device %s/%s serial number", bdKind, bdName)
+	dev := guestDeviceBySerial(ctx, f, vm, bdKind, bdName)
 
-	out, err := f.SSHCommand(vm.Name, vm.Namespace, "lsblk --nodeps --json -o SERIAL,SIZE", framework.WithSSHUser("root"))
+	out, err := f.SSHCommand(vm.Name, vm.Namespace, "lsblk --nodeps -bno SIZE "+dev, framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred())
 
-	var disks util.Disks
-	Expect(json.Unmarshal([]byte(out), &disks)).To(Succeed(), "failed to parse lsblk output")
-
-	for _, blockDevice := range disks.BlockDevices {
-		if blockDevice.Serial == serial {
-			return resource.MustParse(strings.TrimSpace(blockDevice.Size))
-		}
-	}
-
-	Fail(fmt.Sprintf("lsblk output does not contain block device with serial %s", serial))
-	return resource.Quantity{}
+	return resource.MustParse(strings.TrimSpace(out))
 }

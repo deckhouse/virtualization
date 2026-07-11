@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -179,6 +180,27 @@ func BeReady() Predicate {
 func BeResizing() Predicate {
 	return func(d *v1alpha2.VirtualDisk) (bool, error) {
 		return d.Status.Phase == v1alpha2.DiskResizing, nil
+	}
+}
+
+// BeResized reports the VirtualDisk has finished a resize to expectedSize: it has
+// settled back on the Ready phase and its reported capacity equals expectedSize.
+//
+// Unlike [BeReady], a phase other than Ready — in particular the transient
+// Resizing phase a disk passes through during expansion, where the Ready
+// condition may briefly stay True while the phase moves — is treated as "not
+// there yet" rather than an inconsistency, so this predicate can be waited on
+// right after triggering a resize. Intended for use with [Observer.WaitFor].
+func BeResized(expectedSize resource.Quantity) Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		if d.Status.Phase != v1alpha2.DiskReady || d.Status.Capacity == "" {
+			return false, nil
+		}
+		capacity, err := resource.ParseQuantity(d.Status.Capacity)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse capacity %q: %w", d.Status.Capacity, err)
+		}
+		return capacity.Cmp(expectedSize) == 0, nil
 	}
 }
 

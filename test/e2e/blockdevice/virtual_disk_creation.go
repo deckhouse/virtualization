@@ -47,6 +47,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
@@ -76,7 +77,7 @@ const hostnameNodeSelectorKey = "kubernetes.io/hostname"
 
 var pinnedScenarioNodes sync.Map
 
-var _ = Describe("VirtualDiskCreation", Label(
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskCreation", Label(
 	precheck.PrecheckDefaultStorageClass,
 ), func() {
 	var (

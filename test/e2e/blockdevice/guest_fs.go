@@ -34,6 +34,18 @@ import (
 // bash, so we log in as root and use POSIX sh. The util.* originals stay as
 // cloud+sudo for the other suites (e.g. vmop/restore) that rely on them.
 
+// guestSerialByDeviceCmd prints one line per SCSI disk as "<devpath> <serial>".
+//
+// The minimal e2e-br image runs no udev, so lsblk's SERIAL column and the
+// /dev/disk/by-id symlinks are empty. The serial KubeVirt assigns is still
+// readable straight from each disk's SCSI VPD page 0x80 in sysfs: a 4-byte
+// header followed by the ASCII serial, hence "tail -c +5".
+//
+// The command deliberately contains no single quotes: d8 wraps the guest
+// command in '...' (see internal/d8), so an embedded single quote would break
+// argument parsing and d8 would reject the extra tokens.
+const guestSerialByDeviceCmd = `for d in /sys/block/sd*; do echo /dev/$(basename $d) $(tail -c +5 $d/device/vpd_pg80); done`
+
 // guestDeviceBySerial returns the in-guest device path (e.g. /dev/sda) of the
 // block device backing (bdKind,bdName), resolved by its serial number.
 func guestDeviceBySerial(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
@@ -41,14 +53,17 @@ func guestDeviceBySerial(ctx context.Context, f *framework.Framework, vm *v1alph
 	serial, ok := util.GetBlockDeviceSerialNumber(ctx, vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device %s/%s serial number", bdKind, bdName)
 
-	out, err := f.SSHCommand(vm.Name, vm.Namespace,
-		fmt.Sprintf(`lsblk -o PATH,SERIAL | awk '$2=="%s"{print $1}'`, serial),
-		framework.WithSSHUser("root"))
+	out, err := f.SSHCommand(vm.Name, vm.Namespace, guestSerialByDeviceCmd, framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred())
 
-	path := strings.TrimSpace(out)
-	Expect(path).NotTo(BeEmpty(), "no device with serial %s found in guest", serial)
-	return path
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[1] == serial {
+			return fields[0]
+		}
+	}
+	Fail(fmt.Sprintf("no block device with serial %s found in guest; device/serial map:\n%s", serial, out))
+	return ""
 }
 
 // guestCreateFilesystem formats the device backing (bdKind,bdName) with fsType.

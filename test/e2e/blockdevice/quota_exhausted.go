@@ -31,6 +31,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	rqobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/resourcequota"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
@@ -51,7 +52,7 @@ import (
 // WaitingForFirstConsumer forever instead of reporting QuotaExceeded.
 const quotaExhaustedQuotaName = "v12n-e2e-block-pvcs"
 
-var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorageClass), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context

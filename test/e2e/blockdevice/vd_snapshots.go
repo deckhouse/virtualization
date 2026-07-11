@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
@@ -47,7 +48,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
 	var (
 		ctx context.Context
 		cfg *config.Config
@@ -142,7 +143,10 @@ var _ = Describe("VirtualDiskSnapshots", Label(precheck.PrecheckDefaultStorageCl
 
 		By("Deleting the VM so the disk has no consumer")
 		Expect(f.Delete(ctx, vm)).To(Succeed())
-		Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualMachines(vm.Namespace), vm.Name, vm.Namespace, framework.MiddleTimeout, nil)).To(Succeed())
+		// VM deletion stops the guest, terminates the virt-launcher pod and waits
+		// for the KVVMI and pvc-protection finalizers to clear before the VM object
+		// is gone, so allow the long timeout rather than the middle one.
+		Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualMachines(vm.Namespace), vm.Name, vm.Namespace, framework.LongTimeout, nil)).To(Succeed())
 
 		By("Creating snapshot")
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)

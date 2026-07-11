@@ -62,7 +62,7 @@ const (
 	diskImageExportFile = "disk.img"
 )
 
-var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, precheck.PrecheckSnapshot), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(precheck.PrecheckSVDM, precheck.PrecheckSnapshot), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -76,6 +76,24 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 	})
 
 	It("exports VirtualDisk and VirtualDiskSnapshot, then restores data via upload", func() {
+		// Data export downloads the disk bytes from an in-cluster exporter. Off
+		// cluster (e.g. running the suite over a kube-apiserver tunnel from a
+		// laptop) d8 must fall back to publish mode. In principle publish mode
+		// should still work, but it is currently broken by a bug in the export
+		// module (storage-volume-data-manager): its publish path looks up the
+		// origin Ingress at the hard-coded location "d8-user-authn/kubernetes-api",
+		// while on current Deckhouse that Ingress is created by control-plane-manager
+		// in "kube-system", so the export fails with PublishFailed.
+		//
+		// TODO: this skip is a workaround for that export-module bug. Remove it once
+		// storage-volume-data-manager resolves the origin-Ingress lookup (e.g. makes
+		// the namespace configurable or also searches kube-system), so the test runs
+		// off-cluster too. Until then the test still runs on a cluster node / in CI,
+		// where the in-cluster download path needs no publish.
+		if !runningOnClusterNode(ctx, f) {
+			Skip("data export requires the suite to run on a cluster node (in-cluster download); skipped off-cluster due to a publish-mode bug in the storage-volume-data-manager export module")
+		}
+
 		var (
 			vdRoot               *v1alpha2.VirtualDisk
 			vdData               *v1alpha2.VirtualDisk
@@ -258,7 +276,11 @@ func IsNFS() bool {
 	return sc.Provisioner == framework.NFS
 }
 
-func needPublishOption(ctx context.Context, f *framework.Framework) bool {
+// runningOnClusterNode reports whether the test process runs on a Kubernetes
+// node of the target cluster (its hostname matches a Node object). Off-cluster
+// (e.g. a laptop connected over a kube-apiserver tunnel) the data-export
+// download cannot use the in-cluster path and must fall back to publish mode.
+func runningOnClusterNode(ctx context.Context, f *framework.Framework) bool {
 	hostname, err := os.Hostname()
 	Expect(err).NotTo(HaveOccurred(), "Failed to get hostname")
 	var node corev1.Node
@@ -268,10 +290,16 @@ func needPublishOption(ctx context.Context, f *framework.Framework) bool {
 		&node,
 	)
 	if k8serrors.IsNotFound(err) {
-		return true
+		return false
 	}
 	Expect(err).NotTo(HaveOccurred(), "Failed to get node %s", hostname)
-	return false
+	return true
+}
+
+// needPublishOption reports whether `d8 data export download` must be told to
+// publish the exporter (true when the suite runs off-cluster).
+func needPublishOption(ctx context.Context, f *framework.Framework) bool {
+	return !runningOnClusterNode(ctx, f)
 }
 
 func exportData(ctx context.Context, f *framework.Framework, resourceType, name, outputFile string) {
