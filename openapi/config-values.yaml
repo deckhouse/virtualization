@@ -267,7 +267,7 @@ properties:
       - `HotplugCPUWithLiveMigration` — enable live changing of cpu cores number via LiveMigration. (Not available in CE);
       - `HotplugMemoryWithLiveMigration` — enable live changing of memory size via LiveMigration. (Not available in CE);
       - `HotplugCPUAndMemoryWithInPlaceResize` - enable live changing of cpu cores number or memory size via InPlaceResize. (Not available in CE);
-      - `GPU` — enable attaching GPU devices to virtual machines via DRA by referencing a DeviceClass. (Not available in CE);
+      - `GPU` — enable attaching GPU devices to virtual machines via DRA by referencing a GPUClass. (Not available in CE);
     items:
       type: string
       enum:
