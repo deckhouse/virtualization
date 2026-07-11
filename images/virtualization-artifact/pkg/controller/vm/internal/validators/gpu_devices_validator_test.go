@@ -60,7 +60,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: tt.gpuClass}})
+			vm := newVirtualMachineWithGPU([]v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: tt.gpuClass}})
 			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.deviceClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)
@@ -133,8 +133,8 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldVM := newVirtualMachineWithGPU("vm-current", tt.oldGPU)
-			newVM := newVirtualMachineWithGPU("vm-current", tt.newGPU)
+			oldVM := newVirtualMachineWithGPU(tt.oldGPU)
+			newVM := newVirtualMachineWithGPU(tt.newGPU)
 			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.deviceClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateUpdate(t.Context(), oldVM, newVM)
@@ -165,7 +165,7 @@ func TestGPUDevicesValidatorTemplateMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU("vm-current", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "does-not-exist"}})
+			vm := newVirtualMachineWithGPU([]v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "does-not-exist"}})
 			validator := NewGPUDevicesValidator(nil, newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)
@@ -192,9 +192,9 @@ func assertValidationError(t *testing.T, err error, wantErrorPart string) {
 	}
 }
 
-func newVirtualMachineWithGPU(name string, gpuDevices []v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
+func newVirtualMachineWithGPU(gpuDevices []v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "vm-current", Namespace: "default"},
 		Spec:       v1alpha2.VirtualMachineSpec{GPUDevices: gpuDevices},
 	}
 }
