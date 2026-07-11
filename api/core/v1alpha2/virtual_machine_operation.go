@@ -27,6 +27,7 @@ const (
 
 // VirtualMachineOperation enables declarative management of virtual machine state changes.
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: VirtualMachineOperation, metadata: {generateName: restart-example-vm-}, spec: {type: Restart, virtualMachineName: example-vm}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmop},singular=virtualmachineoperation

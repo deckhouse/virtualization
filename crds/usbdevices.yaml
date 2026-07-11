@@ -199,6 +199,11 @@ spec:
                   type: integer
               type: object
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: USBDevice
+              metadata:
+                name: example-usb
       served: true
       storage: true
       subresources:

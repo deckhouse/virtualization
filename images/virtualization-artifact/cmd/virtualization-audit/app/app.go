@@ -57,9 +57,9 @@ func NewOptions() Options {
 
 func (o *Options) Flags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.Port, "secure-port", 8443, "The port to listen on")
-	fs.StringVar(&o.Cafile, "tls-ca-file", "/etc/virtualization-audit/certificate/ca.crt", "Path to TLS CA certificate")
-	fs.StringVar(&o.Certfile, "tls-cert-file", "/etc/virtualization-audit/certificate/tls.crt", "Path to TLS certificate")
-	fs.StringVar(&o.Keyfile, "tls-private-key-file", "/etc/virtualization-audit/certificate/tls.key", "Path to TLS key")
+	fs.StringVar(&o.Cafile, "tls-ca-file", "/etc/virtualization-audit/certificates/ca.crt", "Path to TLS CA certificate")
+	fs.StringVar(&o.Certfile, "tls-cert-file", "/etc/virtualization-audit/certificates/tls.crt", "Path to TLS certificate")
+	fs.StringVar(&o.Keyfile, "tls-private-key-file", "/etc/virtualization-audit/certificates/tls.key", "Path to TLS key")
 	fs.Uint8VarP(&o.Verbose, "verbose", "v", 1, "verbose output")
 }
 

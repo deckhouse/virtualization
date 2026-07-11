@@ -192,6 +192,13 @@ spec:
           required:
             - spec
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: NodeUSBDevice
+              metadata:
+                name: example-usb
+              spec:
+                assignedNamespace: workloads
       served: true
       storage: true
       subresources:

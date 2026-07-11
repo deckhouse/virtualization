@@ -35,6 +35,26 @@ spec:
             - `.spec.runPolicy`.
 
             **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/) and must not exceed 63 characters.
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachine
+              metadata:
+                name: example-vm
+              spec:
+                virtualMachineClassName: cpu-host-on-worker-nodes
+                cpu:
+                  cores: 1
+                  coreFraction: 10%
+                memory:
+                  size: 1Gi
+                provisioning:
+                  type: UserDataRef
+                  userDataRef:
+                    kind: Secret
+                    name: cloudinit-for-vms
+                blockDeviceRefs:
+                  - kind: VirtualDisk
+                    name: example-disk
           required:
             - spec
           properties:
