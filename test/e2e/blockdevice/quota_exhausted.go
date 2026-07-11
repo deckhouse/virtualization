@@ -102,7 +102,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorag
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-quota-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -138,7 +138,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(precheck.PrecheckDefaultStorag
 			vibuilder.WithName("vi-pvc-quota"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 		)
 		vi.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
