@@ -33,6 +33,14 @@ func BeRunning() Predicate {
 	}
 }
 
+// BeStopped reports the VirtualMachine has reached the Stopped phase. Intended
+// for use with [Observer.WaitFor].
+func BeStopped() Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		return vm.Status.Phase == v1alpha2.MachineStopped, nil
+	}
+}
+
 // BeAgentReady reports the VirtualMachine's guest agent is ready, i.e. the
 // AgentReady condition is present with Status=True. Intended for use with
 // [Observer.WaitFor].

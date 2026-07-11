@@ -44,6 +44,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmopobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmop"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -108,7 +112,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 				),
 				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnUnlessStoppedManually),
 				// The custom e2e-br image has no cloud-init and this test only needs a
-				// live guest agent (data is exported via the API, not over SSH), so
+				// live guest agent (data is written/verified over SSH as root), so
 				// provision nothing instead of the Ubuntu cloud-init.
 				vmbuilder.WithProvisioning(nil),
 			)
@@ -117,15 +121,18 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		vmObs := vmobs.StartObserver(ctx, f, vm)
+		vmObs.Never(vmobs.BeFailed())
+
 		By("Waiting for VM agent to be ready", func() {
-			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
 		})
 
 		By("Writing test data to the data disk", func() {
-			util.CreateBlockDeviceFilesystem(ctx, f, vm, v1alpha2.DiskDevice, vdData.Name, "ext4")
-			util.MountBlockDevice(ctx, f, vm, v1alpha2.DiskDevice, vdData.Name, mountPointData)
-			util.WriteFile(f, vm, fileDataPath, testFileValue)
-			util.UnmountBlockDevice(f, vm, mountPointData)
+			guestCreateFilesystem(ctx, f, vm, v1alpha2.DiskDevice, vdData.Name, "ext4")
+			guestMount(ctx, f, vm, v1alpha2.DiskDevice, vdData.Name, mountPointData)
+			guestWriteFile(f, vm, fileDataPath, testFileValue)
+			guestUnmount(f, vm, mountPointData)
 		})
 
 		By("Stopping the VM", func() {
@@ -138,8 +145,9 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 			err := f.CreateWithDeferredDeletion(ctx, vmopStop)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopStop)
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.ShortTimeout, vm)
+			vmopObs := vmopobs.StartObserver(ctx, vmopStop)
+			Expect(vmopObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)).To(Succeed())
+			Expect(vmObs.WaitFor(vmobs.BeStopped(), framework.ShortTimeout)).To(Succeed())
 		})
 
 		By("Creating snapshot of the data disk", func() {
@@ -152,7 +160,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 
 			err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilVDSnapshotsReady(ctx, f, framework.ShortTimeout, vdSnapshot)
+			waitVDSnapshotsReady(ctx, f, framework.ShortTimeout, vdSnapshot)
 		})
 
 		By("Exporting VirtualDisk to local file", func() {
@@ -167,15 +175,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 			err := f.Delete(ctx, vdData)
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func(g Gomega) {
-				var vd v1alpha2.VirtualDisk
-				err := f.Clients.GenericClient().Get(ctx, types.NamespacedName{
-					Namespace: vdData.Namespace,
-					Name:      vdData.Name,
-				}, &vd)
-				g.Expect(crclient.IgnoreNotFound(err)).NotTo(HaveOccurred())
-				g.Expect(err).To(HaveOccurred(), "VirtualDisk should be deleted")
-			}, framework.MiddleTimeout, time.Second).Should(Succeed())
+			Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualDisks(vdData.Namespace), vdData.Name, vdData.Namespace, framework.MiddleTimeout, nil)).To(Succeed())
 		})
 
 		By("Creating disk from exported VirtualDisk", func() {
@@ -187,7 +187,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 		})
 
 		By("Waiting for disk from VirtualDisk export to be ready", func() {
-			util.UntilObjectPhase(ctx, util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromDiskExport)
+			waitDiskInExpectedPhase(ctx, f, vdFromDiskExport)
 		})
 
 		By("Creating disk from exported VirtualDiskSnapshot", func() {
@@ -199,7 +199,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 		})
 
 		By("Waiting for disk from snapshot export to be ready", func() {
-			util.UntilObjectPhase(ctx, util.GetExpectedDiskPhaseByVolumeBindingMode(), framework.LongTimeout, vdFromSnapshotExport)
+			waitDiskInExpectedPhase(ctx, f, vdFromSnapshotExport)
 		})
 
 		By("Attaching restored disks to VM", func() {
@@ -218,24 +218,37 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 
 		By("Starting the VM", func() {
 			util.StartVirtualMachine(ctx, f, vm)
-			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
 		})
 
 		By("Verifying data on disk restored from VirtualDisk export", func() {
-			util.MountBlockDevice(ctx, f, vm, v1alpha2.DiskDevice, vdFromDiskExport.Name, mountPointData)
-			restoredValue := util.ReadFile(f, vm, fileDataPath)
+			guestMount(ctx, f, vm, v1alpha2.DiskDevice, vdFromDiskExport.Name, mountPointData)
+			restoredValue := guestReadFile(f, vm, fileDataPath)
 			Expect(restoredValue).To(Equal(testFileValue), "Data should match original")
-			util.UnmountBlockDevice(f, vm, mountPointData)
+			guestUnmount(f, vm, mountPointData)
 		})
 
 		By("Verifying data on disk restored from VirtualDiskSnapshot export", func() {
-			util.MountBlockDevice(ctx, f, vm, v1alpha2.DiskDevice, vdFromSnapshotExport.Name, mountPointData)
-			restoredValue := util.ReadFile(f, vm, fileDataPath)
+			guestMount(ctx, f, vm, v1alpha2.DiskDevice, vdFromSnapshotExport.Name, mountPointData)
+			restoredValue := guestReadFile(f, vm, fileDataPath)
 			Expect(restoredValue).To(Equal(testFileValue), "Data should match original")
-			util.UnmountBlockDevice(f, vm, mountPointData)
+			guestUnmount(f, vm, mountPointData)
 		})
 	})
 })
+
+// waitDiskInExpectedPhase waits, via a VirtualDisk Observer, until vd reaches the
+// phase expected for the default storage class' volume binding mode (Ready for
+// Immediate, WaitForFirstConsumer otherwise).
+func waitDiskInExpectedPhase(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+	expected := util.GetExpectedDiskPhaseByVolumeBindingMode()
+	obs := vdobs.StartObserver(ctx, f, vd)
+	obs.Never(vdobs.BeFailed())
+	Expect(obs.WaitFor(func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return string(d.Status.Phase) == expected, nil
+	}, framework.LongTimeout)).To(Succeed())
+}
 
 func IsNFS() bool {
 	sc := framework.GetConfig().StorageClass.DefaultStorageClass
@@ -292,7 +305,10 @@ func createUploadDisk(ctx context.Context, f *framework.Framework, name string) 
 
 	err := f.CreateWithDeferredDeletion(ctx, vd)
 	Expect(err).NotTo(HaveOccurred())
-	util.UntilObjectPhase(ctx, string(v1alpha2.DiskWaitForUserUpload), framework.LongTimeout, vd)
+
+	obs := vdobs.StartObserver(ctx, f, vd)
+	obs.Never(vdobs.BeFailed())
+	Expect(obs.WaitFor(vdobs.BeReadyForUserUpload(), framework.LongTimeout)).To(Succeed())
 
 	return vd
 }
@@ -312,11 +328,11 @@ func uploadFile(ctx context.Context, f *framework.Framework, vd *v1alpha2.Virtua
 	}
 	uploadURL := vd.Status.ImageUploadURLs.External
 
-	// TODO: remove this retry once the controller sets the WaitForUserUpload phase
-	// only after the upload Ingress is actually served by the ingress controller.
-	// For now IsUploaderReady probes the uploader via the Service ClusterIP, so the
-	// external URL may still return 503 from nginx for a few seconds after
-	// ImageUploadURLs is published.
+	// EXCEPTION: this retries an external HTTP upload endpoint, not a Kubernetes
+	// resource or the guest, so Eventually is used deliberately. The uploader
+	// Ingress may still return 503 from nginx for a few seconds after
+	// ImageUploadURLs is published (IsUploaderReady probes via the Service
+	// ClusterIP), so retry the upload until it stops returning 503.
 	Eventually(func() error {
 		err := doUploadAttempt(httpClient, uploadURL, filePath)
 		if err != nil && !errors.Is(err, errUploadServiceUnavailable) {

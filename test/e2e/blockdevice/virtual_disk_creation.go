@@ -542,6 +542,8 @@ func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
 
+		// EXCEPTION: Project (deckhouse.io) has no typed client in VirtClient and
+		// therefore no Observer; wait for its state via the generic helper.
 		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
 	})
 
