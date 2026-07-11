@@ -82,7 +82,7 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 		)
 
 		By("Creating root and data disks", func() {
-			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIUbuntu)
+			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
 
 			vdData = vdbuilder.New(
 				vdbuilder.WithName("vd-data"),
@@ -107,7 +107,10 @@ var _ = Describe("DataExports", label.Slow(), Label(precheck.PrecheckSVDM, prech
 					v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: vdData.Name},
 				),
 				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnUnlessStoppedManually),
-				vmbuilder.WithProvisioningUserData(object.UbuntuCloudInit),
+				// The custom e2e-br image has no cloud-init and this test only needs a
+				// live guest agent (data is exported via the API, not over SSH), so
+				// provision nothing instead of the Ubuntu cloud-init.
+				vmbuilder.WithProvisioning(nil),
 			)
 
 			err := f.CreateWithDeferredDeletion(ctx, vm)
