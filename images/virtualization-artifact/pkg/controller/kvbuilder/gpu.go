@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -31,6 +32,9 @@ const (
 	GPUNamePrefix    = "gpu-"
 	GPUDRADriverName = "gpu.deckhouse.io"
 )
+
+// GPUClassGVK identifies the GPUClass custom resource provided by the GPU module.
+var GPUClassGVK = schema.GroupVersionKind{Group: "gpu.deckhouse.io", Version: "v1alpha1", Kind: "GPUClass"}
 
 func GPUResourceClaimName(deviceName string) string {
 	return GPUNamePrefix + deviceName

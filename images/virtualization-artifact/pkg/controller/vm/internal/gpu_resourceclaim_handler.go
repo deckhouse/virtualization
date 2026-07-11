@@ -21,21 +21,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	resourcev1 "k8s.io/api/resource/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameGPUResourceClaimHandler = "GPUResourceClaimHandler"
@@ -57,7 +62,7 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
-	vm := s.VirtualMachine().Current()
+	vm := s.VirtualMachine().Changed()
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameGPUResourceClaimHandler))
 	desiredTemplateNames := make(map[string]struct{}, len(vm.Spec.GPUDevices))
 
@@ -102,7 +107,48 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 	if err := h.deleteOrphanedTemplates(ctx, vm, desiredTemplateNames); err != nil {
 		return reconcile.Result{}, err
 	}
+
+	if err := h.reconcileGPUClassReadyCondition(ctx, vm); err != nil {
+		return reconcile.Result{}, err
+	}
 	return reconcile.Result{}, nil
+}
+
+// reconcileGPUClassReadyCondition surfaces whether every referenced GPUClass
+// exists, so a GPUClass deleted under a running VM yields a clear condition
+// instead of a silently pending claim on the next restart.
+func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
+	if len(vm.Spec.GPUDevices) == 0 {
+		conditions.RemoveCondition(vmcondition.TypeGPUClassReady, &vm.Status.Conditions)
+		return nil
+	}
+
+	cb := conditions.NewConditionBuilder(vmcondition.TypeGPUClassReady).Generation(vm.GetGeneration())
+
+	var missing []string
+	for _, device := range vm.Spec.GPUDevices {
+		gpuClass := &unstructured.Unstructured{}
+		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
+		err := h.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, gpuClass)
+		switch {
+		case apierrors.IsNotFound(err), meta.IsNoMatchError(err):
+			missing = append(missing, device.GPUClassName)
+		case err != nil:
+			return fmt.Errorf("failed to resolve GPUClass %q: %w", device.GPUClassName, err)
+		}
+	}
+
+	if len(missing) > 0 {
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonGPUClassNotFound).
+			Message(fmt.Sprintf("GPUClass not found: %s. The GPU cannot be allocated until the GPUClass exists.", strings.Join(missing, ", ")))
+	} else {
+		cb.Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonGPUClassReady).
+			Message("")
+	}
+	conditions.SetCondition(cb, &vm.Status.Conditions)
+	return nil
 }
 
 func buildGPUResourceClaimTemplate(vm *v1alpha2.VirtualMachine, name string, spec resourcev1.ResourceClaimTemplateSpec) *resourcev1.ResourceClaimTemplate {

@@ -23,11 +23,14 @@ import (
 	. "github.com/onsi/gomega"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("GPUResourceClaimHandler", func() {
@@ -146,5 +149,33 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 		stored := &resourcev1.ResourceClaimTemplate{}
 		Expect(fakeClient.Get(context.Background(), types.NamespacedName{Name: otherName, Namespace: namespace}, stored)).To(Succeed())
+	})
+
+	It("should set GPUClassReady=False when the GPUClass does not exist", func() {
+		fakeClient, _, vmState := setupEnvironment(newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass}))
+		handler := NewGPUResourceClaimHandler(fakeClient)
+
+		_, err := handler.Handle(context.Background(), vmState)
+
+		Expect(err).NotTo(HaveOccurred())
+		cond, ok := conditions.GetCondition(vmcondition.TypeGPUClassReady, vmState.VirtualMachine().Changed().Status.Conditions)
+		Expect(ok).To(BeTrue())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(vmcondition.ReasonGPUClassNotFound.String()))
+	})
+
+	It("should set GPUClassReady=True when the GPUClass exists", func() {
+		gpuClass := &unstructured.Unstructured{}
+		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
+		gpuClass.SetName(deviceClass)
+		fakeClient, _, vmState := setupEnvironment(newVM(v1alpha2.GPUDeviceSpec{Name: "gpu0", GPUClassName: deviceClass}), gpuClass)
+		handler := NewGPUResourceClaimHandler(fakeClient)
+
+		_, err := handler.Handle(context.Background(), vmState)
+
+		Expect(err).NotTo(HaveOccurred())
+		cond, ok := conditions.GetCondition(vmcondition.TypeGPUClassReady, vmState.VirtualMachine().Changed().Status.Conditions)
+		Expect(ok).To(BeTrue())
+		Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 	})
 })

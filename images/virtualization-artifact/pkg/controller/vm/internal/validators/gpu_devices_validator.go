@@ -24,7 +24,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,9 +33,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
-
-// gpuClassGVK identifies the GPUClass custom resource provided by the GPU module.
-var gpuClassGVK = schema.GroupVersionKind{Group: "gpu.deckhouse.io", Version: "v1alpha1", Kind: "GPUClass"}
 
 type GPUDevicesValidator struct {
 	client      client.Client
@@ -81,7 +77,7 @@ func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alph
 
 	for _, device := range vm.Spec.GPUDevices {
 		gpuClass := &unstructured.Unstructured{}
-		gpuClass.SetGroupVersionKind(gpuClassGVK)
+		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
 		err := v.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, gpuClass)
 		switch {
 		case apierrors.IsNotFound(err):

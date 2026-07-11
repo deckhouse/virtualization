@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -204,13 +205,13 @@ func newValidatorClient(t *testing.T, gpuClasses ...string) client.Client {
 	t.Helper()
 
 	scheme := runtime.NewScheme()
-	scheme.AddKnownTypeWithName(gpuClassGVK, &unstructured.Unstructured{})
-	scheme.AddKnownTypeWithName(gpuClassGVK.GroupVersion().WithKind("GPUClassList"), &unstructured.UnstructuredList{})
+	scheme.AddKnownTypeWithName(kvbuilder.GPUClassGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(kvbuilder.GPUClassGVK.GroupVersion().WithKind("GPUClassList"), &unstructured.UnstructuredList{})
 
 	objs := make([]client.Object, 0, len(gpuClasses))
 	for _, name := range gpuClasses {
 		gpuClass := &unstructured.Unstructured{}
-		gpuClass.SetGroupVersionKind(gpuClassGVK)
+		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
 		gpuClass.SetName(name)
 		objs = append(objs, gpuClass)
 	}
