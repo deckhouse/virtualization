@@ -31,6 +31,10 @@ func (c *fakeVirtualMachines) VNC(name string) (corev1alpha2.StreamInterface, er
 	return nil, nil
 }
 
+func (c *fakeVirtualMachines) Screenshot(ctx context.Context, name string, opts v1alpha2.VirtualMachineVNCScreenshot) ([]byte, error) {
+	return nil, nil
+}
+
 func (c *fakeVirtualMachines) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (corev1alpha2.StreamInterface, error) {
 	return nil, nil
 }
