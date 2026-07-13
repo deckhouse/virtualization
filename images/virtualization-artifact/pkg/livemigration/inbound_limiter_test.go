@@ -183,4 +183,22 @@ var _ = Describe("InboundMigrationLimiter", func() {
 		limiter := NewInboundMigrationLimiter(false, 1)
 		Expect(limiter.Restore(ctx, fakeClient)).To(Succeed())
 	})
+
+	It("Should count only acquired slots on the given node", func() {
+		onNode := newKVVMI("on-node", "m1")
+		MarkInboundMigrationSlotAcquired(onNode, targetNode)
+
+		otherNode := newKVVMI("other-node", "m2")
+		MarkInboundMigrationSlotAcquired(otherNode, "other-node")
+
+		waiting := newKVVMI("waiting", "m3")
+		MarkInboundMigrationSlotWaiting(waiting, targetNode)
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(onNode, otherNode, waiting)
+		Expect(err).NotTo(HaveOccurred())
+
+		count, err := CountAcquiredSlotsOnNode(ctx, fakeClient, targetNode)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(count).To(Equal(1))
+	})
 })

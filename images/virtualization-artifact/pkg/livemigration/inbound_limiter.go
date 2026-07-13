@@ -236,6 +236,28 @@ func IsInboundMigrationSlotWaiting(kvvmi *virtv1.VirtualMachineInstance) bool {
 	return kvvmi.Annotations[InboundMigrationSlotAnnotation] == InboundMigrationSlotWaiting
 }
 
+func IsInboundMigrationSlotAcquired(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi.Annotations[InboundMigrationSlotAnnotation] == InboundMigrationSlotAcquired
+}
+
+// CountAcquiredSlotsOnNode returns how many VMIs currently hold an inbound
+// migration slot on the given target node.
+func CountAcquiredSlotsOnNode(ctx context.Context, c client.Reader, node string) (int, error) {
+	var vmis virtv1.VirtualMachineInstanceList
+	if err := c.List(ctx, &vmis); err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for i := range vmis.Items {
+		kvvmi := &vmis.Items[i]
+		if IsInboundMigrationSlotAcquired(kvvmi) && InboundMigrationWaitingTargetNode(kvvmi) == node {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func InboundMigrationWaitingTargetNode(kvvmi *virtv1.VirtualMachineInstance) string {
 	return kvvmi.Annotations[InboundMigrationTargetNodeAnnotation]
 }

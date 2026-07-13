@@ -42,6 +42,7 @@ import (
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -387,6 +388,58 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
 			Expect(msg).To(Equal(messageTargetNodeIncomingMigrationLimitExceeded))
+		})
+
+		It("should name the target node and occupancy for the inbound limit", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "self-uid"
+			mig.Status.Phase = virtv1.MigrationPending
+
+			// The migrating VM is waiting for an inbound slot on node-a.
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name, Annotations: map[string]string{
+					livemigration.InboundMigrationSlotAnnotation:       livemigration.InboundMigrationSlotWaiting,
+					livemigration.InboundMigrationTargetNodeAnnotation: "node-a",
+				}},
+			}
+			// Another VM already migrating into node-a occupies the slot.
+			occupant := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "occupant", Annotations: map[string]string{
+					livemigration.InboundMigrationSlotAnnotation:       livemigration.InboundMigrationSlotAcquired,
+					livemigration.InboundMigrationTargetNodeAnnotation: "node-a",
+				}},
+			}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig, vmi, occupant)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
+			Expect(msg).To(Equal(fmt.Sprintf(messageInboundMigrationLimitFmt, "node-a", 1)))
+		})
+
+		It("should surface the concurrency-limit condition set by KubeVirt", func() {
+			const limitMsg = `Waiting for a free migration slot: node "node-a" has no free outbound migration slot (1/1 running).`
+
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "self-uid"
+			mig.Status.Phase = virtv1.MigrationPending
+			mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
+				Type:    virtv1.VirtualMachineInstanceMigrationConditionType(migrationConcurrencyLimitReached),
+				Status:  corev1.ConditionTrue,
+				Message: limitMsg,
+			}}
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
+			Expect(msg).To(Equal(limitMsg))
 		})
 
 		DescribeTable("should build in-progress reason and message", func(

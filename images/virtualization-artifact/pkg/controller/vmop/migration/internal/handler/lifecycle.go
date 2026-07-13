@@ -73,6 +73,12 @@ const (
 
 	reasonTargetNodeIncomingMigrationLimitExceeded  = "TargetNodeIncomingMigrationLimitExceeded"
 	messageTargetNodeIncomingMigrationLimitExceeded = "Target node has no free inbound migration slots."
+	messageInboundMigrationLimitFmt                 = "Waiting for a free migration slot: node %q has no free inbound migration slot (%d in progress)."
+
+	// migrationConcurrencyLimitReached is set by KubeVirt on a pending migration
+	// blocked by the cluster or per-node outbound concurrency limit; its message
+	// already describes the limit and current counts.
+	migrationConcurrencyLimitReached = "MigrationConcurrencyLimitReached"
 )
 
 type Base interface {
@@ -610,12 +616,12 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
 		reason = vmopcondition.ReasonMigrationPending
 		message = messageMigrationPending
-		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
-			message = messageTargetNodeIncomingMigrationLimitExceeded
-		} else if waiting, err := h.isWaitingForInboundMigrationSlot(ctx, mig); err != nil {
+		if inboundMsg, err := h.inboundMigrationLimitMessage(ctx, mig); err != nil {
 			return reason, message, err
-		} else if waiting {
-			message = messageTargetNodeIncomingMigrationLimitExceeded
+		} else if inboundMsg != "" {
+			message = inboundMsg
+		} else if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(migrationConcurrencyLimitReached), mig.Status.Conditions); found && cond.Message != "" {
+			message = cond.Message
 		}
 	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
@@ -775,18 +781,36 @@ func humanizeMigrationFailedMessage(message string) string {
 	return message
 }
 
-func (h LifecycleHandler) isWaitingForInboundMigrationSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (bool, error) {
-	if mig == nil || mig.Spec.VMIName == "" {
-		return false, nil
-	}
+// inboundMigrationLimitMessage explains why a pending migration cannot start yet
+// when the controller's inbound limiter has no free slot on the target node.
+// The limit is enforced by the inbound limiter (annotation-based) or reported as
+// a migration condition; the target node and current occupancy are read from VMI
+// annotations, so no access to the limiter itself is needed. Returns an empty
+// string when the migration is not inbound-limited.
+func (h LifecycleHandler) inboundMigrationLimitMessage(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (string, error) {
+	_, hasCondition := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions)
 
 	var kvvmi virtv1.VirtualMachineInstance
-	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
-	if err != nil {
-		return false, client.IgnoreNotFound(err)
+	if mig.Spec.VMIName != "" {
+		if err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi); client.IgnoreNotFound(err) != nil {
+			return "", err
+		}
 	}
 
-	return livemigration.IsInboundMigrationSlotWaiting(&kvvmi), nil
+	if !hasCondition && !livemigration.IsInboundMigrationSlotWaiting(&kvvmi) {
+		return "", nil
+	}
+
+	node := livemigration.InboundMigrationWaitingTargetNode(&kvvmi)
+	if node == "" {
+		return messageTargetNodeIncomingMigrationLimitExceeded, nil
+	}
+
+	inbound, err := livemigration.CountAcquiredSlotsOnNode(ctx, h.client, node)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(messageInboundMigrationLimitFmt, node, inbound), nil
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {
