@@ -185,6 +185,47 @@ func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine
 	return "", false
 }
 
+// GetBlockDeviceBus returns the bus of a block device as recorded on the
+// KubeVirt VMI (e.g. "scsi", "sata"), looked up by its derived disk name.
+func GetBlockDeviceBus(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (virtv1.DiskBus, bool) {
+	unstructuredVMI, err := framework.GetClients().DynamicClient().Resource(schema.GroupVersionResource{
+		Group:    "internal.virtualization.deckhouse.io",
+		Version:  "v1",
+		Resource: "internalvirtualizationvirtualmachineinstances",
+	}).Namespace(vm.Namespace).Get(ctx, vm.Name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to get InternalVirtualizationVirtualMachineInstance %s/%s", vm.Namespace, vm.Name))
+
+	var kvvmi virtv1.VirtualMachineInstance
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredVMI.Object, &kvvmi)
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to convert InternalVirtualizationVirtualMachineInstance %s/%s to kubevirt VMI", vm.Namespace, vm.Name))
+
+	var blockDeviceName string
+	switch bdKind {
+	case v1alpha2.DiskDevice:
+		blockDeviceName = fmt.Sprintf("vd-%s", bdName)
+	case v1alpha2.ImageDevice:
+		blockDeviceName = fmt.Sprintf("vi-%s", bdName)
+	case v1alpha2.ClusterImageDevice:
+		blockDeviceName = fmt.Sprintf("cvi-%s", bdName)
+	default:
+		Fail(fmt.Sprintf("unknown block device kind %q", bdKind))
+	}
+
+	for _, disk := range kvvmi.Spec.Domain.Devices.Disks {
+		if disk.Name != blockDeviceName {
+			continue
+		}
+		switch {
+		case disk.Disk != nil:
+			return disk.Disk.Bus, true
+		case disk.CDRom != nil:
+			return disk.CDRom.Bus, true
+		}
+	}
+
+	return "", false
+}
+
 func WriteFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path, value string) {
 	GinkgoHelper()
 
