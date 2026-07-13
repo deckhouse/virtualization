@@ -47,18 +47,20 @@ type IPAM interface {
 	CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client) error
 }
 
-func NewIPAMHandler(ipam IPAM, cl client.Client, recorder eventrecord.EventRecorderLogger) *IPAMHandler {
+func NewIPAMHandler(ipam IPAM, cl client.Client, recorder eventrecord.EventRecorderLogger, virtualMachineCIDRs []string) *IPAMHandler {
 	return &IPAMHandler{
-		ipam:     ipam,
-		client:   cl,
-		recorder: recorder,
+		ipam:                ipam,
+		client:              cl,
+		recorder:            recorder,
+		virtualMachineCIDRs: virtualMachineCIDRs,
 	}
 }
 
 type IPAMHandler struct {
-	ipam     IPAM
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
+	ipam                IPAM
+	client              client.Client
+	recorder            eventrecord.EventRecorderLogger
+	virtualMachineCIDRs []string
 }
 
 func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -81,6 +83,15 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	defer func() {
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 	}()
+
+	if len(h.virtualMachineCIDRs) == 0 {
+		vm.Status.IPAddress = ""
+		vm.Status.VirtualMachineIPAddress = ""
+
+		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonIPAddressReady).
+			Message(fmt.Sprintf("IPAM is not configured: spec.settings.virtualMachineCIDRs is empty in ModuleConfig/virtualization. Automatic IP allocation for virtual machines is unavailable."))
+		return reconcile.Result{}, nil
+	}
 
 	if !hasDefaultNetwork(vm.Status.Networks) {
 		vm.Status.IPAddress = ""
