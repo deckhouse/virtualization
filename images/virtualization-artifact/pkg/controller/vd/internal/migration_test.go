@@ -42,6 +42,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type fakeStorageClassValidator struct {
@@ -264,6 +265,85 @@ var _ = Describe("MigrationHandler", func() {
 				action, err := migrationHandler.getAction(ctx, vd, log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(migratePrepareTarget))
+			})
+		})
+
+		Context("when disks should be migrating", func() {
+			createMigratingVMOP := func(completedReason vmopcondition.ReasonCompleted) {
+				vmop := &v1alpha2.VirtualMachineOperation{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-vmop", Namespace: "default"},
+					Spec: v1alpha2.VirtualMachineOperationSpec{
+						Type:           v1alpha2.VMOPTypeMigrate,
+						VirtualMachine: "test-vm",
+					},
+					Status: v1alpha2.VirtualMachineOperationStatus{
+						Phase: v1alpha2.VMOPPhaseInProgress,
+						Conditions: []metav1.Condition{
+							{
+								Type:   vmopcondition.TypeCompleted.String(),
+								Status: metav1.ConditionFalse,
+								Reason: completedReason.String(),
+							},
+						},
+					},
+				}
+				Expect(fakeClient.Create(ctx, vmop)).To(Succeed())
+			}
+
+			BeforeEach(func() {
+				vd.Status.Conditions = []metav1.Condition{
+					{
+						Type:   vdcondition.InUseType.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vdcondition.AttachedToVirtualMachine.String(),
+					},
+					{
+						Type:   vdcondition.ReadyType.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vdcondition.Ready.String(),
+					},
+				}
+				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+					{Name: "test-vm", Mounted: true},
+				}
+				// Keep the storage class unchanged so getAction takes the
+				// disks-should-be-migrating branch, not the storage-class-changed one.
+				vd.Spec.PersistentVolumeClaim.StorageClass = ptr.To("default-sc")
+				vd.Status.StorageClassName = "default-sc"
+
+				vm.Status.Conditions = []metav1.Condition{
+					{
+						Type:   vmcondition.TypeMigrating.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vmcondition.ReasonMigratingPending.String(),
+					},
+					{
+						Type:   vmcondition.TypeMigratable.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vmcondition.ReasonDisksShouldBeMigrating.String(),
+					},
+				}
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+				Expect(fakeClient.Create(ctx, pvc)).To(Succeed())
+			})
+
+			It("should prepare the target when the operation is waiting for disks", func() {
+				createMigratingVMOP(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate)
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(migratePrepareTarget))
+			})
+
+			It("should not start a new migration once the operation is past waiting for disks", func() {
+				// The compute migration has already started or is finalizing: starting a
+				// new disk migration here would overwrite the migration state and cause a
+				// revert loop.
+				createMigratingVMOP(vmopcondition.ReasonMigrationRunning)
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(none))
 			})
 		})
 	})
