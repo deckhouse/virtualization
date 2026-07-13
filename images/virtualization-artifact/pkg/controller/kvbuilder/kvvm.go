@@ -504,6 +504,7 @@ type SetDiskOptions struct {
 	IsHotplugged bool
 	IsCdrom      bool
 	IsEphemeral  bool
+	IsReadOnly   bool
 
 	Serial string
 
@@ -540,7 +541,8 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		}
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
-			Bus: devPreset.DiskBus,
+			Bus:      devPreset.DiskBus,
+			ReadOnly: opts.IsReadOnly,
 		}
 	}
 
@@ -580,6 +582,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		vs.PersistentVolumeClaim = &virtv1.PersistentVolumeClaimVolumeSource{
 			PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: *opts.PersistentVolumeClaim,
+				ReadOnly:  opts.IsReadOnly,
 			},
 			Hotpluggable: opts.IsHotplugged,
 		}

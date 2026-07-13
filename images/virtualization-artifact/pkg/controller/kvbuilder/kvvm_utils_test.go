@@ -375,6 +375,101 @@ var _ = Describe("cleanupRemovedStaticDisks", func() {
 	})
 })
 
+var _ = Describe("setBlockDeviceDisk", func() {
+	const (
+		viName  = "vi-image"
+		vdName  = "vd-data"
+		viPVC   = "vi-pvc"
+		vdPVC   = "vd-pvc"
+		viImage = "dvcr.example/vi:tag"
+	)
+
+	newVI := func(storage v1alpha2.StorageType, format string) *v1alpha2.VirtualImage {
+		return &v1alpha2.VirtualImage{
+			ObjectMeta: metav1.ObjectMeta{Name: viName, Namespace: "test-ns", UID: "vi-uid"},
+			Spec:       v1alpha2.VirtualImageSpec{Storage: storage},
+			Status: v1alpha2.VirtualImageStatus{
+				Format: format,
+				Target: v1alpha2.VirtualImageStatusTarget{
+					PersistentVolumeClaim: viPVC,
+					RegistryURL:           viImage,
+				},
+			},
+		}
+	}
+
+	setDisk := func(bd v1alpha2.BlockDeviceSpecRef, vi *v1alpha2.VirtualImage, vd *v1alpha2.VirtualDisk) *KVVM {
+		kvvm := NewEmptyKVVM(namespacedName("vm", "vm-ns"), KVVMOptions{EnableParavirtualization: true})
+		err := setBlockDeviceDisk(
+			kvvm, bd, 0, false,
+			map[string]*v1alpha2.VirtualDisk{vdName: vd},
+			map[string]*v1alpha2.VirtualImage{viName: vi},
+			nil,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		return kvvm
+	}
+
+	It("attaches a PVC-backed VirtualImage as a read-only disk", func() {
+		vi := newVI(v1alpha2.StoragePersistentVolumeClaim, "qcow2")
+		kvvm := setDisk(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: viName}, vi, nil)
+
+		disk := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0]
+		Expect(disk.Disk).NotTo(BeNil())
+		Expect(disk.Disk.ReadOnly).To(BeTrue())
+
+		pvc := kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim
+		Expect(pvc).NotTo(BeNil())
+		Expect(pvc.ClaimName).To(Equal(viPVC))
+		Expect(pvc.ReadOnly).To(BeTrue())
+	})
+
+	It("attaches an ISO PVC-backed VirtualImage as a cdrom with a read-only PVC", func() {
+		vi := newVI(v1alpha2.StoragePersistentVolumeClaim, "iso")
+		kvvm := setDisk(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: viName}, vi, nil)
+
+		disk := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0]
+		Expect(disk.CDRom).NotTo(BeNil())
+
+		pvc := kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim
+		Expect(pvc).NotTo(BeNil())
+		Expect(pvc.ReadOnly).To(BeTrue())
+	})
+
+	It("attaches a registry-backed VirtualImage as a container disk", func() {
+		vi := newVI(v1alpha2.StorageContainerRegistry, "qcow2")
+		kvvm := setDisk(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: viName}, vi, nil)
+
+		disk := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0]
+		Expect(disk.Disk).NotTo(BeNil())
+
+		cd := kvvm.Resource.Spec.Template.Spec.Volumes[0].ContainerDisk
+		Expect(cd).NotTo(BeNil())
+		Expect(cd.Image).To(Equal(viImage))
+	})
+
+	It("attaches a VirtualDisk as a writable disk", func() {
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: vdName, Namespace: "test-ns", UID: "vd-uid"},
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: vdPVC},
+			},
+		}
+		kvvm := setDisk(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: vdName}, nil, vd)
+
+		disk := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0]
+		Expect(disk.Disk).NotTo(BeNil())
+		Expect(disk.Disk.ReadOnly).To(BeFalse())
+
+		pvc := kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim
+		Expect(pvc).NotTo(BeNil())
+		Expect(pvc.ClaimName).To(Equal(vdPVC))
+		Expect(pvc.ReadOnly).To(BeFalse())
+	})
+})
+
 func namespacedName(name, namespace string) types.NamespacedName {
 	return types.NamespacedName{Name: name, Namespace: namespace}
 }
