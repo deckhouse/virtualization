@@ -200,7 +200,11 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 			err := f.Delete(ctx, vdData)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualDisks(vdData.Namespace), vdData.Name, vdData.Namespace, framework.MiddleTimeout, nil)).To(Succeed())
+			// The disk was just exported: its exporter pod keeps the PVC mounted
+			// and only releases it as the export tears down (after --cleanup), so
+			// deletion can take over a minute. It completes quickly once released
+			// (~15s in practice), but allow the long timeout for the teardown.
+			Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualDisks(vdData.Namespace), vdData.Name, vdData.Namespace, framework.LongTimeout, nil)).To(Succeed())
 		})
 
 		By("Creating disk from exported VirtualDisk", func() {
