@@ -90,6 +90,22 @@ shell:
     cp /plugin/dvcrk8s/*.go /distribution/registry/auth/dvcrk8s/
     cp /plugin/registry-main/*.go /distribution/cmd/dvcr-registry/
 
+    # CVE mitigation: bump vulnerable transitive dependencies of distribution v{{ $version }}.
+    # This is a stopgap until distribution is forked (like 3p-kubevirt); once forked the
+    # bumps belong in the fork's go.mod. Versions must fix:
+    #   x/crypto -> ssh/agent/knownhosts CVEs (CVE-2026-39827..39835, 42508, 46595..46598)
+    #   x/net    -> html/http2/idna CVEs (CVE-2026-25680/25681/27136/33814/39821/42502/42506)
+    #   x/sys    -> CVE-2026-39824 (0.45.0 is pulled up transitively by the crypto/net bumps)
+    # distribution vendors its deps, so go.mod/go.sum edits must be followed by `go mod vendor`
+    # to keep vendor/modules.txt consistent (the default build uses -mod=vendor).
+    go mod edit \
+      -replace golang.org/x/crypto=golang.org/x/crypto@v0.52.0 \
+      -replace golang.org/x/net=golang.org/x/net@v0.55.0 \
+      -replace golang.org/x/sys=golang.org/x/sys@v0.45.0
+    go mod tidy
+    go mod vendor
+
     export VERSION={{ $version }}
     {{- $_ := set $ "ProjectName" (list .ImageName "dvcr" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -tags dvcr_registry -o /container-registry-binary/registry -ldflags '-s -w -X github.com/distribution/distribution/v3/version.version=v$VERSION -X github.com/distribution/distribution/v3/version.revision=v$VERSION -X github.com/distribution/distribution/v3/version.mainpkg=github.com/distribution/distribution/v3' ./cmd/dvcr-registry`) | nindent 6 }}
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
