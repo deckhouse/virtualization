@@ -152,7 +152,9 @@ func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine,
 	return "", errors.New("no block device found")
 }
 
-func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (string, bool) {
+// getVMIDisk fetches the KubeVirt VMI backing the VM and returns the disk whose
+// derived name matches the block device (e.g. "vd-<name>" / "vi-<name>" / "cvi-<name>").
+func getVMIDisk(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (virtv1.Disk, bool) {
 	unstructuredVMI, err := framework.GetClients().DynamicClient().Resource(schema.GroupVersionResource{
 		Group:    "internal.virtualization.deckhouse.io",
 		Version:  "v1",
@@ -178,10 +180,34 @@ func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine
 
 	for _, disk := range kvvmi.Spec.Domain.Devices.Disks {
 		if disk.Name == blockDeviceName {
-			return disk.Serial, true
+			return disk, true
 		}
 	}
 
+	return virtv1.Disk{}, false
+}
+
+func GetBlockDeviceSerialNumber(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (string, bool) {
+	disk, ok := getVMIDisk(ctx, vm, bdKind, bdName)
+	if !ok {
+		return "", false
+	}
+	return disk.Serial, true
+}
+
+// GetBlockDeviceBus returns the bus of a block device as recorded on the
+// KubeVirt VMI (e.g. "scsi", "sata"), looked up by its derived disk name.
+func GetBlockDeviceBus(ctx context.Context, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (virtv1.DiskBus, bool) {
+	disk, ok := getVMIDisk(ctx, vm, bdKind, bdName)
+	if !ok {
+		return "", false
+	}
+	switch {
+	case disk.Disk != nil:
+		return disk.Disk.Bus, true
+	case disk.CDRom != nil:
+		return disk.CDRom.Bus, true
+	}
 	return "", false
 }
 

@@ -254,13 +254,30 @@ func TestSetOsType(t *testing.T) {
 	})
 }
 
-func TestSetDiskBusFollowsParavirtualizationFlip(t *testing.T) {
+func TestSetDiskBus(t *testing.T) {
 	getBus := func(b *KVVM, name string) virtv1.DiskBus {
-		return b.getExistingDiskBus(name)
+		for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+			if d.Name != name {
+				continue
+			}
+			if d.CDRom != nil {
+				return d.CDRom.Bus
+			}
+			if d.Disk != nil {
+				return d.Disk.Bus
+			}
+		}
+		return ""
 	}
 
-	t.Run("new devices get preset bus", func(t *testing.T) {
-		b := newTestKVVM()
+	newKVVM := func(paravirt bool) *KVVM {
+		return NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{
+			EnableParavirtualization: paravirt,
+		})
+	}
+
+	t.Run("static disks get the paravirtualization preset bus", func(t *testing.T) {
+		b := newKVVM(true)
 		if err := b.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
 			t.Fatal(err)
 		}
@@ -273,45 +290,49 @@ func TestSetDiskBusFollowsParavirtualizationFlip(t *testing.T) {
 		if bus := getBus(b, "disk"); bus != virtv1.DiskBusSCSI {
 			t.Errorf("expected scsi disk bus, got %q", bus)
 		}
-	})
 
-	t.Run("non-preset bus is preserved", func(t *testing.T) {
-		b := newTestKVVM()
-		if err := b.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
+		b = newKVVM(false)
+		if err := b.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
 			t.Fatal(err)
 		}
-		b.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].CDRom.Bus = virtv1.DiskBusUSB
-		if err := b.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
-			t.Fatal(err)
-		}
-		if bus := getBus(b, "cdrom"); bus != virtv1.DiskBusUSB {
-			t.Errorf("expected usb bus preserved, got %q", bus)
+		if bus := getBus(b, "disk"); bus != virtv1.DiskBusSATA {
+			t.Errorf("expected sata disk bus, got %q", bus)
 		}
 	})
 
-	t.Run("opposite preset bus is replaced on paravirtualization flip", func(t *testing.T) {
-		old := NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{
-			EnableParavirtualization: false,
-		})
-		if err := old.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
-			t.Fatal(err)
+	t.Run("hot-plugged disks always use scsi regardless of paravirtualization", func(t *testing.T) {
+		// A VMBDA-attached disk is added via AddVolume, which always forces scsi.
+		// On a VM with enableParavirtualization=false the preset is sata, but a
+		// hot-plugged disk must stay on scsi.
+		for _, paravirt := range []bool{true, false} {
+			b := newKVVM(paravirt)
+			if err := b.SetDisk("hp-disk", SetDiskOptions{ContainerDisk: ptr.To("img"), IsHotplugged: true}); err != nil {
+				t.Fatal(err)
+			}
+			if err := b.SetDisk("hp-cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img"), IsHotplugged: true}); err != nil {
+				t.Fatal(err)
+			}
+			if bus := getBus(b, "hp-disk"); bus != virtv1.DiskBusSCSI {
+				t.Errorf("paravirt=%v: expected scsi hot-plug disk bus, got %q", paravirt, bus)
+			}
+			if bus := getBus(b, "hp-cdrom"); bus != virtv1.DiskBusSCSI {
+				t.Errorf("paravirt=%v: expected scsi hot-plug cdrom bus, got %q", paravirt, bus)
+			}
 		}
+	})
+
+	t.Run("static disk moves to the new preset bus on a paravirtualization flip", func(t *testing.T) {
+		old := newKVVM(false)
 		if err := old.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
 			t.Fatal(err)
 		}
-		if bus := getBus(old, "cdrom"); bus != virtv1.DiskBusSATA {
-			t.Fatalf("expected sata cdrom bus before flip, got %q", bus)
+		if bus := getBus(old, "disk"); bus != virtv1.DiskBusSATA {
+			t.Fatalf("expected sata disk bus before flip, got %q", bus)
 		}
 
 		flipped := NewKVVM(old.Resource, KVVMOptions{EnableParavirtualization: true})
-		if err := flipped.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
-			t.Fatal(err)
-		}
 		if err := flipped.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
 			t.Fatal(err)
-		}
-		if bus := getBus(flipped, "cdrom"); bus != virtv1.DiskBusSCSI {
-			t.Errorf("expected scsi cdrom bus after flip, got %q", bus)
 		}
 		if bus := getBus(flipped, "disk"); bus != virtv1.DiskBusSCSI {
 			t.Errorf("expected scsi disk bus after flip, got %q", bus)
