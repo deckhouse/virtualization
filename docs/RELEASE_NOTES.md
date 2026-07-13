@@ -94,7 +94,7 @@ Release date: June 10, 2026.
 ## v1.8.4
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: July 9, 2026.
+Release date: July 13, 2026.
 </span>
 
 ### Security

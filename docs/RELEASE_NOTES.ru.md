@@ -94,7 +94,7 @@ weight: 70
 ## v1.8.4
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Дата релиза: 9 июля 2026.
+Дата релиза: 13 июля 2026.
 </span>
 
 ### Безопасность
