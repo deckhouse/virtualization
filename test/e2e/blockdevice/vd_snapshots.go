@@ -39,7 +39,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
-	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
@@ -143,10 +142,11 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 
 		By("Deleting the VM so the disk has no consumer")
 		Expect(f.Delete(ctx, vm)).To(Succeed())
-		// VM deletion stops the guest, terminates the virt-launcher pod and waits
-		// for the KVVMI and pvc-protection finalizers to clear before the VM object
-		// is gone, so allow the long timeout rather than the middle one.
-		Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualMachines(vm.Namespace), vm.Name, vm.Namespace, framework.LongTimeout, nil)).To(Succeed())
+		// The snapshot below must be taken while the disk has no consumer. Wait for
+		// that actual precondition — the disk detaching — rather than for the VM
+		// object to disappear: it is what the test needs and it does not gate on VM
+		// teardown latency.
+		Expect(vdObs.WaitFor(vdobs.BeDetached(), framework.LongTimeout)).To(Succeed())
 
 		By("Creating snapshot")
 		vdSnapshot := generateVDSnapshot("vdsnapshot", vd)
