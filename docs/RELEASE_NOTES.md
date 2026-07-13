@@ -6,8 +6,10 @@ weight: 70
 ## v1.9.4
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: July 10, 2026.
+Release date: July 13, 2026.
 </span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
 
 ### Fixes
 
