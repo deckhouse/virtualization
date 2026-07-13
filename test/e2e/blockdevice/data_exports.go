@@ -200,11 +200,12 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 			err := f.Delete(ctx, vdData)
 			Expect(err).NotTo(HaveOccurred())
 
-			// The disk was just exported: its exporter pod keeps the PVC mounted
-			// and only releases it as the export tears down (after --cleanup), so
-			// deletion can take over a minute. It completes quickly once released
-			// (~15s in practice), but allow the long timeout for the teardown.
-			Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualDisks(vdData.Namespace), vdData.Name, vdData.Namespace, framework.LongTimeout, nil)).To(Succeed())
+			// By now vd-data has detached from the stopped VM and its export
+			// exporter is gone, so deletion is fast: measured ~0-16s in-cluster on
+			// healthy storage. A hang past MiddleTimeout is a symptom of the storage
+			// backend (LINSTOR) being degraded — an infrastructure problem to
+			// surface, not a timeout to raise (raising it would mask flaky storage).
+			Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualDisks(vdData.Namespace), vdData.Name, vdData.Namespace, framework.MiddleTimeout, nil)).To(Succeed())
 		})
 
 		By("Creating disk from exported VirtualDisk", func() {
