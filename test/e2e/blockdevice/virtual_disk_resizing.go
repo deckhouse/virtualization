@@ -97,9 +97,9 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskResizing", Label(prechec
 			waitGuestSSHReadyAsRoot(f, vm)
 		})
 
-		vdRootLsblkSize := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, v1alpha2.VirtualDiskKind, vdRoot.Name)
-		vdBlankLsblkSize := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, v1alpha2.VirtualDiskKind, vdBlank.Name)
-		vdAttachLsblkSize := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, v1alpha2.VirtualDiskKind, vdAttach.Name)
+		vdRootLsblkSize := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, vdRoot.Name)
+		vdBlankLsblkSize := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, vdBlank.Name)
+		vdAttachLsblkSize := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, vdAttach.Name)
 
 		var newVDRootSize, newVDBlankSize, newVDAttachSize resource.Quantity
 
@@ -108,7 +108,6 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskResizing", Label(prechec
 			// triggering the resize so the phase is observed as it passes through.
 			resizing := make(chan error, 3)
 			for _, o := range []vdobs.Observer{vdRootObs, vdBlankObs, vdAttachObs} {
-				o := o
 				go func() {
 					defer GinkgoRecover()
 					resizing <- o.WaitFor(vdobs.BeResizing(), framework.LongTimeout)
@@ -150,7 +149,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskResizing", Label(prechec
 			untilLsblkSizeGrows := func(vdName string, oldSize resource.Quantity) {
 				GinkgoHelper()
 				Eventually(func() int {
-					size := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, v1alpha2.VirtualDiskKind, vdName)
+					size := getBlockDeviceLsblkSizeAsRoot(ctx, f, vm, vdName)
 					return size.Cmp(oldSize)
 				}).WithTimeout(framework.MiddleTimeout).WithPolling(5*time.Second).Should(Equal(common.CmpGreater),
 					"the guest should observe the increased size of the %q disk", vdName)
@@ -209,16 +208,16 @@ func waitGuestSSHReadyAsRoot(f *framework.Framework, vm *v1alpha2.VirtualMachine
 }
 
 // getBlockDeviceLsblkSizeAsRoot returns the lsblk-reported size (in bytes) of
-// the block device backing (bdKind,bdName), logging in as root without sudo.
+// the VirtualDisk bdName, logging in as root without sudo.
 //
 // The custom e2e-br image has no cloud user and no sudo, and runs no udev, so
 // lsblk cannot populate the SERIAL column. The device is instead resolved by
 // serial through guestDeviceBySerial (which reads the SCSI VPD from sysfs), and
 // its size is read with "lsblk -b" (fed from sysfs, so it needs no udev either).
-func getBlockDeviceLsblkSizeAsRoot(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) resource.Quantity {
+func getBlockDeviceLsblkSizeAsRoot(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdName string) resource.Quantity {
 	GinkgoHelper()
 
-	dev := guestDeviceBySerial(ctx, f, vm, bdKind, bdName)
+	dev := guestDeviceBySerial(ctx, f, vm, v1alpha2.VirtualDiskKind, bdName)
 
 	out, err := f.SSHCommand(vm.Name, vm.Namespace, "lsblk --nodeps -bno SIZE "+dev, framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred())

@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -102,6 +103,12 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 			vdFromSnapshotExport *v1alpha2.VirtualDisk
 			vm                   *v1alpha2.VirtualMachine
 		)
+
+		// Export downloads go to a per-spec temp dir (auto-removed by Ginkgo), not
+		// the working directory, so a run never leaves artifacts in the repo.
+		exportDir := GinkgoT().TempDir()
+		diskExportPath := filepath.Join(exportDir, exportedDiskFile)
+		snapshotExportPath := filepath.Join(exportDir, exportedSnapshotFile)
 
 		By("Creating root and data disks", func() {
 			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
@@ -182,11 +189,11 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 		})
 
 		By("Exporting VirtualDisk to local file", func() {
-			exportData(ctx, f, "vd", vdData.Name, exportedDiskFile)
+			exportData(ctx, f, "vd", vdData.Name, diskExportPath)
 		})
 
 		By("Exporting VirtualDiskSnapshot to local file", func() {
-			exportData(ctx, f, "vds", vdSnapshot.Name, exportedSnapshotFile)
+			exportData(ctx, f, "vds", vdSnapshot.Name, snapshotExportPath)
 		})
 
 		By("Deleting the original data disk", func() {
@@ -201,7 +208,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 		})
 
 		By("Uploading exported disk image", func() {
-			uploadFile(ctx, f, vdFromDiskExport, exportedDiskFile)
+			uploadFile(ctx, f, vdFromDiskExport, diskExportPath)
 		})
 
 		By("Waiting for disk from VirtualDisk export to be ready", func() {
@@ -213,7 +220,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 		})
 
 		By("Uploading exported snapshot image", func() {
-			uploadFile(ctx, f, vdFromSnapshotExport, exportedSnapshotFile)
+			uploadFile(ctx, f, vdFromSnapshotExport, snapshotExportPath)
 		})
 
 		By("Waiting for disk from snapshot export to be ready", func() {
