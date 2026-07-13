@@ -196,7 +196,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 				networkTest,
 			},
 			sdnEnabled: true,
-			valid:      true,
+			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
@@ -414,8 +414,6 @@ func newUnstructured(gvk schema.GroupVersionKind, name, namespace string) *unstr
 }
 
 func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
-	vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
-
 	newValidatorWithDCVROnly := newNetworksValidator(
 		t,
 		networkValidatorOpts{
@@ -426,9 +424,35 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 		},
 	)
 
-	if _, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm); err == nil {
-		t.Fatalf("expected error for explicit Main without CIDRs")
-	}
+	t.Run("create: explicit Main without CIDRs is rejected", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+		if _, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm); err == nil {
+			t.Fatalf("expected error for explicit Main without CIDRs")
+		}
+	})
+
+	t.Run("create: implicit Main without CIDRs is rejected", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{}
+		if _, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm); err == nil {
+			t.Fatalf("expected error for empty spec.networks without CIDRs")
+		}
+	})
+
+	t.Run("update: explicit Main without CIDRs is rejected", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
+			t.Fatalf("expected update error for explicit Main without CIDRs")
+		}
+	})
+
+	t.Run("update: implicit Main without CIDRs is rejected", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		newVM := &v1alpha2.VirtualMachine{}
+		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
+			t.Fatalf("expected update error for empty spec.networks without CIDRs")
+		}
+	})
 
 	networkValidator := newNetworksValidator(
 		t,
@@ -440,15 +464,20 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 			sdnEnabled: true,
 		},
 	)
-	if _, err := networkValidator.ValidateCreate(t.Context(), vm); err != nil {
-		t.Fatalf("expected success with CIDRs, got: %v", err)
-	}
 
-	oldVM := &v1alpha2.VirtualMachine{}
-	newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
-	if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
-		t.Fatalf("expected update error for explicit Main without CIDRs")
-	}
+	t.Run("create: explicit Main with CIDRs is allowed", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+		if _, err := networkValidator.ValidateCreate(t.Context(), vm); err != nil {
+			t.Fatalf("expected success with CIDRs, got: %v", err)
+		}
+	})
+
+	t.Run("create: empty spec.networks with CIDRs is allowed", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{}
+		if _, err := networkValidator.ValidateCreate(t.Context(), vm); err != nil {
+			t.Fatalf("expected success with CIDRs for empty spec.networks, got: %v", err)
+		}
+	})
 }
 
 func TestNetworksValidatesExistence(t *testing.T) {

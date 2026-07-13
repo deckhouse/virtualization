@@ -92,10 +92,11 @@ func (r IpAddressReadyReason) String() string {
 }
 
 const (
-	ReasonIPAddressReady        IpAddressReadyReason = "VirtualMachineIPAddressReady"
-	ReasonIPAddressNotReady     IpAddressReadyReason = "VirtualMachineIPAddressNotReady"
-	ReasonIPAddressNotAssigned  IpAddressReadyReason = "VirtualMachineIPAddressNotAssigned"
-	ReasonIPAddressNotAvailable IpAddressReadyReason = "VirtualMachineIPAddressNotAvailable"
+	ReasonIPAddressReady          IpAddressReadyReason = "VirtualMachineIPAddressReady"
+	ReasonIPAddressNotReady       IpAddressReadyReason = "VirtualMachineIPAddressNotReady"
+	ReasonIPAddressNotAssigned    IpAddressReadyReason = "VirtualMachineIPAddressNotAssigned"
+	ReasonIPAddressNotAvailable   IpAddressReadyReason = "VirtualMachineIPAddressNotAvailable"
+	ReasonIPAddressNonAllocatable IpAddressReadyReason = "VirtualMachineIPAddressNonAllocatable"
 )
 
 type MacAddressReadyReason string

@@ -88,8 +88,14 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		vm.Status.IPAddress = ""
 		vm.Status.VirtualMachineIPAddress = ""
 
-		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonIPAddressReady).
-			Message(fmt.Sprintf("IPAM is not configured: spec.settings.virtualMachineCIDRs is empty in ModuleConfig/virtualization. Automatic IP allocation for virtual machines is unavailable."))
+		if !hasDefaultNetwork(vm.Status.Networks) {
+			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonIPAddressReady).
+				Message("")
+			return reconcile.Result{}, nil
+		}
+
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonIPAddressNonAllocatable).
+			Message("IPAM is not configured: spec.settings.virtualMachineCIDRs is empty in ModuleConfig/virtualization. Automatic IP allocation for virtual machines is unavailable.")
 		return reconcile.Result{}, nil
 	}
 
