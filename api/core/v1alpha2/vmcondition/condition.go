@@ -296,4 +296,5 @@ func (r GPUClassReadyReason) String() string {
 const (
 	ReasonGPUClassReady    GPUClassReadyReason = "GPUClassReady"
 	ReasonGPUClassNotFound GPUClassReadyReason = "GPUClassNotFound"
+	ReasonGPUClassNotReady GPUClassReadyReason = "GPUClassNotReady"
 )

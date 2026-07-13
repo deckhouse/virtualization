@@ -31,47 +31,48 @@ var _ = Describe("GPU", func() {
 	It("should render DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{GPUClassName: "nvidia-h100"}})
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
-		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu0"))
-		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(GPUResourceClaimTemplateName("vm-a", "gpu0")))
+		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-0"))
+		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(GPUResourceClaimTemplateName("vm-a", 0)))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(1))
-		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu0"))
-		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].ClaimName).To(Equal("gpu-gpu0"))
-		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].RequestName).To(Equal("gpu-gpu0"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-0"))
+		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].ClaimName).To(Equal("gpu-0"))
+		Expect(*res.Spec.Template.Spec.Domain.Devices.GPUs[0].RequestName).To(Equal("gpu-0"))
 	})
 
-	It("should render DRA GPU resource claims in stable order", func() {
+	It("should index claims by GPUClass order regardless of spec order", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
 
 		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{
-			{Name: "gpu1", GPUClassName: "nvidia-h100"},
-			{Name: "gpu0", GPUClassName: "nvidia-a100"},
+			{GPUClassName: "nvidia-h100"},
+			{GPUClassName: "nvidia-a100"},
 		})
 		res := kvvm.GetResource()
 
+		// Sorted by GPUClass: nvidia-a100 -> index 0, nvidia-h100 -> index 1.
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(2))
-		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu0"))
-		Expect(res.Spec.Template.Spec.ResourceClaims[1].Name).To(Equal("gpu-gpu1"))
+		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-0"))
+		Expect(res.Spec.Template.Spec.ResourceClaims[1].Name).To(Equal("gpu-1"))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(2))
-		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu0"))
-		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[1].Name).To(Equal("gpu-gpu1"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-0"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[1].Name).To(Equal("gpu-1"))
 	})
 
 	It("should replace rendered DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{GPUClassName: "nvidia-h100"}})
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu1", GPUClassName: "nvidia-a100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{GPUClassName: "nvidia-a100"}})
 		res := kvvm.GetResource()
 
 		Expect(res.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
-		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-gpu1"))
-		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(GPUResourceClaimTemplateName("vm-a", "gpu1")))
+		Expect(res.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("gpu-0"))
+		Expect(*res.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(GPUResourceClaimTemplateName("vm-a", 0)))
 		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs).To(HaveLen(1))
-		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-gpu1"))
+		Expect(res.Spec.Template.Spec.Domain.Devices.GPUs[0].Name).To(Equal("gpu-0"))
 	})
 
 	It("should not touch resource claims and GPUs it does not own", func() {
@@ -88,7 +89,7 @@ var _ = Describe("GPU", func() {
 			DeviceName: "nvidia.com/GH100",
 		}}
 
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{GPUClassName: "nvidia-h100"}})
 		res = kvvm.GetResource()
 
 		claimNames := make([]string, 0)
@@ -99,13 +100,13 @@ var _ = Describe("GPU", func() {
 		for _, g := range res.Spec.Template.Spec.Domain.Devices.GPUs {
 			gpuNames = append(gpuNames, g.Name)
 		}
-		Expect(claimNames).To(ConsistOf("gpu-foreign", "gpu-gpu0"))
-		Expect(gpuNames).To(ConsistOf("gpu-legacy", "gpu-gpu0"))
+		Expect(claimNames).To(ConsistOf("gpu-foreign", "gpu-0"))
+		Expect(gpuNames).To(ConsistOf("gpu-legacy", "gpu-0"))
 	})
 
 	It("should remove rendered DRA GPU resource claims", func() {
 		kvvm := NewEmptyKVVM(types.NamespacedName{Name: "vm-a", Namespace: "default"}, KVVMOptions{})
-		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "nvidia-h100"}})
+		kvvm.SetGPUDevices("vm-a", []v1alpha2.GPUDeviceSpec{{GPUClassName: "nvidia-h100"}})
 
 		kvvm.SetGPUDevices("vm-a", nil)
 		res := kvvm.GetResource()

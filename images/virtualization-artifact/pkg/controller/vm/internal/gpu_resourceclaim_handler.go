@@ -64,12 +64,15 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 
 	vm := s.VirtualMachine().Changed()
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameGPUResourceClaimHandler))
-	desiredTemplateNames := make(map[string]struct{}, len(vm.Spec.GPUDevices))
+	// Sort exactly as kvbuilder.SetGPUDevices does, so the claim index used here
+	// matches the index the KVVM GPU/claim references point at.
+	devices := kvbuilder.SortGPUDevices(vm.Spec.GPUDevices)
+	desiredTemplateNames := make(map[string]struct{}, len(devices))
 
-	for _, device := range vm.Spec.GPUDevices {
-		templateName := kvbuilder.GPUResourceClaimTemplateName(vm.Name, device.Name)
+	for index, device := range devices {
+		templateName := kvbuilder.GPUResourceClaimTemplateName(vm.Name, index)
 		desiredTemplateNames[templateName] = struct{}{}
-		desiredSpec := buildGPUResourceClaimTemplateSpec(device)
+		desiredSpec := buildGPUResourceClaimTemplateSpec(index, device)
 		template := &resourcev1.ResourceClaimTemplate{}
 		key := types.NamespacedName{Name: templateName, Namespace: vm.Namespace}
 
@@ -115,8 +118,9 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 }
 
 // reconcileGPUClassReadyCondition surfaces whether every referenced GPUClass
-// exists, so a GPUClass deleted under a running VM yields a clear condition
-// instead of a silently pending claim on the next restart.
+// exists and is Ready, so a GPUClass that is missing or still initializing
+// (its DeviceClasses not yet reconciled) yields a clear condition instead of a
+// silently pending claim on the next restart.
 func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
 	if len(vm.Spec.GPUDevices) == 0 {
 		conditions.RemoveCondition(vmcondition.TypeGPUClassReady, &vm.Status.Conditions)
@@ -125,7 +129,7 @@ func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Co
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeGPUClassReady).Generation(vm.GetGeneration())
 
-	var missing []string
+	var missing, notReady []string
 	for _, device := range vm.Spec.GPUDevices {
 		gpuClass := &unstructured.Unstructured{}
 		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
@@ -135,20 +139,47 @@ func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Co
 			missing = append(missing, device.GPUClassName)
 		case err != nil:
 			return fmt.Errorf("failed to resolve GPUClass %q: %w", device.GPUClassName, err)
+		default:
+			if !gpuClassReady(gpuClass) {
+				notReady = append(notReady, device.GPUClassName)
+			}
 		}
 	}
 
-	if len(missing) > 0 {
+	switch {
+	case len(missing) > 0:
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonGPUClassNotFound).
 			Message(fmt.Sprintf("GPUClass not found: %s. The GPU cannot be allocated until the GPUClass exists.", strings.Join(missing, ", ")))
-	} else {
+	case len(notReady) > 0:
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonGPUClassNotReady).
+			Message(fmt.Sprintf("GPUClass not ready: %s. The GPU cannot be allocated until the GPUClass becomes Ready.", strings.Join(notReady, ", ")))
+	default:
 		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonGPUClassReady).
 			Message("")
 	}
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 	return nil
+}
+
+// gpuClassReady reports whether the GPUClass has a Ready condition set to True.
+func gpuClassReady(gpuClass *unstructured.Unstructured) bool {
+	conds, found, err := unstructured.NestedSlice(gpuClass.Object, "status", "conditions")
+	if err != nil || !found {
+		return false
+	}
+	for _, c := range conds {
+		cond, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if cond["type"] == "Ready" {
+			return cond["status"] == string(metav1.ConditionTrue)
+		}
+	}
+	return false
 }
 
 func buildGPUResourceClaimTemplate(vm *v1alpha2.VirtualMachine, name string, spec resourcev1.ResourceClaimTemplateSpec) *resourcev1.ResourceClaimTemplate {
@@ -183,8 +214,8 @@ func gpuClaimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {
 	return kvbuilder.GenerateSerial(string(raw))
 }
 
-func buildGPUResourceClaimTemplateSpec(device v1alpha2.GPUDeviceSpec) resourcev1.ResourceClaimTemplateSpec {
-	requestName := kvbuilder.GPUResourceClaimName(device.Name)
+func buildGPUResourceClaimTemplateSpec(index int, device v1alpha2.GPUDeviceSpec) resourcev1.ResourceClaimTemplateSpec {
+	requestName := kvbuilder.GPUResourceClaimName(index)
 	return resourcev1.ResourceClaimTemplateSpec{
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{

@@ -4053,11 +4053,10 @@ metadata:
 spec:
   # ... other VM settings ...
   gpuDevices:
-    - name: gpu0
-      gpuClassName: nvidia-h100
+    - gpuClassName: nvidia-h100
 ```
 
-The `name` field must be unique within `.spec.gpuDevices` and can contain up to 59 DNS-label characters. The `gpuClassName` field must be the name of an existing `GPUClass` that selects the GPU to attach.
+The `gpuClassName` field must be the name of an existing `GPUClass` that selects the GPU to attach. To attach several GPUs, add more entries (list order is not significant).
 
 Changing `.spec.gpuDevices` requires restarting the virtual machine to apply the new configuration.
 

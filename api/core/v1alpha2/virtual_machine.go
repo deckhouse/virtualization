@@ -124,11 +124,10 @@ type VirtualMachineSpec struct {
 	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
 	// List of GPU devices to attach to the virtual machine.
-	// Each device references a GPUClass by name.
+	// Each entry references a GPUClass by name; list order is not significant.
 	// This feature requires the GPU feature gate.
 	// +kubebuilder:validation:MaxItems:=16
-	// +listType=map
-	// +listMapKey=name
+	// +listType=atomic
 	GPUDevices []GPUDeviceSpec `json:"gpuDevices,omitempty"`
 }
 
@@ -514,12 +513,6 @@ type USBDeviceSpecRef struct {
 
 // GPUDeviceSpec requests a GPU device by GPUClass.
 type GPUDeviceSpec struct {
-	// A unique GPU device name inside the virtual machine spec.
-	// The value is used to generate DRA claim and request names.
-	// +kubebuilder:validation:MinLength:=1
-	// +kubebuilder:validation:MaxLength:=59
-	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
-	Name string `json:"name"`
 	// Name of the GPUClass that selects the GPU to attach, for example nvidia-h100.
 	// The GPUClass must already exist: a DRA DeviceClass with the same name is
 	// created by the GPU module and is used to allocate the device.

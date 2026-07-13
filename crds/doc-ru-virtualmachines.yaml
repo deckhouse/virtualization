@@ -599,10 +599,6 @@ spec:
                         description: |
                           Имя GPUClass, который выбирает подключаемый GPU, например `nvidia-h100`.
                           GPUClass должен уже существовать: DRA DeviceClass с тем же именем создаётся модулем GPU и используется для выделения устройства.
-                      name:
-                        description: |
-                          Уникальное имя GPU-устройства внутри спецификации виртуальной машины.
-                          Значение используется для генерации имён DRA claim и request.
             status:
               properties:
                 blockDeviceRefs:

@@ -1061,18 +1061,15 @@ spec:
                 gpuDevices:
                   type: array
                   maxItems: 16
-                  x-kubernetes-list-map-keys:
-                    - name
-                  x-kubernetes-list-type: map
+                  x-kubernetes-list-type: atomic
                   description: |
                     List of GPU devices to attach to the virtual machine.
-                    Each device references a GPUClass by name.
+                    Each entry references a GPUClass by name; list order is not significant.
                     This feature requires the GPU feature gate.
                   items:
                     type: object
                     required:
                       - gpuClassName
-                      - name
                     properties:
                       gpuClassName:
                         minLength: 1
@@ -1082,14 +1079,6 @@ spec:
                         description: |
                           Name of the GPUClass that selects the GPU to attach, for example nvidia-h100.
                           The GPUClass must already exist: a DRA DeviceClass with the same name is created by the GPU module and is used to allocate the device.
-                      name:
-                        minLength: 1
-                        maxLength: 59
-                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                        type: string
-                        description: |
-                          A unique GPU device name inside the virtual machine spec.
-                          The value is used to generate DRA claim and request names.
             status:
               type: object
               properties:

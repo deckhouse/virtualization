@@ -688,17 +688,13 @@ networks:
 			"no restart when gpu devices only change order",
 			`
 gpuDevices:
-- name: gpu1
-  gpuClassName: nvidia-h100
-- name: gpu0
-  gpuClassName: nvidia-a100
+- gpuClassName: nvidia-h100
+- gpuClassName: nvidia-a100
 `,
 			`
 gpuDevices:
-- name: gpu0
-  gpuClassName: nvidia-a100
-- name: gpu1
-  gpuClassName: nvidia-h100
+- gpuClassName: nvidia-a100
+- gpuClassName: nvidia-h100
 `,
 			nil,
 			assertNoChanges(),
@@ -707,13 +703,11 @@ gpuDevices:
 			"restart when gpu device gpuClassName changes",
 			`
 gpuDevices:
-- name: gpu0
-  gpuClassName: nvidia-a100
+- gpuClassName: nvidia-a100
 `,
 			`
 gpuDevices:
-- name: gpu0
-  gpuClassName: nvidia-h100
+- gpuClassName: nvidia-h100
 `,
 			nil,
 			assertChanges(

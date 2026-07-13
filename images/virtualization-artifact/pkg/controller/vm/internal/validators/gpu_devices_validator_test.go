@@ -62,7 +62,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU([]v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: tt.gpuClass}})
+			vm := newVirtualMachineWithGPU([]v1alpha2.GPUDeviceSpec{{GPUClassName: tt.gpuClass}})
 			validator := NewGPUDevicesValidator(newValidatorClient(t, tt.gpuClasses...), newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)
@@ -74,7 +74,7 @@ func TestGPUDevicesValidatorValidateCreate(t *testing.T) {
 
 func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 	gpu := func(class string) []v1alpha2.GPUDeviceSpec {
-		return []v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: class}}
+		return []v1alpha2.GPUDeviceSpec{{GPUClassName: class}}
 	}
 
 	tests := []struct {
@@ -101,12 +101,12 @@ func TestGPUDevicesValidatorValidateUpdate(t *testing.T) {
 			name:           "reordering GPU devices is allowed when feature is disabled",
 			featureEnabled: false,
 			oldGPU: []v1alpha2.GPUDeviceSpec{
-				{Name: "gpu0", GPUClassName: "nvidia-h100"},
-				{Name: "gpu1", GPUClassName: "nvidia-a100"},
+				{GPUClassName: "nvidia-h100"},
+				{GPUClassName: "nvidia-a100"},
 			},
 			newGPU: []v1alpha2.GPUDeviceSpec{
-				{Name: "gpu1", GPUClassName: "nvidia-a100"},
-				{Name: "gpu0", GPUClassName: "nvidia-h100"},
+				{GPUClassName: "nvidia-a100"},
+				{GPUClassName: "nvidia-h100"},
 			},
 		},
 		{
@@ -167,7 +167,7 @@ func TestGPUDevicesValidatorTemplateMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vm := newVirtualMachineWithGPU([]v1alpha2.GPUDeviceSpec{{Name: "gpu0", GPUClassName: "does-not-exist"}})
+			vm := newVirtualMachineWithGPU([]v1alpha2.GPUDeviceSpec{{GPUClassName: "does-not-exist"}})
 			validator := NewGPUDevicesValidator(nil, newGPUFeatureGate(t, tt.featureEnabled))
 
 			_, err := validator.ValidateCreate(t.Context(), vm)

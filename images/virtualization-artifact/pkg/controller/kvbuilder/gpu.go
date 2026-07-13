@@ -18,6 +18,7 @@ package kvbuilder
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,16 +37,16 @@ const (
 // GPUClassGVK identifies the GPUClass custom resource provided by the GPU module.
 var GPUClassGVK = schema.GroupVersionKind{Group: "gpu.deckhouse.io", Version: "v1alpha1", Kind: "GPUClass"}
 
-func GPUResourceClaimName(deviceName string) string {
-	return GPUNamePrefix + deviceName
+func GPUResourceClaimName(index int) string {
+	return GPUNamePrefix + strconv.Itoa(index)
 }
 
-func GPUResourceClaimTemplateName(vmName, deviceName string) string {
+func GPUResourceClaimTemplateName(vmName string, index int) string {
 	// The vmName hash suffix keeps the template name unique per VM: two VMs in the
-	// same namespace whose "<vmName>-<deviceName>" prefixes collide (e.g. VM "a" with
-	// device "b-c" and VM "a-b" with device "c") would otherwise fight over one name
-	// and deadlock the losing VM's reconciliation on a not-controlled-by error.
-	return vmName + "-" + deviceName + "-" + GenerateSerial(vmName)[:8]
+	// same namespace whose "<vmName>-<index>" prefixes collide (e.g. VM "a" and
+	// VM "a-0") would otherwise fight over one name and deadlock the losing VM's
+	// reconciliation on a not-controlled-by error.
+	return vmName + "-" + strconv.Itoa(index) + "-" + GenerateSerial(vmName)[:8]
 }
 
 func IsGPUResourceClaimTemplateName(vmName, templateName string) bool {
@@ -70,31 +71,33 @@ func (b *KVVM) SetGPUDevices(vmName string, devices []v1alpha2.GPUDeviceSpec) {
 		},
 	)
 
-	for _, device := range devices {
-		claimName := GPUResourceClaimName(device.Name)
+	for index := range devices {
+		claimName := GPUResourceClaimName(index)
 		b.Resource.Spec.Template.Spec.ResourceClaims = append(b.Resource.Spec.Template.Spec.ResourceClaims, virtv1.ResourceClaim{
 			PodResourceClaim: corev1.PodResourceClaim{
 				Name:                      claimName,
-				ResourceClaimTemplateName: ptr.To(GPUResourceClaimTemplateName(vmName, device.Name)),
+				ResourceClaimTemplateName: ptr.To(GPUResourceClaimTemplateName(vmName, index)),
 			},
 		})
 		b.Resource.Spec.Template.Spec.Domain.Devices.GPUs = append(b.Resource.Spec.Template.Spec.Domain.Devices.GPUs, virtv1.GPU{
 			Name: claimName,
 			ClaimRequest: &virtv1.ClaimRequest{
 				ClaimName:   ptr.To(claimName),
-				RequestName: ptr.To(GPUResourceClaimName(device.Name)),
+				RequestName: ptr.To(claimName),
 			},
 		})
 	}
 }
 
+// SortGPUDevices orders devices by GPUClass so that reordering the spec list is a
+// no-op: the generated claim indexes stay stable and no restart is triggered.
 func SortGPUDevices(devices []v1alpha2.GPUDeviceSpec) []v1alpha2.GPUDeviceSpec {
 	if len(devices) == 0 {
 		return nil
 	}
 	sorted := slices.Clone(devices)
-	slices.SortFunc(sorted, func(a, b v1alpha2.GPUDeviceSpec) int {
-		return strings.Compare(a.Name, b.Name)
+	slices.SortStableFunc(sorted, func(a, b v1alpha2.GPUDeviceSpec) int {
+		return strings.Compare(a.GPUClassName, b.GPUClassName)
 	})
 	return sorted
 }

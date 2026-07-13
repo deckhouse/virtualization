@@ -81,11 +81,11 @@ func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alph
 		err := v.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, gpuClass)
 		switch {
 		case apierrors.IsNotFound(err):
-			return fmt.Errorf("GPU device %q references GPUClass %q that does not exist", device.Name, device.GPUClassName)
+			return fmt.Errorf("GPU device references GPUClass %q that does not exist", device.GPUClassName)
 		case meta.IsNoMatchError(err):
-			return fmt.Errorf("GPU device %q references GPUClass %q, but the GPUClass CRD is not registered (is the GPU module installed?)", device.Name, device.GPUClassName)
+			return fmt.Errorf("GPU device references GPUClass %q, but the GPUClass CRD is not registered (is the GPU module installed?)", device.GPUClassName)
 		case err != nil:
-			return fmt.Errorf("failed to resolve GPUClass %q for GPU device %q: %w", device.GPUClassName, device.Name, err)
+			return fmt.Errorf("failed to resolve GPUClass %q: %w", device.GPUClassName, err)
 		}
 	}
 
