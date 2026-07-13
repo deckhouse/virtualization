@@ -45,7 +45,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
-	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	vmopobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmop"
@@ -196,17 +195,10 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 			exportData(ctx, f, "vds", vdSnapshot.Name, snapshotExportPath)
 		})
 
-		By("Deleting the original data disk", func() {
-			err := f.Delete(ctx, vdData)
-			Expect(err).NotTo(HaveOccurred())
-
-			// By now vd-data has detached from the stopped VM and its export
-			// exporter is gone, so deletion is fast: measured ~0-16s in-cluster on
-			// healthy storage. A hang past MiddleTimeout is a symptom of the storage
-			// backend (LINSTOR) being degraded — an infrastructure problem to
-			// surface, not a timeout to raise (raising it would mask flaky storage).
-			Expect(observer.WaitForDeleted(ctx, f.VirtClient().VirtualDisks(vdData.Namespace), vdData.Name, vdData.Namespace, framework.MiddleTimeout, nil)).To(Succeed())
-		})
+		// The original vd-data is intentionally left in place: the restored disks
+		// below use different names and the VM's block devices are reassigned to
+		// them, so the export/restore is verified independently of the original.
+		// vd-data is removed by the deferred cleanup at teardown.
 
 		By("Creating disk from exported VirtualDisk", func() {
 			vdFromDiskExport = createUploadDisk(ctx, f, "vd-restored-from-disk")
