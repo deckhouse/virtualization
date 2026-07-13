@@ -17,10 +17,12 @@ limitations under the License.
 package api
 
 import (
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
@@ -43,6 +45,11 @@ var (
 
 func init() {
 	install.Install(Scheme)
+	// autoscaling/v1 Scale is served by the virtualmachines/scale subresource so
+	// the stock VPA recommender can discover a VM's virt-launcher pod. It lives in a
+	// different group than the API being served, so the Scheme must know how to
+	// encode it.
+	utilruntime.Must(autoscalingv1.AddToScheme(Scheme))
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
 
 	unversioned := schema.GroupVersion{Group: "", Version: "v1"}
@@ -69,6 +76,7 @@ func Build(store *storage.VirtualMachineStorage, poolStorage *vmpoolstorage.Virt
 		"virtualmachines/cancelevacuation":    store.CancelEvacuationREST(),
 		"virtualmachines/addresourceclaim":    store.AddResourceClaimREST(),
 		"virtualmachines/removeresourceclaim": store.RemoveResourceClaimREST(),
+		"virtualmachines/scale":               store.ScaleREST(),
 	}
 	// Enterprise-only resources (e.g. virtualmachinepools/scaledownwith) are added
 	// only in paid editions; poolStorage is nil in CE, leaving the map untouched.

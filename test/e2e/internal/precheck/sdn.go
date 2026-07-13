@@ -132,7 +132,7 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return nil
 	}
 
-	if !IsModuleEnabled(ctx, f, sdnModuleName) {
+	if !IsModuleEnabledByConfig(ctx, f, sdnModuleName) {
 		return fmt.Errorf("%s=no to disable this precheck: SDN module should be enabled", sdnModuleCheckEnvName)
 	}
 

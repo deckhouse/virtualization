@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 )
 
 const (
@@ -362,9 +363,9 @@ func isCheckEnabled(envName string) bool {
 	return os.Getenv(envName) != "no"
 }
 
-// IsModuleEnabled checks if a Deckhouse module is enabled.
+// IsModuleEnabledByConfig checks if a Deckhouse module is enabled by ModuleConfig.
 // Returns true if the module exists and is enabled (Spec.Enabled = true).
-func IsModuleEnabled(ctx context.Context, f *framework.Framework, moduleName string) bool {
+func IsModuleEnabledByConfig(ctx context.Context, f *framework.Framework, moduleName string) bool {
 	module, err := f.GetModuleConfig(ctx, moduleName)
 	if err != nil {
 		_, _ = fmt.Fprintf(GinkgoWriter, "failed to get %s module config: %v\n", moduleName, err)
@@ -372,4 +373,20 @@ func IsModuleEnabled(ctx context.Context, f *framework.Framework, moduleName str
 	}
 	enabled := module.Spec.Enabled
 	return enabled != nil && *enabled
+}
+
+func IsModuleEnabled(module *dv1alpha1.Module) bool {
+	if module == nil {
+		return false
+	}
+
+	for _, condition := range module.Status.Conditions {
+		switch condition.Type {
+		case "EnabledByModuleManager", "EnabledByModuleConfig":
+			if condition.Status == "True" {
+				return true
+			}
+		}
+	}
+	return false
 }

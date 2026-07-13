@@ -34,6 +34,7 @@ const (
 	HotplugMemoryWithLiveMigration       featuregate.Feature = "HotplugMemoryWithLiveMigration"
 	HotplugCPUAndMemoryWithInPlaceResize featuregate.Feature = "HotplugCPUAndMemoryWithInPlaceResize"
 	VirtualMachinePool                   featuregate.Feature = "VirtualMachinePool"
+	VerticalVirtualMachineAutoscaler     featuregate.Feature = "VerticalVirtualMachineAutoscaler"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -78,6 +79,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 	},
 	VirtualMachinePool: {
 		Default:       version.GetEdition() == version.EditionEE,
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	VerticalVirtualMachineAutoscaler: {
+		Default:       version.GetEdition() == version.EditionEE && kubeapi.VerticalPodAutoscalerV1Available(),
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
 	},

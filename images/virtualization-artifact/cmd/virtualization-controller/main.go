@@ -29,6 +29,7 @@ import (
 	resourcev1 "k8s.io/api/resource/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	vpav1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -260,6 +261,7 @@ func main() {
 		storagev1alpha1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
+		vpav1.AddToScheme,
 		mcapi.AddToScheme,
 	} {
 		err = f(scheme)

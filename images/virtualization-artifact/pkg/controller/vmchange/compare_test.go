@@ -107,6 +107,42 @@ cpu:
 			),
 		},
 		{
+			"restart on cpu.coreFraction crossing the QoS boundary even with hotplug",
+			`
+cpu:
+  cores: 2
+  coreFraction: 100%
+`,
+			`
+cpu:
+  cores: 2
+  coreFraction: 50%
+`,
+			[]featuregate.Feature{featuregates.HotplugCPUAndMemoryWithInPlaceResize},
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("cpu.coreFraction", ChangeReplace),
+			),
+		},
+		{
+			"immediate apply on cpu.coreFraction change within Burstable with hotplug",
+			`
+cpu:
+  cores: 2
+  coreFraction: 50%
+`,
+			`
+cpu:
+  cores: 2
+  coreFraction: 99%
+`,
+			[]featuregate.Feature{featuregates.HotplugCPUAndMemoryWithInPlaceResize},
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("cpu.coreFraction", ChangeReplace),
+			),
+		},
+		{
 			"no restart cpu.coreFraction from empty to default value",
 			`
 cpu:

@@ -53,6 +53,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
 			validators.NewCPUCountValidator(),
+			validators.NewCoreFractionValidator(featureGate),
 			validators.NewNetworksValidator(client, featureGate),
 			validators.NewFirstDiskValidator(client),
 			validators.NewUSBDevicesValidator(client, featureGate),
@@ -72,6 +73,7 @@ func NewTemplateSpecValidator(client client.Client, featureGate featuregate.Feat
 		validators: []VirtualMachineValidator{
 			validators.NewBlockDeviceSpecRefsValidator(),
 			validators.NewCPUCountValidator(),
+			validators.NewCoreFractionValidator(featureGate),
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
 			validators.NewMetaValidator(client),

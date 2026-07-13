@@ -85,7 +85,20 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		}
 	}
 
+	// Watch VPA only when enabled: the gate implies the VPA CRD is installed, so its
+	// informer can start.
+	if autoCoreFractionEnabled() {
+		if err := watcher.NewVerticalPodAutoscalerWatcher().Watch(mgr, ctr); err != nil {
+			return fmt.Errorf("failed to run watcher VerticalPodAutoscalerWatcher: %w", err)
+		}
+	}
+
 	return nil
+}
+
+func autoCoreFractionEnabled() bool {
+	return featuregates.Default().Enabled(featuregates.VerticalVirtualMachineAutoscaler) &&
+		featuregates.Default().Enabled(featuregates.HotplugCPUAndMemoryWithInPlaceResize)
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {

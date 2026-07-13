@@ -19,6 +19,7 @@ package vmchange
 import (
 	"k8s.io/component-base/featuregate"
 
+	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -53,6 +54,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 	}
 
 	fractionChangedAction := ActionApplyImmediate
+	fractionRestartMsg := ""
 
 	// Require reboot if CPU hotplug is not enabled.
 	if !c.featureGate.Enabled(featuregates.HotplugCPUWithLiveMigration) && !c.featureGate.Enabled(featuregates.HotplugCPUAndMemoryWithInPlaceResize) {
@@ -60,14 +62,30 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 		fractionChangedAction = ActionRestart
 	}
 
+	// A coreFraction of 100% makes the launcher pod's CPU requests equal its limits,
+	// so the pod is Guaranteed; any lower value is Burstable. Kubernetes forbids an
+	// in-place resize from changing a pod's QoS class, so crossing that boundary must
+	// go through a restart even when CPU hotplug is on.
+	if isCPUGuaranteed(current.CPU.CoreFraction) != isCPUGuaranteed(desired.CPU.CoreFraction) {
+		fractionChangedAction = ActionRestart
+		fractionRestartMsg = "Changing the CPU core fraction to or from 100% changes the pod QoS class, which cannot be applied in-place."
+	}
+
 	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, coresChangedAction)
 	if HasChanges(coresChanges) && coresRestartMsg != "" {
 		coresChanges[0].RestartMessage = coresRestartMsg
 	}
 	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, fractionChangedAction)
+	if HasChanges(fractionChanges) && fractionRestartMsg != "" {
+		fractionChanges[0].RestartMessage = fractionRestartMsg
+	}
 
 	// Yield a full replace for cpu section if both fields are changed.
 	if HasChanges(coresChanges) && HasChanges(fractionChanges) {
+		restartMsg := coresRestartMsg
+		if restartMsg == "" {
+			restartMsg = fractionRestartMsg
+		}
 		return []FieldChange{
 			{
 				Operation:      ChangeReplace,
@@ -75,7 +93,7 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 				CurrentValue:   current.CPU,
 				DesiredValue:   desired.CPU,
 				ActionRequired: MostDisruptiveAction(coresChangedAction, fractionChangedAction),
-				RestartMessage: coresRestartMsg,
+				RestartMessage: restartMsg,
 			},
 		}
 	}
@@ -89,4 +107,19 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 	}
 
 	return nil
+}
+
+// isCPUGuaranteed reports whether a coreFraction yields a Guaranteed pod, i.e. CPU
+// requests equal limits. That happens only at 100%; an empty value defaults to
+// DefaultCPUCoreFraction (100%). An unparsable value is treated as not Guaranteed so
+// a malformed field never forces a restart on its own.
+func isCPUGuaranteed(coreFraction string) bool {
+	if coreFraction == "" {
+		coreFraction = DefaultCPUCoreFraction
+	}
+	fraction, err := sizingpolicy.ParsePercent(coreFraction)
+	if err != nil {
+		return false
+	}
+	return fraction >= sizingpolicy.MaxCoreFraction
 }

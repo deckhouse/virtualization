@@ -45,7 +45,7 @@ func (v *virtualizationPrecheck) Run(ctx context.Context, f *framework.Framework
 		return nil
 	}
 
-	if !IsModuleEnabled(ctx, f, virtualizationModuleName) {
+	if !IsModuleEnabledByConfig(ctx, f, virtualizationModuleName) {
 		return fmt.Errorf("%s=no to disable this precheck: virtualization module should be enabled", virtualizationModuleCheckEnvName)
 	}
 

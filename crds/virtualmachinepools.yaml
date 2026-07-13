@@ -1194,10 +1194,13 @@ spec:
                           properties:
                             coreFraction:
                               description: |-
-                                Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+                                Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage,
+                                or `auto` to let the Vertical VirtualMachine Autoscaler (EE) manage it: the effective
+                                value is then published in `status.resources.cpu.coreFraction` and driven through
+                                `status.autoCoreFraction`.
                                 The range of available values is defined in the VirtualMachineClass sizing policy.
                                 If not specified, the default value from the VirtualMachineClass will be used.
-                              pattern: ^(100|[1-9][0-9]?|[1-9])%$
+                              pattern: ^(auto|(100|[1-9][0-9]?|[1-9])%)$
                               type: string
                             cores:
                               description:
@@ -1260,6 +1263,14 @@ spec:
                             properties:
                               id:
                                 type: integer
+                              ipAddressName:
+                                description: |-
+                                  IPAddressName is the name of the `IPAddress` resource (SDN module, network.deckhouse.io/v1alpha1)
+                                  to use for a static IP address on this additional network interface.
+                                  If specified, the referenced IPAddress is used instead of automatic allocation from the network pool.
+                                  Only applicable to additional networks (Network, ClusterNetwork) with IPAM configured (a pool bound to the network).
+                                  Ignored if the network has no pool.
+                                type: string
                               name:
                                 type: string
                               type:

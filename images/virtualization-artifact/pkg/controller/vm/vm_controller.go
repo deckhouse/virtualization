@@ -80,6 +80,7 @@ func SetupController(
 		// PodHandler needs to get pods from virtual machine status.
 		// If StatisticHandler is executed after PodHandler, PodHandler will always get old pods (from previous reconciling)
 		internal.NewStatisticHandler(client),
+		internal.NewAutoCoreFractionHandler(client, recorder, mgr.GetScheme(), vmservice.NewCoreFractionService(), featuregates.Default()),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),

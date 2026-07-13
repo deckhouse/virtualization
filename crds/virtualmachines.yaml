@@ -77,8 +77,8 @@ spec:
               type: object
             spec:
               x-kubernetes-validations:
-                - rule: "!has(self.cpu.coreFraction) || (self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100)"
-                  message: "Core fraction must be between 1% and 100%."
+                - rule: "!has(self.cpu.coreFraction) || self.cpu.coreFraction == 'auto' || (self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100)"
+                  message: "Core fraction must be 'auto' or a percentage between 1% and 100%."
               type: object
               required:
                 - virtualMachineClassName
@@ -932,9 +932,9 @@ spec:
                       description: Number of cores.
                     coreFraction:
                       type: string
-                      pattern: ^(100|[1-9][0-9]?|[1-9])%$
+                      pattern: ^(auto|(100|[1-9][0-9]?|[1-9])%)$
                       description: |
-                        Guaranteed share of CPU time allocated to the VM. Specified as a percentage.
+                        Guaranteed share of CPU time allocated to the VM. Specified as a percentage, or `auto` to let the Vertical VirtualMachine Autoscaler (available in EE) manage it; the effective value is then published in `.status.resources.cpu.coreFraction`.
                         The allowed range is defined by `sizePolicy` in the selected VirtualMachineClass. If `sizePolicy` is not set, use values in the `1–100%` range.
                         If the parameter is not specified, the default value from the class `sizePolicy` is used.
                         If no default is set in the class, `100%` is applied.
@@ -1307,6 +1307,12 @@ spec:
                   type: integer
                   description: Resource generation last processed by the controller.
                   format: int64
+                autoCoreFraction:
+                  type: string
+                  pattern: ^(100|[1-9][0-9]?|[1-9])%$
+                  description: |
+                    Core fraction desired by the Vertical VirtualMachine Autoscaler (available in EE) when `.spec.cpu.coreFraction` is `auto`.
+                    Managed by the autoscaler and used as the effective core fraction to apply. Empty when autoscaling is off.
                 virtualMachinePods:
                   description: List of virtual machine pods.
                   items:

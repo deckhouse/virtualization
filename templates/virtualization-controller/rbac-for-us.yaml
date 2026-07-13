@@ -308,6 +308,16 @@ rules:
   - patch
   - update
 - apiGroups:
+  - autoscaling.k8s.io
+  resources:
+  - verticalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+- apiGroups:
   - apps
   resources:
   - deployments

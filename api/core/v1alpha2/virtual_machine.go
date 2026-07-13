@@ -29,6 +29,10 @@ const (
 	VirtualMachineResource = "virtualmachines"
 )
 
+// CoreFractionAuto is the special spec.cpu.coreFraction value that delegates the
+// coreFraction to the Vertical VirtualMachine Autoscaler (EE).
+const CoreFractionAuto = "auto"
+
 // VirtualMachine describes the configuration and status of a virtual machine (VM).
 // For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly):
 // - `.metadata.labels`.
@@ -177,10 +181,13 @@ type CPUSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	Cores int `json:"cores"`
 
-	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage,
+	// or `auto` to let the Vertical VirtualMachine Autoscaler (EE) manage it: the effective
+	// value is then published in `status.resources.cpu.coreFraction` and driven through
+	// `status.autoCoreFraction`.
 	// The range of available values is defined in the VirtualMachineClass sizing policy.
 	// If not specified, the default value from the VirtualMachineClass will be used.
-	// +kubebuilder:validation:Pattern=`^(100|[1-9][0-9]?|[1-9])%$`
+	// +kubebuilder:validation:Pattern=`^(auto|(100|[1-9][0-9]?|[1-9])%)$`
 	CoreFraction string `json:"coreFraction,omitempty"`
 }
 
@@ -315,6 +322,13 @@ type VirtualMachineStatus struct {
 	MigrationState *VirtualMachineMigrationState `json:"migrationState,omitempty"`
 	// Generating a resource that was last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// AutoCoreFraction is the coreFraction desired by the Vertical VirtualMachine
+	// Autoscaler when `spec.cpu.coreFraction` is `auto`. It is owned by the VVMA
+	// controller (EE) and used by the virtual machine controller as the effective
+	// coreFraction to apply. Empty when autoscaling is off.
+	// +kubebuilder:validation:Pattern=`^(100|[1-9][0-9]?|[1-9])%$`
+	AutoCoreFraction string `json:"autoCoreFraction,omitempty"`
 
 	/*
 		Change operation has these fields:

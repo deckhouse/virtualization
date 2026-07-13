@@ -276,6 +276,18 @@ const (
 	AnnUSBIPSuperSpeedHubUsedPorts = "usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports"
 	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 
+	// AnnRecommendationOverride pins the VPA recommendation the autoscaler acts on,
+	// bypassing the recommender's slow-moving CPU histogram. In practice it exists for e2e
+	// tests, which cannot wait hours for the recommender's decaying percentile to react to
+	// load. Its value is a JSON vpav1.RecommendedPodResources — the same shape as
+	// status.recommendation; when present it replaces the recommender's status for the
+	// reconcile. It is intentionally ungated: it grants no capability a user lacks, since
+	// the resulting coreFraction is still clamped to the sizing policy, and a user can
+	// already pin any coreFraction by setting spec.cpu.coreFraction to a plain percentage.
+	// The recommender only ever writes status, never annotations, so an override set here
+	// is stable and never clobbered.
+	AnnRecommendationOverride = "e2e.internal.virtualization.deckhouse.io/recommendation-override"
+
 	// DefaultUSBDeviceGroup is the default device group ID for USB devices.
 	DefaultUSBDeviceGroup = "64535"
 	// DefaultUSBDeviceUser is the default device user ID for USB devices.

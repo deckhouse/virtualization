@@ -40,6 +40,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
+	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -153,10 +154,14 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		allChanges      vmchange.SpecChanges
 		classChanged    bool
 	)
+	// A copy with "auto" coreFraction resolved to its effective percentage, so change
+	// detection and quota math run on a concrete value. The original VM (and its
+	// persisted spec) is untouched — the user-facing coreFraction stays "auto".
+	resolved := resolveCoreFraction(current, class)
 	if kvvm != nil {
 		lastAppliedSpec = h.loadLastAppliedSpec(current, kvvm)
 		lastClassAppliedSpec := h.loadClassLastAppliedSpec(class, kvvm)
-		changes = h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
+		changes = h.detectSpecChanges(ctx, kvvm, &resolved.Spec, lastAppliedSpec)
 		if !changes.IsEmpty() {
 			kvvmi, kvvmiErr := s.KVVMI(ctx)
 			if kvvmiErr == nil {
@@ -169,7 +174,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			if h.isVMNonMigratable(current) {
 				changes.UpgradeHotplugComputeChangesToRestart()
 			} else {
-				quotaMessage, insufficientQuota, quotaErr := h.hasInsufficientHotplugMigrationQuota(ctx, current, changes)
+				quotaMessage, insufficientQuota, quotaErr := h.hasInsufficientHotplugMigrationQuota(ctx, resolved, changes)
 				if quotaErr != nil {
 					err = fmt.Errorf("failed to check project quota for hotplug migration: %w", quotaErr)
 					cbConfApplied.
@@ -553,6 +558,8 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, err
 	}
+	// Render KVVM from the effective coreFraction when the spec value is "auto".
+	current = resolveCoreFraction(current, class)
 	ip, err := s.IPAddress(ctx)
 	if err != nil {
 		return nil, err
@@ -959,6 +966,20 @@ func hasHotplugComputeApplyImmediateChange(changes vmchange.SpecChanges) bool {
 		}
 	}
 	return false
+}
+
+// resolveCoreFraction returns vm unchanged unless spec.cpu.coreFraction is "auto",
+// in which case it returns a copy whose coreFraction is the effective value
+// (status.autoCoreFraction, or the sizing-policy maximum until the autoscaler sets
+// it). This keeps KVVM rendering, change detection and quota math on a concrete
+// percentage while the user-facing spec stays "auto".
+func resolveCoreFraction(vm *v1alpha2.VirtualMachine, class *v1alpha2.VirtualMachineClass) *v1alpha2.VirtualMachine {
+	if vm.Spec.CPU.CoreFraction != v1alpha2.CoreFractionAuto {
+		return vm
+	}
+	resolved := vm.DeepCopy()
+	resolved.Spec.CPU.CoreFraction = sizingpolicy.EffectiveCoreFraction(vm, class)
+	return resolved
 }
 
 func hotplugMigrationRequests(vm *v1alpha2.VirtualMachine) (newCPU, newMemory resource.Quantity, err error) {

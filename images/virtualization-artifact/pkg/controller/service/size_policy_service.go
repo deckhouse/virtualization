@@ -89,17 +89,7 @@ func newSizePolicyValidationError(className string, errs []error) error {
 }
 
 func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
-	for _, sp := range vmClass.Spec.SizingPolicies {
-		if sp.Cores == nil {
-			continue
-		}
-
-		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
-			return sp.DeepCopy()
-		}
-	}
-
-	return nil
+	return sizingpolicy.MatchSizingPolicy(vmClass, vm.Spec.CPU.Cores)
 }
 
 func collectCoreRanges(vmClass *v1alpha2.VirtualMachineClass) []CoreRange {
@@ -114,6 +104,12 @@ func collectCoreRanges(vmClass *v1alpha2.VirtualMachineClass) []CoreRange {
 }
 
 func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) error {
+	// "auto" delegates the coreFraction to the autoscaler, which only ever picks
+	// values allowed by this policy, so there is nothing to validate here.
+	if vm.Spec.CPU.CoreFraction == v1alpha2.CoreFractionAuto {
+		return nil
+	}
+
 	if len(sp.CoreFractions) == 0 {
 		return nil
 	}
