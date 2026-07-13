@@ -97,6 +97,8 @@ Release date: June 10, 2026.
 Release date: July 13, 2026.
 </span>
 
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
 ### Security
 
 - [module] Fixed vulnerabilities:
