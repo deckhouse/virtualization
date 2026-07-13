@@ -25,6 +25,10 @@
 
 
  - **[core]** Fixed vulnerability:
+    - CVE-2026-42504 
+    - CVE-2026-27145
+    - CVE-2026-42507 [#2465](https://github.com/deckhouse/virtualization/pull/2465)
+ - **[core]** Fixed vulnerability:
     - CVE-2026-29181
     - CVE-2026-33811
     - CVE-2026-33814
