@@ -3,6 +3,21 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.8.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 13, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-42504
+  - CVE-2026-27145
+  - CVE-2026-42507
+
 ## v1.8.3
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
 Release date: June 3, 2026.
