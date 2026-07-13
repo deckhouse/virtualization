@@ -194,10 +194,10 @@ func assertValidationError(t *testing.T, err error, wantErrorPart string) {
 	}
 }
 
-func newVirtualMachineWithGPU(gpuDevices []v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
+func newVirtualMachineWithGPU(gpus []v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: "vm-current", Namespace: "default"},
-		Spec:       v1alpha2.VirtualMachineSpec{GPUDevices: gpuDevices},
+		Spec:       v1alpha2.VirtualMachineSpec{GPUs: gpus},
 	}
 }
 

@@ -247,7 +247,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	kvvm.SetGPUDevices(vm.Name, vm.Spec.GPUDevices)
+	kvvm.SetGPUDevices(vm.Name, vm.Spec.GPUs)
 
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err

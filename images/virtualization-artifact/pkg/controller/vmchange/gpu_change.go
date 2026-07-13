@@ -24,13 +24,13 @@ import (
 )
 
 func compareGPUDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	currentGPUDevices := kvbuilder.SortGPUDevices(current.GPUDevices)
-	desiredGPUDevices := kvbuilder.SortGPUDevices(desired.GPUDevices)
+	currentGPUDevices := kvbuilder.SortGPUDevices(current.GPUs)
+	desiredGPUDevices := kvbuilder.SortGPUDevices(desired.GPUs)
 	currentValue := NewValue(currentGPUDevices, len(currentGPUDevices) == 0, false)
 	desiredValue := NewValue(desiredGPUDevices, len(desiredGPUDevices) == 0, false)
 
 	return compareValues(
-		"gpuDevices",
+		"gpus",
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(currentGPUDevices, desiredGPUDevices),

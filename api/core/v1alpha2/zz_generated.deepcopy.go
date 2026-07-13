@@ -3532,8 +3532,8 @@ func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 		*out = make([]USBDeviceSpecRef, len(*in))
 		copy(*out, *in)
 	}
-	if in.GPUDevices != nil {
-		in, out := &in.GPUDevices, &out.GPUDevices
+	if in.GPUs != nil {
+		in, out := &in.GPUs, &out.GPUs
 		*out = make([]GPUDeviceSpec, len(*in))
 		copy(*out, *in)
 	}

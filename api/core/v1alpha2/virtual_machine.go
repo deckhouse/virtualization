@@ -128,7 +128,7 @@ type VirtualMachineSpec struct {
 	// This feature requires the GPU feature gate.
 	// +kubebuilder:validation:MaxItems:=16
 	// +listType=atomic
-	GPUDevices []GPUDeviceSpec `json:"gpuDevices,omitempty"`
+	GPUs []GPUDeviceSpec `json:"gpus,omitempty"`
 }
 
 func (s *VirtualMachineSpec) IsParavirtualizationEnabled() bool {

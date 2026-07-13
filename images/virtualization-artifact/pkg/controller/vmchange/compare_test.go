@@ -687,12 +687,12 @@ networks:
 		{
 			"no restart when gpu devices only change order",
 			`
-gpuDevices:
+gpus:
 - gpuClassName: nvidia-h100
 - gpuClassName: nvidia-a100
 `,
 			`
-gpuDevices:
+gpus:
 - gpuClassName: nvidia-a100
 - gpuClassName: nvidia-h100
 `,
@@ -702,23 +702,23 @@ gpuDevices:
 		{
 			"restart when gpu device gpuClassName changes",
 			`
-gpuDevices:
+gpus:
 - gpuClassName: nvidia-a100
 `,
 			`
-gpuDevices:
+gpus:
 - gpuClassName: nvidia-h100
 `,
 			nil,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("gpuDevices", ChangeReplace),
+				requirePathOperation("gpus", ChangeReplace),
 			),
 		},
 		{
 			"no restart when gpu devices change between empty list and unset",
 			`
-gpuDevices: []
+gpus: []
 `,
 			``,
 			nil,

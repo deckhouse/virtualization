@@ -66,7 +66,7 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameGPUResourceClaimHandler))
 	// Sort exactly as kvbuilder.SetGPUDevices does, so the claim index used here
 	// matches the index the KVVM GPU/claim references point at.
-	devices := kvbuilder.SortGPUDevices(vm.Spec.GPUDevices)
+	devices := kvbuilder.SortGPUDevices(vm.Spec.GPUs)
 	desiredTemplateNames := make(map[string]struct{}, len(devices))
 
 	for index, device := range devices {
@@ -122,7 +122,7 @@ func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMac
 // (its DeviceClasses not yet reconciled) yields a clear condition instead of a
 // silently pending claim on the next restart.
 func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
-	if len(vm.Spec.GPUDevices) == 0 {
+	if len(vm.Spec.GPUs) == 0 {
 		conditions.RemoveCondition(vmcondition.TypeGPUClassReady, &vm.Status.Conditions)
 		return nil
 	}
@@ -130,7 +130,7 @@ func (h *GPUResourceClaimHandler) reconcileGPUClassReadyCondition(ctx context.Co
 	cb := conditions.NewConditionBuilder(vmcondition.TypeGPUClassReady).Generation(vm.GetGeneration())
 
 	var missing, notReady []string
-	for _, device := range vm.Spec.GPUDevices {
+	for _, device := range vm.Spec.GPUs {
 		gpuClass := &unstructured.Unstructured{}
 		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
 		err := h.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, gpuClass)

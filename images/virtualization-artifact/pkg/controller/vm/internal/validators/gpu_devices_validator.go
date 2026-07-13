@@ -53,14 +53,14 @@ func (v *GPUDevicesValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *
 	// updates (or removal) of a VM created while the gate was enabled and later
 	// disabled, or whose GPUClass was removed out of band. Order is ignored
 	// to match the vmchange comparator, which treats reordering as no change.
-	if reflect.DeepEqual(kvbuilder.SortGPUDevices(oldVM.Spec.GPUDevices), kvbuilder.SortGPUDevices(newVM.Spec.GPUDevices)) {
+	if reflect.DeepEqual(kvbuilder.SortGPUDevices(oldVM.Spec.GPUs), kvbuilder.SortGPUDevices(newVM.Spec.GPUs)) {
 		return nil, nil
 	}
 	return nil, v.validateGPUDevices(ctx, newVM)
 }
 
 func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
-	if len(vm.Spec.GPUDevices) == 0 {
+	if len(vm.Spec.GPUs) == 0 {
 		return nil
 	}
 
@@ -75,7 +75,7 @@ func (v *GPUDevicesValidator) validateGPUDevices(ctx context.Context, vm *v1alph
 		return nil
 	}
 
-	for _, device := range vm.Spec.GPUDevices {
+	for _, device := range vm.Spec.GPUs {
 		gpuClass := &unstructured.Unstructured{}
 		gpuClass.SetGroupVersionKind(kvbuilder.GPUClassGVK)
 		err := v.client.Get(ctx, types.NamespacedName{Name: device.GPUClassName}, gpuClass)

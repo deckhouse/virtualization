@@ -1058,7 +1058,7 @@ spec:
                         type: string
                         description: |
                           The name of USBDevice resource in the same namespace.
-                gpuDevices:
+                gpus:
                   type: array
                   maxItems: 16
                   x-kubernetes-list-type: atomic

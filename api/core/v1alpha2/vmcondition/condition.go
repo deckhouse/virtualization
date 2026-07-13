@@ -51,7 +51,7 @@ const (
 	// During this condition, the VM remains stopped and no changes are allowed.
 	TypeMaintenance Type = "Maintenance"
 
-	// TypeGPUClassReady indicates whether every GPUClass referenced by spec.gpuDevices exists.
+	// TypeGPUClassReady indicates whether every GPUClass referenced by spec.gpus exists.
 	TypeGPUClassReady Type = "GPUClassReady"
 )
 

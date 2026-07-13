@@ -588,7 +588,7 @@ spec:
                       name:
                         description: |
                           Имя ресурса `USBDevice` в том же пространстве имен.
-                gpuDevices:
+                gpus:
                   description: |
                     Список GPU-устройств для подключения к виртуальной машине.
                     Каждое устройство ссылается на GPUClass по имени.

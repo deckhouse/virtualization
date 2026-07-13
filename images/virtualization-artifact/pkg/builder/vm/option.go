@@ -168,9 +168,9 @@ func WithUSBDevices(usbDevices []v1alpha2.USBDeviceSpecRef) Option {
 	}
 }
 
-func WithGPUDevices(gpuDevices []v1alpha2.GPUDeviceSpec) Option {
+func WithGPUDevices(gpus []v1alpha2.GPUDeviceSpec) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
-		vm.Spec.GPUDevices = gpuDevices
+		vm.Spec.GPUs = gpus
 	}
 }
 

@@ -43,7 +43,7 @@ var _ = Describe("GPUResourceClaimHandler", func() {
 	newVM := func(devices ...v1alpha2.GPUDeviceSpec) *v1alpha2.VirtualMachine {
 		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace},
-			Spec:       v1alpha2.VirtualMachineSpec{GPUDevices: devices},
+			Spec:       v1alpha2.VirtualMachineSpec{GPUs: devices},
 		}
 	}
 
