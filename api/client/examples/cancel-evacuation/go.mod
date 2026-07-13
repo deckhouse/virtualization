@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/api/client/examples/cancel-evacuation
 
-go 1.25.11
+go 1.25.12
 
 require (
 	github.com/deckhouse/virtualization/api v1.6.1
