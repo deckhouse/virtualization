@@ -1,0 +1,134 @@
+# PROD deploy jobs.
+#
+# Parity with .github/workflows/release_module_release-channels.yml: the
+# channel is selected by the operator, not promoted through a fixed chain.
+# All five channel deploys (alpha / beta / early-access / stable /
+# rock-solid) are INDEPENDENT manual jobs (when: manual from .prod_manual)
+# in a single `deploy_prod` stage. Each only `needs: [build_prod]`, so any
+# channel can be deployed directly after the build without first clicking
+# the earlier channels. This replaces the previous forced promotion chain
+# (alpha -> beta -> ea -> stable -> rock-solid across five separate stages),
+# which was a carried-over artifact of the old root .gitlab-ci.yml and
+# diverged from GitHub. Each job copies the
+# built release image to its named release channel on a vX.Y.Z tag.
+#
+# The EDITION matrix mirrors build_prod (ce/ee/se-plus/fe) with the correct
+# MODULE_EDITION per edition, so deploy runs against the same per-edition
+# source path the build pushed to. MODULE_EDITION is forwarded to the
+# deploy step for consistency with the build (werf deploy reads it from the
+# environment).
+#
+# Extends:
+#   - .base_deploy    (this repo — consumes upstream modules-gitlab-ci
+#                       Deploy.gitlab-ci.yml `.deploy_base` script body, which
+#                       is rules-free so it does not override our gating).
+#   - .prod_manual     (this repo — PROD registry vars + tag-match rule
+#                       with `when: manual`).
+#   - .dev_registry_pull_login (this repo — also login against DEV_REGISTRY).
+#
+# This file is the tag-push chained-deploy flow. The GitHub
+# release_module_release-channels parity flow (single-channel dispatch with
+# requirements/version checks, release creation, Loop notify) now lives in
+# .gitlab/ci/jobs/release-channels.yml (prod:* jobs, manual Run pipeline).
+# This tag-push chain and that flow coexist because the parity flow is gated
+# to CI_PIPELINE_SOURCE == "web".
+
+deploy_to_prod_alpha:
+  stage: deploy_prod
+  variables:
+    RELEASE_CHANNEL: alpha
+  needs: ["build_prod"]
+  extends:
+    - .base_deploy
+    - .prod_manual
+    - .dev_registry_pull_login
+  parallel:
+    matrix:
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
+
+deploy_to_prod_beta:
+  stage: deploy_prod
+  variables:
+    RELEASE_CHANNEL: beta
+  needs: ["build_prod"]
+  extends:
+    - .base_deploy
+    - .prod_manual
+    - .dev_registry_pull_login
+  parallel:
+    matrix:
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
+
+deploy_to_prod_ea:
+  stage: deploy_prod
+  variables:
+    RELEASE_CHANNEL: early-access
+  needs: ["build_prod"]
+  extends:
+    - .base_deploy
+    - .prod_manual
+    - .dev_registry_pull_login
+  parallel:
+    matrix:
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
+
+deploy_to_prod_stable:
+  stage: deploy_prod
+  variables:
+    RELEASE_CHANNEL: stable
+  needs: ["build_prod"]
+  extends:
+    - .base_deploy
+    - .prod_manual
+    - .dev_registry_pull_login
+  parallel:
+    matrix:
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE
+
+deploy_to_prod_rock_solid:
+  stage: deploy_prod
+  variables:
+    RELEASE_CHANNEL: rock-solid
+  needs: ["build_prod"]
+  extends:
+    - .base_deploy
+    - .prod_manual
+    - .dev_registry_pull_login
+  parallel:
+    matrix:
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE

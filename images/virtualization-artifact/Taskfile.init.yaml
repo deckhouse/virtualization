@@ -9,7 +9,10 @@ tasks:
 
   golangci-lint:
     cmds:
-      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+      # Install golangci-lint v2. Keep in sync with GOLANGCI_LINT_VERSION in
+      # .gitlab/ci/variables.yml and GOLANGCI_LINT_MIN_VERSION in the
+      # _ensure:golangci-lint tasks. v2 lives under the /v2 module path.
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.1
 
   ginkgo:
     cmds:
