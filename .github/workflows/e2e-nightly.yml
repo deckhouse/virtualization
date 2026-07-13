@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 env:
-  E2E_IMAGE_BASE_URL: "http://share.e2e-test-images.svc.cluster.local"
+  E2E_IMAGE_BASE_URL: "https://e2e-test-images.e2e.virtlab.flant.com"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
