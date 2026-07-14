@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -118,7 +119,7 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	virtv1.VirtualMachineStatusStarting: func(_ *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 		synchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, kvvm.Status.Conditions)
 
-		if synchronizedCondition.Reason == failedCreatePodReason {
+		if synchronizedCondition.Reason == failedCreatePodReason || synchronizedCondition.Reason == failedBackendStorageCreateReason {
 			return v1alpha2.MachinePending
 		}
 
@@ -194,8 +195,9 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 }
 
 const (
-	kvvmEmptyPhase        virtv1.VirtualMachinePrintableStatus = ""
-	failedCreatePodReason string                               = "FailedCreate"
+	kvvmEmptyPhase                   virtv1.VirtualMachinePrintableStatus = ""
+	failedCreatePodReason            string                               = "FailedCreate"
+	failedBackendStorageCreateReason string                               = "FailedBackendStorageCreate"
 )
 
 func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
@@ -222,10 +224,8 @@ var mapReasons = map[string]vmcondition.RunningReason{
 }
 
 func isPodStartedError(vm *virtv1.VirtualMachine) bool {
-	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), vm.Status.Conditions)
-	if synchronized != nil &&
-		synchronized.Status == corev1.ConditionFalse &&
-		synchronized.Reason == failedCreatePodReason {
+	if synchronized := synchronizedError(vm); synchronized != nil &&
+		(synchronized.Reason == failedCreatePodReason || synchronized.Reason == failedBackendStorageCreateReason) {
 		return true
 	}
 
@@ -248,6 +248,56 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 		virtv1.VirtualMachineStatusCrashLoopBackOff,
 		virtv1.VirtualMachineStatusUnknown,
 	}, phase)
+}
+
+// synchronizedError returns the internal instance Synchronized condition when it reports a failure.
+func synchronizedError(kvvm *virtv1.VirtualMachine) *virtv1.VirtualMachineCondition {
+	c := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
+	if c != nil && c.Status == corev1.ConditionFalse {
+		return c
+	}
+	return nil
+}
+
+var vmPrintableStatusMessages = map[virtv1.VirtualMachinePrintableStatus]string{
+	virtv1.VirtualMachineStatusErrImagePull:     "Cannot pull the image for one of the virtual machine's disks.",
+	virtv1.VirtualMachineStatusImagePullBackOff: "Cannot pull the image for one of the virtual machine's disks.",
+	virtv1.VirtualMachineStatusCrashLoopBackOff: "The virtual machine repeatedly fails to start.",
+	virtv1.VirtualMachineStatusUnschedulable:    "The virtual machine cannot be scheduled onto any node.",
+	virtv1.VirtualMachineStatusDataVolumeError:  "Provisioning a disk for the virtual machine failed.",
+	virtv1.VirtualMachineStatusPvcNotFound:      "Storage for one of the virtual machine's disks was not found.",
+	virtv1.VirtualMachineStatusUnknown:          "The virtual machine state is temporarily unknown.",
+}
+
+// vmStartupMessage returns a user-facing reason why the virtual machine has not started.
+func vmStartupMessage(kvvm *virtv1.VirtualMachine) string {
+	synchronized := synchronizedError(kvvm)
+	if synchronized != nil && synchronized.Reason == failedBackendStorageCreateReason {
+		msg := "Cannot provision storage for the virtual machine's Secure Boot state"
+		if synchronized.Message != "" {
+			msg = fmt.Sprintf("%s: %s", msg, strings.TrimRight(synchronized.Message, "."))
+		}
+		return msg + "."
+	}
+	if synchronized != nil && synchronized.Reason == failedCreatePodReason {
+		return "Cannot start the virtual machine: creating its instance failed."
+	}
+	if msg, ok := vmPrintableStatusMessages[kvvm.Status.PrintableStatus]; ok {
+		return msg
+	}
+	return "The virtual machine failed to start."
+}
+
+// vmStartupDetail returns the raw internal detail for logs and events.
+func vmStartupDetail(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) string {
+	parts := []string{fmt.Sprintf("printableStatus=%q", kvvm.Status.PrintableStatus)}
+	if kvvmi != nil {
+		parts = append(parts, fmt.Sprintf("vmiPhase=%q", kvvmi.Status.Phase))
+	}
+	if synchronized := synchronizedError(kvvm); synchronized != nil && synchronized.Message != "" {
+		parts = append(parts, fmt.Sprintf("synchronized=%q: %s", synchronized.Reason, synchronized.Message))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func podFinal(pod corev1.Pod) bool {
