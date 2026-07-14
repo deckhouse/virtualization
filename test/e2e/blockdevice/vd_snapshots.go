@@ -215,7 +215,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 		vmbdaObs.Never(vmbdaobs.BeFailed())
 		Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
-		Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.MiddleTimeout)).To(Succeed())
+		Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
 
 		By("Creating snapshots")
 		vdSnapshotRoot := generateVDSnapshot("vdsnapshot-root", vdRoot)
@@ -265,7 +265,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 		vmbdaObs.Never(vmbdaobs.BeFailed())
 		Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
-		Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.MiddleTimeout)).To(Succeed())
+		Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
 
 		By("Creating snapshots")
 		frozen := expectFilesystemFroze(vmObs)

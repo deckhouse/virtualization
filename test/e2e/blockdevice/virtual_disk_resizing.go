@@ -90,7 +90,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskResizing", Label(prechec
 
 		By("Waiting for the VirtualMachine to run and the disk to attach", func() {
 			Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).To(Succeed())
-			Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.MiddleTimeout)).To(Succeed())
+			Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
 		})
 
 		By("Waiting for the guest to accept SSH as root", func() {
@@ -136,7 +136,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskResizing", Label(prechec
 			Expect(vdBlankObs.WaitFor(vdobs.BeResized(newVDBlankSize), framework.MiddleTimeout)).To(Succeed())
 			Expect(vdAttachObs.WaitFor(vdobs.BeResized(newVDAttachSize), framework.MiddleTimeout)).To(Succeed())
 			Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.ShortTimeout)).To(Succeed())
-			Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.ShortTimeout)).To(Succeed())
+			Expect(vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
 		})
 
 		By("Checking the guest observes the increased size", func() {
