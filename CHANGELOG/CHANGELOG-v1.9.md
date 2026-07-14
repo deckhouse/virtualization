@@ -25,10 +25,12 @@
  - **[module]** Fixed slow import and upload of images to DVCR when network bandwidth was not the bottleneck. [#2552](https://github.com/deckhouse/virtualization/pull/2552)
  - **[module]** Fixed an issue where invalid `virtualization` module ModuleConfig settings could block the Deckhouse queue. [#2246](https://github.com/deckhouse/virtualization/pull/2246)
  - **[module]** Fixed duplicate series on the `Virtualization / Overview` dashboard. [#2189](https://github.com/deckhouse/virtualization/pull/2189)
+ - **[observability]** The audit server no longer fails to start when TLS certificate paths are not passed explicitly. [#2632](https://github.com/deckhouse/virtualization/pull/2632)
  - **[observability]** Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during certificate rotation of the `virtualization-audit` pod. [#2551](https://github.com/deckhouse/virtualization/pull/2551)
  - **[vd]** Fixed cancellation of virtual disk storage class changes and cancellation of local disk migration. [#2502](https://github.com/deckhouse/virtualization/pull/2502)
  - **[vd]** Time spent in the `WaitForFirstConsumer` phase is no longer included in `.status.stats.creationDuration.totalProvisioning` of virtual disks. [#2379](https://github.com/deckhouse/virtualization/pull/2379)
  - **[vd]** Allow ingress from virtualization namespace to importer pods [#2356](https://github.com/deckhouse/virtualization/pull/2356)
+ - **[vm]** USB device passthrough pods no longer fail to start on nodes with a read-only container root filesystem. [#2638](https://github.com/deckhouse/virtualization/pull/2638)
  - **[vm]** Fixed a volume mount leak that could leave a VM with hotplugged images stuck in the Terminating state during deletion. [#2581](https://github.com/deckhouse/virtualization/pull/2581)
  - **[vm]** Fixed an issue that prevented a VM from starting after a failed migration of a disk on local storage. [#2509](https://github.com/deckhouse/virtualization/pull/2509)
  - **[vm]** Fixed live migration of VMs with disks on local storage attached via VirtualMachineBlockDeviceAttachment (hotplug). The target node no longer matches the source node. [#2508](https://github.com/deckhouse/virtualization/pull/2508)
@@ -42,6 +44,25 @@
 
 
  - **[api]** Removed the deprecated `VirtualMachineRestore` resource. Use `VirtualMachineOperation` with the `Clone` or `Restore` type, or `VirtualMachineSnapshotOperation` instead. [#2368](https://github.com/deckhouse/virtualization/pull/2368)
+ - **[core]** Fixed vulnerabilities:
+    - CVE-2026-25680
+    - CVE-2026-25681
+    - CVE-2026-27136
+    - CVE-2026-33814
+    - CVE-2026-39821
+    - CVE-2026-39827
+    - CVE-2026-39828
+    - CVE-2026-39829
+    - CVE-2026-39830
+    - CVE-2026-39832
+    - CVE-2026-39835
+    - CVE-2026-41579
+    - CVE-2026-42502
+    - CVE-2026-42506
+    - CVE-2026-42508
+    - CVE-2026-46595
+    - CVE-2026-46597
+    - CVE-2026-53935 [#2601](https://github.com/deckhouse/virtualization/pull/2601)
  - **[core]** Fixed vulnerability:
     - CVE-2026-42504 
     - CVE-2026-27145
