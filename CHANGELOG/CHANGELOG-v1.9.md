@@ -45,6 +45,10 @@
 
  - **[api]** Removed the deprecated `VirtualMachineRestore` resource. Use `VirtualMachineOperation` with the `Clone` or `Restore` type, or `VirtualMachineSnapshotOperation` instead. [#2368](https://github.com/deckhouse/virtualization/pull/2368)
  - **[core]** Fixed vulnerabilities:
+    - CVE-2026-39822
+    - CVE-2026-42505
+    - GO-2026-5932 [#2653](https://github.com/deckhouse/virtualization/pull/2653)
+ - **[core]** Fixed vulnerabilities:
     - CVE-2026-25680
     - CVE-2026-25681
     - CVE-2026-27136
