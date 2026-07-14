@@ -39,7 +39,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -218,7 +217,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		}
 	})
 
-	It("keeps a multi-disk volume set consistent across repeated migrations", func() {
+	It("keeps a multi-disk volume set consistent across repeated migrations while a restart is pending", func() {
 		ns := f.Namespace().Name
 
 		vm, vds := localMigrationManyDisksBuild()
@@ -236,8 +235,17 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-		// Each round must move the whole volume set atomically and finalize before the
-		// next: a partial or unfinalized set makes KubeVirt hang or drop an RWO volume.
+		By("Applying a change that requires a restart")
+		patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
+		Expect(err).NotTo(HaveOccurred())
+		vm, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
+
+		// Repeated migrations of a multi-disk VM while a restart is pending: each round
+		// must move the whole RWO set atomically and finalize before the next starts.
+		// A partial or unfinalized set makes KubeVirt reject the next round ("the volume
+		// can only be reverted to the previous version during the update").
 		for i := range 3 {
 			vmopName := "many-disks-migration-" + strconv.Itoa(i)
 
@@ -253,10 +261,8 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 			untilVirtualDisksMigrationsSucceeded(f)
 
-			By("Verifying the migration did not leave the VM restart-required")
-			awaitRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
-			Expect(awaitRestart.Status).NotTo(Equal(metav1.ConditionTrue),
-				"volume set left inconsistent after migration: %s", awaitRestart.Message)
+			By("Restart stays pending: the change was neither lost nor applied without a restart")
+			Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
 		}
 	})
 
