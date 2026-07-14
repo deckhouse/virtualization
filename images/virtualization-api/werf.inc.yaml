@@ -26,3 +26,4 @@ imageSpec:
     {{- else }}
     entrypoint: ["/app/virtualization-api"]
     {{- end }}
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
