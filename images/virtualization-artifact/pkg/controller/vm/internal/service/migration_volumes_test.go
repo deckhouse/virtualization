@@ -302,3 +302,89 @@ var _ = Describe("isStructuralVolumeChange", func() {
 		Entry("disk renamed (same count, different name)", map[string]string{"root": "a"}, map[string]string{"data": "a"}, true),
 	)
 })
+
+var _ = Describe("allDisksMigrating", func() {
+	mk := func(started, ended bool) *v1alpha2.VirtualDisk {
+		vd := &v1alpha2.VirtualDisk{}
+		if started {
+			vd.Status.MigrationState.StartTimestamp = metav1.Now()
+		}
+		if ended {
+			vd.Status.MigrationState.EndTimestamp = metav1.Now()
+		}
+		return vd
+	}
+
+	It("is true for an empty set", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{})).To(BeTrue())
+	})
+	It("is true when every disk is migrating this round", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{"a": mk(true, false), "b": mk(true, false)})).To(BeTrue())
+	})
+	It("is false when a disk has not started migrating", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{"a": mk(true, false), "b": mk(false, false)})).To(BeFalse())
+	})
+	It("is false when a disk already completed a previous round", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{"a": mk(true, false), "b": mk(true, true)})).To(BeFalse())
+	})
+})
+
+var _ = Describe("isVolumeMigrating", func() {
+	withVolumesChange := func(status corev1.ConditionStatus, set bool) *virtv1.VirtualMachineInstance {
+		vmi := &virtv1.VirtualMachineInstance{}
+		if set {
+			vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
+				{Type: virtv1.VirtualMachineInstanceVolumesChange, Status: status},
+			}
+		}
+		return vmi
+	}
+
+	It("is true when VolumesChange condition is True", func() {
+		Expect(isVolumeMigrating(withVolumesChange(corev1.ConditionTrue, true))).To(BeTrue())
+	})
+	It("is false when VolumesChange condition is False", func() {
+		Expect(isVolumeMigrating(withVolumesChange(corev1.ConditionFalse, true))).To(BeFalse())
+	})
+	It("is false when VolumesChange condition is absent", func() {
+		Expect(isVolumeMigrating(withVolumesChange(corev1.ConditionTrue, false))).To(BeFalse())
+	})
+})
+
+var _ = Describe("destinationsMatch", func() {
+	built := func(nameToClaim map[string]string) *virtv1.VirtualMachine {
+		vols := make([]virtv1.Volume, 0, len(nameToClaim))
+		for name, claim := range nameToClaim {
+			vols = append(vols, virtv1.Volume{
+				Name:         name,
+				VolumeSource: virtv1.VolumeSource{PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim}}},
+			})
+		}
+		return &virtv1.VirtualMachine{Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{Spec: virtv1.VirtualMachineInstanceSpec{Volumes: vols}}}}
+	}
+	kvvmi := func(volToDest map[string]string) *virtv1.VirtualMachineInstance {
+		vmi := &virtv1.VirtualMachineInstance{}
+		for vol, dest := range volToDest {
+			vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
+				VolumeName:         vol,
+				DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: dest},
+			})
+		}
+		return vmi
+	}
+
+	It("is true when there is no recorded migration", func() {
+		Expect(destinationsMatch(kvvmi(nil), built(map[string]string{"root": "new"}))).To(BeTrue())
+	})
+	It("is true when the recorded destination matches the target being patched", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "tgt"}), built(map[string]string{"root": "tgt"}))).To(BeTrue())
+	})
+	It("is false when the recorded destination differs from the new target", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "old-tgt"}), built(map[string]string{"root": "new-tgt"}))).To(BeFalse())
+	})
+	It("ignores recorded entries without destination info", func() {
+		vmi := &virtv1.VirtualMachineInstance{}
+		vmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{{VolumeName: "root", DestinationPVCInfo: nil}}
+		Expect(destinationsMatch(vmi, built(map[string]string{"root": "whatever"}))).To(BeTrue())
+	})
+})

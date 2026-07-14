@@ -177,6 +177,32 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if migrationRequested {
+		// Completeness: all ReadWriteOnce local disks must migrate together in a
+		// single round. If only some are migrating, the built set mixes this round's
+		// targets with a previous round's PVCs, which KubeVirt rejects ("the volume
+		// can only be reverted to the previous version during the update") or, worse,
+		// leaves an RWO volume out of the migration and breaks the domain on the
+		// target node. Wait until the whole set is migrating before patching.
+		// ponytail: this only blocks the bad patch; preparing all disks together is
+		// the vd-controller's job, so if a round never completes we keep waiting here.
+		if !allDisksMigrating(readWriteOnceDisks) {
+			log.Info("not all ReadWriteOnce disks are migrating in this round yet, wait for a complete volume set.")
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+
+		// Serialization: do not start a new migration round while a volume migration
+		// is already in progress (VMI condition VolumesChange=True) that targets
+		// different destinations. KubeVirt only accepts continuing to the current
+		// destinations or a clean revert to the source during an update; a new,
+		// different set is rejected ("the volume can only be reverted to the previous
+		// version during the update"). Revert-to-source is handled by the builtKVVM
+		// branch above, so here we only allow continuing the same round; otherwise
+		// wait for the in-flight migration to finalize.
+		if isVolumeMigrating(kvvmiInCluster) && !destinationsMatch(kvvmiInCluster, builtKVVMWithMigrationVolumes) {
+			log.Info("a volume migration is already in progress with different targets, wait for it to finalize.")
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
 		// We should wait delayDuration seconds. This delay allows user to change storage class on other volumes
 		if len(storageClassChangedDisks) > 0 {
 			delay, exists := s.delay[vm.UID]
@@ -552,6 +578,47 @@ func (s MigrationVolumesService) makeKVVMFromVirtualMachineSpec(ctx context.Cont
 	kvvmWithMigrationVolumes := kvvmBuilder.GetResource()
 
 	return kvvm, kvvmWithMigrationVolumes, nil
+}
+
+// allDisksMigrating reports whether every disk in the set is migrating in the
+// current round (MigrationState started and not ended). Used to avoid patching a
+// volume set that mixes disks from different migration rounds.
+func allDisksMigrating(disks map[string]*v1alpha2.VirtualDisk) bool {
+	for _, d := range disks {
+		if !commonvd.IsMigrating(d) {
+			return false
+		}
+	}
+	return true
+}
+
+// isVolumeMigrating reports whether KubeVirt is currently running a volume
+// migration for the VMI (condition VolumesChange=True).
+func isVolumeMigrating(kvvmi *virtv1.VirtualMachineInstance) bool {
+	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
+	return cond.Status == corev1.ConditionTrue
+}
+
+// destinationsMatch reports whether the volume update KubeVirt currently records
+// (kvvmi.status.migratedVolumes) targets the same destinations as the set we are
+// about to patch. If it does, patching continues the same update; if not, a new,
+// conflicting update would be issued over an in-flight one.
+func destinationsMatch(kvvmi *virtv1.VirtualMachineInstance, built *virtv1.VirtualMachine) bool {
+	want := make(map[string]string, len(built.Spec.Template.Spec.Volumes))
+	for _, v := range built.Spec.Template.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			want[v.Name] = v.PersistentVolumeClaim.ClaimName
+		}
+	}
+	for _, mv := range kvvmi.Status.MigratedVolumes {
+		if mv.DestinationPVCInfo == nil {
+			continue
+		}
+		if want[mv.VolumeName] != mv.DestinationPVCInfo.ClaimName {
+			return false
+		}
+	}
+	return true
 }
 
 // areDisksSynced checks whether all disks are synchronized with their corresponding PVCs in kvvm
