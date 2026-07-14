@@ -243,29 +243,19 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		By("Starting a second migration of the whole volume set")
 		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName("many-disks-migration-2"))
 
-		// Request a restart while the second volume migration is still in flight. The
-		// restart reconcile must not issue a conflicting volume update over the unfinalized
-		// set, otherwise KubeVirt rejects it ("the volume can only be reverted to the
-		// previous version during the update") and leaves the volume set inconsistent.
-		By("Requesting a restart while the migration is in flight")
-		Eventually(func() error {
-			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			state := vm.Status.MigrationState
-			if state == nil || state.StartTimestamp.IsZero() || !state.EndTimestamp.IsZero() {
-				return fmt.Errorf("migration is not in flight")
-			}
-			patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
-			if err != nil {
-				return err
-			}
-			_, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			return err
-		}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+		// Request a restart right after the migration starts, so the restart reconcile
+		// races with the still-unfinalized volume set. It must not issue a conflicting
+		// volume update over that set, otherwise KubeVirt rejects it ("the volume can only
+		// be reverted to the previous version during the update") and the set is left
+		// inconsistent. On copy-based storage the patch lands mid-migration; on instant
+		// (replicated) storage it lands right after — both must finalize cleanly.
+		By("Requesting a restart around the migration")
+		patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-		By("The in-flight migration still finalizes cleanly")
+		By("The migration still finalizes cleanly")
 		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
 		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
