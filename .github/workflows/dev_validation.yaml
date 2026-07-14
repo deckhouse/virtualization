@@ -53,30 +53,9 @@ jobs:
             vm_route_forge:
               - 'images/vm-route-forge/bpf/route_watcher.c'
 
-  no_cyrillic:
-    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/no_cyrillic')"
-    runs-on: ubuntu-latest
-    name: Validation no-cyrillic
-    steps:
-      - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-
-      - name: Install Task
-        uses: go-task/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Run validation "No cyrillic"
-        run: |
-          task modtools:no-cyrillic
+  # no-cyrillic is covered by the DMT NoCyrillic linter (lint_dmt in
+  # dev_module_build.yml), which scans whole files rather than only diff lines.
+  # The `task modtools:no-cyrillic` command is kept for local use.
 
   doc_changes:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/doc_changes')"
