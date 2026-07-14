@@ -236,10 +236,8 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-		// Repeated migrations of a multi-disk VM: each round must move the whole
-		// volume set atomically and finalize before the next starts. A non-atomic or
-		// unfinalized set makes KubeVirt reject the transition (migration hangs) or
-		// drops an RWO volume (VM ends up restart-required with UnexpectedState).
+		// Each round must move the whole volume set atomically and finalize before the
+		// next: a partial or unfinalized set makes KubeVirt hang or drop an RWO volume.
 		for i := range 3 {
 			vmopName := "many-disks-migration-" + strconv.Itoa(i)
 

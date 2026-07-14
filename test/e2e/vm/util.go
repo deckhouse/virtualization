@@ -106,8 +106,7 @@ func rootAndAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, r
 }
 
 // rootAndManyAdditionalBuild builds a VM with a root disk plus count additional
-// ReadWriteOnce disks on the given storage class — a multi-disk VM whose block
-// migration must move the whole volume set atomically.
+// ReadWriteOnce disks on the given storage class.
 func rootAndManyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root buildOption, storageClass *string, count int) (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {
 	refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.VirtualDiskKind, Name: root.name}}
 	vds := []*v1alpha2.VirtualDisk{newRootVD(f, root, vi)}

@@ -149,14 +149,9 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if !equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes) {
-		// A difference here (ignoring migration target PVCs, which live in
-		// builtKVVMWithMigrationVolumes) means the desired volume set differs from
-		// the running one. Only a structural change (a disk added or removed) may
-		// require a restart, so it must not be propagated to KVVM while the VM
-		// awaits restart. A difference that is only a PVC swap on the same disks is
-		// a volume migration or a revert of one: it keeps the structure intact and
-		// must proceed regardless of restart, otherwise a KVVM left pointing at a
-		// dead migration target can never be reverted back to the source.
+		// Defer only structural changes (disk added/removed) under restart. A PVC swap
+		// on the same disks is a migration or its revert and must proceed regardless,
+		// else a KVVM pointing at a dead migration target can never be reverted.
 		if restartRequired && isStructuralVolumeChange(builtKVVM, kvvmiInCluster) {
 			log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
 			return reconcile.Result{}, nil
@@ -177,27 +172,17 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if migrationRequested {
-		// Completeness: all ReadWriteOnce local disks must migrate together in a
-		// single round. If only some are migrating, the built set mixes this round's
-		// targets with a previous round's PVCs, which KubeVirt rejects ("the volume
-		// can only be reverted to the previous version during the update") or, worse,
-		// leaves an RWO volume out of the migration and breaks the domain on the
-		// target node. Wait until the whole set is migrating before patching.
-		// ponytail: this only blocks the bad patch; preparing all disks together is
-		// the vd-controller's job, so if a round never completes we keep waiting here.
+		// Completeness: patch the whole RWO set at once. A partial set mixes this
+		// round's targets with a previous round's PVCs, which KubeVirt rejects or,
+		// worse, drops an RWO volume and breaks the domain on the target node.
 		if !allDisksMigrating(readWriteOnceDisks) {
 			log.Info("not all ReadWriteOnce disks are migrating in this round yet, wait for a complete volume set.")
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
-		// Serialization: do not start a new migration round while a volume migration
-		// is already in progress (VMI condition VolumesChange=True) that targets
-		// different destinations. KubeVirt only accepts continuing to the current
-		// destinations or a clean revert to the source during an update; a new,
-		// different set is rejected ("the volume can only be reverted to the previous
-		// version during the update"). Revert-to-source is handled by the builtKVVM
-		// branch above, so here we only allow continuing the same round; otherwise
-		// wait for the in-flight migration to finalize.
+		// Serialization: while a migration is in flight, KubeVirt only accepts
+		// continuing to the same targets or reverting to the source (handled above);
+		// a new, different target set is rejected. Wait for the current one to finalize.
 		if isVolumeMigrating(kvvmiInCluster) && !destinationsMatch(kvvmiInCluster, builtKVVMWithMigrationVolumes) {
 			log.Info("a volume migration is already in progress with different targets, wait for it to finalize.")
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
@@ -250,10 +235,8 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	return reconcile.Result{}, nil
 }
 
-// isStructuralVolumeChange reports whether the desired and running volume sets
-// differ structurally, i.e. a volume was added or removed. A difference that is
-// only a PersistentVolumeClaim swap on the same set of volume names is a volume
-// migration or its revert, not a structural change.
+// isStructuralVolumeChange reports whether a volume was added or removed. A PVC
+// swap on the same volume names is a migration or its revert, not structural.
 func isStructuralVolumeChange(builtKVVM *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) bool {
 	desired := make(map[string]struct{}, len(builtKVVM.Spec.Template.Spec.Volumes))
 	for _, v := range builtKVVM.Spec.Template.Spec.Volumes {
@@ -580,9 +563,7 @@ func (s MigrationVolumesService) makeKVVMFromVirtualMachineSpec(ctx context.Cont
 	return kvvm, kvvmWithMigrationVolumes, nil
 }
 
-// allDisksMigrating reports whether every disk in the set is migrating in the
-// current round (MigrationState started and not ended). Used to avoid patching a
-// volume set that mixes disks from different migration rounds.
+// allDisksMigrating reports whether every disk is migrating in the current round.
 func allDisksMigrating(disks map[string]*v1alpha2.VirtualDisk) bool {
 	for _, d := range disks {
 		if !commonvd.IsMigrating(d) {
@@ -599,10 +580,8 @@ func isVolumeMigrating(kvvmi *virtv1.VirtualMachineInstance) bool {
 	return cond.Status == corev1.ConditionTrue
 }
 
-// destinationsMatch reports whether the volume update KubeVirt currently records
-// (kvvmi.status.migratedVolumes) targets the same destinations as the set we are
-// about to patch. If it does, patching continues the same update; if not, a new,
-// conflicting update would be issued over an in-flight one.
+// destinationsMatch reports whether the in-flight migration (kvvmi.status.migratedVolumes)
+// targets the same destinations as the set we are about to patch.
 func destinationsMatch(kvvmi *virtv1.VirtualMachineInstance, built *virtv1.VirtualMachine) bool {
 	want := make(map[string]string, len(built.Spec.Template.Spec.Volumes))
 	for _, v := range built.Spec.Template.Spec.Volumes {
