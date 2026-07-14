@@ -27,12 +27,14 @@ includes:
   d8v-cli:
     taskfile: ./src/cli
     dir: ./src/cli
+  modtools:
+    taskfile: ./tools/modtools/Taskfile.dist.yaml
+    dir: ./tools/modtools
 
 vars:
   deckhouse_lib_helm_ver: 1.72.0
   TRIVY_VERSION: 0.55.0
   target: ""
-  VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
 
   DLV_IMAGE:
     sh: if [ -z $DLV_IMAGE ]; then echo "ttl.sh/$(uuidgen | awk '{print tolower($0)}'):10m" ; else echo $DLV_IMAGE ; fi
@@ -150,12 +152,7 @@ tasks:
     desc: |-
       Add Flant CE license to files sh,go,py. Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
     cmds:
-      - |
-        {{if .CLI_ARGS}}
-          go run tools/addlicense/{main,variables,msg,utils}.go -directory {{ .CLI_ARGS }}
-        {{else}}
-          go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
-        {{end}}
+      - task: modtools:license-add
 
   golangci-lint:sync:
     desc: "Sync root .golangci.yaml to all subprojects"
@@ -169,7 +166,7 @@ tasks:
           "src/cli"
           "test/e2e"
           "test/performance/tools/shatal"
-          "tools/addlicense"
+          "tools/modtools"
           "tools/moduleversions"
         )
         for target in "${TARGETS[@]}"; do
@@ -243,16 +240,6 @@ tasks:
         docker run --rm \
           -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
           sh -c "cd /tmp/virt ; prettier -c \"**/*.yaml\" \"**/*.yml\""
-
-  validation:no-cyrillic:
-    desc: "No cyrillic"
-    cmds:
-      - go run {{ .VALIDATION_FILES }} --type no-cyrillic
-
-  validation:doc-changes:
-    desc: "Doc-changes"
-    cmds:
-      - go run {{ .VALIDATION_FILES }} --type doc-changes
 
   validation:helm-templates:
     desc: "Check Helm templates"

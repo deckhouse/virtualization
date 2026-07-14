@@ -14,24 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+// Package diff parses unified git diff output into a structured form the checks
+// can iterate over, and loads it either from a patch file or from `git diff`.
+package diff
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 )
+
+// Loader returns the parsed diff a command should operate on.
+type Loader func() (*DiffInfo, error)
 
 type DiffInfo struct {
 	Files []*DiffFileInfo
 }
 
 func NewDiffInfo() *DiffInfo {
-	return &DiffInfo{
-		Files: make([]*DiffFileInfo, 0),
-	}
+	return &DiffInfo{Files: make([]*DiffFileInfo, 0)}
 }
 
 func (d *DiffInfo) Dump() string {
@@ -76,15 +82,33 @@ func (d *DiffFileInfo) NewLines() []string {
 }
 
 func NewDiffFileInfo() *DiffFileInfo {
-	return &DiffFileInfo{
-		Lines: make([]string, 0),
-	}
+	return &DiffFileInfo{Lines: make([]string, 0)}
 }
 
-var diffStartRe = regexp.MustCompile(`^diff --git a/(.*) b/(.*)$`)
-var oldFileNameRe = regexp.MustCompile(`^--- (/dev/null|a/(.*))$`)
-var newFileNameRe = regexp.MustCompile(`^\+\+\+ (/dev/null|b/(.*))$`)
-var endMetadataRe = regexp.MustCompile(`^@@[\-+ \d,]+@@(.*)$`)
+// Load reads the diff from patchFile when set, otherwise from `git diff`.
+func Load(patchFile string) (*DiffInfo, error) {
+	if patchFile != "" {
+		content, err := os.ReadFile(patchFile)
+		if err != nil {
+			return nil, err
+		}
+		return ParseDiffOutput(bytes.NewReader(content))
+	}
+
+	fmt.Println("Run git diff ...")
+	out, err := exec.Command("git", "diff", "origin/main...", "-w", "--ignore-blank-lines").Output()
+	if err != nil {
+		return nil, err
+	}
+	return ParseDiffOutput(bytes.NewReader(out))
+}
+
+var (
+	diffStartRe   = regexp.MustCompile(`^diff --git a/(.*) b/(.*)$`)
+	oldFileNameRe = regexp.MustCompile(`^--- (/dev/null|a/(.*))$`)
+	newFileNameRe = regexp.MustCompile(`^\+\+\+ (/dev/null|b/(.*))$`)
+	endMetadataRe = regexp.MustCompile(`^@@[\-+ \d,]+@@(.*)$`)
+)
 
 func ParseDiffOutput(r io.Reader) (*DiffInfo, error) {
 	res := NewDiffInfo()
