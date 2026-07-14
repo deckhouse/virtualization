@@ -56,9 +56,9 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskResizing", Label(prechec
 	})
 
 	It("resizes virtual disks", func() {
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vd.WithSize(ptr.To(resource.MustParse("2Gi"))), vd.WithStorageClass(defaultStorageClass()))
-		vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("100Mi")))
-		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("100Mi")))
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vd.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vd.WithStorageClass(defaultStorageClass()))
+		vdBlank := object.NewBlankVD("vd-blank", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
+		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm"),

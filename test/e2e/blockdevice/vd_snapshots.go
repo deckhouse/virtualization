@@ -99,7 +99,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		By("Environment preparation")
 		// Long disk name (>60 chars, the former limit) to exercise snapshotting a
 		// disk whose name uses the full Kubernetes name length.
-		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
+		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm"),
 			vmbuilder.WithProvisioning(nil),
@@ -145,7 +145,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 			"vd-no-consumer",
 			f.Namespace().Name,
 			object.PrecreatedCVICustomBIOS,
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(defaultStorageClass()),
 		)
 
@@ -195,7 +195,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 
 		By("Environment preparation")
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
-		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("100Mi")))
+		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm-hotplug"),
@@ -245,7 +245,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 
 		By("Environment preparation")
 		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
-		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("100Mi")))
+		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm-concurrent"),

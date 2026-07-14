@@ -520,7 +520,7 @@ func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework,
 	// The disk that boots the VM is the scenario's main resource, so it uses the
 	// same default StorageClass as every other resource in this spec.
 	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("450Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 		vdbuilder.WithStorageClass(defaultStorageClass()),
 	)
 	createVirtualDiskAndRunVM(ctx, f, vd, opts...)
@@ -535,7 +535,7 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 		// Incidental source disk: provision from a precreated ClusterVirtualImage.
 		vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 		vdbuilder.WithStorageClass(sc),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 	)
 
 	obs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())

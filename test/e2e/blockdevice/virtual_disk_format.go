@@ -60,7 +60,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskFormat", Label(precheck.
 		// storage class.
 		vd := object.NewVDFromCVI("vd-qcow2", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
 			vdbuilder.WithStorageClass(defaultStorageClass()),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
 
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})

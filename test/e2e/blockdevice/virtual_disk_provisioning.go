@@ -80,7 +80,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 		viObs.Never(viobs.BeFailed())
 		Expect(viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)).To(Succeed())
 
-		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
 		vdObs := vdobs.StartObserver(ctx, f, vd)
 		vdObs.Never(vdobs.BeFailed())
@@ -96,7 +96,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 		viObs.Never(viobs.BeFailed())
 		Expect(viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)).To(Succeed())
 
-		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
 		vdObs := vdobs.StartObserver(ctx, f, vd)
 		vdObs.Never(vdobs.BeFailed())
@@ -105,7 +105,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 	})
 
 	It("verifies that a VirtualDisk is provisioned successfully from a ClusterVirtualImage", func() {
-		vd := object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		vd := object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
 		vdObs := vdobs.StartObserver(ctx, f, vd)
 		vdObs.Never(vdobs.BeFailed())
@@ -114,7 +114,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 	})
 
 	It("verifies that a VirtualDisk is provisioned successfully from a http", func() {
-		vd := object.NewHTTPVDCustomBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		vd := object.NewHTTPVDCustomBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
 		vdObs := vdobs.StartObserver(ctx, f, vd)
 		vdObs.Never(vdobs.BeFailed())

@@ -97,7 +97,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualImageFormat", Label(precheck
 func runVirtualMachineFromImageUntilRunning(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) {
 	GinkgoHelper()
 
-	blankVD := object.NewBlankVD("vd-blank-for-iso", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("4Gi")))
+	blankVD := object.NewBlankVD("vd-blank-for-iso", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 	vm := object.NewMinimalVM("vm-from-vi-", f.Namespace().Name,
 		vmbuilder.WithBootloader(v1alpha2.EFI),
 		vmbuilder.WithCPU(2, ptr.To("100%")),

@@ -111,12 +111,13 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 
 		By("Creating root and data disks", func() {
 			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
+				vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 				vdbuilder.WithStorageClass(defaultStorageClass()))
 
 			vdData = vdbuilder.New(
 				vdbuilder.WithName("vd-data"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithPersistentVolumeClaim(defaultStorageClass(), ptr.To(resource.MustParse("51Mi"))),
+				vdbuilder.WithPersistentVolumeClaim(defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize))),
 			)
 
 			err := f.CreateWithDeferredDeletion(ctx, vdRoot, vdData)
