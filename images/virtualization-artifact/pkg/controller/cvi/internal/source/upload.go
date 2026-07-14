@@ -158,6 +158,22 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		}
 
 		return reconcile.Result{}, nil
+	case condition.Reason == cvicondition.WaitForUserUploadTimeout.String():
+		log.Debug("Upload wait timed out: clean up")
+
+		cvi.Status.Phase = v1alpha2.ImageFailed
+		cvi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage)
+
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.AnyTerminating(pod, svc, ing):
 		cvi.Status.Phase = v1alpha2.ImagePending
 
@@ -264,6 +280,23 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		}
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
+	case condition.Reason == cvicondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
+		log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
+		ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage)
+
+		cvi.Status.Phase = v1alpha2.ImageFailed
+		cvi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage)
+
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case isUploaderReady:
 		cb.
 			Status(metav1.ConditionFalse).

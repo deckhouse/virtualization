@@ -18,6 +18,8 @@ package uploader
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +37,18 @@ import (
 const (
 	// destinationAuthVol is the name of the volume containing DVCR docker auth config.
 	destinationAuthVol = "dvcr-secret-vol"
+
+	// WaitForUserUploadTimeout limits how long the uploader waits for the user to start the upload
+	// before the import process is considered failed.
+	WaitForUserUploadTimeout = 10 * time.Minute
 )
+
+// WaitForUserUploadTimeoutMessage explains the failure when the upload was not started within WaitForUserUploadTimeout.
+var WaitForUserUploadTimeoutMessage = fmt.Sprintf("The user upload has not started within %s: the import process has failed. Recreate the resource to start the upload again.", WaitForUserUploadTimeout)
+
+func IsWaitForUserUploadTimeoutExpired(waitStartedAt metav1.Time) bool {
+	return !waitStartedAt.IsZero() && time.Since(waitStartedAt.Time) > WaitForUserUploadTimeout
+}
 
 // These constants can't be imported from "images/dvcr-artifact/pkg/uploader/uploader.go" due to conflicts with the CDI version.
 const (

@@ -125,6 +125,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		step.NewCleanUpUploaderStep(pod, svc, ing, ds.uploaderService),
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
+		step.NewWaitForUserUploadTimeoutStep(ds.uploaderService, ds.recorder, cb),
 		step.NewCreateUploaderStep(pvc, pod, svc, ing, ds.uploaderService, ds.dvcrSettings, ds.recorder, cb),
 		step.NewWaitForUserUploadStep(pod, svc, ing, ds.statService, ds.uploaderService, ds.client, cb),
 		step.NewWaitForDVCRUploaderStep(pod, ds.statService, cb),

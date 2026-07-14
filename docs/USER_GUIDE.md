@@ -504,7 +504,7 @@ spec:
 EOF
 ```
 
-Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for image upload.
+Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for image upload. If the upload is not started within 10 minutes, the resource will transition to the `Failed` phase; to try again, recreate the resource.
 
 There are two options available for uploading from a cluster node and from an arbitrary node outside the cluster:
 
@@ -852,7 +852,7 @@ spec:
 EOF
 ```
 
-Once created, the resource enters the `WaitForUserUpload` phase, which means it is ready to accept a disk upload.
+Once created, the resource enters the `WaitForUserUpload` phase, which means it is ready to accept a disk upload. If the upload is not started within 10 minutes, the resource will transition to the `Failed` phase; to try again, recreate the resource.
 
 Two upload options are available: from a cluster node and from any node outside the cluster:
 
