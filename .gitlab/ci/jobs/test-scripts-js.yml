@@ -1,0 +1,68 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# JS unit tests for .gitlab/scripts/js.
+#
+# Ports the GitHub Actions `test_scripts_js` job from
+# .github/workflows/dev_module_build.yml, which ran `npm test` in
+# .github/scripts/js with Node.js 24. The GitLab counterpart lives in
+# .gitlab/scripts/js (mrs_notifier.mjs); its `npm test` runs node:test over
+# mrs_notifier.test.mjs. mrs_notifier.mjs guards run() behind a
+# direct-invocation check and exports its pure helpers (classifyMR,
+# extractUnresolvedThreads, shouldNotifyMR, formatUser), so the suite imports
+# the module and exercises real classification/filter/formatting logic with
+# synthetic data (no network), alongside structural smoke assertions.
+#
+# The shell runner host does not ship Node.js, so the job runs inside the
+# official `node:${NODE_VERSION}` image via `docker run`, mirroring how
+# check:gens-files runs the vm-route-forge leg in cilium/ebpf-builder. The
+# repo is bind-mounted READ-ONLY at /src and copied to an ephemeral tmpdir
+# inside the container, so node_modules never pollutes the shared
+# shell-executor workspace (root-owned files there break `git clean` on
+# subsequent checkouts of unrelated jobs). The committed package-lock.json
+# lets the job use `npm ci` for reproducible installs.
+
+test:scripts:js:
+  stage: test
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker
+  script:
+    - |
+      set -e
+      # Run npm in a throwaway tmpdir INSIDE the container so node_modules
+      # never lands in the shared shell-executor workspace. Previously npm
+      # ran directly against a read-write
+      # bind-mount of the repo: under the default container uid (root) it
+      # created root-owned node_modules/ that the runner-user could not
+      # remove, which broke `git clean` on the next job's checkout and
+      # failed unrelated jobs (show_dev_manifest, gitleaks:diff, ...) with
+      # "warning: failed to remove ...: Permission denied".
+      #
+      # The repo is mounted read-only at /src; the test sources are copied
+      # to an ephemeral tmpdir where npm ci/npm test execute.
+      docker run --rm --platform linux/amd64 \
+        -v "${PWD}:/src:ro" \
+        -u "$(id -u):$(id -g)" \
+        -e HOME=/tmp \
+        node:${NODE_VERSION} \
+        sh -c '
+          set -e
+          work="$(mktemp -d)"
+          cp -a /src/.gitlab/scripts/js/. "$work"/
+          cd "$work"
+          npm ci --no-audit --no-fund --cache /tmp/.npm
+          npm test
+        '
+  extends:
+    - .dev

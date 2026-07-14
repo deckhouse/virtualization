@@ -1,0 +1,46 @@
+# Pipeline-level workflow rules.
+#
+# Intentionally minimal: we do NOT use `workflow:rules:` to gate individual
+# jobs — gating is handled per-job via `rules:` against
+# $CI_PIPELINE_SOURCE, $CI_COMMIT_BRANCH, $CI_COMMIT_TAG. The global
+# workflow rules here only decide whether a pipeline is created at all.
+#
+# Behaviors preserved from the previous root .gitlab-ci.yml:
+#   - MR pipelines (push + MR events) are always created.
+#   - Pushes to main create a pipeline.
+#   - Pushes of tags vX.Y.Z / vX.Y.Z-rc.N create pipelines.
+#   - Manual/scheduled/web pipelines always run.
+#
+# Jobs default to `interruptible: true` (see .gitlab/ci/defaults.yml) so a
+# new commit cancels the redundant in-flight pipeline once "Auto-cancel
+# redundant pipelines" is enabled at the project level.
+
+workflow:
+  rules:
+    # MR pipelines always run.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Default-branch (main) pushes always create a pipeline. Listed before the
+    # `when: never` dedup rule below so a main push is never skipped.
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Tag pushes always create a pipeline (also matched before the dedup rule).
+    # Matches the effective GitHub tag scheme (verified against the workflows):
+    #   vX.Y.Z       -> dev_module_build-and-registration.yml ("Deploy Dev", DEV)
+    #                   AND release_module_build-and-registration.yml (PROD).
+    #   vX.Y.Z-rc.N  -> "Deploy Dev" only (the prod filter is strict ^vX.Y.Z$).
+    # Both dev workflows accept only these two forms (the validation step in
+    # "Deploy Dev" rejects any other suffix), so we gate the union precisely
+    # instead of the old, GitLab-only `-dev*` scheme.
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    # Avoid duplicate pipelines: a push to a non-default, non-tag branch that
+    # already has an open MR would otherwise create BOTH a branch pipeline and
+    # an MR pipeline. The predefined $CI_OPEN_MERGE_REQUESTS is non-empty only
+    # when the pushed branch is the source of an open MR, so THIS rule is what
+    # skips the redundant branch pipeline (keeping only the MR one). main / tags
+    # / schedule / web are matched by the earlier rules and never reach here
+    # (rules are first-match).
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    # Plain branch push with no open MR: create the branch pipeline.
+    - if: $CI_PIPELINE_SOURCE == "push"
