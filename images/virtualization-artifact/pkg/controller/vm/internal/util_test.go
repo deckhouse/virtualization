@@ -50,3 +50,37 @@ var _ = Describe("isPodStartedError", func() {
 		Expect(isPodStartedError(newKVVMWithSynchronized("SomethingElse"))).To(BeFalse())
 	})
 })
+
+var _ = Describe("vmStartupMessage", func() {
+	kvvmSynchronized := func(reason, message string) *virtv1.VirtualMachine {
+		return &virtv1.VirtualMachine{
+			Status: virtv1.VirtualMachineStatus{
+				Conditions: []virtv1.VirtualMachineCondition{
+					{
+						Type:    virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceSynchronized),
+						Status:  corev1.ConditionFalse,
+						Reason:  reason,
+						Message: message,
+					},
+				},
+			},
+		}
+	}
+	kvvmStatus := func(status virtv1.VirtualMachinePrintableStatus) *virtv1.VirtualMachine {
+		return &virtv1.VirtualMachine{Status: virtv1.VirtualMachineStatus{PrintableStatus: status}}
+	}
+
+	It("explains backend storage failure and keeps the underlying detail", func() {
+		Expect(vmStartupMessage(kvvmSynchronized(failedBackendStorageCreateReason, "no default storage class found"))).
+			To(Equal("Cannot provision storage for the virtual machine's Secure Boot state: no default storage class found."))
+	})
+
+	It("maps a printable status to a fixed message without internal phases", func() {
+		Expect(vmStartupMessage(kvvmStatus(virtv1.VirtualMachineStatusUnschedulable))).
+			To(Equal("The virtual machine cannot be scheduled onto any node."))
+	})
+
+	It("falls back for an unknown cause", func() {
+		Expect(vmStartupMessage(kvvmStatus(""))).To(Equal("The virtual machine failed to start."))
+	})
+})

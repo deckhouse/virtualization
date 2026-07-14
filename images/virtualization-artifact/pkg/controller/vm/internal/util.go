@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -249,6 +250,49 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 		virtv1.VirtualMachineStatusCrashLoopBackOff,
 		virtv1.VirtualMachineStatusUnknown,
 	}, phase)
+}
+
+var vmPrintableStatusMessages = map[virtv1.VirtualMachinePrintableStatus]string{
+	virtv1.VirtualMachineStatusErrImagePull:     "Cannot pull the image for one of the virtual machine's disks.",
+	virtv1.VirtualMachineStatusImagePullBackOff: "Cannot pull the image for one of the virtual machine's disks.",
+	virtv1.VirtualMachineStatusCrashLoopBackOff: "The virtual machine repeatedly fails to start.",
+	virtv1.VirtualMachineStatusUnschedulable:    "The virtual machine cannot be scheduled onto any node.",
+	virtv1.VirtualMachineStatusDataVolumeError:  "Provisioning a disk for the virtual machine failed.",
+	virtv1.VirtualMachineStatusPvcNotFound:      "Storage for one of the virtual machine's disks was not found.",
+	virtv1.VirtualMachineStatusUnknown:          "The virtual machine state is temporarily unknown.",
+}
+
+// vmStartupMessage returns a user-facing reason why the virtual machine has not started.
+func vmStartupMessage(kvvm *virtv1.VirtualMachine) string {
+	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
+	if synchronized != nil && synchronized.Status == corev1.ConditionFalse {
+		switch synchronized.Reason {
+		case failedBackendStorageCreateReason:
+			if synchronized.Message != "" {
+				return fmt.Sprintf("Cannot provision storage for the virtual machine's Secure Boot state: %s.", strings.TrimRight(synchronized.Message, "."))
+			}
+			return "Cannot provision storage for the virtual machine's Secure Boot state."
+		case failedCreatePodReason:
+			return "Cannot start the virtual machine: creating its instance failed."
+		}
+	}
+	if msg, ok := vmPrintableStatusMessages[kvvm.Status.PrintableStatus]; ok {
+		return msg
+	}
+	return "The virtual machine failed to start."
+}
+
+// vmStartupDetail returns the raw internal detail for logs and events.
+func vmStartupDetail(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) string {
+	detail := fmt.Sprintf("printableStatus=%q", kvvm.Status.PrintableStatus)
+	if kvvmi != nil {
+		detail = fmt.Sprintf("%s, vmiPhase=%q", detail, kvvmi.Status.Phase)
+	}
+	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
+	if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
+		detail = fmt.Sprintf("%s, synchronized=%q: %s", detail, synchronized.Reason, synchronized.Message)
+	}
+	return detail
 }
 
 func podFinal(pod corev1.Pod) bool {

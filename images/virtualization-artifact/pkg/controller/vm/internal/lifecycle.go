@@ -160,41 +160,24 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			return nil
 		}
 
-		// Try to extract error from kvvm Synchronized condition.
 		if isPodStartedError(kvvm) {
-			msg := fmt.Sprintf("Failed to start pod: %s", kvvm.Status.PrintableStatus)
-			if kvvmi != nil {
-				msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
-			}
-			synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
-			if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
-				msg = fmt.Sprintf("%s; %s: %s", msg, synchronized.Reason, synchronized.Message)
-			}
+			log.Error("Virtual machine pod failed to start: " + vmStartupDetail(kvvm, kvvmi))
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonPodNotStarted).
-				Message(msg)
+				Message(vmStartupMessage(kvvm))
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
 		}
 
 		if isInternalVirtualMachineError(kvvm.Status.PrintableStatus) {
-			msg := fmt.Sprintf("Internal virtual machine error: %s", kvvm.Status.PrintableStatus)
-			if kvvmi != nil {
-				msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
-			}
-
-			synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
-			if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
-				msg = fmt.Sprintf("%s; %s: %s", msg, synchronized.Reason, synchronized.Message)
-			}
-
-			log.Error(msg)
-			h.recorder.Event(vm, corev1.EventTypeWarning, vmcondition.ReasonInternalVirtualMachineError.String(), msg)
+			detail := vmStartupDetail(kvvm, kvvmi)
+			log.Error("Internal virtual machine error: " + detail)
+			h.recorder.Event(vm, corev1.EventTypeWarning, vmcondition.ReasonInternalVirtualMachineError.String(), detail)
 
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonInternalVirtualMachineError).
-				Message(msg)
+				Message(vmStartupMessage(kvvm))
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
 		}
