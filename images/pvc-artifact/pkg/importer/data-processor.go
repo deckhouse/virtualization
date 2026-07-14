@@ -17,8 +17,10 @@ limitations under the License.
 package importer
 
 import (
+	"fmt"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -279,10 +281,14 @@ func (dp *DataProcessor) convert(url *url.URL) (ProcessingPhase, error) {
 		return ProcessingPhaseError, errors.Wrap(err, "Unable to get format")
 	}
 	klog.V(3).Infof("Converting to %s", format)
+	start := time.Now()
+	fmt.Printf("Convert to %s started at %s (qemu-img convert threads=%d)\n", format, start.Format(time.RFC3339Nano), dp.qemuConvertThreads)
 	err = qemuOperations.ConvertToFormatStream(url, format, dp.dataFile, dp.preallocation, dp.qemuConvertThreads)
 	if err != nil {
 		return ProcessingPhaseError, errors.Wrapf(err, "Conversion to %s failed", format)
 	}
+	end := time.Now()
+	fmt.Printf("Convert to %s finished at %s (duration %s)\n", format, end.Format(time.RFC3339Nano), end.Sub(start))
 	dp.preallocationApplied = dp.preallocation
 
 	return ProcessingPhaseResize, nil
