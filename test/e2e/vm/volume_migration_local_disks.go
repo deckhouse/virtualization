@@ -34,6 +34,7 @@ import (
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -210,6 +211,51 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 			untilVirtualDisksMigrationsSucceeded(f)
 		}
+	})
+
+	It("should be successful when a restart is pending", func() {
+		ns := f.Namespace().Name
+
+		vm, vds := localMigrationRootAndAdditionalBuild()
+		vmbuilder.ApplyOptions(vm, []vmbuilder.Option{vmbuilder.WithRestartApprovalMode(v1alpha2.Manual)})
+
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		f.DeferDelete(vm)
+
+		for _, vd := range vds {
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			f.DeferDelete(vd)
+		}
+
+		By("Wait until VM agent is ready")
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+
+		By("Applying a change that requires a restart")
+		patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
+		Expect(err).NotTo(HaveOccurred())
+		vm, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
+
+		const vmopName = "local-disks-migration-under-restart"
+
+		By("Starting migration while the restart is still pending")
+		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
+
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.EndTimestamp).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+
+		untilVirtualDisksMigrationsSucceeded(f)
+
+		By("Restart is still pending after migration: the change was neither lost nor applied without a restart")
+		Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
 	})
 
 	It("should be reverted first and completed second", func() {
