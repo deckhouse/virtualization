@@ -203,6 +203,39 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotWaiting))
 			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSourceNodeAnnotation, "node-src"))
 		})
+
+		It("Should release the inbound slot when the sync slot is busy", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			kvvmi.Status.MigrationState.SourceNode = "node-src"
+			kvvmi.Status.MigrationState.TargetNode = "node-tgt"
+
+			otherKVVMI := newKVVMI()
+			otherKVVMI.Name = "other-vm"
+			withMigrationState(otherKVVMI, "other-migration-uid")
+			otherKVVMI.Status.MigrationState.SourceNode = "node-src"
+
+			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newKVConfig())
+			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
+			Expect(syncLimiter.TryAcquire(otherKVVMI, "node-src")).To(BeTrue())
+
+			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, syncLimiter)
+			res, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(res.RequeueAfter).To(BeNumerically(">", 0))
+			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).Should(BeNil(), "Should not set migrationConfiguration")
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotWaiting))
+
+			// The inbound slot taken during the failed acquisition must be handed back,
+			// so an unrelated migration can still take it.
+			newcomer := newKVVMI()
+			newcomer.Name = "newcomer"
+			withMigrationState(newcomer, "newcomer-migration-uid")
+			Expect(inboundLimiter.TryAcquire(newcomer, "node-tgt")).To(BeTrue())
+		})
 	})
 
 	When("Observe KVVMI with completed migration", func() {

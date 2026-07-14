@@ -78,8 +78,10 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, nil
 	}
 
+	var targetNode, sourceNode string
 	if h.inboundLimiter.Enabled() {
-		targetNode, err := h.resolveTargetNode(ctx, kvvmi)
+		var err error
+		targetNode, err = h.resolveTargetNode(ctx, kvvmi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -87,31 +89,39 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 			log.Debug("Target node is not resolved yet, waiting before setting migrationConfiguration")
 			return reconcile.Result{RequeueAfter: inboundSlotRequeueDelay}, nil
 		}
-
-		if !h.inboundLimiter.TryAcquire(kvvmi, targetNode) {
-			livemigration.MarkInboundMigrationSlotWaiting(kvvmi, targetNode)
-			log.Debug("Inbound migration slot is not acquired, waiting before setting migrationConfiguration",
-				"targetNode", targetNode,
-			)
-			return reconcile.Result{RequeueAfter: inboundSlotRequeueDelay}, nil
-		}
-		livemigration.MarkInboundMigrationSlotAcquired(kvvmi, targetNode)
 	}
-
 	if h.syncLimiter.Enabled() {
-		sourceNode := resolveSourceNode(kvvmi)
+		sourceNode = resolveSourceNode(kvvmi)
 		if sourceNode == "" {
 			log.Debug("Source node is not resolved yet, waiting before setting migrationConfiguration")
 			return reconcile.Result{RequeueAfter: syncSlotRequeueDelay}, nil
 		}
+	}
 
-		if !h.syncLimiter.TryAcquire(kvvmi, sourceNode) {
-			livemigration.MarkSyncMigrationSlotWaiting(kvvmi, sourceNode)
-			log.Debug("Sync migration slot is not acquired, waiting before setting migrationConfiguration",
-				"sourceNode", sourceNode,
-			)
-			return reconcile.Result{RequeueAfter: syncSlotRequeueDelay}, nil
+	// Acquire both slots or none: a migration may start the memory transfer only when it
+	// overloads neither its target node (inbound) nor its source node (sync). Holding one slot
+	// while waiting for the other would block unrelated migrations on that node.
+	if h.inboundLimiter.Enabled() && !h.inboundLimiter.TryAcquire(kvvmi, targetNode) {
+		livemigration.MarkInboundMigrationSlotWaiting(kvvmi, targetNode)
+		log.Debug("Inbound migration slot is not acquired, waiting before setting migrationConfiguration",
+			"targetNode", targetNode,
+		)
+		return reconcile.Result{RequeueAfter: inboundSlotRequeueDelay}, nil
+	}
+	if h.syncLimiter.Enabled() && !h.syncLimiter.TryAcquire(kvvmi, sourceNode) {
+		if h.inboundLimiter.Enabled() {
+			h.inboundLimiter.Release(kvvmi, targetNode)
 		}
+		livemigration.MarkSyncMigrationSlotWaiting(kvvmi, sourceNode)
+		log.Debug("Sync migration slot is not acquired, waiting before setting migrationConfiguration",
+			"sourceNode", sourceNode,
+		)
+		return reconcile.Result{RequeueAfter: syncSlotRequeueDelay}, nil
+	}
+	if h.inboundLimiter.Enabled() {
+		livemigration.MarkInboundMigrationSlotAcquired(kvvmi, targetNode)
+	}
+	if h.syncLimiter.Enabled() {
 		livemigration.MarkSyncMigrationSlotAcquired(kvvmi, sourceNode)
 	}
 
