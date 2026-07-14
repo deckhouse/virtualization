@@ -121,25 +121,25 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
-		if len(featuresEnabled) > 0 {
-			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
-			break
-		}
-		if len(current.Status.CpuFeatures.Enabled) == 0 {
-			if len(discoveryPool) == 0 {
-				cb.Message("No nodes match the discovery nodeSelector; skipping feature discovery.").
+		if len(featuresEnabled) == 0 {
+			if len(current.Status.CpuFeatures.Enabled) == 0 {
+				if len(discoveryPool) == 0 {
+					cb.Message("No nodes match the discovery nodeSelector, can't discover common CPU features.").
+						Reason(vmclasscondition.ReasonDiscoveryFailed).
+						Status(metav1.ConditionFalse)
+					break
+				}
+				cb.Message("No common CPU features are discovered across discovery nodes.").
 					Reason(vmclasscondition.ReasonDiscoveryFailed).
 					Status(metav1.ConditionFalse)
 				break
 			}
-			cb.Message("No common CPU features are discovered across discovery nodes.").
+			cb.Message("No available nodes expose all discovered CPU features.").
 				Reason(vmclasscondition.ReasonDiscoveryFailed).
 				Status(metav1.ConditionFalse)
 			break
 		}
-		cb.Message("No available nodes expose all discovered CPU features.").
-			Reason(vmclasscondition.ReasonDiscoveryFailed).
-			Status(metav1.ConditionFalse)
+		cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 	default:
 		cb.Message(fmt.Sprintf("Discovery not needed for cpu.type %q", cpuType)).
 			Reason(vmclasscondition.ReasonDiscoverySkip).
