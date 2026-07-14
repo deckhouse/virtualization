@@ -104,6 +104,10 @@ const (
 	ImporterAuthConfigDir       = "/dvcr-src-auth"
 	ImporterAuthConfigFile      = "/dvcr-src-auth/.dockerconfigjson"
 	ImporterDestinationEndpoint = "IMPORTER_DESTINATION_ENDPOINT"
+	// ImporterQemuConvertThreads sets the number of coroutines for qemu-img convert (-m) in the importer pod.
+	ImporterQemuConvertThreads = "IMPORTER_QEMU_CONVERT_THREADS"
+	// ImporterCopyBlockSize sets the block size used when streaming image data to the target file/device in the importer pod.
+	ImporterCopyBlockSize = "IMPORTER_COPY_BLOCK_SIZE"
 
 	UploaderDestinationEndpoint       = "UPLOADER_DESTINATION_ENDPOINT"
 	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"

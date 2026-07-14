@@ -27,14 +27,16 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
-func convertTo(format, src, dest string, preallocate bool) error {
+func convertTo(format, src, dest string, preallocate bool, convertThreads int) error {
 	switch format {
 	case "qcow2", "raw":
 		// Do nothing.
 	default:
 		return errors.Errorf("unknown format: %s", format)
 	}
-	args := []string{"convert", "-t", "writeback", "-p", "-O", format, src, dest}
+	args := []string{"convert", "-t", "writeback", "-p"}
+	args = append(args, convertThreadArgs(convertThreads)...)
+	args = append(args, "-O", format, src, dest)
 	var err error
 
 	if preallocate {
@@ -57,9 +59,9 @@ func convertTo(format, src, dest string, preallocate bool) error {
 	return nil
 }
 
-func (o *qemuOperations) ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error {
+func (o *qemuOperations) ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool, convertThreads int) error {
 	if len(url.Scheme) > 0 && url.Scheme != "nbd+unix" {
 		return fmt.Errorf("not valid schema %s", url.Scheme)
 	}
-	return convertTo(format, url.String(), dest, preallocate)
+	return convertTo(format, url.String(), dest, preallocate, convertThreads)
 }

@@ -31,6 +31,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
@@ -80,6 +81,15 @@ func run() int {
 	defer func() { _ = os.RemoveAll(certsDirectory) }()
 	prometheusutil.StartPrometheusEndpoint(certsDirectory)
 	klog.V(1).Infoln("Starting importer")
+
+	// Override the copy block size used when streaming image data to the target file/device.
+	if raw := os.Getenv(common.ImporterCopyBlockSize); raw != "" {
+		if q, err := resource.ParseQuantity(raw); err == nil {
+			importer.SetCopyBufferSize(int(q.Value()))
+		} else {
+			klog.Warningf("invalid %s value %q, using default: %v", common.ImporterCopyBlockSize, raw, err)
+		}
+	}
 
 	source, _ := util.ParseEnvVar(common.ImporterSource, false)
 	contentType, _ := util.ParseEnvVar(common.ImporterContentType, false)
@@ -181,7 +191,8 @@ func writeTerminationMessage(termMsg *common.TerminationMessage) error {
 
 func newDataProcessor(contentType string, volumeMode corev1.PersistentVolumeMode, ds importer.DataSourceInterface, imageSize string, filesystemOverhead float64, preallocation bool) *importer.DataProcessor {
 	dest := getImporterDestPath(contentType, volumeMode)
-	processor := importer.NewDataProcessor(ds, dest, common.ImporterDataDir, common.ScratchDataDir, imageSize, filesystemOverhead, preallocation, os.Getenv(common.CacheMode))
+	qemuConvertThreads, _ := strconv.Atoi(os.Getenv(common.ImporterQemuConvertThreads))
+	processor := importer.NewDataProcessor(ds, dest, common.ImporterDataDir, common.ScratchDataDir, imageSize, filesystemOverhead, preallocation, os.Getenv(common.CacheMode), qemuConvertThreads)
 	return processor
 }
 
