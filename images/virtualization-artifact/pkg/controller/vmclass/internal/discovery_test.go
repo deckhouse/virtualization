@@ -643,11 +643,10 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
 		})
 
-		It("should recompute features when available nodes change, not reuse cached status", func() {
-			// Regression test: previously the handler cached
-			// Status.CpuFeatures.Enabled forever, so when a node with a rare
-			// CPU feature disappeared from availableNodes, the class kept
-			// advertising that feature and VMs refused to schedule.
+		It("should keep discovered features stable and only recalculate availableNodes", func() {
+			// Discovery features are computed once and then frozen in status.
+			// Later reconciles must only narrow availableNodes to nodes exposing
+			// all previously discovered features, not recompute the model.
 			nodeOld := newNodeWithLabels("node-old", map[string]string{
 				virtv1.CPUFeatureLabel + "vmx": "true",
 				virtv1.CPUFeatureLabel + "avx": "true",
@@ -672,9 +671,6 @@ var _ = Describe("DiscoveryHandler", func() {
 			}
 			handler := NewDiscoveryHandler(mockRecorder)
 
-			// Two passes are required: first sets the Discovered condition to
-			// Unknown (addAllUnknown requeue), second performs the actual
-			// discovery and writes Status.CpuFeatures.
 			_, err := handler.Handle(ctx, vmcState)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = handler.Handle(ctx, vmcState)
@@ -684,14 +680,13 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-old", "node-new"))
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
 
-			// Simulate node-old disappearing (e.g. drained, deleted) by
-			// re-running discovery with only node-new in availableNodes. The
-			// next reconcile must drop hle/rtm from Enabled without manual
-			// intervention on the class status.
+			// Simulate a persisted status on the class and a changed cluster
+			// topology where only node-new remains. The discovered model must
+			// stay {vmx,avx}, while availableNodes is recalculated against it.
+			vmc.Status.CpuFeatures.Enabled = append([]string{}, changed.Status.CpuFeatures.Enabled...)
 			vmcState, resource = setupDiscoveryEnvironment(vmc,
 				nodeNew,
 				handlerNew)
-			// Replay the same reconcile pattern again on the fresh state.
 			_, err = handler.Handle(ctx, vmcState)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = handler.Handle(ctx, vmcState)
@@ -699,12 +694,12 @@ var _ = Describe("DiscoveryHandler", func() {
 
 			changed = resource.Changed()
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-new"))
-			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "fma"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
 		})
 
-		It("should mark Discovered=False when available nodes have no common CPU features", func() {
+		It("should mark Discovered=False when discovery pool has no common CPU features", func() {
 			// Pick two labels that exist on opposite nodes so there is no
-			// common CPU feature between availableNodes.
+			// common CPU feature between discovery nodes.
 			node1 := newNodeWithLabels("node1", map[string]string{
 				virtv1.CPUFeatureLabel + "hle": "true",
 			})
@@ -930,10 +925,9 @@ var _ = Describe("DiscoveryHandler", func() {
 
 		It("should leave notEnabledCommon empty for Discovery when availableNodes match the discovered model", func() {
 			// UF5: for Discovery, availableNodes are filtered by nodesWithAllFeatures
-			// against the discovered intersection, so commonFeatures(availableNodes)
-			// collapses back to the enabled set and notEnabledCommon stays empty.
-			// A non-empty result is only possible when spec.nodeSelector excludes
-			// part of the discovery pool, shrinking the common set below the model.
+			// against the frozen discovered model, so commonFeatures(availableNodes)
+			// may include extra features only when the schedulable set becomes
+			// narrower than the original discovery pool.
 			node1 := newNodeWithLabels("node1", map[string]string{
 				virtv1.CPUFeatureLabel + "vmx":  "true",
 				virtv1.CPUFeatureLabel + "avx":  "true",

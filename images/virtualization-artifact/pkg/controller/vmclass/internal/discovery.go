@@ -75,18 +75,25 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		return reconcile.Result{}, err
 	}
 
-	var featuresEnabled []string
-	var discoveryPool []corev1.Node
+	var (
+		featuresEnabled []string
+		discoveryPool   []corev1.Node
+	)
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
-		// Discover features from the discovery nodeSelector pool, then restrict
-		// schedulable nodes to those that expose every discovered feature so
-		// VMs can only land on nodes compatible with the universal CPU model.
-		discoveryPool, err = s.DiscoveryNodes(ctx)
-		if err != nil {
-			return reconcile.Result{}, err
+		// Discover features only once from the discovery nodeSelector pool and
+		// persist them in status. After that, keep the discovered model stable
+		// and only recalculate which schedulable nodes still expose all of its
+		// features.
+		if fs := current.Status.CpuFeatures.Enabled; len(fs) > 0 {
+			featuresEnabled = fs
+		} else {
+			discoveryPool, err = s.DiscoveryNodes(ctx)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			featuresEnabled = h.discoveryCommonFeatures(discoveryPool)
 		}
-		featuresEnabled = h.discoveryCommonFeatures(discoveryPool)
 		availableNodes = h.nodesWithAllFeatures(availableNodes, featuresEnabled)
 	case v1alpha2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
@@ -114,17 +121,23 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
-		if len(discoveryPool) == 0 {
-			cb.Message("No nodes match the discovery nodeSelector; skipping feature discovery.").
-				Reason(vmclasscondition.ReasonDiscoveryFailed).
-				Status(metav1.ConditionFalse)
-			break
-		}
 		if len(featuresEnabled) > 0 {
 			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 			break
 		}
-		cb.Message("No common CPU features are discovered across discovery nodes.").
+		if len(current.Status.CpuFeatures.Enabled) == 0 {
+			if len(discoveryPool) == 0 {
+				cb.Message("No nodes match the discovery nodeSelector; skipping feature discovery.").
+					Reason(vmclasscondition.ReasonDiscoveryFailed).
+					Status(metav1.ConditionFalse)
+				break
+			}
+			cb.Message("No common CPU features are discovered across discovery nodes.").
+				Reason(vmclasscondition.ReasonDiscoveryFailed).
+				Status(metav1.ConditionFalse)
+			break
+		}
+		cb.Message("No available nodes expose all discovered CPU features.").
 			Reason(vmclasscondition.ReasonDiscoveryFailed).
 			Status(metav1.ConditionFalse)
 	default:
