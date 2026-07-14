@@ -1119,6 +1119,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
   A VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
   - Possible problems:
     - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
+    - Namespace or project quotas have been exceeded.
   - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
 
     ```bash
@@ -1131,7 +1132,6 @@ A virtual machine (VM) goes through several phases in its existence, from creati
   - Possible problems:
     - There is no suitable node to start.
     - There is not enough CPU or memory on suitable nodes.
-    - Namespace or project quotas have been exceeded.
   - Diagnostics:
     - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
 
@@ -1582,6 +1582,12 @@ spec:
 ### Guest OS agent
 
 To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
+
+The module supports `qemu-guest-agent` version 5.2.0 and later. To check the current agent version in the guest OS, run:
+
+```bash
+qemu-guest-agent --version
+```
 
 How will the agent help?
 
@@ -3021,22 +3027,10 @@ After executing the command, you will receive a `debug-info.tar.gz` archive that
 ## Virtual machine pools
 
 {{< alert level="warning" >}}
-Available in the EE and SE+ editions. Requires the `VirtualMachinePool` feature gate.
+Available in the EE and SE+ editions.
 {{< /alert >}}
 
 The [VirtualMachinePool](cr.html#virtualmachinepool) resource maintains a requested number of identical virtual machines and lets you scale them via the `scale` subresource, a HorizontalPodAutoscaler (HPA), or KEDA. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
-
-This functionality is disabled by default. To enable it, add `VirtualMachinePool` to the `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
-
-```yaml
-kind: ModuleConfig
-metadata:
-  name: virtualization
-spec:
-  settings:
-    featureGates:
-    - VirtualMachinePool
-```
 
 Create a pool with the desired number of replicas and a template. Each per-replica disk is described once in `virtualDiskTemplates` (reclaim policy, size, data source), and the template's `blockDeviceRefs` references those disks — by name, with `kind: VirtualDisk` — to set the device (boot) order, exactly as in a plain `VirtualMachine`. Every `virtualDiskTemplates` entry must be referenced exactly once (admission enforces this bijection; disk-template names are unique). Alongside the per-replica disks you may list shared read-only images (`VirtualImage`/`ClusterVirtualImage`) — for example a common ISO/CD-ROM attached to every replica — they are not per-replica and need no `virtualDiskTemplates` entry.
 

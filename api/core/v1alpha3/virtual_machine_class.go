@@ -186,6 +186,7 @@ type SizingPolicyCores struct {
 // * `HostPassthrough`: Uses the platform node's physical CPU directly, without any modifications.
 // When using this class, the guest VM can only be transferred to a target node with a CPU exactly matching the source node's CPU.
 // * `Discovery`: Create a virtual CPU based on instruction sets of physical CPUs for a selected set of nodes.
+// The feature set is fixed when the resource is created and does not change when nodes are added to or removed from the cluster.
 // * `Model`: CPU model. A CPU model is a named and previously defined set of supported CPU instructions.
 // * `Features`: A required set of supported instructions for the CPU.
 //
