@@ -48,82 +48,68 @@ var coreKinds = map[string]bool{
 
 // Resource collection functions
 
-func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.Client, namespace, vmName string) error {
-	// Get VM
-	vm, err := client.VirtualMachines(namespace).Get(ctx, vmName, metav1.GetOptions{})
-	if err != nil {
-		if b.handleError("VirtualMachine", vmName, err) {
-			return nil
-		}
-		return err
-	}
-	if err := b.outputResource("VirtualMachine", vmName, namespace, vm); err != nil {
+func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.Client, vm *v1alpha2.VirtualMachine) error {
+	if err := b.outputResource("VirtualMachine", vm.Name, vm.Namespace, vm); err != nil {
 		return fmt.Errorf("failed to output VirtualMachine: %w", err)
 	}
 
 	// Get IVVM
-	ivvm, err := b.getInternalResource(ctx, "internalvirtualizationvirtualmachines", namespace, vmName)
+	ivvm, err := b.getInternalResource(ctx, "internalvirtualizationvirtualmachines", vm.Namespace, vm.Name)
 	if err == nil {
-		if err := b.outputResource("InternalVirtualizationVirtualMachine", vmName, namespace, ivvm); err != nil {
+		if err := b.outputResource("InternalVirtualizationVirtualMachine", vm.Name, vm.Namespace, ivvm); err != nil {
 			return fmt.Errorf("failed to output InternalVirtualizationVirtualMachine: %w", err)
 		}
-	} else if !b.handleError("InternalVirtualizationVirtualMachine", vmName, err) {
+	} else if !b.skipError("InternalVirtualizationVirtualMachine", vm.Name, err) {
 		return err
 	}
 
 	// Get IVVMI
-	ivvmi, err := b.getInternalResource(ctx, "internalvirtualizationvirtualmachineinstances", namespace, vmName)
+	ivvmi, err := b.getInternalResource(ctx, "internalvirtualizationvirtualmachineinstances", vm.Namespace, vm.Name)
 	if err == nil {
-		if err := b.outputResource("InternalVirtualizationVirtualMachineInstance", vmName, namespace, ivvmi); err != nil {
+		if err := b.outputResource("InternalVirtualizationVirtualMachineInstance", vm.Name, vm.Namespace, ivvmi); err != nil {
 			return fmt.Errorf("failed to output InternalVirtualizationVirtualMachineInstance: %w", err)
 		}
-	} else if !b.handleError("InternalVirtualizationVirtualMachineInstance", vmName, err) {
+	} else if !b.skipError("InternalVirtualizationVirtualMachineInstance", vm.Name, err) {
 		return err
 	}
 
 	// Get VM operations
-	vmUID := string(vm.UID)
-	vmops, err := client.VirtualMachineOperations(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("virtualization.deckhouse.io/virtual-machine-uid=%s", vmUID),
+	vmops, err := client.VirtualMachineOperations(vm.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("virtualization.deckhouse.io/virtual-machine-uid=%s", vm.UID),
 	})
 	if err == nil {
 		for _, vmop := range vmops.Items {
-			if err := b.outputResource("VirtualMachineOperation", vmop.Name, namespace, &vmop); err != nil {
+			if err := b.outputResource("VirtualMachineOperation", vmop.Name, vm.Namespace, &vmop); err != nil {
 				return fmt.Errorf("failed to output VirtualMachineOperation: %w", err)
 			}
 		}
-	} else if !b.handleError("VirtualMachineOperation", "", err) {
+	} else if !b.skipError("VirtualMachineOperation", "", err) {
 		return err
 	}
 
 	// Get migrations
-	migrations, err := b.getInternalResourceList(ctx, "internalvirtualizationvirtualmachineinstancemigrations", namespace)
+	migrations, err := b.getInternalResourceList(ctx, "internalvirtualizationvirtualmachineinstancemigrations", vm.Namespace)
 	if err == nil {
 		for _, item := range migrations {
 			vmiName, found, _ := unstructured.NestedString(item.Object, "spec", "vmiName")
-			if found && vmiName == vmName {
+			if found && vmiName == vm.Name {
 				name, _, _ := unstructured.NestedString(item.Object, "metadata", "name")
-				if err := b.outputResource("InternalVirtualizationVirtualMachineInstanceMigration", name, namespace, item); err != nil {
+				if err := b.outputResource("InternalVirtualizationVirtualMachineInstanceMigration", name, vm.Namespace, item); err != nil {
 					return fmt.Errorf("failed to output InternalVirtualizationVirtualMachineInstanceMigration: %w", err)
 				}
 			}
 		}
-	} else if !b.handleError("InternalVirtualizationVirtualMachineInstanceMigration", "", err) {
+	} else if !b.skipError("InternalVirtualizationVirtualMachineInstanceMigration", "", err) {
 		return err
 	}
 
 	// Get events for VM
-	b.collectEvents(ctx, client, namespace, "VirtualMachine", vmName)
+	b.collectEvents(ctx, client, vm.Namespace, "VirtualMachine", vm.Name)
 
 	return nil
 }
 
-func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient.Client, namespace, vmName string) error {
-	vm, err := client.VirtualMachines(namespace).Get(ctx, vmName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
+func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient.Client, vm *v1alpha2.VirtualMachine) error {
 	// Track collected block devices to avoid duplicates
 	collectedBlockDevices := make(map[string]bool)
 
@@ -136,8 +122,8 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
 		key := bdKey(bdRef.Kind, bdRef.Name)
 		if !collectedBlockDevices[key] {
-			if err := b.collectBlockDevice(ctx, client, namespace, bdRef.Kind, bdRef.Name); err != nil {
-				if !b.handleError(string(bdRef.Kind), bdRef.Name, err) {
+			if err := b.collectBlockDevice(ctx, client, vm.Namespace, bdRef.Kind, bdRef.Name); err != nil {
+				if !b.skipError(string(bdRef.Kind), bdRef.Name, err) {
 					return err
 				}
 			} else {
@@ -147,14 +133,14 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 	}
 
 	// Get all VMBDA that reference this VM
-	vmbdas, err := client.VirtualMachineBlockDeviceAttachments(namespace).List(ctx, metav1.ListOptions{})
+	vmbdas, err := client.VirtualMachineBlockDeviceAttachments(vm.Namespace).List(ctx, metav1.ListOptions{})
 	if err == nil {
 		for _, vmbda := range vmbdas.Items {
-			if vmbda.Spec.VirtualMachineName == vmName {
-				if err := b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, namespace, &vmbda); err != nil {
+			if vmbda.Spec.VirtualMachineName == vm.Name {
+				if err := b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, vm.Namespace, &vmbda); err != nil {
 					return fmt.Errorf("failed to output VirtualMachineBlockDeviceAttachment: %w", err)
 				}
-				b.collectEvents(ctx, client, namespace, "VirtualMachineBlockDeviceAttachment", vmbda.Name)
+				b.collectEvents(ctx, client, vm.Namespace, "VirtualMachineBlockDeviceAttachment", vmbda.Name)
 
 				// Get associated block device
 				if vmbda.Spec.BlockDeviceRef.Kind != "" && vmbda.Spec.BlockDeviceRef.Name != "" {
@@ -172,8 +158,8 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 					}
 					key := bdKey(bdKind, vmbda.Spec.BlockDeviceRef.Name)
 					if !collectedBlockDevices[key] {
-						if err := b.collectBlockDevice(ctx, client, namespace, bdKind, vmbda.Spec.BlockDeviceRef.Name); err != nil {
-							if !b.handleError(string(bdKind), vmbda.Spec.BlockDeviceRef.Name, err) {
+						if err := b.collectBlockDevice(ctx, client, vm.Namespace, bdKind, vmbda.Spec.BlockDeviceRef.Name); err != nil {
+							if !b.skipError(string(bdKind), vmbda.Spec.BlockDeviceRef.Name, err) {
 								return err
 							}
 						} else {
@@ -183,7 +169,7 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 				}
 			}
 		}
-	} else if !b.handleError("VirtualMachineBlockDeviceAttachment", "", err) {
+	} else if !b.skipError("VirtualMachineBlockDeviceAttachment", "", err) {
 		return err
 	}
 
@@ -218,11 +204,11 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 						if err := b.outputResource("PersistentVolume", pv.Name, "", pv); err != nil {
 							return fmt.Errorf("failed to output PersistentVolume: %w", err)
 						}
-					} else if !b.handleError("PersistentVolume", pvc.Spec.VolumeName, err) {
+					} else if !b.skipError("PersistentVolume", pvc.Spec.VolumeName, err) {
 						return err
 					}
 				}
-			} else if !b.handleError("PersistentVolumeClaim", vd.Status.Target.PersistentVolumeClaim, err) {
+			} else if !b.skipError("PersistentVolumeClaim", vd.Status.Target.PersistentVolumeClaim, err) {
 				return err
 			}
 		}
@@ -258,7 +244,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 		LabelSelector: fmt.Sprintf("vm.kubevirt.internal.virtualization.deckhouse.io/name=%s", vmName),
 	})
 	if err != nil {
-		if b.handleError("Pod", "", err) {
+		if b.skipError("Pod", "", err) {
 			return nil
 		}
 		return err
@@ -284,7 +270,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 		allPods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			// If we can't list all pods, continue without dependent pods
-			if !b.handleError("Pod", namespace, err) {
+			if !b.skipError("Pod", "", err) {
 				return err
 			}
 		} else {
@@ -318,7 +304,7 @@ func (b *DebugBundle) collectEvents(ctx context.Context, client kubeclient.Clien
 		FieldSelector: fmt.Sprintf("involvedObject.name=%s", resourceName),
 	})
 	if err != nil {
-		if b.handleError("Event", resourceName, err) {
+		if b.skipError("Event", resourceName, err) {
 			return
 		}
 		return

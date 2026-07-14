@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
@@ -118,24 +119,48 @@ func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
 }
 
 func (b *DebugBundle) collectResources(ctx context.Context, client kubeclient.Client, namespace, vmName string) error {
-	if err := b.collectVMResources(ctx, client, namespace, vmName); err != nil {
-		return fmt.Errorf("failed to collect VM resources: %w", err)
+	// The target VM is required; everything collected below is best-effort (see skipError).
+	vm, err := client.VirtualMachines(namespace).Get(ctx, vmName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return fmt.Errorf("VirtualMachine %q not found in namespace %q", vmName, namespace)
+		}
+		if errors.IsForbidden(err) || errors.IsUnauthorized(err) {
+			return fmt.Errorf("not allowed to read VirtualMachine %q in namespace %q; check your RBAC permissions", vmName, namespace)
+		}
+		return fmt.Errorf("failed to read VirtualMachine %q in namespace %q: %w", vmName, namespace, err)
 	}
 
-	if err := b.collectBlockDevices(ctx, client, namespace, vmName); err != nil {
+	if err := b.collectVMResources(ctx, client, vm); err != nil {
+		return fmt.Errorf("failed to collect VirtualMachine resources: %w", err)
+	}
+
+	if err := b.collectBlockDevices(ctx, client, vm); err != nil {
 		return fmt.Errorf("failed to collect block devices: %w", err)
 	}
 
-	if err := b.collectPods(ctx, client, namespace, vmName); err != nil {
-		return fmt.Errorf("failed to collect pods: %w", err)
+	if err := b.collectPods(ctx, client, vm.Namespace, vm.Name); err != nil {
+		return fmt.Errorf("failed to collect workload pods: %w", err)
 	}
 
 	return nil
 }
 
-func (b *DebugBundle) handleError(resourceType, resourceName string, err error) bool {
-	if errors.IsForbidden(err) || errors.IsUnauthorized(err) {
-		_, _ = fmt.Fprintf(b.stderr, "Warning: Skipping %s/%s: permission denied\n", resourceType, resourceName)
+// skipError reports whether a secondary-resource error is safe to swallow so the
+// best-effort collection can continue, logging what was skipped to stderr.
+func (b *DebugBundle) skipError(resourceType, resourceName string, err error) bool {
+	target := resourceType
+	if resourceName != "" {
+		target = fmt.Sprintf("%s %q", resourceType, resourceName)
+	}
+	switch {
+	case errors.IsForbidden(err) || errors.IsUnauthorized(err):
+		_, _ = fmt.Fprintf(b.stderr, "Warning: cannot read %s: access denied (check your RBAC permissions).\n", target)
+		return true
+	case errors.IsNotFound(err):
+		// Stated as a finding, not silenced: a missing internal instance or disk is
+		// often the reason the VirtualMachine is unhealthy, so the operator sees it.
+		_, _ = fmt.Fprintf(b.stderr, "Warning: %s not found.\n", target)
 		return true
 	}
 	return false
