@@ -1,0 +1,10 @@
+observability:
+  fixes:
+  - summary: Сервер аудита больше не перестает запускаться, если пути сертификата
+      TLS не передаются явно.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2632
+vm:
+  fixes:
+  - summary: Модули сквозной передачи USB-устройств больше не запускаются на узлах
+      с корневой файловой системой контейнера, доступной только для чтения.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2638
