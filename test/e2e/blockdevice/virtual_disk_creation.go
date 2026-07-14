@@ -49,12 +49,12 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	projobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/project"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 const vdCreationBlankSize = "64Mi"
@@ -543,9 +543,8 @@ func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
 
-		// EXCEPTION: Project (deckhouse.io) has no typed client in VirtClient and
-		// therefore no Observer; wait for its state via the generic helper.
-		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+		projObs := projobs.StartObserver(ctx, f, project.Name)
+		Expect(projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)).To(Succeed())
 	})
 
 	f.SetProjectNamespace(project.Name)

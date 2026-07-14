@@ -29,10 +29,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	projobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/project"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
 var _ = label.SIGDescribe(label.SIGStorage, "ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
@@ -54,9 +54,8 @@ var _ = label.SIGDescribe(label.SIGStorage, "ImporterNetworkPolicy", Label(prech
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
-		// EXCEPTION: Project (deckhouse.io) has no typed client in VirtClient and
-		// therefore no Observer; wait for its state via the generic helper.
-		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+		projObs := projobs.StartObserver(ctx, f, project.Name)
+		Expect(projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)).To(Succeed())
 
 		By("Create virtual image")
 		vi := object.NewGeneratedHTTPVICustomBIOS("vi-", project.Name)
@@ -75,9 +74,8 @@ var _ = label.SIGDescribe(label.SIGStorage, "ImporterNetworkPolicy", Label(prech
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
-		// EXCEPTION: Project (deckhouse.io) has no typed client in VirtClient and
-		// therefore no Observer; wait for its state via the generic helper.
-		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+		projObs := projobs.StartObserver(ctx, f, project.Name)
+		Expect(projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)).To(Succeed())
 
 		By("Create virtual disk")
 		vd := object.NewHTTPVDCustomBIOS("vd", project.Name, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))

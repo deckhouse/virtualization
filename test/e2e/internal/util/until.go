@@ -161,15 +161,6 @@ func UntilConditionState(
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
-// UntilObjectState waits for an object to reach the specified state.
-// It accepts a runtime.Object (which serves as a template with name and namespace),
-// expected state string, and timeout duration.
-// The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectState(ctx context.Context, expectedState string, timeout time.Duration, objs ...client.Object) {
-	GinkgoHelper()
-	untilObjectField(ctx, "status.state", expectedState, timeout, objs...)
-}
-
 // extractField extracts a string value from an unstructured object at the provided fieldPath (dot-separated, e.g. "status.phase" or "metadata.name").
 func extractField(obj client.Object, fieldPath string) string {
 	u, ok := obj.(*unstructured.Unstructured)
