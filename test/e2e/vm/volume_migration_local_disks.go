@@ -217,7 +217,7 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		}
 	})
 
-	It("keeps a multi-disk volume set consistent across repeated migrations while a restart is pending", func() {
+	It("keeps a multi-disk volume set consistent when a restart is requested mid-migration", func() {
 		ns := f.Namespace().Name
 
 		vm, vds := localMigrationManyDisksBuild()
@@ -235,35 +235,48 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-		By("Applying a change that requires a restart")
-		patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
-		Expect(err).NotTo(HaveOccurred())
-		vm, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
+		By("Migrating the whole set once so the disks move off their base PVCs")
+		firstVMOP := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName("many-disks-migration-1"))
+		util.UntilVMOPMigrationSucceeded(ctx, firstVMOP, framework.MaxTimeout)
+		untilVirtualDisksMigrationsSucceeded(f)
 
-		// Repeated migrations of a multi-disk VM while a restart is pending: each round
-		// must move the whole RWO set atomically and finalize before the next starts.
-		// A partial or unfinalized set makes KubeVirt reject the next round ("the volume
-		// can only be reverted to the previous version during the update").
-		for i := range 3 {
-			vmopName := "many-disks-migration-" + strconv.Itoa(i)
+		By("Starting a second migration of the whole volume set")
+		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName("many-disks-migration-2"))
 
-			By("Starting migration round " + strconv.Itoa(i))
-			vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
-
-			util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
-
+		// Request a restart while the second volume migration is still in flight. The
+		// restart reconcile must not issue a conflicting volume update over the unfinalized
+		// set, otherwise KubeVirt rejects it ("the volume can only be reverted to the
+		// previous version during the update") and leaves the volume set inconsistent.
+		By("Requesting a restart while the migration is in flight")
+		Eventually(func() error {
 			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vm.Status.MigrationState).ShouldNot(BeNil())
-			Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+			if err != nil {
+				return err
+			}
+			state := vm.Status.MigrationState
+			if state == nil || state.StartTimestamp.IsZero() || !state.EndTimestamp.IsZero() {
+				return fmt.Errorf("migration is not in flight")
+			}
+			patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
+			if err != nil {
+				return err
+			}
+			_, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			return err
+		}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
 
-			untilVirtualDisksMigrationsSucceeded(f)
+		By("The in-flight migration still finalizes cleanly")
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
 
-			By("Restart stays pending: the change was neither lost nor applied without a restart")
-			Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
-		}
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+
+		untilVirtualDisksMigrationsSucceeded(f)
+
+		By("Restart stays pending: the change was neither lost nor applied without a restart")
+		Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
 	})
 
 	It("should be successful when a restart is pending", func() {
