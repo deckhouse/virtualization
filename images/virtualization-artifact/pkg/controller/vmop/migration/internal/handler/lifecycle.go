@@ -605,12 +605,6 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	ctx context.Context,
 	mig *virtv1.VirtualMachineInstanceMigration,
 ) (vmopcondition.ReasonCompleted, string, error) {
-	if waiting, err := h.isWaitingForSyncSlot(ctx, mig); err != nil {
-		return "", "", err
-	} else if waiting {
-		return vmopcondition.ReasonWaitingForSyncSlot, messageWaitingForSyncSlot, nil
-	}
-
 	reason := vmopcondition.ReasonSyncing
 	message := messageSyncingSourceAndTarget
 
@@ -645,6 +639,15 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	}
 	if diskErrMsg, hasDiskErr := h.getTargetPodDiskError(ctx, pod); hasDiskErr {
 		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
+	}
+
+	// Surface the sync-slot wait only after ruling out a broken target: the target
+	// is fully prepared and parked while waiting, so an unschedulable pod or a disk
+	// error is the real blocker and must take priority over the wait message.
+	if waiting, err := h.isWaitingForSyncSlot(ctx, mig); err != nil {
+		return "", "", err
+	} else if waiting {
+		return vmopcondition.ReasonWaitingForSyncSlot, messageWaitingForSyncSlot, nil
 	}
 
 	if mig.Status.MigrationState != nil {
