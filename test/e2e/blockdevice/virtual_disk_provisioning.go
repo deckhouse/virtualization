@@ -44,10 +44,6 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vd-provisioning")
-		sc := framework.GetConfig().StorageClass.DefaultStorageClass
-		if sc != nil && sc.Provisioner == framework.NFS {
-			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
-		}
 
 		f.Before()
 		DeferCleanup(f.After)
