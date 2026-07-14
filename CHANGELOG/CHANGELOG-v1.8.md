@@ -25,6 +25,10 @@
 
 
  - **[core]** Fixed vulnerabilities:
+    - CVE-2026-39822
+    - CVE-2026-42505
+    - GO-2026-5932 [#2655](https://github.com/deckhouse/virtualization/pull/2655)
+ - **[core]** Fixed vulnerabilities:
     - CVE-2026-25680
     - CVE-2026-25681
     - CVE-2026-27136
@@ -62,3 +66,4 @@
  - **[core]** Fixed vulnerabilities CVE-2026-32280, CVE-2026-32281, CVE-2026-32282, CVE-2026-32283, CVE-2026-32288, CVE-2026-32289 [#2196](https://github.com/deckhouse/virtualization/pull/2196)
  - **[core]** Fixed vulnerabilities CVE-2026-34986. [#2188](https://github.com/deckhouse/virtualization/pull/2188)
  - **[core]** Fixed vulnerabilities CVE-2026-25679, CVE-2026-27142, CVE-2026-27139, CVE-2026-33186, CVE-2026-34040, CVE-2026-33997. [#2175](https://github.com/deckhouse/virtualization/pull/2175)
+
