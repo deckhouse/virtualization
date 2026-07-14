@@ -643,11 +643,11 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
 		})
 
-		It("should recompute features when available nodes change, not reuse cached status", func() {
-			// Regression test: previously the handler cached
-			// Status.CpuFeatures.Enabled forever, so when a node with a rare
-			// CPU feature disappeared from availableNodes, the class kept
-			// advertising that feature and VMs refused to schedule.
+		It("should keep discovered features pinned when node composition changes", func() {
+			// The discovered feature set is the CPU model of already running
+			// VMs: once discovered it must never change. Node composition
+			// changes are reflected only in availableNodes, which is
+			// recomputed against the pinned model each reconcile.
 			nodeOld := newNodeWithLabels("node-old", map[string]string{
 				virtv1.CPUFeatureLabel + "vmx": "true",
 				virtv1.CPUFeatureLabel + "avx": "true",
@@ -661,7 +661,7 @@ var _ = Describe("DiscoveryHandler", func() {
 			handlerOld := newVirtHandlerPod("node-old")
 			handlerNew := newVirtHandlerPod("node-new")
 
-			vmc := newVMClass("test-cache-staleness", v1alpha2.CPUTypeDiscovery, nil, nil)
+			vmc := newVMClass("test-pinned-model", v1alpha2.CPUTypeDiscovery, nil, nil)
 			vmcState, resource := setupDiscoveryEnvironment(vmc,
 				nodeOld, nodeNew,
 				handlerOld, handlerNew)
@@ -684,10 +684,10 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-old", "node-new"))
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
 
-			// Simulate node-old disappearing (e.g. drained, deleted) by
-			// re-running discovery with only node-new in availableNodes. The
-			// next reconcile must drop hle/rtm from Enabled without manual
-			// intervention on the class status.
+			// Simulate node-old disappearing (e.g. drained, deleted). The
+			// class carries the previously discovered status, as it would
+			// after the status update was persisted.
+			vmc.Status.CpuFeatures.Enabled = changed.Status.CpuFeatures.Enabled
 			vmcState, resource = setupDiscoveryEnvironment(vmc,
 				nodeNew,
 				handlerNew)
@@ -698,8 +698,46 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			changed = resource.Changed()
+			// The model is pinned: fma from node-new must not be added.
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
+			// node-new exposes every pinned feature, so it stays schedulable.
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-new"))
-			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "fma"))
+		})
+
+		It("should report empty availableNodes when no node exposes the pinned features", func() {
+			// After the pool that produced the model is gone, a node lacking a
+			// pinned feature must not become schedulable, and the class must
+			// honestly report an empty availableNodes instead of weakening the
+			// model.
+			nodeNew := newNodeWithLabels("node-new", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+			handlerNew := newVirtHandlerPod("node-new")
+
+			vmc := newVMClass("test-pinned-unschedulable", v1alpha2.CPUTypeDiscovery, nil, nil)
+			vmc.Status.CpuFeatures.Enabled = []string{"vmx", "avx"}
+			vmcState, resource := setupDiscoveryEnvironment(vmc, nodeNew, handlerNew)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
+			Expect(changed.Status.AvailableNodes).To(BeEmpty())
+
+			// The model exists and is in use — Discovered stays True even
+			// though nothing is currently schedulable.
+			cond := conditions.FindStatusCondition(changed.Status.Conditions, vmclasscondition.TypeDiscovered.String())
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 		})
 
 		It("should mark Discovered=False when available nodes have no common CPU features", func() {

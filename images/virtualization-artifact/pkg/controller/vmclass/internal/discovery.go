@@ -79,14 +79,20 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	var discoveryPool []corev1.Node
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
-		// Discover features from the discovery nodeSelector pool, then restrict
-		// schedulable nodes to those that expose every discovered feature so
-		// VMs can only land on nodes compatible with the universal CPU model.
-		discoveryPool, err = s.DiscoveryNodes(ctx)
-		if err != nil {
-			return reconcile.Result{}, err
+		// The discovered feature set is the CPU model of already running VMs:
+		// once discovered it is pinned forever, so node composition changes
+		// never mutate the model under running VMs. Only availableNodes is
+		// recomputed each reconcile: schedulable nodes are restricted to those
+		// that expose every pinned feature.
+		if fs := current.Status.CpuFeatures.Enabled; len(fs) > 0 {
+			featuresEnabled = fs
+		} else {
+			discoveryPool, err = s.DiscoveryNodes(ctx)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			featuresEnabled = h.discoveryCommonFeatures(discoveryPool)
 		}
-		featuresEnabled = h.discoveryCommonFeatures(discoveryPool)
 		availableNodes = h.nodesWithAllFeatures(availableNodes, featuresEnabled)
 	case v1alpha2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
@@ -114,14 +120,16 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case v1alpha2.CPUTypeDiscovery:
+		// A pinned model keeps Discovered=True even if the discovery pool is
+		// currently empty: the model exists and is in use.
+		if len(featuresEnabled) > 0 {
+			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
+			break
+		}
 		if len(discoveryPool) == 0 {
 			cb.Message("No nodes match the discovery nodeSelector; skipping feature discovery.").
 				Reason(vmclasscondition.ReasonDiscoveryFailed).
 				Status(metav1.ConditionFalse)
-			break
-		}
-		if len(featuresEnabled) > 0 {
-			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 			break
 		}
 		cb.Message("No common CPU features are discovered across discovery nodes.").
