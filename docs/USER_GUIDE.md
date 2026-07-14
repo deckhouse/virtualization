@@ -1421,6 +1421,10 @@ spec:
 For most modern Linux distributions, it is recommended to use `bootloader: EFI`. For Windows, `bootloader: EFI` or `bootloader: EFIWithSecureBoot` is usually required.
 {{< /alert >}}
 
+{{< alert level="warning" >}}
+`EFIWithSecureBoot` keeps its Secure Boot state in a persistent volume, so the cluster must have a default StorageClass. Without one, the virtual machine stays in `Pending` (the `Running` condition reports `no default storage class found`) until a default StorageClass is set.
+{{< /alert >}}
+
 The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices to the VM. Changing the parameter value takes effect only after the VM is restarted.
 
 - `true` (default): The `virtio` bus is used for disks, network interfaces, and other devices, which provides better performance. You can change `.spec.blockDeviceRefs` on a running VM without rebooting by adding and removing devices if the disk is available on the node where the VM runs.
