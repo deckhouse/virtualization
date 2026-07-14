@@ -57,12 +57,12 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-const vdCreationBlankSize = "64Mi"
+const vdCreationBlankSize = "52Mi"
 
 // vdCreationImageSize is the size for image-backed disks in this test. The custom
 // e2e-br image is ~35 MiB and grows its root filesystem to the disk on first boot,
 // so a small disk is enough — 400Mi is no longer needed.
-const vdCreationImageSize = "50Mi"
+const vdCreationImageSize = "52Mi"
 
 // TODO: LINSTOR thin pool lock contention can stall all storage writes on a node
 // for over a minute without surfacing any error. That makes time-based progress

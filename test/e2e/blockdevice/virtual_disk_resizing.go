@@ -182,8 +182,10 @@ func increaseDiskSize(ctx context.Context, f *framework.Framework, vd *v1alpha2.
 	if vd.Spec.PersistentVolumeClaim.Size == nil {
 		return resource.Quantity{}, fmt.Errorf("virtual disk %s/%s must have PVC size in spec", vd.Namespace, vd.Name)
 	}
+	// Double the current size: a relative growth works from any base and keeps
+	// the target proportional to the disk instead of hardcoding an increment.
 	size := *vd.Spec.PersistentVolumeClaim.Size
-	size.Add(resource.MustParse("100Mi"))
+	size.Add(size)
 	vd.Spec.PersistentVolumeClaim.Size = ptr.To(size)
 
 	err = f.GenericClient().Update(ctx, vd)
