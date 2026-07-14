@@ -135,10 +135,6 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 					v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: vdData.Name},
 				),
 				vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnUnlessStoppedManually),
-				// The custom e2e-br image has no cloud-init and this test only needs a
-				// live guest agent (data is written/verified over SSH as root), so
-				// provision nothing instead of the Ubuntu cloud-init.
-				vmbuilder.WithProvisioning(nil),
 			)
 
 			err := f.CreateWithDeferredDeletion(ctx, vm)
