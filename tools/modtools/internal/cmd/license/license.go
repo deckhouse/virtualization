@@ -156,21 +156,17 @@ func detectLicense(content []byte) licenseKind {
 	}
 }
 
-type nonCEFile struct {
-	path string
-	kind licenseKind
-}
-
 // result accumulates the outcome of a walk so it can be summarized instead of
-// printing one noisy line per file.
+// printing one line per file. Only the actionable failures (missing headers in
+// check mode, read/write errors) keep their paths; everything else is a count.
 type result struct {
 	scanned     int
 	ce          int
-	nonCE       []nonCEFile // files carrying a non-CE header (the "which license is where")
-	added       []string    // add mode: license inserted
-	missing     []string    // check mode: no header at all
-	unsupported []string    // add mode: unknown comment style, cannot insert
-	failed      []string    // read/write errors ("path: reason")
+	nonCE       int      // files carrying a non-CE / foreign header
+	added       int      // add mode: license inserted
+	unsupported int      // no header and unknown comment style (cannot classify)
+	missing     []string // check mode: known source file with no header (the failures)
+	failed      []string // read/write errors ("path: reason")
 }
 
 // walk visits dir, categorizing every candidate file. When add is true it
@@ -246,12 +242,12 @@ func (r *result) process(filePath string, mode os.FileMode, add bool) {
 		return
 	}
 
-	switch kind := detectLicense(content); kind {
+	switch detectLicense(content) {
 	case kindCE:
 		r.ce++
 		return
 	case kindAutogen, kindFlant, kindOther:
-		r.nonCE = append(r.nonCE, nonCEFile{filePath, kind})
+		r.nonCE++
 		return
 	}
 
@@ -260,7 +256,7 @@ func (r *result) process(filePath string, mode os.FileMode, add bool) {
 	if licenseFileText == "" {
 		// Unknown comment style (e.g. an extension-less data file): we can
 		// neither insert a header nor confidently call it a missing license.
-		r.unsupported = append(r.unsupported, filePath)
+		r.unsupported++
 		return
 	}
 	if !add {
@@ -271,7 +267,7 @@ func (r *result) process(filePath string, mode os.FileMode, add bool) {
 		r.failed = append(r.failed, fmt.Sprintf("%s: write: %v", filePath, err))
 		return
 	}
-	r.added = append(r.added, filePath)
+	r.added++
 }
 
 // writeWithLicense prepends licenseText to content, keeping a shebang first, and
@@ -312,32 +308,24 @@ func (r *result) print(add bool) {
 		}
 	}
 
-	if add {
-		printList("Added license", r.added)
-	} else {
+	// Only the actionable failures keep their paths; everything else is a count
+	// in the summary below.
+	if !add {
 		printList("Missing license", r.missing)
 	}
-	printList("No license, unknown file type (add manually if needed)", r.unsupported)
 	printList("Errors", r.failed)
 
-	if len(r.nonCE) > 0 {
-		fmt.Printf("\nNon-CE license headers (%d):\n", len(r.nonCE))
-		for _, f := range r.nonCE {
-			fmt.Printf("  * %s (%s)\n", f.path, f.kind)
-		}
-	}
-
 	fmt.Printf("\nSummary: %d files scanned, %d with CE license", r.scanned, r.ce)
-	if len(r.nonCE) > 0 {
-		fmt.Printf(", %d with a non-CE license", len(r.nonCE))
+	if r.nonCE > 0 {
+		fmt.Printf(", %d with a non-CE license", r.nonCE)
 	}
 	if add {
-		fmt.Printf(", %d added", len(r.added))
+		fmt.Printf(", %d added", r.added)
 	} else {
 		fmt.Printf(", %d missing", len(r.missing))
 	}
-	if len(r.unsupported) > 0 {
-		fmt.Printf(", %d unclassified", len(r.unsupported))
+	if r.unsupported > 0 {
+		fmt.Printf(", %d unclassified", r.unsupported)
 	}
 	if len(r.failed) > 0 {
 		fmt.Printf(", %d errors", len(r.failed))
