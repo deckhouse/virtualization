@@ -35,9 +35,13 @@ const (
 	sdnModuleName         = "sdn"
 	sdnModuleCheckEnvName = "SDN_MODULE_PRECHECK"
 
-	// Required VLAN IDs for e2e tests
-	additionalInterfaceVLANID       = 4006
-	secondAdditionalInterfaceVLANID = 4007
+	// Required VLAN IDs for e2e tests.
+	// WithIPPoolNetworkVLANID is a ClusterNetwork with an IPAM pool bound
+	// (e2e-ipam-pool, 192.168.200.0/24), used by IPAM tests.
+	WithIPPoolNetworkVLANID = 4006
+	// L2OnlyNetworkVLANID is a ClusterNetwork without an IPAM pool, used by
+	// additional-network tests that configure IPs manually inside the guest OS.
+	L2OnlyNetworkVLANID = 4007
 
 	// e2eIPAMPoolName is the name of the ClusterIPAddressPool used for IPAM e2e tests.
 	e2eIPAMPoolName = "e2e-ipam-pool"
@@ -142,7 +146,7 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	}
 
 	// Check required ClusterNetworks for e2e tests
-	for _, vlanID := range []int{additionalInterfaceVLANID, secondAdditionalInterfaceVLANID} {
+	for _, vlanID := range []int{WithIPPoolNetworkVLANID, L2OnlyNetworkVLANID} {
 		if !IsClusterNetworkExists(ctx, f, vlanID) {
 			return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q does not exist. Create it first: %s",
 				sdnModuleCheckEnvName, ClusterNetworkName(vlanID), ClusterNetworkCreateCommand(vlanID))
@@ -150,14 +154,14 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	}
 
 	// Check that cn-4006 has IPAM pool configured (required for IPAM e2e tests).
-	hasPool, err := isIPAMPoolConfiguredOnClusterNetwork(ctx, f, ClusterNetworkName(additionalInterfaceVLANID))
+	hasPool, err := isIPAMPoolConfiguredOnClusterNetwork(ctx, f, ClusterNetworkName(WithIPPoolNetworkVLANID))
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: failed to check IPAM pool on ClusterNetwork %q: %w",
-			sdnModuleCheckEnvName, ClusterNetworkName(additionalInterfaceVLANID), err)
+			sdnModuleCheckEnvName, ClusterNetworkName(WithIPPoolNetworkVLANID), err)
 	}
 	if !hasPool {
 		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q has no IPAM pool configured. Create the pool and bind it: %s",
-			sdnModuleCheckEnvName, ClusterNetworkName(additionalInterfaceVLANID),
+			sdnModuleCheckEnvName, ClusterNetworkName(WithIPPoolNetworkVLANID),
 			fmt.Sprintf(clusterIPAddressPoolCreateCommand, e2eIPAMPoolName))
 	}
 

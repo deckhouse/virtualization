@@ -93,28 +93,28 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	}
 
 	var pending, desired []string
-	for _, ns := range vm.Spec.Networks {
-		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, ns)
+	for _, netSpec := range vm.Spec.Networks {
+		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, netSpec)
 		if err != nil {
 			return err
 		}
 		if !ready {
-			pending = append(pending, network.SpecKey(ns))
+			pending = append(pending, network.SpecKey(netSpec))
 			continue
 		}
-		if ns.Type == v1alpha2.NetworksTypeMain {
+		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 		// Only expect SDN status for interfaces that will actually be included
 		// in networks-spec. Skipped interfaces (no pool + ipAddressName, or
 		// IPAddress not yet allocated/exists) are not provisioned by SDN, so
 		// waiting for their status would produce a misleading message.
-		willProvision, err := network.WillProvisionInterface(ctx, s.Client(), vm.Namespace, vm, ns)
+		willProvision, err := network.WillProvisionInterface(ctx, s.Client(), vm.Namespace, vm, netSpec)
 		if err != nil {
 			return err
 		}
 		if willProvision {
-			desired = append(desired, ns.Name)
+			desired = append(desired, netSpec.Name)
 		}
 	}
 	if len(pending) > 0 {
@@ -167,42 +167,42 @@ func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {
 //     (Pending / NoFreeIPAddress — pool exhausted).
 func collectIPAMErrors(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, networks []v1alpha2.NetworksSpec) []string {
 	var errs []string
-	for _, ns := range networks {
-		if ns.Type == v1alpha2.NetworksTypeMain {
+	for _, netSpec := range networks {
+		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
-		hasPool, err := network.HasIPAM(ctx, c, namespace, ns)
+		hasPool, err := network.HasIPAM(ctx, c, namespace, netSpec)
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s: failed to check IPAM configuration: %v", network.SpecKey(ns), err))
+			errs = append(errs, fmt.Sprintf("%s: failed to check IPAM configuration: %v", network.SpecKey(netSpec), err))
 			continue
 		}
 		if !hasPool {
 			// No pool: if user set ipAddressName, it's a config error; otherwise L2-only is fine.
-			if ns.IPAddressName != "" {
+			if netSpec.IPAddressName != "" {
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q is set but the network has no IPAM pool configured; the IPAddress cannot be applied",
-					network.SpecKey(ns), ns.IPAddressName))
+					network.SpecKey(netSpec), netSpec.IPAddressName))
 			}
 			continue
 		}
 
 		// Pool exists: validate the IPAddress (static or auto).
-		if ns.IPAddressName != "" {
+		if netSpec.IPAddressName != "" {
 			// Static mode: check the user-provided IPAddress exists, matches the network, and is allocated.
-			exists, err := network.SDNIPAddressExists(ctx, c, namespace, ns.IPAddressName, ns.Type, ns.Name)
+			exists, err := network.SDNIPAddressExists(ctx, c, namespace, netSpec.IPAddressName, netSpec.Type, netSpec.Name)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q: %v", network.SpecKey(ns), ns.IPAddressName, err))
+				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
 				continue
 			}
 			if !exists {
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q does not exist or is not bound to this network; the interface is skipped",
-					network.SpecKey(ns), ns.IPAddressName))
+					network.SpecKey(netSpec), netSpec.IPAddressName))
 				continue
 			}
-			status, err := network.GetSDNIPAddressStatus(ctx, c, namespace, ns.IPAddressName)
+			status, err := network.GetSDNIPAddressStatus(ctx, c, namespace, netSpec.IPAddressName)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(ns), ns.IPAddressName, err))
+				errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
 				continue
 			}
 			if status == nil || !status.Allocated {
@@ -210,35 +210,35 @@ func collectIPAMErrors(ctx context.Context, c client.Client, namespace string, v
 				phase := ipStatusPhase(status)
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q is in phase %s (%s); the interface is skipped",
-					network.SpecKey(ns), ns.IPAddressName, phase, reason))
+					network.SpecKey(netSpec), netSpec.IPAddressName, phase, reason))
 				continue
 			}
-			conflictVM, err := network.IsIPAddressNameUsedByAnotherVM(ctx, c, vm, ns.IPAddressName, ns)
+			conflictVM, err := network.IsIPAddressNameUsedByAnotherVM(ctx, c, vm, netSpec.IPAddressName, netSpec)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q conflict: %v", network.SpecKey(ns), ns.IPAddressName, err))
+				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q conflict: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
 				continue
 			}
 			if conflictVM != "" {
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q is already used by VM %q; the interface is skipped",
-					network.SpecKey(ns), ns.IPAddressName, conflictVM))
+					network.SpecKey(netSpec), netSpec.IPAddressName, conflictVM))
 			}
 			continue
 		}
 
 		// Auto mode: check the controller-created IPAddress is allocated.
-		name, err := network.FindSDNIPAddress(ctx, c, vm, ns)
+		name, err := network.FindSDNIPAddress(ctx, c, vm, netSpec)
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s: failed to find auto IPAddress: %v", network.SpecKey(ns), err))
+			errs = append(errs, fmt.Sprintf("%s: failed to find auto IPAddress: %v", network.SpecKey(netSpec), err))
 			continue
 		}
 		if name == "" {
-			errs = append(errs, fmt.Sprintf("%s: auto IPAddress is not yet created; waiting for the controller", network.SpecKey(ns)))
+			errs = append(errs, fmt.Sprintf("%s: auto IPAddress is not yet created; waiting for the controller", network.SpecKey(netSpec)))
 			continue
 		}
 		status, err := network.GetSDNIPAddressStatus(ctx, c, namespace, name)
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(ns), name, err))
+			errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(netSpec), name, err))
 			continue
 		}
 		if status == nil || !status.Allocated {
@@ -246,7 +246,7 @@ func collectIPAMErrors(ctx context.Context, c client.Client, namespace string, v
 			phase := ipStatusPhase(status)
 			errs = append(errs, fmt.Sprintf(
 				"%s: auto IPAddress %q is in phase %s (%s); the interface is skipped",
-				network.SpecKey(ns), name, phase, reason))
+				network.SpecKey(netSpec), name, phase, reason))
 		}
 	}
 	return errs
@@ -349,8 +349,8 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		if prev.Type == v1alpha2.NetworksTypeMain || prev.MAC == "" {
 			continue
 		}
-		if slices.ContainsFunc(networksStatus, func(ns v1alpha2.NetworksStatus) bool {
-			return ns.Type == prev.Type && ns.Name == prev.Name
+		if slices.ContainsFunc(networksStatus, func(networkStatus v1alpha2.NetworksStatus) bool {
+			return networkStatus.Type == prev.Type && networkStatus.Name == prev.Name
 		}) {
 			continue
 		}

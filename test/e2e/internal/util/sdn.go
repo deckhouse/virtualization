@@ -113,25 +113,16 @@ func CreateSDNIPAddress(ctx context.Context, f *framework.Framework, name, names
 	return nil
 }
 
-// GetSDNIPAddress returns the SDN IPAddress resource by name in the given namespace.
-// Returns nil (without error) if not found.
-func GetSDNIPAddress(ctx context.Context, f *framework.Framework, name, namespace string) (*unstructured.Unstructured, error) {
+// GetSDNAllocatedAddress returns the allocated address from the SDN IPAddress
+// status. Returns empty string if the resource does not exist or the address
+// is not yet allocated.
+func GetSDNAllocatedAddress(ctx context.Context, f *framework.Framework, name, namespace string) (string, error) {
 	obj, err := framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, nil
+			return "", nil
 		}
-		return nil, fmt.Errorf("get SDN IPAddress %s: %w", name, err)
-	}
-	return obj, nil
-}
-
-// GetSDNIPAddressAddress returns the allocated address from the SDN IPAddress status.
-// Returns empty string if the address is not yet allocated.
-func GetSDNIPAddressAddress(ctx context.Context, f *framework.Framework, name, namespace string) (string, error) {
-	obj, err := GetSDNIPAddress(ctx, f, name, namespace)
-	if err != nil || obj == nil {
-		return "", err
+		return "", fmt.Errorf("get SDN IPAddress %s: %w", name, err)
 	}
 	addr, _, _ := unstructured.NestedString(obj.Object, "status", "address")
 	return addr, nil

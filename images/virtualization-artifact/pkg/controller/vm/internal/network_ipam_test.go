@@ -27,6 +27,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -82,7 +83,7 @@ func newSDNIPAddressUnstructured(name, namespace, vmUID, networkKind, networkNam
 	u.SetName(name)
 	u.SetNamespace(namespace)
 	if vmUID != "" {
-		u.SetLabels(map[string]string{"virtualization.deckhouse.io/virtual-machine-uid": vmUID})
+		u.SetLabels(map[string]string{annotations.LabelVirtualMachineUID: vmUID})
 	}
 	Expect(unstructured.SetNestedField(u.Object, map[string]any{"kind": networkKind, "name": networkName}, "spec", "networkRef")).To(Succeed())
 	Expect(unstructured.SetNestedField(u.Object, "Auto", "spec", "type")).To(Succeed())
@@ -295,7 +296,7 @@ var _ = Describe("NetworkInterfaceHandler IPAM integration", func() {
 		}
 		mac1 = &v1alpha2.VirtualMachineMACAddress{
 			TypeMeta:   metav1.TypeMeta{Kind: "VirtualMachineMACAddress", APIVersion: "virtualization.deckhouse.io/v1alpha2"},
-			ObjectMeta: metav1.ObjectMeta{Name: "mac1", Namespace: namespace, Labels: map[string]string{"virtualization.deckhouse.io/virtual-machine-uid": string(vm.UID)}},
+			ObjectMeta: metav1.ObjectMeta{Name: "mac1", Namespace: namespace, Labels: map[string]string{annotations.LabelVirtualMachineUID: string(vm.UID)}},
 			Status:     v1alpha2.VirtualMachineMACAddressStatus{Address: "aa:bb:cc:dd:ee:ff", Phase: v1alpha2.VirtualMachineMACAddressPhaseAttached, VirtualMachine: name},
 		}
 	})

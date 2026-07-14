@@ -35,29 +35,16 @@ var (
 	ClusterNetworkGVK = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "ClusterNetwork"}
 )
 
-func SpecKey(ns v1alpha2.NetworksSpec) string {
-	return fmt.Sprintf("%s/%s", ns.Type, ns.Name)
+func SpecKey(netSpec v1alpha2.NetworksSpec) string {
+	return fmt.Sprintf("%s/%s", netSpec.Type, netSpec.Name)
 }
 
-func IsNetworkSpecReady(ctx context.Context, c client.Client, namespace string, ns v1alpha2.NetworksSpec) (bool, error) {
-	if ns.Type == v1alpha2.NetworksTypeMain {
+func IsNetworkSpecReady(ctx context.Context, c client.Client, namespace string, netSpec v1alpha2.NetworksSpec) (bool, error) {
+	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return true, nil
 	}
-	obj := &unstructured.Unstructured{}
-	key := types.NamespacedName{Name: ns.Name}
-	switch ns.Type {
-	case v1alpha2.NetworksTypeClusterNetwork:
-		obj.SetGroupVersionKind(ClusterNetworkGVK)
-	case v1alpha2.NetworksTypeNetwork:
-		obj.SetGroupVersionKind(NetworkGVK)
-		key.Namespace = namespace
-	default:
-		return false, nil
-	}
-	if err := c.Get(ctx, key, obj); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return false, nil
-		}
+	obj, found, err := getNetworkObject(ctx, c, namespace, netSpec)
+	if err != nil || !found {
 		return false, err
 	}
 	return isReadyTrue(obj)
@@ -95,28 +82,39 @@ func isReadyTrue(obj *unstructured.Unstructured) (bool, error) {
 // HasIPAM reports whether the referenced additional network has IPAM configured,
 // i.e. a pool bound to it via spec.ipam.ipAddressPoolRef.
 // Returns false for the Main network (no IPAM via SDN).
-func HasIPAM(ctx context.Context, c client.Client, namespace string, ns v1alpha2.NetworksSpec) (bool, error) {
-	if ns.Type == v1alpha2.NetworksTypeMain {
+func HasIPAM(ctx context.Context, c client.Client, namespace string, netSpec v1alpha2.NetworksSpec) (bool, error) {
+	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return false, nil
 	}
+	obj, found, err := getNetworkObject(ctx, c, namespace, netSpec)
+	if err != nil || !found {
+		return false, err
+	}
+	return hasIPAddressPoolRef(obj)
+}
+
+// getNetworkObject fetches the referenced additional Network/ClusterNetwork as an
+// unstructured object. It returns (nil, false, nil) for unknown network types or
+// when the network does not exist. The Main network is handled by the caller.
+func getNetworkObject(ctx context.Context, c client.Client, namespace string, netSpec v1alpha2.NetworksSpec) (*unstructured.Unstructured, bool, error) {
 	obj := &unstructured.Unstructured{}
-	key := types.NamespacedName{Name: ns.Name}
-	switch ns.Type {
+	key := types.NamespacedName{Name: netSpec.Name}
+	switch netSpec.Type {
 	case v1alpha2.NetworksTypeClusterNetwork:
 		obj.SetGroupVersionKind(ClusterNetworkGVK)
 	case v1alpha2.NetworksTypeNetwork:
 		obj.SetGroupVersionKind(NetworkGVK)
 		key.Namespace = namespace
 	default:
-		return false, nil
+		return nil, false, nil
 	}
 	if err := c.Get(ctx, key, obj); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return false, nil
+			return nil, false, nil
 		}
-		return false, err
+		return nil, false, fmt.Errorf("get %s %s: %w", obj.GetKind(), netSpec.Name, err)
 	}
-	return hasIPAddressPoolRef(obj)
+	return obj, true, nil
 }
 
 // hasIPAddressPoolRef reports whether the network object has spec.ipam.ipAddressPoolRef set.

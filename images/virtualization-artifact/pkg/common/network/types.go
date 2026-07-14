@@ -45,38 +45,38 @@ const IPAssignmentModeDHCP = "DHCP"
 //
 // Used by NetworkInterfaceHandler to avoid waiting for SDN status on skipped
 // interfaces (which would produce a misleading "waiting for SDN" message).
-func WillProvisionInterface(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, ns v1alpha2.NetworksSpec) (bool, error) {
-	if ns.Type == v1alpha2.NetworksTypeMain {
+func WillProvisionInterface(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, netSpec v1alpha2.NetworksSpec) (bool, error) {
+	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return false, nil
 	}
-	hasPool, err := HasIPAM(ctx, c, namespace, ns)
+	hasPool, err := HasIPAM(ctx, c, namespace, netSpec)
 	if err != nil {
 		return false, err
 	}
 	if !hasPool {
 		// No pool: L2-only is provisioned unless ipAddressName is set (config error).
-		return ns.IPAddressName == "", nil
+		return netSpec.IPAddressName == "", nil
 	}
 	// Pool exists.
-	if ns.IPAddressName != "" {
+	if netSpec.IPAddressName != "" {
 		// Static: provisioned only if the IPAddress exists, matches the network,
 		// is allocated, and not used by another VM.
-		exists, err := SDNIPAddressExists(ctx, c, namespace, ns.IPAddressName, ns.Type, ns.Name)
+		exists, err := SDNIPAddressExists(ctx, c, namespace, netSpec.IPAddressName, netSpec.Type, netSpec.Name)
 		if err != nil || !exists {
 			return false, err
 		}
-		status, err := GetSDNIPAddressStatus(ctx, c, namespace, ns.IPAddressName)
+		status, err := GetSDNIPAddressStatus(ctx, c, namespace, netSpec.IPAddressName)
 		if err != nil || status == nil || !status.Allocated {
 			return false, err
 		}
-		conflictVM, err := IsIPAddressNameUsedByAnotherVM(ctx, c, vm, ns.IPAddressName, ns)
+		conflictVM, err := IsIPAddressNameUsedByAnotherVM(ctx, c, vm, netSpec.IPAddressName, netSpec)
 		if err != nil || conflictVM != "" {
 			return false, err
 		}
 		return true, nil
 	}
 	// Auto: provisioned only if the IPAddress exists and is allocated.
-	name, err := FindSDNIPAddress(ctx, c, vm, ns)
+	name, err := FindSDNIPAddress(ctx, c, vm, netSpec)
 	if err != nil || name == "" {
 		return false, err
 	}

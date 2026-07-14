@@ -47,6 +47,13 @@ import (
 const (
 	ipamNetworkName   = "cn-4006-for-e2e-test"
 	noPoolNetworkName = "cn-4007-for-e2e-test"
+
+	// Static IP addresses used across the IPAM e2e tests (from the e2e-ipam-pool
+	// 192.168.200.0/24 bound to cn-4006).
+	staticIPForStatic        = "192.168.200.50"
+	staticIPForWatcher       = "192.168.200.51"
+	staticIPForHotplugStatic = "192.168.200.52"
+	staticIPForHotplugAuto   = "192.168.200.99"
 )
 
 var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.PrecheckSDN), func() {
@@ -124,13 +131,13 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 			By("Create IPAddress (Static) and VM referencing it", func() {
 				ns := f.Namespace().Name
 				Expect(util.CreateSDNIPAddress(ctx, f, "my-static-ip", ns,
-					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, "192.168.200.50")).To(Succeed())
+					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, staticIPForStatic)).To(Succeed())
 
 				// Wait for the IPAddress to be allocated.
 				Eventually(func(g Gomega) {
-					addr, err := util.GetSDNIPAddressAddress(ctx, f, "my-static-ip", ns)
+					addr, err := util.GetSDNAllocatedAddress(ctx, f, "my-static-ip", ns)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(addr).To(Equal("192.168.200.50"))
+					g.Expect(addr).To(Equal(staticIPForStatic))
 				}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
 
 				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
@@ -148,7 +155,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 
 			By("Verify status.networks has the static IP", func() {
 				updated := refreshVM(ctx, f, testVM)
-				Expect(getVMNetworkIPAddress(updated)).To(Equal("192.168.200.50"))
+				Expect(getVMNetworkIPAddress(updated)).To(Equal(staticIPForStatic))
 			})
 
 			By("Verify IP is present in guest OS", func() {
@@ -156,7 +163,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 				Eventually(func(g Gomega) {
 					output, err := f.SSHCommand(testVM.Name, testVM.Namespace, "ip -br -4 addr show eth1")
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(output).To(ContainSubstring("192.168.200.50"))
+					g.Expect(output).To(ContainSubstring(staticIPForStatic))
 				}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
 			})
 
@@ -168,7 +175,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 				util.UntilConditionStatus(ctx, vmcondition.TypeNetworkReady.String(), "True", framework.LongTimeout, testVM)
 
 				updated := refreshVM(ctx, f, testVM)
-				Expect(getVMNetworkIPAddress(updated)).To(Equal("192.168.200.50"))
+				Expect(getVMNetworkIPAddress(updated)).To(Equal(staticIPForStatic))
 			})
 		})
 	})
@@ -259,7 +266,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 
 			By("Create the IPAddress (Static) — watcher should trigger reconciliation", func() {
 				Expect(util.CreateSDNIPAddress(ctx, f, "watcher-ip", f.Namespace().Name,
-					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, "192.168.200.51")).To(Succeed())
+					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, staticIPForWatcher)).To(Succeed())
 			})
 
 			By("Verify NetworkReady=True and cn-4006 is now provisioned (via watcher, no restart)", func() {
@@ -269,7 +276,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 					updated := refreshVM(ctx, f, testVM)
 					cond, _ := conditions.GetCondition(vmcondition.TypeNetworkReady, updated.Status.Conditions)
 					g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-					g.Expect(getVMNetworkIPAddress(updated)).To(Equal("192.168.200.51"))
+					g.Expect(getVMNetworkIPAddress(updated)).To(Equal(staticIPForWatcher))
 				}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
 
 				By("Verify pod was not recreated (hotplug via watcher)")
@@ -295,13 +302,13 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 			By("Create IPAddress (Static) and VM with static ipAddressName", func() {
 				ns := f.Namespace().Name
 				Expect(util.CreateSDNIPAddress(ctx, f, "hotplug-static", ns,
-					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, "192.168.200.52")).To(Succeed())
+					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, staticIPForHotplugStatic)).To(Succeed())
 
 				// Wait for the IPAddress to be allocated.
 				Eventually(func(g Gomega) {
-					addr, err := util.GetSDNIPAddressAddress(ctx, f, "hotplug-static", ns)
+					addr, err := util.GetSDNAllocatedAddress(ctx, f, "hotplug-static", ns)
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(addr).To(Equal("192.168.200.52"))
+					g.Expect(addr).To(Equal(staticIPForHotplugStatic))
 				}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
 
 				vdRoot = object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIAlpineUEFIPerf,
@@ -319,7 +326,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 
 			By("Verify static IP in status", func() {
 				updated := refreshVM(ctx, f, testVM)
-				Expect(getVMNetworkIPAddress(updated)).To(Equal("192.168.200.52"))
+				Expect(getVMNetworkIPAddress(updated)).To(Equal(staticIPForHotplugStatic))
 			})
 
 			By("Remove ipAddressName (switch to auto)", func() {
@@ -336,7 +343,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 					g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 					ip := getVMNetworkIPAddress(v)
 					g.Expect(ip).NotTo(BeEmpty())
-					g.Expect(ip).NotTo(Equal("192.168.200.52"), "should be a new auto IP, not the old static")
+					g.Expect(ip).NotTo(Equal(staticIPForHotplugStatic), "should be a new auto IP, not the old static")
 				}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
 
 				podUIDAfter := getVirtLauncherPodUID(ctx, f, testVM.Name, testVM.Namespace)
@@ -374,7 +381,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 				podUIDBefore := getVirtLauncherPodUID(ctx, f, testVM.Name, testVM.Namespace)
 
 				Expect(util.CreateSDNIPAddress(ctx, f, "hotplug-as-ip", f.Namespace().Name,
-					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, "192.168.200.99")).To(Succeed())
+					v1alpha2.NetworksTypeClusterNetwork, ipamNetworkName, staticIPForHotplugAuto)).To(Succeed())
 
 				patch := `[{"op":"add","path":"/spec/networks/1/ipAddressName","value":"hotplug-as-ip"}]`
 				Expect(f.Clients.GenericClient().Patch(ctx, testVM, crclient.RawPatch(types.JSONPatchType, []byte(patch)))).To(Succeed())
@@ -384,7 +391,7 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(precheck.Prech
 					v := refreshVM(ctx, f, testVM)
 					cond, _ := conditions.GetCondition(vmcondition.TypeNetworkReady, v.Status.Conditions)
 					g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-					g.Expect(getVMNetworkIPAddress(v)).To(Equal("192.168.200.99"))
+					g.Expect(getVMNetworkIPAddress(v)).To(Equal(staticIPForHotplugAuto))
 				}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
 
 				podUIDAfter := getVirtLauncherPodUID(ctx, f, testVM.Name, testVM.Namespace)

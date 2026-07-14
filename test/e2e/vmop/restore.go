@@ -67,7 +67,9 @@ const (
 	changedMemorySize         = "512Mi"
 	mountPoint                = "/mnt"
 	fileDataPath              = "/mnt/value"
-	additionalInterfaceVLANID = 4006
+	// WithIPPoolNetworkVLANID is the ClusterNetwork with an IPAM pool used for
+	// IPAM restore tests (auto allocation via DHCP).
+	WithIPPoolNetworkVLANID = 4006
 )
 
 var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.PrecheckSnapshot, precheck.PrecheckSDN), func() {
@@ -76,12 +78,6 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
-
-		if !util.IsSdnModuleEnabled(f) {
-			Skip("SDN module is not enabled")
-		}
-
-		Expect(util.IsClusterNetworkExists(f, additionalInterfaceVLANID)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand(additionalInterfaceVLANID)))
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(ctx, t.VM) {
@@ -347,7 +343,7 @@ runcmd:
 		}),
 		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
 			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName(additionalInterfaceVLANID),
+			Name: util.ClusterNetworkName(WithIPPoolNetworkVLANID),
 		}),
 	)
 
@@ -498,11 +494,11 @@ func (t *restoreModeTest) CheckIPAMAfterRestore(ctx context.Context, vm *v1alpha
 			// status.networks should have an ipAddress for cn-4006 (auto-IPAddress recreated).
 			var ip string
 			for _, n := range updated.Status.Networks {
-				if n.Name == util.ClusterNetworkName(additionalInterfaceVLANID) {
+				if n.Name == util.ClusterNetworkName(WithIPPoolNetworkVLANID) {
 					ip = n.IPAddress
 				}
 			}
-			g.Expect(ip).NotTo(BeEmpty(), "auto IPAddress should be recreated after restore, status.networks should have an IP for %s", util.ClusterNetworkName(additionalInterfaceVLANID))
+			g.Expect(ip).NotTo(BeEmpty(), "auto IPAddress should be recreated after restore, status.networks should have an IP for %s", util.ClusterNetworkName(WithIPPoolNetworkVLANID))
 		}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
 	})
 }
@@ -560,11 +556,11 @@ func (t *restoreModeTest) CheckAdditionalNetworkInterface(ctx context.Context, v
 
 	var ip string
 	for _, n := range updated.Status.Networks {
-		if n.Name == util.ClusterNetworkName(additionalInterfaceVLANID) {
+		if n.Name == util.ClusterNetworkName(WithIPPoolNetworkVLANID) {
 			ip = n.IPAddress
 		}
 	}
-	Expect(ip).NotTo(BeEmpty(), "auto IP should be allocated in status.networks for %s", util.ClusterNetworkName(additionalInterfaceVLANID))
+	Expect(ip).NotTo(BeEmpty(), "auto IP should be allocated in status.networks for %s", util.ClusterNetworkName(WithIPPoolNetworkVLANID))
 
 	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show")
 	Expect(err).NotTo(HaveOccurred())

@@ -60,13 +60,13 @@ const SDNIPAddressTypeAuto = "Auto"
 //
 // Returns the name of the IPAddress (existing or newly created) and an error.
 // Transient API errors are returned as-is for the caller to requeue.
-func EnsureSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ns v1alpha2.NetworksSpec) (string, error) {
-	if vm == nil || ns.Type == v1alpha2.NetworksTypeMain {
+func EnsureSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, netSpec v1alpha2.NetworksSpec) (string, error) {
+	if vm == nil || netSpec.Type == v1alpha2.NetworksTypeMain {
 		return "", nil
 	}
 
 	// Try to find an existing IPAddress owned by this VM for this network.
-	existing, err := FindSDNIPAddress(ctx, c, vm, ns)
+	existing, err := FindSDNIPAddress(ctx, c, vm, netSpec)
 	if err != nil {
 		return "", err
 	}
@@ -88,8 +88,8 @@ func EnsureSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 
 	// spec.networkRef
 	if err := unstructured.SetNestedField(obj.Object, map[string]any{
-		"kind": ns.Type,
-		"name": ns.Name,
+		"kind": netSpec.Type,
+		"name": netSpec.Name,
 	}, "spec", "networkRef"); err != nil {
 		return "", fmt.Errorf("set spec.networkRef: %w", err)
 	}
@@ -101,9 +101,9 @@ func EnsureSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 	if err := c.Create(ctx, obj); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			// Race: another controller instance created it. Re-find.
-			return FindSDNIPAddress(ctx, c, vm, ns)
+			return FindSDNIPAddress(ctx, c, vm, netSpec)
 		}
-		return "", fmt.Errorf("create SDN IPAddress for %s: %w", SpecKey(ns), err)
+		return "", fmt.Errorf("create SDN IPAddress for %s: %w", SpecKey(netSpec), err)
 	}
 	return obj.GetName(), nil
 }
@@ -112,8 +112,8 @@ func EnsureSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 // for the given additional network, or "" if not found. It lists IPAddress
 // resources in the VM namespace filtered by the VM UID label and matches by
 // spec.networkRef (kind+name).
-func FindSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ns v1alpha2.NetworksSpec) (string, error) {
-	if vm == nil || ns.Type == v1alpha2.NetworksTypeMain {
+func FindSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, netSpec v1alpha2.NetworksSpec) (string, error) {
+	if vm == nil || netSpec.Type == v1alpha2.NetworksTypeMain {
 		return "", nil
 	}
 
@@ -128,13 +128,13 @@ func FindSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtual
 		annotations.LabelVirtualMachineUID: string(vm.GetUID()),
 	}
 	if err := c.List(ctx, list, client.InNamespace(vm.Namespace), labelSelector); err != nil {
-		return "", fmt.Errorf("list SDN IPAddress for %s: %w", SpecKey(ns), err)
+		return "", fmt.Errorf("list SDN IPAddress for %s: %w", SpecKey(netSpec), err)
 	}
 
 	for _, item := range list.Items {
 		kind, _, _ := unstructured.NestedString(item.Object, "spec", "networkRef", "kind")
 		name, _, _ := unstructured.NestedString(item.Object, "spec", "networkRef", "name")
-		if kind == ns.Type && name == ns.Name {
+		if kind == netSpec.Type && name == netSpec.Name {
 			return item.GetName(), nil
 		}
 	}
@@ -143,8 +143,8 @@ func FindSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtual
 
 // DeleteSDNIPAddress deletes the SDN IPAddress owned by the given VM for the
 // given network (if any). Used when the network is removed from the VM spec.
-func DeleteSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ns v1alpha2.NetworksSpec) error {
-	if vm == nil || ns.Type == v1alpha2.NetworksTypeMain {
+func DeleteSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, netSpec v1alpha2.NetworksSpec) error {
+	if vm == nil || netSpec.Type == v1alpha2.NetworksTypeMain {
 		return nil
 	}
 
@@ -159,13 +159,13 @@ func DeleteSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 		annotations.LabelVirtualMachineUID: string(vm.GetUID()),
 	}
 	if err := c.List(ctx, list, client.InNamespace(vm.Namespace), labelSelector); err != nil {
-		return fmt.Errorf("list SDN IPAddress for deletion %s: %w", SpecKey(ns), err)
+		return fmt.Errorf("list SDN IPAddress for deletion %s: %w", SpecKey(netSpec), err)
 	}
 
 	for _, item := range list.Items {
 		kind, _, _ := unstructured.NestedString(item.Object, "spec", "networkRef", "kind")
 		name, _, _ := unstructured.NestedString(item.Object, "spec", "networkRef", "name")
-		if kind == ns.Type && name == ns.Name {
+		if kind == netSpec.Type && name == netSpec.Name {
 			if err := c.Delete(ctx, &item); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("delete SDN IPAddress %s: %w", item.GetName(), err)
 			}
@@ -298,7 +298,7 @@ func SDNIPAddressExists(ctx context.Context, c client.Client, namespace, name, n
 // static IPAddress simultaneously.
 //
 // Returns the name of the conflicting VM (if any) and nil error.
-func IsIPAddressNameUsedByAnotherVM(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ipAddressName string, ns v1alpha2.NetworksSpec) (string, error) {
+func IsIPAddressNameUsedByAnotherVM(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ipAddressName string, netSpec v1alpha2.NetworksSpec) (string, error) {
 	var vms v1alpha2.VirtualMachineList
 	if err := c.List(ctx, &vms, client.InNamespace(vm.Namespace)); err != nil {
 		return "", fmt.Errorf("list VMs in namespace %s: %w", vm.Namespace, err)
@@ -308,7 +308,7 @@ func IsIPAddressNameUsedByAnotherVM(ctx context.Context, c client.Client, vm *v1
 			continue
 		}
 		for _, net := range other.Spec.Networks {
-			if net.IPAddressName == ipAddressName && net.Type == ns.Type && net.Name == ns.Name {
+			if net.IPAddressName == ipAddressName && net.Type == netSpec.Type && net.Name == netSpec.Name {
 				return other.Name, nil
 			}
 		}

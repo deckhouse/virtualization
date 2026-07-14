@@ -70,33 +70,33 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	// Ensure auto-IPAddress for additional networks with a pool.
-	for _, ns := range vm.Spec.Networks {
-		if ns.Type == v1alpha2.NetworksTypeMain {
+	for _, netSpec := range vm.Spec.Networks {
+		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 		// Static mode: user manages the IPAddress, skip.
-		if ns.IPAddressName != "" {
+		if netSpec.IPAddressName != "" {
 			continue
 		}
 
 		// Only create an auto-IPAddress if the network has a pool (IPAM).
-		hasPool, err := commonnetwork.HasIPAM(ctx, h.client, vm.Namespace, ns)
+		hasPool, err := commonnetwork.HasIPAM(ctx, h.client, vm.Namespace, netSpec)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("check IPAM for %s: %w", commonnetwork.SpecKey(ns), err)
+			return reconcile.Result{}, fmt.Errorf("check IPAM for %s: %w", commonnetwork.SpecKey(netSpec), err)
 		}
 		if !hasPool {
 			continue
 		}
 
 		// Ensure the SDN IPAddress exists (idempotent: finds by label+networkRef).
-		name, err := commonnetwork.EnsureSDNIPAddress(ctx, h.client, vm, ns)
+		name, err := commonnetwork.EnsureSDNIPAddress(ctx, h.client, vm, netSpec)
 		if err != nil {
 			if apierrors.IsServerTimeout(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err) || apierrors.IsServiceUnavailable(err) {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{}, fmt.Errorf("ensure SDN IPAddress for %s: %w", commonnetwork.SpecKey(ns), err)
+			return reconcile.Result{}, fmt.Errorf("ensure SDN IPAddress for %s: %w", commonnetwork.SpecKey(netSpec), err)
 		}
-		log.Debug("Ensured SDN IPAddress for additional network", "network", commonnetwork.SpecKey(ns), "ipAddress", name)
+		log.Debug("Ensured SDN IPAddress for additional network", "network", commonnetwork.SpecKey(netSpec), "ipAddress", name)
 	}
 
 	// Garbage-collect auto-IPAddress for removed networks.
@@ -113,15 +113,15 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 func (h *IPAddressHandler) cleanupOrphanedIPAddresses(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
 	// Build a set of (type, name) for additional networks in spec (with pool, auto).
 	wanted := make(map[string]struct{})
-	for _, ns := range vm.Spec.Networks {
-		if ns.Type == v1alpha2.NetworksTypeMain {
+	for _, netSpec := range vm.Spec.Networks {
+		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 		// Static mode: user-owned, never GC.
-		if ns.IPAddressName != "" {
+		if netSpec.IPAddressName != "" {
 			continue
 		}
-		wanted[commonnetwork.SpecKey(ns)] = struct{}{}
+		wanted[commonnetwork.SpecKey(netSpec)] = struct{}{}
 	}
 
 	// List IPAddress owned by this VM (by label).
