@@ -224,9 +224,7 @@ var mapReasons = map[string]vmcondition.RunningReason{
 }
 
 func isPodStartedError(vm *virtv1.VirtualMachine) bool {
-	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), vm.Status.Conditions)
-	if synchronized != nil &&
-		synchronized.Status == corev1.ConditionFalse &&
+	if synchronized := synchronizedError(vm); synchronized != nil &&
 		(synchronized.Reason == failedCreatePodReason || synchronized.Reason == failedBackendStorageCreateReason) {
 		return true
 	}
@@ -252,6 +250,15 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 	}, phase)
 }
 
+// synchronizedError returns the internal instance Synchronized condition when it reports a failure.
+func synchronizedError(kvvm *virtv1.VirtualMachine) *virtv1.VirtualMachineCondition {
+	c := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
+	if c != nil && c.Status == corev1.ConditionFalse {
+		return c
+	}
+	return nil
+}
+
 var vmPrintableStatusMessages = map[virtv1.VirtualMachinePrintableStatus]string{
 	virtv1.VirtualMachineStatusErrImagePull:     "Cannot pull the image for one of the virtual machine's disks.",
 	virtv1.VirtualMachineStatusImagePullBackOff: "Cannot pull the image for one of the virtual machine's disks.",
@@ -264,17 +271,16 @@ var vmPrintableStatusMessages = map[virtv1.VirtualMachinePrintableStatus]string{
 
 // vmStartupMessage returns a user-facing reason why the virtual machine has not started.
 func vmStartupMessage(kvvm *virtv1.VirtualMachine) string {
-	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
-	if synchronized != nil && synchronized.Status == corev1.ConditionFalse {
-		switch synchronized.Reason {
-		case failedBackendStorageCreateReason:
-			if synchronized.Message != "" {
-				return fmt.Sprintf("Cannot provision storage for the virtual machine's Secure Boot state: %s.", strings.TrimRight(synchronized.Message, "."))
-			}
-			return "Cannot provision storage for the virtual machine's Secure Boot state."
-		case failedCreatePodReason:
-			return "Cannot start the virtual machine: creating its instance failed."
+	synchronized := synchronizedError(kvvm)
+	if synchronized != nil && synchronized.Reason == failedBackendStorageCreateReason {
+		msg := "Cannot provision storage for the virtual machine's Secure Boot state"
+		if synchronized.Message != "" {
+			msg = fmt.Sprintf("%s: %s", msg, strings.TrimRight(synchronized.Message, "."))
 		}
+		return msg + "."
+	}
+	if synchronized != nil && synchronized.Reason == failedCreatePodReason {
+		return "Cannot start the virtual machine: creating its instance failed."
 	}
 	if msg, ok := vmPrintableStatusMessages[kvvm.Status.PrintableStatus]; ok {
 		return msg
@@ -284,15 +290,14 @@ func vmStartupMessage(kvvm *virtv1.VirtualMachine) string {
 
 // vmStartupDetail returns the raw internal detail for logs and events.
 func vmStartupDetail(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) string {
-	detail := fmt.Sprintf("printableStatus=%q", kvvm.Status.PrintableStatus)
+	parts := []string{fmt.Sprintf("printableStatus=%q", kvvm.Status.PrintableStatus)}
 	if kvvmi != nil {
-		detail = fmt.Sprintf("%s, vmiPhase=%q", detail, kvvmi.Status.Phase)
+		parts = append(parts, fmt.Sprintf("vmiPhase=%q", kvvmi.Status.Phase))
 	}
-	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
-	if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
-		detail = fmt.Sprintf("%s, synchronized=%q: %s", detail, synchronized.Reason, synchronized.Message)
+	if synchronized := synchronizedError(kvvm); synchronized != nil && synchronized.Message != "" {
+		parts = append(parts, fmt.Sprintf("synchronized=%q: %s", synchronized.Reason, synchronized.Message))
 	}
-	return detail
+	return strings.Join(parts, ", ")
 }
 
 func podFinal(pod corev1.Pod) bool {
