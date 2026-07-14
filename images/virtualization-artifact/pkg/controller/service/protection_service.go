@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"reflect"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -104,18 +106,49 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 			continue
 		}
 
-		if controllerutil.RemoveFinalizer(obj, s.finalizer) {
-			patch, err := GetPatchFinalizers(obj.GetFinalizers())
-			kind := obj.GetObjectKind().GroupVersionKind().Kind
-			if err != nil {
-				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
+		if !controllerutil.ContainsFinalizer(obj, s.finalizer) {
+			continue
+		}
+
+		kind := obj.GetObjectKind().GroupVersionKind().Kind
+
+		// The object may be modified concurrently by other controllers, most
+		// notably while it is being deleted: e.g. the built-in pvc-protection
+		// controller adds and removes kubernetes.io/pvc-protection on a
+		// PersistentVolumeClaim as it is released. Patching from a stale (informer
+		// cache) copy would resend the whole finalizers list and could re-add a
+		// finalizer the API server has already dropped from a terminating object,
+		// which the API server rejects with a 422 ("no new finalizers can be added
+		// if the object is being deleted"). Re-read a fresh copy and patch it under
+		// an optimistic lock, retrying on conflict, so only our finalizer is
+		// removed and no other finalizer is resurrected.
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			fresh, ok := obj.DeepCopyObject().(client.Object)
+			if !ok {
+				return fmt.Errorf("object %q, %q does not implement client.Object", kind, obj.GetName())
 			}
 
-			err = s.client.Patch(ctx, obj, patch)
-			if err != nil {
-				return fmt.Errorf("failed to remove finalizer %q on the %q, %q: %w", s.finalizer, kind, obj.GetName(), err)
+			if err := s.client.Get(ctx, client.ObjectKeyFromObject(obj), fresh); err != nil {
+				if apierrors.IsNotFound(err) {
+					// The object is already gone; nothing to release.
+					return nil
+				}
+				return err
 			}
+
+			base := fresh.DeepCopyObject().(client.Object)
+			if !controllerutil.RemoveFinalizer(fresh, s.finalizer) {
+				return nil
+			}
+
+			return s.client.Patch(ctx, fresh, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{}))
+		})
+		if err != nil {
+			return fmt.Errorf("failed to remove finalizer %q on the %q, %q: %w", s.finalizer, kind, obj.GetName(), err)
 		}
+
+		// Keep the caller's copy consistent with what we persisted.
+		controllerutil.RemoveFinalizer(obj, s.finalizer)
 	}
 
 	return nil
