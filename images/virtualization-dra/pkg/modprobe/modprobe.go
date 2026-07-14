@@ -17,6 +17,7 @@ limitations under the License.
 package modprobe
 
 import (
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/klauspost/compress/zstd"
+	"github.com/ulikunitz/xz"
 	"golang.org/x/sys/unix"
 )
 
@@ -40,7 +42,7 @@ func LoadModules(modules ...string) error {
 }
 
 func loadModule(path string) error {
-	if strings.HasSuffix(path, ".zst") {
+	if isCompressed(path) {
 		uncompressedPath, err := uncompressModuleToTmp(path)
 		if err != nil {
 			return fmt.Errorf("uncompress module %s: %w", path, err)
@@ -86,17 +88,40 @@ func uncompressModuleToTmp(path string) (string, error) {
 	}
 	defer in.Close()
 
-	decoder, err := zstd.NewReader(in)
+	decoder, err := newDecompressor(path, in)
 	if err != nil {
 		return "", err
 	}
-	defer decoder.Close()
+	if closer, ok := decoder.(io.Closer); ok {
+		defer func() { _ = closer.Close() }()
+	}
 
 	if _, err := io.Copy(uncompress, decoder); err != nil {
 		return "", err
 	}
 
 	return uncompress.Name(), nil
+}
+
+// isCompressed reports whether the module is stored in one of the compression
+// formats the kernel supports for modules (MODULE_COMPRESS_{GZIP,XZ,ZSTD}).
+func isCompressed(path string) bool {
+	return strings.HasSuffix(path, ".zst") ||
+		strings.HasSuffix(path, ".xz") ||
+		strings.HasSuffix(path, ".gz")
+}
+
+func newDecompressor(path string, in io.Reader) (io.Reader, error) {
+	switch {
+	case strings.HasSuffix(path, ".zst"):
+		return zstd.NewReader(in)
+	case strings.HasSuffix(path, ".xz"):
+		return xz.NewReader(in)
+	case strings.HasSuffix(path, ".gz"):
+		return gzip.NewReader(in)
+	default:
+		return nil, fmt.Errorf("unsupported compression format: %s", path)
+	}
 }
 
 func KernelRelease() (string, error) {
