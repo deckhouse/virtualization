@@ -98,7 +98,7 @@ on:
       go_version:
         required: false
         type: string
-        default: "1.25.11"
+        default: "1.25.12"
         description: "Go version"
       apt_mirror_enabled:
         required: false
