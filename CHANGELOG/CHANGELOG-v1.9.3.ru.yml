@@ -1,0 +1,14 @@
+module:
+  fixes:
+  - summary: Предварительно создайте недостающие точки монтирования контейнера, чтобы
+      модули virt-handler и virtualization-dra запускались в строгом режимеContainerd.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2584
+  - summary: Исправлена ​​медленная загрузка изображений с DVCR на ноду при прикреплении
+      их к виртуальной машине.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2576
+vm:
+  fixes:
+  - summary: Исправлена ​​утечка при монтировании тома, из-за которой виртуальная
+      машина с подключенными к горячему подключению образами могла зависать в состоянии
+      завершения во время удаления.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2581
