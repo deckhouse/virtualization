@@ -29,6 +29,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
+
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 )
 
 func addLocalSSHClientFlags(flagset *pflag.FlagSet, opts *SSHOptions) {
@@ -90,7 +92,33 @@ func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOpti
 	return command.Run()
 }
 
+// collectGlobalClientFlags returns the `--name=value` tokens for the client-config flags the
+// user set on the outer command, so the inner port-forward connects to the same cluster.
+func collectGlobalClientFlags(cmd *cobra.Command) []string {
+	var out []string
+	for _, name := range kubeclient.ClientConfigFlagNames() {
+		if name == "namespace" {
+			// namespace is already carried in the name.namespace target.
+			continue
+		}
+		f := cmd.Flag(name)
+		if f == nil || !f.Changed {
+			continue
+		}
+		out = append(out, fmt.Sprintf("--%s=%s", name, shellQuote(f.Value.String())))
+	}
+	return out
+}
+
+// shellQuote single-quotes s so it survives being re-parsed by /bin/sh, which runs the ProxyCommand.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port int) string {
+	// Collect flags before the loop below reassigns cmd up to the root.
+	globalFlags := collectGlobalClientFlags(cmd)
+
 	parents := make([]string, 0, 2)
 	for cmd.HasParent() {
 		cmd = cmd.Parent()
@@ -112,6 +140,11 @@ func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port in
 	proxyCommand.WriteString(" ")
 
 	proxyCommand.WriteString(strconv.Itoa(port))
+
+	for _, flag := range globalFlags {
+		proxyCommand.WriteString(" ")
+		proxyCommand.WriteString(flag)
+	}
 
 	return proxyCommand.String()
 }
