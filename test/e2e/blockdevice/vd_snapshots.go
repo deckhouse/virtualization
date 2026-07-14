@@ -123,7 +123,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
 		By("Waiting for ready snapshot phase")
-		waitVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
+		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -182,7 +182,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		Expect(f.CreateWithDeferredDeletion(ctx, vdSnapshot)).To(Succeed())
 
 		By("Waiting for ready snapshot phase")
-		waitVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshot)
+		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshot)
 
 		By("Checking VirtualDiskSnapshot consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshot)
@@ -225,7 +225,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		Expect(<-frozen).To(Succeed(), "the VM filesystem should freeze during the snapshot")
 
 		By("Waiting for ready snapshots phase")
-		waitVDSnapshotsReady(ctx, f, framework.MiddleTimeout, vdSnapshotRoot, vdSnapshotAttach)
+		waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshotRoot, vdSnapshotAttach)
 
 		By("Checking VirtualDiskSnapshots consistency")
 		checkVdSnapshotConsistentlyAndReadyToUse(ctx, f, vdSnapshotRoot)

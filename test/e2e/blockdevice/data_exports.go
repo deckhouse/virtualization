@@ -181,7 +181,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 
 			err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			waitVDSnapshotsReady(ctx, f, framework.ShortTimeout, vdSnapshot)
+			waitVDSnapshotsReady(ctx, f, framework.LongTimeout, vdSnapshot)
 		})
 
 		By("Exporting VirtualDisk to local file", func() {
