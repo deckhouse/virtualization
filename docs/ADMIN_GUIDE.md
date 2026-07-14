@@ -1174,23 +1174,34 @@ Virtual machine migration is an important feature in virtualized infrastructure 
 {{< alert level="warning" >}}
 Live migration has the following limitations:
 
-- By default, only one virtual machine is prepared and transfers memory at a time from each node. For more information on configuring the limits, see the [Tuning live migration concurrency](#tuning-live-migration-concurrency) section.
+- By default, each node prepares and transfers the memory of only one virtual machine at a time, and accepts the memory of only one incoming migration at a time. See the [Tuning live migration concurrency](#tuning-live-migration-concurrency) section to change these limits.
 - The total number of concurrent migrations in the cluster cannot exceed the number of nodes where running virtual machines is permitted.
 - The bandwidth for a single migration is limited to 5 Gbps.
 {{< /alert >}}
 
 #### Tuning live migration concurrency
 
-When several virtual machines migrate from the same node at once (for example, during node drain), the sync phase competes for network bandwidth. To avoid contention, live migration uses two independent per-source-node limits, configured via annotations on the `virtualization` ModuleConfig:
+A live migration goes through two phases that matter for throughput:
 
-- Preparation pool — annotation `virtualization.deckhouse.io/parallel-outbound-migrations-per-node` (default `1`): how many migrations from a node can be prepared in parallel (scheduling the target pod, mounting devices) up to the `TargetReady` state.
-- Sync pool — annotation `virtualization.deckhouse.io/parallel-sync-migrations-per-node` (default `1`): how many prepared migrations may be in the sync phase at the same time. Migrations above this limit wait for a free slot.
+1. **Preparation** — the target pod is scheduled and its devices are attached, up to the `TargetReady` state. No memory is transferred yet.
+2. **Sync** — the memory of the virtual machine is copied to the target over the network. This is the phase that consumes migration bandwidth.
 
-Raising only the preparation pool lets a node drain run as a pipeline: the next virtual machine is prepared while the previous one transfers memory and starts transferring as soon as the previous migration finishes, while at most `parallel-sync-migrations-per-node` migrations transfer memory simultaneously, so no extra network contention is introduced.
+Concurrency is bounded by three independent limits, each counted per node and defaulting to `1`. They are configured with annotations on the `virtualization` ModuleConfig:
 
-A migration that is prepared but waiting for a free sync slot stays in the `Pending` phase with the `WaitingForSyncSlot` reason in the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+| Limit | Annotation | Counted per | Bounds |
+|---|---|---|---|
+| Preparation pool | `virtualization.deckhouse.io/parallel-outbound-migrations-per-node` | source node | migrations being prepared in parallel |
+| Outbound sync pool | `virtualization.deckhouse.io/parallel-sync-migrations-per-node` | source node | migrations transferring memory **out of** the node |
+| Inbound sync pool | `virtualization.deckhouse.io/parallel-inbound-migrations-per-node` | target node | migrations transferring memory **into** the node |
 
-Configure the limits with annotations on the ModuleConfig:
+A migration starts transferring memory only when a sync slot is free on its source node **and** an inbound slot is free on its target node. Until then it stays prepared and parked at `TargetReady`, and its [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) stays in the `Pending` phase:
+
+- waiting for a source-node sync slot — reason `WaitingForSyncSlot`;
+- waiting for a target-node inbound slot — message `Target node has no free inbound migration slots.`
+
+**Speeding up a node drain.** With every limit at the default `1`, a drain migrates virtual machines strictly one at a time: prepare one, transfer it, then start the next. Raising only the preparation pool turns the drain into a pipeline — the next virtual machines prepare their targets while the current one transfers memory, and each starts its transfer as soon as the previous one finishes. Because the sync pools stay at `1`, at most one memory transfer runs per node at a time, so no extra network contention is introduced.
+
+Example — pipeline a drain while keeping memory transfers serialized:
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
@@ -1198,10 +1209,19 @@ kind: ModuleConfig
 metadata:
   name: virtualization
   annotations:
-    # Maximum migrations prepared in parallel per source node.
-    virtualization.deckhouse.io/parallel-outbound-migrations-per-node: "2"
-    # Maximum migrations transferring memory at a time per source node.
+    # Prepare up to 3 migrations per source node in parallel.
+    virtualization.deckhouse.io/parallel-outbound-migrations-per-node: "3"
+    # Transfer the memory of one migration at a time out of a node.
     virtualization.deckhouse.io/parallel-sync-migrations-per-node: "1"
+    # Transfer the memory of one migration at a time into a node.
+    virtualization.deckhouse.io/parallel-inbound-migrations-per-node: "1"
+```
+
+To disable a sync limiter entirely, so that concurrency is bounded only by the preparation pool and by KubeVirt's own limits, set the corresponding annotation to `disabled`:
+
+```yaml
+    virtualization.deckhouse.io/sync-migration-limit: "disabled"
+    virtualization.deckhouse.io/inbound-migration-limit: "disabled"
 ```
 
 #### Start migration of an arbitrary machine
