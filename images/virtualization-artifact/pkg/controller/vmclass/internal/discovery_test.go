@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -643,11 +644,10 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
 		})
 
-		It("should recompute features when available nodes change, not reuse cached status", func() {
-			// Regression test: previously the handler cached
-			// Status.CpuFeatures.Enabled forever, so when a node with a rare
-			// CPU feature disappeared from availableNodes, the class kept
-			// advertising that feature and VMs refused to schedule.
+		It("should keep discovered features stable and only recalculate availableNodes", func() {
+			// Discovery features are computed once and then frozen in status.
+			// Later reconciles must only narrow availableNodes to nodes exposing
+			// all previously discovered features, not recompute the model.
 			nodeOld := newNodeWithLabels("node-old", map[string]string{
 				virtv1.CPUFeatureLabel + "vmx": "true",
 				virtv1.CPUFeatureLabel + "avx": "true",
@@ -672,9 +672,6 @@ var _ = Describe("DiscoveryHandler", func() {
 			}
 			handler := NewDiscoveryHandler(mockRecorder)
 
-			// Two passes are required: first sets the Discovered condition to
-			// Unknown (addAllUnknown requeue), second performs the actual
-			// discovery and writes Status.CpuFeatures.
 			_, err := handler.Handle(ctx, vmcState)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = handler.Handle(ctx, vmcState)
@@ -684,14 +681,13 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-old", "node-new"))
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
 
-			// Simulate node-old disappearing (e.g. drained, deleted) by
-			// re-running discovery with only node-new in availableNodes. The
-			// next reconcile must drop hle/rtm from Enabled without manual
-			// intervention on the class status.
+			// Simulate a persisted status on the class and a changed cluster
+			// topology where only node-new remains. The discovered model must
+			// stay {vmx,avx}, while availableNodes is recalculated against it.
+			vmc.Status.CpuFeatures.Enabled = append([]string{}, changed.Status.CpuFeatures.Enabled...)
 			vmcState, resource = setupDiscoveryEnvironment(vmc,
 				nodeNew,
 				handlerNew)
-			// Replay the same reconcile pattern again on the fresh state.
 			_, err = handler.Handle(ctx, vmcState)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = handler.Handle(ctx, vmcState)
@@ -699,12 +695,53 @@ var _ = Describe("DiscoveryHandler", func() {
 
 			changed = resource.Changed()
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node-new"))
-			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "fma"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
 		})
 
-		It("should mark Discovered=False when available nodes have no common CPU features", func() {
+		It("should set condition Discovered=False with no-discovery-nodes message when discovery.nodeSelector matches no virt-handler nodes", func() {
+			node1 := newNodeWithLabels("node1", map[string]string{
+				"node.deckhouse.io/group":      "worker",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				"node.deckhouse.io/group":      "compute",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-no-discovery-nodes", v1alpha2.CPUTypeDiscovery, nil, &metav1.LabelSelector{
+				MatchLabels: map[string]string{"node.deckhouse.io/group": "master"},
+			})
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(BeEmpty())
+
+			cond := conditions.FindStatusCondition(changed.Status.Conditions, vmclasscondition.TypeDiscovered.String())
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmclasscondition.ReasonDiscoveryFailed.String()))
+			Expect(cond.Message).To(Equal("No nodes match the discovery nodeSelector, can't discover common CPU features."))
+		})
+
+		It("should set condition Discovered=False with discovery-pool message when discovery pool has no common CPU features", func() {
 			// Pick two labels that exist on opposite nodes so there is no
-			// common CPU feature between availableNodes.
+			// common CPU feature between discovery nodes.
 			node1 := newNodeWithLabels("node1", map[string]string{
 				virtv1.CPUFeatureLabel + "hle": "true",
 			})
@@ -738,6 +775,61 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(vmclasscondition.ReasonDiscoveryFailed.String()))
+			Expect(cond.Message).To(Equal("No common CPU features are discovered across discovery nodes."))
+		})
+
+		It("should keep condition Discovered=True when discovered features have no matching schedulable nodes", func() {
+			node1 := newNodeWithLabels("node1", map[string]string{
+				"node.deckhouse.io/group":       "worker",
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "avx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				"node.deckhouse.io/group":      "compute",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+
+			virtHandler1 := newVirtHandlerPod("node1")
+			virtHandler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-no-available-nodes-for-discovered-model", v1alpha2.CPUTypeDiscovery, &v1alpha2.NodeSelector{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      "node.deckhouse.io/group",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"compute"},
+					},
+				},
+			}, &metav1.LabelSelector{
+				MatchLabels: map[string]string{"node.deckhouse.io/group": "worker"},
+			})
+			vmc.Status.CpuFeatures.Enabled = []string{"vmx", "avx", "sse2"}
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1, virtHandler2)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			Expect(changed.Status.AvailableNodes).To(BeEmpty())
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "sse2"))
+
+			cond := conditions.FindStatusCondition(changed.Status.Conditions, vmclasscondition.TypeDiscovered.String())
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vmclasscondition.ReasonDiscoverySucceeded.String()))
+			Expect(cond.Message).To(BeEmpty())
 		})
 
 		It("should populate enabled from spec.cpu.features and keep all matching nodes for Features type", func() {
@@ -930,10 +1022,9 @@ var _ = Describe("DiscoveryHandler", func() {
 
 		It("should leave notEnabledCommon empty for Discovery when availableNodes match the discovered model", func() {
 			// UF5: for Discovery, availableNodes are filtered by nodesWithAllFeatures
-			// against the discovered intersection, so commonFeatures(availableNodes)
-			// collapses back to the enabled set and notEnabledCommon stays empty.
-			// A non-empty result is only possible when spec.nodeSelector excludes
-			// part of the discovery pool, shrinking the common set below the model.
+			// against the frozen discovered model, so commonFeatures(availableNodes)
+			// may include extra features only when the schedulable set becomes
+			// narrower than the original discovery pool.
 			node1 := newNodeWithLabels("node1", map[string]string{
 				virtv1.CPUFeatureLabel + "vmx":  "true",
 				virtv1.CPUFeatureLabel + "avx":  "true",
@@ -971,6 +1062,85 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "sse2"))
 			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(BeEmpty())
+		})
+
+		It("should emit warning event when availableNodes become empty", func() {
+			node1 := newNodeWithLabels("node1", map[string]string{
+				"node.deckhouse.io/group":      "worker",
+				virtv1.CPUFeatureLabel + "vmx": "true",
+			})
+			virtHandler1 := newVirtHandlerPod("node1")
+
+			vmc := newVMClass("test-empty-available-nodes-event", v1alpha2.CPUTypeDiscovery, &v1alpha2.NodeSelector{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      "node.deckhouse.io/group",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"compute"},
+					},
+				},
+			}, nil)
+			vmc.Status.AvailableNodes = []string{"node1"}
+			vmc.Status.CpuFeatures.Enabled = []string{"vmx"}
+
+			vmcState, _ := setupDiscoveryEnvironment(vmc,
+				node1,
+				virtHandler1)
+
+			ctx := context.Background()
+			var capturedEventType, capturedReason, capturedMessage string
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {
+					capturedEventType = eventtype
+					capturedReason = reason
+					capturedMessage = fmt.Sprintf(messageFmt, args...)
+				},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(capturedEventType).To(Equal(corev1.EventTypeWarning))
+			Expect(capturedReason).To(Equal(v1alpha2.ReasonVMClassAvailableNodesListEmpty))
+			Expect(capturedMessage).To(ContainSubstring("now it's empty"))
+			Expect(capturedMessage).To(ContainSubstring("removed nodes: [\"node1\"]"))
+		})
+
+		It("should ignore nodes without virt-handler for discovery and scheduling", func() {
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "svm": "true",
+			})
+			virtHandler1 := newVirtHandlerPod("node1")
+			// no virt-handler on node2, so it must not participate
+			// either in discovery or in availableNodes.
+
+			vmc := newVMClass("test-ignore-nodes-without-virt-handler", v1alpha2.CPUTypeDiscovery, nil, nil)
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				virtHandler1)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("svm", "vmx"))
 		})
 
 		It("should report notEnabledCommon for Discovery when spec.nodeSelector shrinks availableNodes below the discovery pool", func() {
