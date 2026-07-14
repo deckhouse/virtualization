@@ -102,6 +102,25 @@ Release date: July 13, 2026.
 ### Security
 
 - [module] Fixed vulnerabilities:
+  - CVE-2026-25680
+  - CVE-2026-25681
+  - CVE-2026-27136
+  - CVE-2026-33814
+  - CVE-2026-39821
+  - CVE-2026-39827
+  - CVE-2026-39828
+  - CVE-2026-39829
+  - CVE-2026-39830
+  - CVE-2026-39832
+  - CVE-2026-39835
+  - CVE-2026-41579
+  - CVE-2026-42502
+  - CVE-2026-42506
+  - CVE-2026-42508
+  - CVE-2026-46595
+  - CVE-2026-46597
+  - CVE-2026-53935
+- [module] Fixed vulnerabilities:
   - CVE-2026-42504
   - CVE-2026-27145
   - CVE-2026-42507
