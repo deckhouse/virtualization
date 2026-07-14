@@ -101,25 +101,38 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		return reconcile.Result{}, err
 	}
 
-	// Sync the uploader Ingress host before the readiness probe:
-	// IsUploaderReady HTTPS-probes the Ingress host, so a stale host (e.g. after
-	// publicDomainTemplate changed) makes readiness fail with a TLS error.
-	// Initial creation is handled by Start, so skip when the pod is absent.
-	if pod != nil && ds.uploaderService.IngressHostDrifted(ing) {
+	// Reconcile the uploader Ingress and its TLS secret before the readiness probe.
+	// All uploaders share one public host: if the Ingress host drifts (e.g. after
+	// publicDomainTemplate changed) or its copied TLS secret goes missing,
+	// ingress-nginx serves its default certificate for the whole host and every
+	// upload on it breaks. IsUploaderReady HTTPS-probes that host, so restore both
+	// first. Initial creation is handled by Start, so skip when the pod is absent.
+	tlsCopyMissing := tlsSecret == nil && supplements.ShouldCopyUploaderTLSSecret(ds.dvcrSettings, supgen)
+	if pod != nil && (ds.uploaderService.IngressHostDrifted(ing) || tlsCopyMissing) {
 		var oldHost string
 		if ing != nil && len(ing.Spec.Rules) > 0 {
 			oldHost = ing.Spec.Rules[0].Host
 		}
-		log.Info("Syncing uploader Ingress: host drifted", "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
+		log.Info("Reconciling uploader Ingress", "hostDrifted", ds.uploaderService.IngressHostDrifted(ing), "tlsSecretMissing", tlsCopyMissing, "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
 		ing, err = ds.uploaderService.EnsureIngress(ctx, cvi, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
+		}
+		if tlsCopyMissing {
+			tlsSecret, err = supplements.GetTLSSecret(ctx, ds.client, supgen)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
 	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
 	if err != nil {
-		return reconcile.Result{}, err
+		// A probe error means the public upload endpoint is not reachable yet
+		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
+		// keep retrying instead of failing the reconcile with an empty status.
+		log.Error("Uploader readiness probe failed; treating uploader as not ready", "err", err)
+		isUploaderReady = false
 	}
 
 	switch {

@@ -15,7 +15,7 @@
 name: Validations
 
 env:
-  GO_VERSION: "1.25.11"
+  GO_VERSION: "1.25.12"
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
@@ -120,7 +120,6 @@ jobs:
           additional_files: >-
             api/scripts/update-codegen.sh
             images/virtualization-artifact/hack/args.sh
-            images/virtualization-artifact/hack/dlv.sh
             images/virtualization-artifact/hack/pyroscope.sh
           check_together: "yes"
           severity: warning
@@ -190,9 +189,9 @@ jobs:
       matrix:
         # Define two groups of components with their respective Go versions
         components:
-          - { component: virtualization-artifact, go-version: "1.25.11" }
-          - { component: vm-route-forge, go-version: "1.25.11" }
-          - { component: api, go-version: "1.25.11" }
+          - { component: virtualization-artifact, go-version: "1.25.12" }
+          - { component: vm-route-forge, go-version: "1.25.12" }
+          - { component: api, go-version: "1.25.12" }
 
     steps:
       - name: Setup Go ${{ matrix.components.go-version }}

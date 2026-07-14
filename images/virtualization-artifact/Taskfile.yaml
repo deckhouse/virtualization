@@ -145,27 +145,134 @@ tasks:
 
   dlv:build:controller:
     desc: "Build image virtualization-controller with dlv"
-    cmd: ./hack/dlv.sh build controller --image="$DLV_IMAGE"
+    dir: ../..
+    cmds:
+      - docker build -f ./images/virtualization-artifact/hack/dlv-controller.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:build-push:controller:
-    desc: "Push image virtualization-controller with dlv"
-    cmd: ./hack/dlv.sh push controller --image="$DLV_IMAGE"
+    desc: "Build and Push image virtualization-controller with dlv"
+    cmds:
+      - task: dlv:build:controller
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:print:controller
+
+  dlv:print:controller:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virtualization-controller --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "virtualization-controller",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null,
+                  "env": [ { "name": "LEADER_ELECTION", "value": "false" } ]
+                },
+                {
+                  "name": "proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                },
+                {
+                  "name": "kube-rbac-proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                }
+              ]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virtualization-controller 2345:2345
+      EOF
 
   dlv:build:apiserver:
     desc: "Build image virtualization-api with dlv"
-    cmd: ./hack/dlv.sh build apiserver --image="$DLV_IMAGE"
+    dir: ../..
+    cmds:
+      - docker build -f ./images/virtualization-artifact/hack/dlv-apiserver.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:build-push:apiserver:
-    desc: "Push image virtualization-api with dlv"
-    cmd: ./hack/dlv.sh push apiserver --image="$DLV_IMAGE"
+    desc: "Build and Push image virtualization-api with dlv"
+    cmds:
+      - task: dlv:build:apiserver
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:print:apiserver
+
+  dlv:print:apiserver:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virtualization-api --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "virtualization-api",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null
+                }
+              ]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virtualization-api 2345:2345
+      EOF
 
   dlv:build:audit:
     desc: "Build image virtualization-audit with dlv"
-    cmd: ./hack/dlv.sh build audit --image="$DLV_IMAGE"
+    dir: ../..
+    cmds:
+      - docker build -f ./images/virtualization-artifact/hack/dlv-audit.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:build-push:audit:
-    desc: "Push image virtualization-audit with dlv"
-    cmd: ./hack/dlv.sh push audit --image="$DLV_IMAGE"
+    desc: "Build and Push image virtualization-audit with dlv"
+    cmds:
+      - task: dlv:build:audit
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:print:audit
+
+  dlv:print:audit:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virtualization-audit --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "virtualization-audit",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null
+                }
+              ]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virtualization-audit 2345:2345
+      EOF
 
   _ensure:kubectl:
     desc: "Ensure kubectl is installed"

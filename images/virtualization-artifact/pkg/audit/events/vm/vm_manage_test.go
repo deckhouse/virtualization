@@ -206,6 +206,8 @@ var _ = Describe("VMOP Events", func() {
 			Expect(eventLog.eventLog.ActionType).To(Equal(args.expectedActionType))
 			Expect(eventLog.eventLog.VirtualmachineUID).To(Equal("0000-0000-4567"))
 			Expect(eventLog.eventLog.VirtualmachineOS).To(Equal("test-os"))
+			Expect(eventLog.eventLog.VirtualMachineName).To(Equal("test-vm"))
+			Expect(eventLog.eventLog.VirtualMachineNamespace).To(Equal("test"))
 			Expect(eventLog.eventLog.QemuVersion).To(Equal("9.9.9"))
 			Expect(eventLog.eventLog.LibvirtVersion).To(Equal("1.1.1"))
 

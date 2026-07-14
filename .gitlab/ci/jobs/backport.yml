@@ -1,0 +1,65 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Backport a merged MR to a release branch (clone + cherry-pick + push + MR).
+#
+# Migration of .github/workflows/on-pull-request-backport.yml which used
+# deckhouse/backport-action@v1.0.0 with automerge=true and direct push to
+# the release branch. We open a reviewable backport MR instead of pushing
+# directly.
+#
+# Triggers:
+#   1. Manual pipeline (Run pipeline UI) with variable TARGET_BRANCH=release-1.21.
+#   2. Manual pipeline on an MR carrying the `status/backport` label.
+#      GitLab does NOT auto-trigger pipelines on label change; the user must
+#      press "Run pipeline" on the MR. Webhook-driven auto-trigger is an
+#      accepted permanent gap (no webhook-listener will be built).
+#      The target branch is derived from the source MR milestone title
+#      (vX.Y.Z or X.Y.Z -> release-X.Y); TARGET_BRANCH overrides this.
+#
+# After the backport job finishes, backport.sh updates the source MR:
+#   - always removes `status/backport`;
+#   - on success adds `status/backport/success` and comments with the
+#     backport MR link;
+#   - on failure adds `status/backport/failed` and comments with the job link.
+#
+# Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
+
+backport:
+  stage: lint
+  # Mutates state (cherry-pick + opens an MR); never auto-cancel mid-run.
+  interruptible: false
+  tags:
+    - deckhouse
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git curl jq ssh-agent ssh-add
+  script:
+    - bash .gitlab/ci/scripts/bash/backport.sh
+  # allow_failure: true on every rule: `when: manual` inside `rules:` defaults
+  # to allow_failure: false, so on an MR carrying the `status/backport` label
+  # this unplayed manual job would block the whole MR pipeline (test/build/...).
+  # Backport is an opt-in side action, so it must never gate the pipeline.
+  rules:
+    # Mode 1: explicit manual run with TARGET_BRANCH provided via UI (overrides
+    # milestone-based inference).
+    - if: $TARGET_BRANCH
+      when: manual
+      allow_failure: true
+    # Mode 2: MR with the `status/backport` label. GitLab does NOT auto-run
+    # pipelines on label change; user has to press "Run pipeline" on the MR
+    # (webhook auto-trigger is an accepted permanent gap, not planned). The
+    # target branch is derived from the source MR milestone by backport.sh.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS =~ /(^|,\s*)status\/backport(,|$)/
+      when: manual
+      allow_failure: true

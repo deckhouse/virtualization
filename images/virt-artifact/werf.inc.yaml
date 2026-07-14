@@ -188,10 +188,10 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/`) | nindent 6 }}
 
     - echo ============== Build bpf_bridge.o =====================
-    {{- $_ := set $ "ProjectName" (list $.ImageName "bpf-bridge-obj" | join "/") }}
+    # eBPF object: build clang directly without the Svace wrapper.
+    # Svace cannot process the BPF translation unit (0 units, hard error), which breaks the setup stage.
     - mkdir -p /kubevirt-binaries/network-bpf-bridge-binding-assets
-    - |
-    {{- include "image-build.build" (set $ "BuildCommand" `clang -O2 -g -target bpf -I/usr/include -c ./pkg/network/bpfbridge/bpf/bpf_bridge.c -o /kubevirt-binaries/network-bpf-bridge-binding-assets/bpf_bridge.o`) | nindent 6 }}
+    - clang -O2 -g -target bpf -I/usr/include -c ./pkg/network/bpfbridge/bpf/bpf_bridge.c -o /kubevirt-binaries/network-bpf-bridge-binding-assets/bpf_bridge.o
 
     - echo ============== Build virtctl ==========================
     {{- $_ := set $ "ProjectName" (list .ImageName "virtctl" | join "/") }}

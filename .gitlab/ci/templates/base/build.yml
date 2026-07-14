@@ -1,0 +1,29 @@
+# Base build template (.base_build).
+#
+# `.base_build` is the werf-build job body extended by every build job
+# (build_dev / build_main / build_prod / prod:build:* / precache / svace:build).
+#
+# It no longer carries a verbatim copy of the upstream build script. Instead it
+# consumes the rules-free `.build_base` from the upstream modules-gitlab-ci
+# Build.gitlab-ci.yml (included via .gitlab/ci/includes.yml) with
+# `!reference [.build_base, script]`, and only prepends the local
+# check-runner-tools guard. This keeps a single source of truth for the build
+# script upstream while letting our job-level rules (.dev / .main / .prod_always
+# / ...) drive gating.
+#
+# Why not `extends: .build`: upstream `.build` bakes in `rules:` that fire on
+# ANY branch / tag push and, because GitLab merges `extends:` rules parent-first,
+# would override our strict per-context gating. `.build_base` is the same script
+# WITHOUT those rules (see upstream Build.gitlab-ci.yml). `!reference` is used
+# instead of `extends: .build_base` so the local check-runner-tools line is
+# prepended to the upstream script (extends would replace the whole `script:`).
+#
+# Required variables (documented in variables.yml + upstream Setup):
+#   MODULES_MODULE_SOURCE, MODULES_MODULE_NAME, MODULES_MODULE_TAG,
+#   WERF_REPO, SVACE_ENABLED (optional).
+
+.base_build:
+  stage: build
+  script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf jq crane
+    - !reference [.build_base, script]

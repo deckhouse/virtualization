@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -93,6 +94,9 @@ type UploadDataSourceUploaderService interface {
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+	EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
+	IngressHostDrifted(ing *netv1.Ingress) bool
+	ExpectedIngressHost() string
 }
 
 type UploadDataSourceStatService interface {

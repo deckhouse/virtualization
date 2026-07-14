@@ -1969,6 +1969,12 @@ var _ UploadDataSourceUploaderService = &UploadDataSourceUploaderServiceMock{}
 //			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
+//			EnsureIngressFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
+//				panic("mock out the EnsureIngress method")
+//			},
+//			ExpectedIngressHostFunc: func() string {
+//				panic("mock out the ExpectedIngressHost method")
+//			},
 //			GetExternalURLFunc: func(ctx context.Context, ing *netv1.Ingress) string {
 //				panic("mock out the GetExternalURL method")
 //			},
@@ -1984,6 +1990,9 @@ var _ UploadDataSourceUploaderService = &UploadDataSourceUploaderServiceMock{}
 //			GetServiceFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
 //				panic("mock out the GetService method")
 //			},
+//			IngressHostDriftedFunc: func(ing *netv1.Ingress) bool {
+//				panic("mock out the IngressHostDrifted method")
+//			},
 //			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
@@ -1996,6 +2005,12 @@ var _ UploadDataSourceUploaderService = &UploadDataSourceUploaderServiceMock{}
 type UploadDataSourceUploaderServiceMock struct {
 	// CleanUpFunc mocks the CleanUp method.
 	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+
+	// EnsureIngressFunc mocks the EnsureIngress method.
+	EnsureIngressFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
+
+	// ExpectedIngressHostFunc mocks the ExpectedIngressHost method.
+	ExpectedIngressHostFunc func() string
 
 	// GetExternalURLFunc mocks the GetExternalURL method.
 	GetExternalURLFunc func(ctx context.Context, ing *netv1.Ingress) string
@@ -2012,6 +2027,9 @@ type UploadDataSourceUploaderServiceMock struct {
 	// GetServiceFunc mocks the GetService method.
 	GetServiceFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 
+	// IngressHostDriftedFunc mocks the IngressHostDrifted method.
+	IngressHostDriftedFunc func(ing *netv1.Ingress) bool
+
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
@@ -2023,6 +2041,18 @@ type UploadDataSourceUploaderServiceMock struct {
 			Ctx context.Context
 			// Sup is the sup argument value.
 			Sup supplements.Generator
+		}
+		// EnsureIngress holds details about calls to the EnsureIngress method.
+		EnsureIngress []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Obj is the obj argument value.
+			Obj client.Object
+			// Sup is the sup argument value.
+			Sup supplements.Generator
+		}
+		// ExpectedIngressHost holds details about calls to the ExpectedIngressHost method.
+		ExpectedIngressHost []struct {
 		}
 		// GetExternalURL holds details about calls to the GetExternalURL method.
 		GetExternalURL []struct {
@@ -2059,6 +2089,11 @@ type UploadDataSourceUploaderServiceMock struct {
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
+		// IngressHostDrifted holds details about calls to the IngressHostDrifted method.
+		IngressHostDrifted []struct {
+			// Ing is the ing argument value.
+			Ing *netv1.Ingress
+		}
 		// Start holds details about calls to the Start method.
 		Start []struct {
 			// Ctx is the ctx argument value.
@@ -2075,13 +2110,16 @@ type UploadDataSourceUploaderServiceMock struct {
 			Opts []service.Option
 		}
 	}
-	lockCleanUp         sync.RWMutex
-	lockGetExternalURL  sync.RWMutex
-	lockGetInClusterURL sync.RWMutex
-	lockGetIngress      sync.RWMutex
-	lockGetPod          sync.RWMutex
-	lockGetService      sync.RWMutex
-	lockStart           sync.RWMutex
+	lockCleanUp             sync.RWMutex
+	lockEnsureIngress       sync.RWMutex
+	lockExpectedIngressHost sync.RWMutex
+	lockGetExternalURL      sync.RWMutex
+	lockGetInClusterURL     sync.RWMutex
+	lockGetIngress          sync.RWMutex
+	lockGetPod              sync.RWMutex
+	lockGetService          sync.RWMutex
+	lockIngressHostDrifted  sync.RWMutex
+	lockStart               sync.RWMutex
 }
 
 // CleanUp calls CleanUpFunc.
@@ -2117,6 +2155,73 @@ func (mock *UploadDataSourceUploaderServiceMock) CleanUpCalls() []struct {
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
 	mock.lockCleanUp.RUnlock()
+	return calls
+}
+
+// EnsureIngress calls EnsureIngressFunc.
+func (mock *UploadDataSourceUploaderServiceMock) EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
+	if mock.EnsureIngressFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.EnsureIngressFunc: method is nil but UploadDataSourceUploaderService.EnsureIngress was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Obj client.Object
+		Sup supplements.Generator
+	}{
+		Ctx: ctx,
+		Obj: obj,
+		Sup: sup,
+	}
+	mock.lockEnsureIngress.Lock()
+	mock.calls.EnsureIngress = append(mock.calls.EnsureIngress, callInfo)
+	mock.lockEnsureIngress.Unlock()
+	return mock.EnsureIngressFunc(ctx, obj, sup)
+}
+
+// EnsureIngressCalls gets all the calls that were made to EnsureIngress.
+// Check the length with:
+//
+//	len(mockedUploadDataSourceUploaderService.EnsureIngressCalls())
+func (mock *UploadDataSourceUploaderServiceMock) EnsureIngressCalls() []struct {
+	Ctx context.Context
+	Obj client.Object
+	Sup supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Obj client.Object
+		Sup supplements.Generator
+	}
+	mock.lockEnsureIngress.RLock()
+	calls = mock.calls.EnsureIngress
+	mock.lockEnsureIngress.RUnlock()
+	return calls
+}
+
+// ExpectedIngressHost calls ExpectedIngressHostFunc.
+func (mock *UploadDataSourceUploaderServiceMock) ExpectedIngressHost() string {
+	if mock.ExpectedIngressHostFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.ExpectedIngressHostFunc: method is nil but UploadDataSourceUploaderService.ExpectedIngressHost was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockExpectedIngressHost.Lock()
+	mock.calls.ExpectedIngressHost = append(mock.calls.ExpectedIngressHost, callInfo)
+	mock.lockExpectedIngressHost.Unlock()
+	return mock.ExpectedIngressHostFunc()
+}
+
+// ExpectedIngressHostCalls gets all the calls that were made to ExpectedIngressHost.
+// Check the length with:
+//
+//	len(mockedUploadDataSourceUploaderService.ExpectedIngressHostCalls())
+func (mock *UploadDataSourceUploaderServiceMock) ExpectedIngressHostCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockExpectedIngressHost.RLock()
+	calls = mock.calls.ExpectedIngressHost
+	mock.lockExpectedIngressHost.RUnlock()
 	return calls
 }
 
@@ -2297,6 +2402,38 @@ func (mock *UploadDataSourceUploaderServiceMock) GetServiceCalls() []struct {
 	mock.lockGetService.RLock()
 	calls = mock.calls.GetService
 	mock.lockGetService.RUnlock()
+	return calls
+}
+
+// IngressHostDrifted calls IngressHostDriftedFunc.
+func (mock *UploadDataSourceUploaderServiceMock) IngressHostDrifted(ing *netv1.Ingress) bool {
+	if mock.IngressHostDriftedFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.IngressHostDriftedFunc: method is nil but UploadDataSourceUploaderService.IngressHostDrifted was just called")
+	}
+	callInfo := struct {
+		Ing *netv1.Ingress
+	}{
+		Ing: ing,
+	}
+	mock.lockIngressHostDrifted.Lock()
+	mock.calls.IngressHostDrifted = append(mock.calls.IngressHostDrifted, callInfo)
+	mock.lockIngressHostDrifted.Unlock()
+	return mock.IngressHostDriftedFunc(ing)
+}
+
+// IngressHostDriftedCalls gets all the calls that were made to IngressHostDrifted.
+// Check the length with:
+//
+//	len(mockedUploadDataSourceUploaderService.IngressHostDriftedCalls())
+func (mock *UploadDataSourceUploaderServiceMock) IngressHostDriftedCalls() []struct {
+	Ing *netv1.Ingress
+} {
+	var calls []struct {
+		Ing *netv1.Ingress
+	}
+	mock.lockIngressHostDrifted.RLock()
+	calls = mock.calls.IngressHostDrifted
+	mock.lockIngressHostDrifted.RUnlock()
 	return calls
 }
 

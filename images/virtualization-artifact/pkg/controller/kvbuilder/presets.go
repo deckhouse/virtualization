@@ -41,6 +41,20 @@ func (l DeviceOptionsList) Find(enableParavirtualization bool) DeviceOptions {
 	panic(fmt.Sprintf("cannot find preset for enableParavirtualization=%v", enableParavirtualization))
 }
 
+// Buses returns the disk and cdrom bus for the preset. Hot-plugged devices are
+// attached via AddVolume, which always uses the scsi bus regardless of the
+// paravirtualization preset. Keeping them on scsi stops a VM with
+// enableParavirtualization=false (sata preset) from rewriting an already
+// attached device to sata, which is invalid for a hot-plugged disk. Static
+// disks follow the preset and change buses on the restart a paravirtualization
+// flip already requires.
+func (o DeviceOptions) Buses(isHotplugged bool) (diskBus, cdromBus virtv1.DiskBus) {
+	if isHotplugged {
+		return virtv1.DiskBusSCSI, virtv1.DiskBusSCSI
+	}
+	return o.DiskBus, o.CdromBus
+}
+
 var DeviceOptionsPresets DeviceOptionsList = []DeviceOptions{
 	{
 		EnableParavirtualization: true,

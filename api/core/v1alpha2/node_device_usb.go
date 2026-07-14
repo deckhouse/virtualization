@@ -29,6 +29,7 @@ const (
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: NodeUSBDevice, metadata: {name: example-usb}, spec: {assignedNamespace: workloads}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={nusb},singular=nodeusbdevice
 // +kubebuilder:subresource:status

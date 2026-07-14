@@ -1,0 +1,56 @@
+# Scheduled/manual precache builds.
+#
+# Migration of .github/workflows/dev_build_precache.yml. The original GH
+# workflow rebuilt the module against `main` every 8 hours to keep the
+# dev registry warm.
+#
+# GitLab mapping:
+#   on: schedule (cron: "0 */8 * * *") -> Pipeline Schedule in UI
+#                                       + rules: schedule
+#                                       ($SCHEDULE_TYPE == "precache")
+#   on: workflow_dispatch              -> when: manual (Run pipeline)
+#   matrix.branch: [main]              -> single .main job
+#
+# The actual build uses the local `.base_build` template, which consumes the
+# upstream Build.gitlab-ci.yml `.build_base` script without inheriting its broad
+# rules. This file sets the trigger surface and the per-pipeline variables that
+# the build template expects.
+
+precache:build:main:
+  extends:
+    - .base_build
+    - .main
+  stage: build
+  interruptible: false
+  # needs: [] blocks prior-stage dotenv inheritance. On a web "Run pipeline",
+  # svace:set-vars (info stage) fires unconditionally and emits
+  # MODULES_MODULE_TAG=<ref>-svace + MODULE_EDITION=EE; a dotenv var overrides
+  # variables: below, so without this guard precache would push the -svace tag
+  # instead of the branch tag. precache has no in-pipeline data dependency.
+  needs: []
+  variables:
+    MODULES_MODULE_TAG: "${CI_COMMIT_REF_NAME:-main}"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "precache"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+
+# Manual override that lets an operator rebuild against a specific
+# branch (e.g. release-1.21) by setting REF_BRANCH when running the
+# pipeline via UI. Mirrors the workflow_dispatch + pr_number input from
+# the GH workflow but keeps it branch-driven for precache.
+precache:build:branch:
+  extends:
+    - .base_build
+    - .dev_vars
+  stage: build
+  interruptible: false
+  # See precache:build:main: needs: [] stops the web-pipeline svace:set-vars
+  # dotenv from clobbering MODULES_MODULE_TAG.
+  needs: []
+  variables:
+    MODULES_MODULE_TAG: "${REF_BRANCH}"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $REF_BRANCH'
+      when: manual
+    - when: never

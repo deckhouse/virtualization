@@ -69,12 +69,6 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	vm := vmState.VirtualMachine().Changed()
 
-	// TODO: refactor syncKVVM and allow migration
-	if restartRequired {
-		log.Info("Virtualmachine is restart required, skip volume migration.")
-		return reconcile.Result{}, nil
-	}
-
 	// not syncing if migrating
 	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	if migrating.Status == metav1.ConditionTrue {
@@ -155,6 +149,18 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if !equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes) {
+		// A difference here (ignoring migration target PVCs, which live in
+		// builtKVVMWithMigrationVolumes) means the desired volume set differs from
+		// the running one. Only a structural change (a disk added or removed) may
+		// require a restart, so it must not be propagated to KVVM while the VM
+		// awaits restart. A difference that is only a PVC swap on the same disks is
+		// a volume migration or a revert of one: it keeps the structure intact and
+		// must proceed regardless of restart, otherwise a KVVM left pointing at a
+		// dead migration target can never be reverted back to the source.
+		if restartRequired && isStructuralVolumeChange(builtKVVM, kvvmiInCluster) {
+			log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 	}
 
@@ -216,6 +222,34 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// isStructuralVolumeChange reports whether the desired and running volume sets
+// differ structurally, i.e. a volume was added or removed. A difference that is
+// only a PersistentVolumeClaim swap on the same set of volume names is a volume
+// migration or its revert, not a structural change.
+func isStructuralVolumeChange(builtKVVM *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) bool {
+	desired := make(map[string]struct{}, len(builtKVVM.Spec.Template.Spec.Volumes))
+	for _, v := range builtKVVM.Spec.Template.Spec.Volumes {
+		desired[v.Name] = struct{}{}
+	}
+
+	running := make(map[string]struct{}, len(kvvmi.Spec.Volumes))
+	for _, v := range kvvmi.Spec.Volumes {
+		running[v.Name] = struct{}{}
+	}
+
+	if len(desired) != len(running) {
+		return true
+	}
+
+	for name := range desired {
+		if _, ok := running[name]; !ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 func getVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {

@@ -33,6 +33,7 @@ const (
 // A resource cannot be deleted as long as it is used in one of the VMs.
 //
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha3, kind: VirtualMachineClass, metadata: {name: example-class}, spec: {cpu: {type: Host}}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={vmc,vmclass},singular=virtualmachineclass
