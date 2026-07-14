@@ -75,6 +75,8 @@ func NewController(
 		ResourceRequirements: requirements,
 		PullPolicy:           PodPullPolicy,
 		Verbose:              PodVerbose,
+		QemuConvertThreads:   qemuConvertThreads,
+		CopyBlockSize:        copyBlockSize,
 	})
 	scService := intsvc.NewVirtualDiskStorageClassService(service.NewBaseStorageClassService(mgr.GetClient()), storageClassSettings)
 	dvcrService := service.NewDVCRService(mgr.GetClient())

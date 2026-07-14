@@ -389,7 +389,7 @@ func main() {
 	}
 
 	populatorLogger := logger.NewControllerLogger(populator.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, dvcrSettings); err != nil {
+	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, importSettings.QemuConvertThreads, importSettings.CopyBlockSize, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

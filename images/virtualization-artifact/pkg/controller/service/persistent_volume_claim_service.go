@@ -90,7 +90,7 @@ func NewPersistentVolumeClaimService(
 ) *PersistentVolumeClaimService {
 	return &PersistentVolumeClaimService{
 		client:     c,
-		importer:   NewPVCImporterService(c, dvcrSettings, cfg.Image, cfg.ResourceRequirements, cfg.PullPolicy, cfg.Verbose),
+		importer:   NewPVCImporterService(c, dvcrSettings, cfg.Image, cfg.ResourceRequirements, cfg.PullPolicy, cfg.Verbose, cfg.QemuConvertThreads, cfg.CopyBlockSize),
 		protection: protection,
 	}
 }

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -75,6 +76,8 @@ type PVCImporterService struct {
 	resourceRequirements corev1.ResourceRequirements
 	pullPolicy           string
 	verbose              string
+	qemuConvertThreads   int
+	copyBlockSize        string
 }
 
 // NewPVCImporterService returns a PVCImporterService configured with the
@@ -87,6 +90,8 @@ func NewPVCImporterService(
 	resourceRequirements corev1.ResourceRequirements,
 	pullPolicy string,
 	verbose string,
+	qemuConvertThreads int,
+	copyBlockSize string,
 ) *PVCImporterService {
 	return &PVCImporterService{
 		client:               c,
@@ -95,6 +100,8 @@ func NewPVCImporterService(
 		resourceRequirements: resourceRequirements,
 		pullPolicy:           pullPolicy,
 		verbose:              verbose,
+		qemuConvertThreads:   qemuConvertThreads,
+		copyBlockSize:        copyBlockSize,
 	}
 }
 
@@ -602,6 +609,8 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			{Name: common.OwnerUID, Value: string(ownerUID)},
 			{Name: common.FilesystemOverheadVar, Value: "0"},
 			{Name: common.InsecureTLSVar, Value: "false"},
+			{Name: common.ImporterQemuConvertThreads, Value: strconv.Itoa(s.qemuConvertThreads)},
+			{Name: common.ImporterCopyBlockSize, Value: s.copyBlockSize},
 		},
 		VolumeMounts: []corev1.VolumeMount{{Name: pvcImporterScratchVolName, MountPath: pvcImporterScratchDataDir}, {Name: "tmp", MountPath: "/tmp"}},
 		Ports:        []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8443, Protocol: corev1.ProtocolTCP}},

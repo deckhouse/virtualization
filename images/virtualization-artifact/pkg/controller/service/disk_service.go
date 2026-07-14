@@ -58,6 +58,8 @@ type DiskImporterConfig struct {
 	ResourceRequirements corev1.ResourceRequirements
 	PullPolicy           string
 	Verbose              string
+	QemuConvertThreads   int
+	CopyBlockSize        string
 }
 
 func NewDiskService(
