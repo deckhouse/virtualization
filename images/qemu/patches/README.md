@@ -41,3 +41,18 @@ Effect:
 - When enabled, QEMU watches the debug console output and emits `NO_BOOTABLE_DEVICE` after the
   full marker string is received.
 - The patch also adds a qtest that verifies the event is generated.
+
+## 003-revert-nehalem-ht-feature.patch
+
+Reverts upstream QEMU commit
+[`c6bd2dd63420`](https://github.com/qemu/qemu/commit/c6bd2dd63420), which changed x86 HT reporting
+behavior between QEMU `9.2.0` and `10.2.2`.
+
+Why this patch is kept:
+
+- The upstream change breaks live migration for VMs that use CPU models where HT is not explicitly
+  enabled.
+- In our environment this especially affects older modeled CPUs such as Nehalem, where guest-visible
+  HT reporting changes across QEMU versions.
+- We need to preserve the pre-`c6bd2dd63420` behavior from QEMU `9.2.0` so migration compatibility
+  is not lost when updating to QEMU `10.2.2`.
