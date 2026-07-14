@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
@@ -102,6 +103,10 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			buildOption{name: vdRootName, rwo: false},
 			buildOption{name: vdAdditionalName, rwo: true},
 		)
+	}
+
+	localMigrationManyDisksBuild := func() (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {
+		return rootAndManyAdditionalBuild(f, vi, buildOption{name: vdRootName, storageClass: &storageClass.Name, rwo: true}, &storageClass.Name, 3)
 	}
 
 	DescribeTable("should be successful", func(build func() (vm *v1alpha2.VirtualMachine, vds []*v1alpha2.VirtualDisk)) {
@@ -210,6 +215,50 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 			Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
 
 			untilVirtualDisksMigrationsSucceeded(f)
+		}
+	})
+
+	It("keeps a multi-disk volume set consistent across repeated migrations", func() {
+		ns := f.Namespace().Name
+
+		vm, vds := localMigrationManyDisksBuild()
+
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		f.DeferDelete(vm)
+
+		for _, vd := range vds {
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			f.DeferDelete(vd)
+		}
+
+		By("Wait until VM agent is ready")
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+
+		// Repeated migrations of a multi-disk VM: each round must move the whole
+		// volume set atomically and finalize before the next starts. A non-atomic or
+		// unfinalized set makes KubeVirt reject the transition (migration hangs) or
+		// drops an RWO volume (VM ends up restart-required with UnexpectedState).
+		for i := range 3 {
+			vmopName := "many-disks-migration-" + strconv.Itoa(i)
+
+			By("Starting migration round " + strconv.Itoa(i))
+			vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
+
+			util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
+			vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Status.MigrationState).ShouldNot(BeNil())
+			Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+
+			untilVirtualDisksMigrationsSucceeded(f)
+
+			By("Verifying the migration did not leave the VM restart-required")
+			awaitRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+			Expect(awaitRestart.Status).NotTo(Equal(metav1.ConditionTrue),
+				"volume set left inconsistent after migration: %s", awaitRestart.Message)
 		}
 	})
 
