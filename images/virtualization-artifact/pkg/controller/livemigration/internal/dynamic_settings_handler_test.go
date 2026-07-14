@@ -128,10 +128,10 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			withMigrationState(otherKVVMI, "other-migration-uid")
 
 			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newKVConfig())
-			limiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			Expect(limiter.TryAcquire(otherKVVMI, "node-a")).To(BeTrue())
+			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			Expect(inboundLimiter.TryAcquire(otherKVVMI, "node-a")).To(BeTrue())
 
-			h := NewDynamicSettingsHandler(fakeClient, limiter, livemigration.NewSyncMigrationLimiter(false, 1))
+			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
 			res, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 

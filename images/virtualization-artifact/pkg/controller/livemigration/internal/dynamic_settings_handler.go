@@ -49,25 +49,25 @@ type SyncMigrationLimiter interface {
 	Release(kvvmi *virtv1.VirtualMachineInstance, sourceNode string)
 }
 
-func NewDynamicSettingsHandler(client client.Client, limiter InboundMigrationLimiter, syncLimiter SyncMigrationLimiter) *DynamicSettingsHandler {
+func NewDynamicSettingsHandler(client client.Client, inboundLimiter InboundMigrationLimiter, syncLimiter SyncMigrationLimiter) *DynamicSettingsHandler {
 	return &DynamicSettingsHandler{
-		client:      client,
-		limiter:     limiter,
-		syncLimiter: syncLimiter,
+		client:         client,
+		inboundLimiter: inboundLimiter,
+		syncLimiter:    syncLimiter,
 	}
 }
 
 type DynamicSettingsHandler struct {
-	client      client.Client
-	limiter     InboundMigrationLimiter
-	syncLimiter SyncMigrationLimiter
+	client         client.Client
+	inboundLimiter InboundMigrationLimiter
+	syncLimiter    SyncMigrationLimiter
 }
 
 func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(dynamicSettingsHandlerName))
 
 	if kvvmi.Status.MigrationState != nil && (kvvmi.Status.MigrationState.Completed || kvvmi.Status.MigrationState.Failed) {
-		h.limiter.Release(kvvmi, livemigration.InboundMigrationWaitingTargetNode(kvvmi))
+		h.inboundLimiter.Release(kvvmi, livemigration.InboundMigrationWaitingTargetNode(kvvmi))
 		livemigration.ClearInboundMigrationSlot(kvvmi)
 		h.syncLimiter.Release(kvvmi, livemigration.SyncMigrationWaitingSourceNode(kvvmi))
 		livemigration.ClearSyncMigrationSlot(kvvmi)
@@ -78,7 +78,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, nil
 	}
 
-	if h.limiter.Enabled() {
+	if h.inboundLimiter.Enabled() {
 		targetNode, err := h.resolveTargetNode(ctx, kvvmi)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -88,7 +88,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 			return reconcile.Result{RequeueAfter: inboundSlotRequeueDelay}, nil
 		}
 
-		if !h.limiter.TryAcquire(kvvmi, targetNode) {
+		if !h.inboundLimiter.TryAcquire(kvvmi, targetNode) {
 			livemigration.MarkInboundMigrationSlotWaiting(kvvmi, targetNode)
 			log.Debug("Inbound migration slot is not acquired, waiting before setting migrationConfiguration",
 				"targetNode", targetNode,
