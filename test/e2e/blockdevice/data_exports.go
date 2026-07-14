@@ -195,11 +195,6 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 			exportData(ctx, f, "vds", vdSnapshot.Name, snapshotExportPath)
 		})
 
-		// The original vd-data is intentionally left in place: the restored disks
-		// below use different names and the VM's block devices are reassigned to
-		// them, so the export/restore is verified independently of the original.
-		// vd-data is removed by the deferred cleanup at teardown.
-
 		By("Creating disk from exported VirtualDisk", func() {
 			vdFromDiskExport = createUploadDisk(ctx, f, "vd-restored-from-disk")
 		})
