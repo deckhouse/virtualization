@@ -83,8 +83,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualImageFormat", Label(precheck
 		// The disk under test is the scenario's main resource, so it lives on the WFFC
 		// storage class.
 		vd := object.NewVDFromVI("vd-from-vi-qcow2", f.Namespace().Name, vi,
-			vdbuilder.WithStorageClass(defaultStorageClass()),
-			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
+			vdbuilder.WithStorageClass(defaultStorageClass()))
 
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})

@@ -57,12 +57,12 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-const vdCreationBlankSize = "52Mi"
+const vdCreationBlankSize = "50Mi"
 
 // vdCreationImageSize is the size for image-backed disks in this test. The custom
 // e2e-br image is ~35 MiB and grows its root filesystem to the disk on first boot,
 // so a small disk is enough — 400Mi is no longer needed.
-const vdCreationImageSize = "52Mi"
+const vdCreationImageSize = "50Mi"
 
 // TODO: LINSTOR thin pool lock contention can stall all storage writes on a node
 // for over a minute without surfacing any error. That makes time-based progress
@@ -207,7 +207,6 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -240,7 +239,6 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi-pvc"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 

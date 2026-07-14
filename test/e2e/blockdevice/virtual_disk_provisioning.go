@@ -80,7 +80,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 		viObs.Never(viobs.BeFailed())
 		Expect(viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)).To(Succeed())
 
-		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithStorageClass(defaultStorageClass()))
 		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
 		vdObs := vdobs.StartObserver(ctx, f, vd)
 		vdObs.Never(vdobs.BeFailed())
@@ -96,7 +96,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 		viObs.Never(viobs.BeFailed())
 		Expect(viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)).To(Succeed())
 
-		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithStorageClass(defaultStorageClass()))
 		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
 		vdObs := vdobs.StartObserver(ctx, f, vd)
 		vdObs.Never(vdobs.BeFailed())

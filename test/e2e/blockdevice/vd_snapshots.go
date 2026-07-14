@@ -194,7 +194,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
@@ -244,7 +244,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
