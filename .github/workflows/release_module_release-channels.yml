@@ -438,6 +438,10 @@ jobs:
       matrix:
         check: ["registry", "releases", "documentation"]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Install Task
         uses: go-task/setup-task@v2
         with:
@@ -455,9 +459,6 @@ jobs:
         with:
           docker_cfg: ${{ secrets.PROD_RU_REGISTRY_DOCKER_CFG }}
 
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Check version in registry
         if: ${{ matrix.check == 'registry' && always() }}
         run: |
