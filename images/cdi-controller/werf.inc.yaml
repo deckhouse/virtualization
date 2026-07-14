@@ -59,3 +59,4 @@ shell:
   - |
     mkdir -p /relocate/{tmp,var/run/certs/cdi-uploadserver-signer,var/run/certs/cdi-uploadserver-client-signer}
     chown -R 64535:64535 /relocate/
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}

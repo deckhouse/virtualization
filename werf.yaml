@@ -177,3 +177,8 @@ import:
 shell:
   install:
     - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json
+
+# VEX attestation for the module (bundle) image. Covers GO-2026-5932
+# (golang.org/x/crypto/openpgp) carried by the hooks/go/virtualization-module-hooks
+# binary. Predicate lives in the repo-root known_vulnerabilities.vex.
+{{- include "vex mitigation" (list . "bundle") }}

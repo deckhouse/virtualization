@@ -80,3 +80,4 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
