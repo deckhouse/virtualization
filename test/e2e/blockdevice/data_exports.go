@@ -110,12 +110,13 @@ var _ = label.SIGDescribe(label.SIGStorage, "DataExports", label.Slow(), Label(p
 		snapshotExportPath := filepath.Join(exportDir, exportedSnapshotFile)
 
 		By("Creating root and data disks", func() {
-			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
+			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
+				vdbuilder.WithStorageClass(defaultStorageClass()))
 
 			vdData = vdbuilder.New(
 				vdbuilder.WithName("vd-data"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("51Mi"))),
+				vdbuilder.WithPersistentVolumeClaim(defaultStorageClass(), ptr.To(resource.MustParse("51Mi"))),
 			)
 
 			err := f.CreateWithDeferredDeletion(ctx, vdRoot, vdData)
@@ -321,6 +322,13 @@ func createUploadDisk(ctx context.Context, f *framework.Framework, name string) 
 	vd := vdbuilder.New(
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(f.Namespace().Name),
+		// Pin the same StorageClass the test reasons about: without it the disk
+		// falls back to the module default (the cluster-default SC), which may
+		// differ in VolumeBindingMode from config.DefaultStorageClass. On an
+		// Immediate STORAGE_CLASS_NAME override the disk would otherwise land on
+		// the WaitForFirstConsumer cluster default and never reach the Ready
+		// phase that waitDiskInExpectedPhase expects.
+		vdbuilder.WithStorageClass(defaultStorageClass()),
 		vdbuilder.WithDatasource(&v1alpha2.VirtualDiskDataSource{
 			Type: v1alpha2.DataSourceTypeUpload,
 		}),

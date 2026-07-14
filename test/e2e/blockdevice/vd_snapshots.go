@@ -99,7 +99,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		By("Environment preparation")
 		// Long disk name (>60 chars, the former limit) to exercise snapshotting a
 		// disk whose name uses the full Kubernetes name length.
-		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVICustomBIOS)
+		vd := object.NewVDFromCVI("vd-"+strings.Repeat("a", 80), f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm"),
 			vmbuilder.WithProvisioning(nil),
@@ -146,7 +146,7 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 			f.Namespace().Name,
 			object.PrecreatedCVICustomBIOS,
 			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
-			vdbuilder.WithStorageClass(ptr.To(cfg.StorageClass.DefaultStorageClass.Name)),
+			vdbuilder.WithStorageClass(defaultStorageClass()),
 		)
 
 		// With a WaitForFirstConsumer storage class the disk stays in the
@@ -194,8 +194,8 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
-		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
+		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("100Mi")))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm-hotplug"),
@@ -244,8 +244,8 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskSnapshots", Label(preche
 		DeferCleanup(f.After)
 
 		By("Environment preparation")
-		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
-		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+		vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithStorageClass(defaultStorageClass()))
+		vdAttach := object.NewBlankVD("vd-attach", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse("100Mi")))
 
 		vm := object.NewMinimalVM("vm-", f.Namespace().Name,
 			vmbuilder.WithName("vm-concurrent"),
