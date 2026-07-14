@@ -1422,7 +1422,7 @@ For most modern Linux distributions, it is recommended to use `bootloader: EFI`.
 {{< /alert >}}
 
 {{< alert level="warning" >}}
-`EFIWithSecureBoot` keeps its Secure Boot state in a persistent volume, so the cluster must have a default StorageClass. Without one, the virtual machine stays in `Pending` (the `Running` condition reports `no default storage class found`) until a default StorageClass is set.
+`EFIWithSecureBoot` needs a persistent volume for the Secure Boot state, which requires a default StorageClass in the cluster. Without one, the virtual machine does not start and stays in `Pending`, and its status reports that no default StorageClass is available. It starts automatically once a default StorageClass exists.
 {{< /alert >}}
 
 The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices to the VM. Changing the parameter value takes effect only after the VM is restarted.
