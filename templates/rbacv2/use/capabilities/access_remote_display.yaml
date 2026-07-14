@@ -12,6 +12,7 @@ rules:
   - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/vnc
+  - virtualmachines/screenshot
   verbs:
   - get
   - create

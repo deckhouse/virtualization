@@ -61,6 +61,7 @@ func Build(store *storage.VirtualMachineStorage, poolStorage *vmpoolstorage.Virt
 		"virtualmachines":                     store,
 		"virtualmachines/console":             store.ConsoleREST(),
 		"virtualmachines/vnc":                 store.VncREST(),
+		"virtualmachines/screenshot":          store.VncScreenshotREST(),
 		"virtualmachines/portforward":         store.PortForwardREST(),
 		"virtualmachines/addvolume":           store.AddVolumeREST(),
 		"virtualmachines/removevolume":        store.RemoveVolumeREST(),

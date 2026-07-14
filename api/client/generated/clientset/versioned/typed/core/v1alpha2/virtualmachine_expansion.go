@@ -29,6 +29,7 @@ import (
 type VirtualMachineExpansion interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	Screenshot(ctx context.Context, name string, opts v1alpha2.VirtualMachineVNCScreenshot) ([]byte, error)
 	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
 	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
 	Unfreeze(ctx context.Context, name string) error
@@ -57,6 +58,10 @@ func (c *virtualMachines) SerialConsole(name string, options *SerialConsoleOptio
 }
 
 func (c *virtualMachines) VNC(name string) (StreamInterface, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (c *virtualMachines) Screenshot(ctx context.Context, name string, opts v1alpha2.VirtualMachineVNCScreenshot) ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

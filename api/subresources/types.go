@@ -41,6 +41,14 @@ type VirtualMachineVNC struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type VirtualMachineVNCScreenshot struct {
+	metav1.TypeMeta
+
+	MoveCursor bool
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type VirtualMachinePortForward struct {
 	metav1.TypeMeta
 

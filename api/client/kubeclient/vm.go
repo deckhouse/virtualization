@@ -96,6 +96,16 @@ func (v vm) VNC(name string) (virtualizationv1alpha2.StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
 }
 
+func (v vm) Screenshot(ctx context.Context, name string, opts subv1alpha2.VirtualMachineVNCScreenshot) ([]byte, error) {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "screenshot")
+	return v.restClient.
+		Get().
+		AbsPath(path).
+		Param("moveCursor", strconv.FormatBool(opts.MoveCursor)).
+		Do(ctx).
+		Raw()
+}
+
 func (v vm) PortForward(name string, opts subv1alpha2.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error) {
 	params := url.Values{}
 	if opts.Port > 0 {
