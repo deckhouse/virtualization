@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -32,11 +33,13 @@ const (
 )
 
 type ImportSettings struct {
-	ImporterImage     string
-	DiskImporterImage string
-	UploaderImage     string
-	BounderImage      string
-	Requirements      corev1.ResourceRequirements
+	ImporterImage      string
+	DiskImporterImage  string
+	UploaderImage      string
+	BounderImage       string
+	Requirements       corev1.ResourceRequirements
+	QemuConvertThreads int
+	CopyBlockSize      string
 }
 
 func LoadImportSettingsFromEnv() (ImportSettings, error) {
@@ -76,6 +79,16 @@ func LoadImportSettingsFromEnv() (ImportSettings, error) {
 			return ImportSettings{}, err
 		}
 	}
+
+	// QemuConvertThreads is optional; an unset or invalid value keeps qemu-img defaults (0).
+	if raw := os.Getenv(common.ImporterQemuConvertThreads); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			settings.QemuConvertThreads = parsed
+		}
+	}
+
+	// CopyBlockSize is optional; the value is validated and applied in the importer pod.
+	settings.CopyBlockSize = os.Getenv(common.ImporterCopyBlockSize)
 
 	return settings, nil
 }

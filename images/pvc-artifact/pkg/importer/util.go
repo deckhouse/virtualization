@@ -17,12 +17,14 @@ limitations under the License.
 package importer
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
@@ -34,7 +36,29 @@ import (
 const (
 	kubevirtEnvPrefix   = "KUBEVIRT_IO_"
 	kubevirtLabelPrefix = "kubevirt.io/"
+
+	// defaultCopyBufferSize is the default block size used when streaming image data to the target file/device.
+	defaultCopyBufferSize = 1024 * 1024
 )
+
+// copyBufferSize is the block size used by streamDataToFile. It defaults to
+// defaultCopyBufferSize and can be overridden via SetCopyBufferSize.
+var copyBufferSize = defaultCopyBufferSize
+
+// SetCopyBufferSize overrides the block size used when streaming image data to the
+// target file/device. A value <= 0 keeps the current size.
+func SetCopyBufferSize(size int) {
+	if size > 0 {
+		copyBufferSize = size
+	}
+}
+
+// writerOnly hides the io.ReaderFrom implementation of the underlying writer
+// (e.g. *os.File), forcing io.CopyBuffer to use the provided buffer instead of
+// falling back to os.File.ReadFrom (which ignores the buffer and uses a 32 KiB copy).
+type writerOnly struct {
+	io.Writer
+}
 
 // ParseEndpoint parses the required endpoint and return the url struct.
 func ParseEndpoint(endpt string) (*url.URL, error) {
@@ -106,7 +130,10 @@ func streamDataToFile(r io.Reader, fileName string) error {
 	}
 	defer outFile.Close()
 	klog.V(1).Infof("Writing data...\n")
-	if _, err = io.Copy(outFile, r); err != nil {
+	start := time.Now()
+	fmt.Printf("Copy to %s started at %s (block size %d bytes)\n", fileName, start.Format(time.RFC3339Nano), copyBufferSize)
+	buf := make([]byte, copyBufferSize)
+	if _, err = io.CopyBuffer(writerOnly{outFile}, r, buf); err != nil {
 		klog.Errorf("Unable to write file from dataReader: %v\n", err)
 		_ = os.Remove(outFile.Name())
 		if strings.Contains(err.Error(), "no space left on device") {
@@ -114,6 +141,8 @@ func streamDataToFile(r io.Reader, fileName string) error {
 		}
 		return NewImagePullFailedError(err)
 	}
+	end := time.Now()
+	fmt.Printf("Copy to %s finished at %s (duration %s)\n", fileName, end.Format(time.RFC3339Nano), end.Sub(start))
 	err = outFile.Sync()
 	return err
 }

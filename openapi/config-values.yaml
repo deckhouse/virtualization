@@ -29,6 +29,33 @@ properties:
     description: |
       The Ingress class that will be used to upload images.
       By default, the `modules.ingressClass` global value is used.
+  importer:
+    type: object
+    default: {}
+    description: |
+      Settings for the image/disk import pipeline (importer pod).
+    properties:
+      qemuConvertThreads:
+        type: integer
+        minimum: 0
+        maximum: 16
+        default: 0
+        x-examples: [4]
+        description: |
+          Number of parallel coroutines used by `qemu-img convert` when converting an imported image to the target disk (the `-m` option).
+
+          A value greater than `1` also enables out-of-order writes (the `-W` option) so the coroutines can write to the target concurrently, which can speed up importing large images.
+
+          `0` (default) keeps the `qemu-img` default behavior.
+      copyBlockSize:
+        type: string
+        pattern: '^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$'
+        default: "1Mi"
+        x-examples: ["1Mi", "4Mi"]
+        description: |
+          Block size used when streaming imported image data to the target file/device.
+
+          Expressed as a Kubernetes quantity (for example, `1Mi` or `4Mi`). A larger block size can speed up importing large images at the cost of higher memory usage in the importer pod.
   https:
     type: object
     x-examples:

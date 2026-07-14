@@ -66,6 +66,12 @@ type Settings struct {
 	DestinationEndpoint    string
 	DestinationInsecureTLS string
 	DestinationAuthSecret  string
+	// QemuConvertThreads is the number of coroutines qemu-img convert uses (-m) in the importer pod.
+	// A value <= 0 keeps qemu-img defaults.
+	QemuConvertThreads int
+	// CopyBlockSize is the block size (as a resource.Quantity string, e.g. "1Mi") used when
+	// streaming image data to the target file/device in the importer pod. Empty keeps the default.
+	CopyBlockSize string
 }
 
 func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen supplements.Generator, dvcrImageName string) {
