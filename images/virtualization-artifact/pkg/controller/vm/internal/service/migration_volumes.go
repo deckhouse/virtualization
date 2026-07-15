@@ -123,13 +123,11 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
-		// KVVM carries a dead migration volume set kubevirt will never sync (e.g. the
-		// target PVC was removed) and no migration is running: revert to source.
-		// Gate on the migration strategy so benign divergence (e.g. a hotplug volume
-		// mid-attach) is left to sync normally instead of being reverted. A round can
-		// also run without any VMOP (storage class change, driven by kubevirt's
-		// workload-updater): while the disks still demand it (migrationRequested),
-		// the diverged KVVM is that round starting, not a leftover.
+		// KVVM holds a dead migration set kubevirt will never sync (e.g. the target
+		// PVC was removed): revert to source. Only when the strategy is still set
+		// (plain divergence like a hotplug mid-attach must sync, not revert) and no
+		// round is wanted (a storage class round runs without a VMOP and must not
+		// be reverted at its start).
 		migrationStuck := kvvmInCluster.Spec.UpdateVolumesStrategy != nil && *kvvmInCluster.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
 		if vmop == nil && migrationStuck && !migrationRequested && s.shouldPatchVolumes(kvvmInClusterCopy, builtKVVM) {
 			log.Info("No in-progress migration but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
@@ -140,10 +138,9 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, nil
 	}
 
-	// Clear a stale updateVolumesStrategy left by a finished migration; kubevirt
-	// otherwise keeps treating the VM as mid-migration. Equal-volumes guard avoids
-	// touching a mid-completion window where volumes still differ. The pull-policy
-	// normalized copy is compared, or containerdisk volumes never match.
+	// Clear a stale updateVolumesStrategy after a finished migration; kubevirt never
+	// clears it and keeps treating the VM as mid-migration. Volumes-equal guard skips
+	// the mid-completion window; the normalized copy is required for containerdisks.
 	if vmop == nil &&
 		equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmInClusterCopy.Spec.Template.Spec.Volumes) &&
 		!equality.Semantic.DeepEqual(builtKVVM.Spec.UpdateVolumesStrategy, kvvmInClusterCopy.Spec.UpdateVolumesStrategy) {
@@ -603,11 +600,10 @@ func isVolumeMigrating(kvvmi *virtv1.VirtualMachineInstance) bool {
 	return cond.Status == corev1.ConditionTrue
 }
 
-// destinationsMatch reports whether the set we are about to patch merely continues
-// the in-flight migration: every volume either keeps its currently running claim or
-// goes to the destination already recorded in kvvmi.status.migratedVolumes, and no
-// in-flight volume is left out of the set. Anything else is a different target set,
-// which KubeVirt rejects mid-migration.
+// destinationsMatch reports whether the patched set merely continues the in-flight
+// migration: every volume keeps its running claim or goes to its recorded destination
+// (kvvmi.status.migratedVolumes), and no in-flight volume is left out. Anything else
+// KubeVirt rejects mid-migration.
 func destinationsMatch(kvvmi *virtv1.VirtualMachineInstance, built *virtv1.VirtualMachine) bool {
 	current := make(map[string]string, len(kvvmi.Spec.Volumes))
 	for _, v := range kvvmi.Spec.Volumes {
