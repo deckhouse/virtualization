@@ -3523,7 +3523,7 @@ When a network is removed from the VM configuration:
 
 ### IPAM for additional network interfaces
 
-If the `sdn` module has IPAM (IP Address Management) configured for an additional network (a pool of IP addresses bound to the network via `spec.ipam.ipAddressPoolRef`), the virtualization module can automatically allocate IP addresses for additional VM interfaces and deliver them to the guest OS via DHCP.
+If the [`sdn`](/modules/sdn/) module has IPAM (IP Address Management) configured for an additional network (a pool of IP addresses bound to the network via [`spec.ipam.ipAddressPoolRef`](/modules/sdn/cr.html#clusternetwork-v1alpha1-spec-ipam-ipaddresspoolref)), the `virtualization` module can automatically allocate IP addresses for additional VM interfaces and deliver them to the guest OS via DHCP.
 
 Two modes are supported:
 
