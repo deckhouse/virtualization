@@ -123,7 +123,11 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	if !kvvmiSynced {
 		// KVVM carries a dead migration volume set kubevirt will never sync (e.g. the
 		// target PVC was removed) and no migration is running: revert to source.
-		if vmop == nil && s.shouldPatchVolumes(kvvmInClusterCopy, builtKVVM) {
+		// Gate on the migration strategy so benign divergence (e.g. a hotplug volume
+		// mid-attach) is left to sync normally instead of being reverted.
+		migrationStuck := kvvmInCluster.Spec.UpdateVolumesStrategy != nil &&
+			*kvvmInCluster.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
+		if vmop == nil && migrationStuck && s.shouldPatchVolumes(kvvmInClusterCopy, builtKVVM) {
 			log.Info("No in-progress migration but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
 			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 		}

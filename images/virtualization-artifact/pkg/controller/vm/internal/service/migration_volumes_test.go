@@ -352,6 +352,34 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 	})
+
+	It("does not revert diverged volumes when no migration strategy is set (e.g. hotplug mid-attach)", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+
+		vm := newVM()
+		// KVVM and KVVMI diverge but there is no migration strategy: a benign
+		// transient such as a hotplug volume being attached. It must be left to sync,
+		// not force-reverted (that would tear down the in-flight attachment).
+		kvvmInCluster := newKVVMWithVolume(targetPVC, nil, "node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
 })
 
 var _ = Describe("isStructuralVolumeChange", func() {
