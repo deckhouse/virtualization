@@ -3605,8 +3605,8 @@ spec:
 
 ```yaml
 status:
-  ipAddress: 10.66.10.2                     # IP-адрес основной сети (как прежде)
-  virtualMachineIPAddressName: vm-01-main-ip # имя IPAddress основной сети
+  ipAddress: 10.66.10.2                     # IP-адрес основной сети (как прежде).
+  virtualMachineIPAddressName: vm-01-main-ip # Имя IPAddress основной сети.
   networks:
     - type: Main
     - type: ClusterNetwork
