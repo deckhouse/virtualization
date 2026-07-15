@@ -124,7 +124,8 @@ func isOnlyNetworkIDAutofillChange(current, desired []v1alpha2.NetworksSpec) boo
 	for i := range current {
 		if current[i].Type != desired[i].Type ||
 			current[i].Name != desired[i].Name ||
-			current[i].VirtualMachineMACAddressName != desired[i].VirtualMachineMACAddressName {
+			current[i].VirtualMachineMACAddressName != desired[i].VirtualMachineMACAddressName ||
+			current[i].IPAddressName != desired[i].IPAddressName {
 			return false
 		}
 

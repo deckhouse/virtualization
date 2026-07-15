@@ -52,16 +52,17 @@ type additionalNetworkTestCase struct {
 }
 
 const (
-	additionalInterfaceVLANID       = 4006
-	secondAdditionalInterfaceVLANID = 4007
+	// L2OnlyNetworkVLANID is a ClusterNetwork without an IPAM pool. Tests that
+	// configure IPs manually inside the guest OS (cloud-init static) use it to
+	// avoid conflicting with SDN-allocated addresses from a pool.
+	L2OnlyNetworkVLANID = 4007
+	// WithIPPoolNetworkVLANID is a ClusterNetwork with an IPAM pool bound
+	// (e2e-ipam-pool, 192.168.200.0/24). Used by IPAM tests and as a second
+	// additional network in interface-name-persistence tests.
+	WithIPPoolNetworkVLANID = 4006
 )
 
-func expectClusterNetworkExists(f *framework.Framework, vlanID int) {
-	Expect(util.IsClusterNetworkExists(f, vlanID)).To(BeTrue(),
-		fmt.Sprintf("Cluster network %s does not exist. Create it first: %s", util.ClusterNetworkName(vlanID), util.ClusterNetworkCreateCommand(vlanID)))
-}
-
-var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoPrecheck, precheck.PrecheckSDN), func() {
+var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.PrecheckSDN), func() {
 	var (
 		vdFooRoot *v1alpha2.VirtualDisk
 		vdBarRoot *v1alpha2.VirtualDisk
@@ -78,13 +79,6 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 		DeferCleanup(f.After)
 
 		f.Before()
-
-		if !util.IsSdnModuleEnabled(f) {
-			Skip("SDN module is disabled. Skipping test.")
-		}
-
-		expectClusterNetworkExists(f, additionalInterfaceVLANID)
-		expectClusterNetworkExists(f, secondAdditionalInterfaceVLANID)
 	})
 
 	DescribeTable("verifies additional network interfaces and connectivity before and after migration",
@@ -204,7 +198,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				vm = buildVMWithNetworks("vm", ns, vdRoot.Name, "192.168.1.20", true, cloudInitOpt, memoryOpt)
 				vm.Spec.Networks = append(vm.Spec.Networks, v1alpha2.NetworksSpec{
 					Type: v1alpha2.NetworksTypeClusterNetwork,
-					Name: util.ClusterNetworkName(secondAdditionalInterfaceVLANID),
+					Name: util.ClusterNetworkName(WithIPPoolNetworkVLANID),
 				})
 
 				err := f.CreateWithDeferredDeletion(ctx, vdRoot, vm)
@@ -331,7 +325,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(precheck.NoP
 				Expect(err).NotTo(HaveOccurred())
 				testVM.Spec.Networks = append(testVM.Spec.Networks, v1alpha2.NetworksSpec{
 					Type: v1alpha2.NetworksTypeClusterNetwork,
-					Name: util.ClusterNetworkName(additionalInterfaceVLANID),
+					Name: util.ClusterNetworkName(L2OnlyNetworkVLANID),
 				})
 				err = f.Clients.GenericClient().Update(context.Background(), testVM)
 				Expect(err).NotTo(HaveOccurred())
@@ -400,7 +394,7 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 	opts = append(opts,
 		vm.WithNetwork(v1alpha2.NetworksSpec{
 			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName(additionalInterfaceVLANID),
+			Name: util.ClusterNetworkName(L2OnlyNetworkVLANID),
 		}),
 	)
 	opts = append(opts, extraOpts...)

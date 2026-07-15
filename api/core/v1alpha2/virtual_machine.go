@@ -279,6 +279,12 @@ type NetworksSpec struct {
 	Type                         string `json:"type"`
 	Name                         string `json:"name,omitempty"`
 	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
+	// IPAddressName is the name of the `IPAddress` resource (SDN module, network.deckhouse.io/v1alpha1)
+	// to use for a static IP address on this additional network interface.
+	// If specified, the referenced IPAddress is used instead of automatic allocation from the network pool.
+	// Only applicable to additional networks (Network, ClusterNetwork) with IPAM configured (a pool bound to the network).
+	// Ignored if the network has no pool.
+	IPAddressName string `json:"ipAddressName,omitempty"`
 }
 
 const (
@@ -446,6 +452,10 @@ type NetworksStatus struct {
 	Name                         string `json:"name,omitempty"`
 	MAC                          string `json:"macAddress,omitempty"`
 	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
+	// IPAddress is the IP address allocated for this additional network interface by SDN (from the network pool).
+	// Populated from the pod's network.deckhouse.io/networks-status annotation (ipAddressConfigs[].address).
+	// Empty for the Main network or when the additional network has no pool configured.
+	IPAddress string `json:"ipAddress,omitempty"`
 }
 
 // MachinePhase defines current phase of the virtual machine:

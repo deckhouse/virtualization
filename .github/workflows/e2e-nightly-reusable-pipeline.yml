@@ -430,6 +430,15 @@ jobs:
           cat <<'EOF' | bash "${E2E_SCRIPT_DIR}/apply-clusternetworks.sh"
           ---
           apiVersion: network.deckhouse.io/v1alpha1
+          kind: ClusterIPAddressPool
+          metadata:
+            name: e2e-ipam-pool
+          spec:
+            leaseTTL: 1h
+            pools:
+              - network: 192.168.200.0/24
+          ---
+          apiVersion: network.deckhouse.io/v1alpha1
           kind: ClusterNetwork
           metadata:
             name: cn-4006-for-e2e-test
@@ -439,6 +448,10 @@ jobs:
                 matchLabels:
                   nic-group: extra
             type: Access
+            ipam:
+              ipAddressPoolRef:
+                kind: ClusterIPAddressPool
+                name: e2e-ipam-pool
           ---
           apiVersion: network.deckhouse.io/v1alpha1
           kind: ClusterNetwork

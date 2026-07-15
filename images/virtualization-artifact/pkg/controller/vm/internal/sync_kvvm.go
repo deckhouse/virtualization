@@ -577,6 +577,10 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 	networkSpec := network.CreateNetworkSpec(filteredVM, vmmacs)
+	networkSpec, err = network.EnrichWithIPAM(ctx, s.Client(), current.Namespace, current, networkSpec)
+	if err != nil {
+		return nil, err
+	}
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
@@ -1195,7 +1199,13 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		desired = append(desired, n.Name)
 	}
 
-	networkConfigStr, err := network.CreateNetworkSpec(filteredVM, vmmacs).ToString()
+	specs := network.CreateNetworkSpec(filteredVM, vmmacs)
+	specs, err = network.EnrichWithIPAM(ctx, s.Client(), filteredVM.Namespace, filteredVM, specs)
+	if err != nil {
+		return nil, fmt.Errorf("enrich network spec with IPAM: %w", err)
+	}
+
+	networkConfigStr, err := specs.ToString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize network spec: %w", err)
 	}
