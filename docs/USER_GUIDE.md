@@ -3584,7 +3584,7 @@ status:
       name: corp-net
       macAddress: 32:a6:a1:0a:92:48
       virtualMachineMACAddressName: vm-01-rxzd6
-      ipAddress: 192.168.200.4               # Additional network IP (from IPAM)
+      ipAddress: 192.168.200.4               # Additional network IP (from IPAM).
 ```
 
 {{< alert level="warning" >}}
