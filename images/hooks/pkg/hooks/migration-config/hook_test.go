@@ -152,6 +152,7 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, defaultBandwidthPerMigration))
 		Expect(setValues).To(HaveKeyWithValue(completionTimeoutPerGiBValuesPath, defaultCompletionTimeoutPerGiB))
 		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultParallelOutboundMigrationsPerNode))
+		Expect(setValues).To(HaveKeyWithValue(parallelSyncMigrationsPerNodeValuesPath, defaultParallelSyncMigrationsPerNode))
 		Expect(setValues).To(HaveKeyWithValue(progressTimeoutValuesPath, defaultProgressTimeout))
 		Expect(setValues).To(HaveKeyWithValue(disableTLSValuesPath, defaultDisableTLS))
 		Expect(setValues).To(HaveKeyWithValue(disableFirmwareUpdateValuesPath, defaultDisableFirmwareUpdate))
@@ -162,6 +163,7 @@ var _ = Describe("MigrationConfig", func() {
 			bandwidthPerMigrationAnnotation:             defaultBandwidthPerMigration,
 			completionTimeoutPerGiBAnnotation:           "800",
 			parallelOutboundMigrationsPerNodeAnnotation: "1",
+			parallelSyncMigrationsPerNodeAnnotation:     "1",
 			parallelInboundMigrationsPerNodeAnnotation:  "1",
 			progressTimeoutAnnotation:                   "150",
 			disableTLSAnnotation:                        "false",
@@ -176,6 +178,8 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelSyncMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
 			case parallelInboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
 			case inboundMigrationLimitValuesPath:
@@ -229,6 +233,8 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelSyncMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
 			case parallelInboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
 			case inboundMigrationLimitValuesPath:
@@ -262,6 +268,8 @@ var _ = Describe("MigrationConfig", func() {
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+			case parallelSyncMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
 			case parallelInboundMigrationsPerNodeValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
 			case inboundMigrationLimitValuesPath:

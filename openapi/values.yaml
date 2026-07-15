@@ -148,11 +148,15 @@ properties:
             type: integer
           parallelOutboundMigrationsPerNode:
             type: integer
+          parallelSyncMigrationsPerNode:
+            type: integer
           parallelInboundMigrationsPerNode:
             type: integer
           inboundMigrationLimit:
             type: string
           outboundMigrationLimit:
+            type: string
+          syncMigrationLimit:
             type: string
           progressTimeout:
             type: integer

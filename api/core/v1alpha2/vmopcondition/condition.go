@@ -104,6 +104,10 @@ const (
 	// ReasonSyncing indicates that source and target are synchronizing migration data.
 	ReasonSyncing ReasonCompleted = "Syncing"
 
+	// ReasonWaitingForSyncSlot indicates that the target is prepared and the migration
+	// is waiting for a free sync slot on the source node.
+	ReasonWaitingForSyncSlot ReasonCompleted = "WaitingForSyncSlot"
+
 	// ReasonNotConverging indicates that migration cannot converge even with maximum throttling.
 	ReasonNotConverging ReasonCompleted = "NotConverging"
 

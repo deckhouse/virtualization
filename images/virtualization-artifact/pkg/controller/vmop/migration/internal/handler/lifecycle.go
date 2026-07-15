@@ -53,6 +53,7 @@ const (
 	progressMigrationPending   int32 = 0
 	progressTargetScheduling   int32 = 2
 	progressTargetPreparing    int32 = 3
+	progressWaitingForSyncSlot int32 = 4
 	progressSourceSuspended    int32 = 91
 	progressTargetResumed      int32 = 92
 	progressMigrationCompleted int32 = 100
@@ -63,6 +64,7 @@ const (
 	messageSyncingSourceAndTarget = "Source and target are being synchronized"
 	messageTargetPodScheduling    = "Scheduling the migration target"
 	messageTargetPodPreparing     = "Preparing the migration target"
+	messageWaitingForSyncSlot     = "Target prepared; waiting for a sync slot on the source node"
 	messageTargetVMResumed        = "The virtual machine has resumed on the target"
 	messageSourceVMSuspended      = "The virtual machine has been suspended on the source"
 )
@@ -374,7 +376,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonMigrationPending {
+	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -490,7 +492,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
-	if reason == vmopcondition.ReasonMigrationPending {
+	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 	progress := h.calculateMigrationProgress(vmop, mig, reason)
@@ -639,6 +641,15 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
 	}
 
+	// Surface the sync-slot wait only after ruling out a broken target: the target
+	// is fully prepared and parked while waiting, so an unschedulable pod or a disk
+	// error is the real blocker and must take priority over the wait message.
+	if waiting, err := h.isWaitingForSyncSlot(ctx, mig); err != nil {
+		return "", "", err
+	} else if waiting {
+		return vmopcondition.ReasonWaitingForSyncSlot, messageWaitingForSyncSlot, nil
+	}
+
 	if mig.Status.MigrationState != nil {
 		state := mig.Status.MigrationState
 		if state.TargetNodeDomainReadyTimestamp != nil {
@@ -715,6 +726,8 @@ func (h LifecycleHandler) calculateMigrationProgress(
 		return progressTargetPreparing
 	case vmopcondition.ReasonTargetDiskError:
 		return progressTargetPreparing
+	case vmopcondition.ReasonWaitingForSyncSlot:
+		return progressWaitingForSyncSlot
 	case vmopcondition.ReasonSyncing, vmopcondition.ReasonNotConverging:
 		record := migrationprogress.BuildRecord(vmop, mig, time.Now())
 		return h.progressStrategy.SyncProgress(record)
@@ -787,6 +800,20 @@ func (h LifecycleHandler) isWaitingForInboundMigrationSlot(ctx context.Context, 
 	}
 
 	return livemigration.IsInboundMigrationSlotWaiting(&kvvmi), nil
+}
+
+func (h LifecycleHandler) isWaitingForSyncSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (bool, error) {
+	if mig == nil || mig.Spec.VMIName == "" {
+		return false, nil
+	}
+
+	var kvvmi virtv1.VirtualMachineInstance
+	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
+	if err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+
+	return livemigration.IsSyncMigrationSlotWaiting(&kvvmi), nil
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {
