@@ -3630,8 +3630,8 @@ status:
 
 Для автоматической настройки hotplug-интерфейсов используйте один из следующих подходов в гостевой ОС:
 
-- **NetworkManager** (Ubuntu, RHEL, CentOS) — автоматически настраивает новые интерфейсы с DHCP, если запущен сервис `network-manager`.
-- **udev-правило** (Alpine и другие без NetworkManager) — добавьте udev-правило для подъёма новых интерфейсов:
+- **NetworkManager** (Ubuntu, RHEL, CentOS) — автоматически настраивает новые интерфейсы с DHCP, если запущен сервис `network-manager`;
+- **udev-правило** (Alpine и другие системы без `network-manager`) — добавьте udev-правило для подъёма новых интерфейсов:
 
 ```yaml
 write_files:
