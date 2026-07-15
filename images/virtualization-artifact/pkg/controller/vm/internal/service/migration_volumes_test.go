@@ -281,6 +281,46 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
 	})
 
+	It("clears a stale migration strategy on a VM with a containerdisk volume despite the pull-policy drift", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		containerDisk := func(policy corev1.PullPolicy) virtv1.Volume {
+			return virtv1.Volume{
+				Name: "cdrom",
+				VolumeSource: virtv1.VolumeSource{
+					ContainerDisk: &virtv1.ContainerDiskSource{Image: "registry.example.com/image:tag", ImagePullPolicy: policy},
+				},
+			}
+		}
+
+		vm := newVM()
+		// The pull policy is defaulted by kubevirt only on the VMI: KVVM and the
+		// desired spec carry an empty one. The stale strategy must still be cleared.
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
+		kvvmInCluster.Spec.Template.Spec.Volumes = append(kvvmInCluster.Spec.Template.Spec.Volumes, containerDisk(""))
+		kvvmi := newKVVMIWithVolume(targetPVC)
+		kvvmi.Spec.Volumes = append(kvvmi.Spec.Volumes, containerDisk(corev1.PullIfNotPresent))
+		desiredKVVM := newKVVMWithVolume(targetPVC, nil, "node")
+		desiredKVVM.Spec.Template.Spec.Volumes = append(desiredKVVM.Spec.Template.Spec.Volumes, containerDisk(""))
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+	})
+
 	It("force-reverts kvvm to source when kvvm/kvvmi diverged and no migration is in progress", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()
 		migrationStrategy := virtv1.UpdateVolumesStrategyMigration

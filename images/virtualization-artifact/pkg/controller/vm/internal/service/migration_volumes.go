@@ -123,7 +123,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	if !kvvmiSynced {
 		// KVVM carries a dead migration volume set kubevirt will never sync (e.g. the
 		// target PVC was removed) and no migration is running: revert to source.
-		if vmop == nil && s.shouldPatchVolumes(kvvmInCluster, builtKVVM) {
+		if vmop == nil && s.shouldPatchVolumes(kvvmInClusterCopy, builtKVVM) {
 			log.Info("No in-progress migration but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
 			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 		}
@@ -134,10 +134,11 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	// Clear a stale updateVolumesStrategy left by a finished migration; kubevirt
 	// otherwise keeps treating the VM as mid-migration. Equal-volumes guard avoids
-	// touching a mid-completion window where volumes still differ.
+	// touching a mid-completion window where volumes still differ. The pull-policy
+	// normalized copy is compared, or containerdisk volumes never match.
 	if vmop == nil &&
-		equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes) &&
-		!equality.Semantic.DeepEqual(builtKVVM.Spec.UpdateVolumesStrategy, kvvmInCluster.Spec.UpdateVolumesStrategy) {
+		equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmInClusterCopy.Spec.Template.Spec.Volumes) &&
+		!equality.Semantic.DeepEqual(builtKVVM.Spec.UpdateVolumesStrategy, kvvmInClusterCopy.Spec.UpdateVolumesStrategy) {
 		log.Info("clearing stale updateVolumesStrategy on kvvm after migration finished.")
 		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 	}
