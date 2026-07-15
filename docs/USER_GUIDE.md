@@ -3552,7 +3552,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      ipAddressName: my-static-ip # name of the IPAddress resource (SDN)
+      ipAddressName: my-static-ip # Name of the IPAddress resource (SDN).
 ```
 
 To create a static `IPAddress` resource:
