@@ -13,21 +13,16 @@
 # limitations under the License.
 
 # Recheck a published module tag and, if any component image it references is no
-# longer pullable (e.g. its stage manifest was garbage-collected from dev-registry),
-# rebuild the tag so the assembly chain is regenerated with live image digests.
+# longer pullable (its stage manifest was garbage-collected from dev-registry),
+# rebuild the tag with live image digests.
 #
-# The dev-registry GC removes untagged/by-digest stage manifests over time. A plain
-# rebuild does NOT fix this on its own: the `images-digests` image caches its content
-# by the components' werf stage signatures (stable), not by their OCI digests, so werf
-# reuses the cached `images_digests.json` still pointing at the collected manifests.
-# werf stage tags are content-based and stable, so a rebuilt stage does not invalidate
-# downstream stages' signatures — they stay cached and keep serving the stale json.
-# This workflow therefore deletes the whole baking chain `images-digests` ->
-# `prepare-bundle` -> `bundle`: images-digests is rebuilt re-reading the currently
-# published component digests, prepare-bundle re-imports the fresh `images_digests.json`,
-# and bundle (== module `:tag`) picks it up; the build action republishes `:tag` from the
-# rebuilt bundle stage. The release image carries no `images_digests.json`, so it is left
-# untouched.
+# A plain rebuild does NOT fix this: werf stage tags are content-based and stable,
+# so the `images_digests.json` baked into `bundle` (== module `:tag`) keeps pointing
+# at the collected manifests, and rebuilding one stage never invalidates the stages
+# that import it. So we delete the whole baking chain images-digests -> prepare-bundle
+# -> bundle: images-digests is rebuilt re-reading live component digests, prepare-bundle
+# re-imports the fresh json, bundle picks it up, and the build action republishes `:tag`.
+# The release image has no `images_digests.json` and is left untouched.
 
 name: Check dev images and rebuild
 
@@ -146,15 +141,9 @@ jobs:
             exit 1
           fi
 
-          # Delete every cached stage from images-digests down to bundle that bakes
-          # the component digests. werf stage tags are content-based and stable, so
-          # deleting one stage forces ONLY that stage to rebuild without invalidating
-          # any downstream signature: images-digests must be deleted to re-read live
-          # component digests, prepare-bundle to re-import the fresh images_digests.json,
-          # and bundle (== module :tag) to pick up that prepare-bundle rather than serve
-          # the cached, stale json. The build action republishes :tag from the rebuilt
-          # bundle stage; the release image carries no images_digests.json and is left
-          # untouched. Delete by digest so all timestamped stage tags go at once.
+          # Delete the whole baking chain by digest. Stage tags are content-based and
+          # stable, so deleting one stage rebuilds only that stage without touching the
+          # ones that import it — all three must go to move fresh digests into :tag.
           for img in images-digests prepare-bundle bundle; do
             d="$(jq -r --arg i "$img" '.Images[$i].DockerImageDigest // empty' "$report")"
             if [ -n "$d" ]; then
