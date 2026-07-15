@@ -141,6 +141,12 @@ jobs:
             exit 1
           fi
 
+          # test only
+          echo "::group:: Report"
+          cat "$report" | jq
+          echo "::endgroup::"
+          #
+
           # Delete the whole baking chain by digest. Stage tags are content-based and
           # stable, so deleting one stage rebuilds only that stage without touching the
           # ones that import it — all three must go to move fresh digests into :tag.
