@@ -12,18 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Recheck a published module tag and, if any component image it references is no
-# longer pullable (its stage manifest was garbage-collected from dev-registry),
-# rebuild the tag with live image digests.
+# Recheck a published module tag and rebuild it if any component image it references
+# was garbage-collected from dev-registry.
 #
-# A plain rebuild does NOT fix this: werf stage tags are content-based and stable, and
-# a collected component keeps a resolvable stage tag, so werf reuses the stage and keeps
-# reporting the dead digest. The fix, for every component whose final image is no longer
-# pullable, deletes its stages BY TAG (the dead digest cannot be deleted): werf then no
-# longer finds the stage by signature and rebuilds + re-pushes a live image. Deleting
-# images-digests and prepare-bundle regenerates `images_digests.json` with the fresh
-# digests, and the build action republishes `:tag`. The release image has no
-# `images_digests.json` and is left untouched.
+# A plain rebuild does not fix it: werf keeps reusing the collected stage (its tag still
+# resolves) and re-reports the dead digest. So for every broken component we delete its
+# stages by tag (the dead digest can't be deleted), forcing werf to rebuild and re-push;
+# then we delete images-digests and prepare-bundle to regenerate images_digests.json,
+# and the build action republishes :tag.
 
 name: Check dev images and rebuild
 
@@ -91,11 +87,11 @@ jobs:
         id: check
         run: |
           set -uo pipefail
-          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          TAG="${{ github.event.inputs.tag }}"
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
 
           rc=0
-          .github/scripts/bash/check-and-rebuild/check-image-digests.sh "$R" "$TAG" || rc=$?
+          .github/scripts/bash/check-and-rebuild/check-image-digests.sh \
+            --repo "$repo" --tag "${{ github.event.inputs.tag }}" || rc=$?
           if [ "$rc" -eq 2 ]; then
             exit 1
           fi
@@ -122,45 +118,9 @@ jobs:
       - name: Delete stale stages of broken images
         if: ${{ steps.check.outputs.needs_fix == 'true' }}
         run: |
-          set -euo pipefail
-          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          report="images_tags_werf.json"
-          if [ ! -f "$report" ]; then
-            echo "::error::$report not produced by the build step"
-            exit 1
-          fi
-
-          # Force-rebuild every component whose final image is no longer pullable. GC
-          # collected its final stage manifest, but werf still reuses the stage because
-          # its content-signature tag keeps resolving, so it re-reports the dead digest.
-          # Delete the component's stages BY TAG — the dead digest cannot be deleted
-          # (MANIFEST_UNKNOWN), but the tag still resolves. Once the tag is gone werf no
-          # longer finds the stage by signature and rebuilds + re-pushes a live image.
-          jq -r '.Images | to_entries[] | select(.value.Final == true) | .key' "$report" | while read -r img; do
-            final="$(jq -r --arg i "$img" '.Images[$i].DockerImageDigest // empty' "$report")"
-            [ -n "$final" ] || continue
-            if crane digest "$R@$final" >/dev/null 2>&1; then
-              continue
-            fi
-            echo "broken: $img — deleting its stages to force a rebuild"
-            jq -r --arg i "$img" '.Images[$i].Stages[].DockerTag // empty' "$report" | while read -r t; do
-              [ -n "$t" ] || continue
-              crane delete "$R:$t" && echo "  deleted $R:$t" || echo "::warning::failed to delete stage $t"
-            done
-          done
-
-          # Regenerate the digests chain so the freshly rebuilt component digests reach
-          # the module :tag. images-digests caches by the components' (stable) stage
-          # signatures, so delete it and prepare-bundle (which imports it) by tag.
-          for img in images-digests prepare-bundle; do
-            t="$(jq -r --arg i "$img" '.Images[$i].DockerTag // empty' "$report")"
-            if [ -n "$t" ]; then
-              echo "deleting $img -> $R:$t"
-              crane delete "$R:$t" || echo "::warning::failed to delete $img ($t)"
-            else
-              echo "::warning::no tag for $img in build report"
-            fi
-          done
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          .github/scripts/bash/check-and-rebuild/rebuild-broken-stages.sh \
+            --repo "$repo" --report images_tags_werf.json
 
       # Pass 2: full rebuild + publish; images-digests is regenerated with live digests.
       - name: Rebuild and publish
@@ -180,9 +140,9 @@ jobs:
         if: ${{ steps.check.outputs.needs_fix == 'true' }}
         run: |
           set -euo pipefail
-          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          TAG="${{ github.event.inputs.tag }}"
-          if ! .github/scripts/bash/check-and-rebuild/check-image-digests.sh "$R" "$TAG"; then
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          if ! .github/scripts/bash/check-and-rebuild/check-image-digests.sh \
+              --repo "$repo" --tag "${{ github.event.inputs.tag }}"; then
             echo "::error::component image(s) still missing after rebuild"
             exit 1
           fi

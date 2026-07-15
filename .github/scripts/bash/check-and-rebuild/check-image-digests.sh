@@ -15,32 +15,38 @@
 # limitations under the License.
 
 # Check that every component image referenced by a module tag is pullable.
-# Reads images_digests.json from the module image and verifies each digest.
-#
-# Usage: check-image-digests.sh <repo> <tag>
+# Usage: check-image-digests.sh --repo <repo> --tag <tag>
 # Exit:  0 all pullable, 1 some missing, 2 module image not found.
 
 set -Eeuo pipefail
 
-R="${1:?usage: check-image-digests.sh <repo> <tag>}"
-TAG="${2:?usage: check-image-digests.sh <repo> <tag>}"
+repo=""
+tag=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo) repo="$2"; shift 2 ;;
+    --tag) tag="$2"; shift 2 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$repo" && -n "$tag" ]] || { echo "usage: $0 --repo <repo> --tag <tag>" >&2; exit 2; }
 
-if ! crane digest "${R}:${TAG}" >/dev/null 2>&1; then
-  echo "::error::module image ${R}:${TAG} not found"
+if ! crane digest "${repo}:${tag}" >/dev/null 2>&1; then
+  echo "::error::module image ${repo}:${tag} not found"
   exit 2
 fi
 
-json="$(crane export "${R}:${TAG}" - | tar -Oxf - images_digests.json)"
+digests="$(crane export "${repo}:${tag}" - | tar -Oxf - images_digests.json)"
 
 missing=0
 while read -r name digest; do
-  if crane digest "${R}@${digest}" >/dev/null 2>&1; then
+  if crane digest "${repo}@${digest}" >/dev/null 2>&1; then
     echo "OK    ${name}"
   else
     echo "MISS  ${name}  ${digest}"
     missing=$((missing + 1))
   fi
-done < <(echo "${json}" | jq -r 'to_entries[] | "\(.key) \(.value)"')
+done < <(echo "${digests}" | jq -r 'to_entries[] | "\(.key) \(.value)"')
 
 echo "${missing} component image(s) missing"
-[ "${missing}" -eq 0 ]
+[[ "${missing}" -eq 0 ]]
