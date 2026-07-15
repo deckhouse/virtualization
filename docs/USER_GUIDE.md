@@ -3396,7 +3396,7 @@ Important considerations when working with additional network interfaces:
 - Adding or removing the main network (`type: Main`) still requires a VM reboot, because it is tied to the pod's primary network interface and cannot be reconfigured on a running pod.
 - To preserve the order of network interfaces inside the guest operating system, it is recommended to add new networks to the end of the `.spec.networks` list (do not change the order of existing ones).
 - Network security policies (NetworkPolicy) do not apply to additional network interfaces.
-- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init), unless IPAM is configured on the network (see [IPAM for additional network interfaces](#ipam-for-additional-network-interfaces)).
+- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init), unless IPAM is configured on the network (for details, see ["IPAM for additional network interfaces"](#ipam-for-additional-network-interfaces)).
 
 {{< alert level="info" >}}
 When configuring network interfaces in the guest OS, use stable identifiers (predictable names `enpXsY` or MAC address binding) instead of `ethX` names. For more details, see the [Network interface naming in guest OS](#network-interface-naming-in-guest-os) section.
