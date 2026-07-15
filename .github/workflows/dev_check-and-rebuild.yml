@@ -20,9 +20,11 @@
 # rebuild does NOT fix this on its own: the `images-digests` image caches its content
 # by the components' werf stage signatures (stable), not by their OCI digests, so werf
 # reuses the cached `images_digests.json` still pointing at the collected manifests.
-# This workflow forces regeneration by deleting the assembly-chain stages
-# (images-digests -> prepare-bundle -> bundle -> release-channel-version) so the next
-# build rebuilds `images-digests` and re-reads the currently published component digests.
+# This workflow forces regeneration by deleting the intermediate `images-digests` and
+# `prepare-bundle` stages so the next build rebuilds `images-digests` (re-reading the
+# currently published component digests); `bundle` then cascades and the module image
+# `:tag` is overwritten by the build action's publish step. The release image carries
+# no `images_digests.json`, so it is left untouched.
 
 name: Check dev images and rebuild
 
@@ -130,7 +132,7 @@ jobs:
           registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - name: Delete stale assembly chain
+      - name: Delete stale images-digests stages
         if: ${{ steps.check.outputs.needs_fix == 'true' }}
         run: |
           set -euo pipefail
@@ -141,11 +143,13 @@ jobs:
             exit 1
           fi
 
-          # Deleting images-digests cascades: prepare-bundle/bundle/release-channel-version
-          # import it, so they rebuild too. Delete them explicitly anyway to be safe.
-          # Delete by digest so all timestamped stage tags of the manifest go at once
-          # (bundle digest == module :TAG, so :TAG is dropped and republished by pass 2).
-          for img in images-digests prepare-bundle bundle release-channel-version; do
+          # Delete only the intermediate stages that bake the component digests.
+          # Deleting images-digests forces its rebuild (re-reading live component
+          # digests); prepare-bundle imports it. Both are intermediate-only, so no
+          # published tag is touched: bundle (== module :tag) cascades on rebuild and
+          # is overwritten by the action's publish step, and the release image is
+          # unrelated. Delete by digest so all timestamped stage tags go at once.
+          for img in images-digests prepare-bundle; do
             d="$(jq -r --arg i "$img" '.Images[$i].DockerImageDigest // empty' "$report")"
             if [ -n "$d" ]; then
               echo "deleting $img -> $R@$d"
@@ -154,14 +158,6 @@ jobs:
               echo "::warning::no digest for $img in build report"
             fi
           done
-
-          # The release image lives in the /release sub-repo with the same digest
-          # as the release-channel-version stage.
-          rel="$(jq -r '.Images."release-channel-version".DockerImageDigest // empty' "$report")"
-          if [ -n "$rel" ]; then
-            echo "deleting release image -> $R/release@$rel"
-            crane delete "$R/release@$rel" || echo "::warning::failed to delete release image"
-          fi
 
       # Pass 2: full rebuild + publish; images-digests is regenerated with live digests.
       - name: Rebuild and publish
