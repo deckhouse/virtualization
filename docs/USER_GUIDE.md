@@ -3533,10 +3533,6 @@ Two modes are supported:
 
 If the additional network does not have an IPAM pool configured, the IPAM feature is not enabled — the interface operates in L2-only mode, and IP addressing needs to be configured manually in the guest OS.
 
-{{< alert level="info" >}}
-The `ipAddressName` field in `.spec.networks[]` determines the mode: if empty — automatic mode (the controller manages the `IPAddress`); if set — static mode (the user manages the `IPAddress`).
-{{< /alert >}}
-
 Example of a VM with automatic IP allocation on an additional network:
 
 ```yaml
