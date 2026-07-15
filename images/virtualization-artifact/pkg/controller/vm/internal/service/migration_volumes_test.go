@@ -302,3 +302,80 @@ var _ = Describe("isStructuralVolumeChange", func() {
 		Entry("disk renamed (same count, different name)", map[string]string{"root": "a"}, map[string]string{"data": "a"}, true),
 	)
 })
+
+var _ = Describe("GetVirtualDiskNamesWithUnreadyTarget", func() {
+	const namespace = "default"
+
+	newPVC := func(name string, phase corev1.PersistentVolumeClaimPhase) *corev1.PersistentVolumeClaim {
+		return &corev1.PersistentVolumeClaim{
+			TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "PersistentVolumeClaim"},
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec:       corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}},
+			Status:     corev1.PersistentVolumeClaimStatus{Phase: phase},
+		}
+	}
+
+	newVD := func(name, sourcePVC, targetPVC string) *v1alpha2.VirtualDisk {
+		vd := &v1alpha2.VirtualDisk{
+			TypeMeta:   metav1.TypeMeta{APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualDiskKind},
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		}
+		vd.Status.Target.PersistentVolumeClaim = sourcePVC
+		if targetPVC != "" {
+			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+				SourcePVC:      sourcePVC,
+				TargetPVC:      targetPVC,
+				StartTimestamp: metav1.Now(),
+			}
+		}
+		return vd
+	}
+
+	It("reports a disk that has not started migrating as not ready", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+
+		vm := &v1alpha2.VirtualMachine{
+			TypeMeta:   metav1.TypeMeta{APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualMachineKind},
+			ObjectMeta: metav1.ObjectMeta{Name: "vm-unready", Namespace: namespace, Generation: 1},
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
+					{Kind: v1alpha2.DiskDevice, Name: "vd-migrating"},
+					{Kind: v1alpha2.DiskDevice, Name: "vd-pending"},
+				},
+			},
+		}
+
+		// vd-migrating: migration started and its target PVC is bound -> ready.
+		vdMigrating := newVD("vd-migrating", "migrating-source", "migrating-target")
+		// vd-pending: no migration target yet, only its source PVC is bound. Before
+		// the fix this was falsely counted as ready (readiness was read from
+		// Status.Target, i.e. the source), which let a partial migration set be
+		// applied to the KVVM. It must now be reported as not ready so the operation
+		// waits for every disk to join the migration set.
+		vdPending := newVD("vd-pending", "pending-source", "")
+
+		fakeClient, err := testutil.NewFakeClientWithObjects(
+			vm, vdMigrating, vdPending,
+			newPVC("migrating-source", corev1.ClaimBound),
+			newPVC("migrating-target", corev1.ClaimBound),
+			newPVC("pending-source", corev1.ClaimBound),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		resource := reconciler.NewResource(client.ObjectKeyFromObject(vm), fakeClient,
+			func() *v1alpha2.VirtualMachine { return &v1alpha2.VirtualMachine{} },
+			func(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus { return obj.Status },
+		)
+		Expect(resource.Fetch(context.Background())).To(Succeed())
+		vmState := state.New(fakeClient, resource)
+
+		svc := NewMigrationVolumesService(fakeClient,
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) { return nil, nil },
+			10*time.Second,
+		)
+
+		notReady, err := svc.GetVirtualDiskNamesWithUnreadyTarget(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(notReady).To(ConsistOf("vd-pending"))
+	})
+})

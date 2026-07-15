@@ -49,6 +49,14 @@ const lifecycleHandlerName = "LifecycleHandler"
 
 const timeElapsedUpdateInterval = 10 * time.Second
 
+// readyToMigrateTimeout bounds how long a migration operation may wait for the
+// virtual machine to become ready to migrate (its disks to be prepared and
+// synchronized to the migration targets). This only covers the phase before the
+// migration starts; the data copy itself runs under different reasons and is not
+// affected. If the timeout expires the operation is failed so its half-prepared
+// disk migration is reverted instead of hanging forever with orphaned target PVCs.
+const readyToMigrateTimeout = 5 * time.Minute
+
 const (
 	progressMigrationPending   int32 = 0
 	progressTargetScheduling   int32 = 2
@@ -259,6 +267,12 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	// 7. Check if the vm is migratable.
 	if !h.canExecute(vmop, vm) {
+		// Requeue while the operation keeps waiting for the VM to be ready to
+		// migrate, so the readyToMigrateTimeout is re-evaluated even without an
+		// external event (otherwise a wedged migration would never be reconciled).
+		if vmop.Status.Phase == v1alpha2.VMOPPhasePending {
+			return reconcile.Result{RequeueAfter: timeElapsedUpdateInterval}, nil
+		}
 		return reconcile.Result{}, nil
 	}
 	// 7.1 The Operation is valid, and can be executed.
@@ -440,6 +454,27 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
 	if migratable.Status == metav1.ConditionTrue {
+		// If the VM has been waiting to become ready to migrate for too long, the
+		// volume migration is wedged (for example a disk that never joins the
+		// migration set). Fail the operation so the disk migration is reverted and
+		// the orphaned target PVCs are cleaned up, instead of hanging indefinitely.
+		if prev, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions); found &&
+			prev.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String() &&
+			!prev.LastTransitionTime.IsZero() &&
+			time.Since(prev.LastTransitionTime.Time) > readyToMigrateTimeout {
+			msg := fmt.Sprintf("Timed out after %s waiting for the virtual machine disks to become ready to migrate.", readyToMigrateTimeout)
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+					Generation(vmop.GetGeneration()).
+					Reason(vmopcondition.ReasonOperationFailed).
+					Status(metav1.ConditionFalse).
+					Message(msg),
+				&vmop.Status.Conditions)
+			return false
+		}
+
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).

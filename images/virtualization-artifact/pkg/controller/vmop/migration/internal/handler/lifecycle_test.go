@@ -211,6 +211,51 @@ var _ = Describe("LifecycleHandler", func() {
 		),
 	)
 
+	waitingForReadyToMigrate := func(lastTransition time.Time) *v1alpha2.VirtualMachineOperation {
+		vmop := newVMOPEvictPending()
+		vmop.Status.Conditions = []metav1.Condition{{
+			Type:               vmopcondition.TypeCompleted.String(),
+			Status:             metav1.ConditionFalse,
+			Reason:             vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String(),
+			LastTransitionTime: metav1.NewTime(lastTransition),
+		}}
+		return vmop
+	}
+
+	It("should fail the operation when it waits past the ready-to-migrate timeout", func() {
+		vm := newVM(v1alpha2.AlwaysSafeMigrationPolicy)
+		vmop := waitingForReadyToMigrate(time.Now().Add(-readyToMigrateTimeout - time.Minute))
+
+		fakeClient, srv = setupEnvironment(vmop, vm)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+		_, err := h.Handle(ctx, srv.Changed())
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+		Expect(found).To(BeTrue())
+		Expect(completed.Reason).To(Equal(vmopcondition.ReasonOperationFailed.String()))
+	})
+
+	It("should keep the operation pending and requeue while within the ready-to-migrate timeout", func() {
+		vm := newVM(v1alpha2.AlwaysSafeMigrationPolicy)
+		vmop := waitingForReadyToMigrate(time.Now())
+
+		fakeClient, srv = setupEnvironment(vmop, vm)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+		res, err := h.Handle(ctx, srv.Changed())
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+		Expect(res.RequeueAfter).To(Equal(timeElapsedUpdateInterval))
+	})
+
 	It("should keep migration scheduling in progress after migration starts", func() {
 		vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 		vm.Status.Conditions = []metav1.Condition{{

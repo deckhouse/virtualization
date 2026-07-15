@@ -468,7 +468,13 @@ func (s MigrationVolumesService) getReadyTargetPVCs(ctx context.Context, disks m
 	storageClassesIsWaitForFirstConsumer := make(map[string]bool)
 
 	for _, disk := range disks {
-		target := disk.Status.Target.PersistentVolumeClaim
+		// Check the migration target PVC, not Status.Target.PersistentVolumeClaim:
+		// the latter still points at the source (bound) PVC until the migration
+		// completes, so a disk that has not started migrating yet would be counted
+		// as ready. That let a partial migration set (some disks switched to their
+		// target, others still on source) be applied to the KVVM, which KubeVirt
+		// rejects because an RWO volume is left out, wedging the whole operation.
+		target := disk.Status.MigrationState.TargetPVC
 		if target != "" && disk.Status.MigrationState.EndTimestamp.IsZero() {
 			pvc := &corev1.PersistentVolumeClaim{}
 			err := s.client.Get(ctx, types.NamespacedName{Name: target, Namespace: disk.Namespace}, pvc)
