@@ -121,6 +121,14 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
+		// KVVM and KVVMI disagree. With no migration in progress this is a wedge:
+		// KVVM still carries a dead migration volume set that kubevirt will never
+		// sync (e.g. the migration target PVC was removed). Force-revert KVVM to the
+		// source volumes instead of waiting for a sync that will never come.
+		if vmop == nil && s.shouldPatchVolumes(kvvmInCluster, builtKVVM) {
+			log.Info("No in-progress migration but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
+			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+		}
 		// kubevirt does not sync volumes with kvvmi yet
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
