@@ -16,13 +16,14 @@
 # longer pullable (its stage manifest was garbage-collected from dev-registry),
 # rebuild the tag with live image digests.
 #
-# A plain rebuild does NOT fix this: werf stage tags are content-based and stable,
-# so the `images_digests.json` baked into `bundle` (== module `:tag`) keeps pointing
-# at the collected manifests, and rebuilding one stage never invalidates the stages
-# that import it. So we delete the whole baking chain images-digests -> prepare-bundle
-# -> bundle: images-digests is rebuilt re-reading live component digests, prepare-bundle
-# re-imports the fresh json, bundle picks it up, and the build action republishes `:tag`.
-# The release image has no `images_digests.json` and is left untouched.
+# A plain rebuild does NOT fix this: werf stage tags are content-based and stable, and
+# a collected component keeps a resolvable stage tag, so werf reuses the stage and keeps
+# reporting the dead digest. The fix, for every component whose final image is no longer
+# pullable, deletes its stages BY TAG (the dead digest cannot be deleted): werf then no
+# longer finds the stage by signature and rebuilds + re-pushes a live image. Deleting
+# images-digests and prepare-bundle regenerates `images_digests.json` with the fresh
+# digests, and the build action republishes `:tag`. The release image has no
+# `images_digests.json` and is left untouched.
 
 name: Check dev images and rebuild
 
@@ -130,7 +131,7 @@ jobs:
           registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - name: Delete stale images-digests stages
+      - name: Delete stale stages of broken images
         if: ${{ steps.check.outputs.needs_fix == 'true' }}
         run: |
           set -euo pipefail
@@ -141,22 +142,35 @@ jobs:
             exit 1
           fi
 
-          # test only
-          echo "::group:: Report"
-          cat "$report" | jq
-          echo "::endgroup::"
-          #
+          # Force-rebuild every component whose final image is no longer pullable. GC
+          # collected its final stage manifest, but werf still reuses the stage because
+          # its content-signature tag keeps resolving, so it re-reports the dead digest.
+          # Delete the component's stages BY TAG — the dead digest cannot be deleted
+          # (MANIFEST_UNKNOWN), but the tag still resolves. Once the tag is gone werf no
+          # longer finds the stage by signature and rebuilds + re-pushes a live image.
+          jq -r '.Images | to_entries[] | select(.value.Final == true) | .key' "$report" | while read -r img; do
+            final="$(jq -r --arg i "$img" '.Images[$i].DockerImageDigest // empty' "$report")"
+            [ -n "$final" ] || continue
+            if crane digest "$R@$final" >/dev/null 2>&1; then
+              continue
+            fi
+            echo "broken: $img — deleting its stages to force a rebuild"
+            jq -r --arg i "$img" '.Images[$i].Stages[].DockerTag // empty' "$report" | while read -r t; do
+              [ -n "$t" ] || continue
+              crane delete "$R:$t" && echo "  deleted $R:$t" || echo "::warning::failed to delete stage $t"
+            done
+          done
 
-          # Delete the whole baking chain by digest. Stage tags are content-based and
-          # stable, so deleting one stage rebuilds only that stage without touching the
-          # ones that import it — all three must go to move fresh digests into :tag.
-          for img in images-digests prepare-bundle bundle; do
-            d="$(jq -r --arg i "$img" '.Images[$i].DockerImageDigest // empty' "$report")"
-            if [ -n "$d" ]; then
-              echo "deleting $img -> $R@$d"
-              crane delete "$R@$d" || echo "::warning::failed to delete $img ($d)"
+          # Regenerate the digests chain so the freshly rebuilt component digests reach
+          # the module :tag. images-digests caches by the components' (stable) stage
+          # signatures, so delete it and prepare-bundle (which imports it) by tag.
+          for img in images-digests prepare-bundle; do
+            t="$(jq -r --arg i "$img" '.Images[$i].DockerTag // empty' "$report")"
+            if [ -n "$t" ]; then
+              echo "deleting $img -> $R:$t"
+              crane delete "$R:$t" || echo "::warning::failed to delete $img ($t)"
             else
-              echo "::warning::no digest for $img in build report"
+              echo "::warning::no tag for $img in build report"
             fi
           done
 
