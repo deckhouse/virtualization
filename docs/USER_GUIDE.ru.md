@@ -3633,12 +3633,12 @@ status:
 - **NetworkManager** (Ubuntu, RHEL, CentOS) — автоматически настраивает новые интерфейсы с DHCP, если запущен сервис `network-manager`;
 - **udev-правило** (Alpine и другие системы без `network-manager`) — добавьте udev-правило для подъёма новых интерфейсов:
 
-```yaml
-write_files:
-  - path: /etc/udev/rules.d/90-hotplug-network.rules
-    content: |
-      SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
-```
+  ```yaml
+  write_files:
+    - path: /etc/udev/rules.d/90-hotplug-network.rules
+      content: |
+        SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
+  ```
 
 Для интерфейсов, присутствующих при загрузке ВМ (включённых в начальную сетевую конфигурацию), это не является проблемой — гостевая ОС настраивает их при запуске через Cloud-Init.
 {{< /alert >}}
