@@ -1046,9 +1046,11 @@ spec:
                         minLength: 1
                         type: string
                         description: |
-                          The name of the `IPAddress` resource (SDN module, `network.deckhouse.io/v1alpha1`) to use for a static IP address on this additional network interface.
+                          Name of the IPAddress resource (`sdn` module, `network.deckhouse.io/v1alpha1`) to use for a static IP address on this additional network interface.
 
-                          If specified, the referenced `IPAddress` is used instead of automatic allocation from the network pool. Requires the additional network to have IPAM configured (a pool bound to the network). Ignored for `Main` and for networks without a pool.
+                          If specified, the referenced IPAddress is used instead of automatic allocation from the network pool.
+
+                          The field is applied only for additional networks that have IPAM configured. For `Main` network and networks without a configured pool, the field is ignored.
                 usbDevices:
                   type: array
                   maxItems: 8
