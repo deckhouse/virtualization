@@ -3544,7 +3544,7 @@ spec:
       # ipAddressName is not specified → automatic mode (DHCP) is used.
 ```
 
-Example of a VM with a static IP on an additional network:
+Configuration example of a VM with a static IP on an additional network:
 
 ```yaml
 spec:
