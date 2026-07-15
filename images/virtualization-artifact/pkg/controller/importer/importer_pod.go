@@ -221,14 +221,6 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 			Value: strconv.FormatBool(imp.EnvSettings.InsecureTLS),
 		},
 		{
-			Name:  common.ImporterQemuConvertThreads,
-			Value: strconv.Itoa(imp.EnvSettings.QemuConvertThreads),
-		},
-		{
-			Name:  common.ImporterCopyBlockSize,
-			Value: imp.EnvSettings.CopyBlockSize,
-		},
-		{
 			Name:  common.ImporterDiskID,
 			Value: imp.EnvSettings.DiskID,
 		},

@@ -37,21 +37,10 @@ const (
 	kubevirtEnvPrefix   = "KUBEVIRT_IO_"
 	kubevirtLabelPrefix = "kubevirt.io/"
 
-	// defaultCopyBufferSize is the default block size used when streaming image data to the target file/device.
-	defaultCopyBufferSize = 1024 * 1024
+	// copyBufferSize is the block size used when streaming image data to the target
+	// file/device. Hardcoded to 1 MiB.
+	copyBufferSize = 1024 * 1024
 )
-
-// copyBufferSize is the block size used by streamDataToFile. It defaults to
-// defaultCopyBufferSize and can be overridden via SetCopyBufferSize.
-var copyBufferSize = defaultCopyBufferSize
-
-// SetCopyBufferSize overrides the block size used when streaming image data to the
-// target file/device. A value <= 0 keeps the current size.
-func SetCopyBufferSize(size int) {
-	if size > 0 {
-		copyBufferSize = size
-	}
-}
 
 // writerOnly hides the io.ReaderFrom implementation of the underlying writer
 // (e.g. *os.File), forcing io.CopyBuffer to use the provided buffer instead of

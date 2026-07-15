@@ -147,6 +147,7 @@ func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.Virtual
 	// scheduled). Import helpers (prime PVC, importer pod) are pinned here so a
 	// WaitForFirstConsumer node-local volume is provisioned on the VM's node.
 	nodePlacement.Node = vm.Status.Node
+	nodePlacement.CPUCores = vm.Spec.CPU.Cores
 	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
 
 	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}

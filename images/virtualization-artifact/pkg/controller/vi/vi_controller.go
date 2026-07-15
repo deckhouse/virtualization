@@ -66,14 +66,12 @@ func NewController(
 	uploaderImage string,
 	bounderImage string,
 	requirements corev1.ResourceRequirements,
-	qemuConvertThreads int,
-	copyBlockSize string,
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualImageStorageClassSettings,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVIProtection)
-	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection, qemuConvertThreads, copyBlockSize)
+	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	bounder := service.NewBounderPodService(dvcr, mgr.GetClient(), bounderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName, service.DiskImporterConfig{
@@ -81,8 +79,6 @@ func NewController(
 		ResourceRequirements: requirements,
 		PullPolicy:           PodPullPolicy,
 		Verbose:              PodVerbose,
-		QemuConvertThreads:   qemuConvertThreads,
-		CopyBlockSize:        copyBlockSize,
 	})
 	scService := intsvc.NewVirtualImageStorageClassService(service.NewBaseStorageClassService(mgr.GetClient()), storageClassSettings)
 	dvcrService := service.NewDVCRService(mgr.GetClient())

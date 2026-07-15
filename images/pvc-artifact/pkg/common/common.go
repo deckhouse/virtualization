@@ -49,8 +49,6 @@ const (
 	ImporterNBDEndpoint   = "IMPORTER_NBD_ENDPOINT"
 	// ImporterQemuConvertThreads sets the number of coroutines for qemu-img convert (-m).
 	ImporterQemuConvertThreads = "IMPORTER_QEMU_CONVERT_THREADS"
-	// ImporterCopyBlockSize sets the block size used when streaming image data to the target file/device.
-	ImporterCopyBlockSize = "IMPORTER_COPY_BLOCK_SIZE"
 
 	GenericError         = "Error"
 	PreallocationApplied = "Preallocation applied"

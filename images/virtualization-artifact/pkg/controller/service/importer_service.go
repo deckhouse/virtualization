@@ -35,16 +35,14 @@ import (
 )
 
 type ImporterService struct {
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	image              string
-	requirements       corev1.ResourceRequirements
-	pullPolicy         string
-	verbose            string
-	controllerName     string
-	protection         *ProtectionService
-	qemuConvertThreads int
-	copyBlockSize      string
+	dvcrSettings   *dvcr.Settings
+	client         client.Client
+	image          string
+	requirements   corev1.ResourceRequirements
+	pullPolicy     string
+	verbose        string
+	controllerName string
+	protection     *ProtectionService
 }
 
 func NewImporterService(
@@ -56,20 +54,16 @@ func NewImporterService(
 	verbose string,
 	controllerName string,
 	protection *ProtectionService,
-	qemuConvertThreads int,
-	copyBlockSize string,
 ) *ImporterService {
 	return &ImporterService{
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		image:              image,
-		requirements:       requirements,
-		pullPolicy:         pullPolicy,
-		verbose:            verbose,
-		controllerName:     controllerName,
-		protection:         protection,
-		qemuConvertThreads: qemuConvertThreads,
-		copyBlockSize:      copyBlockSize,
+		dvcrSettings:   dvcrSettings,
+		client:         client,
+		image:          image,
+		requirements:   requirements,
+		pullPolicy:     pullPolicy,
+		verbose:        verbose,
+		controllerName: controllerName,
+		protection:     protection,
 	}
 }
 
@@ -84,8 +78,6 @@ func (s ImporterService) Start(
 	options := newGenericOptions(opts...)
 	ownerRef := metav1.NewControllerRef(obj, obj.GetObjectKind().GroupVersionKind())
 	settings.Verbose = s.verbose
-	settings.QemuConvertThreads = s.qemuConvertThreads
-	settings.CopyBlockSize = s.copyBlockSize
 
 	podSettings := s.getPodSettings(ownerRef, sup)
 	if options.nodePlacement != nil {
@@ -115,8 +107,6 @@ func (s ImporterService) StartWithPodSetting(
 ) error {
 	options := newGenericOptions(opts...)
 	settings.Verbose = s.verbose
-	settings.QemuConvertThreads = s.qemuConvertThreads
-	settings.CopyBlockSize = s.copyBlockSize
 
 	podSettings.Finalizer = s.protection.finalizer
 	if options.nodePlacement != nil {

@@ -371,25 +371,25 @@ func main() {
 	}
 
 	cviLogger := logger.NewControllerLogger(cvi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, importSettings.QemuConvertThreads, importSettings.CopyBlockSize, dvcrSettings, controllerNamespace); err != nil {
+	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, importSettings.QemuConvertThreads, importSettings.CopyBlockSize, dvcrSettings, vdStorageClassSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, importSettings.QemuConvertThreads, importSettings.CopyBlockSize, dvcrSettings, viStorageClassSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	populatorLogger := logger.NewControllerLogger(populator.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, importSettings.QemuConvertThreads, importSettings.CopyBlockSize, dvcrSettings); err != nil {
+	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

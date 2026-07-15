@@ -64,8 +64,6 @@ func NewController(
 	log *log.Logger,
 	diskImporterImage string,
 	requirements corev1.ResourceRequirements,
-	qemuConvertThreads int,
-	copyBlockSize string,
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
 	reconciler := &Reconciler{
@@ -76,8 +74,6 @@ func NewController(
 			ResourceRequirements: requirements,
 			PullPolicy:           PodPullPolicy,
 			Verbose:              PodVerbose,
-			QemuConvertThreads:   qemuConvertThreads,
-			CopyBlockSize:        copyBlockSize,
 		}),
 	}
 
