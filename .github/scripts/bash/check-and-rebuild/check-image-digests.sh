@@ -31,6 +31,9 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n "$repo" && -n "$tag" ]] || { echo "usage: $0 --repo <repo> --tag <tag>" >&2; exit 2; }
 
+echo "[INFO] Repo ${repo}"
+echo "[INFO] Tag  ${tag}"
+
 if ! crane digest "${repo}:${tag}" >/dev/null 2>&1; then
   echo "::error::module image ${repo}:${tag} not found"
   exit 2
@@ -38,15 +41,28 @@ fi
 
 digests="$(crane export "${repo}:${tag}" - | tar -Oxf - images_digests.json)"
 
-missing=0
-while read -r name digest; do
-  if crane digest "${repo}@${digest}" >/dev/null 2>&1; then
-    echo "OK    ${name}"
+ok_images=()
+missing_images=()
+while read -r component digest; do
+  image="${repo}@${digest}"
+  if crane digest "$image" >/dev/null 2>&1; then
+    echo "✅ ${component}"
+    ok_images+=("$(printf '%-25s %s' "${component}:" "$image")")
   else
-    echo "MISS  ${name}  ${digest}"
-    missing=$((missing + 1))
+    echo "❌ ${component}"
+    missing_images+=("$(printf '%-25s %s' "${component}:" "$image")")
   fi
 done < <(echo "${digests}" | jq -r 'to_entries[] | "\(.key) \(.value)"')
 
-echo "${missing} component image(s) missing"
-[[ "${missing}" -eq 0 ]]
+echo "──────────────────────────────"
+if [[ ${#missing_images[@]} -eq 0 ]]; then
+  echo "🎉 All ${#ok_images[@]} component images are pullable"
+  exit 0
+fi
+
+echo "⚠️  Missing component images:"
+for img in "${missing_images[@]}"; do
+  echo "  - $img"
+done
+echo "Total missing: ${#missing_images[@]}"
+exit 1
