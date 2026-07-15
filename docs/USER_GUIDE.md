@@ -3596,7 +3596,7 @@ If IPAM is enabled (the network has a pool), do not configure a static IP on the
 {{< /alert >}}
 
 {{< alert level="info" >}}
-If an additional network has an IPAM pool but the `IPAddress` resource is not yet allocated or is in a `Pending` state (e.g., the pool is exhausted), the interface is temporarily skipped — the VM starts without it, and the `NetworkReady` condition reports the error. Once the address becomes available, the interface is attached automatically (hotplug).
+If an additional network has an IPAM pool but the IPAddress resource is not yet allocated or is in a `Pending` state (for example, due to exhausted address pool), the interface is temporarily skipped — the VM starts without it, and the `NetworkReady` condition reports the error. Once the address becomes available, the interface is attached automatically via the hotplug mechanism.
 {{< /alert >}}
 
 {{< alert level="warning" >}}
