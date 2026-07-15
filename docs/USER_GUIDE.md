@@ -3555,7 +3555,7 @@ spec:
       ipAddressName: my-static-ip # Name of the IPAddress resource (SDN).
 ```
 
-To create a static `IPAddress` resource:
+Configuration example of a static IPAddress resource:
 
 ```yaml
 apiVersion: network.deckhouse.io/v1alpha1
