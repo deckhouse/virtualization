@@ -381,6 +381,36 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
 	})
 
+	It("rejects a volume patch built from a stale kvvm read", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		vm := newVM()
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "target-node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		// The desired spec carries the resourceVersion of the kvvm it was built from;
+		// if the kvvm changed since (e.g. kubevirt persisted a hotplug volume), the
+		// patch must fail instead of overwriting the volumes from the stale read.
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "source-node")
+		desiredKVVM.ResourceVersion = "stale"
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).To(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
+
 	It("does not force-revert kvvm while a migration round without a vmop is active", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()
 		migrationStrategy := virtv1.UpdateVolumesStrategyMigration

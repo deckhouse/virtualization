@@ -312,13 +312,19 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 }
 
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
-	patchBytes, err := patch.NewJSONPatch(
+	ops := []patch.JSONPatchOperation{
 		patch.WithReplace("/spec/updateVolumesStrategy", kvvm.Spec.UpdateVolumesStrategy),
 		patch.WithReplace("/spec/template/spec/volumes", kvvm.Spec.Template.Spec.Volumes),
 		// Affinity is patched together with volumes because the migration target PVCs
 		// can resolve to a different node than the source.
 		patch.WithReplace("/spec/template/spec/affinity", kvvm.Spec.Template.Spec.Affinity),
-	).Bytes()
+	}
+	// Optimistic lock: kubevirt persists hotplug (addvolume) volumes into the same
+	// array concurrently; replacing it from a stale read silently drops them.
+	if kvvm.ResourceVersion != "" {
+		ops = append([]patch.JSONPatchOperation{patch.WithTest("/metadata/resourceVersion", kvvm.ResourceVersion)}, ops...)
+	}
+	patchBytes, err := patch.NewJSONPatch(ops...).Bytes()
 	if err != nil {
 		return err
 	}
