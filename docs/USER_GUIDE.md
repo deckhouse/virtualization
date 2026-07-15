@@ -3531,7 +3531,7 @@ Two modes are supported:
 
 - **Static:** If [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) is specified in `.spec.networks[]`, the controller uses the user-provided IPAddress resource (type `Static`, `network.deckhouse.io/v1alpha1`). The address is determined by the user and is not modified automatically.
 
-If the additional network does not have an IPAM pool configured, the IPAM feature is not enabled — the interface operates in L2-only mode, and IP addressing is configured manually in the guest OS.
+If the additional network does not have an IPAM pool configured, the IPAM feature is not enabled — the interface operates in L2-only mode, and IP addressing needs to be configured manually in the guest OS.
 
 {{< alert level="info" >}}
 The `ipAddressName` field in `.spec.networks[]` determines the mode: if empty — automatic mode (the controller manages the `IPAddress`); if set — static mode (the user manages the `IPAddress`).
