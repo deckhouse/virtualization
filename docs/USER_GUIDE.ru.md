@@ -3584,7 +3584,7 @@ spec:
       ipAddressName: my-static-ip # Имя ресурса IPAddress (SDN).
 ```
 
-Чтобы создать статический ресурс `IPAddress`:
+Пример конфигурации статического ресурса IPAddress:
 
 ```yaml
 apiVersion: network.deckhouse.io/v1alpha1
