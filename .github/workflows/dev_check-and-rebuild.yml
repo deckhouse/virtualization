@@ -63,6 +63,10 @@ jobs:
     runs-on: [self-hosted, large]
     name: Check and rebuild
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: Validate tag
         run: |
           TAG="${{ github.event.inputs.tag }}"
@@ -194,3 +198,8 @@ jobs:
             exit 1
           fi
           echo "All component images are pullable."
+
+      - name: Cleanup Docker config
+        if: always()
+        run: |
+          rm -rf $DOCKER_CONFIG
