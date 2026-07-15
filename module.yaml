@@ -11,6 +11,7 @@ requirements:
   deckhouse: ">= 1.74.2"
   modules:
     cni-cilium: ">= 0.0.0"
+    sdn: ">= 0.6.8 !optional"
 disable:
   confirmation: true
   message: |
