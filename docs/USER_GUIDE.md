@@ -3599,7 +3599,8 @@ If IPAM is enabled (the network has a pool), do not configure a static IP on the
 If an additional network has an IPAM pool but the IPAddress resource is not yet allocated or is in a `Pending` state (for example, due to exhausted address pool), the interface is temporarily skipped — the VM starts without it, and the `NetworkReady` condition reports the error. Once the address becomes available, the interface is attached automatically via the hotplug mechanism.
 {{< /alert >}}
 
-{{< alert level="warning" >}}
+#### Configuring guest OS for hotplug interfaces
+
 When an additional network interface is attached via hotplug (after the VM has already started), the guest OS must be configured to automatically bring up new network interfaces and request a DHCP lease. Linux does not start a DHCP client on hotplugged interfaces by default.
 
 To ensure hotplugged interfaces are configured automatically, use one of the following approaches in the guest OS:
