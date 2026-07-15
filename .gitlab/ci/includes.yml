@@ -109,4 +109,5 @@ include:
   - local: ".gitlab/ci/jobs/check-changelog.yml"
   - local: ".gitlab/ci/jobs/check-milestone.yml"
   - local: ".gitlab/ci/jobs/manual-tools.yml"
+  - local: ".gitlab/ci/jobs/check-and-rebuild.yml"
   - local: ".gitlab/ci/jobs/translate-changelog.yml"
