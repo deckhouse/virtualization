@@ -421,6 +421,37 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase without changes, shouldn't have condition", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 	)
 
+	DescribeTable("AwaitingRestart from KVVM RestartRequired vs volume migration",
+		func(volumeMigrationInProgress, expectedExistence bool) {
+			vm := makeVM(v1alpha2.MachineRunning)
+			kvvm := makeKVVM(vm)
+			kvvm.Status.Conditions = []virtv1.VirtualMachineCondition{{
+				Type:   virtv1.VirtualMachineRestartRequired,
+				Status: corev1.ConditionTrue,
+			}}
+			if volumeMigrationInProgress {
+				kvvm.Spec.UpdateVolumesStrategy = ptr.To(virtv1.UpdateVolumesStrategyMigration)
+			}
+			kvvmi := makeKVVMI()
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, makeVMIP(), makeVMClass())
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
+			cond, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+			Expect(exists).To(Equal(expectedExistence))
+			if exists {
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(cond.Reason).To(Equal(vmcondition.ReasonUnexpectedState.String()))
+			}
+		},
+		Entry("no volume migration: RestartRequired surfaces as AwaitingRestart", false, true),
+		Entry("volume migration in progress: transient RestartRequired is ignored", true, false),
+	)
+
 	DescribeTable("AwaitingRestart Condition for NonMigratable VM",
 		func(phase v1alpha2.MachinePhase, featureGate featuregate.FeatureGate, mutateFn func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine), expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			ip := makeVMIP()

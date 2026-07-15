@@ -291,7 +291,14 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	}
 
 	// 5. Set RestartRequired from KVVM condition.
-	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil {
+	// Skip while a volume migration is in progress: KubeVirt transiently reports
+	// RestartRequired during the migration (an RWO volume is briefly not yet part
+	// of the migration set) and clears it once the migration converges. Treating
+	// this transient as a real "restart required" would raise a false condition and
+	// log a spurious error on every volume migration.
+	volumeMigrationInProgress := kvvm != nil && kvvm.Spec.UpdateVolumesStrategy != nil &&
+		*kvvm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
+	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil && !volumeMigrationInProgress {
 		// The check for StateChangeRequests is added to ignore the RestartRequired condition when it is set while
 		// the virtual machine is in the process of rebooting.
 		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
