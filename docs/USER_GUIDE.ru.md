@@ -3581,7 +3581,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      ipAddressName: my-static-ip # имя ресурса IPAddress (SDN)
+      ipAddressName: my-static-ip # Имя ресурса IPAddress (SDN).
 ```
 
 Чтобы создать статический ресурс `IPAddress`:
