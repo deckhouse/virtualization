@@ -3576,8 +3576,8 @@ The allocated IP address is displayed in the VM status:
 
 ```yaml
 status:
-  ipAddress: 10.66.10.2                     # Main network IP (as before)
-  virtualMachineIPAddressName: vm-01-main-ip # Main network IPAddress name
+  ipAddress: 10.66.10.2                     # Main network IP (as before).
+  virtualMachineIPAddressName: vm-01-main-ip # Main network IPAddress name.
   networks:
     - type: Main
     - type: ClusterNetwork
