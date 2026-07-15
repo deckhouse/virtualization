@@ -3588,7 +3588,7 @@ status:
 ```
 
 {{< alert level="warning" >}}
-If IPAM is enabled (the network has a pool), do not configure a static IP on the additional interface in the guest OS manually (via Cloud-Init). Use the automatic (DHCP) or static (`ipAddressName`) mode instead to avoid address conflicts.
+If an IPAM pool is configured on an additional network, do not configure a static IP on the additional interface in the guest OS manually (via Cloud-Init). Use the automatic (DHCP) or static (`ipAddressName`) mode instead to avoid address conflicts.
 {{< /alert >}}
 
 {{< alert level="info" >}}
