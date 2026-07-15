@@ -297,7 +297,12 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
 		if cond.Status == corev1.ConditionTrue && len(kvvm.Status.StateChangeRequests) == 0 {
 			msg := "Please restart the virtual machine to synchronize its configuration."
-			log.Info(msg, "kvvmRestartRequiredReason", cond.Reason, "kvvmRestartRequiredMessage", cond.Message)
+			// Log only on transition into this state; the condition is latched by
+			// kubevirt until an actual restart, so logging every reconcile would spam.
+			prev, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, current.Status.Conditions)
+			if prev.Status != metav1.ConditionTrue || prev.Reason != vmcondition.ReasonUnexpectedState.String() {
+				log.Info(msg, "kvvmRestartRequiredReason", cond.Reason, "kvvmRestartRequiredMessage", cond.Message)
+			}
 			cbAwaitingRestart.
 				Status(metav1.ConditionTrue).
 				Reason(vmcondition.ReasonUnexpectedState).
