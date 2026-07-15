@@ -61,9 +61,6 @@ jobs:
     runs-on: [self-hosted, large]
     name: Check and rebuild
     steps:
-      - name: Setup Docker config
-        run: echo "DOCKER_CONFIG=$(mktemp -d)" >> "$GITHUB_ENV"
-
       - name: Validate tag
         run: |
           TAG="${{ github.event.inputs.tag }}"
@@ -81,20 +78,13 @@ jobs:
           git fetch --tags
           git checkout "tags/${{ github.event.inputs.tag }}"
 
+      # Installs werf + crane and logs in to the registry (sets DOCKER_CONFIG,
+      # which crane also uses).
       - uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-
-      - name: Install crane
-        run: |
-          set -euo pipefail
-          tmp="$(mktemp -d)"
-          cd "$tmp"
-          curl -sSL "https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz" | tar xz crane
-          install -m0755 crane /usr/local/bin/crane
-          crane version
 
       - name: Check component images
         id: check
@@ -102,7 +92,6 @@ jobs:
           set -euo pipefail
           R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
           TAG="${{ github.event.inputs.tag }}"
-          crane auth login "$MODULES_REGISTRY" -u "$MODULES_REGISTRY_LOGIN" -p "$MODULES_REGISTRY_PASSWORD"
 
           if ! crane digest "$R:$TAG" >/dev/null 2>&1; then
             echo "::error::module image $R:$TAG not found"
@@ -209,7 +198,3 @@ jobs:
             exit 1
           fi
           echo "All component images are pullable."
-
-      - name: Cleanup Docker config
-        if: always()
-        run: rm -rf "$DOCKER_CONFIG"
