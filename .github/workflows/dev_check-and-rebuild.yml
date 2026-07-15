@@ -75,14 +75,10 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.inputs.tag }}
           fetch-depth: 0
-
-      - name: Checkout tag
-        run: |
-          git fetch --tags
-          git checkout "tags/${{ github.event.inputs.tag }}"
 
       # Installs werf + crane and logs in to the registry (sets DOCKER_CONFIG,
       # which crane also uses).
