@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,10 +35,47 @@ const (
 	sdnModuleName         = "sdn"
 	sdnModuleCheckEnvName = "SDN_MODULE_PRECHECK"
 
-	// Required VLAN IDs for e2e tests
-	additionalInterfaceVLANID       = 4006
-	secondAdditionalInterfaceVLANID = 4007
+	// Required VLAN IDs for e2e tests.
+	// WithIPPoolNetworkVLANID is a ClusterNetwork with an IPAM pool bound
+	// (e2e-ipam-pool, 192.168.200.0/24), used by IPAM tests.
+	WithIPPoolNetworkVLANID = 4006
+	// L2OnlyNetworkVLANID is a ClusterNetwork without an IPAM pool, used by
+	// additional-network tests that configure IPs manually inside the guest OS.
+	L2OnlyNetworkVLANID = 4007
+
+	// e2eIPAMPoolName is the name of the ClusterIPAddressPool used for IPAM e2e tests.
+	e2eIPAMPoolName = "e2e-ipam-pool"
 )
+
+// ClusterIPAddressPoolCreateCommand returns the kubectl command to create the
+// ClusterIPAddressPool required for IPAM e2e tests.
+const clusterIPAddressPoolCreateCommand = `kubectl apply -f - <<EOF
+apiVersion: network.deckhouse.io/v1alpha1
+kind: ClusterIPAddressPool
+metadata:
+  name: %s
+spec:
+  leaseTTL: 1h
+  pools:
+    - network: 192.168.200.0/24
+EOF`
+
+// isIPAMPoolConfiguredOnClusterNetwork checks if the given ClusterNetwork has
+// an IPAM pool reference (spec.ipam.ipAddressPoolRef).
+func isIPAMPoolConfiguredOnClusterNetwork(ctx context.Context, f *framework.Framework, name string) (bool, error) {
+	gvr := schema.GroupVersionResource{
+		Group: "network.deckhouse.io", Version: "v1alpha1", Resource: "clusternetworks",
+	}
+	obj, err := f.DynamicClient().Resource(gvr).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	poolName, found, err := unstructured.NestedString(obj.Object, "spec", "ipam", "ipAddressPoolRef", "name")
+	if err != nil {
+		return false, err
+	}
+	return found && poolName != "", nil
+}
 
 // ClusterNetworkName returns the name of ClusterNetwork for given VLAN ID.
 func ClusterNetworkName(vlanID int) string {
@@ -108,11 +146,23 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	}
 
 	// Check required ClusterNetworks for e2e tests
-	for _, vlanID := range []int{additionalInterfaceVLANID, secondAdditionalInterfaceVLANID} {
+	for _, vlanID := range []int{WithIPPoolNetworkVLANID, L2OnlyNetworkVLANID} {
 		if !IsClusterNetworkExists(ctx, f, vlanID) {
 			return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q does not exist. Create it first: %s",
 				sdnModuleCheckEnvName, ClusterNetworkName(vlanID), ClusterNetworkCreateCommand(vlanID))
 		}
+	}
+
+	// Check that cn-4006 has IPAM pool configured (required for IPAM e2e tests).
+	hasPool, err := isIPAMPoolConfiguredOnClusterNetwork(ctx, f, ClusterNetworkName(WithIPPoolNetworkVLANID))
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: failed to check IPAM pool on ClusterNetwork %q: %w",
+			sdnModuleCheckEnvName, ClusterNetworkName(WithIPPoolNetworkVLANID), err)
+	}
+	if !hasPool {
+		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q has no IPAM pool configured. Create the pool and bind it: %s",
+			sdnModuleCheckEnvName, ClusterNetworkName(WithIPPoolNetworkVLANID),
+			fmt.Sprintf(clusterIPAddressPoolCreateCommand, e2eIPAMPoolName))
 	}
 
 	return nil

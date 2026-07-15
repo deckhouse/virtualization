@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -74,4 +75,80 @@ func IsClusterNetworkExists(f *framework.Framework, vlanID int) bool {
 	Expect(err).To(SatisfyAny(BeNil(), WithTransform(k8serrors.IsNotFound, BeTrue())))
 
 	return err == nil || !k8serrors.IsNotFound(err)
+}
+
+// IPAddressGVR is the GroupVersionResource for the SDN IPAddress resource.
+var IPAddressGVR = schema.GroupVersionResource{
+	Group:    "network.deckhouse.io",
+	Version:  "v1alpha1",
+	Resource: "ipaddresses",
+}
+
+// CreateSDNIPAddress creates an SDN IPAddress resource (type Static) in the given
+// namespace, referencing the given network with the specified static IP.
+// Uses the dynamic client.
+func CreateSDNIPAddress(ctx context.Context, f *framework.Framework, name, namespace, networkKind, networkName, staticIP string) error {
+	ipAddr := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "network.deckhouse.io/v1alpha1",
+		"kind":       "IPAddress",
+		"metadata": map[string]any{
+			"name":      name,
+			"namespace": namespace,
+		},
+		"spec": map[string]any{
+			"networkRef": map[string]any{
+				"kind": networkKind,
+				"name": networkName,
+			},
+			"type": "Static",
+			"static": map[string]any{
+				"ip": staticIP,
+			},
+		},
+	}}
+	_, err := framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).Create(ctx, ipAddr, metav1.CreateOptions{})
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create SDN IPAddress %s: %w", name, err)
+	}
+	return nil
+}
+
+// GetSDNAllocatedAddress returns the allocated address from the SDN IPAddress
+// status. Returns empty string if the resource does not exist or the address
+// is not yet allocated.
+func GetSDNAllocatedAddress(ctx context.Context, f *framework.Framework, name, namespace string) (string, error) {
+	obj, err := framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("get SDN IPAddress %s: %w", name, err)
+	}
+	addr, _, _ := unstructured.NestedString(obj.Object, "status", "address")
+	return addr, nil
+}
+
+// DeleteSDNIPAddress deletes the SDN IPAddress by name in the given namespace.
+func DeleteSDNIPAddress(ctx context.Context, f *framework.Framework, name, namespace string) error {
+	err := framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("delete SDN IPAddress %s: %w", name, err)
+	}
+	return nil
+}
+
+// ListSDNIPAddresses lists all SDN IPAddress resources in the given namespace.
+func ListSDNIPAddresses(ctx context.Context, f *framework.Framework, namespace string) (*unstructured.UnstructuredList, error) {
+	list, err := framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list SDN IPAddress in %s: %w", namespace, err)
+	}
+	return list, nil
+}
+
+// DeleteAllSDNIPAddresses deletes all SDN IPAddress resources in the given namespace.
+// Used for cleanup after tests.
+func DeleteAllSDNIPAddresses(ctx context.Context, f *framework.Framework, namespace string) error {
+	return framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).
+		DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 }

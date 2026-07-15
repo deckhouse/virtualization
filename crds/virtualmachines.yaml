@@ -1042,6 +1042,15 @@ spec:
                         type: string
                         description: |
                           The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
+                      ipAddressName:
+                        minLength: 1
+                        type: string
+                        description: |
+                          Name of the IPAddress resource (`sdn` module, `network.deckhouse.io/v1alpha1`) to use for a static IP address on this additional network interface.
+
+                          If specified, the referenced IPAddress is used instead of automatic allocation from the network pool.
+
+                          The field is applied only for additional networks that have IPAM configured. For `Main` network and networks without a configured pool, the field is ignored.
                 usbDevices:
                   type: array
                   maxItems: 8
@@ -1455,6 +1464,12 @@ spec:
                         type: string
                         description: |
                           The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
+                      ipAddress:
+                        type: string
+                        description: |
+                          IP address allocated for this additional network interface by the `sdn` module from the network pool.
+
+                          Filled only for additional networks that have IPAM configured. For `Main` network and networks without a configured pool, the field is empty.
       additionalPrinterColumns:
         - description: Virtual machine phase.
           jsonPath: .status.phase

@@ -67,8 +67,9 @@ const (
 	changedMemorySize         = "512Mi"
 	mountPoint                = "/mnt"
 	fileDataPath              = "/mnt/value"
-	additionalNetworkIP       = "192.168.1.10/24"
-	additionalInterfaceVLANID = 4006
+	// WithIPPoolNetworkVLANID is the ClusterNetwork with an IPAM pool used for
+	// IPAM restore tests (auto allocation via DHCP).
+	WithIPPoolNetworkVLANID = 4006
 )
 
 var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.PrecheckSnapshot, precheck.PrecheckSDN), func() {
@@ -77,12 +78,6 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
-
-		if !util.IsSdnModuleEnabled(f) {
-			Skip("SDN module is not enabled")
-		}
-
-		Expect(util.IsClusterNetworkExists(f, additionalInterfaceVLANID)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand(additionalInterfaceVLANID)))
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(ctx, t.VM) {
@@ -114,7 +109,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(precheck.
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
-			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
+			t.CheckAdditionalNetworkInterface(ctx, t.VM)
 
 			err = f.CreateWithDeferredDeletion(ctx, t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -313,8 +308,7 @@ write_files:
         version: 2
         ethernets:
           enp2s0:
-            addresses:
-              - 192.168.1.10/24
+            dhcp4: true
 runcmd:
   - netplan apply
 `
@@ -349,7 +343,7 @@ runcmd:
 		}),
 		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
 			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName(additionalInterfaceVLANID),
+			Name: util.ClusterNetworkName(WithIPPoolNetworkVLANID),
 		}),
 	)
 
@@ -480,7 +474,33 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 		Fail("Invalid restore mode")
 	}
 
-	t.CheckAdditionalNetworkInterface(vm, additionalNetworkIP)
+	t.CheckAdditionalNetworkInterface(ctx, vm)
+
+	t.CheckIPAMAfterRestore(ctx, vm)
+}
+
+// CheckIPAMAfterRestore verifies that the auto-IPAddress for the additional network
+// CheckIPAMAfterRestore verifies that the auto-IPAddress for the additional
+// network was recreated by the controller after VM restore.
+func (t *restoreModeTest) CheckIPAMAfterRestore(ctx context.Context, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	By("Verify IPAM: auto IPAddress recreated for additional network after restore", func() {
+		Eventually(func(g Gomega) {
+			updated := &v1alpha2.VirtualMachine{}
+			err := t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), updated)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			// status.networks should have an ipAddress for cn-4006 (auto-IPAddress recreated).
+			var ip string
+			for _, n := range updated.Status.Networks {
+				if n.Name == util.ClusterNetworkName(WithIPPoolNetworkVLANID) {
+					ip = n.IPAddress
+				}
+			}
+			g.Expect(ip).NotTo(BeEmpty(), "auto IPAddress should be recreated after restore, status.networks should have an IP for %s", util.ClusterNetworkName(WithIPPoolNetworkVLANID))
+		}).WithTimeout(framework.LongTimeout).WithPolling(3 * time.Second).Should(Succeed())
+	})
 }
 
 func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
@@ -525,8 +545,22 @@ func (t *restoreModeTest) RestoreVM(ctx context.Context, vm *v1alpha2.VirtualMac
 	util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 }
 
-func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMachine, ip string) {
+// CheckAdditionalNetworkInterface reads the auto-allocated IP from VM
+// status.networks[].ipAddress and verifies it is present in the guest OS.
+func (t *restoreModeTest) CheckAdditionalNetworkInterface(ctx context.Context, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
+
+	updated := &v1alpha2.VirtualMachine{}
+	err := t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), updated)
+	Expect(err).NotTo(HaveOccurred())
+
+	var ip string
+	for _, n := range updated.Status.Networks {
+		if n.Name == util.ClusterNetworkName(WithIPPoolNetworkVLANID) {
+			ip = n.IPAddress
+		}
+	}
+	Expect(ip).NotTo(BeEmpty(), "auto IP should be allocated in status.networks for %s", util.ClusterNetworkName(WithIPPoolNetworkVLANID))
 
 	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show")
 	Expect(err).NotTo(HaveOccurred())

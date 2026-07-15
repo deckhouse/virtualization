@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/featuregate"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -92,17 +93,28 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	}
 
 	var pending, desired []string
-	for _, ns := range vm.Spec.Networks {
-		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, ns)
+	for _, netSpec := range vm.Spec.Networks {
+		ready, err := network.IsNetworkSpecReady(ctx, s.Client(), vm.Namespace, netSpec)
 		if err != nil {
 			return err
 		}
 		if !ready {
-			pending = append(pending, network.SpecKey(ns))
+			pending = append(pending, network.SpecKey(netSpec))
 			continue
 		}
-		if ns.Type != v1alpha2.NetworksTypeMain {
-			desired = append(desired, ns.Name)
+		if netSpec.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		// Only expect SDN status for interfaces that will actually be included
+		// in networks-spec. Skipped interfaces (no pool + ipAddressName, or
+		// IPAddress not yet allocated/exists) are not provisioned by SDN, so
+		// waiting for their status would produce a misleading message.
+		willProvision, err := network.WillProvisionInterface(ctx, s.Client(), vm.Namespace, vm, netSpec)
+		if err != nil {
+			return err
+		}
+		if willProvision {
+			desired = append(desired, netSpec.Name)
 		}
 	}
 	if len(pending) > 0 {
@@ -119,6 +131,18 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	if err != nil {
 		return err
 	}
+
+	// Aggregate IPAM configuration errors for additional networks.
+	// A network with ipAddressName set requires a pool (IPAM) on the referenced
+	// Network/ClusterNetwork; otherwise the IPAddress cannot be applied.
+	ipamErrors := collectIPAMErrors(ctx, s.Client(), vm.Namespace, vm, vm.Spec.Networks)
+	if len(ipamErrors) > 0 {
+		if errMsg != "" {
+			errMsg += ". " + strings.Join(ipamErrors, "; ")
+		} else {
+			errMsg = strings.Join(ipamErrors, "; ")
+		}
+	}
 	if errMsg != "" {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
 		return nil
@@ -130,6 +154,121 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {
 	nets := vm.Spec.Networks
 	return len(nets) == 0 || (len(nets) == 1 && nets[0].Type == v1alpha2.NetworksTypeMain)
+}
+
+// collectIPAMErrors returns per-network IPAM configuration errors to aggregate
+// into the NetworkReady condition message.
+//
+// Errors reported (the VM is not blocked from running by these; problematic
+// interfaces are skipped by EnrichWithIPAM, and the errors are surfaced here):
+//   - static mode: ipAddressName set but the network has no pool (IPAM);
+//   - static mode: referenced IPAddress does not exist or is not bound to the network;
+//   - auto mode: the IPAddress created by the controller is not yet allocated
+//     (Pending / NoFreeIPAddress — pool exhausted).
+func collectIPAMErrors(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, networks []v1alpha2.NetworksSpec) []string {
+	var errs []string
+	for _, netSpec := range networks {
+		if netSpec.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		hasPool, err := network.HasIPAM(ctx, c, namespace, netSpec)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: failed to check IPAM configuration: %v", network.SpecKey(netSpec), err))
+			continue
+		}
+		if !hasPool {
+			// No pool: if user set ipAddressName, it's a config error; otherwise L2-only is fine.
+			if netSpec.IPAddressName != "" {
+				errs = append(errs, fmt.Sprintf(
+					"%s: ipAddressName %q is set but the network has no IPAM pool configured; the IPAddress cannot be applied",
+					network.SpecKey(netSpec), netSpec.IPAddressName))
+			}
+			continue
+		}
+
+		// Pool exists: validate the IPAddress (static or auto).
+		if netSpec.IPAddressName != "" {
+			// Static mode: check the user-provided IPAddress exists, matches the network, and is allocated.
+			exists, err := network.SDNIPAddressExists(ctx, c, namespace, netSpec.IPAddressName, netSpec.Type, netSpec.Name)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
+				continue
+			}
+			if !exists {
+				errs = append(errs, fmt.Sprintf(
+					"%s: ipAddressName %q does not exist or is not bound to this network; the interface is skipped",
+					network.SpecKey(netSpec), netSpec.IPAddressName))
+				continue
+			}
+			status, err := network.GetSDNIPAddressStatus(ctx, c, namespace, netSpec.IPAddressName)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
+				continue
+			}
+			if status == nil || !status.Allocated {
+				reason := ipStatusReason(status)
+				phase := ipStatusPhase(status)
+				errs = append(errs, fmt.Sprintf(
+					"%s: ipAddressName %q is in phase %s (%s); the interface is skipped",
+					network.SpecKey(netSpec), netSpec.IPAddressName, phase, reason))
+				continue
+			}
+			conflictVM, err := network.IsIPAddressNameUsedByAnotherVM(ctx, c, vm, netSpec.IPAddressName, netSpec)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q conflict: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
+				continue
+			}
+			if conflictVM != "" {
+				errs = append(errs, fmt.Sprintf(
+					"%s: ipAddressName %q is already used by VM %q; the interface is skipped",
+					network.SpecKey(netSpec), netSpec.IPAddressName, conflictVM))
+			}
+			continue
+		}
+
+		// Auto mode: check the controller-created IPAddress is allocated.
+		name, err := network.FindSDNIPAddress(ctx, c, vm, netSpec)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: failed to find auto IPAddress: %v", network.SpecKey(netSpec), err))
+			continue
+		}
+		if name == "" {
+			errs = append(errs, fmt.Sprintf("%s: auto IPAddress is not yet created; waiting for the controller", network.SpecKey(netSpec)))
+			continue
+		}
+		status, err := network.GetSDNIPAddressStatus(ctx, c, namespace, name)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(netSpec), name, err))
+			continue
+		}
+		if status == nil || !status.Allocated {
+			reason := ipStatusReason(status)
+			phase := ipStatusPhase(status)
+			errs = append(errs, fmt.Sprintf(
+				"%s: auto IPAddress %q is in phase %s (%s); the interface is skipped",
+				network.SpecKey(netSpec), name, phase, reason))
+		}
+	}
+	return errs
+}
+
+// ipStatusReason returns a human-readable reason for why an IPAddress is not allocated.
+func ipStatusReason(status *network.SDNIPAddressStatus) string {
+	if status == nil {
+		return "IPAddress not found"
+	}
+	if status.NoFreeAddress {
+		return "pool exhausted (NoFreeIPAddress)"
+	}
+	return "address not yet allocated"
+}
+
+// ipStatusPhase returns the phase of an IPAddress, or "unknown" if nil.
+func ipStatusPhase(status *network.SDNIPAddressStatus) string {
+	if status == nil || status.Phase == "" {
+		return "unknown"
+	}
+	return status.Phase
 }
 
 func (h *NetworkInterfaceHandler) Name() string {
@@ -176,6 +315,13 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		}
 	}
 
+	// Collect IP addresses allocated by SDN for additional interfaces from the
+	// pod's network.deckhouse.io/networks-status annotation (ipAddressConfigs).
+	ipAddressesByName := make(map[string]string)
+	if pods, err := s.Pods(ctx); err == nil {
+		ipAddressesByName = extractIPAddressesFromPods(pods)
+	}
+
 	var networksStatus []v1alpha2.NetworksStatus
 	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vmmacs) {
 		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
@@ -192,6 +338,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 			Name:                         interfaceSpec.Name,
 			MAC:                          macAddressesByInterfaceName[interfaceSpec.InterfaceName],
 			VirtualMachineMACAddressName: vmmacNamesByAddress[interfaceSpec.MAC],
+			IPAddress:                    ipAddressesByName[interfaceSpec.Name],
 		})
 	}
 
@@ -202,8 +349,8 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		if prev.Type == v1alpha2.NetworksTypeMain || prev.MAC == "" {
 			continue
 		}
-		if slices.ContainsFunc(networksStatus, func(ns v1alpha2.NetworksStatus) bool {
-			return ns.Type == prev.Type && ns.Name == prev.Name
+		if slices.ContainsFunc(networksStatus, func(networkStatus v1alpha2.NetworksStatus) bool {
+			return networkStatus.Type == prev.Type && networkStatus.Name == prev.Name
 		}) {
 			continue
 		}
@@ -287,4 +434,41 @@ func collectConditionErrors(conditions []metav1.Condition) []string {
 		}
 	}
 	return interfaceErrorMessages
+}
+
+// extractIPAddressesFromPods returns a map of additional network name to the IP
+// address allocated by SDN, parsed from the network.deckhouse.io/networks-status
+// annotation (ipAddressConfigs[].address) of the virt-launcher pods.
+// If multiple pods report the same network, the first non-empty address wins.
+// Errors parsing the annotation are ignored: the status is best-effort and the
+// readiness path (extractNetworkStatusFromPods) already surfaces SDN errors.
+func extractIPAddressesFromPods(pods *corev1.PodList) map[string]string {
+	result := make(map[string]string)
+	if pods == nil {
+		return result
+	}
+	for _, pod := range pods.Items {
+		annotation, found := pod.Annotations[annotations.AnnNetworksStatus]
+		if !found {
+			continue
+		}
+		var interfacesStatus []network.InterfaceStatus
+		if err := json.Unmarshal([]byte(annotation), &interfacesStatus); err != nil {
+			continue
+		}
+		for _, ifs := range interfacesStatus {
+			if ifs.Name == "" {
+				continue
+			}
+			for _, cfg := range ifs.IPAddressConfigs {
+				if cfg.Address != "" {
+					if _, exists := result[ifs.Name]; !exists {
+						result[ifs.Name] = cfg.Address
+					}
+					break
+				}
+			}
+		}
+	}
+	return result
 }

@@ -266,4 +266,42 @@ var _ = Describe("Network Config Generation", func() {
 		Expect(configs).To(HaveLen(1))
 		Expect(configs[0].ID).To(Equal(0))
 	})
+
+	It("should populate IPAddressNames from spec.networks[].ipAddressName", func() {
+		vm.Status.Networks = []v1alpha2.NetworksStatus{
+			{Type: v1alpha2.NetworksTypeMain},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1", MAC: "00:1A:2B:3C:4D:5E"},
+		}
+		vmmac1 := newMACAddress("mac1", "00:1A:2B:3C:4D:5E", v1alpha2.VirtualMachineMACAddressPhaseAttached, "vm1")
+		vmmacs = append(vmmacs, vmmac1)
+
+		vm.Spec.Networks = []v1alpha2.NetworksSpec{
+			{Type: v1alpha2.NetworksTypeMain},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1", IPAddressName: "my-static-ip"},
+		}
+
+		configs := CreateNetworkSpec(vm, vmmacs)
+
+		Expect(configs).To(HaveLen(2))
+		Expect(configs[1].IPAddressNames).To(Equal([]string{"my-static-ip"}))
+	})
+
+	It("should leave IPAddressNames empty when ipAddressName is not set", func() {
+		vm.Status.Networks = []v1alpha2.NetworksStatus{
+			{Type: v1alpha2.NetworksTypeMain},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1", MAC: "00:1A:2B:3C:4D:5E"},
+		}
+		vmmac1 := newMACAddress("mac1", "00:1A:2B:3C:4D:5E", v1alpha2.VirtualMachineMACAddressPhaseAttached, "vm1")
+		vmmacs = append(vmmacs, vmmac1)
+
+		vm.Spec.Networks = []v1alpha2.NetworksSpec{
+			{Type: v1alpha2.NetworksTypeMain},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1"},
+		}
+
+		configs := CreateNetworkSpec(vm, vmmacs)
+
+		Expect(configs).To(HaveLen(2))
+		Expect(configs[1].IPAddressNames).To(BeNil())
+	})
 })
