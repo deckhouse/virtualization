@@ -32,7 +32,12 @@ const (
 	InboundMigrationLimitVar            = "INBOUND_MIGRATION_LIMIT"
 	InboundMigrationLimitDisabled       = "disabled"
 
+	ParallelSyncMigrationsPerNodeVar = "PARALLEL_SYNC_MIGRATIONS_PER_NODE"
+	SyncMigrationLimitVar            = "SYNC_MIGRATION_LIMIT"
+	SyncMigrationLimitDisabled       = "disabled"
+
 	defaultParallelInboundMigrationsPerNode = 1
+	defaultParallelSyncMigrationsPerNode    = 1
 )
 
 // LoadInboundMigrationLimitFromEnv reads the inbound migration limit configuration
@@ -45,6 +50,23 @@ func LoadInboundMigrationLimitFromEnv() (enabled bool, limit int) {
 
 	limit = defaultParallelInboundMigrationsPerNode
 	if raw := os.Getenv(ParallelInboundMigrationsPerNodeVar); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 1 {
+			limit = parsed
+		}
+	}
+	return true, limit
+}
+
+// LoadSyncMigrationLimitFromEnv reads the per-node sync migration limit applied
+// at controller startup. The limit defaults to 1 and is disabled
+// entirely when SYNC_MIGRATION_LIMIT is set to "disabled".
+func LoadSyncMigrationLimitFromEnv() (enabled bool, limit int) {
+	if os.Getenv(SyncMigrationLimitVar) == SyncMigrationLimitDisabled {
+		return false, defaultParallelSyncMigrationsPerNode
+	}
+
+	limit = defaultParallelSyncMigrationsPerNode
+	if raw := os.Getenv(ParallelSyncMigrationsPerNodeVar); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 1 {
 			limit = parsed
 		}

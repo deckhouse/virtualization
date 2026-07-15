@@ -36,9 +36,11 @@ const (
 	bandwidthPerMigrationAnnotation             = "virtualization.deckhouse.io/bandwidth-per-migration"
 	completionTimeoutPerGiBAnnotation           = "virtualization.deckhouse.io/completion-timeout-per-gib"
 	parallelOutboundMigrationsPerNodeAnnotation = "virtualization.deckhouse.io/parallel-outbound-migrations-per-node"
+	parallelSyncMigrationsPerNodeAnnotation     = "virtualization.deckhouse.io/parallel-sync-migrations-per-node"
 	parallelInboundMigrationsPerNodeAnnotation  = "virtualization.deckhouse.io/parallel-inbound-migrations-per-node"
 	inboundMigrationLimitAnnotation             = "virtualization.deckhouse.io/inbound-migration-limit"
 	outboundMigrationLimitAnnotation            = "virtualization.deckhouse.io/outbound-migration-limit"
+	syncMigrationLimitAnnotation                = "virtualization.deckhouse.io/sync-migration-limit"
 	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
 	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
 	disableFirmwareUpdateAnnotation             = "virtualization.deckhouse.io/disable-firmware-update"
@@ -46,9 +48,11 @@ const (
 	bandwidthPerMigrationValuesPath             = "virtualization.internal.virtConfig.bandwidthPerMigration"
 	completionTimeoutPerGiBValuesPath           = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
 	parallelOutboundMigrationsPerNodeValuesPath = "virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode"
+	parallelSyncMigrationsPerNodeValuesPath     = "virtualization.internal.virtConfig.parallelSyncMigrationsPerNode"
 	parallelInboundMigrationsPerNodeValuesPath  = "virtualization.internal.virtConfig.parallelInboundMigrationsPerNode"
 	inboundMigrationLimitValuesPath             = "virtualization.internal.virtConfig.inboundMigrationLimit"
 	outboundMigrationLimitValuesPath            = "virtualization.internal.virtConfig.outboundMigrationLimit"
+	syncMigrationLimitValuesPath                = "virtualization.internal.virtConfig.syncMigrationLimit"
 	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
 	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
 	disableFirmwareUpdateValuesPath             = "virtualization.internal.disableFirmwareUpdate"
@@ -56,9 +60,11 @@ const (
 	defaultBandwidthPerMigration             = "640Mi"
 	defaultCompletionTimeoutPerGiB           = 800
 	defaultParallelOutboundMigrationsPerNode = 1
+	defaultParallelSyncMigrationsPerNode     = 1
 	defaultParallelInboundMigrationsPerNode  = 1
 	defaultInboundMigrationLimit             = ""
 	defaultOutboundMigrationLimit            = ""
+	defaultSyncMigrationLimit                = ""
 	defaultProgressTimeout                   = 150
 	defaultDisableTLS                        = false
 	defaultDisableFirmwareUpdate             = false
@@ -84,6 +90,11 @@ var migrationParams = []migrationParam{
 		defaultValue: defaultParallelOutboundMigrationsPerNode,
 	},
 	{
+		annotation:   parallelSyncMigrationsPerNodeAnnotation,
+		valuesPath:   parallelSyncMigrationsPerNodeValuesPath,
+		defaultValue: defaultParallelSyncMigrationsPerNode,
+	},
+	{
 		annotation:   parallelInboundMigrationsPerNodeAnnotation,
 		valuesPath:   parallelInboundMigrationsPerNodeValuesPath,
 		defaultValue: defaultParallelInboundMigrationsPerNode,
@@ -97,6 +108,11 @@ var migrationParams = []migrationParam{
 		annotation:   outboundMigrationLimitAnnotation,
 		valuesPath:   outboundMigrationLimitValuesPath,
 		defaultValue: defaultOutboundMigrationLimit,
+	},
+	{
+		annotation:   syncMigrationLimitAnnotation,
+		valuesPath:   syncMigrationLimitValuesPath,
+		defaultValue: defaultSyncMigrationLimit,
 	},
 	{
 		annotation:   progressTimeoutAnnotation,
