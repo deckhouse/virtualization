@@ -247,6 +247,38 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(completed.Reason).To(Equal(vmopcondition.ReasonTargetScheduling.String()))
 	})
 
+	waitingVMOP := func(age time.Duration) *v1alpha2.VirtualMachineOperation {
+		vmop := newVMOPMigrate()
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
+		vmop.Status.Conditions = []metav1.Condition{{
+			Type:               vmopcondition.TypeCompleted.String(),
+			Status:             metav1.ConditionFalse,
+			Reason:             vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String(),
+			LastTransitionTime: metav1.NewTime(time.Now().Add(-age)),
+		}}
+		return vmop
+	}
+
+	It("fails a migration that waited past the timeout for the VM to be ready", func() {
+		h := LifecycleHandler{recorder: recorderMock}
+		vm := newVM(v1alpha2.AlwaysSafeMigrationPolicy)
+		vmop := waitingVMOP(waitForVMReadyToMigrateTimeout + time.Minute)
+
+		Expect(h.canExecute(vmop, vm)).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		Expect(completed.Reason).To(Equal(vmopcondition.ReasonOperationFailed.String()))
+	})
+
+	It("keeps a migration pending while within the ready-to-migrate timeout", func() {
+		h := LifecycleHandler{recorder: recorderMock}
+		vm := newVM(v1alpha2.AlwaysSafeMigrationPolicy)
+		vmop := waitingVMOP(time.Minute)
+
+		Expect(h.canExecute(vmop, vm)).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+	})
+
 	DescribeTable("TargetMigration", func(vmPolicy v1alpha2.LiveMigrationPolicy, nodeSelector map[string]string, targetMigrationEnabled bool) {
 		vm := newVM(vmPolicy)
 		vm.Status.Conditions = []metav1.Condition{

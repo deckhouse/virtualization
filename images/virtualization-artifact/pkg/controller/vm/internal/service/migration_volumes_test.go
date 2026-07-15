@@ -250,6 +250,38 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 		Expect(updatedKVVM.Spec.Template.Spec.Affinity).To(Equal(desiredKVVM.Spec.Template.Spec.Affinity))
 	})
+
+	It("force-reverts kvvm to source when kvvm/kvvmi diverged and no migration is in progress", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		vm := newVM()
+		// KVVM is stuck on a dead migration target (with the migration strategy),
+		// while KVVMI never synced and still points at the source. With no in-progress
+		// migration this must be force-reverted instead of waiting on the kvvmiSynced
+		// barrier forever.
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "target-node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "source-node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+	})
 })
 
 var _ = Describe("isStructuralVolumeChange", func() {
