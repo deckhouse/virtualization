@@ -70,6 +70,12 @@ jobs:
             exit 1
           fi
 
+      # Stash the helper scripts from the workflow ref: the tag checkout below replaces
+      # the tree with the (older) released tag, which does not contain them.
+      - uses: actions/checkout@v6
+      - name: Stash helper scripts
+        run: cp -r .github/scripts/bash/check-and-rebuild "$RUNNER_TEMP/helpers"
+
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.tag }}
@@ -90,7 +96,7 @@ jobs:
           repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
 
           rc=0
-          .github/scripts/bash/check-and-rebuild/check-image-digests.sh \
+          "$RUNNER_TEMP/helpers/check-image-digests.sh" \
             --repo "$repo" --tag "${{ github.event.inputs.tag }}" || rc=$?
           if [ "$rc" -eq 2 ]; then
             exit 1
@@ -119,7 +125,7 @@ jobs:
         if: ${{ steps.check.outputs.needs_fix == 'true' }}
         run: |
           repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          .github/scripts/bash/check-and-rebuild/rebuild-broken-stages.sh \
+          "$RUNNER_TEMP/helpers/rebuild-broken-stages.sh" \
             --repo "$repo" --report images_tags_werf.json
 
       # Pass 2: full rebuild + publish; images-digests is regenerated with live digests.
@@ -141,7 +147,7 @@ jobs:
         run: |
           set -euo pipefail
           repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          if ! .github/scripts/bash/check-and-rebuild/check-image-digests.sh \
+          if ! "$RUNNER_TEMP/helpers/check-image-digests.sh" \
               --repo "$repo" --tag "${{ github.event.inputs.tag }}"; then
             echo "::error::component image(s) still missing after rebuild"
             exit 1
