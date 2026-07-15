@@ -49,12 +49,8 @@ const lifecycleHandlerName = "LifecycleHandler"
 
 const timeElapsedUpdateInterval = 10 * time.Second
 
-// waitForVMReadyToMigrateTimeout bounds how long a migration operation may wait
-// for the VM to become ready to migrate. A volume migration that never reaches
-// this state (e.g. its target disks never sync) would otherwise keep the VMOP
-// Pending forever; failing it lets the disk-migration revert path recover the VM.
-// A healthy migration reaches ReadyToMigrate within roughly a minute, so this bound
-// is a wide margin over the happy path while still recovering a wedge promptly.
+// waitForVMReadyToMigrateTimeout fails a migration whose disks never sync instead
+// of waiting for ReadyToMigrate forever. Healthy migrations reach it within ~1m.
 const waitForVMReadyToMigrateTimeout = 5 * time.Minute
 
 const (

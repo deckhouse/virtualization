@@ -121,10 +121,8 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
-		// KVVM and KVVMI disagree. With no migration in progress this is a wedge:
-		// KVVM still carries a dead migration volume set that kubevirt will never
-		// sync (e.g. the migration target PVC was removed). Force-revert KVVM to the
-		// source volumes instead of waiting for a sync that will never come.
+		// KVVM carries a dead migration volume set kubevirt will never sync (e.g. the
+		// target PVC was removed) and no migration is running: revert to source.
 		if vmop == nil && s.shouldPatchVolumes(kvvmInCluster, builtKVVM) {
 			log.Info("No in-progress migration but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
 			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
@@ -134,11 +132,9 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, nil
 	}
 
-	// A finished migration can leave updateVolumesStrategy=Migration on KVVM while the
-	// volumes already match the desired set. KubeVirt then keeps treating the VM as
-	// mid-migration. If no migration is in progress and only the strategy is stale,
-	// clear it. Guarded on equal volumes so a mid-completion window (volumes still
-	// differ) is never reverted here.
+	// Clear a stale updateVolumesStrategy left by a finished migration; kubevirt
+	// otherwise keeps treating the VM as mid-migration. Equal-volumes guard avoids
+	// touching a mid-completion window where volumes still differ.
 	if vmop == nil &&
 		equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes) &&
 		!equality.Semantic.DeepEqual(builtKVVM.Spec.UpdateVolumesStrategy, kvvmInCluster.Spec.UpdateVolumesStrategy) {
