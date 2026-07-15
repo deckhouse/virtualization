@@ -90,31 +90,19 @@ jobs:
       - name: Check component images
         id: check
         run: |
-          set -euo pipefail
+          set -uo pipefail
           R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
           TAG="${{ github.event.inputs.tag }}"
 
-          if ! crane digest "$R:$TAG" >/dev/null 2>&1; then
-            echo "::error::module image $R:$TAG not found"
+          rc=0
+          .github/scripts/bash/check-and-rebuild/check-image-digests.sh "$R" "$TAG" || rc=$?
+          if [ "$rc" -eq 2 ]; then
             exit 1
           fi
-
-          json="$(crane export "$R:$TAG" - | tar -Oxf - images_digests.json)"
-          missing=0
-          while read -r name digest; do
-            if crane digest "$R@$digest" >/dev/null 2>&1; then
-              echo "OK    $name"
-            else
-              echo "MISS  $name  $digest"
-              missing=$((missing + 1))
-            fi
-          done < <(echo "$json" | jq -r 'to_entries[] | "\(.key) \(.value)"')
-
-          echo "$missing component image(s) missing"
-          if [ "$missing" -gt 0 ]; then
-            echo "needs_fix=true" >> "$GITHUB_OUTPUT"
-          else
+          if [ "$rc" -eq 0 ]; then
             echo "needs_fix=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_fix=true" >> "$GITHUB_OUTPUT"
           fi
 
       # Pass 1: build only to obtain the current stage tags/digests (mostly cached).
@@ -194,18 +182,8 @@ jobs:
           set -euo pipefail
           R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
           TAG="${{ github.event.inputs.tag }}"
-          json="$(crane export "$R:$TAG" - | tar -Oxf - images_digests.json)"
-          missing=0
-          while read -r name digest; do
-            if crane digest "$R@$digest" >/dev/null 2>&1; then
-              echo "OK    $name"
-            else
-              echo "MISS  $name  $digest"
-              missing=$((missing + 1))
-            fi
-          done < <(echo "$json" | jq -r 'to_entries[] | "\(.key) \(.value)"')
-          if [ "$missing" -gt 0 ]; then
-            echo "::error::$missing component image(s) still missing after rebuild"
+          if ! .github/scripts/bash/check-and-rebuild/check-image-digests.sh "$R" "$TAG"; then
+            echo "::error::component image(s) still missing after rebuild"
             exit 1
           fi
           echo "All component images are pullable."
