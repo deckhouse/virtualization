@@ -12,19 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Recheck a published module tag and, if any component image it references is no
-# longer pullable (e.g. its stage manifest was garbage-collected from dev-registry),
-# rebuild the tag so the assembly chain is regenerated with live image digests.
+# Recheck a published module tag and rebuild it if any component image it references
+# was garbage-collected from dev-registry.
 #
-# The dev-registry GC removes untagged/by-digest stage manifests over time. A plain
-# rebuild does NOT fix this on its own: the `images-digests` image caches its content
-# by the components' werf stage signatures (stable), not by their OCI digests, so werf
-# reuses the cached `images_digests.json` still pointing at the collected manifests.
-# This workflow forces regeneration by deleting the intermediate `images-digests` and
-# `prepare-bundle` stages so the next build rebuilds `images-digests` (re-reading the
-# currently published component digests); `bundle` then cascades and the module image
-# `:tag` is overwritten by the build action's publish step. The release image carries
-# no `images_digests.json`, so it is left untouched.
+# A plain rebuild does not fix it: werf keeps reusing the collected stage (its tag still
+# resolves) and re-reports the dead digest. So for every broken component we delete its
+# stages by tag (the dead digest can't be deleted), forcing werf to rebuild and re-push;
+# then we delete images-digests and prepare-bundle to regenerate images_digests.json,
+# and the build action republishes :tag.
 
 name: Check dev images and rebuild
 
@@ -75,6 +70,12 @@ jobs:
             exit 1
           fi
 
+      # Stash the helper scripts from the workflow ref: the tag checkout below replaces
+      # the tree with the (older) released tag, which does not contain them.
+      - uses: actions/checkout@v6
+      - name: Stash helper scripts
+        run: cp -r .github/scripts/bash/check-and-rebuild "$RUNNER_TEMP/helpers"
+
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.tag }}
@@ -91,31 +92,19 @@ jobs:
       - name: Check component images
         id: check
         run: |
-          set -euo pipefail
-          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          TAG="${{ github.event.inputs.tag }}"
+          set -uo pipefail
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
 
-          if ! crane digest "$R:$TAG" >/dev/null 2>&1; then
-            echo "::error::module image $R:$TAG not found"
+          rc=0
+          "$RUNNER_TEMP/helpers/check-image-digests.sh" \
+            --repo "$repo" --tag "${{ github.event.inputs.tag }}" || rc=$?
+          if [ "$rc" -eq 2 ]; then
             exit 1
           fi
-
-          json="$(crane export "$R:$TAG" - | tar -Oxf - images_digests.json)"
-          missing=0
-          while read -r name digest; do
-            if crane digest "$R@$digest" >/dev/null 2>&1; then
-              echo "OK    $name"
-            else
-              echo "MISS  $name  $digest"
-              missing=$((missing + 1))
-            fi
-          done < <(echo "$json" | jq -r 'to_entries[] | "\(.key) \(.value)"')
-
-          echo "$missing component image(s) missing"
-          if [ "$missing" -gt 0 ]; then
-            echo "needs_fix=true" >> "$GITHUB_OUTPUT"
-          else
+          if [ "$rc" -eq 0 ]; then
             echo "needs_fix=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_fix=true" >> "$GITHUB_OUTPUT"
           fi
 
       # Pass 1: build only to obtain the current stage tags/digests (mostly cached).
@@ -132,32 +121,12 @@ jobs:
           registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - name: Delete stale images-digests stages
+      - name: Delete stale stages of broken images
         if: ${{ steps.check.outputs.needs_fix == 'true' }}
         run: |
-          set -euo pipefail
-          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          report="images_tags_werf.json"
-          if [ ! -f "$report" ]; then
-            echo "::error::$report not produced by the build step"
-            exit 1
-          fi
-
-          # Delete only the intermediate stages that bake the component digests.
-          # Deleting images-digests forces its rebuild (re-reading live component
-          # digests); prepare-bundle imports it. Both are intermediate-only, so no
-          # published tag is touched: bundle (== module :tag) cascades on rebuild and
-          # is overwritten by the action's publish step, and the release image is
-          # unrelated. Delete by digest so all timestamped stage tags go at once.
-          for img in images-digests prepare-bundle; do
-            d="$(jq -r --arg i "$img" '.Images[$i].DockerImageDigest // empty' "$report")"
-            if [ -n "$d" ]; then
-              echo "deleting $img -> $R@$d"
-              crane delete "$R@$d" || echo "::warning::failed to delete $img ($d)"
-            else
-              echo "::warning::no digest for $img in build report"
-            fi
-          done
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          "$RUNNER_TEMP/helpers/rebuild-broken-stages.sh" \
+            --repo "$repo" --report images_tags_werf.json
 
       # Pass 2: full rebuild + publish; images-digests is regenerated with live digests.
       - name: Rebuild and publish
@@ -177,20 +146,10 @@ jobs:
         if: ${{ steps.check.outputs.needs_fix == 'true' }}
         run: |
           set -euo pipefail
-          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
-          TAG="${{ github.event.inputs.tag }}"
-          json="$(crane export "$R:$TAG" - | tar -Oxf - images_digests.json)"
-          missing=0
-          while read -r name digest; do
-            if crane digest "$R@$digest" >/dev/null 2>&1; then
-              echo "OK    $name"
-            else
-              echo "MISS  $name  $digest"
-              missing=$((missing + 1))
-            fi
-          done < <(echo "$json" | jq -r 'to_entries[] | "\(.key) \(.value)"')
-          if [ "$missing" -gt 0 ]; then
-            echo "::error::$missing component image(s) still missing after rebuild"
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          if ! "$RUNNER_TEMP/helpers/check-image-digests.sh" \
+              --repo "$repo" --tag "${{ github.event.inputs.tag }}"; then
+            echo "::error::component image(s) still missing after rebuild"
             exit 1
           fi
           echo "All component images are pullable."
