@@ -1467,7 +1467,9 @@ spec:
                       ipAddress:
                         type: string
                         description: |
-                          The IP address allocated for this additional network interface by SDN (from the network pool). Empty for the Main network or when the additional network has no pool configured.
+                          IP address allocated for this additional network interface by the `sdn` module from the network pool.
+
+                          Filled only for additional networks that have IPAM configured. For `Main` network and networks without a configured pool, the field is empty.
       additionalPrinterColumns:
         - description: Virtual machine phase.
           jsonPath: .status.phase
