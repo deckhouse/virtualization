@@ -3615,7 +3615,7 @@ write_files:
       SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
 ```
 
-For interfaces present at VM boot (included in the initial network configuration), this is not an issue — the guest OS configures them during startup via Cloud-Init.
+For interfaces present at VM boot (included in the initial network configuration), no additional configuration is required — the guest OS configures them during startup via Cloud-Init.
 {{< /alert >}}
 
 ## Snapshots
