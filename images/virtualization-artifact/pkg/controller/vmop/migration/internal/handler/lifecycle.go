@@ -53,7 +53,9 @@ const timeElapsedUpdateInterval = 10 * time.Second
 // for the VM to become ready to migrate. A volume migration that never reaches
 // this state (e.g. its target disks never sync) would otherwise keep the VMOP
 // Pending forever; failing it lets the disk-migration revert path recover the VM.
-const waitForVMReadyToMigrateTimeout = 10 * time.Minute
+// A healthy migration reaches ReadyToMigrate within roughly a minute, so this bound
+// is a wide margin over the happy path while still recovering a wedge promptly.
+const waitForVMReadyToMigrateTimeout = 5 * time.Minute
 
 const (
 	progressMigrationPending   int32 = 0
