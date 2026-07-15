@@ -3570,7 +3570,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      # ipAddressName не указан → автоматический режим (DHCP)
+      # ipAddressName не указан → используется автоматический режим (DHCP).
 ```
 
 Пример ВМ со статическим IP-адресом на дополнительной сети:
