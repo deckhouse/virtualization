@@ -17,7 +17,6 @@ limitations under the License.
 package importer
 
 import (
-	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -120,7 +119,7 @@ func streamDataToFile(r io.Reader, fileName string) error {
 	defer outFile.Close()
 	klog.V(1).Infof("Writing data...\n")
 	start := time.Now()
-	fmt.Printf("Copy to %s started at %s (block size %d bytes)\n", fileName, start.Format(time.RFC3339Nano), copyBufferSize)
+	klog.Infof("Copy to %s started at %s (block size %d bytes)", fileName, start.Format(time.RFC3339Nano), copyBufferSize)
 	buf := make([]byte, copyBufferSize)
 	if _, err = io.CopyBuffer(writerOnly{outFile}, r, buf); err != nil {
 		klog.Errorf("Unable to write file from dataReader: %v\n", err)
@@ -131,7 +130,7 @@ func streamDataToFile(r io.Reader, fileName string) error {
 		return NewImagePullFailedError(err)
 	}
 	end := time.Now()
-	fmt.Printf("Copy to %s finished at %s (duration %s)\n", fileName, end.Format(time.RFC3339Nano), end.Sub(start))
+	klog.Infof("Copy to %s finished at %s (duration %s)", fileName, end.Format(time.RFC3339Nano), end.Sub(start))
 	err = outFile.Sync()
 	return err
 }
