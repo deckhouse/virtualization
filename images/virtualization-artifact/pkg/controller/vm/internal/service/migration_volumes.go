@@ -126,6 +126,18 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, nil
 	}
 
+	// patchVolumes replaces the KVVM volume list but not the disk list. If the built
+	// spec and the running KVVM disagree on which disks exist (a hotplug attach or
+	// detach is still being reconciled), patching volumes alone would leave a disk
+	// without its volume and KubeVirt would reject the whole patch, transiently
+	// flipping the VM into a "restart required" state. Wait for the disk set to
+	// converge before touching volumes; a volume migration itself never changes the
+	// disk set (only the PVC a disk points at).
+	if !sameDiskNameSet(builtKVVM, kvvmInCluster) {
+		log.Info("kvvm disk set is not reconciled with the desired spec yet, skip volume migration.")
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
 	readWriteOnceDisks, storageClassChangedDisks, err := s.getDisks(ctx, vmState)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -250,6 +262,29 @@ func isStructuralVolumeChange(builtKVVM *virtv1.VirtualMachine, kvvmi *virtv1.Vi
 	}
 
 	return false
+}
+
+// sameDiskNameSet reports whether the built spec and the running KVVM contain the
+// same set of disk names. A volume migration only swaps the PVC a disk points at,
+// so the disk set stays constant; a difference means the disk topology (e.g. a
+// hotplug attach/detach) is still being reconciled and volumes must not be patched.
+func sameDiskNameSet(built, live *virtv1.VirtualMachine) bool {
+	builtDisks := built.Spec.Template.Spec.Domain.Devices.Disks
+	liveDisks := live.Spec.Template.Spec.Domain.Devices.Disks
+	if len(builtDisks) != len(liveDisks) {
+		return false
+	}
+
+	names := make(map[string]struct{}, len(builtDisks))
+	for _, d := range builtDisks {
+		names[d.Name] = struct{}{}
+	}
+	for _, d := range liveDisks {
+		if _, ok := names[d.Name]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func getVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {

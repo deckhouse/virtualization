@@ -303,6 +303,36 @@ var _ = Describe("isStructuralVolumeChange", func() {
 	)
 })
 
+var _ = Describe("sameDiskNameSet", func() {
+	withDisks := func(names ...string) *virtv1.VirtualMachine {
+		disks := make([]virtv1.Disk, 0, len(names))
+		for _, n := range names {
+			disks = append(disks, virtv1.Disk{Name: n})
+		}
+		return &virtv1.VirtualMachine{
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Domain: virtv1.DomainSpec{Devices: virtv1.Devices{Disks: disks}},
+					},
+				},
+			},
+		}
+	}
+
+	DescribeTable("compares disk name sets regardless of order",
+		func(built, live []string, expected bool) {
+			Expect(sameDiskNameSet(withDisks(built...), withDisks(live...))).To(Equal(expected))
+		},
+		Entry("identical", []string{"root", "data"}, []string{"root", "data"}, true),
+		Entry("reordered", []string{"root", "data"}, []string{"data", "root"}, true),
+		Entry("both empty", []string{}, []string{}, true),
+		Entry("live has an extra hotplug disk not yet in the built spec", []string{"root", "data"}, []string{"root", "data", "vd-vd-vmbda-rwo"}, false),
+		Entry("built has a disk the live KVVM lost", []string{"root", "data"}, []string{"root"}, false),
+		Entry("same count, different name", []string{"root"}, []string{"data"}, false),
+	)
+})
+
 var _ = Describe("GetVirtualDiskNamesWithUnreadyTarget", func() {
 	const namespace = "default"
 
