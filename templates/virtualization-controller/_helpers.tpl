@@ -84,7 +84,7 @@ true
 # memory 3600M to avoid OOMKill during importing huge images ~2.9GiB on
 # linux kernels 6.12+ (page cache is charged to the pod cgroup).
 - name: PROVISIONING_POD_LIMITS
-  value: '{"cpu":"1000m","memory":"3600M"}'
+  value: '{"cpu":"16","memory":"3600M"}'
 - name: PROVISIONING_POD_REQUESTS
   value: '{"cpu":"100m","memory":"60M"}'
 - name: IMPORTER_QEMU_CONVERT_THREADS
