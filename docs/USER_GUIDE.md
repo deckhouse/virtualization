@@ -3608,12 +3608,12 @@ To ensure hotplugged interfaces are configured automatically, use one of the fol
 - **NetworkManager** (Ubuntu, RHEL, CentOS) — automatically configures new interfaces with DHCP if the `network-manager` service is running.
 - **udev rule** (Alpine, others without NetworkManager) — add a udev rule to bring up new interfaces:
 
-```yaml
-write_files:
-  - path: /etc/udev/rules.d/90-hotplug-network.rules
-    content: |
-      SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
-```
+  ```yaml
+  write_files:
+    - path: /etc/udev/rules.d/90-hotplug-network.rules
+      content: |
+        SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
+  ```
 
 For interfaces present at VM boot (included in the initial network configuration), no additional configuration is required — the guest OS configures them during startup via Cloud-Init.
 {{< /alert >}}
