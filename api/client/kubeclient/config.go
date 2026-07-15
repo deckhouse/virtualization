@@ -39,37 +39,19 @@ func DefaultClientConfig(flags *pflag.FlagSet) clientcmd.ClientConfig {
 	// DEPRECATED: remove and replace with something more accurate
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
 
-	overrides := &clientcmd.ConfigOverrides{ClusterDefaults: clientcmd.ClusterDefaults}
-
-	bindClientConfigFlags(flags, loadingRules, overrides)
-
-	return clientcmd.NewInteractiveDeferredLoadingClientConfig(loadingRules, overrides, os.Stdin)
-}
-
-// bindClientConfigFlags is the single place that registers the kubeconfig and kubectl-style
-// override flags, shared by DefaultClientConfig and ClientConfigFlagNames.
-func bindClientConfigFlags(flags *pflag.FlagSet, loadingRules *clientcmd.ClientConfigLoadingRules, overrides *clientcmd.ConfigOverrides) {
 	flags.StringVar(&loadingRules.ExplicitPath, "kubeconfig", "",
 		"Path to the kubeconfig file to use for CLI requests.")
+
+	overrides := &clientcmd.ConfigOverrides{ClusterDefaults: clientcmd.ClusterDefaults}
 
 	flagNames := clientcmd.RecommendedConfigOverrideFlags("")
 	// short flagnames are disabled by default.  These are here for compatibility with existing scripts
 	flagNames.ClusterOverrideFlags.APIServer.ShortName = "s"
 
 	clientcmd.BindOverrideFlags(overrides, flags, flagNames)
-}
+	clientConfig := clientcmd.NewInteractiveDeferredLoadingClientConfig(loadingRules, overrides, os.Stdin)
 
-// ClientConfigFlagNames returns the names of the flags DefaultClientConfig binds, so callers
-// forwarding them to a subprocess don't hard-code a list that could drift.
-func ClientConfigFlagNames() []string {
-	fs := pflag.NewFlagSet("clientconfig", pflag.ContinueOnError)
-	bindClientConfigFlags(fs, clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-
-	var names []string
-	fs.VisitAll(func(f *pflag.Flag) {
-		names = append(names, f.Name)
-	})
-	return names
+	return clientConfig
 }
 
 func GetClientFromRESTConfig(config *rest.Config) (Client, error) {

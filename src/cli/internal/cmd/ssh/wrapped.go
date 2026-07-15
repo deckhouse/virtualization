@@ -29,9 +29,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
-
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
 )
+
+// forwardedClientConfigFlags are the client-config flags propagated to the inner port-forward
+// so it connects to the same cluster as the outer command. The list is deliberately limited to
+// cluster-selection flags: sensitive flags (--token, --password, --as*) are excluded so they do
+// not leak into the local ssh/scp process argv or into the command logged by RunLocalClient.
+var forwardedClientConfigFlags = []string{"context", "server", "kubeconfig"}
 
 func addLocalSSHClientFlags(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringArrayVar(&opts.AdditionalSSHOptions, additionalOpts, opts.AdditionalSSHOptions,
@@ -92,15 +96,12 @@ func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOpti
 	return command.Run()
 }
 
-// collectGlobalClientFlags returns the `--name=value` tokens for the client-config flags the
+// collectGlobalClientFlags returns the `--name=value` tokens for the cluster-selection flags the
 // user set on the outer command, so the inner port-forward connects to the same cluster.
+// namespace is intentionally not forwarded: it is already carried in the name.namespace target.
 func collectGlobalClientFlags(cmd *cobra.Command) []string {
 	var out []string
-	for _, name := range kubeclient.ClientConfigFlagNames() {
-		if name == "namespace" {
-			// namespace is already carried in the name.namespace target.
-			continue
-		}
+	for _, name := range forwardedClientConfigFlags {
 		f := cmd.Flag(name)
 		if f == nil || !f.Changed {
 			continue

@@ -218,6 +218,7 @@ users:
 			root.PersistentFlags().String("server", "", "")
 			root.PersistentFlags().StringP("namespace", "n", "", "")
 			root.PersistentFlags().Bool("insecure-skip-tls-verify", false, "")
+			root.PersistentFlags().String("token", "", "")
 			sshCmd = &cobra.Command{Use: "ssh"}
 			root.AddCommand(sshCmd)
 			return root, sshCmd
@@ -229,14 +230,16 @@ users:
 			Expect(opt).To(ContainSubstring("port-forward --stdio=true myvm.myns 22"))
 		})
 
-		It("forwards the global client-config flags the user set", func() {
+		It("forwards the cluster-selection flags the user set", func() {
 			root, sshCmd := newTree()
 			Expect(root.PersistentFlags().Set("context", "prod")).To(Succeed())
 			Expect(root.PersistentFlags().Set("kubeconfig", "/etc/kube/config")).To(Succeed())
+			Expect(root.PersistentFlags().Set("server", "https://api.prod:6443")).To(Succeed())
 
 			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
 			Expect(opt).To(ContainSubstring("--context='prod'"))
 			Expect(opt).To(ContainSubstring("--kubeconfig='/etc/kube/config'"))
+			Expect(opt).To(ContainSubstring("--server='https://api.prod:6443'"))
 		})
 
 		It("does not forward flags left at their default", func() {
@@ -266,12 +269,17 @@ users:
 			Expect(opt).NotTo(ContainSubstring("--namespace"))
 		})
 
-		It("forwards boolean flags as =true", func() {
+		It("does not forward sensitive or non-cluster-selection flags", func() {
 			root, sshCmd := newTree()
+			// Even if the user set them on the outer command, these must not leak into the
+			// ProxyCommand string (visible in the local ssh process argv and in the logged command).
+			Expect(root.PersistentFlags().Set("token", "s3cr3t")).To(Succeed())
 			Expect(root.PersistentFlags().Set("insecure-skip-tls-verify", "true")).To(Succeed())
 
 			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
-			Expect(opt).To(ContainSubstring("--insecure-skip-tls-verify='true'"))
+			Expect(opt).NotTo(ContainSubstring("--token"))
+			Expect(opt).NotTo(ContainSubstring("s3cr3t"))
+			Expect(opt).NotTo(ContainSubstring("--insecure-skip-tls-verify"))
 		})
 	})
 
