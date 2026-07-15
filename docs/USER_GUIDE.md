@@ -3529,7 +3529,7 @@ Two modes are supported:
 
 - **Automatic (DHCP):** If [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) is not specified in `.spec.networks[]`, the controller automatically creates an IPAddress resource (type `Auto`) bound to the VM via `ownerReferences` and passes it to the `sdn` module. The `sdn` module allocates an address from the pool and delivers it to the guest OS via DHCP. The address remains stable across VM restarts and migrations since it is bound to the VM, not the pod. For this mode to work, the guest OS must have a DHCP client enabled on the corresponding interface.
 
-- **Static:** if `ipAddressName` is specified in `.spec.networks[]`, the controller uses the user-provided `IPAddress` resource (type `Static`, `network.deckhouse.io/v1alpha1`). The address is determined by the user and is stable.
+- **Static:** If [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) is specified in `.spec.networks[]`, the controller uses the user-provided IPAddress resource (type `Static`, `network.deckhouse.io/v1alpha1`). The address is determined by the user and is not modified automatically.
 
 If the additional network does not have an IPAM pool configured, the IPAM feature is not enabled — the interface operates in L2-only mode, and IP addressing is configured manually in the guest OS.
 
