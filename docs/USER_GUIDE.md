@@ -3527,7 +3527,7 @@ If the [`sdn`](/modules/sdn/) module has IPAM (IP Address Management) configured
 
 Two modes are supported:
 
-- **Automatic (DHCP):** if `ipAddressName` is not specified in `.spec.networks[]`, the controller automatically creates an `IPAddress` resource (type `Auto`) bound to the VM via `ownerReferences` and passes it to the SDN module. The SDN module allocates an address from the pool and delivers it to the guest OS via DHCP. The address is stable across VM restarts and migrations (it is bound to the VM, not the pod). The guest OS must have a DHCP client enabled on the corresponding interface.
+- **Automatic (DHCP):** If [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) is not specified in `.spec.networks[]`, the controller automatically creates an IPAddress resource (type `Auto`) bound to the VM via `ownerReferences` and passes it to the `sdn` module. The `sdn` module allocates an address from the pool and delivers it to the guest OS via DHCP. The address remains stable across VM restarts and migrations since it is bound to the VM, not the pod. For this mode to work, the guest OS must have a DHCP client enabled on the corresponding interface.
 
 - **Static:** if `ipAddressName` is specified in `.spec.networks[]`, the controller uses the user-provided `IPAddress` resource (type `Static`, `network.deckhouse.io/v1alpha1`). The address is determined by the user and is stable.
 
