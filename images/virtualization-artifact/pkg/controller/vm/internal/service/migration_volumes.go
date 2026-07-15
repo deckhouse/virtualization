@@ -596,23 +596,49 @@ func isVolumeMigrating(kvvmi *virtv1.VirtualMachineInstance) bool {
 	return cond.Status == corev1.ConditionTrue
 }
 
-// destinationsMatch reports whether the in-flight migration (kvvmi.status.migratedVolumes)
-// targets the same destinations as the set we are about to patch.
+// destinationsMatch reports whether the set we are about to patch merely continues
+// the in-flight migration: every volume either keeps its currently running claim or
+// goes to the destination already recorded in kvvmi.status.migratedVolumes, and no
+// in-flight volume is left out of the set. Anything else is a different target set,
+// which KubeVirt rejects mid-migration.
 func destinationsMatch(kvvmi *virtv1.VirtualMachineInstance, built *virtv1.VirtualMachine) bool {
-	want := make(map[string]string, len(built.Spec.Template.Spec.Volumes))
-	for _, v := range built.Spec.Template.Spec.Volumes {
+	current := make(map[string]string, len(kvvmi.Spec.Volumes))
+	for _, v := range kvvmi.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil {
-			want[v.Name] = v.PersistentVolumeClaim.ClaimName
+			current[v.Name] = v.PersistentVolumeClaim.ClaimName
 		}
 	}
+
+	dest := make(map[string]string, len(kvvmi.Status.MigratedVolumes))
 	for _, mv := range kvvmi.Status.MigratedVolumes {
-		if mv.DestinationPVCInfo == nil {
+		if mv.DestinationPVCInfo != nil {
+			dest[mv.VolumeName] = mv.DestinationPVCInfo.ClaimName
+		}
+	}
+
+	seen := make(map[string]struct{}, len(built.Spec.Template.Spec.Volumes))
+	for _, v := range built.Spec.Template.Spec.Volumes {
+		if v.PersistentVolumeClaim == nil {
 			continue
 		}
-		if want[mv.VolumeName] != mv.DestinationPVCInfo.ClaimName {
+		seen[v.Name] = struct{}{}
+		if d, ok := dest[v.Name]; ok {
+			if v.PersistentVolumeClaim.ClaimName != d {
+				return false
+			}
+			continue
+		}
+		if v.PersistentVolumeClaim.ClaimName != current[v.Name] {
 			return false
 		}
 	}
+
+	for name := range dest {
+		if _, ok := seen[name]; !ok {
+			return false
+		}
+	}
+
 	return true
 }
 

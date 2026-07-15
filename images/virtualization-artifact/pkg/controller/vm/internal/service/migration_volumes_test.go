@@ -414,7 +414,7 @@ var _ = Describe("isVolumeMigrating", func() {
 })
 
 var _ = Describe("destinationsMatch", func() {
-	built := func(nameToClaim map[string]string) *virtv1.VirtualMachine {
+	pvcVolumes := func(nameToClaim map[string]string) []virtv1.Volume {
 		vols := make([]virtv1.Volume, 0, len(nameToClaim))
 		for name, claim := range nameToClaim {
 			vols = append(vols, virtv1.Volume{
@@ -422,10 +422,14 @@ var _ = Describe("destinationsMatch", func() {
 				VolumeSource: virtv1.VolumeSource{PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim}}},
 			})
 		}
-		return &virtv1.VirtualMachine{Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{Spec: virtv1.VirtualMachineInstanceSpec{Volumes: vols}}}}
+		return vols
 	}
-	kvvmi := func(volToDest map[string]string) *virtv1.VirtualMachineInstance {
+	built := func(nameToClaim map[string]string) *virtv1.VirtualMachine {
+		return &virtv1.VirtualMachine{Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{Spec: virtv1.VirtualMachineInstanceSpec{Volumes: pvcVolumes(nameToClaim)}}}}
+	}
+	kvvmi := func(running, volToDest map[string]string) *virtv1.VirtualMachineInstance {
 		vmi := &virtv1.VirtualMachineInstance{}
+		vmi.Spec.Volumes = pvcVolumes(running)
 		for vol, dest := range volToDest {
 			vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
 				VolumeName:         vol,
@@ -435,18 +439,39 @@ var _ = Describe("destinationsMatch", func() {
 		return vmi
 	}
 
-	It("is true when there is no recorded migration", func() {
-		Expect(destinationsMatch(kvvmi(nil), built(map[string]string{"root": "new"}))).To(BeTrue())
+	It("is true when the set keeps the running claims and there is no recorded migration", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, nil), built(map[string]string{"root": "src"}))).To(BeTrue())
+	})
+	It("is false when a claim changes without a recorded migration for it", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, nil), built(map[string]string{"root": "new"}))).To(BeFalse())
 	})
 	It("is true when the recorded destination matches the target being patched", func() {
-		Expect(destinationsMatch(kvvmi(map[string]string{"root": "tgt"}), built(map[string]string{"root": "tgt"}))).To(BeTrue())
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, map[string]string{"root": "tgt"}), built(map[string]string{"root": "tgt"}))).To(BeTrue())
 	})
 	It("is false when the recorded destination differs from the new target", func() {
-		Expect(destinationsMatch(kvvmi(map[string]string{"root": "old-tgt"}), built(map[string]string{"root": "new-tgt"}))).To(BeFalse())
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, map[string]string{"root": "old-tgt"}), built(map[string]string{"root": "new-tgt"}))).To(BeFalse())
+	})
+	It("is false when the set migrates an extra volume on top of the in-flight round", func() {
+		Expect(destinationsMatch(
+			kvvmi(map[string]string{"root": "src", "data": "data-src"}, map[string]string{"root": "tgt"}),
+			built(map[string]string{"root": "tgt", "data": "data-tgt"}),
+		)).To(BeFalse())
+	})
+	It("is false when the set keeps a volume at source while it is migrating", func() {
+		Expect(destinationsMatch(
+			kvvmi(map[string]string{"root": "src", "data": "data-src"}, map[string]string{"root": "tgt", "data": "data-tgt"}),
+			built(map[string]string{"root": "tgt", "data": "data-src"}),
+		)).To(BeFalse())
+	})
+	It("is false when an in-flight volume is absent from the set being patched", func() {
+		Expect(destinationsMatch(
+			kvvmi(map[string]string{"root": "src"}, map[string]string{"hotplug": "hp-tgt"}),
+			built(map[string]string{"root": "src"}),
+		)).To(BeFalse())
 	})
 	It("ignores recorded entries without destination info", func() {
-		vmi := &virtv1.VirtualMachineInstance{}
+		vmi := kvvmi(map[string]string{"root": "src"}, nil)
 		vmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{{VolumeName: "root", DestinationPVCInfo: nil}}
-		Expect(destinationsMatch(vmi, built(map[string]string{"root": "whatever"}))).To(BeTrue())
+		Expect(destinationsMatch(vmi, built(map[string]string{"root": "src"}))).To(BeTrue())
 	})
 })
