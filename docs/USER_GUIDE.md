@@ -3533,7 +3533,7 @@ Two modes are supported:
 
 If the additional network does not have an IPAM pool configured, the IPAM feature is not enabled — the interface operates in L2-only mode, and IP addressing needs to be configured manually in the guest OS.
 
-Example of a VM with automatic IP allocation on an additional network:
+Configuration example of a VM with automatic IP allocation on an additional network:
 
 ```yaml
 spec:
