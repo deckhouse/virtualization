@@ -251,6 +251,36 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Affinity).To(Equal(desiredKVVM.Spec.Template.Spec.Affinity))
 	})
 
+	It("clears a stale migration strategy left on kvvm when volumes already match and no migration is in progress", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		vm := newVM()
+		// A finished migration left updateVolumesStrategy=Migration on KVVM while KVVM
+		// and KVVMI already agree on the volumes. The stale strategy must be cleared.
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
+		kvvmi := newKVVMIWithVolume(targetPVC)
+		desiredKVVM := newKVVMWithVolume(targetPVC, nil, "node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
+
 	It("force-reverts kvvm to source when kvvm/kvvmi diverged and no migration is in progress", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()
 		migrationStrategy := virtv1.UpdateVolumesStrategyMigration

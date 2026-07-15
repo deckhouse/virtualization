@@ -134,6 +134,18 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, nil
 	}
 
+	// A finished migration can leave updateVolumesStrategy=Migration on KVVM while the
+	// volumes already match the desired set. KubeVirt then keeps treating the VM as
+	// mid-migration. If no migration is in progress and only the strategy is stale,
+	// clear it. Guarded on equal volumes so a mid-completion window (volumes still
+	// differ) is never reverted here.
+	if vmop == nil &&
+		equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes) &&
+		!equality.Semantic.DeepEqual(builtKVVM.Spec.UpdateVolumesStrategy, kvvmInCluster.Spec.UpdateVolumesStrategy) {
+		log.Info("clearing stale updateVolumesStrategy on kvvm after migration finished.")
+		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+	}
+
 	readWriteOnceDisks, storageClassChangedDisks, err := s.getDisks(ctx, vmState)
 	if err != nil {
 		return reconcile.Result{}, err
