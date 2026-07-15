@@ -3605,8 +3605,8 @@ When an additional network interface is attached via hotplug (after the VM has a
 
 To ensure hotplugged interfaces are configured automatically, use one of the following approaches in the guest OS:
 
-- **NetworkManager** (Ubuntu, RHEL, CentOS) — automatically configures new interfaces with DHCP if the `network-manager` service is running.
-- **udev rule** (Alpine, others without NetworkManager) — add a udev rule to bring up new interfaces:
+- **NetworkManager** (Ubuntu, RHEL, CentOS): Automatically configures new interfaces with DHCP if the `network-manager` service is running.
+- **udev rule** (Alpine, others without NetworkManager): Add a udev rule to bring up new interfaces:
 
   ```yaml
   write_files:
