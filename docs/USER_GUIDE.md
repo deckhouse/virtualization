@@ -3541,7 +3541,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      # ipAddressName is not specified → automatic mode (DHCP)
+      # ipAddressName is not specified → automatic mode (DHCP) is used.
 ```
 
 Example of a VM with a static IP on an additional network:
