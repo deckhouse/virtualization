@@ -1,0 +1,75 @@
+# Registry authentication helpers — all `werf cr login` wiring in one place.
+#
+# The actual login happens in the upstream Setup.gitlab-ci.yml before_script,
+# which runs for every job:
+#   1. ALWAYS logs into $MODULES_REGISTRY using
+#      $MODULES_REGISTRY_LOGIN / $MODULES_REGISTRY_PASSWORD — the primary
+#      registry the job builds/pushes/pulls against.
+#   2. ADDITIONALLY logs into $DEV_MODULES_REGISTRY when its credentials are
+#      set — a second registry used only to pull already-built layers.
+#
+# These templates just populate those variables, so `extends`-ing them selects
+# which registries a job authenticates to. Pick the primary with exactly one of
+# .login_dev_registry / .login_prod_registry / .login_prod_read_registry, and
+# add .dev_registry_pull_login when a prod job must also read the DEV registry.
+# Prod BUILD jobs additionally add .werf_secondary_repo to reuse DEV-built layers.
+
+# Primary = DEV registry (write). Used by all dev builds
+# (MR / main / release-* / dev tags); pulled in via .dev_vars.
+.login_dev_registry:
+  variables:
+    MODULES_REGISTRY: "${DEV_REGISTRY}"
+    MODULES_REGISTRY_LOGIN: "${DEV_MODULES_REGISTRY_LOGIN}"
+    MODULES_REGISTRY_PASSWORD: "${DEV_MODULES_REGISTRY_PASSWORD}"
+    # Generic aliases some tooling expects for the primary registry credentials.
+    REGISTRY_USER: "${MODULES_REGISTRY_LOGIN}"
+    REGISTRY_PASSWORD: "${MODULES_REGISTRY_PASSWORD}"
+
+# Primary = PROD registry (write). Used by prod release builds/deploys;
+# pulled in via .prod_vars.
+.login_prod_registry:
+  variables:
+    MODULES_REGISTRY: "${PROD_REGISTRY}"
+    MODULES_REGISTRY_LOGIN: "${PROD_MODULES_REGISTRY_LOGIN}"
+    MODULES_REGISTRY_PASSWORD: "${PROD_MODULES_REGISTRY_PASSWORD}"
+    # Generic aliases some tooling expects for the primary registry credentials.
+    REGISTRY_USER: "${MODULES_REGISTRY_LOGIN}"
+    REGISTRY_PASSWORD: "${MODULES_REGISTRY_PASSWORD}"
+
+# Primary = PROD read-only registry. Used by the version/requirements check
+# jobs (prod:check-requirements, prod:check-version). NOTE: the Go/bash tools
+# hardcode registry.deckhouse.io, so PROD_READ_REGISTRY must resolve to that
+# host for crane auth to apply (see tools/moduleversions Taskfile.dist.yaml).
+.login_prod_read_registry:
+  variables:
+    MODULES_REGISTRY: "${PROD_READ_REGISTRY}"
+    MODULES_REGISTRY_LOGIN: "${PROD_READ_REGISTRY_USER}"
+    MODULES_REGISTRY_PASSWORD: "${PROD_READ_REGISTRY_PASSWORD}"
+
+# Additional DEV login for prod jobs that must ALSO read the DEV registry.
+# Compose with the prod primary, e.g.:
+#   extends: [.prod_vars, .dev_registry_pull_login]
+# Needed by BOTH prod builds (which reuse DEV layers, see .werf_secondary_repo) and
+# prod deploys (which crane-copy the source image out of the DEV registry). Dev
+# jobs never need it — their primary already IS the DEV registry.
+.dev_registry_pull_login:
+  variables:
+    DEV_MODULES_REGISTRY: "${DEV_REGISTRY}"
+    DEV_MODULES_REGISTRY_LOGIN: "${DEV_MODULES_REGISTRY_LOGIN}"
+    DEV_MODULES_REGISTRY_PASSWORD: "${DEV_MODULES_REGISTRY_PASSWORD}"
+
+# werf secondary read-only repos (the WERF_SECONDARY_REPO_* family): repos with
+# already-built images that `werf build` reuses as a cache, so prod builds don't
+# rebuild from scratch. Group all WERF_SECONDARY_REPO_N here; today we set just
+# _1 = the DEV registry. These are consumed ONLY by `werf build`, so this belongs
+# on BUILD jobs alone — never on deploy jobs, which crane-copy rather than build.
+# WERF_SECONDARY_REPO_1 mirrors the GitHub build action input
+# `secondary_repo: "${vars.DEV_MODULE_SOURCE}/${vars.MODULE_NAME}"` (exported as
+# WERF_SECONDARY_REPO_1 by modules-actions/build), which in the GH workflows is
+# passed to build@v4 only, never to deploy@v2. (Related werf repo families if
+# ever needed: WERF_REPO — primary, set by upstream Setup; WERF_CACHE_REPO_*;
+# WERF_FINAL_REPO.) Compose alongside .dev_registry_pull_login on build jobs:
+#   extends: [.prod_vars, .dev_registry_pull_login, .werf_secondary_repo, .base_build]
+.werf_secondary_repo:
+  variables:
+    WERF_SECONDARY_REPO_1: "${DEV_MODULE_SOURCE}/${MODULE_NAME}"

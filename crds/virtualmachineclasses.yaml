@@ -520,6 +520,14 @@ spec:
           required:
             - spec
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineClass
+              metadata:
+                name: example-class
+              spec:
+                cpu:
+                  type: Host
       served: true
       storage: true
       subresources:
@@ -1021,6 +1029,14 @@ spec:
           required:
             - spec
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha3
+              kind: VirtualMachineClass
+              metadata:
+                name: example-class
+              spec:
+                cpu:
+                  type: Host
       served: true
       storage: false
       subresources:

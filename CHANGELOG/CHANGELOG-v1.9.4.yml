@@ -1,0 +1,13 @@
+observability:
+  fixes:
+    - summary: >-
+        The audit server no longer fails to start when TLS certificate paths are not passed
+        explicitly.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2632
+vm:
+  fixes:
+    - summary: >-
+        USB device passthrough pods no longer fail to start on nodes with a read-only container root
+        filesystem.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2638
+

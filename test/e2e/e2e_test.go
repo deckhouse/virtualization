@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/controller"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/legacy"
 	_ "github.com/deckhouse/virtualization/test/e2e/populator"
 	_ "github.com/deckhouse/virtualization/test/e2e/snapshot"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
@@ -47,7 +46,6 @@ var _ = SynchronizedBeforeSuite(func() {
 	// Initialize test resources BEFORE running prechecks
 	// This ensures resources are available even if prechecks fail
 	controller.NewBeforeProcess1Body()
-	legacy.NewBeforeProcess1Body()
 
 	// Validate precheck labels from JSON report (created by dry-run during prepare)
 	if err := precheck.ValidateFromJSONFile(precheck.LabelsFile); err != nil {
@@ -58,17 +56,11 @@ var _ = SynchronizedBeforeSuite(func() {
 	precheck.LoadSpecLabelsFromFile(precheck.LabelsFile, GinkgoLabelFilter())
 	// Run prechecks based on loaded labels
 	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
-}, func() {
-	// Runs on every parallel process once process 1 finishes the setup
-	// above; legacy package state is per-process and must be initialized
-	// everywhere, otherwise legacy specs on workers panic on a nil conf.
-	legacy.NewAllProcessesBody()
-})
+}, func() {})
 
 var _ = SynchronizedAfterSuite(func() {
 	// Cleanup precreated CVIs if PRECREATED_CVI_CLEANUP=yes
 	precheck.CleanupPrecreatedCVIs(context.Background(), framework.NewFramework(""))
 }, func() {
-	legacy.NewAfterAllProcessBody()
 	controller.NewAfterAllProcessBody()
 })

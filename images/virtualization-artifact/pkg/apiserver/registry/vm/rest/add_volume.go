@@ -141,10 +141,16 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 		case opts.PVCName != "" && opts.Image != "":
 			return nil, fmt.Errorf("must specify only one of PersistentVolumeClaimName or Image")
 		case opts.PVCName != "":
+			// Images are immutable: a PVC-backed image should be read-only inside the VM,
+			// like a registry-backed image (ContainerDisk is always read-only).
+			if dd.Disk != nil {
+				dd.Disk.ReadOnly = true
+			}
 			hotplugRequest.VolumeSource = &virtv1.HotplugVolumeSource{
 				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: opts.PVCName,
+						ReadOnly:  true,
 					},
 					Hotpluggable: true,
 				},

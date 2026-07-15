@@ -82,6 +82,7 @@ func (m *IntegrityCheckVM) Fill() error {
 	m.eventLog.IntegrityCheckAlgo = "sha256"
 
 	m.eventLog.VirtualMachineName = vmi.Name
+	m.eventLog.VirtualMachineNamespace = vmi.Namespace
 	m.eventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
 	m.eventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
 

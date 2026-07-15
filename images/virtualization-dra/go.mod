@@ -13,6 +13,7 @@ require (
 	github.com/onsi/gomega v1.35.1
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.9
+	github.com/ulikunitz/xz v0.5.15
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.45.0
 	google.golang.org/grpc v1.79.3

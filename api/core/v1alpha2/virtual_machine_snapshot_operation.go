@@ -25,6 +25,7 @@ const (
 
 // VirtualMachineSnapshotOperation enables declarative management of virtual machine snapshot state changes.
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: VirtualMachineSnapshotOperation, metadata: {name: clone-example-vm-from-snapshot}, spec: {createVirtualMachine: {mode: Strict, nameReplacement: [{from: {kind: VirtualMachine, name: example-vm}, to: example-vm-clone}, {from: {kind: VirtualDisk, name: example-disk}, to: example-vm-clone-root}]}, type: CreateVirtualMachine, virtualMachineSnapshotName: example-vm-snapshot}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmsop},singular=virtualmachinesnapshotoperation

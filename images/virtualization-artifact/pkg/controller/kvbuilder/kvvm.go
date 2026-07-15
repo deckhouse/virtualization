@@ -504,6 +504,7 @@ type SetDiskOptions struct {
 	IsHotplugged bool
 	IsCdrom      bool
 	IsEphemeral  bool
+	IsReadOnly   bool
 
 	Serial string
 
@@ -515,40 +516,18 @@ func (b *KVVM) ClearDisks() {
 	b.Resource.Spec.Template.Spec.Volumes = nil
 }
 
-func (b *KVVM) getExistingDiskBus(name string) virtv1.DiskBus {
-	for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
-		if d.Name != name {
-			continue
-		}
-		if d.CDRom != nil {
-			return d.CDRom.Bus
-		}
-		if d.Disk != nil {
-			return d.Disk.Bus
-		}
-	}
-	return ""
-}
-
 func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
-	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+	diskBus, cdromBus := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization).Buses(opts.IsHotplugged)
 
 	var dd virtv1.DiskDevice
 	if opts.IsCdrom {
 		dd.CDRom = &virtv1.CDRomTarget{
-			Bus: devPreset.CdromBus,
+			Bus: cdromBus,
 		}
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
-			Bus: devPreset.DiskBus,
-		}
-	}
-
-	if existingBus := b.getExistingDiskBus(name); existingBus != "" {
-		if opts.IsCdrom {
-			dd.CDRom.Bus = existingBus
-		} else {
-			dd.Disk.Bus = existingBus
+			Bus:      diskBus,
+			ReadOnly: opts.IsReadOnly,
 		}
 	}
 
@@ -576,6 +555,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		vs.PersistentVolumeClaim = &virtv1.PersistentVolumeClaimVolumeSource{
 			PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: *opts.PersistentVolumeClaim,
+				ReadOnly:  opts.IsReadOnly,
 			},
 			Hotpluggable: opts.IsHotplugged,
 		}

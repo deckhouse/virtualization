@@ -208,6 +208,15 @@ spec:
           required:
             - spec
           type: object
+          x-doc-examples:
+            - apiVersion: virtualization.deckhouse.io/v1alpha2
+              kind: VirtualMachineSnapshot
+              metadata:
+                name: example-vm-snapshot
+              spec:
+                keepIPAddress: Never
+                requiredConsistency: true
+                virtualMachineName: example-vm
       served: true
       storage: true
       subresources:

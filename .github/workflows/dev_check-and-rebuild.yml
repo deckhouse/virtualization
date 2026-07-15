@@ -1,0 +1,201 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Recheck a published module tag and, if any component image it references is no
+# longer pullable (e.g. its stage manifest was garbage-collected from dev-registry),
+# rebuild the tag so the assembly chain is regenerated with live image digests.
+#
+# The dev-registry GC removes untagged/by-digest stage manifests over time. A plain
+# rebuild does NOT fix this on its own: the `images-digests` image caches its content
+# by the components' werf stage signatures (stable), not by their OCI digests, so werf
+# reuses the cached `images_digests.json` still pointing at the collected manifests.
+# This workflow forces regeneration by deleting the intermediate `images-digests` and
+# `prepare-bundle` stages so the next build rebuilds `images-digests` (re-reading the
+# currently published component digests); `bundle` then cascades and the module image
+# `:tag` is overwritten by the build action's publish step. The release image carries
+# no `images_digests.json`, so it is left untouched.
+
+name: Check dev images and rebuild
+
+env:
+  MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
+  CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
+  WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+  SOURCE_REPO: "${{ secrets.SOURCE_REPO }}"
+  DECKHOUSE_PRIVATE_REPO: "${{ secrets.DECKHOUSE_PRIVATE_REPO }}"
+  GO_VERSION: "1.25.11"
+  MODULE_EDITION: "EE"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: |
+          Module tag to recheck and rebuild if broken (vX.Y.Z or vX.Y.Z-rc.N).
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.inputs.tag }}"
+  cancel-in-progress: false
+
+jobs:
+  check-and-rebuild:
+    runs-on: [self-hosted, large]
+    name: Check and rebuild
+    steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
+      - name: Validate tag
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if ! echo "$TAG" | grep -Pq '^v\d+\.\d+\.\d+(-rc\.\d+)?$'; then
+            echo "::error::Invalid tag '$TAG'. Use format vX.Y.Z or vX.Y.Z-rc.N"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag }}
+          fetch-depth: 0
+
+      # Installs werf + crane and logs in to the registry (sets DOCKER_CONFIG,
+      # which crane also uses).
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - name: Check component images
+        id: check
+        run: |
+          set -euo pipefail
+          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          TAG="${{ github.event.inputs.tag }}"
+
+          if ! crane digest "$R:$TAG" >/dev/null 2>&1; then
+            echo "::error::module image $R:$TAG not found"
+            exit 1
+          fi
+
+          json="$(crane export "$R:$TAG" - | tar -Oxf - images_digests.json)"
+          missing=0
+          while read -r name digest; do
+            if crane digest "$R@$digest" >/dev/null 2>&1; then
+              echo "OK    $name"
+            else
+              echo "MISS  $name  $digest"
+              missing=$((missing + 1))
+            fi
+          done < <(echo "$json" | jq -r 'to_entries[] | "\(.key) \(.value)"')
+
+          echo "$missing component image(s) missing"
+          if [ "$missing" -gt 0 ]; then
+            echo "needs_fix=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_fix=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Pass 1: build only to obtain the current stage tags/digests (mostly cached).
+      - name: Build (collect stage digests)
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        uses: deckhouse/modules-actions/build@v15
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE }}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{ secrets.DECKHOUSE_PRIVATE_3P_REPO }}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+          secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
+          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - name: Delete stale images-digests stages
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        run: |
+          set -euo pipefail
+          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          report="images_tags_werf.json"
+          if [ ! -f "$report" ]; then
+            echo "::error::$report not produced by the build step"
+            exit 1
+          fi
+
+          # Delete only the intermediate stages that bake the component digests.
+          # Deleting images-digests forces its rebuild (re-reading live component
+          # digests); prepare-bundle imports it. Both are intermediate-only, so no
+          # published tag is touched: bundle (== module :tag) cascades on rebuild and
+          # is overwritten by the action's publish step, and the release image is
+          # unrelated. Delete by digest so all timestamped stage tags go at once.
+          for img in images-digests prepare-bundle; do
+            d="$(jq -r --arg i "$img" '.Images[$i].DockerImageDigest // empty' "$report")"
+            if [ -n "$d" ]; then
+              echo "deleting $img -> $R@$d"
+              crane delete "$R@$d" || echo "::warning::failed to delete $img ($d)"
+            else
+              echo "::warning::no digest for $img in build report"
+            fi
+          done
+
+      # Pass 2: full rebuild + publish; images-digests is regenerated with live digests.
+      - name: Rebuild and publish
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        uses: deckhouse/modules-actions/build@v15
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE }}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{ secrets.DECKHOUSE_PRIVATE_3P_REPO }}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+          secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
+          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - name: Re-check component images
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        run: |
+          set -euo pipefail
+          R="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          TAG="${{ github.event.inputs.tag }}"
+          json="$(crane export "$R:$TAG" - | tar -Oxf - images_digests.json)"
+          missing=0
+          while read -r name digest; do
+            if crane digest "$R@$digest" >/dev/null 2>&1; then
+              echo "OK    $name"
+            else
+              echo "MISS  $name  $digest"
+              missing=$((missing + 1))
+            fi
+          done < <(echo "$json" | jq -r 'to_entries[] | "\(.key) \(.value)"')
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::$missing component image(s) still missing after rebuild"
+            exit 1
+          fi
+          echo "All component images are pullable."
+
+      - name: Cleanup Docker config
+        if: always()
+        run: |
+          rm -rf $DOCKER_CONFIG

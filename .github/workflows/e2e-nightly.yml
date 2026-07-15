@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 env:
-  E2E_IMAGE_BASE_URL: "http://share.e2e-test-images.svc.cluster.local"
+  E2E_IMAGE_BASE_URL: "https://e2e-test-images.e2e.virtlab.flant.com"
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -112,7 +112,7 @@ jobs:
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
-      go_version: "1.25.11"
+      go_version: "1.25.12"
       e2e_timeout: "3.5h"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}

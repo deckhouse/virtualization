@@ -3,6 +3,18 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 13, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### Fixes
+
+- [observability] Fixed an issue that prevented the audit server from starting when TLS certificate paths were not passed explicitly.
+
 ## v1.9.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
@@ -90,6 +102,40 @@ Release date: June 10, 2026.
 ### Security
 
 - [vm] System virtual machine resources (pods with `d8v-hp-` and `d8v-vm-` prefixes) now run as the `deckhouse` user, without root privileges.
+
+## v1.8.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 13, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-25680
+  - CVE-2026-25681
+  - CVE-2026-27136
+  - CVE-2026-33814
+  - CVE-2026-39821
+  - CVE-2026-39827
+  - CVE-2026-39828
+  - CVE-2026-39829
+  - CVE-2026-39830
+  - CVE-2026-39832
+  - CVE-2026-39835
+  - CVE-2026-41579
+  - CVE-2026-42502
+  - CVE-2026-42506
+  - CVE-2026-42508
+  - CVE-2026-46595
+  - CVE-2026-46597
+  - CVE-2026-53935
+- [module] Fixed vulnerabilities:
+  - CVE-2026-42504
+  - CVE-2026-27145
+  - CVE-2026-42507
 
 ## v1.8.3
 

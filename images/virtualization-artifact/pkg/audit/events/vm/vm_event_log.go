@@ -41,13 +41,15 @@ type VMEventLog struct {
 	UID            string `json:"uid"`
 	RequestSubject string `json:"request_subject"`
 
-	ActionType         string `json:"action_type"`
-	NodeNetworkAddress string `json:"node_network_address"`
-	VirtualmachineUID  string `json:"virtualmachine_uid"`
-	VirtualmachineOS   string `json:"virtualmachine_os"`
-	StorageClasses     string `json:"storageclasses"`
-	QemuVersion        string `json:"qemu_version"`
-	LibvirtVersion     string `json:"libvirt_version"`
+	ActionType              string `json:"action_type"`
+	NodeNetworkAddress      string `json:"node_network_address"`
+	VirtualMachineName      string `json:"virtual_machine_name"`
+	VirtualMachineNamespace string `json:"virtual_machine_namespace"`
+	VirtualmachineUID       string `json:"virtualmachine_uid"`
+	VirtualmachineOS        string `json:"virtualmachine_os"`
+	StorageClasses          string `json:"storageclasses"`
+	QemuVersion             string `json:"qemu_version"`
+	LibvirtVersion          string `json:"libvirt_version"`
 
 	OperationResult string `json:"operation_result"`
 
@@ -64,13 +66,15 @@ func NewVMEventLog(event *audit.Event) *VMEventLog {
 		RequestSubject:  event.User.Username,
 		OperationResult: "unknown",
 
-		ActionType:         event.Verb,
-		NodeNetworkAddress: "unknown",
-		VirtualmachineUID:  "unknown",
-		VirtualmachineOS:   "unknown",
-		StorageClasses:     "unknown",
-		LibvirtVersion:     "unknown",
-		QemuVersion:        "unknown",
+		ActionType:              event.Verb,
+		NodeNetworkAddress:      "unknown",
+		VirtualMachineName:      "unknown",
+		VirtualMachineNamespace: "unknown",
+		VirtualmachineUID:       "unknown",
+		VirtualmachineOS:        "unknown",
+		StorageClasses:          "unknown",
+		LibvirtVersion:          "unknown",
+		QemuVersion:             "unknown",
 
 		shouldLog: true,
 	}

@@ -1,0 +1,55 @@
+# Pipeline stages for the deckhouse/virtualization module.
+#
+# This is the union of the stages used by the previous root .gitlab-ci.yml
+# and the new stages introduced during the GitHub Actions migration.
+#
+# We intentionally drop the `e2e` stage here: all e2e-* workflows are
+# excluded from the GitLab CI migration. Any future re-introduction of e2e
+# stages lives in a separate file.
+#
+# Stage semantics:
+#   pre               — upstream Translate_Changelog hidden template stage
+#   info              — manifest printers, set_vars helper
+#   lint              — Go lint, helm lint, yaml lint, no-cyrillic, etc.
+#   test              — Go unit tests, hooks tests
+#   prod_check          — release-channel requirements check
+#                         (prod:check-requirements). Runs ONLY in the manual
+#                         web release-channel flow (CI_PIPELINE_SOURCE == web),
+#                         NOT in dev/MR pipelines. Declared BEFORE build purely
+#                         so prod:build:* can `needs:` it — the early position
+#                         is a DAG-ordering artifact, not a dev-pipeline stage.
+#   build             — werf build for dev / dev-tags / main / prod
+#                       (dev tags are build-only: the DEV registry has no
+#                       release channels, so there is no DEV deploy stage)
+#   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
+#   deploy_prod         — prod release-channel deploy. ONE stage with independent
+#                         manual jobs per channel (tag-push flow, deploy-prod.yml)
+#                         and per-edition deploy from Run pipeline
+#                         (web flow, release-channels.yml). No forced
+#                         alpha->...->rock-solid promotion chain — each channel
+#                         deploy is an independent `when: manual` job, matching
+#                         GitHub release_module_release-channels.yml semantics.
+#   prod_verify         — version-on-release-channel check matrix
+#   prod_release        — GitLab release creation
+#   notify            — release-results-to-loop and similar fan-out
+#   cleanup           — scheduled registry cleanup
+#
+# Upstream Setup.gitlab-ci.yml declares `stages: [build, deploy]` which
+# would otherwise conflict with our expanded list. We override by re-stating
+# the full list here; jobs that `extends: .build` keep `stage: build` and
+# land in our `build` stage (not a separate "build" from upstream).
+
+stages:
+  # Keep upstream hidden templates valid even when visible jobs override stages.
+  - pre
+  - info
+  - lint
+  - test
+  - prod_check
+  - build
+  - scan
+  - deploy_prod
+  - prod_verify
+  - prod_release
+  - notify
+  - cleanup

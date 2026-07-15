@@ -34,6 +34,7 @@ const (
 //
 // **Note:** The `metadata.name` field must comply with [Kubernetes object naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/).
 // +kubebuilder:object:root=true
+// +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: ClusterVirtualImage, metadata: {name: example-image}, spec: {dataSource: {http: {url: 'https://example.com/images/disk.img'}, type: HTTP}}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={cvi},singular=clustervirtualimage
 // +kubebuilder:subresource:status

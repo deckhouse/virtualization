@@ -1,0 +1,456 @@
+# Prod release-channels parity with GitHub.
+#
+# Port of .github/workflows/release_module_release-channels.yml: a manual,
+# single-channel/single-tag release dispatch with on-demand build, deploy,
+# version verification, GitLab release creation, and a Loop notification.
+#
+# Trigger: CI/CD -> Pipelines -> Run pipeline, on the tag $RELEASE_TAG
+# (CI_PIPELINE_SOURCE == "web"). These jobs run ONLY on such manual web
+# pipelines, so they never collide with the tag-push flow
+# (build_prod / deploy_to_prod_* in build-prod.yml / deploy-prod.yml).
+#
+# Run pipeline UI variables (all optional except RELEASE_TAG):
+#   RELEASE_CHANNEL          alpha|beta|early-access|stable|rock-solid (default alpha)
+#   RELEASE_TAG              module tag like v1.21.1 (required, ^v\d+\.\d+\.\d+$)
+#   EDITION_CE               "true"/"false" (default false) — deploy CE
+#   EDITION_EE               "true"/"false" (default false) — deploy EE + SE-Plus + FE
+#   ENABLE_BUILD             "true"/"false" (default true)  — run build before deploy
+#   CHECK_ONLY               "true"/"false" (default false) — verify only, skip build/deploy
+#   SKIP_REQUIREMENTS_CHECK  "true"/"false" (default false)
+#   RELEASE_TO_GITLAB        "true"/"false" (default true)  — create GitLab release
+#   SEND_RESULTS_TO_LOOP     "true"/"false" (default true)  — post status to Loop
+#
+# Parity notes vs GitHub:
+#   - Release creation targets GitLab Releases (POST /projects/:id/releases)
+#     instead of GitHub Releases, because development is moving to GitLab.
+#     The notes source is preserved: the merged changelog MR
+#     (label:changelog, milestone:$RELEASE_TAG) description.
+#   - Run the pipeline ON the tag $RELEASE_TAG (select it as the Run pipeline
+#     ref). The checkout is then already at the tag, so the upstream Setup
+#     before_script (werf ci-env / registry login) keeps working untouched.
+#     prod:print-vars enforces RELEASE_TAG == CI_COMMIT_TAG so a mismatch
+#     fails fast instead of building the wrong ref. GitHub let `tag` differ
+#     from the workflow ref (it checked out ref:inputs.tag); GitLab cannot
+#     do that without overriding the inherited Setup before_script, which
+#     we avoid.
+#   - Per-(channel,tag) concurrency uses resource_group (a mutex); GitLab has
+#     no cancel-in-progress equivalent, so concurrent same-(channel,tag)
+#     dispatches serialize instead of cancelling.
+#   - SE-Plus / FE builds `needs: prod:build:ee` to mirror the GitHub
+#     job-SE-Plus/job-FE cascade; ce/ee build in parallel.
+
+variables:
+  RELEASE_CHANNEL:
+    value: "alpha"
+    options: ["alpha", "beta", "early-access", "stable", "rock-solid"]
+    description: "Release channel to deploy"
+  RELEASE_TAG:
+    value: ""
+    description: "Module tag like v1.21.1 (required, ^v\\d+\\.\\d+\\.\\d+$). Run the pipeline on this tag."
+  EDITION_CE:
+    value: "false"
+    options: ["true", "false"]
+    description: "Build+deploy CE edition"
+  EDITION_EE:
+    value: "false"
+    options: ["true", "false"]
+    description: "Build+deploy EE + SE-Plus + FE editions"
+  ENABLE_BUILD:
+    value: "true"
+    options: ["true", "false"]
+    description: "Run build before deploy (false = deploy only, image already in registry)"
+  CHECK_ONLY:
+    value: "false"
+    options: ["true", "false"]
+    description: "Skip build/deploy; only verify the version on the release channel"
+  SKIP_REQUIREMENTS_CHECK:
+    value: "false"
+    options: ["true", "false"]
+    description: "Skip the Deckhouse version requirements check before build"
+  RELEASE_TO_GITLAB:
+    value: "true"
+    options: ["true", "false"]
+    description: "Create a GitLab release from the merged changelog MR"
+  SEND_RESULTS_TO_LOOP:
+    value: "true"
+    options: ["true", "false"]
+    description: "Send the release result summary to Loop via webhook"
+
+# Common rule: only on manual web pipelines with a valid tag. Every prod:* job
+# extends this; interruptible:false keeps the whole manual release flow from
+# being auto-cancelled (overrides the global interruptible:true default).
+.prod_release_rules:
+  interruptible: false
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/
+    - when: never
+
+# ---------------------------------------------------------------------------
+# 1. print-vars + tag/ref validation
+# ---------------------------------------------------------------------------
+prod:print-vars:
+  stage: info
+  extends: .prod_release_rules
+  variables:
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash
+  script:
+    - |
+      set -e
+      echo "MODULES_REGISTRY=${PROD_REGISTRY}"
+      echo "MODULES_MODULE_SOURCE=${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/<edition>/modules"
+      echo "MODULES_MODULE_NAME=${MODULES_MODULE_NAME}"
+      echo "RELEASE_CHANNEL=${RELEASE_CHANNEL}"
+      echo "RELEASE_TAG=${RELEASE_TAG}"
+      echo "EDITION_CE=${EDITION_CE} EDITION_EE=${EDITION_EE}"
+      echo "ENABLE_BUILD=${ENABLE_BUILD} CHECK_ONLY=${CHECK_ONLY}"
+      echo "SKIP_REQUIREMENTS_CHECK=${SKIP_REQUIREMENTS_CHECK}"
+      echo "RELEASE_TO_GITLAB=${RELEASE_TO_GITLAB} SEND_RESULTS_TO_LOOP=${SEND_RESULTS_TO_LOOP}"
+      echo "${RELEASE_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+        || { echo "Error: invalid tag format '${RELEASE_TAG}'. Use vX.Y.Z"; exit 1; }
+      # The pipeline must run on the tag itself so the checkout is at the tag
+      # and the upstream Setup before_script works unchanged.
+      if [ "${CI_COMMIT_TAG:-}" != "${RELEASE_TAG}" ]; then
+        echo "Error: RELEASE_TAG (${RELEASE_TAG}) must equal the pipeline ref tag" \
+             "(CI_COMMIT_TAG=${CI_COMMIT_TAG:-<unset>}). Run the pipeline on the tag."
+        exit 1
+      fi
+
+# ---------------------------------------------------------------------------
+# 2. check-requirements-before-build
+# ---------------------------------------------------------------------------
+prod:check-requirements:
+  stage: prod_check
+  extends:
+    - .prod_release_rules
+    - .login_prod_read_registry
+  needs: ["prod:print-vars"]
+  variables:
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go task curl jq
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $CHECK_ONLY != "true" && $SKIP_REQUIREMENTS_CHECK != "true" && ($EDITION_CE == "true" || $EDITION_EE == "true")
+    - when: never
+  script:
+    - CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" task -d tools/moduleversions check:requirements
+
+# ---------------------------------------------------------------------------
+# 3+4. build (toggleable) + deploy, per edition
+# ---------------------------------------------------------------------------
+# Deploy step (crane copy :tag -> :channel). Separate from .base_deploy so
+# the job can land in the deploy_prod stage.
+.prod_deploy_script:
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh crane
+  script:
+    - |
+      REPO="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}/release"
+      IMAGE_SRC="${REPO}:${MODULES_MODULE_TAG}"
+      IMAGE_DST="${REPO}:${RELEASE_CHANNEL}"
+      echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+      crane copy "${IMAGE_SRC}" "${IMAGE_DST}"
+
+# --- CE ---
+prod:build:ce:
+  stage: build
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ce"
+  extends:
+    - .prod_release_rules
+    - .base_build
+    - .prod_vars
+    - .dev_registry_pull_login
+    - .werf_secondary_repo
+  needs:
+    - job: prod:check-requirements
+      optional: true
+  variables:
+    EDITION: ce
+    MODULE_EDITION: CE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_CE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+    - when: never
+
+prod:deploy:ce:
+  stage: deploy_prod
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ce"
+  extends:
+    - .prod_release_rules
+    - .prod_deploy_script
+    - .prod_vars
+    - .dev_registry_pull_login
+  needs:
+    - job: prod:check-requirements
+      optional: true
+    - job: prod:build:ce
+      optional: true
+  variables:
+    EDITION: ce
+    MODULE_EDITION: CE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_CE == "true" && $CHECK_ONLY != "true"
+    - when: never
+
+# --- EE ---
+prod:build:ee:
+  stage: build
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ee"
+  extends:
+    - .prod_release_rules
+    - .base_build
+    - .prod_vars
+    - .dev_registry_pull_login
+    - .werf_secondary_repo
+  needs:
+    - job: prod:check-requirements
+      optional: true
+  variables:
+    EDITION: ee
+    MODULE_EDITION: EE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+    - when: never
+
+prod:deploy:ee:
+  stage: deploy_prod
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ee"
+  extends:
+    - .prod_release_rules
+    - .prod_deploy_script
+    - .prod_vars
+    - .dev_registry_pull_login
+  needs:
+    - job: prod:check-requirements
+      optional: true
+    - job: prod:build:ee
+      optional: true
+  variables:
+    EDITION: ee
+    MODULE_EDITION: EE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true"
+    - when: never
+
+# --- SE-Plus (needs EE build, mirrors GH job-SE-Plus) ---
+prod:build:se-plus:
+  stage: build
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:se-plus"
+  extends:
+    - .prod_release_rules
+    - .base_build
+    - .prod_vars
+    - .dev_registry_pull_login
+    - .werf_secondary_repo
+  needs: ["prod:build:ee"]
+  variables:
+    EDITION: se-plus
+    MODULE_EDITION: EE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+    - when: never
+
+prod:deploy:se-plus:
+  stage: deploy_prod
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:se-plus"
+  extends:
+    - .prod_release_rules
+    - .prod_deploy_script
+    - .prod_vars
+    - .dev_registry_pull_login
+  needs:
+    - job: prod:build:se-plus
+      optional: true
+  variables:
+    EDITION: se-plus
+    MODULE_EDITION: EE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true"
+    - when: never
+
+# --- FE (needs EE build, mirrors GH job-FE) ---
+prod:build:fe:
+  stage: build
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:fe"
+  extends:
+    - .prod_release_rules
+    - .base_build
+    - .prod_vars
+    - .dev_registry_pull_login
+    - .werf_secondary_repo
+  needs: ["prod:build:ee"]
+  variables:
+    EDITION: fe
+    MODULE_EDITION: EE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+    - when: never
+
+prod:deploy:fe:
+  stage: deploy_prod
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:fe"
+  extends:
+    - .prod_release_rules
+    - .prod_deploy_script
+    - .prod_vars
+    - .dev_registry_pull_login
+  needs:
+    - job: prod:build:fe
+      optional: true
+  variables:
+    EDITION: fe
+    MODULE_EDITION: EE
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true"
+    - when: never
+
+# ---------------------------------------------------------------------------
+# 5. check-version-on-release-channel (registry / releases / documentation)
+# ---------------------------------------------------------------------------
+prod:check-version:
+  stage: prod_verify
+  extends:
+    - .prod_release_rules
+    - .login_prod_read_registry
+  needs:
+    - job: prod:deploy:ce
+      optional: true
+    - job: prod:deploy:ee
+      optional: true
+    - job: prod:deploy:se-plus
+      optional: true
+    - job: prod:deploy:fe
+      optional: true
+  parallel:
+    matrix:
+      - CHECK: [registry, releases, documentation]
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go task crane curl jq
+  script:
+    - |
+      set -euo pipefail
+      if [ "$CHECK_ONLY" != "true" ]; then
+        echo "Waiting for the site to update (versions usually update within 5 minutes)..."
+        sleep 300
+      fi
+      case "$CHECK" in
+        registry)
+          CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" task -d tools/moduleversions check:registry
+          ;;
+        releases)
+          echo "Checking the version is deployed on the releases site (10 attempts, 60s apart)"
+          CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" COUNT=10 task -d tools/moduleversions check:releases
+          ;;
+        documentation)
+          echo "Checking the version is deployed on the docs site (5 attempts, 60s apart)"
+          CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" COUNT=5 task -d tools/moduleversions check:docs
+          ;;
+      esac
+
+# ---------------------------------------------------------------------------
+# 6. create-gitlab-release (was create-github-release)
+# ---------------------------------------------------------------------------
+prod:create-gitlab-release:
+  stage: prod_release
+  extends: .prod_release_rules
+  needs:
+    - job: prod:deploy:ce
+      optional: true
+    - job: prod:deploy:ee
+      optional: true
+    - job: prod:deploy:se-plus
+      optional: true
+    - job: prod:deploy:fe
+      optional: true
+    - job: prod:check-version
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $CHECK_ONLY != "true" && $RELEASE_TO_GITLAB == "true" && ($EDITION_CE == "true" || $EDITION_EE == "true")
+    - when: never
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
+  script:
+    - |
+      set -euo pipefail
+      source .gitlab/ci/scripts/bash/lib/api.sh
+      TAG="${RELEASE_TAG}"
+
+      # Skip if a release already exists.
+      if api GET "/projects/${CI_PROJECT_ID}/releases/${TAG}" >/dev/null 2>&1; then
+        echo "GitLab release already exists for ${TAG}, skipping"
+        {
+          echo "GH_RELEASE_STATUS=skipped"
+          echo "GH_RELEASE_REASON=GitLab release already exists for ${TAG}"
+        } > release.env
+        exit 0
+      fi
+
+      # Find the single merged changelog MR for this milestone (label:changelog).
+      MRS=$(api GET "/projects/${CI_PROJECT_ID}/merge_requests?state=merged&labels=changelog&milestone=${TAG}")
+      COUNT=$(echo "$MRS" | jq 'length')
+      echo "Found ${COUNT} merged changelog MR(s) for milestone ${TAG}"
+      if [ "$COUNT" -ne 1 ]; then
+        echo "Expected exactly one merged changelog MR for milestone ${TAG}, found ${COUNT}" >&2
+        exit 1
+      fi
+
+      PR_BODY=$(echo "$MRS" | jq -r '.[0].description')
+      PR_IID=$(echo "$MRS" | jq -r '.[0].iid')
+      PR_URL=$(echo "$MRS" | jq -r '.[0].web_url')
+      if [ -z "${PR_BODY//[[:space:]]/}" ]; then
+        echo "Changelog MR !${PR_IID} description is empty" >&2
+        exit 1
+      fi
+
+      # Create the GitLab release from the changelog MR description.
+      api POST "/projects/${CI_PROJECT_ID}/releases" \
+        --data "$(jq -n --arg tag "$TAG" --arg name "$TAG" --arg desc "$PR_BODY" \
+          '{tag_name: $tag, name: $name, description: $desc}')"
+
+      echo "GitLab release created for ${TAG}"
+      {
+        echo "GH_RELEASE_STATUS=created"
+        echo "GH_RELEASE_URL=${CI_PROJECT_URL}/-/releases/${TAG}"
+        echo "GH_RELEASE_PR_IID=${PR_IID}"
+        echo "GH_RELEASE_PR_URL=${PR_URL}"
+        echo "GH_RELEASE_REASON=GitLab release created from changelog MR !${PR_IID}"
+      } > release.env
+  artifacts:
+    reports:
+      dotenv: release.env
+
+# ---------------------------------------------------------------------------
+# 7. send-release-results-to-loop
+# ---------------------------------------------------------------------------
+prod:notify-loop:
+  stage: notify
+  extends: .prod_release_rules
+  needs:
+    - job: prod:deploy:ce
+      optional: true
+    - job: prod:deploy:ee
+      optional: true
+    - job: prod:deploy:se-plus
+      optional: true
+    - job: prod:deploy:fe
+      optional: true
+    - job: prod:check-version
+      optional: true
+    - job: prod:create-gitlab-release
+      optional: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $SEND_RESULTS_TO_LOOP == "true"
+      when: on_success
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $SEND_RESULTS_TO_LOOP == "true"
+      when: on_failure
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
+  script:
+    - bash .gitlab/ci/scripts/bash/notify-release-loop.sh

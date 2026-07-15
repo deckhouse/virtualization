@@ -24,3 +24,26 @@ disable:
     - Make sure to remove all resources created using the module (virtual machines, disks, images, etc.).
 
     Stale resources may result in a data loss or further system operation fails.
+  messages:
+    en: |
+      Very important!
+
+      Disabling this module will stop all services responsible for creating and running virtual machines.
+
+      Ensure proper cleanup before disabling this module:
+
+      - Check for active resources using the command: `d8 k get virtualization,cvi -A`.
+      - Make sure to remove all resources created using the module (virtual machines, disks, images, etc.).
+
+      Stale resources may result in a data loss or further system operation fails.
+    ru: |
+      Очень важно!
+
+      Отключение этого модуля остановит все сервисы, отвечающие за создание и запуск виртуальных машин.
+
+      Перед отключением модуля выполните очистку:
+
+      - Проверьте наличие активных ресурсов командой: `d8 k get virtualization,cvi -A`.
+      - Убедитесь, что удалены все ресурсы, созданные с помощью модуля (виртуальные машины, диски, образы и т.д.).
+
+      Оставшиеся ресурсы могут привести к потере данных или сбоям в дальнейшей работе системы.
