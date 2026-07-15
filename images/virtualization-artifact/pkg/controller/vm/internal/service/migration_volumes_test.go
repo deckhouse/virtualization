@@ -380,6 +380,42 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
 	})
+
+	It("does not force-revert kvvm while a migration round without a vmop is active", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		// A storage class change round runs without any VMOP: the disk is migrating,
+		// KVVM is already patched with the round's target, KVVMI is not synced yet.
+		// The diverged KVVM is the round starting, not a leftover to revert.
+		vm := newVM()
+		vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: "root"}}
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: namespace},
+		}
+		vd.Status.MigrationState.StartTimestamp = metav1.Now()
+		vd.Status.MigrationState.TargetPVC = targetPVC
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi, vd)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(migrationStrategy)))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
 })
 
 var _ = Describe("isStructuralVolumeChange", func() {

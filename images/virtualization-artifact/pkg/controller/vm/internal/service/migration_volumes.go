@@ -119,15 +119,19 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	s.fillContainerDiskImagePullPolicies(kvvmInClusterCopy, kvvmiInCluster)
 	s.fillContainerDiskImagePullPolicies(builtKVVM, kvvmiInCluster)
 
+	migrationRequested := builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy != nil && *builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
+
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
 		// KVVM carries a dead migration volume set kubevirt will never sync (e.g. the
 		// target PVC was removed) and no migration is running: revert to source.
 		// Gate on the migration strategy so benign divergence (e.g. a hotplug volume
-		// mid-attach) is left to sync normally instead of being reverted.
-		migrationStuck := kvvmInCluster.Spec.UpdateVolumesStrategy != nil &&
-			*kvvmInCluster.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
-		if vmop == nil && migrationStuck && s.shouldPatchVolumes(kvvmInClusterCopy, builtKVVM) {
+		// mid-attach) is left to sync normally instead of being reverted. A round can
+		// also run without any VMOP (storage class change, driven by kubevirt's
+		// workload-updater): while the disks still demand it (migrationRequested),
+		// the diverged KVVM is that round starting, not a leftover.
+		migrationStuck := kvvmInCluster.Spec.UpdateVolumesStrategy != nil && *kvvmInCluster.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
+		if vmop == nil && migrationStuck && !migrationRequested && s.shouldPatchVolumes(kvvmInClusterCopy, builtKVVM) {
 			log.Info("No in-progress migration but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
 			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 		}
@@ -179,8 +183,6 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		}
 		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 	}
-
-	migrationRequested := builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy != nil && *builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
 
 	// Check disks in generated KVVM before running kvvmSynced check: detect non-migratable disks and disks with changed storage class.
 	if !readWriteOnceDisksSynced {
