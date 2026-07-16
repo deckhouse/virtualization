@@ -36,14 +36,15 @@ import (
 )
 
 type UploaderService struct {
-	client         client.Client
-	dvcrSettings   *dvcr.Settings
-	protection     *ProtectionService
-	image          string
-	pullPolicy     string
-	verbose        string
-	controllerName string
-	requirements   corev1.ResourceRequirements
+	client          client.Client
+	dvcrSettings    *dvcr.Settings
+	protection      *ProtectionService
+	image           string
+	pullPolicy      string
+	verbose         string
+	controllerName  string
+	imagePullSecret string
+	requirements    corev1.ResourceRequirements
 }
 
 func NewUploaderService(
@@ -55,16 +56,18 @@ func NewUploaderService(
 	verbose string,
 	controllerName string,
 	protection *ProtectionService,
+	imagePullSecret string,
 ) *UploaderService {
 	return &UploaderService{
-		dvcrSettings:   dvcrSettings,
-		client:         client,
-		image:          image,
-		requirements:   requirements,
-		pullPolicy:     pullPolicy,
-		verbose:        verbose,
-		controllerName: controllerName,
-		protection:     protection,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		image:           image,
+		requirements:    requirements,
+		pullPolicy:      pullPolicy,
+		verbose:         verbose,
+		controllerName:  controllerName,
+		imagePullSecret: imagePullSecret,
+		protection:      protection,
 	}
 }
 
@@ -94,6 +97,10 @@ func (s UploaderService) Start(
 	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
+	}
+
+	if err = supplements.EnsureModuleRegistrySecret(ctx, s.client, sup, pod, s.imagePullSecret, s.dvcrSettings.ControllerNamespace); err != nil {
+		return fmt.Errorf("failed to ensure module registry Secret: %w", err)
 	}
 
 	err = supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, uploaderTokenScope(s.dvcrSettings, settings))
@@ -263,6 +270,7 @@ func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup sup
 		InstallerLabels:      map[string]string{},
 		ServiceName:          uploaderSvc.Name,
 		ResourceRequirements: &s.requirements,
+		ImagePullSecrets:     moduleRegistryImagePullSecrets(s.imagePullSecret, sup, s.dvcrSettings.ControllerNamespace),
 	}
 }
 

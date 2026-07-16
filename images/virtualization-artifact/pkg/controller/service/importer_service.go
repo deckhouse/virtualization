@@ -35,14 +35,15 @@ import (
 )
 
 type ImporterService struct {
-	dvcrSettings   *dvcr.Settings
-	client         client.Client
-	image          string
-	requirements   corev1.ResourceRequirements
-	pullPolicy     string
-	verbose        string
-	controllerName string
-	protection     *ProtectionService
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	image           string
+	requirements    corev1.ResourceRequirements
+	pullPolicy      string
+	verbose         string
+	controllerName  string
+	imagePullSecret string
+	protection      *ProtectionService
 }
 
 func NewImporterService(
@@ -54,16 +55,18 @@ func NewImporterService(
 	verbose string,
 	controllerName string,
 	protection *ProtectionService,
+	imagePullSecret string,
 ) *ImporterService {
 	return &ImporterService{
-		dvcrSettings:   dvcrSettings,
-		client:         client,
-		image:          image,
-		requirements:   requirements,
-		pullPolicy:     pullPolicy,
-		verbose:        verbose,
-		controllerName: controllerName,
-		protection:     protection,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		image:           image,
+		requirements:    requirements,
+		pullPolicy:      pullPolicy,
+		verbose:         verbose,
+		controllerName:  controllerName,
+		imagePullSecret: imagePullSecret,
+		protection:      protection,
 	}
 }
 
@@ -92,6 +95,10 @@ func (s ImporterService) Start(
 	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
+	}
+
+	if err = supplements.EnsureModuleRegistrySecret(ctx, s.client, sup, pod, s.imagePullSecret, s.dvcrSettings.ControllerNamespace); err != nil {
+		return fmt.Errorf("failed to ensure module registry Secret: %w", err)
 	}
 
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, importerTokenScope(s.dvcrSettings, settings))
@@ -262,6 +269,7 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup sup
 		ControllerName:       s.controllerName,
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
+		ImagePullSecrets:     moduleRegistryImagePullSecrets(s.imagePullSecret, sup, s.dvcrSettings.ControllerNamespace),
 		Finalizer:            s.protection.GetFinalizer(),
 	}
 }
@@ -279,4 +287,21 @@ func (s ImporterService) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, 
 		ResourceRequirements: &s.requirements,
 		PVCName:              pvcName,
 	}
+}
+
+// moduleRegistryImagePullSecrets returns the imagePullSecrets for a provisioning pod
+// (importer/uploader/bounder) so that kubelet can pull the provisioner image from the
+// module registry. The Secret with the module registry credentials lives in the
+// controller namespace; for pods running there it is referenced directly, and for pods
+// running in a resource namespace it is referenced by the name of the copy created by
+// supplements.EnsureModuleRegistrySecret. Callers rely on the pod running in the
+// generator namespace (sup.Namespace()).
+func moduleRegistryImagePullSecrets(secretName string, sup supplements.Generator, controllerNamespace string) []corev1.LocalObjectReference {
+	if secretName == "" {
+		return nil
+	}
+	if sup.Namespace() == controllerNamespace {
+		return []corev1.LocalObjectReference{{Name: secretName}}
+	}
+	return []corev1.LocalObjectReference{{Name: sup.ModuleRegistrySecret().Name}}
 }

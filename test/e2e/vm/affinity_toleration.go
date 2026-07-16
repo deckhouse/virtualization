@@ -77,15 +77,11 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Ordered, Label(precheck.
 	})
 
 	It("checks placement via status.nodeName and migrations after affinity changes", func() {
-		By("Checking test prerequisites", func() {
-			readyNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true"})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(readyNodes)).To(BeNumerically(">=", 2), "at least two ready KVM-enabled nodes are required, got %d", len(readyNodes))
-
-			masterNodes, err := listReadyNodes(ctx, f, map[string]string{kvmEnabledLabelKey: "true", masterLabelKey: "master"})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(masterNodes)).To(BeNumerically(">", 0), "at least one ready KVM-enabled master node is required, got %d", len(masterNodes))
-		})
+		// Test prerequisites (ready KVM-enabled master/worker nodes, default
+		// VMClass permitting master placement) are validated centrally by the
+		// affinity-toleration precheck (see internal/precheck/affinity_toleration.go),
+		// which runs in the suite setup because of the
+		// Label(precheck.PrecheckAffinityToleration) on this Describe.
 
 		By("Creating vm-a", func() {
 			vmA = newPlacementVM("vm-a", f.Namespace().Name, nil)

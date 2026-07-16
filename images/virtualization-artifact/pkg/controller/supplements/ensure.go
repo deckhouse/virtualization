@@ -89,6 +89,28 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 	return nil
 }
 
+// EnsureModuleRegistrySecret copies the module registry pull Secret into the pod
+// namespace so that kubelet can pull the provisioning pod image (importer/uploader/
+// bounder) from the module registry. The source Secret lives only in the controller
+// namespace, so the copy is made only for pods scheduled into a different namespace
+// (e.g. namespaced VirtualImage/VirtualDisk). The copy is owned by the pod and is
+// garbage-collected together with it.
+func EnsureModuleRegistrySecret(ctx context.Context, client client.Client, supGen Generator, pod *corev1.Pod, srcSecretName, srcNamespace string) error {
+	if srcSecretName == "" || supGen.Namespace() == srcNamespace {
+		return nil
+	}
+
+	secretCopier := copier.Secret{
+		Source: types.NamespacedName{
+			Name:      srcSecretName,
+			Namespace: srcNamespace,
+		},
+		Destination:    supGen.ModuleRegistrySecret(),
+		OwnerReference: podutil.MakeOwnerReference(pod),
+	}
+	return secretCopier.Copy(ctx, client)
+}
+
 func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen Generator) bool {
 	if dvcrSettings.UploaderIngressSettings.TLSSecret == "" {
 		return false

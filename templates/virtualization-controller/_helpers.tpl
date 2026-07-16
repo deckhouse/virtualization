@@ -87,6 +87,8 @@ true
   value: '{"cpu":"1000m","memory":"3600M"}'
 - name: PROVISIONING_POD_REQUESTS
   value: '{"cpu":"100m","memory":"60M"}'
+- name: PROVISIONING_POD_IMAGE_PULL_SECRET
+  value: virtualization-module-registry
 - name: GC_VMOP_TTL
   value: "24h"
 - name: GC_VMOP_SCHEDULE

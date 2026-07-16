@@ -27,8 +27,9 @@ import (
 )
 
 const (
-	ProvisioningPodLimitsVar   = "PROVISIONING_POD_LIMITS"
-	ProvisioningPodRequestsVar = "PROVISIONING_POD_REQUESTS"
+	ProvisioningPodLimitsVar          = "PROVISIONING_POD_LIMITS"
+	ProvisioningPodRequestsVar        = "PROVISIONING_POD_REQUESTS"
+	ProvisioningPodImagePullSecretVar = "PROVISIONING_POD_IMAGE_PULL_SECRET"
 )
 
 type ImportSettings struct {
@@ -37,6 +38,10 @@ type ImportSettings struct {
 	UploaderImage     string
 	BounderImage      string
 	Requirements      corev1.ResourceRequirements
+	// ImagePullSecret is the name of the Secret used to pull provisioning pod images
+	// (importer/uploader/bounder) from the module registry. The Secret is expected to
+	// live in the controller namespace.
+	ImagePullSecret string
 }
 
 func LoadImportSettingsFromEnv() (ImportSettings, error) {
@@ -76,6 +81,8 @@ func LoadImportSettingsFromEnv() (ImportSettings, error) {
 			return ImportSettings{}, err
 		}
 	}
+
+	settings.ImagePullSecret = os.Getenv(ProvisioningPodImagePullSecretVar)
 
 	return settings, nil
 }
