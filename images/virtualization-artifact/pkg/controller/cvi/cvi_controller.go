@@ -61,14 +61,15 @@ func NewController(
 	log *log.Logger,
 	importerImage string,
 	uploaderImage string,
+	imagePullSecret string,
 	requirements corev1.ResourceRequirements,
 	dvcrSettings *dvcr.Settings,
 	ns string,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerCVIProtection)
-	importer := service.NewImporterService(dvcrSettings, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	uploader := service.NewUploaderService(dvcrSettings, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	importer := service.NewImporterService(dvcrSettings, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection, imagePullSecret)
+	uploader := service.NewUploaderService(dvcrSettings, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection, imagePullSecret)
 	disk := service.NewDiskService(mgr.GetClient(), dvcrSettings, protection, ControllerName)
 	dvcrService := service.NewDVCRService(mgr.GetClient())
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)

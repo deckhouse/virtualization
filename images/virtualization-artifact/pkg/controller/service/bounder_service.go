@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,14 +31,15 @@ import (
 )
 
 type BounderPodService struct {
-	dvcrSettings   *dvcr.Settings
-	client         client.Client
-	image          string
-	requirements   corev1.ResourceRequirements
-	pullPolicy     string
-	verbose        string
-	controllerName string
-	protection     *ProtectionService
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	image           string
+	requirements    corev1.ResourceRequirements
+	pullPolicy      string
+	verbose         string
+	controllerName  string
+	imagePullSecret string
+	protection      *ProtectionService
 }
 
 func NewBounderPodService(
@@ -49,16 +51,18 @@ func NewBounderPodService(
 	verbose string,
 	controllerName string,
 	protection *ProtectionService,
+	imagePullSecret string,
 ) *BounderPodService {
 	return &BounderPodService{
-		dvcrSettings:   dvcrSettings,
-		client:         client,
-		image:          image,
-		requirements:   requirements,
-		pullPolicy:     pullPolicy,
-		verbose:        verbose,
-		controllerName: controllerName,
-		protection:     protection,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		image:           image,
+		requirements:    requirements,
+		pullPolicy:      pullPolicy,
+		verbose:         verbose,
+		controllerName:  controllerName,
+		imagePullSecret: imagePullSecret,
+		protection:      protection,
 	}
 }
 
@@ -71,9 +75,17 @@ func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerRefe
 		podSettings.NodePlacement = options.nodePlacement
 	}
 
-	_, err := bounder.NewBounder(podSettings).CreatePod(ctx, s.client)
+	pod, err := bounder.NewBounder(podSettings).CreatePod(ctx, s.client)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
+	}
+
+	// pod is non-nil only on the first creation; on subsequent reconciliations the pod
+	// already exists together with its owned module registry Secret copy.
+	if pod != nil {
+		if err = supplements.EnsureModuleRegistrySecret(ctx, s.client, sup, pod, s.imagePullSecret, s.dvcrSettings.ControllerNamespace); err != nil {
+			return fmt.Errorf("failed to ensure module registry Secret: %w", err)
+		}
 	}
 
 	return nil
@@ -122,6 +134,7 @@ func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup s
 		ControllerName:       s.controllerName,
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
+		ImagePullSecrets:     moduleRegistryImagePullSecrets(s.imagePullSecret, sup, s.dvcrSettings.ControllerNamespace),
 		PVCName:              sup.PersistentVolumeClaim().Name,
 		Finalizer:            s.protection.GetFinalizer(),
 	}

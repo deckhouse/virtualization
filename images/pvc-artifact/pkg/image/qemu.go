@@ -58,7 +58,7 @@ type ImgInfo struct {
 // QEMUOperations defines the interface for executing qemu subprocesses
 type QEMUOperations interface {
 	ConvertToRawStream(*url.URL, string, bool, string) error
-	ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error
+	ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool, convertThreads int) error
 	Resize(string, resource.Quantity, bool) error
 	Info(url *url.URL) (*ImgInfo, error)
 	Validate(*url.URL, int64) error
@@ -98,6 +98,21 @@ func init() {
 // NewQEMUOperations returns the default implementation of QEMUOperations
 func NewQEMUOperations() QEMUOperations {
 	return &qemuOperations{}
+}
+
+// convertThreadArgs returns qemu-img convert flags controlling IO parallelism.
+// A value > 0 sets the number of coroutines (-m); a value > 1 additionally
+// enables out-of-order writes (-W) so the coroutines can write concurrently.
+// A value <= 0 keeps qemu-img defaults (no extra flags added).
+func convertThreadArgs(convertThreads int) []string {
+	if convertThreads <= 0 {
+		return nil
+	}
+	args := []string{"-m", strconv.Itoa(convertThreads)}
+	if convertThreads > 1 {
+		args = append(args, "-W")
+	}
+	return args
 }
 
 func convertToRaw(src, dest string, preallocate bool, cacheMode string) error {
