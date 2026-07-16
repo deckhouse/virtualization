@@ -64,6 +64,16 @@ const vdCreationBlankSize = "50Mi"
 // so a small disk is enough — 400Mi is no longer needed.
 const vdCreationImageSize = "50Mi"
 
+// vdFromVIOnPVCSize oversizes disks cloned from a VirtualImage on PVC.
+//
+// TODO: remove this override (let the controller derive the size) once the
+// sds-local-volume sizing bug is fixed. The driver rounds every LV up to the
+// 4MiB LVM extent but reports the requested size as the PVC capacity, and only
+// snapshots of restore-created volumes report the rounded size as restoreSize.
+// A VI on PVC is restore-created, so its clone snapshot restores to 52Mi while
+// every size DVP can derive from says 50Mi, and the clone PVC never provisions.
+const vdFromVIOnPVCSize = "52Mi"
+
 // TODO: LINSTOR thin pool lock contention can stall all storage writes on a node
 // for over a minute without surfacing any error. That makes time-based progress
 // checks unreliable: see vd/predicate.go HaveValidProgress for the disabled check.
@@ -239,6 +249,9 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi-pvc"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
+			// TODO: drop the explicit size once the sds-local-volume sizing bug
+			// is fixed, see vdFromVIOnPVCSize.
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdFromVIOnPVCSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 

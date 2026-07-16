@@ -25,6 +25,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
+	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -73,14 +74,17 @@ var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskProvisioning", Label(pre
 	}
 
 	It("verifies that a VirtualDisk is provisioned successfully from a VirtualImage on a PVC", func() {
-		vi := object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
+		vi := object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim))
+		vi.Spec.PersistentVolumeClaim.StorageClass = defaultStorageClass()
 		Expect(f.CreateWithDeferredDeletion(ctx, vi)).To(Succeed())
 
 		viObs := viobs.StartObserver(ctx, f, vi)
 		viObs.Never(viobs.BeFailed())
 		Expect(viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)).To(Succeed())
 
-		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithStorageClass(defaultStorageClass()))
+		// TODO: drop the explicit size once the sds-local-volume sizing bug
+		// is fixed, see vdFromVIOnPVCSize.
+		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse(vdFromVIOnPVCSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
 		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
 		vdObs := vdobs.StartObserver(ctx, f, vd)
 		vdObs.Never(vdobs.BeFailed())

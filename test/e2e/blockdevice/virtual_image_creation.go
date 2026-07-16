@@ -511,17 +511,21 @@ func createVirtualImageAndRunVM(ctx context.Context, f *framework.Framework, vi 
 func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage, opts ...progressWaitOption) {
 	GinkgoHelper()
 
+	// The disk that boots the VM is the scenario's main resource, so it uses the
+	// same default StorageClass as every other resource in this spec.
+	vdOpts := []vdbuilder.Option{
+		vdbuilder.WithStorageClass(defaultStorageClass()),
+	}
 	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		opts = append(opts, withoutDiskStreamingProgress())
+		// TODO: drop the explicit size once the sds-local-volume sizing bug
+		// is fixed, see vdFromVIOnPVCSize.
+		vdOpts = append(vdOpts, vdbuilder.WithSize(ptr.To(resource.MustParse(vdFromVIOnPVCSize))))
 	} else {
 		opts = append(opts, withIntermediateProgress())
 	}
 
-	// The disk that boots the VM is the scenario's main resource, so it uses the
-	// same default StorageClass as every other resource in this spec.
-	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi,
-		vdbuilder.WithStorageClass(defaultStorageClass()),
-	)
+	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi, vdOpts...)
 	createVirtualDiskAndRunVM(ctx, f, vd, opts...)
 }
 
