@@ -31,6 +31,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// forwardedClientConfigFlags are the client-config flags propagated to the inner port-forward
+// so it connects to the same cluster as the outer command. The list is deliberately limited to
+// cluster-selection flags: sensitive flags (--token, --password, --as*) are excluded so they do
+// not leak into the local ssh/scp process argv or into the command logged by RunLocalClient.
+var forwardedClientConfigFlags = []string{"context", "server", "kubeconfig"}
+
 func addLocalSSHClientFlags(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringArrayVar(&opts.AdditionalSSHOptions, additionalOpts, opts.AdditionalSSHOptions,
 		"Additional options to be passed to the local SSH/SCP client. "+
@@ -90,7 +96,30 @@ func RunLocalClient(cmd *cobra.Command, namespace, name string, options *SSHOpti
 	return command.Run()
 }
 
+// collectGlobalClientFlags returns the `--name=value` tokens for the cluster-selection flags the
+// user set on the outer command, so the inner port-forward connects to the same cluster.
+// namespace is intentionally not forwarded: it is already carried in the name.namespace target.
+func collectGlobalClientFlags(cmd *cobra.Command) []string {
+	var out []string
+	for _, name := range forwardedClientConfigFlags {
+		f := cmd.Flag(name)
+		if f == nil || !f.Changed {
+			continue
+		}
+		out = append(out, fmt.Sprintf("--%s=%s", name, shellQuote(f.Value.String())))
+	}
+	return out
+}
+
+// shellQuote single-quotes s so it survives being re-parsed by /bin/sh, which runs the ProxyCommand.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port int) string {
+	// Collect flags before the loop below reassigns cmd up to the root.
+	globalFlags := collectGlobalClientFlags(cmd)
+
 	parents := make([]string, 0, 2)
 	for cmd.HasParent() {
 		cmd = cmd.Parent()
@@ -112,6 +141,11 @@ func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port in
 	proxyCommand.WriteString(" ")
 
 	proxyCommand.WriteString(strconv.Itoa(port))
+
+	for _, flag := range globalFlags {
+		proxyCommand.WriteString(" ")
+		proxyCommand.WriteString(flag)
+	}
 
 	return proxyCommand.String()
 }
