@@ -207,4 +207,89 @@ users:
 			Expect(ns).To(BeEmpty())
 		})
 	})
+
+	Describe("buildProxyCommandOption", func() {
+		// newTree mimics the production layout: global client-config flags live on the
+		// parent `v` command's persistent flags and are inherited by the `ssh` child.
+		newTree := func() (root, sshCmd *cobra.Command) {
+			root = &cobra.Command{Use: "v"}
+			root.PersistentFlags().String("context", "", "")
+			root.PersistentFlags().String("kubeconfig", "", "")
+			root.PersistentFlags().String("server", "", "")
+			root.PersistentFlags().StringP("namespace", "n", "", "")
+			root.PersistentFlags().Bool("insecure-skip-tls-verify", false, "")
+			root.PersistentFlags().String("token", "", "")
+			sshCmd = &cobra.Command{Use: "ssh"}
+			root.AddCommand(sshCmd)
+			return root, sshCmd
+		}
+
+		It("builds the port-forward proxy command with the target and port", func() {
+			_, sshCmd := newTree()
+			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
+			Expect(opt).To(ContainSubstring("port-forward --stdio=true myvm.myns 22"))
+		})
+
+		It("forwards the cluster-selection flags the user set", func() {
+			root, sshCmd := newTree()
+			Expect(root.PersistentFlags().Set("context", "prod")).To(Succeed())
+			Expect(root.PersistentFlags().Set("kubeconfig", "/etc/kube/config")).To(Succeed())
+			Expect(root.PersistentFlags().Set("server", "https://api.prod:6443")).To(Succeed())
+
+			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
+			Expect(opt).To(ContainSubstring("--context='prod'"))
+			Expect(opt).To(ContainSubstring("--kubeconfig='/etc/kube/config'"))
+			Expect(opt).To(ContainSubstring("--server='https://api.prod:6443'"))
+		})
+
+		It("does not forward flags left at their default", func() {
+			root, sshCmd := newTree()
+			Expect(root.PersistentFlags().Set("context", "prod")).To(Succeed())
+
+			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
+			Expect(opt).To(ContainSubstring("--context='prod'"))
+			Expect(opt).NotTo(ContainSubstring("--server"))
+			Expect(opt).NotTo(ContainSubstring("--kubeconfig"))
+		})
+
+		It("shell-quotes values containing spaces", func() {
+			root, sshCmd := newTree()
+			Expect(root.PersistentFlags().Set("kubeconfig", "/home/user/my configs/kubeconfig")).To(Succeed())
+
+			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
+			Expect(opt).To(ContainSubstring("--kubeconfig='/home/user/my configs/kubeconfig'"))
+		})
+
+		It("does not forward --namespace: it is already in the target", func() {
+			root, sshCmd := newTree()
+			Expect(root.PersistentFlags().Set("namespace", "other")).To(Succeed())
+
+			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
+			Expect(opt).To(ContainSubstring("myvm.myns"))
+			Expect(opt).NotTo(ContainSubstring("--namespace"))
+		})
+
+		It("does not forward sensitive or non-cluster-selection flags", func() {
+			root, sshCmd := newTree()
+			// Even if the user set them on the outer command, these must not leak into the
+			// ProxyCommand string (visible in the local ssh process argv and in the logged command).
+			Expect(root.PersistentFlags().Set("token", "s3cr3t")).To(Succeed())
+			Expect(root.PersistentFlags().Set("insecure-skip-tls-verify", "true")).To(Succeed())
+
+			opt := buildProxyCommandOption(sshCmd, "myns", "myvm", 22)
+			Expect(opt).NotTo(ContainSubstring("--token"))
+			Expect(opt).NotTo(ContainSubstring("s3cr3t"))
+			Expect(opt).NotTo(ContainSubstring("--insecure-skip-tls-verify"))
+		})
+	})
+
+	Describe("shellQuote", func() {
+		It("wraps a plain value in single quotes", func() {
+			Expect(shellQuote("prod")).To(Equal("'prod'"))
+		})
+
+		It("escapes embedded single quotes so /bin/sh re-parses them safely", func() {
+			Expect(shellQuote("a'b")).To(Equal(`'a'\''b'`))
+		})
+	})
 })
