@@ -41,8 +41,7 @@ import (
 )
 
 const (
-	VmopE2ePrefix                  = "vmop-e2e"
-	knownVolumeUpdateFailureReason = "VolumesUpdateError"
+	VmopE2ePrefix = "vmop-e2e"
 )
 
 var knownKubeVirtClientSocketClosedRe = regexp.MustCompile(`(?is)virError\(Code=1,.*internal error:\s*client\s+socket\s+is\s+closed`)
@@ -77,69 +76,16 @@ func SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx contex
 	}
 }
 
-func IsKnownVolumesUpdateFailureReason(reason string) bool {
-	return reason == knownVolumeUpdateFailureReason
-}
-
-// TODO: remove temporary migration skip logic when known issue "VolumesUpdateError" is fixed:
-func SkipIfKnownVolumesUpdateMigrationFailure(vm *v1alpha2.VirtualMachine) {
-	SkipIfKnownVolumesUpdateMigrationFailureWithContext(context.Background(), vm)
-}
-
-// TODO: remove temporary migration skip logic when known issue "VolumesUpdateError" is fixed:
-func SkipIfKnownVolumesUpdateMigrationFailureWithContext(ctx context.Context, vm *v1alpha2.VirtualMachine) {
-	GinkgoHelper()
-
-	if vm == nil {
-		return
-	}
-
-	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
-	Expect(err).NotTo(HaveOccurred())
-	if intvirtvmi == nil {
-		return
-	}
-
-	// Prefer checking the concrete migratable condition, where volume update issues are expected.
-	migratableCondition, exists := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, intvirtvmi.Status.Conditions)
-	if exists && IsKnownVolumesUpdateFailureReason(migratableCondition.Reason) {
-		Skip(fmt.Sprintf("skip due to known volume update migration issue for vm %s/%s: condition=%s, reason=%s, message=%s",
-			vm.Namespace, vm.Name, migratableCondition.Type, migratableCondition.Reason, migratableCondition.Message))
-	}
-}
-
-// TODO: remove temporary migration skip logic when both known issues are fixed:
-// kubevirt "client socket is closed" and VolumesUpdateError.
+// TODO: remove temporary migration skip logic when issue "client socket is closed" is fixed:
 func SkipIfKnownMigrationFailure(vm *v1alpha2.VirtualMachine) {
 	SkipIfKnownMigrationFailureWithContext(context.Background(), vm)
 }
 
-// TODO: remove temporary migration skip logic when both known issues are fixed:
-// kubevirt "client socket is closed" and VolumesUpdateError.
+// TODO: remove temporary migration skip logic when issue "client socket is closed" is fixed:
 func SkipIfKnownMigrationFailureWithContext(ctx context.Context, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx, vm)
-	SkipIfKnownVolumesUpdateMigrationFailureWithContext(ctx, vm)
-}
-
-// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
-// controller may revert volume migration (VM not running, VM not migrating, etc.).
-func SkipIfVDMigrationReverted(namespace string) {
-	GinkgoHelper()
-
-	vds, err := framework.GetClients().VirtClient().VirtualDisks(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		GinkgoWriter.Printf("Failed to list VirtualDisks in namespace %q for revert check: %v\n", namespace, err)
-		return
-	}
-
-	for _, vd := range vds.Items {
-		if vd.Status.MigrationState.Result == v1alpha2.VirtualDiskMigrationResultFailed &&
-			vd.Status.MigrationState.Message == "Migration reverted." {
-			Skip(fmt.Sprintf("skip: VD %s/%s migration was reverted", namespace, vd.Name))
-		}
-	}
 }
 
 func GetInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
@@ -274,10 +220,6 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	// The VM object mirrors the migration state of the completed VMOP with a small lag; keep
 	// asserting the same final state as before.
 	Eventually(func() error {
-		// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
-		// controller may revert volume migration (VM not running, VM not migrating, etc.).
-		SkipIfVDMigrationReverted(key.Namespace)
-
 		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
 		if err != nil {
 			return err

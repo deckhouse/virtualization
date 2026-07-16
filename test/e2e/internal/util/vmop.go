@@ -70,10 +70,6 @@ func failVMOPMigration(vmop *v1alpha2.VirtualMachineOperation, err error) {
 func skipIfKnownMigrationIssue(vmop *v1alpha2.VirtualMachineOperation) {
 	GinkgoHelper()
 
-	// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
-	// controller may revert volume migration (VM not running, VM not migrating, etc.).
-	SkipIfVDMigrationReverted(vmop.Namespace)
-
 	// The context is intentionally fresh: the caller's context may already be expired on the
 	// timeout path, while the skip checks must still be able to inspect the cluster.
 	ctx := context.Background()

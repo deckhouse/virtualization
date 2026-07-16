@@ -104,6 +104,10 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 		)
 	}
 
+	localMigrationManyDisksBuild := func() (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {
+		return rootAndManyAdditionalBuild(f, vi, buildOption{name: vdRootName, storageClass: &storageClass.Name, rwo: true}, &storageClass.Name, 3)
+	}
+
 	DescribeTable("should be successful", func(build func() (vm *v1alpha2.VirtualMachine, vds []*v1alpha2.VirtualDisk)) {
 		ns := f.Namespace().Name
 
@@ -211,6 +215,58 @@ var _ = Describe("RWOVirtualDiskMigration", decoratorsForVolumeMigrations(), Lab
 
 			untilVirtualDisksMigrationsSucceeded(f)
 		}
+	})
+
+	It("keeps a multi-disk volume set consistent when a restart is requested mid-migration", func() {
+		ns := f.Namespace().Name
+
+		vm, vds := localMigrationManyDisksBuild()
+
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(ctx, vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		f.DeferDelete(vm)
+
+		for _, vd := range vds {
+			_, err := f.VirtClient().VirtualDisks(ns).Create(ctx, vd, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			f.DeferDelete(vd)
+		}
+
+		By("Wait until VM agent is ready")
+		util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+
+		By("Migrating the whole set once so the disks move off their base PVCs")
+		firstVMOP := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName("many-disks-migration-1"))
+		util.UntilVMOPMigrationSucceeded(ctx, firstVMOP, framework.MaxTimeout)
+		untilVirtualDisksMigrationsSucceeded(f)
+
+		By("Starting a second migration of the whole volume set")
+		vmop := util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName("many-disks-migration-2"))
+
+		// Request a restart right after the migration starts, so the restart reconcile
+		// races with the still-unfinalized volume set. It must not issue a conflicting
+		// volume update over that set, otherwise KubeVirt rejects it ("the volume can only
+		// be reverted to the previous version during the update") and the set is left
+		// inconsistent. On copy-based storage the patch lands mid-migration; on instant
+		// (replicated) storage it lands right after — both must finalize cleanly.
+		By("Requesting a restart around the migration")
+		patchBytes, err := patch.NewJSONPatch(patch.WithAdd("/spec/terminationGracePeriodSeconds", int64(11))).Bytes()
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.VirtClient().VirtualMachines(ns).Patch(ctx, vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("The migration still finalizes cleanly")
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(ctx, vm.GetName(), metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
+
+		untilVirtualDisksMigrationsSucceeded(f)
+
+		By("Restart stays pending: the change was neither lost nor applied without a restart")
+		Expect(util.IsRestartRequired(vm, framework.ShortTimeout)).To(BeTrue())
 	})
 
 	It("should be successful when a restart is pending", func() {

@@ -105,6 +105,23 @@ func rootAndAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, r
 	return vm, vds
 }
 
+// rootAndManyAdditionalBuild builds a VM with a root disk plus count additional
+// ReadWriteOnce disks on the given storage class.
+func rootAndManyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root buildOption, storageClass *string, count int) (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {
+	refs := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.VirtualDiskKind, Name: root.name}}
+	vds := []*v1alpha2.VirtualDisk{newRootVD(f, root, vi)}
+	for i := range count {
+		name := fmt.Sprintf("vd-alpine-additional-disk-%d", i)
+		refs = append(refs, v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.VirtualDiskKind, Name: name})
+		vds = append(vds, newBlankVD(f, buildOption{name: name, storageClass: storageClass, rwo: true}))
+	}
+	vm := object.NewMinimalVM("volume-migration-many-disks-", f.Namespace().Name,
+		vmbuilder.WithBlockDeviceRefs(refs...),
+		vmbuilder.WithCPU(1, ptr.To("100%")),
+	)
+	return vm, vds
+}
+
 func onlyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root, additional buildOption) (*v1alpha2.VirtualMachine, []*v1alpha2.VirtualDisk) {
 	vm := object.NewMinimalVM(
 		"volume-migration-only-additional-disk-",
@@ -133,10 +150,6 @@ func untilVirtualDisksMigrationsSucceeded(f *framework.Framework) {
 
 	By("Wait until VirtualDisks migrations succeeded")
 	Eventually(func(g Gomega) {
-		// TODO: remove temporary migration skip logic when VD Migration Controller revert issue is fixed:
-		// controller may revert volume migration (VM not running, VM not migrating, etc.).
-		e2eutil.SkipIfVDMigrationReverted(f.Namespace().Name)
-
 		vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
 		g.Expect(err).NotTo(HaveOccurred())
 		for _, vm := range vms.Items {
