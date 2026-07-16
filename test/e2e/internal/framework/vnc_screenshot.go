@@ -36,12 +36,38 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const vncScreenshotTimeout = 30 * time.Second
+const (
+	vncScreenshotTimeout    = 30 * time.Second
+	vncScreenshotAttempts   = 3
+	vncScreenshotRetryDelay = 2 * time.Second
+)
 
-// saveVMScreenshots captures a VNC screenshot of every running VM in the test
-// namespace. A screenshot is the only way to see where a guest is stuck when it
-// boots but never brings up SSH and the guest agent: serial console output is
-// not logged anywhere, and the virt-launcher pod dies with the namespace.
+// vmHasLiveDomain reports whether a VirtualMachine in this phase is expected to
+// have a running libvirt domain, i.e. whether VNC / serial console capture is
+// meaningful. This is the phase filter shared by every guest-console artifact.
+func vmHasLiveDomain(phase v1alpha2.MachinePhase) bool {
+	switch phase {
+	case v1alpha2.MachineRunning,
+		v1alpha2.MachineDegraded,
+		v1alpha2.MachineStarting,
+		v1alpha2.MachineStopping,
+		v1alpha2.MachineMigrating,
+		v1alpha2.MachinePause:
+		return true
+	default:
+		return false
+	}
+}
+
+// saveVMScreenshots captures a VNC screenshot of every VM with a live domain in
+// the test namespace. A screenshot is the primary way to see where a guest is
+// stuck when it boots but never brings up SSH and the guest agent, and the
+// virt-launcher pod dies with the namespace, so it must be captured here.
+//
+// Capture is retried, and on persistent failure an explicit *_screen_error.log
+// breadcrumb is written into the bundle: a silently missing screenshot (as
+// happened for a wedged guest whose agent never came up) leaves the next
+// investigation blind, so the reason for a missing frame must be recorded.
 func (f *Framework) saveVMScreenshots(ctx context.Context, dumpDir string) {
 	vms, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -50,13 +76,28 @@ func (f *Framework) saveVMScreenshots(ctx context.Context, dumpDir string) {
 	}
 
 	for _, vm := range vms.Items {
-		if vm.Status.Phase != v1alpha2.MachineRunning && vm.Status.Phase != v1alpha2.MachineDegraded {
+		if !vmHasLiveDomain(vm.Status.Phase) {
 			continue
 		}
 
 		fileName := path.Join(dumpDir, fmt.Sprintf("vm_%s_screen.png", vm.Name))
-		if err := f.captureVNCScreenshot(vm.Name, fileName); err != nil {
-			GinkgoWriter.Printf("Failed to capture VNC screenshot:\nVirtualMachine: %s\nError: %v\n", vm.Name, err)
+		var lastErr error
+		for attempt := 1; attempt <= vncScreenshotAttempts; attempt++ {
+			lastErr = f.captureVNCScreenshot(vm.Name, fileName)
+			if lastErr == nil {
+				break
+			}
+			GinkgoWriter.Printf("VNC screenshot attempt %d/%d failed:\nVirtualMachine: %s\nError: %v\n", attempt, vncScreenshotAttempts, vm.Name, lastErr)
+			if attempt < vncScreenshotAttempts {
+				time.Sleep(vncScreenshotRetryDelay)
+			}
+		}
+		if lastErr != nil {
+			errFile := path.Join(dumpDir, fmt.Sprintf("vm_%s_screen_error.log", vm.Name))
+			msg := fmt.Sprintf("failed to capture VNC screenshot for VirtualMachine %q (phase %s) after %d attempts: %v\n", vm.Name, vm.Status.Phase, vncScreenshotAttempts, lastErr)
+			if werr := os.WriteFile(errFile, []byte(msg), 0o644); werr != nil {
+				GinkgoWriter.Printf("Failed to write VNC screenshot error breadcrumb:\nFile: %s\nError: %v\n", errFile, werr)
+			}
 		}
 	}
 }

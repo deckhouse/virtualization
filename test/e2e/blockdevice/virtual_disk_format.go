@@ -27,6 +27,7 @@ import (
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
@@ -40,7 +41,7 @@ import (
 // The qcow2 spec provisions its main VirtualDisk on the WFFC StorageClass, so the precheck
 // label is declared on the Describe (the spec-label validator only reads container-hierarchy
 // labels, not leaf It labels).
-var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckDefaultStorageClass), func() {
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskFormat", Label(precheck.PrecheckDefaultStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -57,9 +58,9 @@ var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckDefaultStorageClass
 	It("provisions a VirtualDisk from a qcow2 ClusterVirtualImage and runs a VirtualMachine with a ready agent", func() {
 		// The disk under test is the scenario's main resource, so it lives on the WFFC
 		// storage class.
-		vd := object.NewVDFromCVI("vd-qcow2", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
+		vd := object.NewVDFromCVI("vd-qcow2", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
 			vdbuilder.WithStorageClass(defaultStorageClass()),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
 
 		createVirtualDiskAndRunVM(ctx, f, vd)
 	})
@@ -70,7 +71,7 @@ var _ = Describe("VirtualDiskFormat", Label(precheck.PrecheckDefaultStorageClass
 		// (the spec has its own Project) so the observer, which is started before the
 		// VirtualImage is created, watches the right object instead of an empty name.
 		vi := newVirtualImageOnDVCR("vi-iso",
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIUbuntuISO),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomISO),
 		)
 
 		createVirtualImageAndWait(ctx, f, vi)

@@ -32,6 +32,7 @@ import (
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
@@ -39,7 +40,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
-var _ = Describe("VirtualImageCreation", Label(
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualImageCreation", Label(
 	precheck.PrecheckDefaultStorageClass,
 	precheck.PrecheckSnapshot,
 ), func() {
@@ -71,14 +72,14 @@ var _ = Describe("VirtualImageCreation", Label(
 
 		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-http",
-				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+				vibuilder.WithDataSourceHTTP(object.ImageURLCustomBIOS, nil, nil),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-http", scPtr,
-				vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+				vibuilder.WithDataSourceHTTP(object.ImageURLCustomBIOS, nil, nil),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
@@ -89,14 +90,14 @@ var _ = Describe("VirtualImageCreation", Label(
 
 		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-registry",
-				vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
+				vibuilder.WithDataSourceContainerImage(object.ImageURLCustomContainer, v1alpha2.ImagePullSecretName{}, nil),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-registry", scPtr,
-				vibuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
+				vibuilder.WithDataSourceContainerImage(object.ImageURLCustomContainer, v1alpha2.ImagePullSecretName{}, nil),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
@@ -107,14 +108,14 @@ var _ = Describe("VirtualImageCreation", Label(
 
 		It("provisions a VirtualImage on DVCR", func(ctx context.Context) {
 			vi := newVirtualImageOnDVCR("vi-from-cvi",
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi)
 		})
 
 		It("provisions a VirtualImage on PVC", func(ctx context.Context) {
 			vi := newVirtualImageOnPVC("vi-pvc-from-cvi", scPtr,
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
 			createVirtualImageAndRunVM(ctx, f, vi, withIntermediateProgress())
 		})
@@ -132,7 +133,7 @@ var _ = Describe("VirtualImageCreation", Label(
 
 			By("Downloading source image to upload", func() {
 				var err error
-				uploadFilePath, err = downloadImageToTempFile(object.ImageURLAlpineBIOS)
+				uploadFilePath, err = downloadImageToTempFile(object.ImageURLCustomBIOS)
 				Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 				DeferCleanup(func() {
 					removeErr := os.Remove(uploadFilePath)
@@ -192,7 +193,7 @@ var _ = Describe("VirtualImageCreation", Label(
 		BeforeAll(func(ctx context.Context) {
 			setup(ctx)
 			baseVI = newVirtualImageOnDVCR("vi-source-dvcr",
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
 			createVirtualImageAndWait(ctx, f, baseVI)
 		})
@@ -218,7 +219,7 @@ var _ = Describe("VirtualImageCreation", Label(
 		BeforeAll(func(ctx context.Context) {
 			setup(ctx)
 			baseVI = newVirtualImageOnPVC("vi-source-pvc", scPtr,
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
 			createVirtualImageAndWait(ctx, f, baseVI)
 		})
@@ -257,7 +258,7 @@ var _ = Describe("VirtualImageCreation", Label(
 
 			It("provisions a VirtualImage from a VirtualImage", func() {
 				baseVI := newVirtualImageOnPVC("vi-source-pvc-other-sc", scPtr,
-					vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+					vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 				)
 				createVirtualImageAndWait(ctx, f, baseVI)
 
@@ -510,18 +511,21 @@ func createVirtualImageAndRunVM(ctx context.Context, f *framework.Framework, vi 
 func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage, opts ...progressWaitOption) {
 	GinkgoHelper()
 
+	// The disk that boots the VM is the scenario's main resource, so it uses the
+	// same default StorageClass as every other resource in this spec.
+	vdOpts := []vdbuilder.Option{
+		vdbuilder.WithStorageClass(defaultStorageClass()),
+	}
 	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		opts = append(opts, withoutDiskStreamingProgress())
+		// TODO: drop the explicit size once the sds-local-volume sizing bug
+		// is fixed, see vdFromVIOnPVCSize.
+		vdOpts = append(vdOpts, vdbuilder.WithSize(ptr.To(resource.MustParse(vdFromVIOnPVCSize))))
 	} else {
 		opts = append(opts, withIntermediateProgress())
 	}
 
-	// The disk that boots the VM is the scenario's main resource, so it uses the
-	// same default StorageClass as every other resource in this spec.
-	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("450Mi"))),
-		vdbuilder.WithStorageClass(defaultStorageClass()),
-	)
+	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi, vdOpts...)
 	createVirtualDiskAndRunVM(ctx, f, vd, opts...)
 }
 
@@ -532,9 +536,9 @@ func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework,
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(f.Namespace().Name),
 		// Incidental source disk: provision from a precreated ClusterVirtualImage.
-		vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+		vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 		vdbuilder.WithStorageClass(sc),
-		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 	)
 
 	obs := startVirtualDisk(ctx, f, vd, withoutStreamingProgress())

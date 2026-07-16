@@ -47,16 +47,32 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	projobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/project"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vdsnapshotobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vdsnapshot"
 	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const vdCreationBlankSize = "64Mi"
+const vdCreationBlankSize = "50Mi"
+
+// vdCreationImageSize is the size for image-backed disks in this test. The custom
+// e2e-br image is ~35 MiB and grows its root filesystem to the disk on first boot,
+// so a small disk is enough — 400Mi is no longer needed.
+const vdCreationImageSize = "50Mi"
+
+// vdFromVIOnPVCSize oversizes disks cloned from a VirtualImage on PVC.
+//
+// TODO: remove this override (let the controller derive the size) once the
+// sds-local-volume sizing bug is fixed. The driver rounds every LV up to the
+// 4MiB LVM extent but reports the requested size as the PVC capacity, and only
+// snapshots of restore-created volumes report the rounded size as restoreSize.
+// A VI on PVC is restore-created, so its clone snapshot restores to 52Mi while
+// every size DVP can derive from says 50Mi, and the clone PVC never provisions.
+const vdFromVIOnPVCSize = "52Mi"
 
 // TODO: LINSTOR thin pool lock contention can stall all storage writes on a node
 // for over a minute without surfacing any error. That makes time-based progress
@@ -71,7 +87,7 @@ const hostnameNodeSelectorKey = "kubernetes.io/hostname"
 
 var pinnedScenarioNodes sync.Map
 
-var _ = Describe("VirtualDiskCreation", Label(
+var _ = label.SIGDescribe(label.SIGStorage, "VirtualDiskCreation", Label(
 	precheck.PrecheckDefaultStorageClass,
 ), func() {
 	var (
@@ -93,8 +109,8 @@ var _ = Describe("VirtualDiskCreation", Label(
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-http"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLCustomBIOS}),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -108,14 +124,14 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithDatasource(&v1alpha2.VirtualDiskDataSource{
 				Type: v1alpha2.DataSourceTypeUpload,
 			}),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
 		var uploadFilePath string
 		By("Downloading source image to upload", func() {
 			var err error
-			uploadFilePath, err = downloadImageToTempFile(object.ImageURLAlpineBIOS)
+			uploadFilePath, err = downloadImageToTempFile(object.ImageURLCustomBIOS)
 			Expect(err).NotTo(HaveOccurred(), "failed to download upload source image")
 			DeferCleanup(func() {
 				removeErr := os.Remove(uploadFilePath)
@@ -166,8 +182,8 @@ var _ = Describe("VirtualDiskCreation", Label(
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-registry"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceContainerImage(object.ImageURLContainerImage, "", nil),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithDataSourceContainerImage(object.ImageURLCustomContainer, "", nil),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -181,7 +197,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 			// The source image type is incidental here (the scenario tests a VD from a
 			// VI on DVCR), so create the base image from a precreated ClusterVirtualImage.
-			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 		)
 
 		viObs := viobs.StartObserver(ctx, f, baseVI)
@@ -201,7 +217,6 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -213,7 +228,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vibuilder.WithName("vi-source-pvc"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-			vibuilder.WithDataSourceHTTP(object.ImageURLAlpineBIOS, nil, nil),
+			vibuilder.WithDataSourceHTTP(object.ImageURLCustomBIOS, nil, nil),
 		)
 		baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
@@ -234,7 +249,9 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithName("vd-from-vi-pvc"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualImage, baseVI.Name),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			// TODO: drop the explicit size once the sds-local-volume sizing bug
+			// is fixed, see vdFromVIOnPVCSize.
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdFromVIOnPVCSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -252,7 +269,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
 				// The source image type is incidental here (the scenario tests cloning from
 				// a PVC-backed VI), so source the base image from a CVI.
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 			)
 			baseVI.Spec.PersistentVolumeClaim.StorageClass = scPtr
 
@@ -280,7 +297,7 @@ var _ = Describe("VirtualDiskCreation", Label(
 				vdbuilder.WithNamespace(f.Namespace().Name),
 				// The boot disk is incidental here; the scenario checks that the
 				// cloned disk provisions and attaches successfully.
-				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
+				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 				vdbuilder.WithStorageClass(scPtr),
 			)
 
@@ -299,8 +316,8 @@ var _ = Describe("VirtualDiskCreation", Label(
 		vd := vdbuilder.New(
 			vdbuilder.WithName("vd-from-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -323,8 +340,8 @@ var _ = Describe("VirtualDiskCreation", Label(
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			// The boot disk is incidental here (the scenario tests the blank disk), so
 			// source it from a precreated ClusterVirtualImage instead of HTTP.
-			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 			vdbuilder.WithStorageClass(scPtr),
 		)
 
@@ -344,8 +361,8 @@ var _ = Describe("VirtualDiskCreation", Label(
 			baseVD := vdbuilder.New(
 				vdbuilder.WithName("vd-source-for-snapshot"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLAlpineBIOS}),
-				vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLCustomBIOS}),
+				vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 				vdbuilder.WithStorageClass(scPtr),
 			)
 
@@ -537,7 +554,8 @@ func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
 
-		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+		projObs := projobs.StartObserver(ctx, f, project.Name)
+		Expect(projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)).To(Succeed())
 	})
 
 	f.SetProjectNamespace(project.Name)
@@ -678,6 +696,11 @@ func runVirtualMachineFromDisks(ctx context.Context, f *framework.Framework, dis
 
 	vmOpts := []vmbuilder.Option{
 		vmbuilder.WithDisks(vds...),
+		// VirtualDiskCreation only needs the VM as a disk consumer with a live guest
+		// agent (it never logs in over SSH), so drop the default cloud-init
+		// provisioning: the custom e2e-br image has no cloud-init, and no user needs
+		// to be created for this test. This overrides NewMinimalVM's AlpineCloudInit.
+		vmbuilder.WithProvisioning(nil),
 	}
 	if node, ok := scenarioNode(f); ok {
 		// TODO: remove this test-level pin once local PVC/snapshot sources and
