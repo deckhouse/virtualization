@@ -19,6 +19,7 @@ package service
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -34,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -106,7 +106,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	if kvvmiInCluster == nil {
 		if s.shouldPatchVolumes(kvvmInCluster, builtKVVM) {
 			log.Info("kvvmi is nil, force revert kvvm volumes to source volumes.")
-			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+			return s.patchVolumes(ctx, builtKVVM)
 		}
 
 		log.Info("kvvmi is nil and kvvm volumes are already reverted, skip volume migration.")
@@ -119,11 +119,33 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	s.fillContainerDiskImagePullPolicies(kvvmInClusterCopy, kvvmiInCluster)
 	s.fillContainerDiskImagePullPolicies(builtKVVM, kvvmiInCluster)
 
+	migrationRequested := builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy != nil && *builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
+
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
+		// KVVM holds a dead migration set kubevirt will never sync (e.g. the target
+		// PVC was removed): revert to source. Only when the strategy is still set
+		// (plain divergence like a hotplug mid-attach must sync, not revert) and no
+		// round is wanted (a storage class round runs without a VMOP and must not
+		// be reverted at its start).
+		migrationStuck := kvvmInCluster.Spec.UpdateVolumesStrategy != nil && *kvvmInCluster.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
+		if vmop == nil && migrationStuck && !migrationRequested && s.shouldPatchVolumes(kvvmInClusterCopy, builtKVVM) {
+			log.Info("No in-progress migration but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
+			return s.patchVolumes(ctx, builtKVVM)
+		}
 		// kubevirt does not sync volumes with kvvmi yet
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
+	}
+
+	// Clear a stale updateVolumesStrategy after a finished migration; kubevirt never
+	// clears it and keeps treating the VM as mid-migration. Volumes-equal guard skips
+	// the mid-completion window; the normalized copy is required for containerdisks.
+	if vmop == nil &&
+		equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmInClusterCopy.Spec.Template.Spec.Volumes) &&
+		!equality.Semantic.DeepEqual(builtKVVM.Spec.UpdateVolumesStrategy, kvvmInClusterCopy.Spec.UpdateVolumesStrategy) {
+		log.Info("clearing stale updateVolumesStrategy on kvvm after migration finished.")
+		return s.patchVolumes(ctx, builtKVVM)
 	}
 
 	readWriteOnceDisks, storageClassChangedDisks, err := s.getDisks(ctx, vmState)
@@ -138,7 +160,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	if kvvmSynced {
 		if !equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Affinity, kvvmInCluster.Spec.Template.Spec.Affinity) {
 			log.Info("kvvm volumes are synced but affinity drifted, re-patch affinity.")
-			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
+			return s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
 		}
 		if vmop != nil && (!readWriteOnceDisksSynced || !storageClassChangedDisksSynced) {
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -149,22 +171,15 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if !equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes) {
-		// A difference here (ignoring migration target PVCs, which live in
-		// builtKVVMWithMigrationVolumes) means the desired volume set differs from
-		// the running one. Only a structural change (a disk added or removed) may
-		// require a restart, so it must not be propagated to KVVM while the VM
-		// awaits restart. A difference that is only a PVC swap on the same disks is
-		// a volume migration or a revert of one: it keeps the structure intact and
-		// must proceed regardless of restart, otherwise a KVVM left pointing at a
-		// dead migration target can never be reverted back to the source.
+		// Defer only structural changes (disk added/removed) under restart. A PVC swap
+		// on the same disks is a migration or its revert and must proceed regardless,
+		// else a KVVM pointing at a dead migration target can never be reverted.
 		if restartRequired && isStructuralVolumeChange(builtKVVM, kvvmiInCluster) {
 			log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+		return s.patchVolumes(ctx, builtKVVM)
 	}
-
-	migrationRequested := builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy != nil && *builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
 
 	// Check disks in generated KVVM before running kvvmSynced check: detect non-migratable disks and disks with changed storage class.
 	if !readWriteOnceDisksSynced {
@@ -177,6 +192,22 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if migrationRequested {
+		// Completeness: patch the whole RWO set at once. A partial set mixes this
+		// round's targets with a previous round's PVCs, which KubeVirt rejects or,
+		// worse, drops an RWO volume and breaks the domain on the target node.
+		if !allDisksMigrating(readWriteOnceDisks) {
+			log.Info("not all ReadWriteOnce disks are migrating in this round yet, wait for a complete volume set.")
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+
+		// Serialization: while a migration is in flight, KubeVirt only accepts
+		// continuing to the same targets or reverting to the source (handled above);
+		// a new, different target set is rejected. Wait for the current one to finalize.
+		if isVolumeMigrating(kvvmiInCluster) && !destinationsMatch(kvvmiInCluster, builtKVVMWithMigrationVolumes) {
+			log.Info("a volume migration is already in progress with different targets, wait for it to finalize.")
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
 		// We should wait delayDuration seconds. This delay allows user to change storage class on other volumes
 		if len(storageClassChangedDisks) > 0 {
 			delay, exists := s.delay[vm.UID]
@@ -202,9 +233,9 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		}
 
 		log.Info("All disks are ready, patch kvvm with migration volumes.")
-		err = s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
-		if err != nil {
-			return reconcile.Result{}, err
+		res, err := s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
+		if err != nil || !res.IsZero() {
+			return res, err
 		}
 		log.Debug("kvvm volumes are patched.")
 
@@ -218,16 +249,14 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	// if some volumes is different, we should revert all and sync again in next reconcile
 
 	if s.shouldRevert(kvvmiInCluster, readWriteOnceDisks, storageClassChangedDisks) {
-		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+		return s.patchVolumes(ctx, builtKVVM)
 	}
 
 	return reconcile.Result{}, nil
 }
 
-// isStructuralVolumeChange reports whether the desired and running volume sets
-// differ structurally, i.e. a volume was added or removed. A difference that is
-// only a PersistentVolumeClaim swap on the same set of volume names is a volume
-// migration or its revert, not a structural change.
+// isStructuralVolumeChange reports whether a volume was added or removed. A PVC
+// swap on the same volume names is a migration or its revert, not structural.
 func isStructuralVolumeChange(builtKVVM *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) bool {
 	desired := make(map[string]struct{}, len(builtKVVM.Spec.Template.Spec.Volumes))
 	for _, v := range builtKVVM.Spec.Template.Spec.Volumes {
@@ -282,22 +311,40 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 	return false
 }
 
-func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
-	patchBytes, err := patch.NewJSONPatch(
-		patch.WithReplace("/spec/updateVolumesStrategy", kvvm.Spec.UpdateVolumesStrategy),
-		patch.WithReplace("/spec/template/spec/volumes", kvvm.Spec.Template.Spec.Volumes),
-		// Affinity is patched together with volumes because the migration target PVCs
-		// can resolve to a different node than the source.
-		patch.WithReplace("/spec/template/spec/affinity", kvvm.Spec.Template.Spec.Affinity),
-	).Bytes()
+func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) (reconcile.Result, error) {
+	mergePatch := map[string]any{
+		"spec": map[string]any{
+			"updateVolumesStrategy": kvvm.Spec.UpdateVolumesStrategy,
+			"template": map[string]any{"spec": map[string]any{
+				"volumes": kvvm.Spec.Template.Spec.Volumes,
+				// Affinity is patched together with volumes because the migration
+				// target PVCs can resolve to a different node than the source.
+				"affinity": kvvm.Spec.Template.Spec.Affinity,
+			}},
+		},
+	}
+	// Optimistic lock: kubevirt persists hotplug (addvolume) volumes into the same
+	// array concurrently; a stale read would silently drop them. The resourceVersion
+	// precondition makes apiserver reject it with a clean 409 instead.
+	if kvvm.ResourceVersion != "" {
+		mergePatch["metadata"] = map[string]any{"resourceVersion": kvvm.ResourceVersion}
+	}
+	patchBytes, err := json.Marshal(mergePatch)
 	if err != nil {
-		return err
+		return reconcile.Result{}, err
 	}
 
 	logger.FromContext(ctx).Info("The volume migration is detected: patch volumes", slog.String("patch", string(patchBytes)))
 
-	err = s.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
-	return err
+	if err = s.client.Patch(ctx, kvvm, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
+		if k8serrors.IsConflict(err) {
+			// KVVM moved on (a concurrent kubevirt hotplug persist): re-read on the
+			// next pass instead of retrying blind.
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
 }
 
 func (s MigrationVolumesService) shouldPatchVolumes(currentKVVM, desiredKVVM *virtv1.VirtualMachine) bool {
@@ -552,6 +599,68 @@ func (s MigrationVolumesService) makeKVVMFromVirtualMachineSpec(ctx context.Cont
 	kvvmWithMigrationVolumes := kvvmBuilder.GetResource()
 
 	return kvvm, kvvmWithMigrationVolumes, nil
+}
+
+// allDisksMigrating reports whether every disk is migrating in the current round.
+func allDisksMigrating(disks map[string]*v1alpha2.VirtualDisk) bool {
+	for _, d := range disks {
+		if !commonvd.IsMigrating(d) {
+			return false
+		}
+	}
+	return true
+}
+
+// isVolumeMigrating reports whether KubeVirt is currently running a volume
+// migration for the VMI (condition VolumesChange=True).
+func isVolumeMigrating(kvvmi *virtv1.VirtualMachineInstance) bool {
+	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
+	return cond.Status == corev1.ConditionTrue
+}
+
+// destinationsMatch reports whether the patched set merely continues the in-flight
+// migration: every volume keeps its running claim or goes to its recorded destination
+// (kvvmi.status.migratedVolumes), and no in-flight volume is left out. Anything else
+// KubeVirt rejects mid-migration.
+func destinationsMatch(kvvmi *virtv1.VirtualMachineInstance, built *virtv1.VirtualMachine) bool {
+	current := make(map[string]string, len(kvvmi.Spec.Volumes))
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			current[v.Name] = v.PersistentVolumeClaim.ClaimName
+		}
+	}
+
+	dest := make(map[string]string, len(kvvmi.Status.MigratedVolumes))
+	for _, mv := range kvvmi.Status.MigratedVolumes {
+		if mv.DestinationPVCInfo != nil {
+			dest[mv.VolumeName] = mv.DestinationPVCInfo.ClaimName
+		}
+	}
+
+	seen := make(map[string]struct{}, len(built.Spec.Template.Spec.Volumes))
+	for _, v := range built.Spec.Template.Spec.Volumes {
+		if v.PersistentVolumeClaim == nil {
+			continue
+		}
+		seen[v.Name] = struct{}{}
+		if d, ok := dest[v.Name]; ok {
+			if v.PersistentVolumeClaim.ClaimName != d {
+				return false
+			}
+			continue
+		}
+		if v.PersistentVolumeClaim.ClaimName != current[v.Name] {
+			return false
+		}
+	}
+
+	for name := range dest {
+		if _, ok := seen[name]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 // areDisksSynced checks whether all disks are synchronized with their corresponding PVCs in kvvm

@@ -250,6 +250,203 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 		Expect(updatedKVVM.Spec.Template.Spec.Affinity).To(Equal(desiredKVVM.Spec.Template.Spec.Affinity))
 	})
+
+	It("clears a stale migration strategy left on kvvm when volumes already match and no migration is in progress", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		vm := newVM()
+		// A finished migration left updateVolumesStrategy=Migration on KVVM while KVVM
+		// and KVVMI already agree on the volumes. The stale strategy must be cleared.
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
+		kvvmi := newKVVMIWithVolume(targetPVC)
+		desiredKVVM := newKVVMWithVolume(targetPVC, nil, "node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
+
+	It("clears a stale migration strategy on a VM with a containerdisk volume despite the pull-policy drift", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		containerDisk := func(policy corev1.PullPolicy) virtv1.Volume {
+			return virtv1.Volume{
+				Name: "cdrom",
+				VolumeSource: virtv1.VolumeSource{
+					ContainerDisk: &virtv1.ContainerDiskSource{Image: "registry.example.com/image:tag", ImagePullPolicy: policy},
+				},
+			}
+		}
+
+		vm := newVM()
+		// The pull policy is defaulted by kubevirt only on the VMI: KVVM and the
+		// desired spec carry an empty one. The stale strategy must still be cleared.
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
+		kvvmInCluster.Spec.Template.Spec.Volumes = append(kvvmInCluster.Spec.Template.Spec.Volumes, containerDisk(""))
+		kvvmi := newKVVMIWithVolume(targetPVC)
+		kvvmi.Spec.Volumes = append(kvvmi.Spec.Volumes, containerDisk(corev1.PullIfNotPresent))
+		desiredKVVM := newKVVMWithVolume(targetPVC, nil, "node")
+		desiredKVVM.Spec.Template.Spec.Volumes = append(desiredKVVM.Spec.Template.Spec.Volumes, containerDisk(""))
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+	})
+
+	It("force-reverts kvvm to source when kvvm/kvvmi diverged and no migration is in progress", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		vm := newVM()
+		// KVVM is stuck on a dead migration target (with the migration strategy),
+		// while KVVMI never synced and still points at the source. With no in-progress
+		// migration this must be force-reverted instead of waiting on the kvvmiSynced
+		// barrier forever.
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "target-node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "source-node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+	})
+
+	It("does not revert diverged volumes when no migration strategy is set (e.g. hotplug mid-attach)", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+
+		vm := newVM()
+		// KVVM and KVVMI diverge but there is no migration strategy: a benign
+		// transient such as a hotplug volume being attached. It must be left to sync,
+		// not force-reverted (that would tear down the in-flight attachment).
+		kvvmInCluster := newKVVMWithVolume(targetPVC, nil, "node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
+
+	It("requeues a volume patch built from a stale kvvm read instead of overwriting", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		vm := newVM()
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "target-node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		// The desired spec carries the resourceVersion of the kvvm it was built from;
+		// if the kvvm changed since (e.g. kubevirt persisted a hotplug volume), the
+		// patch must be rejected by the precondition and retried from a fresh read.
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "source-node")
+		desiredKVVM.ResourceVersion = "stale"
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		res, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).NotTo(BeZero())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
+
+	It("does not force-revert kvvm while a migration round without a vmop is active", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		// A storage class change round runs without any VMOP: the disk is migrating,
+		// KVVM is already patched with the round's target, KVVMI is not synced yet.
+		// The diverged KVVM is the round starting, not a leftover to revert.
+		vm := newVM()
+		vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: "root"}}
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: namespace},
+		}
+		vd.Status.MigrationState.StartTimestamp = metav1.Now()
+		vd.Status.MigrationState.TargetPVC = targetPVC
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi, vd)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(migrationStrategy)))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
 })
 
 var _ = Describe("isStructuralVolumeChange", func() {
@@ -301,4 +498,115 @@ var _ = Describe("isStructuralVolumeChange", func() {
 		Entry("disk removed", map[string]string{"root": "a"}, map[string]string{"root": "a", "extra": "b"}, true),
 		Entry("disk renamed (same count, different name)", map[string]string{"root": "a"}, map[string]string{"data": "a"}, true),
 	)
+})
+
+var _ = Describe("allDisksMigrating", func() {
+	mk := func(started, ended bool) *v1alpha2.VirtualDisk {
+		vd := &v1alpha2.VirtualDisk{}
+		if started {
+			vd.Status.MigrationState.StartTimestamp = metav1.Now()
+		}
+		if ended {
+			vd.Status.MigrationState.EndTimestamp = metav1.Now()
+		}
+		return vd
+	}
+
+	It("is true for an empty set", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{})).To(BeTrue())
+	})
+	It("is true when every disk is migrating this round", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{"a": mk(true, false), "b": mk(true, false)})).To(BeTrue())
+	})
+	It("is false when a disk has not started migrating", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{"a": mk(true, false), "b": mk(false, false)})).To(BeFalse())
+	})
+	It("is false when a disk already completed a previous round", func() {
+		Expect(allDisksMigrating(map[string]*v1alpha2.VirtualDisk{"a": mk(true, false), "b": mk(true, true)})).To(BeFalse())
+	})
+})
+
+var _ = Describe("isVolumeMigrating", func() {
+	withVolumesChange := func(status corev1.ConditionStatus, set bool) *virtv1.VirtualMachineInstance {
+		vmi := &virtv1.VirtualMachineInstance{}
+		if set {
+			vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
+				{Type: virtv1.VirtualMachineInstanceVolumesChange, Status: status},
+			}
+		}
+		return vmi
+	}
+
+	It("is true when VolumesChange condition is True", func() {
+		Expect(isVolumeMigrating(withVolumesChange(corev1.ConditionTrue, true))).To(BeTrue())
+	})
+	It("is false when VolumesChange condition is False", func() {
+		Expect(isVolumeMigrating(withVolumesChange(corev1.ConditionFalse, true))).To(BeFalse())
+	})
+	It("is false when VolumesChange condition is absent", func() {
+		Expect(isVolumeMigrating(withVolumesChange(corev1.ConditionTrue, false))).To(BeFalse())
+	})
+})
+
+var _ = Describe("destinationsMatch", func() {
+	pvcVolumes := func(nameToClaim map[string]string) []virtv1.Volume {
+		vols := make([]virtv1.Volume, 0, len(nameToClaim))
+		for name, claim := range nameToClaim {
+			vols = append(vols, virtv1.Volume{
+				Name:         name,
+				VolumeSource: virtv1.VolumeSource{PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim}}},
+			})
+		}
+		return vols
+	}
+	built := func(nameToClaim map[string]string) *virtv1.VirtualMachine {
+		return &virtv1.VirtualMachine{Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{Spec: virtv1.VirtualMachineInstanceSpec{Volumes: pvcVolumes(nameToClaim)}}}}
+	}
+	kvvmi := func(running, volToDest map[string]string) *virtv1.VirtualMachineInstance {
+		vmi := &virtv1.VirtualMachineInstance{}
+		vmi.Spec.Volumes = pvcVolumes(running)
+		for vol, dest := range volToDest {
+			vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
+				VolumeName:         vol,
+				DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: dest},
+			})
+		}
+		return vmi
+	}
+
+	It("is true when the set keeps the running claims and there is no recorded migration", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, nil), built(map[string]string{"root": "src"}))).To(BeTrue())
+	})
+	It("is false when a claim changes without a recorded migration for it", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, nil), built(map[string]string{"root": "new"}))).To(BeFalse())
+	})
+	It("is true when the recorded destination matches the target being patched", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, map[string]string{"root": "tgt"}), built(map[string]string{"root": "tgt"}))).To(BeTrue())
+	})
+	It("is false when the recorded destination differs from the new target", func() {
+		Expect(destinationsMatch(kvvmi(map[string]string{"root": "src"}, map[string]string{"root": "old-tgt"}), built(map[string]string{"root": "new-tgt"}))).To(BeFalse())
+	})
+	It("is false when the set migrates an extra volume on top of the in-flight round", func() {
+		Expect(destinationsMatch(
+			kvvmi(map[string]string{"root": "src", "data": "data-src"}, map[string]string{"root": "tgt"}),
+			built(map[string]string{"root": "tgt", "data": "data-tgt"}),
+		)).To(BeFalse())
+	})
+	It("is false when the set keeps a volume at source while it is migrating", func() {
+		Expect(destinationsMatch(
+			kvvmi(map[string]string{"root": "src", "data": "data-src"}, map[string]string{"root": "tgt", "data": "data-tgt"}),
+			built(map[string]string{"root": "tgt", "data": "data-src"}),
+		)).To(BeFalse())
+	})
+	It("is false when an in-flight volume is absent from the set being patched", func() {
+		Expect(destinationsMatch(
+			kvvmi(map[string]string{"root": "src"}, map[string]string{"hotplug": "hp-tgt"}),
+			built(map[string]string{"root": "src"}),
+		)).To(BeFalse())
+	})
+	It("ignores recorded entries without destination info", func() {
+		vmi := kvvmi(map[string]string{"root": "src"}, nil)
+		vmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{{VolumeName: "root", DestinationPVCInfo: nil}}
+		Expect(destinationsMatch(vmi, built(map[string]string{"root": "src"}))).To(BeTrue())
+	})
 })

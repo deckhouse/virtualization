@@ -49,6 +49,10 @@ const lifecycleHandlerName = "LifecycleHandler"
 
 const timeElapsedUpdateInterval = 10 * time.Second
 
+// waitForVMReadyToMigrateTimeout fails a migration whose disks never sync instead
+// of waiting for ReadyToMigrate forever. Healthy migrations reach it within ~1m.
+const waitForVMReadyToMigrateTimeout = 5 * time.Minute
+
 const (
 	progressMigrationPending   int32 = 0
 	progressTargetScheduling   int32 = 2
@@ -259,6 +263,12 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	// 7. Check if the vm is migratable.
 	if !h.canExecute(vmop, vm) {
+		// Drive the deadline in canExecute while the operation waits for the VM to
+		// become ready to migrate, so a wedged migration is failed even without
+		// further watch events.
+		if vmop.Status.Phase == v1alpha2.VMOPPhasePending {
+			return reconcile.Result{RequeueAfter: timeElapsedUpdateInterval}, nil
+		}
 		return reconcile.Result{}, nil
 	}
 	// 7.1 The Operation is valid, and can be executed.
@@ -440,6 +450,22 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
 	if migratable.Status == metav1.ConditionTrue {
+		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		waitingForReady := completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()
+		if waitingForReady && !completed.LastTransitionTime.IsZero() &&
+			time.Since(completed.LastTransitionTime.Time) > waitForVMReadyToMigrateTimeout {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Timed out waiting for the VirtualMachine to become ready to migrate")
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+					Generation(vmop.GetGeneration()).
+					Reason(vmopcondition.ReasonOperationFailed).
+					Status(metav1.ConditionFalse).
+					Message("Timed out waiting for the VirtualMachine to become ready to migrate."),
+				&vmop.Status.Conditions)
+			return false
+		}
+
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
