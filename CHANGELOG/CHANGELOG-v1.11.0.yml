@@ -1,0 +1,27 @@
+ci:
+  fixes:
+    - summary: >-
+        Rebuilding a broken dev module tag now regenerates its image digests so the repaired tag is
+        actually pullable.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2683
+cli:
+  fixes:
+    - summary: >-
+        d8 v ssh and d8 v scp now connect to the cluster selected by global flags like --context and
+        --kubeconfig.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2678
+    - summary: >-
+        collect-debug-info no longer fails to produce an archive when the VM is stopped or a
+        referenced resource is missing.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2677
+module:
+  fixes:
+    - summary: The module changelog is now shown in the Deckhouse console for each release.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2674
+vm:
+  fixes:
+    - summary: >-
+        A SecureBoot virtual machine now reports on the VirtualMachine why it cannot start (for
+        example, a missing default StorageClass) instead of staying pending without explanation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2614
+
