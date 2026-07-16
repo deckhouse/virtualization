@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
@@ -60,9 +61,14 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	v.log.Info("Validate VirtualMachineIPAddress creating", "name", vmip.Name, "type", vmip.Spec.Type, "address", vmip.Spec.StaticIP)
 
-	err := v.validateSpecFields(vmip)
+	err := v.validateVirtualMachineCIDRsConfigured(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("the VirtualMachineIPAddress validation is failed: %w", err)
+		return nil, err
+	}
+
+	err = v.validateSpecFields(vmip)
+	if err != nil {
+		return nil, err
 	}
 
 	if vmip.Spec.StaticIP != "" {
@@ -96,9 +102,18 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		"old.address", oldVmip.Spec.StaticIP, "new.address", newVmip.Spec.StaticIP,
 	)
 
+	// Forbid spec changes and allow changing metadata and status
+	// if ModuleConfig has no spec.settings.virtualMachineCIDRs field.
+	if oldVmip.Spec != newVmip.Spec {
+		err := v.validateVirtualMachineCIDRsConfigured(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err := v.validateSpecFields(newVmip)
 	if err != nil {
-		return nil, fmt.Errorf("error validating VirtualMachineIP update: %w", err)
+		return nil, err
 	}
 
 	var warnings admission.Warnings
@@ -192,6 +207,17 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 		}
 	}
 
+	return nil
+}
+
+func (v *Validator) validateVirtualMachineCIDRsConfigured(ctx context.Context) error {
+	hasCIDRs, err := moduleconfig.ModuleConfigHasVirtualMachineCIDRs(ctx, v.client)
+	if err != nil {
+		return fmt.Errorf("unable to check ModuleConfig/virtualization spec.settings.virtualMachineCIDRs field: %w", err)
+	}
+	if !hasCIDRs {
+		return fmt.Errorf("operations with VirtualMachineIPAddresses are forbidden: ModuleConfig/virtualization spec.settings.virtualMachineCIDRs field is not configured")
+	}
 	return nil
 }
 

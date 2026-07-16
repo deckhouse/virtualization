@@ -300,7 +300,7 @@ type VirtualMachineStatus struct {
 	Phase MachinePhase `json:"phase"`
 	// The name of the node on which the VM is currently running.
 	Node string `json:"nodeName"`
-	// Name of `virtualMachineIPAddressName` holding the ip address of the VirtualMachine.
+	// Name of the VirtualMachineIPAddress resource with an IP address of the VM.
 	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName"`
 	// IP address of VM.
 	IPAddress string `json:"ipAddress"`

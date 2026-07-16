@@ -138,6 +138,8 @@ rules:
   - moduleconfigs
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - storage.virtualization.deckhouse.io
   resources:

@@ -18,6 +18,7 @@ package validators
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -46,8 +48,13 @@ func NewNetworksValidator(c client.Client, featureGate featuregate.FeatureGate) 
 	}
 }
 
-func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *NetworksValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	networksSpec := vm.Spec.Networks
+
+	if err := v.validateMainOnlyNetworkSpec(ctx, networksSpec); err != nil {
+		return nil, err
+	}
+
 	if len(networksSpec) == 0 {
 		return nil, nil
 	}
@@ -61,6 +68,11 @@ func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.Virtu
 
 func (v *NetworksValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	newNetworksSpec := newVM.Spec.Networks
+
+	if err := v.validateMainOnlyNetworkSpec(ctx, newNetworksSpec); err != nil {
+		return nil, err
+	}
+
 	if len(newNetworksSpec) == 0 {
 		return nil, nil
 	}
@@ -270,4 +282,24 @@ func (v *NetworksValidator) getNetworkIdentifier(network v1alpha2.NetworksSpec) 
 		return network.Type
 	}
 	return fmt.Sprintf("%s/%s", network.Type, network.Name)
+}
+
+func (v *NetworksValidator) validateMainOnlyNetworkSpec(ctx context.Context, networksSpec []v1alpha2.NetworksSpec) error {
+	hasCIDRs, err := moduleconfig.ModuleConfigHasVirtualMachineCIDRs(ctx, v.client)
+	if err != nil {
+		return fmt.Errorf("unable to check spec.settings.virtualMachineCIDRs in ModuleConfig/virtualization: %w", err)
+	}
+
+	hasExplicitMainNetwork := commonnetwork.HasMainNetworkSpec(networksSpec)
+	if !hasCIDRs && hasExplicitMainNetwork {
+		return errors.New("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
+	}
+
+	implicitMainNetwork := len(networksSpec) == 0
+	if !hasCIDRs && implicitMainNetwork {
+		return errors.New("spec.networks cannot be empty when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
+
+	}
+
+	return nil
 }

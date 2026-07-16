@@ -52,6 +52,7 @@ func SetupController(
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
 	controllerNamespace string,
+	virtualMachineCIDRs []string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
@@ -66,7 +67,7 @@ func SetupController(
 		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
-		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
+		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder, virtualMachineCIDRs),
 		internal.NewMACHandler(netmanager.NewMACManager(), client, recorder),
 		internal.NewIPAddressHandler(client),
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
@@ -82,7 +83,7 @@ func SetupController(
 		internal.NewStatisticHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
-		internal.NewNetworkInterfaceHandler(featuregates.Default()),
+		internal.NewNetworkInterfaceHandler(featuregates.Default(), virtualMachineCIDRs),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService),
 		internal.NewHotplugHandler(attachmentService),
 		// SyncPowerStateHandler should be executed after PodHandler, because PodHandler store SharedShutdownInfo, which is used by SyncPowerStateHandler.

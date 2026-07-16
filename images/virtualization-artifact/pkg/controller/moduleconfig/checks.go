@@ -97,8 +97,21 @@ func CheckCIDRsOverlapWithServiceSubnet(cidrs []netip.Prefix, subnet netip.Prefi
 }
 
 func ParseCIDRs(settings mcapi.SettingsValues) ([]netip.Prefix, error) {
-	raw := settings[virtualMachineCIDRs].([]interface{})
-	CIDRs, err := convertToStringSlice(raw)
+	if settings == nil {
+		return nil, nil
+	}
+
+	raw, ok := settings[virtualMachineCIDRs]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+
+	rawCIDRs, ok := raw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("failed to convert %q to []interface{}", virtualMachineCIDRs)
+	}
+
+	CIDRs, err := convertToStringSlice(rawCIDRs)
 	if err != nil {
 		return nil, err
 	}

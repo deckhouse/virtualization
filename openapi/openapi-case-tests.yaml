@@ -3,7 +3,6 @@ positive:
     - virtualMachineCIDRs: ["10.10.10.0/24"]
   values:
     - virtualMachineCIDRs: ["10.10.10.0/24"]
-      internal: {}
     - https:
         mode: CustomCertificate
         customCertificate:

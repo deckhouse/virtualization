@@ -20,13 +20,16 @@ import (
 	"fmt"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -36,6 +39,46 @@ var (
 	networkTest        = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}
 	clusterNetworkTest = v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test"}
 )
+
+type networkValidatorOpts struct {
+	moduleSettings map[string]any
+	objects        []client.Object
+	sdnEnabled     bool
+}
+
+func newNetworksValidator(t *testing.T, opts networkValidatorOpts) *NetworksValidator {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := mcapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	builder := fake.NewClientBuilder().WithScheme(scheme)
+	objs := make([]client.Object, 0)
+	if opts.moduleSettings != nil {
+		objs = append(objs, &mcapi.ModuleConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "virtualization"},
+			Spec:       mcapi.ModuleConfigSpec{Settings: opts.moduleSettings},
+		})
+	}
+	if len(opts.objects) > 0 {
+		objs = append(objs, opts.objects...)
+	}
+	if len(objs) > 0 {
+		builder = builder.WithObjects(objs...)
+	}
+
+	featureGate, _, setFromMap, err := featuregates.New()
+	if err != nil {
+		t.Fatalf("featuregates.New: %v", err)
+	}
+	if opts.sdnEnabled {
+		if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
+			t.Fatalf("setFromMap: %v", err)
+		}
+	}
+
+	return NewNetworksValidator(builder.Build(), featureGate)
+}
 
 func TestNetworksValidateCreate(t *testing.T) {
 	tests := []struct {
@@ -83,19 +126,18 @@ func TestNetworksValidateCreate(t *testing.T) {
 		t.Run(fmt.Sprintf("CreateTestCase%d", i), func(t *testing.T) {
 			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: test.networks}}
 
-			// Create feature gate with SDN
-			featureGate, _, setFromMap, err := featuregates.New()
-			if err != nil {
-				t.Fatalf("featuregates.New: %v", err)
-			}
-			if test.sdnEnabled {
-				if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
-					t.Fatalf("setFromMap: %v", err)
-				}
-			}
-			networkValidator := NewNetworksValidator(nil, featureGate)
+			networkValidator := newNetworksValidator(
+				t,
+				networkValidatorOpts{
+					moduleSettings: map[string]any{
+						"dvcr":                map[string]any{},
+						"virtualMachineCIDRs": []any{"10.0.0.0/24"},
+					},
+					sdnEnabled: test.sdnEnabled,
+				},
+			)
 
-			_, err = networkValidator.ValidateCreate(t.Context(), vm)
+			_, err := networkValidator.ValidateCreate(t.Context(), vm)
 			if test.valid && err != nil {
 				t.Errorf("Validation failed for spec %v: expected valid, but got an error: %v", test.networks, err)
 			}
@@ -154,7 +196,7 @@ func TestNetworksValidateUpdate(t *testing.T) {
 				networkTest,
 			},
 			sdnEnabled: true,
-			valid:      true,
+			valid:      false,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{},
@@ -333,20 +375,17 @@ func TestNetworksValidateUpdate(t *testing.T) {
 				},
 			}
 
-			// Create feature gate with SDN
-			featureGate, _, setFromMap, err := featuregates.New()
-			if err != nil {
-				t.Fatalf("featuregates.New: %v", err)
-			}
-			if test.sdnEnabled {
-				if err := setFromMap(map[string]bool{
-					string(featuregates.SDN): true,
-				}); err != nil {
-					t.Fatalf("setFromMap: %v", err)
-				}
-			}
-			networkValidator := NewNetworksValidator(nil, featureGate)
-			_, err = networkValidator.ValidateUpdate(t.Context(), oldVM, newVM)
+			networkValidator := newNetworksValidator(
+				t,
+				networkValidatorOpts{
+					moduleSettings: map[string]any{
+						"dvcr":                map[string]any{},
+						"virtualMachineCIDRs": []any{"10.0.0.0/24"},
+					},
+					sdnEnabled: test.sdnEnabled,
+				},
+			)
+			_, err := networkValidator.ValidateUpdate(t.Context(), oldVM, newVM)
 
 			if test.valid && err != nil {
 				t.Errorf(
@@ -374,27 +413,88 @@ func newUnstructured(gvk schema.GroupVersionKind, name, namespace string) *unstr
 	return u
 }
 
-func TestNetworksValidatesExistence(t *testing.T) {
-	scheme := runtime.NewScheme()
-	scheme.AddKnownTypeWithName(commonnetwork.ClusterNetworkGVK, &unstructured.Unstructured{})
-	scheme.AddKnownTypeWithName(commonnetwork.NetworkGVK, &unstructured.Unstructured{})
+func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
+	newValidatorWithDCVROnly := newNetworksValidator(
+		t,
+		networkValidatorOpts{
+			moduleSettings: map[string]any{
+				"dvcr": map[string]any{},
+			},
+			sdnEnabled: true,
+		},
+	)
 
+	t.Run("create: explicit Main without CIDRs is rejected", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+		if _, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm); err == nil {
+			t.Fatalf("expected error for explicit Main without CIDRs")
+		}
+	})
+
+	t.Run("create: implicit Main without CIDRs is rejected", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{}
+		if _, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm); err == nil {
+			t.Fatalf("expected error for empty spec.networks without CIDRs")
+		}
+	})
+
+	t.Run("update: explicit Main without CIDRs is rejected", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
+			t.Fatalf("expected update error for explicit Main without CIDRs")
+		}
+	})
+
+	t.Run("update: implicit Main without CIDRs is rejected", func(t *testing.T) {
+		oldVM := &v1alpha2.VirtualMachine{}
+		newVM := &v1alpha2.VirtualMachine{}
+		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
+			t.Fatalf("expected update error for empty spec.networks without CIDRs")
+		}
+	})
+
+	networkValidator := newNetworksValidator(
+		t,
+		networkValidatorOpts{
+			moduleSettings: map[string]any{
+				"dvcr":                map[string]any{},
+				"virtualMachineCIDRs": []any{"10.0.0.0/24"},
+			},
+			sdnEnabled: true,
+		},
+	)
+
+	t.Run("create: explicit Main with CIDRs is allowed", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
+		if _, err := networkValidator.ValidateCreate(t.Context(), vm); err != nil {
+			t.Fatalf("expected success with CIDRs, got: %v", err)
+		}
+	})
+
+	t.Run("create: empty spec.networks with CIDRs is allowed", func(t *testing.T) {
+		vm := &v1alpha2.VirtualMachine{}
+		if _, err := networkValidator.ValidateCreate(t.Context(), vm); err != nil {
+			t.Fatalf("expected success with CIDRs for empty spec.networks, got: %v", err)
+		}
+	})
+}
+
+func TestNetworksValidatesExistence(t *testing.T) {
 	existingCN := newUnstructured(commonnetwork.ClusterNetworkGVK, "exists-cn", "")
 	existingNet := newUnstructured(commonnetwork.NetworkGVK, "exists-net", "default")
 
-	cli := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(existingCN, existingNet).
-		Build()
-
-	featureGate, _, setFromMap, err := featuregates.New()
-	if err != nil {
-		t.Fatalf("featuregates.New: %v", err)
-	}
-	if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
-		t.Fatalf("setFromMap: %v", err)
-	}
-	v := NewNetworksValidator(cli, featureGate)
+	v := newNetworksValidator(
+		t,
+		networkValidatorOpts{
+			moduleSettings: map[string]any{
+				"dvcr":                map[string]any{},
+				"virtualMachineCIDRs": []any{"10.0.0.0/24"},
+			},
+			objects:    []client.Object{existingCN, existingNet},
+			sdnEnabled: true,
+		},
+	)
 
 	t.Run("create: missing networks are allowed (no existence check)", func(t *testing.T) {
 		vm := &v1alpha2.VirtualMachine{}

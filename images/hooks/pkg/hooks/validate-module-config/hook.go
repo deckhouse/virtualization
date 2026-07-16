@@ -121,6 +121,9 @@ func validateModuleConfigSettings(mc *mcapi.ModuleConfig, nodes []corev1.Node, p
 	if err != nil {
 		return err
 	}
+	if len(CIDRs) == 0 {
+		return nil
+	}
 
 	err = moduleconfig.CheckCIDRsOverlap(CIDRs)
 	if err != nil {
@@ -159,10 +162,6 @@ func validateRequiredModuleConfigSettings(mc *mcapi.ModuleConfig) error {
 
 	if mc.Spec.Settings == nil {
 		return fmt.Errorf("spec.settings is empty")
-	}
-
-	if _, ok := mc.Spec.Settings["virtualMachineCIDRs"]; !ok {
-		return fmt.Errorf("spec.settings.virtualMachineCIDRs is required")
 	}
 
 	if _, ok := mc.Spec.Settings["dvcr"]; !ok {
