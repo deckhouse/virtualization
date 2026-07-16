@@ -1,6 +1,6 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+fromImage: base/distroless
 git:
   {{- include "image mount points" . }}
 import:
@@ -65,28 +65,20 @@ imageSpec:
 ---
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
-binaries:
-- /usr/bin/getfacl
-- /usr/bin/setfacl
-- /usr/sbin/nft
-- /usr/bin/xorriso
-- /usr/bin/xorrecord
-- /usr/bin/osirrox
-- /usr/bin/xorriso-dd-target
-- /usr/bin/xorrisofs
 packages:
-- libisoburn nftables acl libmnl libjansson4 libnftnl
-- glibc libattr pcre2 selinux
+- xorriso acl attr libnftnl libmnl nftables jansson
+- gnu-glibc pcre2 libselinux
 - libaio libaudit libcap-ng numactl
-- linux-pam libunistring libgmp gnutls nettle libidn2 p11-kit libtasn1
-- libffi zlib zstd liburing glib2 libfuse3 libburn readline libisofs ncurses
+- linux-pam libunistring gmp gnutls nettle libidn2 p11-kit libtasn1
+- libffi zlib zstd liburing glib2 libfuse libburn readline libisofs ncurses
+- libxml2 libvirt json-c libssh libssh2 libtirpc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: builder/distroless
 import:
 - image: tools/util-linux
   add: /
@@ -95,7 +87,6 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
@@ -103,17 +94,11 @@ import:
 shell:
   install:
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
+    echo "Install packages into /relocate"
+    pm install {{ $builderDependencies.packages | join " " }} -d /relocate
 
   setup:
   - |
-    /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
-
     mkdir -p /relocate/etc /relocate/root
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
