@@ -65,6 +65,50 @@ build_main:
     - .dev_build
     - .main
 
+# build_dev_manual: build ANY existing tag into the DEV registry from a web
+# (Run pipeline) dispatch — including tags too old to rebuild any other way.
+#
+# Why it can't be a tag pipeline: a GitLab tag pipeline loads its .gitlab-ci.yml
+# from the tagged commit, so an old tag whose commit predates this CI layout
+# yields an empty (or wrong) pipeline; "run pipeline on the tag" cannot fix that.
+# GitHub avoids this because workflow_dispatch always runs the workflow file from
+# the branch and the job checks out the requested tag itself. This job mirrors
+# that flow: run it for a BRANCH (Run pipeline for = main) with BUILD_TAG set;
+# the job checks out tags/$BUILD_TAG and builds it, so the CI on main is what
+# runs while any tag is a valid build input.
+#
+# Decoupled from set_vars (needs: []): MODULE_EDITION is hardcoded EE like the
+# GitHub dev flow, so there is no needs: edge to satisfy and set_vars' rules
+# (which don't cover this web+BUILD_TAG case) are irrelevant. DEBUG_COMPONENT
+# defaults to "" (werf.yaml) and MODULE_EDITION to "EE" (.werf/consts.yaml), so
+# no other set_vars output is needed. RELEASE_IN_DEV is not read by the build.
+#
+# GIT_STRATEGY=clone + GIT_DEPTH=0 give a full clone so even an ancient tag is
+# fetchable; `git fetch --tags` then guarantees the ref is present. The checkout
+# runs at the START of script:, AFTER the upstream Setup before_script (werf
+# setup + registry login — neither depends on git HEAD) and BEFORE `werf build`,
+# so werf builds the tag's committed tree under giterminism.
+build_dev_manual:
+  stage: build
+  needs: []
+  variables:
+    WERF_VIRTUAL_MERGE: "0"
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+    MODULES_MODULE_TAG: "${BUILD_TAG}"
+    MODULE_EDITION: "EE"
+  extends:
+    - .dev_vars
+    - .base_build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $BUILD_TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/'
+      when: always
+    - when: never
+  script:
+    - git fetch --tags --force
+    - git checkout "tags/${BUILD_TAG}"
+    - !reference [.base_build, script]
+
 # build_release mirrors GitHub dev_module_build.yml `push: [release-*]`: a
 # squash-merge into a release-X.Y branch rebuilds the dev image tagged with the
 # branch name. Without this job GitLab created a pipeline on the merge push but
