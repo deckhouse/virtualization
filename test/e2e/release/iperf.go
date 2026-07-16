@@ -17,6 +17,7 @@ limitations under the License.
 package release
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -24,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -117,6 +119,31 @@ func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 }
 
+func waitForIPerfServerMigration(f *framework.Framework, namespace, name string) *v1alpha2.VirtualMachine {
+	GinkgoHelper()
+
+	var iperfServer *v1alpha2.VirtualMachine
+	Eventually(func() error {
+		vm, err := f.Clients.VirtClient().VirtualMachines(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if vm.Status.MigrationState == nil {
+			return fmt.Errorf("virtual machine %s/%s has not been migrated yet", namespace, name)
+		}
+		if vm.Status.MigrationState.Result != v1alpha2.MigrationResultSucceeded {
+			return fmt.Errorf("virtual machine %s/%s migration is not succeeded yet: %q", namespace, name, vm.Status.MigrationState.Result)
+		}
+		if vm.Status.MigrationState.StartTimestamp.IsZero() || vm.Status.MigrationState.EndTimestamp.IsZero() {
+			return fmt.Errorf("virtual machine %s/%s migration timestamps are not set yet", namespace, name)
+		}
+		iperfServer = vm
+		return nil
+	}).WithTimeout(framework.MaxTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+
+	return iperfServer
+}
+
 func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string, iperfServer *v1alpha2.VirtualMachine) *iperfReport {
 	GinkgoHelper()
 
@@ -139,6 +166,8 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 
 	Expect(result).NotTo(BeNil())
+
+	Expect(iperfServer.Status.MigrationState).NotTo(BeNil(), "iperf server VM was not migrated during the upgrade")
 
 	iPerfClientStartTime, err := time.Parse(time.RFC1123, result.Start.Timestamp.Time)
 	Expect(err).NotTo(HaveOccurred())
