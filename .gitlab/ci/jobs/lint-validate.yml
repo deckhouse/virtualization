@@ -157,6 +157,16 @@ lint:go:
       set -e
       export PATH="$(go env GOPATH)/bin:${PATH}"
 
+      # Isolate golangci-lint per concurrent job on shared runners.
+      # golangci-lint takes a global lock at $TMPDIR/golangci-lint.lock and, by
+      # default, shares its cache dir, so two lint jobs on the same runner
+      # collide ("parallel golangci-lint is running"). CI_CONCURRENT_ID is unique
+      # per executor slot (stable across sequential jobs, so the cache is still
+      # reused), which scopes both the lock and the cache to this job.
+      export TMPDIR="${TMPDIR:-/tmp}/golangci-lint-${CI_CONCURRENT_ID}"
+      export GOLANGCI_LINT_CACHE="${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}"
+      mkdir -p "$TMPDIR" "$GOLANGCI_LINT_CACHE"
+
       # Directories containing a .golangci.yaml, excluding the same upstream /
       # vendored modules as .github/workflows/dev_module_build.yml (lint_go):
       #   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
