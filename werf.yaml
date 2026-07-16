@@ -132,6 +132,10 @@ import:
   add: /go-hooks
   to: /prep-bundle/hooks/go
   after: setup
+- image: tools/yq
+  add: /usr/bin/yq
+  to: /usr/bin/yq
+  before: install
 git:
   - add: /
     to: /prep-bundle
@@ -149,6 +153,7 @@ git:
       - Chart.yaml
       - module.yaml
       - .helmignore
+      - CHANGELOG
     excludePaths:
       - build/components/README.md
       - docs/images/*.drawio
@@ -162,6 +167,33 @@ git:
 shell:
   install:
     - ls -la /prep-bundle
+    # Build changelog.yaml for the release image: the console renders a module's
+    # per-release changelog from it. Reshape our per-section {summary, pull_request}
+    # entries into features/fixes/chore -> readable category -> markdown strings (PR
+    # linked), the shape the console renderer shows cleanly. Then drop CHANGELOG so
+    # only the single file lands in the bundle.
+    - |
+      src="/prep-bundle/CHANGELOG/CHANGELOG-{{ env "MODULES_MODULE_TAG" "dev" }}.yml"
+      if [ -f "$src" ]; then
+        yq -o=yaml '
+          {
+            "core":"Core","vm":"Virtual machines","vmop":"VM operations","vmbda":"Block device attachments",
+            "vmclass":"VM classes","vmip":"VM IP addresses","vmipl":"VM IP address leases",
+            "vd":"Virtual disks","vi":"Virtual images","cvi":"Cluster virtual images",
+            "vdsnapshot":"Disk snapshots","vmsnapshot":"VM snapshots","vmrestore":"VM restores","vmpool":"VM pools",
+            "disks":"Disks","images":"Images","module":"Module","observability":"Observability",
+            "network":"Network","cli":"CLI","api":"API"
+          } as $names |
+          {
+            "features": ( [ to_entries[] | { "key": ($names[.key] // .key), "value": [ (.value.features // [])[] | (.summary | sub("\n+$"; "")) + " ([#" + (.pull_request | sub(".*/pull/"; "") | sub("/.*"; "")) + "](" + .pull_request + "))" ] } | select(.value | length > 0) ] | from_entries ),
+            "fixes":    ( [ to_entries[] | { "key": ($names[.key] // .key), "value": [ (.value.fixes    // [])[] | (.summary | sub("\n+$"; "")) + " ([#" + (.pull_request | sub(".*/pull/"; "") | sub("/.*"; "")) + "](" + .pull_request + "))" ] } | select(.value | length > 0) ] | from_entries ),
+            "chore":    ( [ to_entries[] | { "key": ($names[.key] // .key), "value": [ (.value.chore    // [])[] | (.summary | sub("\n+$"; "")) + " ([#" + (.pull_request | sub(".*/pull/"; "") | sub("/.*"; "")) + "](" + .pull_request + "))" ] } | select(.value | length > 0) ] | from_entries )
+          } | with_entries(select(.value | length > 0))
+        ' "$src" > /prep-bundle/changelog.yaml
+      else
+        touch /prep-bundle/changelog.yaml
+      fi
+    - rm -rf /prep-bundle/CHANGELOG
 ---
 image: release-channel-version
 fromImage: builder/scratch
@@ -172,6 +204,7 @@ import:
   after: install
   includePaths:
     - module.yaml
+    - changelog.yaml
 shell:
   install:
     - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json
