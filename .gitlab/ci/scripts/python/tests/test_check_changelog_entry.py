@@ -33,8 +33,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import check_changelog_entry as cc  # noqa: E402
 
 
-# A representative allowed-sections set used across the validation tests.
-ALLOWED = {"vm", "core", "ci", "ci:low"}
+# A representative allowed-sections map used across the validation tests.
+# Value = whether the section forces low impact (':low' in the list).
+ALLOWED = {"vm": False, "core": False, "ci": True}
 
 
 class FindBlocksTest(unittest.TestCase):
@@ -74,7 +75,7 @@ class ParseBlockTest(unittest.TestCase):
 
 
 class LoadAllowedSectionsTest(unittest.TestCase):
-    def test_strips_comments_and_blank_lines(self):
+    def test_strips_comments_and_marks_low_default(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "sections.txt"
             p.write_text(
@@ -82,7 +83,8 @@ class LoadAllowedSectionsTest(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(
-                cc.load_allowed_sections(p), {"vm", "core", "ci:low"}
+                cc.load_allowed_sections(p),
+                {"vm": False, "core": False, "ci": True},
             )
 
 
@@ -126,18 +128,23 @@ class ValidateBlockTest(unittest.TestCase):
         errors = cc.validate_block(1, block, ALLOWED)
         self.assertTrue(any("missing required key 'impact_level'" in e for e in errors))
 
-    def test_low_section_may_omit_impact_level(self):
+    def test_forced_low_section_may_omit_impact_level(self):
+        block = "section: ci\ntype: fix\nsummary: s"
+        self.assertEqual(cc.validate_block(1, block, ALLOWED), [])
+
+    def test_forced_low_section_with_explicit_low_is_ok(self):
+        block = "section: ci\ntype: fix\nsummary: s\nimpact_level: low"
+        self.assertEqual(cc.validate_block(1, block, ALLOWED), [])
+
+    def test_forced_low_section_rejects_conflicting_impact(self):
+        # ':low' forces low impact, so an explicit non-low level is an error.
+        block = "section: ci\ntype: fix\nsummary: s\nimpact_level: high"
+        errors = cc.validate_block(1, block, ALLOWED)
+        self.assertTrue(any("forces impact_level=low" in e for e in errors))
+
+    def test_legacy_low_suffix_in_block_still_accepted(self):
         block = "section: ci:low\ntype: fix\nsummary: s"
         self.assertEqual(cc.validate_block(1, block, ALLOWED), [])
-
-    def test_low_section_with_explicit_low_is_ok(self):
-        block = "section: ci:low\ntype: fix\nsummary: s\nimpact_level: low"
-        self.assertEqual(cc.validate_block(1, block, ALLOWED), [])
-
-    def test_low_section_with_conflicting_impact_level(self):
-        block = "section: ci:low\ntype: fix\nsummary: s\nimpact_level: high"
-        errors = cc.validate_block(1, block, ALLOWED)
-        self.assertTrue(any("pinned to low" in e for e in errors))
 
 
 if __name__ == "__main__":

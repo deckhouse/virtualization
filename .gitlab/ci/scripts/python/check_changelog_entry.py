@@ -23,9 +23,12 @@ Behaviour:
   - Fetch MR description via GitLab API (CI_API_V4_URL).
   - Locate fenced code blocks with language ``changes``.
   - For each block validate required keys: section, type, summary.
-  - ``section`` must be in the allowed list (.gitlab/ci/changelog-sections.txt).
-  - If a section is suffixed ``:low`` (e.g. ``ci:low``), impact_level is optional
-    and pinned to ``low``; otherwise impact_level is required.
+  - ``section`` must be in the allowed list (.gitlab/ci/changelog-sections.txt);
+    write the bare name (``ci``). The list uses the upstream
+    ``section:forced_impact_level`` format, so a ``:low`` entry (``ci:low``)
+    forces low impact for that section. A legacy ``:low`` suffix in the block
+    is still accepted.
+  - ``impact_level`` is required unless the section forces a low impact level.
   - If no ```changes blocks at all -> OK (PR may not require changelog).
   - Otherwise collect errors and exit non-zero.
 
@@ -91,14 +94,21 @@ def fetch_mr_description(
     return (payload.get("description") or "").strip()
 
 
-def load_allowed_sections(path: Path) -> set[str]:
-    text = path.read_text(encoding="utf-8")
-    sections: set[str] = set()
-    for raw in text.splitlines():
+def load_allowed_sections(path: Path) -> dict[str, bool]:
+    """Map each allowed section name to whether it forces a low impact level.
+
+    The list uses the upstream ``section:forced_impact_level`` format, so a
+    ``:low`` entry (e.g. ``ci:low``) forces low impact for that section and
+    ``impact_level`` may be omitted. Changelog blocks use the bare section
+    name (``section: ci``).
+    """
+    sections: dict[str, bool] = {}
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        sections.add(line)
+        name, _, suffix = line.partition(":")
+        sections[name] = suffix == "low"
     return sections
 
 
@@ -116,13 +126,15 @@ def parse_block(block_text: str) -> dict[str, str]:
 def validate_block(
     block_index: int,
     block_text: str,
-    allowed_sections: set[str],
+    allowed_sections: dict[str, bool],
 ) -> list[str]:
     errors: list[str] = []
     fields = parse_block(block_text)
 
-    section = fields.get("section", "")
-    if not section:
+    section_raw = fields.get("section", "")
+    # A legacy ':low' suffix in the block is accepted; the bare name is authoritative.
+    section = section_raw.split(":", 1)[0]
+    if not section_raw:
         errors.append(f"block #{block_index}: missing required key 'section'")
     elif section not in allowed_sections:
         errors.append(
@@ -145,18 +157,19 @@ def validate_block(
     if not summary:
         errors.append(f"block #{block_index}: missing required key 'summary'")
 
-    # impact_level: optional iff section suffix is :low.
-    section_suffix_low = ":" in section and section.split(":", 1)[1] == "low"
+    # A section that forces low impact makes impact_level optional (and pinned
+    # to low); every other section requires an explicit impact_level.
+    forces_low = allowed_sections.get(section, False)
     impact_level = fields.get("impact_level", "")
-    if not section_suffix_low and not impact_level:
+    if not forces_low and not impact_level:
         errors.append(
             f"block #{block_index}: missing required key 'impact_level' "
-            "(only allowed to omit when section ends with ':low')"
+            f"(section '{section}' does not force a low impact level)"
         )
-    elif section_suffix_low and impact_level and impact_level != "low":
+    elif forces_low and impact_level and impact_level != "low":
         errors.append(
-            f"block #{block_index}: section '{section}' is pinned to low "
-            f"impact but impact_level='{impact_level}' was provided"
+            f"block #{block_index}: section '{section}' forces impact_level=low "
+            f"but impact_level='{impact_level}' was provided"
         )
 
     return errors

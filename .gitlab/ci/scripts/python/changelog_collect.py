@@ -180,7 +180,7 @@ def has_label(mr: dict, label: str) -> bool:
 
 def collect_entries_for_milestone(
     api_base: str, project_id: str, milestone_title: str, token: str,
-    allowed_sections: set[str],
+    allowed_sections: dict[str, bool],
 ) -> list[dict]:
     log(f"Fetching merged MRs for milestone '{milestone_title}'...")
     mrs = api_get_paginated(
@@ -209,21 +209,24 @@ def collect_entries_for_milestone(
             parsed = parse_changes_block(raw_block)
             if parsed is None:
                 continue
-            section = parsed["section"]
+            # A legacy ':low' suffix in the block is accepted; the bare name is authoritative.
+            section = parsed["section"].split(":", 1)[0]
             if section not in allowed_sections:
                 log(f"WARN: MR !{mr['iid']} uses unknown section '{section}', skipping.")
                 continue
-            # impact_level: if section has :low suffix, pin to low unless explicit.
-            impact_level = parsed.get("impact_level", "")
-            if ":" in section:
-                impact_level = section.split(":", 1)[1]
+            # Sections flagged in allowed_sections (':low') force impact_level
+            # to low; others use the block value, defaulting to high.
+            if allowed_sections[section]:
+                impact_level = "low"
+            else:
+                impact_level = parsed.get("impact_level", "") or "high"
             entries.append(
                 {
                     "section": section,
                     "type": parsed["type"],
                     "summary": parsed["summary"],
                     "impact": parsed.get("impact", ""),
-                    "impact_level": impact_level or "high",
+                    "impact_level": impact_level,
                     "mr_iid": mr["iid"],
                     "mr_title": mr.get("title", ""),
                     "mr_url": mr.get("web_url", ""),
@@ -273,11 +276,11 @@ def render_yaml(entries: list[dict], milestone_title: str) -> str:
               pull_request: <mr_url>
 
     Sections are sorted alphabetically and emitted compactly (no blank lines
-    between sections). The ':low' impact_level suffix is stripped from the
-    section key: it only pins impact_level during validation and is not
-    represented in the YAML. Within each section, entries are ordered by MR iid
-    descending, matching the historical generator output. An empty milestone
-    yields '{}' (same as the historical generator).
+    between sections). Entries already store the bare section name; any ':low'
+    suffix is stripped here as a defensive fallback and is never represented in
+    the YAML. Within each section, entries are ordered by MR iid descending,
+    matching the historical generator output. An empty milestone yields '{}'
+    (same as the historical generator).
     """
     grouped: dict[str, dict[str, list[dict]]] = {}
     for entry in entries:
@@ -523,11 +526,15 @@ def main() -> int:
     if not sections_path.is_file():
         log(f"ERROR: sections file not found: {sections_path}")
         return 1
-    allowed_sections = {
-        line.strip()
-        for line in sections_path.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.startswith("#")
-    }
+    # Map each section name to whether it forces low impact (':low' suffix, the
+    # upstream 'section:forced_impact_level' format). Blocks use the bare name.
+    allowed_sections: dict[str, bool] = {}
+    for raw in sections_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        name, _, suffix = line.partition(":")
+        allowed_sections[name] = suffix == "low"
 
     base_branch = os.environ.get("CHANGELOG_BASE_BRANCH", "main")
     open_mr = os.environ.get("OPEN_CHANGELOG_MR", "false").lower() == "true"
