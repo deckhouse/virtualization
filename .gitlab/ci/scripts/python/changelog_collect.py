@@ -545,7 +545,16 @@ def push_changelog_mr(
         },
     )
     if existing:
-        log(f"MR !{existing[0]['iid']} already open for '{branch}'; branch updated.")
+        # Refresh the description too: entries merged into the milestone after
+        # the MR was created would otherwise never appear in the MR body.
+        api_request(
+            api_base,
+            f"/projects/{project_id}/merge_requests/{existing[0]['iid']}",
+            token,
+            method="PUT",
+            data={"description": description},
+        )
+        log(f"MR !{existing[0]['iid']} already open for '{branch}'; branch and description updated.")
         return
 
     created = api_request(
