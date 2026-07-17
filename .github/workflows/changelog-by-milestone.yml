@@ -14,14 +14,7 @@
 
 name: Changelog by milestone
 on:
-  issues:
-    types:
-      - "milestoned"
-      # We don't track "demilestoned" event type. If we did, changing a milestone would always
-      # trigger duplicating workflows one of which would fail due to concurrent updates of the same
-      # changelog branch. We hope, that milestones change to other milestones, and are not removed
-      # at all. To update changelog, one should call `/changelog` command in a changelog PR.
-      # - "demilestoned"
+  workflow_dispatch:
 jobs:
   condition_check:
     name: Check conditions

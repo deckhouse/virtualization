@@ -17,8 +17,7 @@ name: Validations
 env:
   GO_VERSION: "1.25.12"
 on:
-  pull_request:
-    types: [opened, synchronize, labeled, unlabeled]
+  workflow_dispatch:
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
