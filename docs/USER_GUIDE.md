@@ -2260,6 +2260,8 @@ For VMs with `enableParavirtualization: false`, the following applies:
 
 Hot-plugging (hotplug) is only possible if the storage is available on the cluster node where the virtual machine runs. When you create or update a VM, or create a `vmbda`, placement rules (`nodeSelector`, `affinity`, `tolerations`) for the volume, the VM, and the VM class are taken into account: there must be at least one valid combined placement. If the VM is already running on a specific node, a new disk must be available on that node.
 
+Hot-plugging a disk is not possible while the virtual machine is undergoing live migration. In this case, the VirtualMachineBlockDeviceAttachment resource remains in the `Pending` phase, and the `Attached` condition reports the `BlockedByMigration` reason. Attachment resumes after the migration completes.
+
 #### Attaching via the VM specification
 
 The list of block devices is defined in the `.spec.blockDeviceRefs` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
@@ -2743,6 +2745,8 @@ Until the VM switches to the new node (Phase 5), the VM on the source node conti
 For successful live migration, certain requirements must be met. Failure to meet these requirements can lead to limitations and issues during migration.
 
 - Disk availability: All disks attached to the VM must be accessible on the target node, otherwise migration will be impossible. For network storage (NFS, Ceph, etc.), this requirement is usually met automatically, as disks are accessible on all cluster nodes. For local storage, the situation is different: the storage system must be available on the target node to create a new local volume. If local storage exists only on the source node, migration cannot be performed.
+
+- Disk hot-plugging: During live migration, attaching disks to a VM via the VirtualMachineBlockDeviceAttachment resource is unavailable. The resource remains in the `Pending` phase with the `BlockedByMigration` reason in the `Attached` condition until the migration completes.
 
 - Network bandwidth: Network speed is critical for live migration. With low bandwidth, the number of memory synchronization iterations increases, VM downtime during the final stage of migration increases, and in the worst case, migration may not complete due to a timeout. To manage the migration process, configure the live migration policy [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the virtual machine settings. For network problems, use the AutoConverge mechanism (see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section).
 
