@@ -218,11 +218,12 @@ def collect_entries_for_milestone(
                 log(f"WARN: MR !{mr['iid']} uses unknown section '{section}', skipping.")
                 continue
             # Sections flagged in allowed_sections (':low') force impact_level
-            # to low; others use the block value, defaulting to high.
+            # to low; others use the block value, defaulting to "default"
+            # (matching deckhouse/changelog-action@v2.6.0).
             if allowed_sections[section]:
                 impact_level = "low"
             else:
-                impact_level = parsed.get("impact_level", "") or "high"
+                impact_level = parsed.get("impact_level", "") or "default"
             entries.append(
                 {
                     "section": section,
@@ -324,6 +325,58 @@ def render_yaml(entries: list[dict], milestone_title: str) -> str:
                     else:
                         lines.append(f"      impact: {yaml_summary_scalar(impact)}")
     return "\n".join(lines) + "\n\n"
+
+
+def render_release_markdown(entries: list[dict], milestone_title: str) -> str:
+    """Render the changelog MR description.
+
+    Mirrors deckhouse/changelog-action@v2.6.0 formatMarkdown (the PR body of
+    GitHub changelog PRs): a "Know before update" digest of high-impact
+    notes, then Features/Fixes/Chore lists sorted by section. Low-impact
+    entries and 'docs' entries are omitted here (they stay in the files),
+    matching the upstream "avoids low impact noise in markdown" behavior.
+    """
+    def change_line(entry: dict) -> str:
+        line = (
+            f"**[{entry['section']}]** {entry['summary']} "
+            f"[!{entry['mr_iid']}]({entry['mr_url']})"
+        )
+        if entry.get("impact"):
+            line += "\n" + entry["impact"]
+        return line
+
+    groups: list[tuple[str, list[str]]] = [
+        (
+            "Know before update",
+            sorted(
+                e["impact"]
+                for e in entries
+                if e["impact_level"] == "high" and e.get("impact")
+            ),
+        )
+    ]
+    for heading, change_type in (
+        ("Features", "feature"),
+        ("Fixes", "fix"),
+        ("Chore", "chore"),
+    ):
+        matching = sorted(
+            (
+                e
+                for e in entries
+                if e["type"] == change_type and e["impact_level"] != "low"
+            ),
+            key=lambda e: e["section"],
+        )
+        groups.append((heading, [change_line(e) for e in matching]))
+
+    lines = [f"# Changelog {milestone_title}"]
+    for heading, items in groups:
+        if not items:
+            continue
+        lines.append(f"\n## {heading}\n")
+        lines.extend(f" - {item}" for item in items)
+    return "\n".join(lines) + "\n"
 
 
 def render_milestone_md_block(entries: list[dict], milestone_title: str) -> str:
@@ -596,13 +649,16 @@ def main() -> int:
         # open milestone (e.g. one just created) is pure noise. When real
         # entries land, the next run creates the MR.
         if open_mr and entries:
+            # The MR body is the rendered changelog plus a footer link, the
+            # same as the GitHub changelog PR body (release_markdown + link).
+            minor = minor_version_from_tag(title)
+            project_url = f"https://{server_host}/{project_path}"
             description = (
-                f"## Changelog {title}\n\n"
-                f"Auto-generated changelog covering milestone `{title}` "
-                f"({len(entries)} change entries).\n\n"
-                f"See:\n"
-                f"- `{yml_path.relative_to(project_dir)}`\n"
-                f"- `{md_path.relative_to(project_dir)}`\n"
+                render_release_markdown(entries, title)
+                + f"\nFor more information, see the "
+                f"[changelog]({project_url}/-/blob/{base_branch}/"
+                f"CHANGELOG/CHANGELOG-{minor}.md) and minor version "
+                f"[release changes]({project_url}/-/releases/{minor}.0).\n"
             )
             try:
                 push_changelog_mr(

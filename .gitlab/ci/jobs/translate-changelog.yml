@@ -68,8 +68,11 @@ translate:changelog:
     # Match the GH workflow trigger: push to main (default branch) or
     # release-X.Y branches. Replaces the upstream default rule
     # (`$CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH`) which excludes main.
-    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
-    - if: '$CI_COMMIT_BRANCH =~ /^release-[0-9]+\.[0-9]+$/'
+    # Push source only: scheduled/web pipelines on main (e.g. the changelog
+    # collection schedule) must not start this job — GitHub's `on: push`
+    # never fired for schedule/workflow_dispatch.
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-[0-9]+\.[0-9]+$/ && $CI_PIPELINE_SOURCE == "push"'
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh git curl jq python3
     - python3 -m venv /tmp/venv
