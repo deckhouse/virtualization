@@ -108,15 +108,22 @@ class ValidateBlockTest(unittest.TestCase):
         errors = cc.validate_block(1, block, ALLOWED)
         self.assertTrue(any("missing required key 'type'" in e for e in errors))
 
-    def test_type_not_allowed(self):
-        # 'chore' is intentionally rejected: deckhouse changelog renders only
-        # feature/fix (ALLOWED_TYPES). Guards the 5.4 fix from regressing.
-        block = "section: vm\ntype: chore\nsummary: s\nimpact_level: high"
-        errors = cc.validate_block(1, block, ALLOWED)
-        self.assertTrue(any("type 'chore' is not supported" in e for e in errors))
+    def test_chore_and_docs_types_are_accepted(self):
+        # chore/docs are accepted (matching deckhouse/changelog-action@v2.6.0);
+        # they are dropped from the public CHANGELOG-*.yml downstream, but must
+        # not fail MR validation.
+        for change_type in ("chore", "docs"):
+            block = f"section: vm\ntype: {change_type}\nsummary: s\nimpact_level: high"
+            errors = cc.validate_block(1, block, ALLOWED)
+            self.assertEqual(errors, [], f"type '{change_type}' should be accepted")
 
-    def test_allowed_types_is_feature_fix_only(self):
-        self.assertEqual(cc.ALLOWED_TYPES, {"feature", "fix"})
+    def test_type_not_allowed(self):
+        block = "section: vm\ntype: bogus\nsummary: s\nimpact_level: high"
+        errors = cc.validate_block(1, block, ALLOWED)
+        self.assertTrue(any("type 'bogus' is not supported" in e for e in errors))
+
+    def test_allowed_types(self):
+        self.assertEqual(cc.ALLOWED_TYPES, {"feature", "fix", "chore", "docs"})
 
     def test_missing_summary(self):
         block = "section: vm\ntype: fix\nimpact_level: high"

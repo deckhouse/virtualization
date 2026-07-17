@@ -55,9 +55,13 @@ CHANGES_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
-# deckhouse/changelog-action@v2.6.0 only renders 'feature' (-> features) and
-# 'fix' (-> fixes) in CHANGELOG-*.yml. Keep in sync with changelog_collect.py.
-ALLOWED_TYPES = {"feature", "fix"}
+# Types accepted in a ```changes block, matching deckhouse/changelog-action@v2.6.0
+# (the GitHub pipeline this was migrated from): feature, fix, chore, docs.
+# 'chore' and 'docs' are accepted but NOT rendered into the public CHANGELOG-*.yml
+# release notes: changelog_collect.render_yaml maps only feature/fix (upstream
+# no-ops chore/docs for YAML), so they land only in the internal per-minor
+# CHANGELOG-<minor>.md.
+ALLOWED_TYPES = {"feature", "fix", "chore", "docs"}
 
 
 def log(message: str) -> None:

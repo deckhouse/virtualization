@@ -66,9 +66,12 @@ KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
 # importantly `impact:`, the high-impact migration note) are preserved instead
 # of being dropped. Mirrors the deckhouse/changelog-action block schema.
 KNOWN_BLOCK_KEYS = {"section", "type", "summary", "impact", "impact_level"}
-# deckhouse/changelog-action@v2.6.0 only renders 'feature' (-> features) and 'fix'
-# (-> fixes) sections in CHANGELOG-*.yml. Keep in sync with
-# check_changelog_entry.py.
+# Types RENDERED into the public CHANGELOG-*.yml release notes: only 'feature'
+# (-> features) and 'fix' (-> fixes), per deckhouse/changelog-action@v2.6.0
+# (which no-ops chore/docs for YAML). The validator
+# (check_changelog_entry.ALLOWED_TYPES) additionally *accepts* 'chore' and
+# 'docs'; those entries are dropped here and appear only in the internal
+# per-minor CHANGELOG-<minor>.md.
 ALLOWED_TYPES = {"feature", "fix"}
 TYPE_TO_SECTION = {
     "feature": "features",
