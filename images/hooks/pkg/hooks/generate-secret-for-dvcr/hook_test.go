@@ -131,7 +131,7 @@ var _ = Describe("DVCR Secrets", func() {
 	BeforeEach(func() {
 		dc = mock.NewDependencyContainerMock(GinkgoT())
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
-		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 		values.GetMock.When(settings.InternalValuesConfigCopyPath).Then(gjson.Result{})
 
 		priv, pub, err := generateECKeypair()

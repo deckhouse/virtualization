@@ -43,10 +43,10 @@ const DefaultLogLevel = log.LevelInfo
 var DefaultLogOutput = os.Stdout
 
 func NewLogger(level, output string, debugVerbosity int) *log.Logger {
-	return log.NewLogger(log.Options{
-		Level:  detectLogLevel(level, debugVerbosity),
-		Output: detectLogOutput(output),
-	})
+	return log.NewLogger(
+		log.WithLevel(detectLogLevel(level, debugVerbosity)),
+		log.WithOutput(detectLogOutput(output)),
+	)
 }
 
 func NewControllerLogger(controllerName, level, output string, debugVerbosity int, controllerDebugList []string) *log.Logger {
@@ -60,10 +60,10 @@ func NewControllerLogger(controllerName, level, output string, debugVerbosity in
 		}
 	}
 
-	return log.NewLogger(log.Options{
-		Level:  slogLevel,
-		Output: detectLogOutput(output),
-	}).With(SlogController(controllerName))
+	return log.NewLogger(
+		log.WithLevel(slogLevel),
+		log.WithOutput(detectLogOutput(output)),
+	).With(SlogController(controllerName))
 }
 
 func detectLogLevel(level string, debugVerbosity int) slog.Level {

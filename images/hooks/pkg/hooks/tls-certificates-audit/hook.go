@@ -39,7 +39,7 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 }
 
-var genSelfSignedTLS = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.ReconcileFunc {
+var genSelfSignedTLS = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.HookFunc[*pkg.HookInput] {
 	return func(ctx context.Context, input *pkg.HookInput) error {
 		canRun, err := settings.CanRunWithModuleConfig(ctx, input)
 		if err != nil {

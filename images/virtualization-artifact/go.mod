@@ -8,7 +8,7 @@ tool (
 )
 
 require (
-	github.com/deckhouse/deckhouse/pkg/log v0.0.0-20250226105106-176cd3afcdd5
+	github.com/deckhouse/deckhouse/pkg/log v0.2.0
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.2.0+incompatible
@@ -24,12 +24,12 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.0
-	k8s.io/api v0.34.2
-	k8s.io/apiextensions-apiserver v0.34.2
-	k8s.io/apimachinery v0.34.2
-	k8s.io/apiserver v0.34.2
-	k8s.io/client-go v0.34.2
-	k8s.io/component-base v0.34.2
+	k8s.io/api v0.34.3
+	k8s.io/apiextensions-apiserver v0.34.3
+	k8s.io/apimachinery v0.34.3
+	k8s.io/apiserver v0.34.3
+	k8s.io/client-go v0.34.3
+	k8s.io/component-base v0.34.3
 	k8s.io/component-helpers v0.33.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
@@ -166,7 +166,7 @@ replace (
 replace (
 	golang.org/x/crypto => golang.org/x/crypto v0.52.0 // CVE mitigation 2026-06-29
 	golang.org/x/net => golang.org/x/net v0.55.0
-	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
+	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0 // CVE-2025-22868
 )
 
 // Kubevirt API replaces

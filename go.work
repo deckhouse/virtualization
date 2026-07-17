@@ -1,0 +1,43 @@
+go 1.25.12
+
+use (
+	./api
+	./images/dvcr/dvcr-k8s-auth
+	./images/hooks
+	./images/kube-api-rewriter
+	./images/pre-delete-hook
+	./images/pvc-artifact
+	./images/virt-launcher/vlctl
+	./images/virtualization-artifact
+	./images/virtualization-dra
+	./images/vm-route-forge
+	./src/cli
+	./src/kubevirt-rules
+	./test/e2e
+	./test/performance/tools/evicter
+	./test/performance/tools/shatal
+	./test/performance/tools/statistic
+	./tools/addlicense
+	./tools/moduleversions
+	./tools/validation
+)
+
+replace k8s.io/api => k8s.io/api v0.34.2
+
+replace k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.34.2
+
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.34.2
+
+replace k8s.io/apiserver => k8s.io/apiserver v0.34.2
+
+replace k8s.io/client-go => k8s.io/client-go v0.34.2
+
+replace k8s.io/component-base => k8s.io/component-base v0.34.2
+
+replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.50
+
+replace k8s.io/kubelet => k8s.io/kubelet v0.34.2
+
+replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
+
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.21.0

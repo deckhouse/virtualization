@@ -6,7 +6,7 @@ tool github.com/onsi/ginkgo/v2/ginkgo
 
 require (
 	github.com/containerd/nri v0.10.0
-	github.com/deckhouse/deckhouse/pkg/log v0.1.0
+	github.com/deckhouse/deckhouse/pkg/log v0.2.0
 	github.com/go-logr/logr v1.4.3
 	github.com/klauspost/compress v1.18.0
 	github.com/onsi/ginkgo/v2 v2.21.0

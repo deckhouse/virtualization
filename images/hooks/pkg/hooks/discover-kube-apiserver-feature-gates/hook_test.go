@@ -152,7 +152,7 @@ var _ = Describe("reconcile", func() {
 
 	BeforeEach(func() {
 		dc = mock.NewDependencyContainerMock(GinkgoT())
-		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 	})
 
 	AfterEach(func() {

@@ -1,4 +1,4 @@
-{{- $ca := printf "%s" .Values.virtualization.internal.rootCA.crt | b64dec }}
+{{- $ca := printf "%s" .Values.virtualization.internal.rootCA.crt }}
 apiVersion: v1
 data:
   ca-bundle: |

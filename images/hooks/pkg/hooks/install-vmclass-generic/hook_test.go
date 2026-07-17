@@ -208,7 +208,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 	BeforeEach(func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
-		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
+		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 		patchCollector = mock.NewPatchCollectorMock(GinkgoT())
 	})
 
