@@ -103,9 +103,22 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 			return v1alpha2.MachinePending
 		}
 
-		if vm.Status.Phase == v1alpha2.MachinePending &&
-			(vm.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy || vm.Spec.RunPolicy == v1alpha2.AlwaysOnUnlessStoppedManually) {
-			return v1alpha2.MachinePending
+		// Keep showing Pending instead of a transient Stopped only while the KVVM is actually expected
+		// to auto-start. For AlwaysOnUnlessStoppedManually, RunStrategy=Manual without a pending
+		// start/restart request means the VM is deliberately kept stopped (e.g. restored from a snapshot
+		// of a manually stopped VM); reporting Pending here would latch forever and block vmop Start,
+		// which is applicable only in the Stopped phase.
+		if vm.Status.Phase == v1alpha2.MachinePending {
+			switch vm.Spec.RunPolicy {
+			case v1alpha2.AlwaysOnPolicy:
+				return v1alpha2.MachinePending
+			case v1alpha2.AlwaysOnUnlessStoppedManually:
+				if kvvm.Spec.RunStrategy == nil || *kvvm.Spec.RunStrategy != virtv1.RunStrategyManual ||
+					kvvm.Annotations[annotations.AnnVMStartRequested] == "true" ||
+					kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" {
+					return v1alpha2.MachinePending
+				}
+			}
 		}
 
 		return v1alpha2.MachineStopped
