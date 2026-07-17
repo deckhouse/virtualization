@@ -77,8 +77,8 @@ spec:
               type: object
             spec:
               x-kubernetes-validations:
-                - rule: "!has(self.cpu.coreFraction) || (self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100)"
-                  message: "Core fraction must be between 1% and 100%."
+                - rule: "!has(self.cpu.coreFraction) || self.cpu.coreFraction == 'Auto' || (self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100)"
+                  message: "Core fraction must be 'Auto' or a percentage between 1% and 100%."
                 - rule: "has(self.osType) && self.osType == 'Legacy' ? !has(self.bootloader) || self.bootloader == 'BIOS' : true"
                   message: "The Legacy osType requires the BIOS bootloader."
                 - rule: "has(self.osType) && self.osType == 'Legacy' ? !has(self.provisioning) : true"
@@ -942,9 +942,9 @@ spec:
                       description: Number of cores.
                     coreFraction:
                       type: string
-                      pattern: ^(100|[1-9][0-9]?|[1-9])%$
+                      pattern: ^(Auto|(100|[1-9][0-9]?)%)$
                       description: |
-                        Guaranteed share of CPU time allocated to the VM. Specified as a percentage.
+                        Guaranteed share of CPU time allocated to the VM. Specified as a percentage, or `Auto` to let the Vertical VirtualMachine Autoscaler (available in EE) manage it; the value recommended by the autoscaler is then published in `.status.recommendedResources.cpu.coreFraction`, and the applied one in `.status.resources.cpu.coreFraction`.
                         The allowed range is defined by `sizePolicy` in the selected VirtualMachineClass. If `sizePolicy` is not set, use values in the `1–100%` range.
                         If the parameter is not specified, the default value from the class `sizePolicy` is used.
                         If no default is set in the class, `100%` is applied.
@@ -1338,6 +1338,22 @@ spec:
                   type: integer
                   description: Resource generation last processed by the controller.
                   format: int64
+                recommendedResources:
+                  type: object
+                  description: |
+                    Resource values recommended by the Vertical VirtualMachine Autoscaler (available in EE). Empty when autoscaling is off for the VM.
+                  properties:
+                    cpu:
+                      type: object
+                      description: |
+                        CPU values recommended by the autoscaler.
+                      properties:
+                        coreFraction:
+                          type: string
+                          pattern: ^(100|[1-9][0-9]?)%$
+                          description: |
+                            Core fraction recommended by the autoscaler when `.spec.cpu.coreFraction` is `Auto`.
+                            The virtual machine controller applies it and publishes the applied value in `.status.resources.cpu.coreFraction`. Empty when autoscaling is off.
                 virtualMachinePods:
                   description: List of virtual machine pods.
                   items:

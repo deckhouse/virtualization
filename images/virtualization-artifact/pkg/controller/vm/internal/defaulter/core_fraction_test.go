@@ -125,7 +125,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 
 	Context("when VMClass has sizing policies", func() {
 		It("should set coreFraction from matching sizing policy defaultCoreFraction", func() {
-			defaultCF := v1alpha3.CoreFractionValue("50%")
+			defaultCF := v1alpha3.DefaultCoreFractionValue("50%")
 			vmClass := newVMClass([]v1alpha3.SizingPolicy{
 				{
 					Cores: &v1alpha3.SizingPolicyCores{
@@ -143,6 +143,28 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			err := coreDefaulter.Default(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.CPU.CoreFraction).To(Equal("50%"))
+		})
+
+		It("should pass the Auto default through to the VM", func() {
+			defaultCF := v1alpha3.CoreFractionAuto
+			vmClass := newVMClass([]v1alpha3.SizingPolicy{
+				{
+					Cores: &v1alpha3.SizingPolicyCores{
+						Min: 1,
+						Max: 4,
+					},
+					CoreFractions:       []v1alpha3.CoreFractionValue{"25%", "50%", "100%"},
+					DefaultCoreFraction: &defaultCF,
+				},
+			})
+
+			setupCoreDefaulter(vmClass)
+
+			vm := newVM(vmClass.Name, 2, "")
+
+			err := coreDefaulter.Default(ctx, vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.CPU.CoreFraction).To(Equal(v1alpha2.CoreFractionAuto))
 		})
 
 		It("should set default 100% when matching policy has no defaultCoreFraction", func() {
@@ -165,7 +187,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 		})
 
 		It("should return error when no policy matches VM cores", func() {
-			defaultCF := v1alpha3.CoreFractionValue("50%")
+			defaultCF := v1alpha3.DefaultCoreFractionValue("50%")
 			vmClass := newVMClass([]v1alpha3.SizingPolicy{
 				{
 					Cores: &v1alpha3.SizingPolicyCores{

@@ -19,10 +19,12 @@ package kubeapi
 import (
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
 	resourcev1 "k8s.io/api/resource/v1"
+	vpav1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -64,13 +66,46 @@ func ResourceV1Available() bool {
 }
 
 func isResourceV1Enabled(clientset kubernetes.Interface) (bool, error) {
+	return isGroupVersionAvailable(clientset, resourcev1.SchemeGroupVersion.String())
+}
+
+// VerticalPodAutoscalerV1Available reports whether the VerticalPodAutoscaler CRD
+// (autoscaling.k8s.io/v1) is installed in the cluster.
+func VerticalPodAutoscalerV1Available() bool {
+	client := getClient()
+	if client == nil {
+		return false
+	}
+
+	enabled, err := isGroupVersionAvailable(client, vpav1.SchemeGroupVersion.String())
+	if err != nil {
+		slog.Error("failed to check if vertical pod autoscaler v1 is available", "error", err)
+	}
+	return enabled
+}
+
+// VerticalPodAutoscalerModuleEnabled reports whether the vertical-pod-autoscaler module
+// is enabled in the cluster. The module ships the recommender that computes the
+// recommendations vertical VirtualMachine autoscaling acts on: its CRD alone (installed
+// by vertical-pod-autoscaler-crd) leaves the VPA objects without anyone to fill their
+// status. The module state is passed in by the Helm chart as VPA_ENABLED, since the
+// controller has no access to the module list itself.
+func VerticalPodAutoscalerModuleEnabled() bool {
+	enabled, err := strconv.ParseBool(os.Getenv("VPA_ENABLED"))
+	if err != nil {
+		return false
+	}
+	return enabled
+}
+
+func isGroupVersionAvailable(clientset kubernetes.Interface, groupVersion string) (bool, error) {
 	_, apis, err := clientset.Discovery().ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return false, err
 	}
 
 	for _, api := range apis {
-		if api.GroupVersion == resourcev1.SchemeGroupVersion.String() {
+		if api.GroupVersion == groupVersion {
 			return true, nil
 		}
 	}

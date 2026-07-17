@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -62,7 +63,14 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 	}
 	res := vm.Status.Resources
 	cf := getPercent(res.CPU.CoreFraction)
-	cfSpec := getPercent(vm.Spec.CPU.CoreFraction)
+	// spec.cpu.coreFraction may be the literal "Auto", which getPercent cannot parse and
+	// would report as 0. Report the value the autoscaler drives
+	// (status.recommendedResources.cpu.coreFraction) as the effective configured fraction instead.
+	specCoreFraction := vm.Spec.CPU.CoreFraction
+	if specCoreFraction == v1alpha2.CoreFractionAuto {
+		specCoreFraction = sizingpolicy.RecommendedCoreFraction(vm)
+	}
+	cfSpec := getPercent(specCoreFraction)
 
 	var (
 		awaitingRestartToApplyConfiguration bool

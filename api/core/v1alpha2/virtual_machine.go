@@ -29,6 +29,10 @@ const (
 	VirtualMachineResource = "virtualmachines"
 )
 
+// CoreFractionAuto is the special spec.cpu.coreFraction value that delegates the
+// coreFraction to the Vertical VirtualMachine Autoscaler (EE).
+const CoreFractionAuto = "Auto"
+
 // VirtualMachine describes the configuration and status of a virtual machine (VM).
 // For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly):
 // - `.metadata.labels`.
@@ -192,10 +196,14 @@ type CPUSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	Cores int `json:"cores"`
 
-	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage,
+	// or `Auto` to let the Vertical VirtualMachine Autoscaler (EE) manage it: the value
+	// recommended by the autoscaler is then published in
+	// `status.recommendedResources.cpu.coreFraction`, and the applied one in
+	// `status.resources.cpu.coreFraction`.
 	// The range of available values is defined in the VirtualMachineClass sizing policy.
 	// If not specified, the default value from the VirtualMachineClass will be used.
-	// +kubebuilder:validation:Pattern=`^(100|[1-9][0-9]?|[1-9])%$`
+	// +kubebuilder:validation:Pattern=`^(Auto|(100|[1-9][0-9]?)%)$`
 	CoreFraction string `json:"coreFraction,omitempty"`
 }
 
@@ -331,6 +339,10 @@ type VirtualMachineStatus struct {
 	// Generating a resource that was last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// Resource values recommended by the Vertical VirtualMachine Autoscaler (EE). Empty
+	// when autoscaling is off for the VM.
+	RecommendedResources *RecommendedResourcesStatus `json:"recommendedResources,omitempty"`
+
 	/*
 		Change operation has these fields:
 		* operation enum(add|remove|replace)
@@ -421,6 +433,23 @@ type VirtualMachinePod struct {
 type ResourcesStatus struct {
 	CPU    CPUStatus    `json:"cpu,omitempty"`
 	Memory MemoryStatus `json:"memory,omitempty"`
+}
+
+// RecommendedResourcesStatus defines the resource values recommended by the Vertical
+// VirtualMachine Autoscaler (EE). They are what the autoscaler asks for; the values
+// actually applied to the VM are published in `status.resources`.
+type RecommendedResourcesStatus struct {
+	CPU CPURecommendedResourcesStatus `json:"cpu,omitempty"`
+}
+
+// CPURecommendedResourcesStatus defines the CPU values recommended by the Vertical
+// VirtualMachine Autoscaler.
+type CPURecommendedResourcesStatus struct {
+	// CoreFraction recommended by the autoscaler when `spec.cpu.coreFraction` is `Auto`.
+	// The virtual machine controller applies it and publishes the applied value in
+	// `status.resources.cpu.coreFraction`. Empty when autoscaling is off.
+	// +kubebuilder:validation:Pattern=`^(100|[1-9][0-9]?)%$`
+	CoreFraction string `json:"coreFraction,omitempty"`
 }
 
 // CPUStatus defines statistics about the CPU resource usage.

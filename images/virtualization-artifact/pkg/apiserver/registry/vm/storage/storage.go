@@ -46,6 +46,7 @@ type VirtualMachineStorage struct {
 	cancelEvacuation    *vmrest.CancelEvacuationREST
 	addResourceClaim    *vmrest.AddResourceClaimREST
 	removeResourceClaim *vmrest.RemoveResourceClaimREST
+	scale               *vmrest.ScaleREST
 }
 
 var (
@@ -76,6 +77,7 @@ func NewStorage(
 		cancelEvacuation:    vmrest.NewCancelEvacuationREST(baseRest),
 		addResourceClaim:    vmrest.NewAddResourceClaimREST(baseRest),
 		removeResourceClaim: vmrest.NewRemoveResourceClaimREST(baseRest),
+		scale:               vmrest.NewScaleREST(vmLister),
 	}
 }
 
@@ -117,6 +119,10 @@ func (store VirtualMachineStorage) AddResourceClaimREST() *vmrest.AddResourceCla
 
 func (store VirtualMachineStorage) RemoveResourceClaimREST() *vmrest.RemoveResourceClaimREST {
 	return store.removeResourceClaim
+}
+
+func (store VirtualMachineStorage) ScaleREST() *vmrest.ScaleREST {
+	return store.scale
 }
 
 // New implements rest.Storage interface

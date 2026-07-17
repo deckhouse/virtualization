@@ -26,6 +26,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/exec"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -39,6 +40,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 )
 
+// ControllerServiceAccountUser is the user the module's controller acts as. Writes to the
+// internal API group are only admitted for it and its siblings.
+const ControllerServiceAccountUser = "system:serviceaccount:d8-virtualization:virtualization-controller"
+
 var clients = Clients{}
 
 var clientsOnce sync.Once
@@ -51,13 +56,14 @@ func GetClients() Clients {
 }
 
 type Clients struct {
-	virtClient       kubeclient.Client
-	kubeClient       kubernetes.Interface
-	kubectl          kubectl.Kubectl
-	d8virtualization d8.D8Virtualization
-	client           client.Client
-	dynamic          dynamic.Interface
-	rewriteClient    rewrite.Client
+	virtClient         kubeclient.Client
+	kubeClient         kubernetes.Interface
+	kubectl            kubectl.Kubectl
+	d8virtualization   d8.D8Virtualization
+	client             client.Client
+	controllerSAClient client.Client
+	dynamic            dynamic.Interface
+	rewriteClient      rewrite.Client
 
 	git gt.Git
 }
@@ -72,6 +78,14 @@ func (c Clients) KubeClient() kubernetes.Interface {
 
 func (c Clients) GenericClient() client.Client {
 	return c.client
+}
+
+// ControllerSAClient acts as the virtualization-controller ServiceAccount. The internal
+// API group is closed by the virtualization-restricted-access-policy admission policy,
+// which only admits the module's own ServiceAccounts, so tests that have to write an
+// internal resource (KVVM, KVVMI) go through this client.
+func (c Clients) ControllerSAClient() client.Client {
+	return c.controllerSAClient
 }
 
 func (c Clients) DynamicClient() dynamic.Interface {
@@ -142,6 +156,15 @@ func InitClients() {
 			}
 		}
 		clients.client, err = client.New(restConfig, client.Options{Scheme: scheme})
+		if err != nil {
+			panic(err)
+		}
+
+		controllerSAConfig := rest.CopyConfig(restConfig)
+		controllerSAConfig.Impersonate = rest.ImpersonationConfig{
+			UserName: ControllerServiceAccountUser,
+		}
+		clients.controllerSAClient, err = client.New(controllerSAConfig, client.Options{Scheme: scheme})
 		if err != nil {
 			panic(err)
 		}

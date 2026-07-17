@@ -1288,10 +1288,14 @@ spec:
                           properties:
                             coreFraction:
                               description: |-
-                                Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+                                Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage,
+                                or `Auto` to let the Vertical VirtualMachine Autoscaler (EE) manage it: the value
+                                recommended by the autoscaler is then published in
+                                `status.recommendedResources.cpu.coreFraction`, and the applied one in
+                                `status.resources.cpu.coreFraction`.
                                 The range of available values is defined in the VirtualMachineClass sizing policy.
                                 If not specified, the default value from the VirtualMachineClass will be used.
-                              pattern: ^(100|[1-9][0-9]?|[1-9])%$
+                              pattern: ^(Auto|(100|[1-9][0-9]?)%)$
                               type: string
                             cores:
                               description:

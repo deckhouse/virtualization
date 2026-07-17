@@ -71,6 +71,9 @@ const (
 
 	// HotplugInPlaceResizePrecheck - test requires HotplugCPUAndMemoryWithInPlaceResize feature gate to be enabled.
 	HotplugInPlaceResizePrecheck = "hotpluginplaceresize-precheck"
+
+	// PrecheckVerticalPodAutoscaler - test requires the vertical-pod-autoscaler module to be enabled.
+	PrecheckVerticalPodAutoscaler = "vertical-pod-autoscaler-precheck"
 )
 
 // KnownPrecheckLabels returns all known precheck label constants.
@@ -92,6 +95,7 @@ func KnownPrecheckLabels() []string {
 		HotplugCPUWithLiveMigrationPrecheck,
 		HotplugMemoryWithLiveMigrationPrecheck,
 		HotplugInPlaceResizePrecheck,
+		PrecheckVerticalPodAutoscaler,
 	}
 }
 

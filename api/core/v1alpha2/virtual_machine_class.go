@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -69,7 +70,13 @@ type VirtualMachineClassSpec struct {
 	// These tolerations will be merged with the tolerations specified in the VirtualMachine resource. VirtualMachine tolerations have a higher priority.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +kubebuilder:validation:Required
-	CPU            CPU            `json:"cpu"`
+	CPU CPU `json:"cpu"`
+
+	// The bound is what keeps the defaultCoreFraction CEL rule within the apiserver's cost
+	// budget: an unbounded array makes the estimator assume as many items as the request
+	// size limit allows. 64 is far above any realistic policy count.
+
+	// +kubebuilder:validation:MaxItems=64
 	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
 }
 
@@ -120,8 +127,22 @@ type SizingPolicy struct {
 	Memory *SizingPolicyMemory `json:"memory,omitempty"`
 	// Allowed values of the `coreFraction` parameter.
 	CoreFractions []CoreFractionValue `json:"coreFractions,omitempty"`
-	// A default `CoreFraction` value for a `VirtualMachine` if it is not provided.
-	DefaultCoreFraction *CoreFractionValue `json:"defaultCoreFraction,omitempty"`
+	// The CEL rule below needs MaxLength here, and MaxItems on SizingPolicies: without both
+	// the apiserver rejects the whole CRD, because it estimates the rule cost from the
+	// maximum length an unbounded int-or-string could have and the maximum number of items
+	// an unbounded array could hold, which blows the cost budget. Kept out of the doc
+	// comment on purpose — everything in it lands in the CRD description.
+
+	// A default `CoreFraction` value for a `VirtualMachine` if it is not provided:
+	// a percentage from 1 to 100, or the string `Auto` to hand the core fraction over
+	// to the Vertical VirtualMachine Autoscaler (EE). `Auto` is never an allowed value
+	// of `coreFractions` — it is a mode, not a share of a CPU core.
+	//
+	// +kubebuilder:validation:XIntOrString
+	// +kubebuilder:validation:MaxLength=4
+	// +kubebuilder:validation:XValidation:rule="type(self) == int ? self >= 1 && self <= 100 : self == 'Auto'",message="The default core fraction must be a number from 1 to 100, or 'Auto'."
+	// +kubebuilder:example=50
+	DefaultCoreFraction *intstr.IntOrString `json:"defaultCoreFraction,omitempty"`
 	// Allowed values of the `dedicatedCores` parameter.
 	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
 	// The policy applies for a specified range of the number of CPU cores.

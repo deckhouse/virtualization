@@ -89,17 +89,7 @@ func newSizePolicyValidationError(className string, errs []error) error {
 }
 
 func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
-	for _, sp := range vmClass.Spec.SizingPolicies {
-		if sp.Cores == nil {
-			continue
-		}
-
-		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
-			return sp.DeepCopy()
-		}
-	}
-
-	return nil
+	return sizingpolicy.MatchSizingPolicy(vmClass, vm.Spec.CPU.Cores)
 }
 
 func collectCoreRanges(vmClass *v1alpha2.VirtualMachineClass) []CoreRange {
@@ -114,6 +104,13 @@ func collectCoreRanges(vmClass *v1alpha2.VirtualMachineClass) []CoreRange {
 }
 
 func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) error {
+	// "Auto" hands the coreFraction to the autoscaler. The applied value is derived from
+	// this policy at reconcile time (out of the fractions it allows, 100% aside — that one
+	// would make the pod Guaranteed), so there is nothing to validate against the policy here.
+	if vm.Spec.CPU.CoreFraction == v1alpha2.CoreFractionAuto {
+		return nil
+	}
+
 	if len(sp.CoreFractions) == 0 {
 		return nil
 	}

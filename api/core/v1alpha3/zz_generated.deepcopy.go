@@ -167,7 +167,7 @@ func (in *SizingPolicy) DeepCopyInto(out *SizingPolicy) {
 	}
 	if in.DefaultCoreFraction != nil {
 		in, out := &in.DefaultCoreFraction, &out.DefaultCoreFraction
-		*out = new(CoreFractionValue)
+		*out = new(DefaultCoreFractionValue)
 		**out = **in
 	}
 	if in.DedicatedCores != nil {

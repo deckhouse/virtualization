@@ -156,6 +156,12 @@ true
   value: {{ .Values.global.clusterConfiguration.serviceSubnetCIDR }}
 - name: KUBE_APISERVER_FEATURE_GATES
   value: {{ .Values.virtualization.internal.kubeAPIServerFeatureGates | toJson | quote }}
+# Vertical VirtualMachine autoscaling runs on the recommender of the
+# vertical-pod-autoscaler module, so the feature only makes sense while that module is
+# enabled. Its feature gate is locked to its default and cannot be turned on with
+# --feature-gates, hence the module state is passed in and folded into that default.
+- name: VPA_ENABLED
+  value: {{ .Values.global.enabledModules | has "vertical-pod-autoscaler" | quote }}
 {{- end }}
 
 {{- define "virtualization-controller.feature-gates-flag-args-item" }}

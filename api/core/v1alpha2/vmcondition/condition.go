@@ -53,6 +53,10 @@ const (
 
 	// TypeGPUClassReady indicates whether every GPUClass referenced by spec.gpus exists.
 	TypeGPUClassReady Type = "GPUClassReady"
+
+	// TypeCoreFractionAutoscaling indicates whether the CPU core fraction of the VirtualMachine
+	// is being managed automatically. It is only set for VMs with an automatic core fraction.
+	TypeCoreFractionAutoscaling Type = "CoreFractionAutoscaling"
 )
 
 type AgentReadyReason string
@@ -204,6 +208,30 @@ func (r SnapshottingReason) String() string {
 const (
 	WaitingForTheSnapshotToStart SnapshottingReason = "WaitingForTheSnapshotToStart"
 	ReasonSnapshottingInProgress SnapshottingReason = "SnapshottingInProgress"
+)
+
+type CoreFractionAutoscalingReason string
+
+func (r CoreFractionAutoscalingReason) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonCoreFractionAutoscalingEnabled indicates that the CPU core fraction of the
+	// VirtualMachine is being selected automatically from its CPU usage.
+	ReasonCoreFractionAutoscalingEnabled CoreFractionAutoscalingReason = "CoreFractionAutoscalingEnabled"
+	// ReasonWaitingForRecommendation indicates that autoscaling is on, but there is no CPU
+	// usage recommendation to act on yet, so the VirtualMachine runs on its initial value.
+	ReasonWaitingForRecommendation CoreFractionAutoscalingReason = "WaitingForRecommendation"
+	// ReasonCoreFractionAutoscalingDisabled indicates that vertical autoscaling of virtual
+	// machines is disabled, so the VirtualMachine keeps the core fraction it has.
+	ReasonCoreFractionAutoscalingDisabled CoreFractionAutoscalingReason = "CoreFractionAutoscalingDisabled"
+	// ReasonInPlaceResizeDisabled indicates that in-place resizing of virtual machine
+	// resources is disabled, without which every autoscaling step would require a reboot.
+	ReasonInPlaceResizeDisabled CoreFractionAutoscalingReason = "InPlaceResizeDisabled"
+	// ReasonSizingPolicyHasNoSteps indicates that the sizing policy of the VirtualMachineClass
+	// leaves fewer than two core fractions to choose from, so there is nothing to scale between.
+	ReasonSizingPolicyHasNoSteps CoreFractionAutoscalingReason = "SizingPolicyHasNoSteps"
 )
 
 type SizingPolicyMatchedReason string

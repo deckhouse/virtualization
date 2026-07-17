@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	vpav1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,6 +58,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		virtv1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		clientgoscheme.AddToScheme,
+		vpav1.AddToScheme,
 	} {
 		err := f(scheme)
 		if err != nil {
@@ -88,6 +90,7 @@ func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs
 		virtv1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		clientgoscheme.AddToScheme,
+		vpav1.AddToScheme,
 	} {
 		err := f(scheme)
 		if err != nil {

@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,7 +47,11 @@ func (dst *VirtualMachineClass) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1alpha2.VirtualMachineClass)
 
 	dst.ObjectMeta = src.ObjectMeta
-	dst.Spec = convertSpecV2ToV3(src.Spec)
+	convertedSpec, err := convertSpecV2ToV3(src.Spec)
+	if err != nil {
+		return err
+	}
+	dst.Spec = convertedSpec
 	dst.Status = convertStatusV2ToV3(src.Status)
 
 	return nil
@@ -126,16 +131,23 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 
 			if v3Policy.DefaultCoreFraction != nil {
 				fractionStr := string(*v3Policy.DefaultCoreFraction)
-				if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(fractionStr) {
-					return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: value must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%), got %q", i, fractionStr)
+				// "Auto" stays a string on the v1alpha2 side too: the field there is an
+				// int-or-string, so the autoscaling mode survives the round trip.
+				if fractionStr == string(CoreFractionAuto) {
+					v2Fraction := intstr.FromString(fractionStr)
+					v2Policy.DefaultCoreFraction = &v2Fraction
+				} else {
+					if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(fractionStr) {
+						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: value must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%) or %q, got %q", i, CoreFractionAuto, fractionStr)
+					}
+					fractionStr = fractionStr[:len(fractionStr)-1]
+					fractionInt, err := strconv.Atoi(fractionStr)
+					if err != nil {
+						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("failed to parse default core fraction: %w", err)
+					}
+					v2Fraction := intstr.FromInt32(int32(fractionInt))
+					v2Policy.DefaultCoreFraction = &v2Fraction
 				}
-				fractionStr = fractionStr[:len(fractionStr)-1]
-				fractionInt, err := strconv.Atoi(fractionStr)
-				if err != nil {
-					return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("failed to parse default core fraction: %w", err)
-				}
-				v2Fraction := v1alpha2.CoreFractionValue(fractionInt)
-				v2Policy.DefaultCoreFraction = &v2Fraction
 			}
 
 			v2Spec.SizingPolicies[i] = v2Policy
@@ -145,7 +157,7 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 	return v2Spec, nil
 }
 
-func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) VirtualMachineClassSpec {
+func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) (VirtualMachineClassSpec, error) {
 	v3Spec := VirtualMachineClassSpec{
 		NodeSelector: NodeSelector{
 			MatchLabels:      v2Spec.NodeSelector.MatchLabels,
@@ -206,7 +218,10 @@ func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) VirtualMachineCl
 			}
 
 			if v2Policy.DefaultCoreFraction != nil {
-				v3Fraction := CoreFractionValue(fmt.Sprintf("%d%%", *v2Policy.DefaultCoreFraction))
+				v3Fraction, err := defaultCoreFractionV2ToV3(*v2Policy.DefaultCoreFraction, i)
+				if err != nil {
+					return VirtualMachineClassSpec{}, err
+				}
 				v3Policy.DefaultCoreFraction = &v3Fraction
 			}
 
@@ -214,7 +229,27 @@ func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) VirtualMachineCl
 		}
 	}
 
-	return v3Spec
+	return v3Spec, nil
+}
+
+// defaultCoreFractionV2ToV3 renders the v1alpha2 int-or-string default core fraction as
+// a v1alpha3 string: a number becomes "N%", and the "Auto" mode is carried over as is.
+func defaultCoreFractionV2ToV3(v2Fraction intstr.IntOrString, policyIndex int) (DefaultCoreFractionValue, error) {
+	switch v2Fraction.Type {
+	case intstr.Int:
+		value := v2Fraction.IntValue()
+		if value < 1 || value > 100 {
+			return "", fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: value must be between 1 and 100, got %d", policyIndex, value)
+		}
+		return DefaultCoreFractionValue(fmt.Sprintf("%d%%", value)), nil
+	case intstr.String:
+		if v2Fraction.StrVal != string(CoreFractionAuto) {
+			return "", fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: the only allowed string value is %q, got %q", policyIndex, CoreFractionAuto, v2Fraction.StrVal)
+		}
+		return CoreFractionAuto, nil
+	default:
+		return "", fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: unexpected value type", policyIndex)
+	}
 }
 
 func convertStatusV3ToV2(v3Status VirtualMachineClassStatus) v1alpha2.VirtualMachineClassStatus {

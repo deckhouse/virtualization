@@ -1305,6 +1305,34 @@ spec:
 
 ![vm-corefraction](./images/vm-corefraction.png)
 
+#### Automatic coreFraction (Auto)
+
+{{< alert level="warning">}}
+This feature is available in the Enterprise Edition only and is in the Alpha stage. It requires both the `VerticalVirtualMachineAutoscaler` and `HotplugCPUAndMemoryWithInPlaceResize` feature gates to be enabled, as well as the `vertical-pod-autoscaler` module enabled in the cluster: its recommender is the engine behind the automatic core fraction.
+{{< /alert >}}
+
+Instead of a fixed percentage you can set `coreFraction: Auto` and let the platform pick the share of CPU for you: it is raised when the VM lacks CPU and lowered when the VM is idle. The number of cores (`cores`) and the memory size never change, and the fraction is applied in place — without rebooting the VM.
+
+```yaml
+spec:
+  cpu:
+    cores: 4
+    coreFraction: Auto
+```
+
+How it works:
+
+- A fresh VM starts at 10% (or the closest value the sizing policy allows), because a VM with no usage history is assumed to be idle.
+- The share is changed by steps. If the VirtualMachineClass sizing policy lists `coreFractions`, those are the steps. Otherwise the platform uses 5%, 10%, 15%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, and 99%.
+- 100% is never selected automatically: at 100% the VM's CPU requests would equal its limits, and such a VM cannot be resized without a reboot. A `coreFractions` list containing 100% is used without it, so the highest share the autoscaler can reach is the next value down; with no sizing policy the ceiling is 99%.
+- For the same reason `Auto` requires a sizing policy that leaves at least two shares to choose from. A policy allowing only `50%`, or `50%` and `100%`, would pin the VM to 50% forever, so such a combination is rejected: set the fixed percentage instead.
+- The value recommended by the autoscaler is published in `.status.recommendedResources.cpu.coreFraction`, and the applied one in `.status.resources.cpu.coreFraction`. Each change is reported by the `CoreFractionScaling` event on the VM.
+- If the node has no room for the new requests, the VM is live-migrated to another node and keeps running.
+- The `type: CoreFractionAutoscaling` condition on the VM tells whether the share is being selected for it. While it is, the condition is `status: True` — with the `WaitingForRecommendation` reason for the first minutes, until enough CPU usage data is collected, and `CoreFractionAutoscalingEnabled` afterwards.
+- If the automatic selection becomes unavailable, the condition switches to `status: False` and its reason says why: `CoreFractionAutoscalingDisabled` (vertical autoscaling is off), `InPlaceResizeDisabled` (in-place resizing is off) or `SizingPolicyHasNoSteps` (the sizing policy of the class was narrowed to a single share). The VM keeps the share it has and stops following the load until an explicit percentage is set.
+
+To opt out, set an explicit percentage. Switching between `100%` and `Auto` (in either direction) requires a VM reboot, because it changes the VM's QoS class; all other transitions are applied in place.
+
 ### Virtual machine resource configuration and sizing policy
 
 The sizing policy in VirtualMachineClass, defined in the `.spec.sizingPolicies` section, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and core utilization fraction (`coreFraction`). This policy is not mandatory. If it is not present for a VM, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the VM configuration must strictly comply with it. Otherwise, it will not be possible to save the configuration.

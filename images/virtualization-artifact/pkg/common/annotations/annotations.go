@@ -283,6 +283,19 @@ const (
 	AnnUSBIPSuperSpeedHubUsedPorts = "usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports"
 	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 
+	// AnnRecommendationOverride pins the VPA recommendation the autoscaler acts on,
+	// bypassing the recommender's slow-moving CPU histogram. In practice it exists for e2e
+	// tests, which cannot wait hours for the recommender's decaying percentile to react to
+	// load. Its value is a JSON vpav1.RecommendedPodResources — the same shape as
+	// status.recommendation; when present it replaces the recommender's status for the
+	// reconcile.
+	//
+	// It lives on the internal VirtualMachine (KVVM), not on the VirtualMachine or its VPA:
+	// the internal API group is closed by a ValidatingAdmissionPolicy that only lets the
+	// module's own ServiceAccounts write, so a user cannot pin a recommendation for their
+	// own VM. Tests set it while impersonating the virtualization-controller ServiceAccount.
+	AnnRecommendationOverride = "e2e.internal.virtualization.deckhouse.io/recommendation-override"
+
 	// USBGatewayLabel is the label on nodes that provide a USB gateway.
 	USBGatewayLabel = LabelsPrefix + "/usb-gateway"
 

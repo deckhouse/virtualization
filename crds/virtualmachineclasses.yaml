@@ -283,12 +283,24 @@ spec:
                           type: boolean
                         type: array
                       defaultCoreFraction:
-                        description:
-                          A default `CoreFraction` value for a `VirtualMachine`
-                          if it is not provided.
-                        maximum: 100
-                        minimum: 1
-                        type: integer
+                        anyOf:
+                          - type: integer
+                          - type: string
+                        description: |-
+                          A default `CoreFraction` value for a `VirtualMachine` if it is not provided:
+                          a percentage from 1 to 100, or the string `Auto` to hand the core fraction over
+                          to the Vertical VirtualMachine Autoscaler (EE). `Auto` is never an allowed value
+                          of `coreFractions` — it is a mode, not a share of a CPU core.
+                        example: 50
+                        maxLength: 4
+                        x-kubernetes-int-or-string: true
+                        x-kubernetes-validations:
+                          - message:
+                              The default core fraction must be a number from 1
+                              to 100, or 'Auto'.
+                            rule:
+                              "type(self) == int ? self >= 1 && self <= 100 : self
+                              == 'Auto'"
                       memory:
                         description: Memory sizing policy.
                         properties:
@@ -344,6 +356,7 @@ spec:
                     required:
                       - cores
                     type: object
+                  maxItems: 64
                   type: array
                 tolerations:
                   description: |-
@@ -754,6 +767,7 @@ spec:
                             CoreFractionValue represents CPU core fraction
                             as a percentage string (e.g., "5%", "10%", "25%", "50%",
                             "100%").
+                          pattern: ^(100|[1-9][0-9]?)%$
                           type: string
                         type: array
                       cores:
@@ -795,9 +809,12 @@ spec:
                           type: boolean
                         type: array
                       defaultCoreFraction:
-                        description:
-                          A default `CoreFraction` value for a `VirtualMachine`
-                          if it is not provided.
+                        description: |-
+                          A default `CoreFraction` value for a `VirtualMachine` if it is not provided:
+                          a percentage (e.g., "10%"), or `Auto` to hand the core fraction over to the
+                          Vertical VirtualMachine Autoscaler (EE). `Auto` is never an allowed value of
+                          `coreFractions` — it is a mode, not a share of a CPU core.
+                        pattern: ^(Auto|(100|[1-9][0-9]?)%)$
                         type: string
                       memory:
                         description: Memory sizing policy.
@@ -854,6 +871,7 @@ spec:
                     required:
                       - cores
                     type: object
+                  maxItems: 64
                   type: array
                 tolerations:
                   description: |-

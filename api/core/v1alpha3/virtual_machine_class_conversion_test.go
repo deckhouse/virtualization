@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -403,6 +404,66 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 			Expect(policy.Cores.Min).To(Equal(2))
 			Expect(policy.Cores.Max).To(Equal(8))
 			Expect(policy.Cores.Step).To(Equal(2))
+		})
+	})
+	Context("defaultCoreFraction", func() {
+		v3ClassWithDefault := func(value DefaultCoreFractionValue) *VirtualMachineClass {
+			return &VirtualMachineClass{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-class"},
+				Spec: VirtualMachineClassSpec{
+					SizingPolicies: []SizingPolicy{{
+						Cores:               &SizingPolicyCores{Min: 1, Max: 8, Step: 1},
+						DefaultCoreFraction: &value,
+					}},
+				},
+			}
+		}
+
+		v2ClassWithDefault := func(value intstr.IntOrString) *v1alpha2.VirtualMachineClass {
+			return &v1alpha2.VirtualMachineClass{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-class"},
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					SizingPolicies: []v1alpha2.SizingPolicy{{
+						Cores:               &v1alpha2.SizingPolicyCores{Min: 1, Max: 8, Step: 1},
+						DefaultCoreFraction: &value,
+					}},
+				},
+			}
+		}
+
+		It("converts a percentage to a number and back", func() {
+			v2Class := &v1alpha2.VirtualMachineClass{}
+			Expect(v3ClassWithDefault("50%").ConvertTo(v2Class)).To(Succeed())
+			Expect(*v2Class.Spec.SizingPolicies[0].DefaultCoreFraction).To(Equal(intstr.FromInt32(50)))
+
+			roundTrip := &VirtualMachineClass{}
+			Expect(roundTrip.ConvertFrom(v2Class)).To(Succeed())
+			Expect(*roundTrip.Spec.SizingPolicies[0].DefaultCoreFraction).To(Equal(DefaultCoreFractionValue("50%")))
+		})
+
+		It("carries Auto through as a string and back", func() {
+			v2Class := &v1alpha2.VirtualMachineClass{}
+			Expect(v3ClassWithDefault(CoreFractionAuto).ConvertTo(v2Class)).To(Succeed())
+			Expect(*v2Class.Spec.SizingPolicies[0].DefaultCoreFraction).To(Equal(intstr.FromString("Auto")))
+
+			roundTrip := &VirtualMachineClass{}
+			Expect(roundTrip.ConvertFrom(v2Class)).To(Succeed())
+			Expect(*roundTrip.Spec.SizingPolicies[0].DefaultCoreFraction).To(Equal(CoreFractionAuto))
+		})
+
+		It("fails on a string that is neither a percentage nor Auto", func() {
+			err := v3ClassWithDefault("auto").ConvertTo(&v1alpha2.VirtualMachineClass{})
+			Expect(err).To(MatchError(ContainSubstring("defaultCoreFraction")))
+		})
+
+		It("fails on a v1alpha2 string other than Auto", func() {
+			err := (&VirtualMachineClass{}).ConvertFrom(v2ClassWithDefault(intstr.FromString("50%")))
+			Expect(err).To(MatchError(ContainSubstring("the only allowed string value")))
+		})
+
+		It("fails on a v1alpha2 number out of range", func() {
+			err := (&VirtualMachineClass{}).ConvertFrom(v2ClassWithDefault(intstr.FromInt32(0)))
+			Expect(err).To(MatchError(ContainSubstring("must be between 1 and 100")))
 		})
 	})
 })

@@ -894,6 +894,18 @@ spec:
 
 3. Значение по умолчанию для доли ядер (`defaultCoreFraction`) — указывает, какая доля ядра будет использоваться по умолчанию для данного диапазона ядер, если в спецификации виртуальной машины явно не указан параметр `coreFraction`. Это значение должно присутствовать в списке `coreFractions`. Если `defaultCoreFraction` не задан, по умолчанию применяется значение `100%`.
 
+   В редакции Enterprise Edition `defaultCoreFraction` можно задать значением `Auto`. Тогда виртуальные машины, в которых `coreFraction` не указан явно, получат автоматический подбор доли ядра (см. [Автоматический coreFraction](./user_guide.html#автоматический-corefraction-auto)). В отличие от процента, `Auto` — это режим, а не доля ядра, поэтому в списке `coreFractions` его быть не должно. Значение принимается только при включённых фичагейтах `VerticalVirtualMachineAutoscaler` и `HotplugCPUAndMemoryWithInPlaceResize`: иначе виртуальные машины такого класса невозможно будет создать.
+
+   ```yaml
+   spec:
+     sizingPolicies:
+       - cores:
+           min: 1
+           max: 8
+         coreFractions: [10, 25, 50, 100]
+         defaultCoreFraction: Auto
+   ```
+
 {{< alert level="warning" >}}
 Важно : Для каждого диапазона cores обязательно укажите:
 

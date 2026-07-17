@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -75,7 +76,12 @@ func (h *StatisticHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 	h.syncPods(changed, pod, pods)
 
-	if err := h.syncResources(changed, kvvmi, pod); err != nil {
+	class, err := s.Class(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := h.syncResources(changed, kvvmi, pod, class); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -89,6 +95,7 @@ func (h *StatisticHandler) Name() string {
 func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
 	pod *corev1.Pod,
+	class *v1alpha2.VirtualMachineClass,
 ) error {
 	if changed == nil {
 		return nil
@@ -106,7 +113,9 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 			memorySize = changed.Spec.Memory.Size
 			sockets, coresPerSocket, _ := vm.CalculateCoresAndSockets(changed.Spec.CPU.Cores)
 			topology = v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
-			coreFraction = changed.Spec.CPU.CoreFraction
+			// Resolve "Auto" to its effective percentage; status must hold a concrete
+			// value, never the literal, even while the VM is stopped.
+			coreFraction = sizingpolicy.EffectiveCoreFraction(changed, class)
 		} else {
 			var err error
 			cpuKVVMIRequest, err = h.getCoresRequestedByKVVMI(kvvmi)

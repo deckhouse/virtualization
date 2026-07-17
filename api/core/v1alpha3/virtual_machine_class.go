@@ -67,7 +67,13 @@ type VirtualMachineClassSpec struct {
 	// These tolerations will be merged with the tolerations specified in the VirtualMachine resource. VirtualMachine tolerations have a higher priority.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +kubebuilder:validation:Required
-	CPU            CPU            `json:"cpu"`
+	CPU CPU `json:"cpu"`
+
+	// Bounded to match v1alpha2, which needs the limit for its defaultCoreFraction CEL rule
+	// to fit the apiserver cost budget. Without it here, a class created through v1alpha3
+	// could hold more policies than the storage version accepts.
+
+	// +kubebuilder:validation:MaxItems=64
 	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
 }
 
@@ -118,8 +124,11 @@ type SizingPolicy struct {
 	Memory *SizingPolicyMemory `json:"memory,omitempty"`
 	// Allowed values of the `coreFraction` parameter in percentages (e.g., "5%", "10%", "25%", "50%", "100%").
 	CoreFractions []CoreFractionValue `json:"coreFractions,omitempty"`
-	// A default `CoreFraction` value for a `VirtualMachine` if it is not provided.
-	DefaultCoreFraction *CoreFractionValue `json:"defaultCoreFraction,omitempty"`
+	// A default `CoreFraction` value for a `VirtualMachine` if it is not provided:
+	// a percentage (e.g., "10%"), or `Auto` to hand the core fraction over to the
+	// Vertical VirtualMachine Autoscaler (EE). `Auto` is never an allowed value of
+	// `coreFractions` — it is a mode, not a share of a CPU core.
+	DefaultCoreFraction *DefaultCoreFractionValue `json:"defaultCoreFraction,omitempty"`
 	// Allowed values of the `dedicatedCores` parameter.
 	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
 	// The policy applies for a specified range of the number of CPU cores.
@@ -128,7 +137,16 @@ type SizingPolicy struct {
 }
 
 // CoreFractionValue represents CPU core fraction as a percentage string (e.g., "5%", "10%", "25%", "50%", "100%").
+// +kubebuilder:validation:Pattern=`^(100|[1-9][0-9]?)%$`
 type CoreFractionValue string
+
+// DefaultCoreFractionValue represents the default CPU core fraction: either a percentage
+// string (e.g., "10%") or `Auto`.
+// +kubebuilder:validation:Pattern=`^(Auto|(100|[1-9][0-9]?)%)$`
+type DefaultCoreFractionValue string
+
+// CoreFractionAuto hands the core fraction over to the Vertical VirtualMachine Autoscaler (EE).
+const CoreFractionAuto DefaultCoreFractionValue = "Auto"
 
 type SizingPolicyMemory struct {
 	MemoryMinMax `json:",inline"`

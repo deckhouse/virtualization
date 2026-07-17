@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -42,13 +43,13 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.EventRecorderLogger, vmClassService *service.VirtualMachineClassService) *Validator {
+func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.EventRecorderLogger, vmClassService *service.VirtualMachineClassService, featureGate featuregate.FeatureGate) *Validator {
 	return &Validator{
 		validators: []VirtualMachineClassValidator{
 			validators.NewSizingPoliciesValidator(client),
 			validators.NewPolicyChangesValidator(recorder),
 			validators.NewSingleDefaultClassValidator(client, vmClassService),
-			validators.NewDefaultCoreFractionValidator(),
+			validators.NewDefaultCoreFractionValidator(featureGate),
 		},
 		log: log.With("webhook", "validation"),
 	}

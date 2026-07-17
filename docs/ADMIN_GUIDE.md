@@ -884,6 +884,18 @@ Additional requirements can be specified for each range of cores:
 
 3. Default core fraction value (`defaultCoreFraction`) — specifies which core fraction will be used by default for this range of cores if the `coreFraction` parameter is not explicitly specified in the virtual machine specification. This value must be present in the `coreFractions` list. If `defaultCoreFraction` is not set, the default value of `100%` is applied.
 
+   In the Enterprise Edition, `defaultCoreFraction` can also be set to `Auto`. Virtual machines that do not specify `coreFraction` explicitly then get their core fraction picked automatically (see [Automatic coreFraction](./user_guide.html#automatic-corefraction-auto)). Unlike a percentage, `Auto` is a mode rather than a share of a core, so it must not be listed in `coreFractions`. It is only accepted while the `VerticalVirtualMachineAutoscaler` and `HotplugCPUAndMemoryWithInPlaceResize` feature gates are enabled: otherwise such a class would make its virtual machines impossible to create.
+
+   ```yaml
+   spec:
+     sizingPolicies:
+       - cores:
+           min: 1
+           max: 8
+         coreFractions: [10, 25, 50, 100]
+         defaultCoreFraction: Auto
+   ```
+
 {{< alert level="warning" >}}
 Important: For each range of cores, be sure to specify:
 

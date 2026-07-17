@@ -186,6 +186,14 @@ func HasBlockDeviceStatusRef(vm v1alpha2.VirtualMachine, kind v1alpha2.BlockDevi
 	return false
 }
 
+// VerticalPodAutoscalerName returns the name of the VerticalPodAutoscaler the vm-controller
+// owns for the VM. It is derived from the VM UID rather than its name: a VPA named after the
+// VM would collide with a VPA the user created for a same-named workload in the namespace,
+// and the controller would adopt a foreign object it must never read from or delete.
+func VerticalPodAutoscalerName(vm *v1alpha2.VirtualMachine) string {
+	return fmt.Sprintf("vm-%s", vm.GetUID())
+}
+
 func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, bool) {
 	for _, pod := range vm.Status.VirtualMachinePods {
 		if pod.Active {

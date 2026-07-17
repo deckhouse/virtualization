@@ -194,4 +194,8 @@ const (
 
 	// ReasonVMHotplugMemoryNotSupported is event reason that VMHotplugMemoryNotSupported.
 	ReasonVMHotplugMemoryNotSupported = "VMHotplugMemoryNotSupported"
+
+	// ReasonCoreFractionScaling is event reason that the effective coreFraction is being
+	// changed to the value desired by the Vertical VirtualMachine Autoscaler.
+	ReasonCoreFractionScaling = "CoreFractionScaling"
 )
