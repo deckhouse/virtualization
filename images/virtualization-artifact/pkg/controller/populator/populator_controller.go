@@ -63,6 +63,7 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 	diskImporterImage string,
+	imagePullSecret types.NamespacedName,
 	requirements corev1.ResourceRequirements,
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
@@ -71,6 +72,7 @@ func NewController(
 		log:    log,
 		pvc: service.NewPersistentVolumeClaimService(mgr.GetClient(), dvcrSettings, nil, service.DiskImporterConfig{
 			Image:                diskImporterImage,
+			ImagePullSecret:      imagePullSecret,
 			ResourceRequirements: requirements,
 			PullPolicy:           PodPullPolicy,
 			Verbose:              PodVerbose,

@@ -72,6 +72,7 @@ type PVCImporterService struct {
 	client               client.Client
 	dvcrSettings         *dvcr.Settings
 	image                string
+	imagePullSecret      types.NamespacedName
 	resourceRequirements corev1.ResourceRequirements
 	pullPolicy           string
 	verbose              string
@@ -83,18 +84,16 @@ type PVCImporterService struct {
 func NewPVCImporterService(
 	c client.Client,
 	dvcrSettings *dvcr.Settings,
-	image string,
-	resourceRequirements corev1.ResourceRequirements,
-	pullPolicy string,
-	verbose string,
+	cfg DiskImporterConfig,
 ) *PVCImporterService {
 	return &PVCImporterService{
 		client:               c,
 		dvcrSettings:         dvcrSettings,
-		image:                image,
-		resourceRequirements: resourceRequirements,
-		pullPolicy:           pullPolicy,
-		verbose:              verbose,
+		image:                cfg.Image,
+		imagePullSecret:      cfg.ImagePullSecret,
+		resourceRequirements: cfg.ResourceRequirements,
+		pullPolicy:           cfg.PullPolicy,
+		verbose:              cfg.Verbose,
 	}
 }
 
@@ -154,12 +153,12 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		return fmt.Errorf("fetch importer pod: %w", err)
 	}
 	if pod == nil {
-		pod = s.makeImporterPod(podKey.Name, target, prime, owner.GetUID(), source, sourceClaim, scratch.Name, nodePlacement)
+		pod = s.makeImporterPod(sup, target, prime, owner.GetUID(), source, sourceClaim, scratch.Name, nodePlacement)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create importer pod: %w", err)
 		}
 	}
-	return nil
+	return ensureModulePullSecret(ctx, s.client, s.imagePullSecret, sup, podutil.MakeOwnerReference(pod))
 }
 
 func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.PersistentVolumeClaim, source *PVCImportSource, owner client.Object, sup supplements.Generator, nodePlacement *provisioner.NodePlacement) error {
@@ -191,12 +190,15 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 		return fmt.Errorf("fetch source importer pod: %w", err)
 	}
 	if sourcePod == nil {
-		sourcePod = s.makeSourceImporterPod(sourcePodKey.Name, target, sourceClaim)
+		sourcePod = s.makeSourceImporterPod(sup, target, sourceClaim)
 		if err := s.client.Create(ctx, sourcePod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create source importer pod: %w", err)
 		}
 	} else if sourcePod.Status.Phase == corev1.PodFailed {
 		return nil
+	}
+	if err := ensureModulePullSecret(ctx, s.client, s.imagePullSecret, sup, podutil.MakeOwnerReference(sourcePod)); err != nil {
+		return err
 	}
 
 	targetPodKey := sup.PVCTargetImporterPod()
@@ -205,12 +207,12 @@ func (s *PVCImporterService) importFromPVC(ctx context.Context, target *corev1.P
 		return fmt.Errorf("fetch target importer pod: %w", err)
 	}
 	if targetPod == nil {
-		targetPod = s.makeTargetImporterPod(targetPodKey.Name, target, prime, owner.GetUID(), sourceNBDHost, nodePlacement)
+		targetPod = s.makeTargetImporterPod(sup, target, prime, owner.GetUID(), sourceNBDHost, nodePlacement)
 		if err := s.client.Create(ctx, targetPod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create target importer pod: %w", err)
 		}
 	}
-	return nil
+	return ensureModulePullSecret(ctx, s.client, s.imagePullSecret, sup, podutil.MakeOwnerReference(targetPod))
 }
 
 // primePVCName returns the name of the prime PVC that the importer fills for the
@@ -398,14 +400,7 @@ func (s *PVCImporterService) ensureSupplements(ctx context.Context, target *core
 		return nil
 	}
 
-	ownerRef := metav1.OwnerReference{
-		APIVersion:         "v1",
-		Kind:               "PersistentVolumeClaim",
-		Name:               target.Name,
-		UID:                target.UID,
-		Controller:         ptr.To(false),
-		BlockOwnerDeletion: ptr.To(true),
-	}
+	ownerRef := pvcOwnerRef(target)
 
 	// The pvc-importer only reads from DVCR (it writes to a PVC), so the token
 	// is scoped to pull-only access on the source repository.
@@ -577,7 +572,8 @@ func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 // prime PVC) with the imported data, while ownership/UID are taken from target
 // (the VirtualDisk's PVC) so the pod is garbage-collected with the disk and
 // labelled to be excluded from namespace quota accounting.
-func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+func (s *PVCImporterService) makeImporterPod(supGen supplements.Generator, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+	podName := supGen.PVCImporterPod().Name
 	registryEndpoint := ""
 	if source != nil && source.Registry != nil {
 		registryEndpoint = source.Registry.URL
@@ -696,9 +692,10 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			}},
 		},
 		Spec: corev1.PodSpec{
-			Containers:    []corev1.Container{container},
-			RestartPolicy: corev1.RestartPolicyOnFailure,
-			Volumes:       volumes,
+			Containers:       []corev1.Container{container},
+			RestartPolicy:    corev1.RestartPolicyOnFailure,
+			Volumes:          volumes,
+			ImagePullSecrets: modulePullSecretRefs(s.imagePullSecret, supGen),
 		},
 	}
 	podutil.SetRestrictedSecurityContext(&pod.Spec)
@@ -728,7 +725,8 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 	return pod
 }
 
-func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourceClaim *corev1.PersistentVolumeClaim) *corev1.Pod {
+func (s *PVCImporterService) makeSourceImporterPod(supGen supplements.Generator, target, sourceClaim *corev1.PersistentVolumeClaim) *corev1.Pod {
+	podName := supGen.PVCSourceImporterPod().Name
 	sourcePath := "/source/disk.img"
 	var volumeDevices []corev1.VolumeDevice
 	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
@@ -777,6 +775,7 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 					ReadOnly:  true,
 				}}},
 			},
+			ImagePullSecrets: modulePullSecretRefs(s.imagePullSecret, supGen),
 		},
 	}
 	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
@@ -786,7 +785,8 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 	return pod
 }
 
-func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, sourceNBDHost string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+func (s *PVCImporterService) makeTargetImporterPod(supGen supplements.Generator, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, sourceNBDHost string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+	podName := supGen.PVCTargetImporterPod().Name
 	volumeMounts := []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}}
 	var volumeDevices []corev1.VolumeDevice
 	if dataPVC.Spec.VolumeMode != nil && *dataPVC.Spec.VolumeMode == corev1.PersistentVolumeBlock {
@@ -833,6 +833,7 @@ func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataP
 				{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 				{Name: pvcImporterDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: dataPVC.Name}}},
 			},
+			ImagePullSecrets: modulePullSecretRefs(s.imagePullSecret, supGen),
 		},
 	}
 	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
@@ -859,4 +860,15 @@ func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataP
 	}
 	podutil.SetRestrictedSecurityContext(&pod.Spec)
 	return pod
+}
+
+func pvcOwnerRef(pvc *corev1.PersistentVolumeClaim) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion:         "v1",
+		Kind:               "PersistentVolumeClaim",
+		Name:               pvc.Name,
+		UID:                pvc.UID,
+		Controller:         ptr.To(false),
+		BlockOwnerDeletion: ptr.To(true),
+	}
 }

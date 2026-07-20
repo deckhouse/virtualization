@@ -31,6 +31,7 @@ const (
 	tplDVCRCABundle                 = "d8v-%s-dvcr-ca-%s-%s"
 	tplCABundle                     = "d8v-%s-ca-%s-%s"
 	tplImagePullSecret              = "d8v-%s-pull-image-%s-%s"
+	tplModuleRegistrySecret         = "d8v-%s-module-registry-%s-%s"
 	tplImporterPod                  = "d8v-%s-importer-%s"
 	tplPVCImporterPod               = "d8v-%s-pvc-importer-%s"
 	tplPVCSourceImporterPod         = "d8v-%s-pvc-source-importer-%s"
@@ -62,6 +63,7 @@ type Generator interface {
 	DVCRAuthSecretForPVCImporter() types.NamespacedName
 	UploaderTLSSecretForIngress() types.NamespacedName
 	ImagePullSecret() types.NamespacedName
+	ModuleRegistrySecret() types.NamespacedName
 	NetworkPolicy() types.NamespacedName
 	CommonSupplement() types.NamespacedName
 	CommonResourceName() types.NamespacedName
@@ -143,6 +145,12 @@ func (g *generator) CABundleConfigMap() types.NamespacedName {
 // ImagePullSecret returns name and namespace for image pull secret for the containerImage dataSource.
 func (g *generator) ImagePullSecret() types.NamespacedName {
 	return g.generateName(tplImagePullSecret, kvalidation.DNS1123SubdomainMaxLength)
+}
+
+// ModuleRegistrySecret returns name and namespace for the module registry
+// pull secret copy referenced by provisioner pods via imagePullSecrets.
+func (g *generator) ModuleRegistrySecret() types.NamespacedName {
+	return g.generateName(tplModuleRegistrySecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // ImporterPod generates name for importer Pod.

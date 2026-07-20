@@ -42,6 +42,11 @@ const (
 	UploaderPodImageNameVar = "UPLOADER_IMAGE"
 	// BounderPodImageNameVar is a name of variable with the image name for the bounder Pod
 	BounderPodImageNameVar = "BOUNDER_IMAGE"
+	// ProvisionerImagePullSecretVar is a name of variable with the image pull secret name
+	// referenced by provisioner pods (importer, uploader, bounder, pvc-importer). Empty
+	// means no pull secret is referenced; set when the module registry differs from the
+	// cluster registry and node-level containerd auth cannot pull the module image.
+	ProvisionerImagePullSecretVar = "PROVISIONER_IMAGE_PULL_SECRET"
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted

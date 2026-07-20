@@ -22,28 +22,32 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/bounder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
 type BounderPodService struct {
-	dvcrSettings   *dvcr.Settings
-	client         client.Client
-	image          string
-	requirements   corev1.ResourceRequirements
-	pullPolicy     string
-	verbose        string
-	controllerName string
-	protection     *ProtectionService
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	image           string
+	imagePullSecret types.NamespacedName
+	requirements    corev1.ResourceRequirements
+	pullPolicy      string
+	verbose         string
+	controllerName  string
+	protection      *ProtectionService
 }
 
 func NewBounderPodService(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	image string,
+	imagePullSecret types.NamespacedName,
 	requirements corev1.ResourceRequirements,
 	pullPolicy string,
 	verbose string,
@@ -51,14 +55,15 @@ func NewBounderPodService(
 	protection *ProtectionService,
 ) *BounderPodService {
 	return &BounderPodService{
-		dvcrSettings:   dvcrSettings,
-		client:         client,
-		image:          image,
-		requirements:   requirements,
-		pullPolicy:     pullPolicy,
-		verbose:        verbose,
-		controllerName: controllerName,
-		protection:     protection,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		image:           image,
+		imagePullSecret: imagePullSecret,
+		requirements:    requirements,
+		pullPolicy:      pullPolicy,
+		verbose:         verbose,
+		controllerName:  controllerName,
+		protection:      protection,
 	}
 }
 
@@ -71,12 +76,12 @@ func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerRefe
 		podSettings.NodePlacement = options.nodePlacement
 	}
 
-	_, err := bounder.NewBounder(podSettings).CreatePod(ctx, s.client)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	pod, err := bounder.NewBounder(podSettings).GetOrCreatePod(ctx, s.client)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	return ensureModulePullSecret(ctx, s.client, s.imagePullSecret, sup, podutil.MakeOwnerReference(pod))
 }
 
 func (s BounderPodService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
@@ -124,5 +129,6 @@ func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup s
 		ResourceRequirements: &s.requirements,
 		PVCName:              sup.PersistentVolumeClaim().Name,
 		Finalizer:            s.protection.GetFinalizer(),
+		ImagePullSecrets:     modulePullSecretRefs(s.imagePullSecret, sup),
 	}
 }

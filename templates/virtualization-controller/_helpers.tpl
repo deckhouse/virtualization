@@ -24,6 +24,15 @@ true
       fieldPath: metadata.namespace
 - name: IMPORTER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
+{{- /* Node-level containerd auth covers only the cluster registry. When module
+images come from a different registry host, provisioner pods in user namespaces
+must reference the module registry pull secret to be able to pull them. */}}
+{{- $moduleRegistryHost := first (splitList "/" (include "helm_lib_module_image" (list . "dvcrImporter"))) }}
+{{- $clusterRegistryHost := first (splitList "/" (dig "modulesImages" "registry" "base" "" .Values.global)) }}
+{{- if ne $moduleRegistryHost $clusterRegistryHost }}
+- name: PROVISIONER_IMAGE_PULL_SECRET
+  value: virtualization-module-registry
+{{- end }}
 - name: DISK_IMPORTER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "pvcImporter") }}
 - name: UPLOADER_IMAGE

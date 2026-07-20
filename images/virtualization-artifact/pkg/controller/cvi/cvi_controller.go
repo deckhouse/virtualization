@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,14 +62,15 @@ func NewController(
 	log *log.Logger,
 	importerImage string,
 	uploaderImage string,
+	imagePullSecret types.NamespacedName,
 	requirements corev1.ResourceRequirements,
 	dvcrSettings *dvcr.Settings,
 	ns string,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerCVIProtection)
-	importer := service.NewImporterService(dvcrSettings, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	uploader := service.NewUploaderService(dvcrSettings, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	importer := service.NewImporterService(dvcrSettings, mgr.GetClient(), importerImage, imagePullSecret, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	uploader := service.NewUploaderService(dvcrSettings, mgr.GetClient(), uploaderImage, imagePullSecret, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcrSettings, protection, ControllerName)
 	dvcrService := service.NewDVCRService(mgr.GetClient())
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
