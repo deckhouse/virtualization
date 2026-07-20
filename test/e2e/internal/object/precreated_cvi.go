@@ -52,8 +52,9 @@ const (
 	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 	ImageURLLegacyContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest"
 
-	// Custom e2e-br container-disk on ttl.sh, used only by the VirtualDiskCreation test (24h TTL).
-	ImageURLCustomContainer = "ttl.sh/e2e-br-custom-29428cf1:24h"
+	// Custom e2e-br container image (cr.yandex), used by the ContainerImage
+	// data-source scenarios of the VirtualImage/VirtualDisk creation tests.
+	ImageURLCustomContainer = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/custom:v0.0.1"
 )
 
 var (
