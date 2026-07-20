@@ -182,6 +182,18 @@ func loadServerTLSConfig(t *TLSPair) (*tls.Config, error) {
 func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
+	// A failing handshake here is typically a log-shipper agent whose vector hung on
+	// a topology reload after a CA rotation and keeps retrying with a stale CA. Do it
+	// explicitly (instead of letting the first read trigger it) so the operator gets an
+	// actionable warning instead of a debug-level "connection closed" buried in churn.
+	if tlsConn, ok := conn.(*tls.Conn); ok {
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			log.Warn("TLS handshake with log-shipper failed; if it repeats after a CA rotation, restart the log-shipper agent pods to reload the new CA",
+				slog.String("remote", conn.RemoteAddr().String()), log.Err(err))
+			return
+		}
+	}
+
 	log.Debug("New connection", slog.String("remote", conn.RemoteAddr().String()))
 
 	scanner := bufio.NewScanner(conn)
