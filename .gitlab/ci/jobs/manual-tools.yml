@@ -68,5 +68,4 @@ mrs:summary:
     # Settings -> CI/CD -> Schedules), under the dedicated mrs-summary
     # pipeline schedule ($SCHEDULE_TYPE == "mrs-summary").
     - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "mrs-summary"
-      when: manual
       allow_failure: true
