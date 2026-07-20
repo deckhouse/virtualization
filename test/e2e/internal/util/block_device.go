@@ -34,6 +34,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 )
 
 func GetBlockDevicePath(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
@@ -244,6 +245,19 @@ func GetExpectedDiskPhaseByVolumeBindingMode() string {
 	default:
 		return string(v1alpha2.DiskReady)
 	}
+}
+
+// WaitDiskInExpectedPhase waits, via a VirtualDisk Observer, until vd reaches the
+// phase expected for the default storage class' volume binding mode (Ready for
+// Immediate, WaitForFirstConsumer otherwise).
+func WaitDiskInExpectedPhase(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+	expected := GetExpectedDiskPhaseByVolumeBindingMode()
+	obs := vdobs.StartObserver(ctx, f, vd)
+	obs.Never(vdobs.BeFailed())
+	Expect(obs.WaitFor(func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return string(d.Status.Phase) == expected, nil
+	}, framework.LongTimeout)).To(Succeed())
 }
 
 // GetDiskCount returns the number of block devices attached to a VM.

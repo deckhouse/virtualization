@@ -44,9 +44,16 @@ const (
 	PrecreatedCVITestDataISO    = "v12n-e2e-testdata-iso"
 	PrecreatedCVIMyOS           = "v12n-e2e-myos"
 
+	// Custom e2e-br image, used only by the VirtualDiskCreation test.
+	PrecreatedCVICustomBIOS = "v12n-e2e-custom-bios"
+	PrecreatedCVICustomISO  = "v12n-e2e-custom-iso"
+
 	// Container image URLs
 	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 	ImageURLLegacyContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest"
+
+	// Custom e2e-br container-disk on ttl.sh, used only by the VirtualDiskCreation test (24h TTL).
+	ImageURLCustomContainer = "ttl.sh/e2e-br-custom-29428cf1:24h"
 )
 
 var (
@@ -66,6 +73,13 @@ var (
 
 	// Minimal fast-boot image used by the VirtualMachinePool suite.
 	ImageURLMyOS = imageURL("/upmeter/myos-latest.qcow2")
+
+	// Custom e2e-br qcow2 on Selectel (public HTTP), used only by the VirtualDiskCreation test.
+	ImageURLCustomBIOS = imageURL("/e2e/custom.qcow2")
+
+	// Custom e2e-br EFI-bootable ISO on Selectel (public HTTP), used only by the
+	// blockdevice ISO/format tests.
+	ImageURLCustomISO = imageURL("/e2e/custom.iso")
 )
 
 // PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by e2e tests.
@@ -83,6 +97,8 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 		newPrecreatedHTTPCVI(PrecreatedCVITestDataQCOW, ImageTestDataQCOW),
 		newPrecreatedHTTPCVI(PrecreatedCVITestDataISO, ImageTestDataISO),
 		newPrecreatedHTTPCVI(PrecreatedCVIMyOS, ImageURLMyOS),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOS, ImageURLCustomBIOS),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomISO, ImageURLCustomISO),
 	}
 }
 

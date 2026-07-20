@@ -33,6 +33,10 @@ const (
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
 	PrecheckDefaultStorageClass = "default-sc-precheck"
 
+	// PrecheckRWOImmediateStorageClass - the suite StorageClass must not be RWO with Immediate binding.
+	// This is a common precheck that runs for all tests automatically.
+	PrecheckRWOImmediateStorageClass = "rwo-immediate-sc-precheck"
+
 	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
 	PrecheckSnapshot = "snapshot-precheck"
 
@@ -76,6 +80,7 @@ func KnownPrecheckLabels() []string {
 		PrecheckVMC,
 		PrecheckSVDM,
 		PrecheckDefaultStorageClass,
+		PrecheckRWOImmediateStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
 		PrecheckUSB,

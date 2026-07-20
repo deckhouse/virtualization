@@ -26,14 +26,16 @@ import (
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	projobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/project"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
+	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
+var _ = Describe("ImporterNetworkPolicy", Label(label.SIGStorage, precheck.NoPrecheck), func() {
 	const testName = "importer-network-policy"
 
 	var (
@@ -52,15 +54,19 @@ var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+		projObs := projobs.StartObserver(ctx, f, project.Name)
+		Expect(projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)).To(Succeed())
 
 		By("Create virtual image")
-		vi := object.NewGeneratedHTTPVIAlpineBIOS("vi-", project.Name)
+		vi := object.NewGeneratedHTTPVICustomBIOS("vi-", project.Name)
 		err = f.CreateWithDeferredDeletion(ctx, vi)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Check VI will be in ready phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, vi)
+		By("Check VI reaches the Ready phase", func() {
+			viObs := viobs.StartObserver(ctx, f, vi)
+			viObs.Never(viobs.BeFailed())
+			Expect(viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)).To(Succeed())
+		})
 	})
 
 	It("test network policy isolation for vd importer", func() {
@@ -68,19 +74,25 @@ var _ = Describe("ImporterNetworkPolicy", Label(precheck.NoPrecheck), func() {
 		project := object.NewIsolatedProject(testName, framework.NamespaceBasePrefix)
 		err := f.CreateWithDeferredDeletion(ctx, project)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectState(ctx, "Deployed", framework.ShortTimeout, project)
+		projObs := projobs.StartObserver(ctx, f, project.Name)
+		Expect(projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)).To(Succeed())
 
 		By("Create virtual disk")
-		vd := object.NewHTTPVDAlpineBIOS("vd", project.Name, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
+		vd := object.NewHTTPVDCustomBIOS("vd", project.Name, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
 		err = f.CreateWithDeferredDeletion(ctx, vd)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Create virtual machine")
-		vm := object.NewMinimalVM("vm-", project.Name, vmbuilder.WithDisks(vd))
+		// The custom e2e-br image has no cloud-init; this VM is only the disk
+		// consumer that unparks a WaitForFirstConsumer disk, so provision nothing.
+		vm := object.NewMinimalVM("vm-", project.Name, vmbuilder.WithDisks(vd), vmbuilder.WithProvisioning(nil))
 		err = f.CreateWithDeferredDeletion(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Check VD will be in ready phase")
-		util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
+		By("Check VD reaches the Ready phase", func() {
+			vdObs := vdobs.StartObserver(ctx, f, vd)
+			vdObs.Never(vdobs.BeFailed())
+			Expect(vdObs.WaitFor(vdobs.BeReady(), framework.LongTimeout)).To(Succeed())
+		})
 	})
 })

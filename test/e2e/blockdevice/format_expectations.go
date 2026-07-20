@@ -55,12 +55,12 @@ func expectedFormatForStorageClass(ctx context.Context, f *framework.Framework, 
 func expectedVirtualImageFormat(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) string {
 	GinkgoHelper()
 
-	if vi.Spec.DataSource.HTTP != nil && vi.Spec.DataSource.HTTP.URL == object.ImageURLUbuntuISO {
+	if vi.Spec.DataSource.HTTP != nil && vi.Spec.DataSource.HTTP.URL == object.ImageURLCustomISO {
 		return imageformat.FormatISO
 	}
 	if vi.Spec.DataSource.ObjectRef != nil &&
 		vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualImageObjectRefKindClusterVirtualImage &&
-		vi.Spec.DataSource.ObjectRef.Name == object.PrecreatedCVIUbuntuISO {
+		vi.Spec.DataSource.ObjectRef.Name == object.PrecreatedCVICustomISO {
 		return imageformat.FormatISO
 	}
 

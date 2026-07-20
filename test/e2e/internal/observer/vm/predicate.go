@@ -33,12 +33,34 @@ func BeRunning() Predicate {
 	}
 }
 
+// BeStopped reports the VirtualMachine has reached the Stopped phase. Intended
+// for use with [Observer.WaitFor].
+func BeStopped() Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		return vm.Status.Phase == v1alpha2.MachineStopped, nil
+	}
+}
+
 // BeAgentReady reports the VirtualMachine's guest agent is ready, i.e. the
 // AgentReady condition is present with Status=True. Intended for use with
 // [Observer.WaitFor].
 func BeAgentReady() Predicate {
 	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
 		cond := findCondition(vm.Status.Conditions, vmcondition.TypeAgentReady.String())
+		if cond == nil {
+			return false, nil
+		}
+		return cond.Status == metav1.ConditionTrue, nil
+	}
+}
+
+// BeFilesystemFrozen reports the VirtualMachine's FilesystemFrozen condition is
+// present with Status=True (the guest filesystem is frozen for a consistent
+// snapshot). Freezing is transient, so observe it with [Observer.WaitFor]
+// started before the snapshot is created.
+func BeFilesystemFrozen() Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		cond := findCondition(vm.Status.Conditions, vmcondition.TypeFilesystemFrozen.String())
 		if cond == nil {
 			return false, nil
 		}
