@@ -56,9 +56,10 @@ func (r ProgressingReason) String() string {
 }
 
 const (
-	ReasonPoolStable ProgressingReason = "PoolStable"
 	// ReplicasProgressing covers any convergence of the replica count — scaling
 	// as well as replacing a replica that disappeared — not only scaling.
+	// The Progressing condition is present only while converging; in the steady
+	// state it is removed rather than kept at False.
 	ReasonReplicasProgressing ProgressingReason = "ReplicasProgressing"
 )
 

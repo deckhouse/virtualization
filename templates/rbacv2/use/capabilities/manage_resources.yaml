@@ -19,12 +19,31 @@ rules:
       - virtualmachinemacaddresses
       - virtualmachines
       - virtualmachinesnapshots
+      {{- if ne .Values.global.deckhouseEdition "CE" }}
+      - virtualmachinepools
+      {{- end }}
     verbs:
       - create
       - update
       - patch
       - delete
       - deletecollection
+  {{- if ne .Values.global.deckhouseEdition "CE" }}
+  - apiGroups:
+      - virtualization.deckhouse.io
+    resources:
+      - virtualmachinepools/scale
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - subresources.virtualization.deckhouse.io
+    resources:
+      - virtualmachinepools/scaledownwith
+    verbs:
+      - create
+  {{- end }}
   - apiGroups:
       - ""
     resources:

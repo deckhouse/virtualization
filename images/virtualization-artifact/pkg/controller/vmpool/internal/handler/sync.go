@@ -287,7 +287,7 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 	if ready >= desired {
 		availableStatus = metav1.ConditionTrue
 		availableReason = vmpoolcondition.ReasonAllReplicasReady
-		availableMessage = fmt.Sprintf("All %d replicas are ready.", desired)
+		availableMessage = ""
 	}
 	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
 		Type:               vmpoolcondition.TypeAvailable.String(),
@@ -297,25 +297,23 @@ func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []
 		Message:            availableMessage,
 	})
 
-	progressingStatus := metav1.ConditionFalse
-	progressingReason := vmpoolcondition.ReasonPoolStable
-	progressingMessage := "No replica changes in progress."
 	if len(members) != desired {
-		progressingStatus = metav1.ConditionTrue
-		progressingReason = vmpoolcondition.ReasonReplicasProgressing
-		progressingMessage = fmt.Sprintf("Converging to %d replicas (currently %d).", desired, len(members))
+		meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
+			Type:               vmpoolcondition.TypeProgressing.String(),
+			Status:             metav1.ConditionTrue,
+			Reason:             vmpoolcondition.ReasonReplicasProgressing.String(),
+			ObservedGeneration: pool.GetGeneration(),
+			Message:            fmt.Sprintf("Converging to %d replicas (currently %d).", desired, len(members)),
+		})
+	} else {
+		// Steady state: drop the condition instead of parking it at False, so the UI does
+		// not show a permanent inactive block. Matches the VirtualMachine Migrating condition.
+		meta.RemoveStatusCondition(&pool.Status.Conditions, vmpoolcondition.TypeProgressing.String())
 	}
-	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
-		Type:               vmpoolcondition.TypeProgressing.String(),
-		Status:             progressingStatus,
-		Reason:             progressingReason.String(),
-		ObservedGeneration: pool.GetGeneration(),
-		Message:            progressingMessage,
-	})
 
 	syncedStatus := metav1.ConditionTrue
 	syncedReason := vmpoolcondition.ReasonPoolSynced
-	syncedMessage := "All replicas are on the current virtualMachineTemplate."
+	syncedMessage := ""
 	if updated < liveNonTerminating {
 		syncedStatus = metav1.ConditionFalse
 		syncedReason = vmpoolcondition.ReasonRolloutInProgress
