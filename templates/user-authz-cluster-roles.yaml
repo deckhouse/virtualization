@@ -79,13 +79,16 @@ rules:
   - virtualmachinemacaddresses
   - virtualmachineoperations
   - virtualmachinesnapshotoperations
+  {{- if ne .Values.global.deckhouseEdition "CE" }}
   - virtualmachinepools
+  {{- end }}
   verbs:
   - create
   - delete
   - deletecollection
   - patch
   - update
+{{- if ne .Values.global.deckhouseEdition "CE" }}
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
@@ -100,6 +103,7 @@ rules:
   - virtualmachinepools/scaledownwith
   verbs:
   - create
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -218,7 +218,8 @@ var _ = Describe("SyncHandler", func() {
 			Expect(pool.Status.ReadyReplicas).To(Equal(int32(2)))
 			Expect(pool.Status.Selector).To(ContainSubstring(string(poolUID)))
 			Expect(meta.IsStatusConditionTrue(pool.Status.Conditions, vmpoolcondition.TypeAvailable.String())).To(BeTrue())
-			Expect(meta.IsStatusConditionFalse(pool.Status.Conditions, vmpoolcondition.TypeProgressing.String())).To(BeTrue())
+			// Steady state: the Progressing condition is removed, not kept at False.
+			Expect(meta.FindStatusCondition(pool.Status.Conditions, vmpoolcondition.TypeProgressing.String())).To(BeNil())
 		})
 
 		It("keeps a Stopped member: counts it, does not replace or duplicate it (invariant 4)", func() {

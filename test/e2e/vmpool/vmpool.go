@@ -18,7 +18,6 @@ package vmpool
 
 import (
 	"context"
-	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,12 +47,6 @@ var _ = Describe("VirtualMachinePool", Label(precheck.NoPrecheck), func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("vmpool")
-
-		mc, err := f.GetVirtualizationModuleConfig(ctx)
-		Expect(err).NotTo(HaveOccurred())
-		if !slices.Contains(mc.Spec.Settings.FeatureGates, "VirtualMachinePool") {
-			Skip("the VirtualMachinePool feature gate is disabled")
-		}
 
 		f.Before()
 		DeferCleanup(f.After)
