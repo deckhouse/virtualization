@@ -161,6 +161,29 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(exists).To(BeFalse())
 		})
 
+		It("Should clear a stale in-progress MigrationState when kvvmi has no migration", func() {
+			vm := newVM()
+			// A migration that started but never recorded an EndTimestamp, after
+			// which the kvvmi lost its migration record (e.g. the VMI was recreated).
+			vm.Status.MigrationState = &v1alpha2.VirtualMachineMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Now()},
+				EndTimestamp:   nil,
+			}
+			kvvmi := newKVVMI(nil)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+			reconcile()
+
+			updated := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updated)).To(Succeed())
+
+			// The stale state must be cleared, otherwise liveMigrationInProgress
+			// latches true forever and blocks every future migration of the VM.
+			Expect(updated.Status.MigrationState).To(BeNil())
+			if cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, updated.Status.Conditions); exists {
+				Expect(cond.Reason).NotTo(Equal(vmcondition.ReasonMigratingInProgress.String()))
+			}
+		})
+
 		It("Should set condition when vmop is in progress with pending reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
