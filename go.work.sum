@@ -1662,6 +1662,8 @@ github.com/danieljoos/wincred v1.2.3/go.mod h1:6qqX0WNrS4RzPZ1tnroDzq9kY3fu1KwE7
 github.com/daviddengcn/go-colortext v1.0.0/go.mod h1:zDqEI5NVUop5QPpVJUxE9UO10hRnmkD5G4Pmri9+m4c=
 github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.48 h1:eqvrWYshQdsp6I8LZzxpuJi/Ou5YvZRr7AfDotA8UEM=
 github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.48/go.mod h1:wGZLfRa/b4w/V/hakmfcK0CmrAZGfpj+jN7BMt0s19E=
+github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.50 h1:vVFnN+yqExKovB69iEfq1fsuTpWiyvLnZOOe1UvJjGI=
+github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.50/go.mod h1:wGZLfRa/b4w/V/hakmfcK0CmrAZGfpj+jN7BMt0s19E=
 github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352/go.mod h1:SKVExuS+vpu2l9IoOc0RwqE7NYnb0JlcFHFnEJkVDzc=
