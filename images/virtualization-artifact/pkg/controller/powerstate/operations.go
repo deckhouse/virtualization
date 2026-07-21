@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -45,19 +46,22 @@ func StartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine)
 	return cl.Status().Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, jp), &client.SubResourcePatchOptions{})
 }
 
-// StopVM stops VM via deleting kvvmi.
-// It implements force stop by immediately deleting VM's Pod.
+// StopVM stops the VM by deleting the kvvmi.
+//
+// A force stop first zeroes the VMI grace period so virt-handler kills the guest immediately
+// instead of waiting out the ACPI graceful shutdown. The VMI grace period, not the launcher pod,
+// is what gates the shutdown.
 func StopVM(ctx context.Context, cl client.Client, kvvmi *virtv1.VirtualMachineInstance, force *bool) error {
 	if kvvmi == nil {
 		return fmt.Errorf("kvvmi must not be empty")
 	}
-	if err := cl.Delete(ctx, kvvmi, &client.DeleteOptions{}); err != nil {
-		return err
-	}
 	if force != nil && *force {
-		return kvvmutil.DeletePodByKVVMI(ctx, cl, kvvmi, &client.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))})
+		patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"terminationGracePeriodSeconds":0}}`))
+		if err := cl.Patch(ctx, kvvmi, patch); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
 	}
-	return nil
+	return cl.Delete(ctx, kvvmi, &client.DeleteOptions{})
 }
 
 // RestartVM restarts VM via adding stop and start change requests to the KVVM status.
