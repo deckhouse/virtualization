@@ -3,13 +3,24 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
+{{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src
+  to: /src/images/dvcr-artifact
   stageDependencies:
     install:
     - go.mod
     - go.sum
     - "**/*.go"
+- add: {{ .ModuleDir }}/api
+  to: /src/api
+  stageDependencies:
+    install:
+    - "**/*"
+- add: {{ .ModuleDir }}/images/pvc-artifact/staging
+  to: /src/images/pvc-artifact/staging
+  stageDependencies:
+    install:
+    - "**/*"
 ---
 {{- $nameDeps := print .ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
@@ -27,6 +38,7 @@ fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "bu
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+{{- include "fox module auth secret" . }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src
@@ -42,12 +54,14 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - cd /src
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
+{{- include "fox module auth" . | nindent 2 }}
+  - cd /src/images/dvcr-artifact
   - go mod download
+{{- include "fox module auth cleanup" . | nindent 2 }}
   setup:
   - mkdir /out
-  - cd /src
+  - cd /src/images/dvcr-artifact
   - |
     export GO111MODULE=on
     export GOOS=linux

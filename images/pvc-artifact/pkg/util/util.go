@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"kubevirt.io/containerized-data-importer/pkg/common"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/common"
 )
 
 const (

@@ -19,7 +19,7 @@ package image
 import (
 	"testing"
 
-	metrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/pvc-importer"
+	metrics "github.com/deckhouse/virtualization/images/pvc-artifact/pkg/monitoring/metrics/pvc-importer"
 )
 
 func TestReportProgressFullUpdatesImportMetric(t *testing.T) {

@@ -3,6 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-debian-1.25" "builder/golang-alt-1.25" }}
 git:
+  {{- include "workspace go files" . | nindent 2 }}
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src/images/virtualization-dra
     stageDependencies:
@@ -14,13 +15,16 @@ git:
 secrets:
   - id: GOPROXY
     value: {{ .GOPROXY }}
+  {{- include "fox module auth secret" . | nindent 2 }}
 mount:
 {{- include "mount points for golang builds" . }}
 shell:
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
+    {{- include "fox module auth" . | nindent 4 }}
     - cd /src/images/virtualization-dra
     - go mod download
+    {{- include "fox module auth cleanup" . | nindent 4 }}
   setup:
     - cd /src/images/virtualization-dra
     - mkdir /out

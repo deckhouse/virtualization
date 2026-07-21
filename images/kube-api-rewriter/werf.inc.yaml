@@ -3,12 +3,14 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
+  {{- include "workspace go files" . | nindent 2 }}
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src/images/kube-api-rewriter
     stageDependencies:
       install:
         - go.mod
         - go.sum
+        - go.work
         - "**/*.go"
   - add: {{ .ModuleDir }}/src/kubevirt-rules
     to: /src/src/kubevirt-rules
@@ -29,13 +31,16 @@ import:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+{{- include "fox module auth secret" . }}
 mount:
 {{- include "mount points for golang builds" . }}
 shell:
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
+    {{- include "fox module auth" . | nindent 4 }}
     - cd /src/images/kube-api-rewriter
     - go mod download
+    {{- include "fox module auth cleanup" . | nindent 4 }}
   setup:
     - cd /src/images/kube-api-rewriter
     - export GOOS=linux

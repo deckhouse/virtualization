@@ -27,8 +27,8 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 
-	"kubevirt.io/containerized-data-importer/pkg/common"
-	"kubevirt.io/containerized-data-importer/pkg/util"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/common"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/util"
 )
 
 const (

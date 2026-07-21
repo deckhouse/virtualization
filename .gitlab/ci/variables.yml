@@ -16,6 +16,16 @@
 #
 
 variables:
+  # --- Private Go modules on fox (kubevirt.io/api fork replace in go.work) ---
+  # GOPRIVATE routes fox modules past the public proxy/sumdb; the GIT_CONFIG_*
+  # trio injects the job token into git-over-https for fox fetches without
+  # touching shared runner state (~/.netrc races on the shell executor).
+  # The fork project must allow this project in its CI job token allowlist.
+  GOPRIVATE: fox.flant.com/*
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: url.https://gitlab-ci-token:${CI_JOB_TOKEN}@fox.flant.com/.insteadOf
+  GIT_CONFIG_VALUE_0: https://fox.flant.com/
+
   # --- Manual dispatch: build an existing tag into DEV ---
   # Declared with value/description so it renders as a prefilled field on the
   # "Run pipeline" (web) form. Set it to an existing tag and run the pipeline

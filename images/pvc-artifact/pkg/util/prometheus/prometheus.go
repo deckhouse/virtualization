@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
-	"kubevirt.io/containerized-data-importer/pkg/util"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/util"
 )
 
 // ProgressReader is a counting reader that reports progress to prometheus.

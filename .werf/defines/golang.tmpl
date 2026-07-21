@@ -6,3 +6,57 @@
 - from: tmp_dir
   to: /root/.cache/go-build
 {{- end }}
+{{/*
+
+Workspace files required to build any repo Go module in go.work workspace
+mode: go.work itself and go.mod/go.sum of every workspace module, so the go
+command can load the workspace and resolve local replace targets.
+
+Include in the git section of the module's src-artifact (or builder) image,
+next to the git add of the module sources. Module sources must mirror the
+repository layout under /src.
+
+*/}}
+{{- define "workspace go files" }}
+- add: {{ .ModuleDir | default "/" }}
+  to: /src
+  includePaths:
+  - go.work
+  - go.work.sum
+  - "**/go.mod"
+  - "**/go.sum"
+  stageDependencies:
+    install:
+    - go.work
+    - go.work.sum
+    - "**/go.mod"
+    - "**/go.sum"
+{{- end }}
+
+{{/*
+
+Authentication for fetching private Go modules from fox.flant.com (the
+kubevirt fork) during image builds. Emits shell lines for the install stage:
+sets GOPRIVATE and, in CI, writes the job token to ~/.netrc for git-over-https.
+Requires the CI_JOB_TOKEN secret; pair with "fox module auth cleanup" after
+go mod download.
+
+*/}}
+{{- define "fox module auth" }}
+- export GOPRIVATE="fox.flant.com/*"
+- |
+  CI_JOB_TOKEN=$(cat /run/secrets/CI_JOB_TOKEN)
+  if [ -n "$CI_JOB_TOKEN" ]; then
+    echo "machine fox.flant.com login gitlab-ci-token password $CI_JOB_TOKEN" > ~/.netrc
+    chmod 600 ~/.netrc
+  fi
+{{- end }}
+
+{{- define "fox module auth cleanup" }}
+- rm -f ~/.netrc
+{{- end }}
+
+{{- define "fox module auth secret" }}
+- id: CI_JOB_TOKEN
+  value: "{{ env "CI_JOB_TOKEN" }}"
+{{- end }}

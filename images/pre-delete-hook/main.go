@@ -50,7 +50,7 @@ func logInfo(msg string, r *Resource) {
 }
 
 func logError(msg string, err error, r *Resource) {
-	slog.Error(msg, err, slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), slog.Any("err", err))
+	slog.Error(msg, slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), slog.Any("err", err))
 }
 
 type PreDeleteHook struct {

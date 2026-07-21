@@ -3,7 +3,7 @@ module github.com/deckhouse/virtualization/src/cli
 go 1.25.12
 
 require (
-	github.com/deckhouse/virtualization/api v0.15.0
+	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/fatih/color v1.18.0
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/onsi/ginkgo/v2 v2.23.3
@@ -79,12 +79,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
-)
-
-replace github.com/deckhouse/virtualization/api => ../../api
-
-// CVE Replaces
-replace (
-	golang.org/x/net => golang.org/x/net v0.55.0
-	golang.org/x/sys => golang.org/x/sys v0.45.0
 )

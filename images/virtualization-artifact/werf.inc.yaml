@@ -3,6 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
+{{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/api
   to: /src/api
   stageDependencies:
@@ -31,24 +32,16 @@ import:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
-- id: CI_JOB_TOKEN
-  value: "{{ env "CI_JOB_TOKEN" }}"
+{{- include "fox module auth secret" . }}
 mount:
 {{- include "mount points for golang builds" . }}
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
-  - export GOPRIVATE="fox.flant.com/*"
-  - |
-    # Authenticate to the private fox.flant.com kubevirt fork for `go mod download`.
-    CI_JOB_TOKEN=$(cat /run/secrets/CI_JOB_TOKEN)
-    if [ -n "$CI_JOB_TOKEN" ]; then
-      echo "machine fox.flant.com login gitlab-ci-token password $CI_JOB_TOKEN" > ~/.netrc
-      chmod 600 ~/.netrc
-    fi
+{{- include "fox module auth" . | nindent 2 }}
   - cd /src/images/virtualization-artifact
   - go mod download
-  - rm -rf ~/.netrc
+{{- include "fox module auth cleanup" . | nindent 2 }}
   setup:
   - cd /src/images/virtualization-artifact
   - mkdir /out

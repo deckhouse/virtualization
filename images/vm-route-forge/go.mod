@@ -19,8 +19,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.21.0
 )
 
-replace github.com/deckhouse/virtualization/api => ./../../api
-
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -125,11 +123,4 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-)
-
-// CVE Replaces
-replace (
-	golang.org/x/crypto => golang.org/x/crypto v0.52.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914,+2026 high CVEs
-	golang.org/x/net => golang.org/x/net v0.55.0
-	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0
 )

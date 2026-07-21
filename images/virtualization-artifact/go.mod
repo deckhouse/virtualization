@@ -150,24 +150,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
-
-replace github.com/deckhouse/virtualization/api => ./../../api
-
-replace (
-	k8s.io/api => k8s.io/api v0.34.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.34.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.34.2
-	k8s.io/apiserver => k8s.io/apiserver v0.34.2
-	k8s.io/client-go => k8s.io/client-go v0.34.2
-	k8s.io/component-base => k8s.io/component-base v0.34.2
-)
-
-// CVE Replaces
-replace (
-	golang.org/x/crypto => golang.org/x/crypto v0.52.0 // CVE mitigation 2026-06-29
-	golang.org/x/net => golang.org/x/net v0.55.0
-	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0 // CVE-2025-22868
-)
-
-// Kubevirt API replaces
-replace kubevirt.io/api => fox.flant.com/deckhouse/virtualization/fork/kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.61

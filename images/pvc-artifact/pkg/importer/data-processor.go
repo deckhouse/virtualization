@@ -25,9 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 
-	"kubevirt.io/containerized-data-importer/pkg/common"
-	"kubevirt.io/containerized-data-importer/pkg/image"
-	"kubevirt.io/containerized-data-importer/pkg/util"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/common"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/image"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/util"
 )
 
 var qemuOperations = image.NewQEMUOperations()

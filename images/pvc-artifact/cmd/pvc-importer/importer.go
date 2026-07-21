@@ -35,10 +35,10 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
-	"kubevirt.io/containerized-data-importer/pkg/common"
-	"kubevirt.io/containerized-data-importer/pkg/importer"
-	"kubevirt.io/containerized-data-importer/pkg/util"
-	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/common"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/importer"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/util"
+	prometheusutil "github.com/deckhouse/virtualization/images/pvc-artifact/pkg/util/prometheus"
 )
 
 const (

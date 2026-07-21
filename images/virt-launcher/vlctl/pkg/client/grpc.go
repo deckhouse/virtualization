@@ -21,10 +21,11 @@ package client
 
 import (
 	"context"
-	"net"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -36,24 +37,36 @@ func DialSocket(socketPath string) (*grpc.ClientConn, error) {
 }
 
 func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, error) {
-
 	options := []grpc.DialOption{
 		grpc.WithAuthority("localhost"),
-		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
-		grpc.WithBlock(), // dial sync in order to catch errors early
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
+	conn, err := grpc.NewClient("unix:"+socketPath, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	connectTimeout := ConnectTimeoutSeconds * time.Second
 	if timeout > 0 {
-		options = append(options,
-			grpc.WithTimeout(time.Duration(timeout+ConnectTimeoutSeconds)*time.Second),
-		)
+		connectTimeout = time.Duration(timeout+ConnectTimeoutSeconds) * time.Second
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeoutSeconds*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
 
-	return grpc.DialContext(ctx, socketPath, options...)
+	// NewClient connects lazily; wait for readiness to keep the old
+	// blocking-dial behavior of surfacing socket errors early.
+	conn.Connect()
+	for {
+		state := conn.GetState()
+		if state == connectivity.Ready {
+			return conn, nil
+		}
+		if !conn.WaitForStateChange(ctx, state) {
+			_ = conn.Close()
+			return nil, ctx.Err()
+		}
+		conn.Connect()
+	}
 }

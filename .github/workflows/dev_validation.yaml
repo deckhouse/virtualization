@@ -102,6 +102,31 @@ jobs:
         run: |
           task validation:doc-changes
 
+  go_work:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/go_work')"
+    runs-on: ubuntu-latest
+    name: Validation go-work
+    steps:
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install Task
+        uses: go-task/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Run validation "go.work"
+        run: |
+          task validation:go-work
+
   shellcheck:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/shellcheck')"
     runs-on: ubuntu-latest

@@ -38,6 +38,11 @@ vars:
     sh: if [ -z $DLV_IMAGE ]; then echo "ttl.sh/$(uuidgen | awk '{print tolower($0)}'):10m" ; else echo $DLV_IMAGE ; fi
 
 tasks:
+  go:sync:
+    desc: "Sync module go.mod/go.sum files via go work sync. Use instead of go mod tidy."
+    cmds:
+      - go work sync
+
   check-werf:
     cmds:
       - which werf >/dev/null || (echo "werf not found."; exit 1)
@@ -253,6 +258,15 @@ tasks:
     desc: "Doc-changes"
     cmds:
       - go run {{ .VALIDATION_FILES }} --type doc-changes
+
+  validation:go-work:
+    desc: "Check go.work sync freshness and replace consistency across modules"
+    deps:
+      - check-jq
+    cmds:
+      - task: go:sync
+      - git diff --exit-code -- go.work.sum ':(glob)**/go.mod' ':(glob)**/go.sum'
+      - ./hack/validate-go-work.sh
 
   validation:helm-templates:
     desc: "Check Helm templates"

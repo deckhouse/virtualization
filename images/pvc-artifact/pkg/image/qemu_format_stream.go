@@ -25,7 +25,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 
-	"kubevirt.io/containerized-data-importer/pkg/common"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/common"
 )
 
 func convertTo(format, src, dest string, preallocate bool) error {

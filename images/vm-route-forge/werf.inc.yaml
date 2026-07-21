@@ -3,15 +3,16 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
+{{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src/app/images/vm-route-forge
+  to: /src/images/vm-route-forge
   stageDependencies:
     install:
     - go.mod
     - go.sum
     - "**/*.go"
 - add: {{ .ModuleDir }}/api
-  to: /src/app/api
+  to: /src/api
   stageDependencies:
     install:
     - "**/*.go"
@@ -27,15 +28,18 @@ import:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+{{- include "fox module auth secret" . }}
 mount:
 {{- include "mount points for golang builds" . }}
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
-  - cd /src/app/images/vm-route-forge
+{{- include "fox module auth" . | nindent 2 }}
+  - cd /src/images/vm-route-forge
   - go mod download
+{{- include "fox module auth cleanup" . | nindent 2 }}
   setup:
-  - cd /src/app/images/vm-route-forge
+  - cd /src/images/vm-route-forge
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
@@ -52,7 +56,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
-  add: /src/app/images/vm-route-forge/vm-route-forge
+  add: /src/images/vm-route-forge/vm-route-forge
   to: /app/vm-route-forge
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}

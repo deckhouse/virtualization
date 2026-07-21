@@ -31,11 +31,11 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(kubevirt.io/containerized-data-importer/)
+        - prefix(github.com/deckhouse/virtualization/images/pvc-artifact/)
     gofumpt:
       extra-rules: true
     goimports:
-      local-prefixes: kubevirt.io/containerized-data-importer/
+      local-prefixes: github.com/deckhouse/virtualization/images/pvc-artifact/
 
 linters:
   default: none

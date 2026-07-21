@@ -20,7 +20,7 @@ package importer
 import (
 	"fmt"
 
-	"kubevirt.io/containerized-data-importer/pkg/common"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/common"
 )
 
 // ValidationSizeError is an error indication size validation failure.

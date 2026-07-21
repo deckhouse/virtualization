@@ -28,6 +28,27 @@
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
+# go-work
+#
+# go.work is the single source of replace directives: the task runs
+# `go work sync` (must be a no-op on a clean checkout, fetches the fox
+# kubevirt fork via the global GOPRIVATE/GIT_CONFIG_* auth) and rejects
+# any replace directive in a workspace module go.mod.
+# ---------------------------------------------------------------------------
+
+lint:go-work:
+  stage: lint
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git jq
+  script:
+    - task validation:go-work
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
+
+# ---------------------------------------------------------------------------
 # no_cyrillic
 # ---------------------------------------------------------------------------
 
@@ -363,6 +384,7 @@ lint:helm-templates:
             -e BPF2GO_STRIP=llvm-strip-14 \
             -e BPF2GO_CFLAGS="-I/usr/include/x86_64-linux-gnu" \
             -e GOTOOLCHAIN=auto \
+            -e GOPRIVATE -e GIT_CONFIG_COUNT -e GIT_CONFIG_KEY_0 -e GIT_CONFIG_VALUE_0 \
             ghcr.io/cilium/ebpf-builder:1777990914 \
             sh -c 'go generate ./...'
           check_diffs images/vm-route-forge

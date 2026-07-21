@@ -3,8 +3,9 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
+{{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src
+  to: /src/images/pvc-artifact
   stageDependencies:
     install:
     - go.mod
@@ -41,6 +42,7 @@ mount:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+{{- include "fox module auth secret" . }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src
@@ -57,16 +59,17 @@ shell:
       rm -rf /$pkg
     done
 
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
+{{- include "fox module auth" . | nindent 2 }}
   - |
-    export GOPROXY=$(cat /run/secrets/GOPROXY)
-
     echo Download Go modules.
-    cd /src
+    cd /src/images/pvc-artifact
     go mod download
+{{- include "fox module auth cleanup" . | nindent 2 }}
 
   setup:
   - mkdir /pvc-binaries
-  - cd /src
+  - cd /src/images/pvc-artifact
 
   - export GOOS=linux
   - export GOARCH=amd64

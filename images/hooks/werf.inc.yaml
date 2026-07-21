@@ -3,6 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
+{{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src/images/hooks
   stageDependencies:
@@ -35,11 +36,14 @@ mount:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+{{- include "fox module auth secret" . }}
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
+{{- include "fox module auth" . | nindent 2 }}
   - cd /app/images/hooks
   - go mod download
+{{- include "fox module auth cleanup" . | nindent 2 }}
   setup:
   - cd /app/images/hooks
   - |

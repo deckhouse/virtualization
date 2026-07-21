@@ -82,12 +82,14 @@ func (o *BaseOptions) MarshalOutput(v interface{}) ([]byte, error) {
 	}
 }
 
+type baseOptsKey struct{}
+
 func WithBaseOptions(ctx context.Context, opts BaseOptions) context.Context {
-	return context.WithValue(ctx, "baseOpts", opts)
+	return context.WithValue(ctx, baseOptsKey{}, opts)
 }
 
 func BaseOptionsFromContext(ctx context.Context) BaseOptions {
-	val := ctx.Value("baseOpts")
+	val := ctx.Value(baseOptsKey{})
 	opts, ok := val.(BaseOptions)
 	if !ok {
 		return BaseOptions{}

@@ -413,17 +413,19 @@ git:
       install:
       - '**/*'
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/vlctl
-    to: /src-vlctl
+    to: /src/images/virt-launcher/vlctl
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
+  {{- include "workspace go files" . | nindent 2 }}
 import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+{{- include "fox module auth secret" . }}
 shell:
   install:
   - |
@@ -443,8 +445,9 @@ shell:
     {{- $_ := set $ "ProjectName" (list .ImageName "node-labeller" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller`) | nindent 6 }}
     echo "Done"
+{{- include "fox module auth" . | nindent 2 }}
   - |
-    cd /src-vlctl
+    cd /src/images/virt-launcher/vlctl
     export GOOS=linux
     export GOARCH=amd64
     export CGO_ENABLED=0
@@ -452,6 +455,7 @@ shell:
     {{- $_ := set $ "ProjectName" (list .ImageName "vlctl" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go`) | nindent 6 }}
     echo "Done"
+{{- include "fox module auth cleanup" . | nindent 2 }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false

@@ -95,9 +95,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
-
-// CVE Replaces
-replace (
-	golang.org/x/net => golang.org/x/net v0.55.0
-	golang.org/x/sys => golang.org/x/sys v0.45.0
-)

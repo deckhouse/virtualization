@@ -31,10 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 
-	"kubevirt.io/containerized-data-importer/pkg/common"
-	metrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/pvc-importer"
-	"kubevirt.io/containerized-data-importer/pkg/system"
-	"kubevirt.io/containerized-data-importer/pkg/util"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/common"
+	metrics "github.com/deckhouse/virtualization/images/pvc-artifact/pkg/monitoring/metrics/pvc-importer"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/system"
+	"github.com/deckhouse/virtualization/images/pvc-artifact/pkg/util"
 )
 
 const (

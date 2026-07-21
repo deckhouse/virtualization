@@ -397,8 +397,7 @@ func handleError(err error, cmdName string, response *cmdproto.Response) error {
 	} else if IsUnimplemented(err) {
 		return err
 	} else if err != nil {
-		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
-		return fmt.Errorf(msg)
+		return fmt.Errorf("unknown error encountered sending command %s: %s", cmdName, err.Error())
 	} else if response != nil && !response.Success {
 		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}
