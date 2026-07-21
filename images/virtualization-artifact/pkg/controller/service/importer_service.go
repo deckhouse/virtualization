@@ -24,35 +24,31 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
-	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
 type ImporterService struct {
-	dvcrSettings    *dvcr.Settings
-	client          client.Client
-	image           string
-	imagePullSecret types.NamespacedName
-	requirements    corev1.ResourceRequirements
-	pullPolicy      string
-	verbose         string
-	controllerName  string
-	protection      *ProtectionService
+	dvcrSettings   *dvcr.Settings
+	client         client.Client
+	image          string
+	requirements   corev1.ResourceRequirements
+	pullPolicy     string
+	verbose        string
+	controllerName string
+	protection     *ProtectionService
 }
 
 func NewImporterService(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	image string,
-	imagePullSecret types.NamespacedName,
 	requirements corev1.ResourceRequirements,
 	pullPolicy string,
 	verbose string,
@@ -60,15 +56,14 @@ func NewImporterService(
 	protection *ProtectionService,
 ) *ImporterService {
 	return &ImporterService{
-		dvcrSettings:    dvcrSettings,
-		client:          client,
-		image:           image,
-		imagePullSecret: imagePullSecret,
-		requirements:    requirements,
-		pullPolicy:      pullPolicy,
-		verbose:         verbose,
-		controllerName:  controllerName,
-		protection:      protection,
+		dvcrSettings:   dvcrSettings,
+		client:         client,
+		image:          image,
+		requirements:   requirements,
+		pullPolicy:     pullPolicy,
+		verbose:        verbose,
+		controllerName: controllerName,
+		protection:     protection,
 	}
 }
 
@@ -99,11 +94,6 @@ func (s ImporterService) Start(
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
 
-	err = ensureModulePullSecret(ctx, s.client, s.imagePullSecret, sup, podutil.MakeOwnerReference(pod))
-	if err != nil {
-		return err
-	}
-
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, importerTokenScope(s.dvcrSettings, settings))
 }
 
@@ -124,11 +114,6 @@ func (s ImporterService) StartWithPodSetting(
 	}
 
 	pod, err := importer.NewImporter(podSettings, settings).GetOrCreatePod(ctx, s.client)
-	if err != nil {
-		return err
-	}
-
-	err = ensureModulePullSecret(ctx, s.client, s.imagePullSecret, sup, podutil.MakeOwnerReference(pod))
 	if err != nil {
 		return err
 	}
@@ -278,7 +263,6 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup sup
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
 		Finalizer:            s.protection.GetFinalizer(),
-		ImagePullSecrets:     modulePullSecretRefs(s.imagePullSecret, sup),
 	}
 }
 
@@ -294,6 +278,5 @@ func (s ImporterService) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, 
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
 		PVCName:              pvcName,
-		ImagePullSecrets:     modulePullSecretRefs(s.imagePullSecret, sup),
 	}
 }

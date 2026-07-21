@@ -24,13 +24,11 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
-	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -38,22 +36,20 @@ import (
 )
 
 type UploaderService struct {
-	client          client.Client
-	dvcrSettings    *dvcr.Settings
-	protection      *ProtectionService
-	image           string
-	imagePullSecret types.NamespacedName
-	pullPolicy      string
-	verbose         string
-	controllerName  string
-	requirements    corev1.ResourceRequirements
+	client         client.Client
+	dvcrSettings   *dvcr.Settings
+	protection     *ProtectionService
+	image          string
+	pullPolicy     string
+	verbose        string
+	controllerName string
+	requirements   corev1.ResourceRequirements
 }
 
 func NewUploaderService(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	image string,
-	imagePullSecret types.NamespacedName,
 	requirements corev1.ResourceRequirements,
 	pullPolicy string,
 	verbose string,
@@ -61,15 +57,14 @@ func NewUploaderService(
 	protection *ProtectionService,
 ) *UploaderService {
 	return &UploaderService{
-		dvcrSettings:    dvcrSettings,
-		client:          client,
-		image:           image,
-		imagePullSecret: imagePullSecret,
-		requirements:    requirements,
-		pullPolicy:      pullPolicy,
-		verbose:         verbose,
-		controllerName:  controllerName,
-		protection:      protection,
+		dvcrSettings:   dvcrSettings,
+		client:         client,
+		image:          image,
+		requirements:   requirements,
+		pullPolicy:     pullPolicy,
+		verbose:        verbose,
+		controllerName: controllerName,
+		protection:     protection,
 	}
 }
 
@@ -99,11 +94,6 @@ func (s UploaderService) Start(
 	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
-	}
-
-	err = ensureModulePullSecret(ctx, s.client, s.imagePullSecret, sup, podutil.MakeOwnerReference(pod))
-	if err != nil {
-		return err
 	}
 
 	err = supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, uploaderTokenScope(s.dvcrSettings, settings))
@@ -273,7 +263,6 @@ func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup sup
 		InstallerLabels:      map[string]string{},
 		ServiceName:          uploaderSvc.Name,
 		ResourceRequirements: &s.requirements,
-		ImagePullSecrets:     modulePullSecretRefs(s.imagePullSecret, sup),
 	}
 }
 

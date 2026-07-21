@@ -55,7 +55,6 @@ type DiskService struct {
 
 type DiskImporterConfig struct {
 	Image                string
-	ImagePullSecret      types.NamespacedName
 	ResourceRequirements corev1.ResourceRequirements
 	PullPolicy           string
 	Verbose              string

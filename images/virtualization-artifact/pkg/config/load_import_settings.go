@@ -36,7 +36,6 @@ type ImportSettings struct {
 	DiskImporterImage string
 	UploaderImage     string
 	BounderImage      string
-	ImagePullSecret   string
 	Requirements      corev1.ResourceRequirements
 }
 
@@ -62,8 +61,6 @@ func LoadImportSettingsFromEnv() (ImportSettings, error) {
 	if err != nil {
 		return ImportSettings{}, err
 	}
-
-	settings.ImagePullSecret = os.Getenv(common.ProvisionerImagePullSecretVar)
 
 	limits := os.Getenv(ProvisioningPodLimitsVar)
 	if limits != "" {

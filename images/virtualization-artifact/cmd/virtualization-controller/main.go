@@ -29,7 +29,6 @@ import (
 	resourcev1 "k8s.io/api/resource/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -209,11 +208,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	var modulePullSecret types.NamespacedName
-	if importSettings.ImagePullSecret != "" {
-		modulePullSecret = types.NamespacedName{Namespace: controllerNamespace, Name: importSettings.ImagePullSecret}
-	}
-
 	gcSettings, err := appconfig.LoadGcSettings()
 	if err != nil {
 		log.Error(err.Error())
@@ -377,25 +371,25 @@ func main() {
 	}
 
 	cviLogger := logger.NewControllerLogger(cvi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, modulePullSecret, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
+	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, modulePullSecret, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.BounderImage, modulePullSecret, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	populatorLogger := logger.NewControllerLogger(populator.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, modulePullSecret, importSettings.Requirements, dvcrSettings); err != nil {
+	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
