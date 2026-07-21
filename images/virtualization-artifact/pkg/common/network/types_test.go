@@ -68,3 +68,22 @@ var _ = Describe("Network types helpers", func() {
 		})
 	})
 })
+
+var _ = Describe("InterfaceSpecList.HasOnlyMain", func() {
+	It("is true for an empty list", func() {
+		Expect(InterfaceSpecList{}.HasOnlyMain()).To(BeTrue())
+	})
+
+	It("is true when only the Main interface is present", func() {
+		list := InterfaceSpecList{{Type: v1alpha2.NetworksTypeMain}}
+		Expect(list.HasOnlyMain()).To(BeTrue())
+	})
+
+	It("is false when an additional network is present", func() {
+		list := InterfaceSpecList{
+			{Type: v1alpha2.NetworksTypeMain},
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cnet"},
+		}
+		Expect(list.HasOnlyMain()).To(BeFalse())
+	})
+})

@@ -1024,6 +1024,10 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 		return false, nil
 	}
 	vm := s.VirtualMachine().Current()
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return false, err
+	}
 	// For Main-only VMs, the default pod network may be implicit in the KVVM
 	// template but explicit in the running VMI: KubeVirt defaulting adds it to
 	// the VMI spec when the instance starts. If we later "fix" the KVVM template
@@ -1031,15 +1035,11 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	// template diff as a non-live-updatable network change and sets RestartRequired.
 	// When there are no active additional interfaces, this is only an implicit-vs-
 	// explicit default-network drift, so do not reconcile it.
-	if hasOnlyDefaultNetwork(vm) {
-		kvvmi, err := s.KVVMI(ctx)
-		if err != nil {
-			return false, err
-		}
-		if !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
-			return false, nil
-		}
+	onlyDefault := hasOnlyDefaultNetwork(vm)
+	if onlyDefault && !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi) {
+		return false, nil
 	}
+
 	filteredVM, err := filterReadyNetworks(ctx, s.Client(), vm)
 	if err != nil {
 		return false, err
@@ -1049,6 +1049,7 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 		return false, err
 	}
 	desired := network.CreateNetworkSpec(filteredVM, vmmacs)
+
 	actual := make(map[string]struct{})
 	for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if iface.State == virtv1.InterfaceStateAbsent {
@@ -1061,6 +1062,32 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	}
 	for _, spec := range desired {
 		if _, ok := actual[spec.InterfaceName]; !ok {
+			return true, nil
+		}
+	}
+
+	// Main-only VMs have no SDN-managed interface on the pod, so there is nothing to
+	// compare beyond the template check above.
+	if onlyDefault {
+		return false, nil
+	}
+	// A migration target pod is never returned by GetVMPod, so its networks-spec
+	// annotation can stay stale even when the template above is already in sync.
+	desiredStr, err := desired.ToString()
+	if err != nil {
+		return false, err
+	}
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return false, err
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if !isActiveLauncherPod(kvvmi, pod) {
+			continue
+		}
+		if pod.Annotations[annotations.AnnNetworksSpec] != desiredStr ||
+			pod.Annotations[annotations.AnnTapProvisionByDVPSupported] != "true" {
 			return true, nil
 		}
 	}
@@ -1167,18 +1194,24 @@ func (h *SyncKvvmHandler) isNetworkReadyOnPod(ctx context.Context, s state.Virtu
 	return errMsg == "", nil
 }
 
-// patchPodNetworkAnnotation writes the desired networks-spec annotation onto
-// the virt-launcher pod and returns the names of additional networks it wrote.
-// The names let the caller assert SDN has already reflected each one in networks status
+// patchPodNetworkAnnotation writes the desired networks-spec annotation onto every active
+// virt-launcher pod and returns the additional network names it wrote. All active pods are
+// patched, not just GetVMPod: during a live migration the target pod sits on another node
+// and is never returned by GetVMPod, yet SDN configures it from its own annotation.
 func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state.VirtualMachineState) ([]string, error) {
 	log := logger.FromContext(ctx)
 
-	pod, err := s.Pod(ctx)
+	pods, err := s.Pods(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if pod == nil {
+	if pods == nil || len(pods.Items) == 0 {
 		return nil, nil
+	}
+
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	current := s.VirtualMachine().Current()
@@ -1205,23 +1238,40 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		return nil, fmt.Errorf("failed to serialize network spec: %w", err)
 	}
 
-	if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr &&
-		pod.Annotations[annotations.AnnTapProvisionByDVPSupported] == "true" {
-		return desired, nil
-	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if !isActiveLauncherPod(kvvmi, pod) {
+			continue
+		}
+		if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr &&
+			pod.Annotations[annotations.AnnTapProvisionByDVPSupported] == "true" {
+			continue
+		}
 
-	patch := client.MergeFrom(pod.DeepCopy())
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
+		patch := client.MergeFrom(pod.DeepCopy())
+		if pod.Annotations == nil {
+			pod.Annotations = make(map[string]string)
+		}
+		pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
+		pod.Annotations[annotations.AnnTapProvisionByDVPSupported] = "true"
+		if err := h.client.Patch(ctx, pod, patch); err != nil {
+			return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
+		}
+		log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
 	}
-	pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
-	pod.Annotations[annotations.AnnTapProvisionByDVPSupported] = "true"
-	if err := h.client.Patch(ctx, pod, patch); err != nil {
-		return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
-	}
-	log.Info("Patched pod network annotation", "pod", pod.Name, "networks", networkConfigStr)
 
 	return desired, nil
+}
+
+func isActiveLauncherPod(kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod) bool {
+	if pod == nil || pod.DeletionTimestamp != nil {
+		return false
+	}
+	if kvvmi == nil {
+		return true
+	}
+	_, active := kvvmi.Status.ActivePods[pod.GetUID()]
+	return active
 }
 
 func nonHotpluggableVolumeRefs(kvvmi *virtv1.VirtualMachineInstance) map[nameKindKey]struct{} {
