@@ -66,7 +66,11 @@ type DynamicSettingsHandler struct {
 func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(dynamicSettingsHandlerName))
 
-	if kvvmi.Status.MigrationState != nil && (kvvmi.Status.MigrationState.Completed || kvvmi.Status.MigrationState.Failed) {
+	release, err := h.shouldReleaseSlots(ctx, kvvmi)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if release {
 		h.inboundLimiter.Release(kvvmi, livemigration.InboundMigrationWaitingTargetNode(kvvmi))
 		livemigration.ClearInboundMigrationSlot(kvvmi)
 		h.syncLimiter.Release(kvvmi, livemigration.SyncMigrationWaitingSourceNode(kvvmi))
@@ -127,8 +131,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 
 	var vm v1alpha2.VirtualMachine
 	vmKey := client.ObjectKeyFromObject(kvvmi)
-	err := h.client.Get(ctx, vmKey, &vm)
-	if err != nil {
+	if err := h.client.Get(ctx, vmKey, &vm); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -171,6 +174,43 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 
 func (h *DynamicSettingsHandler) Name() string {
 	return dynamicSettingsHandlerName
+}
+
+// shouldReleaseSlots reports whether the VMI's migration slots must be freed. Slots are
+// released when the migration reached a terminal MigrationState, or — the stale-slot guard —
+// when the VMI still holds a slot but no active migration backs it anymore. The latter covers
+// a migration that died without ever setting MigrationState.Failed (e.g. an OOMKilled source
+// virt-launcher whose VMIM is already gone), which would otherwise leak the slot and starve
+// every subsequent migration to that node.
+func (h *DynamicSettingsHandler) shouldReleaseSlots(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if state := kvvmi.Status.MigrationState; state != nil && (state.Completed || state.Failed) {
+		return true, nil
+	}
+	if !livemigration.HasMigrationSlot(kvvmi) {
+		return false, nil
+	}
+	active, err := h.hasActiveMigration(ctx, kvvmi)
+	if err != nil {
+		return false, err
+	}
+	return !active, nil
+}
+
+// hasActiveMigration reports whether a non-final VirtualMachineInstanceMigration still backs
+// the VMI. It is the liveness signal for slot ownership: a slot outlives its migration only
+// until the backing migration is gone or reached a final phase.
+func (h *DynamicSettingsHandler) hasActiveMigration(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	var migrations virtv1.VirtualMachineInstanceMigrationList
+	if err := h.client.List(ctx, &migrations, client.InNamespace(kvvmi.Namespace)); err != nil {
+		return false, err
+	}
+	for i := range migrations.Items {
+		m := &migrations.Items[i]
+		if m.Spec.VMIName == kvvmi.Name && !m.IsFinal() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // shouldUpdateMigrationConfiguration indicates if live migration controller should inject

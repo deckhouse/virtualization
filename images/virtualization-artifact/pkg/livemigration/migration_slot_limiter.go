@@ -103,14 +103,12 @@ func (l *MigrationSlotLimiter) TryAcquire(kvvmi *virtv1.VirtualMachineInstance, 
 	return true
 }
 
-// Release frees the slot held by the migration owning kvvmi on node. It is idempotent:
-// releasing a slot that is not held is a no-op.
+// Release frees the slot held by the migration owning kvvmi on node. When the owning
+// migration UID is no longer known (MigrationState wiped), every slot keyed by the VMI on
+// that node is freed instead — otherwise the slot would leak until a controller restart.
+// It is idempotent: releasing a slot that is not held is a no-op.
 func (l *MigrationSlotLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, node string) {
 	if node == "" {
-		return
-	}
-	owner := ownerKey(kvvmi)
-	if owner == "" {
 		return
 	}
 
@@ -121,7 +119,16 @@ func (l *MigrationSlotLimiter) Release(kvvmi *virtv1.VirtualMachineInstance, nod
 	if owners == nil {
 		return
 	}
-	delete(owners, owner)
+	if owner := ownerKey(kvvmi); owner != "" {
+		delete(owners, owner)
+	} else {
+		prefix := kvvmi.Namespace + "/" + kvvmi.Name + "/"
+		for o := range owners {
+			if strings.HasPrefix(o, prefix) {
+				delete(owners, o)
+			}
+		}
+	}
 	if len(owners) == 0 {
 		delete(l.slots, node)
 	}
@@ -151,12 +158,11 @@ func (l *MigrationSlotLimiter) ReleaseByKVVMI(namespace, name string) {
 }
 
 // Restore rebuilds the in-memory registry after a controller restart or leader change by
-// scanning VMIs annotated as acquired and still in an active migration.
+// scanning VMIs annotated as acquired and still backed by a non-final migration — the same
+// liveness signal the reconcile release path uses. The VMI's MigrationState is not trusted:
+// it stays non-final forever after an abnormal death and would resurrect a leaked slot.
 //
-// Stale annotations (VMI no longer in an active migration) do not occupy a slot; they are
-// cleaned up by the regular reconcile when the migration reaches a terminal phase. Stale
-// annotation cleanup is left to the reconcile release path instead of patching VMIs here:
-// same end state, no extra writes at startup.
+// Stale annotations are cleaned up by the reconcile release path, not patched here.
 func (l *MigrationSlotLimiter) Restore(ctx context.Context, c client.Reader) error {
 	if !l.enabled {
 		return nil
@@ -165,6 +171,17 @@ func (l *MigrationSlotLimiter) Restore(ctx context.Context, c client.Reader) err
 	var vmis virtv1.VirtualMachineInstanceList
 	if err := c.List(ctx, &vmis); err != nil {
 		return err
+	}
+	var migrations virtv1.VirtualMachineInstanceMigrationList
+	if err := c.List(ctx, &migrations); err != nil {
+		return err
+	}
+	backed := map[string]struct{}{}
+	for i := range migrations.Items {
+		m := &migrations.Items[i]
+		if !m.IsFinal() {
+			backed[m.Namespace+"/"+m.Spec.VMIName] = struct{}{}
+		}
 	}
 
 	l.mu.Lock()
@@ -175,7 +192,7 @@ func (l *MigrationSlotLimiter) Restore(ctx context.Context, c client.Reader) err
 		if kvvmi.Annotations[l.ann.slot] != slotAcquired {
 			continue
 		}
-		if !isInActiveMigration(kvvmi) {
+		if _, ok := backed[kvvmi.Namespace+"/"+kvvmi.Name]; !ok {
 			continue
 		}
 		node := kvvmi.Annotations[l.ann.node]
@@ -194,9 +211,17 @@ func (l *MigrationSlotLimiter) Restore(ctx context.Context, c client.Reader) err
 	return nil
 }
 
-func isInActiveMigration(kvvmi *virtv1.VirtualMachineInstance) bool {
-	state := kvvmi.Status.MigrationState
-	return state != nil && !state.Completed && !state.Failed
+// HasMigrationSlot reports whether the VMI currently holds or waits for any migration slot,
+// i.e. carries an inbound or sync slot annotation.
+func HasMigrationSlot(kvvmi *virtv1.VirtualMachineInstance) bool {
+	if kvvmi.Annotations == nil {
+		return false
+	}
+	if _, ok := kvvmi.Annotations[InboundMigrationSlotAnnotation]; ok {
+		return true
+	}
+	_, ok := kvvmi.Annotations[SyncMigrationSlotAnnotation]
+	return ok
 }
 
 // ownerKey identifies the migration that owns a slot. Binding to VMI plus the current

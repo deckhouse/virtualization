@@ -42,6 +42,7 @@ import (
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -412,6 +413,26 @@ var _ = Describe("LifecycleHandler", func() {
 			}}
 
 			fakeClient, err := testutil.NewFakeClientWithObjects(mig)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
+			Expect(msg).To(Equal(messageTargetNodeIncomingMigrationLimitExceeded))
+		})
+
+		It("should report a queue wait, not target preparing, for a scheduled migration waiting for an inbound slot", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.UID = "migration-uid"
+			mig.Status.Phase = virtv1.MigrationScheduled
+
+			kvvmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			}
+			livemigration.MarkInboundMigrationSlotWaiting(kvvmi, "node-a")
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			h := LifecycleHandler{client: fakeClient}
@@ -1224,5 +1245,39 @@ var _ = Describe("LifecycleHandler", func() {
 		}}
 
 		Expect(getMessageByMigrationFailedReason(mig)).To(Equal("No available nodes were found to place the target VM within the timeout period"))
+	})
+})
+
+var _ = Describe("isTargetPreparationStalled", func() {
+	now := time.Now()
+	condAged := func(reason vmopcondition.ReasonCompleted, age time.Duration) metav1.Condition {
+		return metav1.Condition{
+			Type:               vmopcondition.TypeCompleted.String(),
+			Reason:             reason.String(),
+			LastTransitionTime: metav1.NewTime(now.Add(-age)),
+		}
+	}
+
+	DescribeTable("detects a target stuck preparing past the timeout",
+		func(reason vmopcondition.ReasonCompleted, age time.Duration, expected bool) {
+			Expect(isTargetPreparationStalled(reason, condAged(reason, age), now)).To(Equal(expected))
+		},
+		Entry("preparing past timeout", vmopcondition.ReasonTargetPreparing, 6*time.Minute, true),
+		Entry("preparing within timeout", vmopcondition.ReasonTargetPreparing, time.Minute, false),
+		Entry("scheduling past timeout", vmopcondition.ReasonTargetScheduling, 6*time.Minute, true),
+		Entry("unschedulable past timeout", vmopcondition.ReasonTargetUnschedulable, 6*time.Minute, true),
+		Entry("disk error past timeout", vmopcondition.ReasonTargetDiskError, 6*time.Minute, true),
+		Entry("syncing never stalls on this path", vmopcondition.ReasonSyncing, time.Hour, false),
+		Entry("waiting for sync slot never stalls", vmopcondition.ReasonWaitingForSyncSlot, time.Hour, false),
+		Entry("pending is a legitimate queue wait", vmopcondition.ReasonMigrationPending, time.Hour, false),
+	)
+
+	It("starts a fresh budget when the reason just changed", func() {
+		prev := condAged(vmopcondition.ReasonMigrationPending, time.Hour)
+		Expect(isTargetPreparationStalled(vmopcondition.ReasonTargetPreparing, prev, now)).To(BeFalse())
+	})
+
+	It("returns false when there is no recorded condition yet", func() {
+		Expect(isTargetPreparationStalled(vmopcondition.ReasonTargetPreparing, metav1.Condition{}, now)).To(BeFalse())
 	})
 })

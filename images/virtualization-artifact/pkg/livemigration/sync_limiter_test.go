@@ -57,6 +57,18 @@ var _ = Describe("SyncMigrationLimiter", func() {
 		}
 	}
 
+	newActiveMigration := func(vmiName string) *virtv1.VirtualMachineInstanceMigration {
+		return &virtv1.VirtualMachineInstanceMigration{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: virtv1.SchemeGroupVersion.String(),
+				Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+			},
+			ObjectMeta: metav1.ObjectMeta{Name: vmiName + "-mig", Namespace: namespace},
+			Spec:       virtv1.VirtualMachineInstanceMigrationSpec{VMIName: vmiName},
+			Status:     virtv1.VirtualMachineInstanceMigrationStatus{Phase: virtv1.MigrationRunning},
+		}
+	}
+
 	It("Should acquire one slot only for the same source node", func() {
 		limiter := NewSyncMigrationLimiter(true, 1)
 		Expect(limiter.TryAcquire(newKVVMI("first", "first-migration"), sourceNode)).To(BeTrue())
@@ -137,17 +149,17 @@ var _ = Describe("SyncMigrationLimiter", func() {
 		waitingVMI := newKVVMI("waiting", "waiting-migration")
 		MarkSyncMigrationSlotWaiting(waitingVMI, sourceNode)
 
-		staleVMI := newKVVMI("stale", "stale-migration")
-		MarkSyncMigrationSlotAcquired(staleVMI, sourceNode)
-		staleVMI.Status.MigrationState.Completed = true
+		// Leaked: annotated as acquired, but no migration backs the VMI.
+		leakedVMI := newKVVMI("leaked", "leaked-migration")
+		MarkSyncMigrationSlotAcquired(leakedVMI, sourceNode)
 
-		fakeClient, err := testutil.NewFakeClientWithObjects(acquiredVMI, waitingVMI, staleVMI)
+		fakeClient, err := testutil.NewFakeClientWithObjects(acquiredVMI, waitingVMI, leakedVMI, newActiveMigration("acquired"))
 		Expect(err).NotTo(HaveOccurred())
 
 		limiter := NewSyncMigrationLimiter(true, 1)
 		Expect(limiter.Restore(ctx, fakeClient)).To(Succeed())
 
-		// Only the acquired, still-active VMI must hold the single slot.
+		// Only the acquired, still-backed VMI must hold the single slot.
 		Expect(limiter.TryAcquire(newKVVMI("newcomer", "newcomer-migration"), sourceNode)).To(BeFalse())
 		// The restored owner re-acquires idempotently.
 		Expect(limiter.TryAcquire(acquiredVMI, sourceNode)).To(BeTrue())

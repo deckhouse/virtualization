@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 )
 
 func NewKVVMIWatcher() *KVVMIWatcher {
@@ -41,7 +43,11 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{},
 			&handler.TypedEnqueueRequestForObject[*virtv1.VirtualMachineInstance]{},
 			predicate.TypedFuncs[*virtv1.VirtualMachineInstance]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv1.VirtualMachineInstance]) bool { return false },
+				// Enqueue slot holders on the informer replay after a restart,
+				// so a leaked slot does not survive it.
+				CreateFunc: func(e event.TypedCreateEvent[*virtv1.VirtualMachineInstance]) bool {
+					return livemigration.HasMigrationSlot(e.Object)
+				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
 					return !equality.Semantic.DeepEqual(e.ObjectOld.Status, e.ObjectNew.Status)
 				},

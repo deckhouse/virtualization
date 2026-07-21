@@ -238,6 +238,87 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 		})
 	})
 
+	newActiveMigration := func(phase virtv1.VirtualMachineInstanceMigrationPhase) *virtv1.VirtualMachineInstanceMigration {
+		return &virtv1.VirtualMachineInstanceMigration{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: virtv1.SchemeGroupVersion.String(),
+				Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+			},
+			ObjectMeta: metav1.ObjectMeta{Name: "mig-1", Namespace: vmNamespace},
+			Spec:       virtv1.VirtualMachineInstanceMigrationSpec{VMIName: vmName},
+			Status:     virtv1.VirtualMachineInstanceMigrationStatus{Phase: phase},
+		}
+	}
+
+	When("VMI holds a slot but no active migration backs it", func() {
+		It("Should release the leaked slot", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			livemigration.MarkInboundMigrationSlotAcquired(kvvmi, "node-a")
+
+			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
+			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			Expect(inboundLimiter.TryAcquire(kvvmi, "node-a")).To(BeTrue())
+
+			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
+			_, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.InboundMigrationSlotAnnotation))
+
+			// The freed slot must be available to an unrelated migration.
+			newcomer := newKVVMI()
+			newcomer.Name = "newcomer"
+			withMigrationState(newcomer, "newcomer-uid")
+			Expect(inboundLimiter.TryAcquire(newcomer, "node-a")).To(BeTrue())
+		})
+	})
+
+	When("VMI holds a slot but its MigrationState is gone", func() {
+		It("Should release the leaked slot", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			livemigration.MarkInboundMigrationSlotAcquired(kvvmi, "node-a")
+
+			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			Expect(inboundLimiter.TryAcquire(kvvmi, "node-a")).To(BeTrue())
+			kvvmi.Status.MigrationState = nil
+
+			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
+			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
+			_, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.InboundMigrationSlotAnnotation))
+
+			newcomer := newKVVMI()
+			newcomer.Name = "newcomer"
+			withMigrationState(newcomer, "newcomer-uid")
+			Expect(inboundLimiter.TryAcquire(newcomer, "node-a")).To(BeTrue())
+		})
+	})
+
+	When("VMI holds a slot while an active migration backs it", func() {
+		It("Should keep the slot", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			livemigration.MarkInboundMigrationSlotAcquired(kvvmi, "node-a")
+
+			fakeClient := setupEnvironment(kvvmi, vm, newActiveMigration(virtv1.MigrationRunning), newKVConfig())
+			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			Expect(inboundLimiter.TryAcquire(kvvmi, "node-a")).To(BeTrue())
+
+			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
+			_, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotAcquired))
+		})
+	})
+
 	When("Observe KVVMI with completed migration", func() {
 		It("Should not set migrationConfiguration", func() {
 			vm := newVM()

@@ -53,6 +53,12 @@ const timeElapsedUpdateInterval = 10 * time.Second
 // of waiting for ReadyToMigrate forever. Healthy migrations reach it within ~1m.
 const waitForVMReadyToMigrateTimeout = 5 * time.Minute
 
+// prepareTargetTimeout fails a migration stuck preparing its target instead of leaving it
+// InProgress forever. A target that never becomes ready — target pod OOMKilled/CrashLooping,
+// unschedulable, or a disk that never attaches — otherwise keeps the migration (and the
+// migration slots it holds) alive indefinitely. Healthy targets are prepared within ~1m.
+const prepareTargetTimeout = 5 * time.Minute
+
 const (
 	progressMigrationPending   int32 = 0
 	progressTargetScheduling   int32 = 2
@@ -385,6 +391,23 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		}
 	}
 
+	prevCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	if isTargetPreparationStalled(reason, prevCompleted, time.Now()) {
+		if err := h.migration.DeleteMigration(ctx, vmop); err != nil {
+			return fmt.Errorf("failed to delete migration stuck preparing target: %w", err)
+		}
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Timed out preparing the migration target")
+		vmop.Status.Progress = migrationprogress.FormatPercent(h.calculateMigrationProgress(vmop, mig, reason))
+		conditions.SetCondition(
+			completedCond.
+				Status(metav1.ConditionFalse).
+				Reason(vmopcondition.ReasonOperationFailed).
+				Message("Timed out preparing the migration target."),
+			&vmop.Status.Conditions)
+		return nil
+	}
+
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonWaitingForSyncSlot {
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
@@ -399,6 +422,25 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	conditions.SetCondition(completedCond, &vmop.Status.Conditions)
 
 	return nil
+}
+
+// isTargetPreparationStalled reports whether the migration spent more than
+// prepareTargetTimeout in the same target-preparation reason. The clock is the Completed
+// condition's LastTransitionTime, which bumps on every reason change, so time queued in an
+// excluded reason (pending, slot waits) does not consume the budget.
+func isTargetPreparationStalled(reason vmopcondition.ReasonCompleted, prevCompleted metav1.Condition, now time.Time) bool {
+	switch reason {
+	case vmopcondition.ReasonTargetScheduling,
+		vmopcondition.ReasonTargetUnschedulable,
+		vmopcondition.ReasonTargetPreparing,
+		vmopcondition.ReasonTargetDiskError:
+	default:
+		return false
+	}
+	if prevCompleted.Reason != reason.String() || prevCompleted.LastTransitionTime.IsZero() {
+		return false
+	}
+	return now.Sub(prevCompleted.LastTransitionTime.Time) > prepareTargetTimeout
 }
 
 func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) (string, bool) {
@@ -640,10 +682,6 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 		message = messageMigrationPending
 		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
 			message = messageTargetNodeIncomingMigrationLimitExceeded
-		} else if waiting, err := h.isWaitingForInboundMigrationSlot(ctx, mig); err != nil {
-			return reason, message, err
-		} else if waiting {
-			message = messageTargetNodeIncomingMigrationLimitExceeded
 		}
 	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
@@ -667,9 +705,14 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
 	}
 
-	// Surface the sync-slot wait only after ruling out a broken target: the target
-	// is fully prepared and parked while waiting, so an unschedulable pod or a disk
-	// error is the real blocker and must take priority over the wait message.
+	// Surface slot waits only after ruling out a broken target, and report them as a
+	// queue wait: the inbound wait happens in the Scheduled phase and must not look like
+	// target preparation, or the stall timeout would fail a healthy queued migration.
+	if waiting, err := h.isWaitingForInboundMigrationSlot(ctx, mig); err != nil {
+		return "", "", err
+	} else if waiting {
+		return vmopcondition.ReasonMigrationPending, messageTargetNodeIncomingMigrationLimitExceeded, nil
+	}
 	if waiting, err := h.isWaitingForSyncSlot(ctx, mig); err != nil {
 		return "", "", err
 	} else if waiting {

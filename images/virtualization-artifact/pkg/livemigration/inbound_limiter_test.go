@@ -57,6 +57,18 @@ var _ = Describe("InboundMigrationLimiter", func() {
 		}
 	}
 
+	newActiveMigration := func(vmiName string) *virtv1.VirtualMachineInstanceMigration {
+		return &virtv1.VirtualMachineInstanceMigration{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: virtv1.SchemeGroupVersion.String(),
+				Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+			},
+			ObjectMeta: metav1.ObjectMeta{Name: vmiName + "-mig", Namespace: namespace},
+			Spec:       virtv1.VirtualMachineInstanceMigrationSpec{VMIName: vmiName},
+			Status:     virtv1.VirtualMachineInstanceMigrationStatus{Phase: virtv1.MigrationRunning},
+		}
+	}
+
 	It("Should acquire one slot only for the same target node", func() {
 		limiter := NewInboundMigrationLimiter(true, 1)
 		Expect(limiter.TryAcquire(newKVVMI("first", "first-migration"), targetNode)).To(BeTrue())
@@ -86,6 +98,16 @@ var _ = Describe("InboundMigrationLimiter", func() {
 		first := newKVVMI("first", "first-migration")
 		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
 		limiter.Release(first, targetNode)
+		limiter.Release(first, targetNode)
+		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
+	})
+
+	It("Should release the slot when MigrationState is gone", func() {
+		limiter := NewInboundMigrationLimiter(true, 1)
+		first := newKVVMI("first", "first-migration")
+		Expect(limiter.TryAcquire(first, targetNode)).To(BeTrue())
+
+		first.Status.MigrationState = nil
 		limiter.Release(first, targetNode)
 		Expect(limiter.TryAcquire(newKVVMI("second", "second-migration"), targetNode)).To(BeTrue())
 	})
@@ -157,17 +179,17 @@ var _ = Describe("InboundMigrationLimiter", func() {
 		waitingVMI := newKVVMI("waiting", "waiting-migration")
 		MarkInboundMigrationSlotWaiting(waitingVMI, targetNode)
 
-		staleVMI := newKVVMI("stale", "stale-migration")
-		MarkInboundMigrationSlotAcquired(staleVMI, targetNode)
-		staleVMI.Status.MigrationState.Completed = true
+		// Leaked: annotated as acquired, but no migration backs the VMI.
+		leakedVMI := newKVVMI("leaked", "leaked-migration")
+		MarkInboundMigrationSlotAcquired(leakedVMI, targetNode)
 
-		fakeClient, err := testutil.NewFakeClientWithObjects(acquiredVMI, waitingVMI, staleVMI)
+		fakeClient, err := testutil.NewFakeClientWithObjects(acquiredVMI, waitingVMI, leakedVMI, newActiveMigration("acquired"))
 		Expect(err).NotTo(HaveOccurred())
 
 		limiter := NewInboundMigrationLimiter(true, 1)
 		Expect(limiter.Restore(ctx, fakeClient)).To(Succeed())
 
-		// Only the acquired, still-active VMI must hold the single slot.
+		// Only the acquired, still-backed VMI must hold the single slot.
 		Expect(limiter.TryAcquire(newKVVMI("newcomer", "newcomer-migration"), targetNode)).To(BeFalse())
 		// The restored owner re-acquires idempotently.
 		Expect(limiter.TryAcquire(acquiredVMI, targetNode)).To(BeTrue())
