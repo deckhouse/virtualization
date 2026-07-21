@@ -74,9 +74,13 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	if migrationState := h.wrapMigrationState(kvvmi); migrationState != nil {
-		vm.Status.MigrationState = migrationState
-	}
+	// The kvvmi migration record is the source of truth, so assign it
+	// unconditionally. Keeping the previous value when the kvvmi no longer reports
+	// a migration (e.g. the VMI was recreated after a migration that never got an
+	// EndTimestamp) would leave a stale in-progress state, which keeps
+	// liveMigrationInProgress true forever and blocks every future migration of
+	// the VM.
+	vm.Status.MigrationState = h.wrapMigrationState(kvvmi)
 
 	err = h.syncMigratable(ctx, s, vm, kvvm)
 	if err != nil {
