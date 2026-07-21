@@ -134,6 +134,7 @@ func (s *PersistentVolumeClaimService) CreateTargetFromDVCR(ctx context.Context,
 	setPVCPopulationAnnotation(target.Annotations, PopulationStrategyDVCR)
 	if source != nil {
 		target.Annotations[annotations.AnnPVCPopulationSourceDVCR] = source.URL
+		target.Annotations[annotations.AnnPVCPopulationSourceFormat] = source.Format
 	}
 	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To(virtualizationAPIGroup), Kind: owner.GetObjectKind().GroupVersionKind().Kind, Name: owner.GetName()}
 	if nodePlacement != nil {

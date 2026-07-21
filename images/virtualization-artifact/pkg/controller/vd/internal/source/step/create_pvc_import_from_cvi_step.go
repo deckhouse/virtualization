@@ -132,5 +132,7 @@ func BuildClusterVirtualImagePVCImportSource(vd *v1alpha2.VirtualDisk, cviRef *v
 	secretName := supgen.DVCRAuthSecretForPVCImporter().Name
 	certConfigMapName := supgen.DVCRCABundleConfigMapForPVCImporter().Name
 
-	return service.NewPVCRegistryImportSource(url, secretName, certConfigMapName)
+	src := service.NewPVCRegistryImportSource(url, secretName, certConfigMapName)
+	src.Registry.Format = cviRef.Status.Format
+	return src
 }

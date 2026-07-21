@@ -314,3 +314,120 @@ func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir stri
 func CopyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry bool) (*types.ImageInspectInfo, error) {
 	return copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir, insecureRegistry, true)
 }
+
+// CopyRegistryImageToFile streams the single disk image found under pathPrefix
+// straight into destFile (a target file or block device), skipping the scratch
+// space entirely. The disk file's format must already match the target format
+// (raw for a block device, qcow2 for a file); otherwise it returns an error
+// instead of writing garbage, so the caller must ensure the source format
+// matches the target before choosing this path.
+func CopyRegistryImageToFile(url, destFile, pathPrefix, accessKey, secKey, certDir string, insecureRegistry bool) (*types.ImageInspectInfo, error) {
+	klog.Infof("Downloading image from '%v', streaming file from '%v' directly to '%v'", url, pathPrefix, destFile)
+
+	ctx, cancel := commandTimeoutContext()
+	defer cancel()
+	srcCtx := buildSourceContext(accessKey, secKey, certDir, insecureRegistry)
+
+	src, err := readImageSource(ctx, srcCtx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer closeImage(src)
+
+	imgCloser, err := image.FromSource(ctx, srcCtx, src)
+	if err != nil {
+		klog.Errorf("Error retrieving image: %v", err)
+		return nil, errors.Wrap(err, "Error retrieving image")
+	}
+	defer func() { _ = imgCloser.Close() }()
+
+	cache := blobinfocache.DefaultCache(srcCtx)
+	found := false
+	for _, layer := range imgCloser.LayerInfos() {
+		klog.Infof("Processing layer %+v", layer)
+		found, err = processLayerToFile(ctx, src, layer, destFile, pathPrefix, cache)
+		if found {
+			break
+		}
+		if err != nil {
+			// Skipping layer and trying the next one. Error already logged.
+			continue
+		}
+	}
+
+	if !found {
+		klog.Errorf("Failed to find VM disk image file in the container image")
+		return nil, errors.New("Failed to find VM disk image file in the container image")
+	}
+
+	info, err := imgCloser.Inspect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
+}
+
+// processLayerToFile extracts the first file under pathPrefix from the layer and
+// writes it directly to destFile. The disk file's own header is inspected and
+// must already match the target format (raw for a block device, qcow2 for a
+// file); otherwise the transfer is refused, since writing a stream of the wrong
+// format verbatim onto the target would corrupt the disk.
+func processLayerToFile(ctx context.Context, src types.ImageSource, layer types.BlobInfo, destFile, pathPrefix string, cache types.BlobInfoCache) (bool, error) {
+	reader, _, err := src.GetBlob(ctx, layer, cache)
+	if err != nil {
+		klog.Errorf("Could not read layer: %v", err)
+		return false, errors.Wrap(err, "Could not read layer")
+	}
+	if layer.Size > 0 {
+		progressReader := prometheusutil.NewProgressReader(reader, transferProgressMetric(), uint64(layer.Size))
+		progressReader.StartTimedUpdate()
+		reader = progressReader
+	}
+	fr, err := NewFormatReaders(reader, 0)
+	if err != nil {
+		return false, errors.Wrap(err, "Could not read layer")
+	}
+	defer func() { _ = fr.Close() }()
+
+	tarReader := tar.NewReader(fr.TopReader())
+	for {
+		hdr, err := tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			klog.Errorf("Error reading layer: %v", err)
+			return false, errors.Wrap(err, "Error reading layer")
+		}
+
+		if !hasPrefix(hdr.Name, pathPrefix) || isWhiteout(hdr.Name) || isDir(hdr) {
+			continue
+		}
+		klog.Infof("File '%v' found in the layer", hdr.Name)
+
+		// Inspect the disk file's own header and require it to match the target
+		// format (raw for a block device, qcow2 for a file). This is the safety
+		// net for the controller's decision based on VI/CVI status.format:
+		// a mismatch fails the import loudly rather than writing a corrupt disk.
+		targetFormat, err := util.GetFormat(destFile)
+		if err != nil {
+			return false, errors.Wrap(err, "Could not determine target format")
+		}
+		diskReaders, err := NewFormatReaders(io.NopCloser(tarReader), 0)
+		if err != nil {
+			return false, errors.Wrap(err, "Could not read disk image header")
+		}
+		if diskReaders.ImageFormat != targetFormat {
+			return false, errors.Errorf("disk image %q format %q does not match target format %q; refusing direct transfer", hdr.Name, diskReaders.ImageFormat, targetFormat)
+		}
+
+		if err := streamDataToFile(diskReaders.TopReader(), destFile); err != nil {
+			klog.Errorf("Error copying file: %v", err)
+			return false, errors.Wrap(err, "Error copying file")
+		}
+		return true, nil
+	}
+
+	return false, nil
+}

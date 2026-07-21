@@ -261,11 +261,13 @@ func sourceFromAnnotations(pvc *corev1.PersistentVolumeClaim, strategy string, s
 			secret = sup.DVCRAuthSecretForPVCImporter().Name
 			certConfigMap = sup.DVCRCABundleConfigMapForPVCImporter().Name
 		}
-		return service.NewPVCRegistryImportSource(
+		src := service.NewPVCRegistryImportSource(
 			pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR],
 			secret,
 			certConfigMap,
 		)
+		src.Registry.Format = pvc.Annotations[annotations.AnnPVCPopulationSourceFormat]
+		return src
 	case service.PopulationStrategyHostAssigned:
 		return service.NewPVCPVCImportSource(pvc.Annotations[annotations.AnnPVCPopulationSourcePVC], pvc.Namespace)
 	default:

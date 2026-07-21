@@ -205,10 +205,11 @@ func newDataSource(source string) importer.DataSourceInterface {
 	sec, _ := util.ParseEnvVar(common.ImporterSecretKey, false)
 	certDir, _ := util.ParseEnvVar(common.ImporterCertDirVar, false)
 	insecureTLS, _ := strconv.ParseBool(os.Getenv(common.InsecureTLSVar))
+	directTransfer, _ := strconv.ParseBool(os.Getenv(common.ImporterDirectTransfer))
 
 	switch source {
 	case sourceRegistry:
-		ds := importer.NewRegistryDataSource(ep, acc, sec, certDir, insecureTLS)
+		ds := importer.NewRegistryDataSource(ep, acc, sec, certDir, insecureTLS, directTransfer)
 		return ds
 	default:
 		klog.Errorf("Unknown source type %s\n", source)

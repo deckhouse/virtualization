@@ -114,6 +114,7 @@ func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 	}
 
 	source := BuildDVCRPVCImportSource(vd, s.stat.GetDVCRImageName(s.pod))
+	source.Registry.Format = s.stat.GetFormat(s.pod)
 
 	return NewCreatePVCStep(s.disk, s.pvcSvc, s.client, source, size, s.cb).Take(ctx, vd)
 }

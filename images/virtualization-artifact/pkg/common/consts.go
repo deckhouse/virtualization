@@ -59,6 +59,10 @@ const (
 	ImporterSecretKey = "IMPORTER_SECRET_KEY"
 	// ImporterImageSize provides a constant to capture our env variable "IMPORTER_IMAGE_SIZE"
 	ImporterImageSize = "IMPORTER_IMAGE_SIZE"
+	// ImporterDirectTransfer, when "true", tells the pvc-importer to stream the
+	// source image straight onto the target (whose format already matches the
+	// source), skipping the scratch space and the qemu-img conversion.
+	ImporterDirectTransfer = "IMPORTER_DIRECT_TRANSFER"
 	// ImporterCertDirVar provides a constant to capture our env variable "IMPORTER_CERT_DIR"
 	ImporterCertDirVar = "IMPORTER_CERT_DIR"
 	// InsecureTLSVar provides a constant to capture our env variable "INSECURE_TLS"

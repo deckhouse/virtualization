@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
@@ -126,9 +128,19 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		return err
 	}
 
-	scratch, err := s.ensureScratch(ctx, prime)
-	if err != nil {
-		return err
+	// When the source format already matches the target (raw for Block, qcow2 for
+	// Filesystem) the image can be streamed straight onto the target, so neither
+	// the scratch PVC nor the qemu-img conversion is needed. Every other
+	// combination keeps the safe scratch+convert path.
+	directTransfer := source != nil && source.Registry != nil && directTransferEligible(source.Registry.Format, prime.Spec.VolumeMode)
+
+	scratchName := ""
+	if !directTransfer {
+		scratch, err := s.ensureScratch(ctx, prime)
+		if err != nil {
+			return err
+		}
+		scratchName = scratch.Name
 	}
 
 	// The pvc-importer pod must be allowed egress (notably to DVCR) even inside
@@ -154,7 +166,7 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		return fmt.Errorf("fetch importer pod: %w", err)
 	}
 	if pod == nil {
-		pod = s.makeImporterPod(podKey.Name, target, prime, owner.GetUID(), source, sourceClaim, scratch.Name, nodePlacement)
+		pod = s.makeImporterPod(podKey.Name, target, prime, owner.GetUID(), source, sourceClaim, scratchName, directTransfer, nodePlacement)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create importer pod: %w", err)
 		}
@@ -562,6 +574,29 @@ func (s *PVCImporterService) ensureSourceImporterService(ctx context.Context, ta
 	return client.IgnoreAlreadyExists(s.client.Create(ctx, svc))
 }
 
+// directTransferEligible reports whether a DVCR image can be streamed straight
+// onto the target PVC, skipping the scratch PVC and the qemu-img conversion.
+// It qualifies when the source format already matches the target format, so the
+// disk file is written verbatim with no conversion:
+//   - Block volume  -> target format raw   -> source must be raw;
+//   - Filesystem    -> target format qcow2 -> source must be qcow2.
+//
+// Any other combination (mismatched format, iso, unknown format) keeps the safe
+// scratch+convert path.
+func directTransferEligible(sourceFormat string, volumeMode *corev1.PersistentVolumeMode) bool {
+	if volumeMode == nil {
+		return false
+	}
+	switch *volumeMode {
+	case corev1.PersistentVolumeBlock:
+		return sourceFormat == imageformat.FormatRAW
+	case corev1.PersistentVolumeFilesystem:
+		return sourceFormat == imageformat.FormatQCOW2
+	default:
+		return false
+	}
+}
+
 func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 	size := targetSize.DeepCopy()
 	minOverhead := resource.MustParse("256Mi")
@@ -577,7 +612,7 @@ func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 // prime PVC) with the imported data, while ownership/UID are taken from target
 // (the VirtualDisk's PVC) so the pod is garbage-collected with the disk and
 // labelled to be excluded from namespace quota accounting.
-func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, directTransfer bool, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
 	registryEndpoint := ""
 	if source != nil && source.Registry != nil {
 		registryEndpoint = source.Registry.URL
@@ -595,6 +630,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			{Name: common.ImporterEndpoint, Value: registryEndpoint},
 			{Name: common.ImporterContentType, Value: "kubevirt"},
 			{Name: common.ImporterImageSize, Value: imageSize.String()},
+			{Name: common.ImporterDirectTransfer, Value: strconv.FormatBool(directTransfer)},
 			// The progress metric (kubevirt_cdi_import_progress_total) is labelled with
 			// this ownerUID; it must be the VirtualDisk's UID so the controller's progress
 			// scraper (which queries by vd.GetUID()) can match it. Using the target PVC UID
@@ -603,8 +639,11 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			{Name: common.FilesystemOverheadVar, Value: "0"},
 			{Name: common.InsecureTLSVar, Value: "false"},
 		},
-		VolumeMounts: []corev1.VolumeMount{{Name: pvcImporterScratchVolName, MountPath: pvcImporterScratchDataDir}, {Name: "tmp", MountPath: "/tmp"}},
+		VolumeMounts: []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}},
 		Ports:        []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8443, Protocol: corev1.ProtocolTCP}},
+	}
+	if !directTransfer {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: pvcImporterScratchVolName, MountPath: pvcImporterScratchDataDir})
 	}
 	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
 		container.Resources = s.resourceRequirements
@@ -638,7 +677,9 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 	volumes := []corev1.Volume{
 		{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 		{Name: pvcImporterDataVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: dataPVC.Name}}},
-		{Name: pvcImporterScratchVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}}},
+	}
+	if !directTransfer {
+		volumes = append(volumes, corev1.Volume{Name: pvcImporterScratchVolName, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}}})
 	}
 	if source != nil && source.Registry != nil && source.Registry.CertConfigMap != "" {
 		volumes = append(volumes, corev1.Volume{

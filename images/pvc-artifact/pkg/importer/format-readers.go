@@ -52,9 +52,13 @@ type reader struct {
 
 // FormatReaders contains the stack of readers needed to get information from the input stream (io.ReadCloser)
 type FormatReaders struct {
-	readers        []reader
-	buf            []byte // holds file headers
-	Convert        bool
+	readers []reader
+	buf     []byte // holds file headers
+	Convert bool
+	// ImageFormat is the detected disk-image format after unwrapping any
+	// compression: "raw" when no image header matched, otherwise the matched
+	// format ("qcow2", "vmdk", ...).
+	ImageFormat    string
 	Archived       bool
 	ArchiveXz      bool
 	ArchiveGz      bool
@@ -80,7 +84,8 @@ var rdrTypM = map[string]int{
 func NewFormatReaders(stream io.ReadCloser, total uint64) (*FormatReaders, error) {
 	var err error
 	readers := &FormatReaders{
-		buf: make([]byte, image.MaxExpectedHdrSize),
+		buf:         make([]byte, image.MaxExpectedHdrSize),
+		ImageFormat: "raw",
 	}
 	if total > uint64(0) {
 		readers.progressReader = prometheusutil.NewProgressReader(stream, metrics.Progress(ownerUID), total)
@@ -169,18 +174,23 @@ func (fr *FormatReaders) fileFormatSelector(hdr *image.Header) {
 	case "qcow2":
 		r, err = fr.qcow2NopReader(hdr)
 		fr.Convert = true
+		fr.ImageFormat = fFmt
 	case "vmdk":
 		r = nil
 		fr.Convert = true
+		fr.ImageFormat = fFmt
 	case "vdi":
 		r = nil
 		fr.Convert = true
+		fr.ImageFormat = fFmt
 	case "vhd":
 		r = nil
 		fr.Convert = true
+		fr.ImageFormat = fFmt
 	case "vhdx":
 		r = nil
 		fr.Convert = true
+		fr.ImageFormat = fFmt
 	}
 	if err == nil && r != nil {
 		fr.appendReader(rdrTypM[fFmt], r)

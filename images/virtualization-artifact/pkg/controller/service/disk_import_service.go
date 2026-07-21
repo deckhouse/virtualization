@@ -36,6 +36,11 @@ type PVCImportSourceRegistry struct {
 	URL           string
 	Secret        string
 	CertConfigMap string
+	// Format is the source image format reported by the upstream VI/CVI status
+	// (raw/qcow2/iso). It lets Import decide whether the image can be streamed
+	// straight onto the target PVC, skipping the scratch PVC and conversion.
+	// Empty means "unknown" and forces the safe scratch+convert path.
+	Format string
 }
 
 // PVCImportSourcePVC points at another PersistentVolumeClaim used as the

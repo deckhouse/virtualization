@@ -187,6 +187,9 @@ const (
 	AnnPVCPopulationSourcePVC = AnnAPIGroupV + "/pvc-population-source-pvc"
 	// AnnPVCPopulationSourceDVCR stores the source DVCR image path for registry-backed population.
 	AnnPVCPopulationSourceDVCR = AnnAPIGroupV + "/pvc-population-source-dvcr"
+	// AnnPVCPopulationSourceFormat stores the source image format (raw/qcow2/...)
+	// so the populator can decide whether to stream it directly onto the target.
+	AnnPVCPopulationSourceFormat = AnnAPIGroupV + "/pvc-population-source-format"
 	// AnnPVCPopulationDone marks target PVCs already populated by populator-controller.
 	AnnPVCPopulationDone = AnnAPIGroupV + "/pvc-population-done"
 

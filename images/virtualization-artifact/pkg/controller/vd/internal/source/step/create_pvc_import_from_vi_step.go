@@ -139,7 +139,9 @@ func BuildVirtualImagePVCImportSource(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.
 		secretName := supgen.DVCRAuthSecretForPVCImporter().Name
 		certConfigMapName := supgen.DVCRCABundleConfigMapForPVCImporter().Name
 
-		return service.NewPVCRegistryImportSource(url, secretName, certConfigMapName), nil
+		src := service.NewPVCRegistryImportSource(url, secretName, certConfigMapName)
+		src.Registry.Format = viRef.Status.Format
+		return src, nil
 	default:
 		return nil, fmt.Errorf("unexpected virtual image storage %s, please report a bug", viRef.Spec.Storage)
 	}

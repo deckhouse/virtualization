@@ -48,6 +48,9 @@ type RegistryDataSource struct {
 	certDir     string
 	insecureTLS bool
 	imageDir    string
+	// directTransfer streams a raw disk image straight onto the target instead
+	// of unpacking to scratch and converting. Decided by the controller.
+	directTransfer bool
 	// The discovered image file in scratch space.
 	url *url.URL
 	// The discovered image info from the registry.
@@ -55,7 +58,7 @@ type RegistryDataSource struct {
 }
 
 // NewRegistryDataSource creates a new instance of the Registry Data Source.
-func NewRegistryDataSource(endpoint, accessKey, secKey, certDir string, insecureTLS bool) *RegistryDataSource {
+func NewRegistryDataSource(endpoint, accessKey, secKey, certDir string, insecureTLS, directTransfer bool) *RegistryDataSource {
 	allCertDir, err := CreateCertificateDir(certDir)
 	if err != nil {
 		klog.Infof("Error creating allCertDir %v", err)
@@ -68,16 +71,22 @@ func NewRegistryDataSource(endpoint, accessKey, secKey, certDir string, insecure
 		allCertDir = certDir
 	}
 	return &RegistryDataSource{
-		endpoint:    endpoint,
-		accessKey:   accessKey,
-		secKey:      secKey,
-		certDir:     allCertDir,
-		insecureTLS: insecureTLS,
+		endpoint:       endpoint,
+		accessKey:      accessKey,
+		secKey:         secKey,
+		certDir:        allCertDir,
+		insecureTLS:    insecureTLS,
+		directTransfer: directTransfer,
 	}
 }
 
-// Info is called to get initial information about the data. No information available for registry currently.
+// Info is called to get initial information about the data. In direct-transfer
+// mode the raw image is streamed straight onto the target (TransferDataFile),
+// otherwise it is unpacked into scratch space first (TransferScratch).
 func (rd *RegistryDataSource) Info() (ProcessingPhase, error) {
+	if rd.directTransfer {
+		return ProcessingPhaseTransferDataFile, nil
+	}
 	return ProcessingPhaseTransferScratch, nil
 }
 
@@ -114,9 +123,21 @@ func (rd *RegistryDataSource) Transfer(path string) (ProcessingPhase, error) {
 	return ProcessingPhaseConvert, nil
 }
 
-// TransferFile is called to transfer the data from the source to the passed in file.
+// TransferFile streams the disk image from the registry straight onto fileName
+// (the target file or block device), skipping scratch and conversion. Used only
+// in direct-transfer mode; the transport refuses images whose format does not
+// already match the target (raw for a block device, qcow2 for a file).
 func (rd *RegistryDataSource) TransferFile(fileName string) (ProcessingPhase, error) {
-	return ProcessingPhaseError, errors.New("Transferfile should not be called")
+	var err error
+	rd.info, err = CopyRegistryImageToFile(rd.endpoint, fileName, containerDiskImageDir, rd.accessKey, rd.secKey, rd.certDir, rd.insecureTLS)
+	if err != nil {
+		return ProcessingPhaseError, errors.Wrapf(err, "Failed to stream registry image")
+	}
+
+	// fileName is the final target; the shared Resize tail is a no-op for block
+	// devices and grows the qcow2 to the requested size for the file case.
+	rd.url, _ = url.Parse(fileName)
+	return ProcessingPhaseResize, nil
 }
 
 // GetURL returns the url that the data processor can use when converting the data.
