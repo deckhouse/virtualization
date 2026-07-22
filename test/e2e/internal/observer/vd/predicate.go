@@ -184,7 +184,11 @@ func BeResizing() Predicate {
 }
 
 // BeResized reports the VirtualDisk has finished a resize to expectedSize: it has
-// settled back on the Ready phase and its reported capacity equals expectedSize.
+// settled back on the Ready phase and its reported capacity is at least
+// expectedSize. Capacity comes straight from the PVC, and some CSI drivers
+// (e.g. ceph-rbd) round the provisioned size up, so it may legitimately exceed
+// the requested size; capacity >= expectedSize still catches a resize that did
+// not take effect.
 //
 // Unlike [BeReady], a phase other than Ready — in particular the transient
 // Resizing phase a disk passes through during expansion, where the Ready
@@ -200,7 +204,7 @@ func BeResized(expectedSize resource.Quantity) Predicate {
 		if err != nil {
 			return false, fmt.Errorf("failed to parse capacity %q: %w", d.Status.Capacity, err)
 		}
-		return capacity.Cmp(expectedSize) == 0, nil
+		return capacity.Cmp(expectedSize) >= 0, nil
 	}
 }
 

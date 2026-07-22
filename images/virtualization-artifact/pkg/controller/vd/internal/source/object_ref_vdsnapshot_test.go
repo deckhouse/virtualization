@@ -220,6 +220,8 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Entry("from original size annotation when VD size is omitted", "", "20Gi", "10Gi", "20Gi"),
 			Entry("from VD spec size when it is set", "30Gi", "20Gi", "10Gi", "30Gi"),
 			Entry("from restore size when annotation and VD size are omitted", "", "", "10Gi", "10Gi"),
+			Entry("grows to restore size when it exceeds the original size", "", "1534Mi", "2Gi", "2Gi"),
+			Entry("grows an explicit VD size up to the restore size floor", "1Gi", "", "2Gi", "2Gi"),
 		)
 	})
 
