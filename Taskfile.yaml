@@ -307,6 +307,8 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
+      kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+      kubectl -n d8-virtualization scale deploy virt-operator --replicas=0
       kubectl -n d8-virtualization patch deploy virt-controller --type='strategic' -p '{
         "spec": {
           "template": {
@@ -347,6 +349,8 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
+      kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+      kubectl -n d8-virtualization scale deploy virt-operator --replicas=0
       kubectl -n d8-virtualization patch ds virt-handler --type='strategic' -p '{
         "spec": {
           "template": {
@@ -387,6 +391,8 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
+      kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
+      kubectl -n d8-virtualization scale deploy virt-operator --replicas=0
       kubectl -n d8-virtualization patch deploy virt-api --type='strategic' -p '{
         "spec": {
           "template": {
@@ -443,6 +449,7 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
+      kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
       kubectl -n d8-virtualization patch ds virtualization-dra --type='strategic' -p '{
         "spec": {
           "template": {

@@ -52,7 +52,7 @@ tasks:
     desc: "Run go unit tests"
     cmds:
       - |
-        go tool ginkgo -v -r pkg/
+        go tool ginkgo -v -r --keep-going --output-dir=tmp/junit --junit-report=junit.xml pkg/
 
   lint:
     desc: "Run linters locally"
@@ -138,6 +138,7 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
+      kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
       kubectl -n d8-virtualization patch deploy virtualization-controller --type='strategic' -p '{
         "spec": {
           "template": {
@@ -192,6 +193,7 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
+      kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
       kubectl -n d8-virtualization patch deploy virtualization-api --type='strategic' -p '{
         "spec": {
           "template": {
@@ -239,6 +241,7 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
+      kubectl patch mc virtualization --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
       kubectl -n d8-virtualization patch deploy virtualization-audit --type='strategic' -p '{
         "spec": {
           "template": {

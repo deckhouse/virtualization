@@ -24,6 +24,15 @@ test:virtualization-controller:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh task
     - task virtualization-controller:init
     - task virtualization-controller:test:unit
+  # Per-suite JUnit reports let GitLab render each test case (and failures)
+  # in the job and MR UI instead of only the raw log.
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - images/virtualization-artifact/tmp/junit/*.xml
+    reports:
+      junit: images/virtualization-artifact/tmp/junit/*.xml
   extends:
     - .dev
 
@@ -33,5 +42,12 @@ test:hooks:
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh task
     - task gohooks:test
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - images/hooks/tmp/junit/*.xml
+    reports:
+      junit: images/hooks/tmp/junit/*.xml
   extends:
     - .dev
