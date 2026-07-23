@@ -194,6 +194,52 @@ class RenderYamlTest(unittest.TestCase):
         self.assertNotIn("impact:", out)
 
 
+class RenderReleaseMarkdownTest(unittest.TestCase):
+    # Mirrors deckhouse/changelog-action@v2.6.0 formatMarkdown (GitHub PR body).
+
+    def test_groups_features_and_fixes_sorted_by_section(self):
+        entries = [
+            entry("vm", "fix", "fixed vm", 11, impact_level="default"),
+            entry("cli", "fix", "fixed cli", 12, impact_level="default"),
+            entry("core", "feature", "added thing", 13, impact_level="default"),
+        ]
+        out = cl.render_release_markdown(entries, "v1.11.0")
+        self.assertIn("# Changelog v1.11.0", out)
+        self.assertIn("## Features", out)
+        self.assertIn("## Fixes", out)
+        self.assertIn(" - **[core]** added thing [!13]", out)
+        # fixes sorted by section: cli before vm
+        self.assertLess(out.index("**[cli]**"), out.index("**[vm]**"))
+
+    def test_low_impact_and_docs_are_omitted(self):
+        entries = [
+            entry("kubevirt", "fix", "internal tweak", 11, impact_level="low"),
+            entry("docs", "docs", "typo", 12, impact_level="default"),
+        ]
+        out = cl.render_release_markdown(entries, "v1.11.0")
+        self.assertNotIn("internal tweak", out)
+        self.assertNotIn("typo", out)
+
+    def test_high_impact_gets_know_before_update_digest(self):
+        entries = [
+            entry(
+                "core", "feature", "containerd v2", 9,
+                impact_level="high", impact="Nodes will restart.",
+            )
+        ]
+        out = cl.render_release_markdown(entries, "v1.11.0")
+        self.assertIn("## Know before update", out)
+        self.assertIn(" - Nodes will restart.", out)
+        # the impact note is also appended to the change line
+        self.assertIn("containerd v2 [!9]", out)
+
+    def test_chore_section_rendered(self):
+        entries = [entry("ci", "chore", "bump tool", 7, impact_level="default")]
+        out = cl.render_release_markdown(entries, "v1.11.0")
+        self.assertIn("## Chore", out)
+        self.assertIn(" - **[ci]** bump tool [!7]", out)
+
+
 class RenderMilestoneMdBlockTest(unittest.TestCase):
     def test_basic_structure(self):
         entries = [entry("vm", "fix", "fixed Y", 11, impact_level="high")]

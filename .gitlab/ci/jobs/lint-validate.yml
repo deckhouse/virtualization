@@ -44,8 +44,8 @@ lint:no-cyrillic:
     - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/no_cyrillic/'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
@@ -65,8 +65,8 @@ lint:doc-changes:
     - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/doc_changes/'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
 
 # ---------------------------------------------------------------------------
 # shellcheck
@@ -89,8 +89,8 @@ lint:shellcheck:
     - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/shellcheck/'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
 
 # ---------------------------------------------------------------------------
 # yaml (prettier)
@@ -110,14 +110,14 @@ lint:yaml:
           - "**/*.yml"
           - ".gitlab-ci.yml"
           - ".gitlab/**/*"
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
       changes:
         paths:
           - "**/*.yaml"
           - "**/*.yml"
           - ".gitlab-ci.yml"
           - ".gitlab/**/*"
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
       changes:
         paths:
           - "**/*.yaml"
@@ -157,6 +157,16 @@ lint:go:
       set -e
       export PATH="$(go env GOPATH)/bin:${PATH}"
 
+      # Isolate golangci-lint per concurrent job on shared runners.
+      # golangci-lint takes a global lock at $TMPDIR/golangci-lint.lock and, by
+      # default, shares its cache dir, so two lint jobs on the same runner
+      # collide ("parallel golangci-lint is running"). CI_CONCURRENT_ID is unique
+      # per executor slot (stable across sequential jobs, so the cache is still
+      # reused), which scopes both the lock and the cache to this job.
+      export TMPDIR="${TMPDIR:-/tmp}/golangci-lint-${CI_CONCURRENT_ID}"
+      export GOLANGCI_LINT_CACHE="${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}"
+      mkdir -p "$TMPDIR" "$GOLANGCI_LINT_CACHE"
+
       # Directories containing a .golangci.yaml, excluding the same upstream /
       # vendored modules as .github/workflows/dev_module_build.yml (lint_go):
       #   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
@@ -193,8 +203,8 @@ lint:go:
     - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/go/'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
@@ -251,7 +261,7 @@ lint:helm-templates:
           - ".helmignore"
           - "Chart.yaml"
           - "Taskfile.yaml"
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
       changes:
         paths:
           - "crds/**/*"
@@ -261,7 +271,7 @@ lint:helm-templates:
           - ".helmignore"
           - "Chart.yaml"
           - "Taskfile.yaml"
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
       changes:
         paths:
           - "crds/**/*"
@@ -382,8 +392,8 @@ check:gens-files:virtualization-artifact:
           - "images/virtualization-artifact/**/*"
           - "go.mod"
           - "go.sum"
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
 
 check:gens-files:api:
   extends: .gens_check
@@ -396,8 +406,8 @@ check:gens-files:api:
           - "api/**/*"
           - "go.mod"
           - "go.sum"
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
 
 # The heavy leg: bpf2go regeneration inside docker. Gated on vm-route-forge
 # changes only, so an unrelated change no longer pulls it in.
@@ -410,8 +420,8 @@ check:gens-files:vm-route-forge:
       changes:
         paths:
           - "images/vm-route-forge/**/*"
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
 
 # ---------------------------------------------------------------------------
 # gitlab-ci-lint
@@ -437,12 +447,12 @@ lint:gitlab-ci:
         paths:
           - ".gitlab-ci.yml"
           - ".gitlab/**/*"
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
       changes:
         paths:
           - ".gitlab-ci.yml"
           - ".gitlab/**/*"
-    - if: "$CI_COMMIT_BRANCH =~ /^release-/"
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
       changes:
         paths:
           - ".gitlab-ci.yml"

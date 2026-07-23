@@ -16,6 +16,14 @@
 #
 
 variables:
+  # --- Manual dispatch: build an existing tag into DEV ---
+  # Declared with value/description so it renders as a prefilled field on the
+  # "Run pipeline" (web) form. Set it to an existing tag and run the pipeline
+  # for branch main to build that tag via build_dev_manual (jobs/build-dev.yml).
+  BUILD_TAG:
+    value: ""
+    description: "Existing git tag (vX.Y.Z or vX.Y.Z-rc.N) to build into the DEV registry. Run the pipeline for branch main, not for the tag."
+
   # --- Module identity ---
   MODULE_NAME: virtualization
   # Kept for backwards compatibility with the previous root .gitlab-ci.yml;

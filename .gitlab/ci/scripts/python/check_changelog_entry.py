@@ -19,13 +19,22 @@ Migration of the validation logic in
 .github/workflows/check-changelog-entry.yml which used
 deckhouse/changelog-action@v2.6.0 with validate_only=true.
 
-Behaviour:
+Behaviour (mirrors deckhouse/changelog-action@v2.6.0, validate_only mode):
   - Fetch MR description via GitLab API (CI_API_V4_URL).
-  - Locate fenced code blocks with language ``changes``.
-  - For each block validate required keys: section, type, summary.
-  - ``section`` must be in the allowed list (.gitlab/ci/changelog-sections.txt).
-  - If a section is suffixed ``:low`` (e.g. ``ci:low``), impact_level is optional
-    and pinned to ``low``; otherwise impact_level is required.
+  - Locate fenced code blocks with language ``changes``. A block may contain
+    several entries separated by ``---`` lines, and ``section`` may list
+    several comma-separated sections (one entry per section).
+  - Required per entry: section (from the allowed list), type
+    (feature/fix/chore/docs), summary.
+  - ``impact_level`` is optional; when present it must be one of
+    default/low/high. ``impact_level: high`` requires an ``impact``
+    description ("missing high impact detail").
+  - The allowed list (.gitlab/ci/changelog-sections.txt) uses the upstream
+    ``section:forced_impact_level`` format; a forced level (``ci:low``)
+    silently overrides the entry's impact_level — it is not an error.
+    Blocks use the bare section name (``section: ci``).
+  - Legacy v1 field names (module, description, note) are accepted as
+    aliases for section, summary and impact.
   - If no ```changes blocks at all -> OK (PR may not require changelog).
   - Otherwise collect errors and exit non-zero.
 
@@ -52,9 +61,16 @@ CHANGES_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
-# deckhouse/changelog-action@v2.6.0 only renders 'feature' (-> features) and
-# 'fix' (-> fixes) in CHANGELOG-*.yml. Keep in sync with changelog_collect.py.
-ALLOWED_TYPES = {"feature", "fix"}
+# Types accepted in a ```changes block, matching deckhouse/changelog-action@v2.6.0
+# (the GitHub pipeline this was migrated from): feature, fix, chore, docs.
+# 'chore' and 'docs' are accepted but NOT rendered into the public CHANGELOG-*.yml
+# release notes: changelog_collect.render_yaml maps only feature/fix (upstream
+# no-ops chore/docs for YAML), so they land only in the internal per-minor
+# CHANGELOG-<minor>.md.
+ALLOWED_TYPES = {"feature", "fix", "chore", "docs"}
+# Impact levels known to deckhouse/changelog-action@v2.6.0; an absent
+# impact_level means "default".
+KNOWN_LEVELS = {"default", "low", "high"}
 
 
 def log(message: str) -> None:
@@ -91,14 +107,21 @@ def fetch_mr_description(
     return (payload.get("description") or "").strip()
 
 
-def load_allowed_sections(path: Path) -> set[str]:
-    text = path.read_text(encoding="utf-8")
-    sections: set[str] = set()
-    for raw in text.splitlines():
+def load_allowed_sections(path: Path) -> dict[str, str]:
+    """Map each allowed section name to its forced impact level ('' if none).
+
+    The list uses the upstream ``section:forced_impact_level`` format, so a
+    ``:low`` entry (e.g. ``ci:low``) forces low impact for that section: the
+    forced level silently overrides the entry's ``impact_level``. Changelog
+    blocks use the bare section name (``section: ci``).
+    """
+    sections: dict[str, str] = {}
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        sections.add(line)
+        name, _, suffix = line.partition(":")
+        sections[name] = suffix if suffix in KNOWN_LEVELS else ""
     return sections
 
 
@@ -113,52 +136,94 @@ def parse_block(block_text: str) -> dict[str, str]:
     return fields
 
 
+def split_docs(block_text: str) -> list[str]:
+    """Split a block into YAML-style documents on '---' separator lines."""
+    docs: list[list[str]] = [[]]
+    for line in block_text.splitlines():
+        if line.strip() == "---":
+            docs.append([])
+        else:
+            docs[-1].append(line)
+    return ["\n".join(doc) for doc in docs]
+
+
+def parse_entries(block_text: str) -> list[dict[str, str]]:
+    """Parse a ```changes block into change entries.
+
+    Mirrors deckhouse/changelog-action@v2.6.0 parse.ts: a block may hold
+    several documents separated by ``---``; v1 field names (module,
+    description, note) are accepted as aliases; a comma-separated ``section``
+    yields one entry per section.
+    """
+    entries: list[dict[str, str]] = []
+    for doc in split_docs(block_text):
+        fields = parse_block(doc)
+        base = {
+            "type": fields.get("type", ""),
+            "summary": fields.get("description") or fields.get("summary", ""),
+            "impact": fields.get("note") or fields.get("impact", ""),
+            "impact_level": fields.get("impact_level", ""),
+        }
+        section = fields.get("module") or fields.get("section", "")
+        for name in section.split(","):
+            entries.append({**base, "section": name.strip()})
+    return entries
+
+
+def validate_entry(
+    entry: dict[str, str],
+    allowed_sections: dict[str, str],
+) -> list[str]:
+    """Validate one entry, mirroring ChangeEntry.validate() plus the
+    allowed-sections check of deckhouse/changelog-action@v2.6.0."""
+    section = entry["section"]
+
+    level = entry["impact_level"] or "default"
+    forced = allowed_sections.get(section, "")
+    if forced:
+        # A forced level silently overrides the entry value (not an error).
+        level = forced
+
+    errors: list[str] = []
+    if not entry["summary"]:
+        errors.append("missing summary")
+    if level not in KNOWN_LEVELS:
+        errors.append(f"invalid impact level '{level}'")
+    if level == "high" and not entry["impact"]:
+        errors.append("missing high impact detail (add an 'impact' key)")
+    if not section:
+        errors.append("missing section")
+    change_type = entry["type"]
+    if change_type not in ALLOWED_TYPES:
+        errors.append(
+            f"invalid type '{change_type}' (allowed: {sorted(ALLOWED_TYPES)})"
+            if change_type
+            else "missing type"
+        )
+    errors.sort()
+    if section not in allowed_sections:
+        errors.append(
+            f"unknown section '{section}' "
+            f"(see .gitlab/ci/changelog-sections.txt)"
+        )
+    return errors
+
+
 def validate_block(
     block_index: int,
     block_text: str,
-    allowed_sections: set[str],
+    allowed_sections: dict[str, str],
 ) -> list[str]:
     errors: list[str] = []
-    fields = parse_block(block_text)
-
-    section = fields.get("section", "")
-    if not section:
-        errors.append(f"block #{block_index}: missing required key 'section'")
-    elif section not in allowed_sections:
-        errors.append(
-            f"block #{block_index}: section '{section}' is not in "
-            f"allowed_sections (see .gitlab/ci/changelog-sections.txt)"
+    entries = parse_entries(block_text)
+    for entry_index, entry in enumerate(entries, start=1):
+        prefix = f"block #{block_index}"
+        if len(entries) > 1:
+            prefix += f" entry #{entry_index}"
+        errors.extend(
+            f"{prefix}: {error}"
+            for error in validate_entry(entry, allowed_sections)
         )
-
-    change_type = fields.get("type", "")
-    if not change_type:
-        errors.append(f"block #{block_index}: missing required key 'type'")
-    elif change_type not in ALLOWED_TYPES:
-        errors.append(
-            f"block #{block_index}: type '{change_type}' is not supported; "
-            f"allowed types are {sorted(ALLOWED_TYPES)} "
-            f"(deckhouse changelog only supports 'feature' and 'fix', "
-            f"rendered as the 'features'/'fixes' sections)"
-        )
-
-    summary = fields.get("summary", "")
-    if not summary:
-        errors.append(f"block #{block_index}: missing required key 'summary'")
-
-    # impact_level: optional iff section suffix is :low.
-    section_suffix_low = ":" in section and section.split(":", 1)[1] == "low"
-    impact_level = fields.get("impact_level", "")
-    if not section_suffix_low and not impact_level:
-        errors.append(
-            f"block #{block_index}: missing required key 'impact_level' "
-            "(only allowed to omit when section ends with ':low')"
-        )
-    elif section_suffix_low and impact_level and impact_level != "low":
-        errors.append(
-            f"block #{block_index}: section '{section}' is pinned to low "
-            f"impact but impact_level='{impact_level}' was provided"
-        )
-
     return errors
 
 

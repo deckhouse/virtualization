@@ -1,0 +1,22 @@
+*                                                         @dmitry.rakitin
+/.github/                                                 @nikita.korolev @maksim.fedotov
+
+/crds/                                                    @pavel.tishkov @artem.kladov @georgy.dauman
+/docs/                                                    @pavel.tishkov @artem.kladov @georgy.dauman
+/openapi/                                                 @pavel.tishkov @artem.kladov @georgy.dauman
+/monitoring/                                              @pavel.tishkov @dmitry.rakitin
+/tests/                                                   @roman.sysoev @daniil.antoshin
+/CHANGELOG/                                               @nikita.korolev @maksim.fedotov
+
+/images/                                                  @nikita.korolev @maksim.fedotov
+/images/pvc-artifact/                                     @dmitry.rakitin @yaroslav.borbat @ivan.mikheykin
+/images/virt-artifact/                                    @dmitry.rakitin @yaroslav.borbat @ivan.mikheykin
+/images/dvcr-artifact/                                    @dmitry.rakitin @yaroslav.borbat @ivan.mikheykin
+/images/vm-route-forge/                                   @yaroslav.borbat @ivan.mikheykin
+/images/kube-api-rewriter/                                @ivan.mikheykin @yaroslav.borbat
+/images/virtualization-artifact/                          @dmitry.rakitin @yaroslav.borbat
+/images/virtualization-artifact/pkg/controller/vm/        @yaroslav.borbat @dmitry.rakitin
+/images/virtualization-artifact/pkg/controller/vmip/      @dmitry.lopatin @dmitry.rakitin
+/images/virtualization-artifact/pkg/controller/vmiplease/ @dmitry.lopatin @dmitry.rakitin
+
+*werf*                                                    @nikita.korolev @maksim.fedotov

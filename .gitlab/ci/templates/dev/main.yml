@@ -11,6 +11,10 @@
   extends:
     - .dev_vars
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Guard on `push`: a scheduled/web pipeline targets the main branch too, so
+    # $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH is true there as well. Without this
+    # guard every schedule that fires against main (changelog, cleanup, ...)
+    # would pull in the main-branch build jobs. Only real pushes should.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
       when: always
     - when: never

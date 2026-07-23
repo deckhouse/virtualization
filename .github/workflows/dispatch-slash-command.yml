@@ -18,8 +18,7 @@
 
 name: Dispatch slash command
 on:
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
 
 jobs:
   conditions:

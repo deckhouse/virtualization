@@ -19,7 +19,8 @@
 #   - .gitlab/ci/scripts/python/changelog_collect.py (groups changes by section)
 #   - .github/actions/milestone-changelog/action.yml (kept in sync during migration)
 #
-# Suffix `:low` pins the section to low impact_level (impact_level field becomes optional).
+# Suffix `:low` forces low impact_level for the section, silently overriding
+# the block value (matching deckhouse/changelog-action@v2.6.0).
 #
 # Keep this file in byte-for-byte sync with the equivalent list in:
 #   .github/actions/milestone-changelog/action.yml
