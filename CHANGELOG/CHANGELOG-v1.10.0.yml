@@ -1,20 +1,271 @@
+api:
+  features:
+    - summary: >-
+        Add the Superseded phase for VirtualMachineOperation resources interrupted by a newer
+        operation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2492
 ci:
+  features:
+    - summary: >-
+        Migrate repository CI from GitHub Actions to GitLab CI with full parity: build/deploy
+        (dev/prod, all editions incl. se-plus), lint, tests, secrets/CVE/Svace scanning,
+        changelog/backport automation, MR auto-assign, and manual release-channel dispatch.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2543
   fixes:
+    - summary: Pin prometheus CRD schema downloads for kubeconform to a stable commit.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2590
+    - summary: >-
+        Fix e2e nested-cluster bootstrap race that made the affinity/toleration precheck fail with 0
+        KVM-enabled master nodes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2587
+    - summary: Enable automatic node update approval in nested e2e cluster.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2575
+    - summary: Retry transient d8 v ssh/scp failures in e2e bootstrap steps.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2563
+    - summary: >-
+        Enable hotplug feature gates in the virtualization ModuleConfig on the nested e2e cluster so
+        hotplug CPU/memory prechecks stop failing in SynchronizedBeforeSuite.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2536
+    - summary: >-
+        Fix nested e2e NFS setup on the stage registry profile by using the deckhouse-prod module
+        source.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2507
     - summary: Changelog entries no longer require impact_level, scheduled changelog pipelines run only their own job, and changelog MRs carry a readable changelog body.
       pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/35
-disks:
+cli:
   fixes:
+    - summary: >-
+        d8 v vnc --proxy-only now keeps the VNC proxy listener alive so external viewers can connect
+        to the printed port.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2526
+    - summary: >-
+        d8 ssh / d8 scp now use the local OpenSSH/SCP clients via ProxyCommand; pass extra client
+        options through a single --ssh-args flag and the command via --.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2442
+core:
+  features:
+    - summary: Add security events
+      pull_request: https://github.com/deckhouse/virtualization/pull/2611
+    - summary: >-
+        Automatically restore VirtualImage and ClusterVirtualImage from the ImageLost phase once the
+        image reappears in DVCR, without re-importing the data.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2564
+    - summary: >-
+        CDI has been removed: disks and images are now provisioned by the module's own importer and
+        PVC populator, with live import progress.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2394
+    - summary: throttle the live-migration sync phase per source node
+      pull_request: https://github.com/deckhouse/virtualization/pull/2230
+  fixes:
+    - summary: >-
+        USB passthrough now works on nodes where usbip kernel modules are compressed with xz or
+        gzip, not only zstd.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2647
+    - summary: >-
+        Release the inbound migration slot when a VMI is deleted mid-migration to avoid starving
+        further migrations to the node.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2595
+    - summary: >-
+        Fix virt-controller crash on nil pod during in-place resize that left VMs stuck in Pending
+        with no launcher pod on slow storage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2588
+    - summary: Do not fail VM reconcile while a hotplug image is being attached via VMBDA.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2582
+    - summary: >-
+        VM is reliably started after restore for all run policies instead of occasionally staying
+        stopped.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2577
+    - summary: Do not fail VM reconcile while a hotplug image is being attached via VMBDA.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2574
+    - summary: >-
+        Fixed flapping of the VirtualMachineIPAddressReady condition when the VM had no guest-agent
+        IP.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2553
+    - summary: Preserve explicit enableParavirtualization=false value during VirtualMachine updates.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2505
+    - summary: >-
+        VirtualMachineClass: for cpu.type=Discovery recompute CPU features from the current nodes on
+        every reconcile (no stale cache) and separate the discovery nodeSelector pool (basis for the
+        universal CPU model) from schedulable nodes derived from spec.nodeSelector; for
+        cpu.type=Discovery and Features restore status.cpuFeatures.notEnabledCommon population.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2501
+    - summary: Prevent node placement updates from interrupting active VM volume migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2497
+    - summary: >-
+        Ignore stale USB ResourceClaimTemplate and USBDevice cleanup errors during VM USB device
+        reconciliation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2453
+cvi:
+  fixes:
+    - summary: >-
+        ClusterVirtualImage status messages are clearer and no longer expose internal implementation
+        details.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2558
+disks:
+  features:
+    - summary: >-
+        VirtualDisk names may use the full Kubernetes name length instead of being capped at 60
+        characters.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2548
+  fixes:
+    - summary: >-
+        Upload-type VirtualDisk no longer gets stuck in Pending when the shared upload host
+        certificate becomes invalid.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2610
+    - summary: >-
+        Upload-type VirtualDisk again recovers automatically when the upload host changes, for
+        example after publicDomainTemplate is updated.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2610
     - summary: A VirtualMachine with paravirtualization disabled no longer gets stuck in Pending when it boots from a newly created image-backed disk on a WaitForFirstConsumer storage class.
       pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/75
+images:
+  features:
+    - summary: >-
+        VirtualImage and ClusterVirtualImage names may use the full Kubernetes name length instead
+        of being capped at 49 and 48 characters.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2548
+  fixes:
+    - summary: >-
+        Upload-type VirtualImage and ClusterVirtualImage no longer get stuck in Pending when the
+        shared upload host certificate becomes invalid.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2610
+    - summary: >-
+        Upload endpoint now follows publicDomainTemplate changes instead of keeping the host it was
+        created with.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2527
+kubevirt:
+  fixes:
+    - summary: Build the bpf_bridge.o eBPF object without the Svace wrapper to fix the virt-artifact build.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2644
 module:
   features:
+    - summary: >-
+        Optional per-namespace authorization for DVCR (`dvcr.tenantRegistryAuthorization`) isolating
+        container image access between namespaces.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2586
+    - summary: >-
+        Limit concurrent inbound live migrations per target node, configurable via ModuleConfig
+        annotations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2362
     - summary: virtualMachineCIDRs in the ModuleConfig/virtualization is now optional; VM IP address management (IPAM) is simply unavailable until it is configured, instead of blocking the module from starting.
       pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/1
   fixes:
+    - summary: Restricted unauthorized access to the virtualization USB/IP gateway port.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2571
     - summary: VirtualMachinePool RBAC is granted only in editions where the feature is available, so the resource is not exposed in CE.
       pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/49
-vm:
+network:
+  features:
+    - summary: add metrics for conntrack sync
+      pull_request: https://github.com/deckhouse/virtualization/pull/2542
+    - summary: bind live migration to a dedicated SystemNetwork
+      pull_request: https://github.com/deckhouse/virtualization/pull/2222
+test:
+  features:
+    - summary: >-
+        The release upgrade e2e test now verifies that a long-running TCP session survives virtual
+        machine live migration during the module upgrade.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2617
+    - summary: Add an interactive fzf helper for selecting and repeatedly running e2e suites.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2510
   fixes:
+    - summary: E2E feature gate precheck errors now include kubectl patch command to enable missing gates.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2598
+    - summary: Poll the guest CPU count after a hotplug CPU change to avoid racing the guest.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2593
+    - summary: Reduce CPU and memory requests in the migration cancel e2e VM.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2592
+    - summary: Fix EnableParavirtualization pointer comparison in VM configuration e2e test.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2579
+vd:
+  fixes:
+    - summary: >-
+        VirtualDisk status messages are clearer and no longer expose internal implementation
+        details.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2558
+vdsnapshot:
+  fixes:
+    - summary: VirtualDiskSnapshot status messages have clearer wording.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2558
+vi:
+  fixes:
+    - summary: >-
+        PVC-backed virtual images are now attached to virtual machines in read-only mode, like
+        registry-backed images.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2620
+    - summary: >-
+        VirtualImage status messages are clearer and no longer expose internal implementation
+        details.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2558
+vm:
+  features:
+    - summary: >-
+        Add IPAM for additional network interfaces: automatic (DHCP) and static IP allocation via
+        SDN IPAddress resources.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2612
+    - summary: >-
+        Add hotplug CPU and memory via in-place resize (alpha, behind feature gate
+        HotplugCPUAndMemoryWithInPlaceResize).
+      pull_request: https://github.com/deckhouse/virtualization/pull/2247
+    - summary: >-
+        VM networks moved to an eBPF datapath: stable additional-network connectivity with lower
+        overhead.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2212
+  fixes:
+    - summary: >-
+        Release the PVC protection finalizer without resurrecting finalizers dropped from a
+        terminating PVC, so VM deletion no longer hangs.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2659
+    - summary: >-
+        Block devices attached to a VM with disabled paravirtualization are no longer switched to
+        the SATA bus and attach correctly.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2645
+    - summary: >-
+        Virtual machines with local disks can now be evacuated, updated and re-migrated even while a
+        restart is pending, instead of getting stuck unable to migrate.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2634
+    - summary: >-
+        VMs requiring a pinned TSC frequency (Windows/Hyper-V, invtsc) no longer hang in Pending on
+        heterogeneous clusters — the frequency is now picked among the nodes the VM can actually be
+        scheduled on.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2630
+    - summary: >-
+        Disks and CD-ROMs now move to the virtio-scsi bus after enabling paravirtualization, so ISO
+        drives can be unplugged from a running VM.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2624
+    - summary: >-
+        Live migrations no longer fail by target timeout while waiting for a free inbound migration
+        slot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2616
+    - summary: Fix VM stuck until the child KVVMI in Failed phase is deleted manually.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2596
+    - summary: >-
+        VirtualMachine status messages are clearer and no longer expose internal implementation
+        details.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2558
+    - summary: >-
+        VirtualMachine creation without an explicit VM class now reports a clear error when no
+        default VirtualMachineClass is configured.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2534
+    - summary: >-
+        A VM can start again after a failed local-disk migration restart when `kvvmi` is already
+        deleted and migrated volumes, including VMBDA-attached volumes, must be restored from target
+        PVCs back to the current source PVCs.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2506
+    - summary: >-
+        Prevent Main-only virtual machines from requiring restart due to implicit default network
+        template synchronization.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2484
+    - summary: Fix hotplug volume cleanup after migration target pod termination.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2457
+    - summary: >-
+        VM pod volume error handling now includes FailedMapVolume and surfaces more complete pod
+        volume diagnostics.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2433
+    - summary: >-
+        Fallback CPU/memory hotplug updates to restart when project quota cannot fit migration-time
+        resources.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2419
     - summary: Live migration of a virtual machine with additional networks no longer gets stuck waiting for the network on the target node.
       pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/50
     - summary: A VirtualMachine no longer stays stuck as migrating after a finished migration, which previously blocked all further migrations and evictions of that VM.
@@ -25,4 +276,27 @@ vm:
       pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/10
     - summary: "Virtual machines with several local disks migrate reliably: a migration no longer reports success while leaving a disk unmigrated, no longer hangs on an inconsistent volume set, no longer disrupts hotplugged disk attachments, and if it cannot proceed, it fails within minutes and the virtual machine recovers automatically."
       pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/2
+vmbda:
+  fixes:
+    - summary: >-
+        VirtualMachineBlockDeviceAttachment status messages are clearer and no longer expose
+        internal implementation details.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2558
+vmclass:
+  fixes:
+    - summary: >-
+        VirtualMachineClass sizing policy errors now report the total memory to set and the field to
+        change instead of per-core values, and CPU cores step and minimum-only memory limits are now
+        enforced.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2602
+vmpool:
+  features:
+    - summary: >-
+        Add VirtualMachinePool (EE/SE+) for declarative group management of virtual machines,
+        scalable via the standard scale subresource, HPA and KEDA.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2572
+vmsnapshot:
+  fixes:
+    - summary: VirtualMachineSnapshot status messages have clearer wording.
+      pull_request: https://github.com/deckhouse/virtualization/pull/2558
 
