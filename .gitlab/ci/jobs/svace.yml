@@ -1,0 +1,181 @@
+# Svace scheduled + manual analysis.
+#
+# Migration of .github/workflows/dev_build_svace.yml. The GH workflow
+# did:
+#   1. set_vars    - compute MODULES_MODULE_TAG-*svace
+#   2. dev_setup_build - build with svace_enabled=true (deferred to
+#                       deckhouse/modules-actions/build@v4)
+#   3. analyze_build  - run svace_analyze@v4 against the built artifacts
+#   4. notify       - send Loop webhook with success/failure
+#
+# GitLab mapping:
+#   - The build step reuses the local `.base_build` template, with `.dev_vars`
+#     for DEV registry variables and job-local rules for schedule/manual runs.
+#   - The analyze step uses the upstream `.svace_analyze` template
+#     (Svace_Analayze.gitlab-ci.yml; note upstream file name typo).
+#   - Schedule cron: "00 04 * * 6" -> Pipeline Schedule in UI, with
+#     $SCHEDULE_TYPE == "svace" so the svace jobs run only under that
+#     dedicated schedule and not under any other pipeline schedule.
+#   - workflow_dispatch -> when: manual.
+#   - MR opt-in -> set SVACE_PIPELINE_ENABLED=true when running a pipeline.
+#   - Loop notification kept as a manual / always job. The original GH
+#     webhook URL is the LOOP_WEBHOOK_URL masked variable.
+#
+# Required CI/CD variables (declared in the project):
+#   SVACE_ANALYZE_HOST            masked
+#   SVACE_ANALYZE_SSH_USER        masked
+#   SVACE_ANALYZE_SSH_PRIVATE_KEY_B64  masked
+#   SVACER_URL                    var
+#   SVACER_IMPORT_USER            masked
+#   SVACER_IMPORT_PASSWORD        masked
+#   LOOP_WEBHOOK_URL              masked
+#
+# Tag suffix: `${CI_COMMIT_REF_NAME}-svace` matches the GH workflow
+# behavior.
+
+# ---------------------------------------------------------------------------
+# set-vars: produce a dotenv artifact with MODULES_MODULE_TAG-*svace.
+# ---------------------------------------------------------------------------
+
+svace:set-vars:
+  extends:
+    - .info
+  stage: info
+  # Only emit the svace tag dotenv in contexts where svace actually runs.
+  # Without these rules this job ran on EVERY MR pipeline and leaked a
+  # MODULES_MODULE_TAG=<branch>-svace dotenv artifact into build jobs,
+  # overriding their own mr<iid> tag. Runs automatically (no `when: manual`)
+  # so the manual svace:build job can consume its artifact.
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
+      when: always
+    - when: never
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash
+  script:
+    - |
+      set -euo pipefail
+      REF="${CI_COMMIT_REF_NAME:-}"
+      case "$REF" in
+        main|release-*)
+          TAG="${REF}-svace" ;;
+        "")
+          TAG="manual-svace" ;;
+        *)
+          TAG="${REF//\//_}-svace" ;;
+      esac
+      echo "MODULES_MODULE_TAG=${TAG}" > svace.env
+      echo "MODULE_EDITION=EE"        >> svace.env
+      echo "REF_NAME=${REF}"          >> svace.env
+      cat svace.env
+  artifacts:
+    reports:
+      dotenv: svace.env
+
+# ---------------------------------------------------------------------------
+# build: produces Svace-instrumented artifacts.
+#
+# Reuses `.base_build` so it does not inherit the dev-tag-only rules from
+# `.dev_tags`. The preceding svace:set-vars job writes the actual
+# MODULES_MODULE_TAG into a dotenv artifact.
+# ---------------------------------------------------------------------------
+
+svace:build:
+  extends:
+    - .base_build
+    - .dev_vars
+  stage: build
+  interruptible: false
+  needs:
+    - svace:set-vars
+  variables:
+    WERF_VIRTUAL_MERGE: "0"
+    SVACE_ENABLED: "true"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
+      when: manual
+    - when: never
+
+# ---------------------------------------------------------------------------
+# analyze: invoke the upstream `.svace_analyze` template.
+#
+# Id-token + vault wiring is inherited from the upstream template.
+# ---------------------------------------------------------------------------
+
+svace:analyze:
+  extends:
+    - .svace_analyze
+  stage: scan
+  interruptible: false
+  needs:
+    - job: svace:set-vars
+      artifacts: true
+    - job: svace:build
+      optional: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
+      when: manual
+    - when: never
+
+# ---------------------------------------------------------------------------
+# notify: post the result to Loop (best-effort).
+# ---------------------------------------------------------------------------
+
+svace:notify:
+  stage: cleanup
+  # needs svace:analyze (non-optional) so this job stays coupled to a real
+  # svace run: on an unrelated web pipeline svace:analyze is manual and never
+  # played, so it is skipped and this notify is skipped too. The on_success /
+  # on_failure rule pair (same idiom as prod:notify-loop) makes notify run on
+  # BOTH a passing and a failing svace:analyze. set-vars is pulled for the
+  # REF_NAME dotenv.
+  needs:
+    - job: svace:set-vars
+      artifacts: true
+    - job: svace:analyze
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
+  script:
+    - |
+      set -euo pipefail
+      source .gitlab/ci/scripts/bash/lib/api.sh
+      gl_required_env CI_API_V4_URL GITLAB_API_TOKEN CI_PROJECT_ID CI_PIPELINE_ID LOOP_WEBHOOK_URL
+      DATE=$(date '+%Y-%m-%d')
+      # Derive the result from the svace:analyze job, not this notify job:
+      # CI_JOB_STATUS would report THIS job and is almost always "success".
+      # Mirrors the GitHub `needs.analyze_build.result == 'success'` check.
+      ANALYZE_STATUS=$(api GET "/projects/${CI_PROJECT_ID}/pipelines/${CI_PIPELINE_ID}/jobs?per_page=100" \
+        | jq -r '[.[] | select(.name == "svace:analyze")][0].status // ""')
+      if [[ "${ANALYZE_STATUS}" == "success" ]]; then
+        STATUS=":white_check_mark: SUCCESS!"
+      else
+        STATUS=":x: FAIL!"
+      fi
+      MESSAGE="### :gear: **DVP ${DATE} Weekly Svace Analyze Report**
+      **Branch:** \`${REF_NAME:-${CI_COMMIT_REF_NAME}}\`
+      **Status:** ${STATUS}
+      [:link: Pipeline](${CI_PIPELINE_URL})"
+      curl --silent --show-error --fail \
+        --request POST \
+        --header 'Content-Type: application/json' \
+        --data "$(jq -n --arg text "${MESSAGE}" '{text: $text}')" \
+        "${LOOP_WEBHOOK_URL}" || echo "Loop webhook failed (non-fatal)"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+      when: on_failure
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: on_failure

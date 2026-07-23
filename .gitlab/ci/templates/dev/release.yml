@@ -1,0 +1,24 @@
+# DEV pipeline context: release-branch builds.
+#
+# Mirrors the GitHub dev_module_build.yml `push: [release-*]` trigger. Code
+# reaches release-X.Y branches only through squash-and-merge of an MR, so the
+# merge IS the push that must rebuild the dev image for the integrated release
+# branch. The image is tagged with the branch name (release-X.Y), matching the
+# GitHub set_vars logic; set-vars.sh sets RELEASE_IN_DEV=true for the same
+# branches.
+#
+# Counterpart of .main (default-branch build, tag v0.0.0-main) and .dev (MR
+# build, tag mr<iid>).
+
+.release:
+  variables:
+    MODULES_MODULE_TAG: ${CI_COMMIT_REF_NAME}
+  extends:
+    - .dev_vars
+  rules:
+    # Guard on `push`: a schedule targeting a release-X.Y branch sets
+    # $CI_COMMIT_BRANCH too, so without this it would leak the release build
+    # job into that schedule (same class of bug as .main).
+    - if: '$CI_COMMIT_BRANCH =~ /^release-[0-9]+\.[0-9]+/ && $CI_PIPELINE_SOURCE == "push"'
+      when: always
+    - when: never

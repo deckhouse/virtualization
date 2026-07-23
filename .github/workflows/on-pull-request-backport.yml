@@ -19,15 +19,7 @@
 name: Run automatic cherry-pick on backport PRs
 
 on:
-  pull_request:
-    types:
-      - closed
-      - labeled
-    branches:
-      - main
-  issue_comment:
-    types:
-      - created
+  workflow_dispatch:
 
 jobs:
   detect_pr_by_label:

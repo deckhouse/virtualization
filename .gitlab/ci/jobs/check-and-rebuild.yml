@@ -1,0 +1,74 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Recheck a published dev module tag and rebuild it if any component image it
+# references was garbage-collected from dev-registry. GitLab counterpart of
+# .github/workflows/dev_check-and-rebuild.yml; helpers live in
+# .gitlab/ci/scripts/bash/check-and-rebuild/.
+#
+# werf keeps reusing a collected stage (its tag still resolves) and re-reports
+# the dead digest, so a plain rebuild does not fix it. For every broken
+# component we delete its stages by tag, forcing werf to rebuild and re-push;
+# images-digests and prepare-bundle are dropped too so images_digests.json is
+# regenerated, and .build_base republishes :$TAG.
+#
+# Run via "Run pipeline" (CI_PIPELINE_SOURCE == web) with variable:
+#   TAG  (required)  module tag to recheck/rebuild, vX.Y.Z or vX.Y.Z-rc.N.
+#
+# The pipeline ref carries the helper scripts; the job checks out $TAG for the
+# werf build, so the scripts are stashed to a tmpdir before the checkout (an
+# already-released tag's tree may predate them).
+
+check_and_rebuild:
+  stage: build
+  extends:
+    - .dev_vars
+  variables:
+    MODULES_MODULE_TAG: ${TAG}
+    MODULE_EDITION: EE
+    # Full clone so the target tag's commit is present for checkout.
+    GIT_DEPTH: 0
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/'
+      when: manual
+    - when: never
+  script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf jq crane
+    # Stash the shared helpers before the tag checkout replaces the tree.
+    - export HELPERS="$(mktemp -d)"
+    - cp .gitlab/ci/scripts/bash/check-and-rebuild/*.sh "$HELPERS/"
+    - export REPO="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+    # Check; stop early (success) when nothing is broken.
+    - |
+      rc=0
+      bash "$HELPERS/check-image-digests.sh" --repo "$REPO" --tag "$TAG" || rc=$?
+      if [ "$rc" -eq 0 ]; then echo "nothing to rebuild"; exit 0; fi
+      if [ "$rc" -eq 2 ]; then echo "module tag $REPO:$TAG not found" >&2; exit 1; fi
+    # Build the target tag's source.
+    - git checkout -f "refs/tags/${TAG}"
+    # Pass 1: collect the build report (mostly cached). Report kept out of the
+    # repo tree so werf giterminism sees a clean checkout.
+    - export REPORT="$(mktemp --suffix=.json)"
+    - werf build --repo "$REPO" --save-build-report --build-report-path "$REPORT"
+    # Delete stale stages of broken components.
+    - bash "$HELPERS/rebuild-broken-stages.sh" --repo "$REPO" --report "$REPORT"
+    # Pass 2: rebuild + publish (regenerates images_digests.json, republishes :$TAG).
+    - !reference [.build_base, script]
+    # Re-check.
+    - |
+      if ! bash "$HELPERS/check-image-digests.sh" --repo "$REPO" --tag "$TAG"; then
+        echo "component image(s) still missing after rebuild" >&2
+        exit 1
+      fi
+      echo "All component images are pullable."

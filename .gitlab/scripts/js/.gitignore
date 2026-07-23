@@ -1,0 +1,4 @@
+# package-lock.json is ignored globally at the repo root (.gitignore), but the
+# one here is intentionally committed so the test:scripts:js CI job can install
+# with `npm ci` (reproducible, lockfile-pinned).
+!package-lock.json

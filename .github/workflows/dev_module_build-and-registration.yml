@@ -30,9 +30,6 @@ env:
   MODULE_EDITION: "EE"
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+.*"
   workflow_dispatch:
     inputs:
       tag:

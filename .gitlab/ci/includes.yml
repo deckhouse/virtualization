@@ -1,0 +1,113 @@
+# Top-level include fan-out for the deckhouse/virtualization GitLab pipeline.
+#
+# Order is significant: stages/variables/defaults must be loaded before any
+# job file because GitLab CI merges variables and stages across all included
+# documents. The Setup template from modules-gitlab-ci provides its own
+# stages: [build, deploy]; we explicitly extend stages via .gitlab/ci/stages.yml
+# so the final list is the union of both.
+#
+# Upstream template names (deckhouse/3p/deckhouse/modules-gitlab-ci, v13.0):
+#   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
+#   - Build.gitlab-ci.yml           (.build_base — werf build + bundle/attestation
+#                                   copy + release-channel copy + registration;
+#                                   .lint_base — dmt lint)
+#   - Deploy.gitlab-ci.yml          (.deploy_base — release-channel crane copy)
+#   - CVE_Scan.gitlab-ci.yml        (.cve_scan — Trivy scan via Vault)
+#   - gitleaks.gitlab-ci.yml        (.gitleaks_scan — secrets scanning)
+#   - Svace_Analayze.gitlab-ci.yml  (.svace_analyze; note: typo in upstream name)
+#   - Translate_Changelog.gitlab-ci.yml (included from jobs/translate-changelog.yml)
+#
+# We include only the templates actually consumed by local jobs (Setup, Build,
+# Deploy, CVE_Scan, gitleaks, Svace_Analayze). The *_base bodies are rules-free,
+# so our own .dev / .main / .prod context templates drive gating.
+
+include:
+  # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
+  # Tracks the v13.0 branch so upstream fixes flow in automatically. The
+  # rules-free base split (.build_base / .deploy_base / .lint_base, upstream
+  # #89) has landed in v13.0 (HEAD f900bab at the time of writing); to pin for
+  # reproducibility, swap the ref for that SHA.
+  - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
+    ref: "v13.0"
+    file:
+      # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
+      # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
+      - "/templates/Setup.gitlab-ci.yml"
+      # Build.gitlab-ci.yml provides the rules-free `.build_base` (werf build +
+      # bundle/attestation copy + release-channel copy + module registration)
+      # and `.lint_base`. Deploy.gitlab-ci.yml provides the rules-free
+      # `.deploy_base` (release-channel crane copy). Our `.base_build` /
+      # `.base_deploy` in templates/base/{build,deploy}.yml consume these via
+      # `!reference`, so gating stays driven by our own .dev / .main / .prod
+      # context templates (upstream `.build` / `.deploy` bake in `rules:` that
+      # would otherwise override it).
+      - "/templates/Build.gitlab-ci.yml"
+      - "/templates/Deploy.gitlab-ci.yml"
+      # Validation/scanning jobs extend these upstream templates.
+      - "/templates/CVE_Scan.gitlab-ci.yml"
+      - "/templates/gitleaks.gitlab-ci.yml"
+      - "/templates/Svace_Analayze.gitlab-ci.yml"
+
+  # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
+  - local: ".gitlab/ci/stages.yml"
+  - local: ".gitlab/ci/variables.yml"
+  - local: ".gitlab/ci/defaults.yml"
+  - local: ".gitlab/ci/workflow.yml"
+
+  # --- Local shared templates (extends: ...) ---
+  # templates/ is grouped by the two global processes plus shared base:
+  #   base/    - process-agnostic base job bodies + helpers
+  #   dev/     - development process (DEV registry): MR / main / release / dev-tag
+  #   release/ - release process (PROD registry): tag-push + manual dispatch
+  # Anchor names are unchanged (.base_build, .dev, .prod_vars, ...), so no job
+  # `extends:` edits are needed.
+  # Registry-login helpers must load before dev_vars/prod_vars, which extend
+  # them (.login_dev_registry / .login_prod_registry).
+  - local: ".gitlab/ci/templates/base/registry-login.yml"
+  - local: ".gitlab/ci/templates/dev/dev_vars.yml"
+  - local: ".gitlab/ci/templates/release/prod_vars.yml"
+  - local: ".gitlab/ci/templates/dev/dev.yml"
+  - local: ".gitlab/ci/templates/dev/dev_tags.yml"
+  - local: ".gitlab/ci/templates/dev/main.yml"
+  - local: ".gitlab/ci/templates/dev/release.yml"
+  - local: ".gitlab/ci/templates/release/prod_tag.yml"
+  - local: ".gitlab/ci/templates/base/info.yml"
+  - local: ".gitlab/ci/templates/base/build.yml"
+  - local: ".gitlab/ci/templates/base/deploy.yml"
+
+  # --- Local job files owned by this issue ---
+  - local: ".gitlab/ci/jobs/info.yml"
+  - local: ".gitlab/ci/jobs/test.yml"
+  - local: ".gitlab/ci/jobs/test-scripts-js.yml"
+  - local: ".gitlab/ci/jobs/test-scripts-python.yml"
+  - local: ".gitlab/ci/jobs/test-d8v-cli.yml"
+  - local: ".gitlab/ci/jobs/build-dev.yml"
+  - local: ".gitlab/ci/jobs/build-prod.yml"
+  # No deploy-dev.yml: the DEV registry has no release channels (only tags),
+  # so a dev tag is just built (build_dev_tags) and never crane-copied into
+  # alpha/beta/... The GitHub "Deploy Dev" workflow
+  # (dev_module_build-and-registration.yml) is build-only as well.
+  - local: ".gitlab/ci/jobs/deploy-prod.yml"
+  # Prod release-channels parity flow (manual single-channel dispatch):
+  # requirements check, build/deploy per edition, version verification,
+  # GitLab release creation, Loop notification.
+  - local: ".gitlab/ci/jobs/release-channels.yml"
+  - local: ".gitlab/ci/jobs/cleanup.yml"
+
+  # --- Local validation and scanning jobs ---
+  - local: ".gitlab/ci/jobs/lint-dmt.yml"
+  - local: ".gitlab/ci/jobs/lint-validate.yml"
+  - local: ".gitlab/ci/jobs/precache.yml"
+  - local: ".gitlab/ci/jobs/svace.yml"
+  - local: ".gitlab/ci/jobs/cve-scan.yml"
+  - local: ".gitlab/ci/jobs/gitleaks.yml"
+
+  # --- Local GitLab API automation, changelog, backport, and manual tools ---
+  - local: ".gitlab/ci/jobs/auto-assign-author.yml"
+  - local: ".gitlab/ci/jobs/backport.yml"
+  - local: ".gitlab/ci/jobs/changelog.yml"
+  - local: ".gitlab/ci/jobs/check-changelog.yml"
+  - local: ".gitlab/ci/jobs/check-milestone.yml"
+  - local: ".gitlab/ci/jobs/manual-tools.yml"
+  - local: ".gitlab/ci/jobs/check-and-rebuild.yml"
+  - local: ".gitlab/ci/jobs/translate-changelog.yml"
