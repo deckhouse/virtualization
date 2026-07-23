@@ -170,4 +170,4 @@ replace (
 )
 
 // Kubevirt API replaces
-replace kubevirt.io/api => fox.flant.com/deckhouse/virtualization/fork/kubevirt/staging/src/kubevirt.io/api v1.6.2-v12n.48.0.20260630123735-13e588420d28
+replace kubevirt.io/api => fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.48.0.20260630123735-13e588420d28
