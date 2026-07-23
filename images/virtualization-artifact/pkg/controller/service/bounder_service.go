@@ -71,8 +71,8 @@ func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerRefe
 		podSettings.NodePlacement = options.nodePlacement
 	}
 
-	_, err := bounder.NewBounder(podSettings).CreatePod(ctx, s.client)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	_, err := bounder.NewBounder(podSettings).GetOrCreatePod(ctx, s.client)
+	if err != nil {
 		return err
 	}
 

@@ -36,6 +36,10 @@ type NodePlacement struct {
 	// VM's node so a WaitForFirstConsumer node-local volume is provisioned there
 	// and can be attached to the VM. Empty when the VM is not yet scheduled.
 	Node string `json:"-"`
+	// CPUCores is the number of CPU cores of the consuming VirtualMachine
+	// (vm.Spec.CPU.Cores). It is used to size the CPU limit and qemu-img convert
+	// parallelism of the importer pod. Zero when no single VM is attached.
+	CPUCores int `json:"-"`
 }
 
 func IsNodePlacementChanged(nodePlacement *NodePlacement, obj client.Object) (bool, error) {

@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,13 +161,21 @@ func (s *PVCImporterService) Import(ctx context.Context, target *corev1.Persiste
 		}
 	}
 
+	// The importer pod CPU limit and qemu-img convert parallelism are sized to the
+	// consuming VM's CPU count for WaitForFirstConsumer volumes, and to 1 for
+	// Immediate ones.
+	wffc, err := s.isWaitForFirstConsumer(ctx, target)
+	if err != nil {
+		return fmt.Errorf("determine volume binding mode: %w", err)
+	}
+
 	podKey := sup.PVCImporterPod()
 	pod, err := object.FetchObject(ctx, podKey, s.client, &corev1.Pod{})
 	if err != nil {
 		return fmt.Errorf("fetch importer pod: %w", err)
 	}
 	if pod == nil {
-		pod = s.makeImporterPod(podKey.Name, target, prime, owner.GetUID(), source, sourceClaim, scratchName, directTransfer, nodePlacement)
+		pod = s.makeImporterPod(podKey.Name, target, prime, owner.GetUID(), source, sourceClaim, scratchName, directTransfer, nodePlacement, wffc)
 		if err := s.client.Create(ctx, pod); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create importer pod: %w", err)
 		}
@@ -608,16 +617,62 @@ func scratchPVCSize(targetSize resource.Quantity) resource.Quantity {
 	return size
 }
 
+// isWaitForFirstConsumer reports whether the target PVC's storage class uses the
+// WaitForFirstConsumer volume binding mode.
+func (s *PVCImporterService) isWaitForFirstConsumer(ctx context.Context, pvc *corev1.PersistentVolumeClaim) (bool, error) {
+	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
+		return false, nil
+	}
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: *pvc.Spec.StorageClassName}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return false, fmt.Errorf("fetch storage class %q: %w", *pvc.Spec.StorageClassName, err)
+	}
+	if sc == nil || sc.VolumeBindingMode == nil {
+		return false, nil
+	}
+	return *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer, nil
+}
+
+// importerConvertThreads sizes the importer pod CPU limit and the qemu-img convert
+// parallelism (-m): for WaitForFirstConsumer volumes it is the consuming VM's CPU
+// count capped at 16; for Immediate volumes (or when no single VM is attached) it is 1.
+func importerConvertThreads(wffc bool, nodePlacement *provisioner.NodePlacement) int {
+	if wffc && nodePlacement != nil && nodePlacement.CPUCores > 0 {
+		if nodePlacement.CPUCores > 16 {
+			return 16
+		}
+		return nodePlacement.CPUCores
+	}
+	return 1
+}
+
+// importerResources returns the pod resource requirements with the CPU limit set
+// to cpuLimit cores, keeping the configured memory limit and requests.
+func (s *PVCImporterService) importerResources(cpuLimit int) corev1.ResourceRequirements {
+	resources := s.resourceRequirements.DeepCopy()
+	if resources.Limits == nil {
+		resources.Limits = corev1.ResourceList{}
+	}
+	resources.Limits[corev1.ResourceCPU] = *resource.NewQuantity(int64(cpuLimit), resource.DecimalSI)
+	return *resources
+}
+
 // makeImporterPod builds the pvc-importer pod descriptor. It fills dataPVC (the
 // prime PVC) with the imported data, while ownership/UID are taken from target
 // (the VirtualDisk's PVC) so the pod is garbage-collected with the disk and
 // labelled to be excluded from namespace quota accounting.
-func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, directTransfer bool, nodePlacement *provisioner.NodePlacement) *corev1.Pod {
+func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *corev1.PersistentVolumeClaim, ownerUID types.UID, source *PVCImportSource, sourceClaim *corev1.PersistentVolumeClaim, scratchName string, directTransfer bool, nodePlacement *provisioner.NodePlacement, wffc bool) *corev1.Pod {
 	registryEndpoint := ""
 	if source != nil && source.Registry != nil {
 		registryEndpoint = source.Registry.URL
 	}
 	imageSize := dataPVC.Spec.Resources.Requests[corev1.ResourceStorage]
+
+	// The importer pod's CPU limit and the qemu-img convert parallelism (-m) are
+	// sized to the consuming VirtualMachine's CPU count (capped at 16) for
+	// WaitForFirstConsumer volumes, and pinned to 1 for Immediate ones (no VM
+	// context is available at import time).
+	convertThreads := importerConvertThreads(wffc, nodePlacement)
 
 	container := corev1.Container{
 		Name:            "d8v-pvc-importer",
@@ -638,6 +693,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 			{Name: common.OwnerUID, Value: string(ownerUID)},
 			{Name: common.FilesystemOverheadVar, Value: "0"},
 			{Name: common.InsecureTLSVar, Value: "false"},
+			{Name: common.ImporterQemuConvertThreads, Value: strconv.Itoa(convertThreads)},
 		},
 		VolumeMounts: []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}},
 		Ports:        []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8443, Protocol: corev1.ProtocolTCP}},
@@ -645,9 +701,7 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 	if !directTransfer {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: pvcImporterScratchVolName, MountPath: pvcImporterScratchDataDir})
 	}
-	if s.resourceRequirements.Requests != nil || s.resourceRequirements.Limits != nil {
-		container.Resources = s.resourceRequirements
-	}
+	container.Resources = s.importerResources(convertThreads)
 	if source != nil && source.Registry != nil && source.Registry.Secret != "" {
 		secretName := source.Registry.Secret
 		container.Env = append(container.Env, corev1.EnvVar{
