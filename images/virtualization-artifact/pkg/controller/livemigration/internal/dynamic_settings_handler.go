@@ -107,6 +107,9 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 	// while waiting for the other would block unrelated migrations on that node.
 	if h.inboundLimiter.Enabled() && !h.inboundLimiter.TryAcquire(kvvmi, targetNode) {
 		livemigration.MarkInboundMigrationSlotWaiting(kvvmi, targetNode)
+		if livemigration.IsSyncMigrationSlotWaiting(kvvmi) {
+			livemigration.ClearSyncMigrationSlot(kvvmi)
+		}
 		log.Debug("Inbound migration slot is not acquired, waiting before setting migrationConfiguration",
 			"targetNode", targetNode,
 		)
@@ -115,6 +118,9 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 	if h.syncLimiter.Enabled() && !h.syncLimiter.TryAcquire(kvvmi, sourceNode) {
 		if h.inboundLimiter.Enabled() {
 			h.inboundLimiter.Release(kvvmi, targetNode)
+		}
+		if livemigration.IsInboundMigrationSlotWaiting(kvvmi) {
+			livemigration.ClearInboundMigrationSlot(kvvmi)
 		}
 		livemigration.MarkSyncMigrationSlotWaiting(kvvmi, sourceNode)
 		log.Debug("Sync migration slot is not acquired, waiting before setting migrationConfiguration",

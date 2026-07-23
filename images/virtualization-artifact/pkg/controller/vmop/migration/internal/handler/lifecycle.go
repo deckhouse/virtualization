@@ -74,7 +74,8 @@ const (
 	messageSyncingSourceAndTarget = "Source and target are being synchronized"
 	messageTargetPodScheduling    = "Scheduling the migration target"
 	messageTargetPodPreparing     = "Preparing the migration target"
-	messageWaitingForSyncSlot     = "Target prepared; waiting for a sync slot on the source node"
+	messageWaitingForSyncSlot     = "Target prepared; waiting for a free sync slot on the source node."
+	messageWaitingForSyncSlotFmt  = "Target prepared; waiting for a free sync slot on source node %q."
 	messageTargetVMResumed        = "The virtual machine has resumed on the target"
 	messageSourceVMSuspended      = "The virtual machine has been suspended on the source"
 )
@@ -83,8 +84,14 @@ const (
 	reasonFailedAttachVolume = "FailedAttachVolume"
 	reasonFailedMount        = "FailedMount"
 
-	reasonTargetNodeIncomingMigrationLimitExceeded  = "TargetNodeIncomingMigrationLimitExceeded"
-	messageTargetNodeIncomingMigrationLimitExceeded = "Target node has no free inbound migration slots."
+	reasonTargetNodeIncomingMigrationLimitExceeded     = "TargetNodeIncomingMigrationLimitExceeded"
+	messageTargetNodeIncomingMigrationLimitExceeded    = "Waiting for a free inbound migration slot on the target node."
+	messageTargetNodeIncomingMigrationLimitExceededFmt = "Waiting for a free inbound migration slot on target node %q."
+
+	messageClusterMigrationLimitReached         = "Waiting for a free migration slot: the cluster live migration limit is reached."
+	messageOutboundNodeMigrationLimitReached    = "Waiting for a free outbound migration slot on the source node."
+	messageOutboundNodeMigrationLimitReachedFmt = "Waiting for a free outbound migration slot on source node %q."
+	messageMigrationLimitReached                = "Waiting for a free migration slot."
 )
 
 type Base interface {
@@ -681,7 +688,17 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 		reason = vmopcondition.ReasonMigrationPending
 		message = messageMigrationPending
 		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
-			message = messageTargetNodeIncomingMigrationLimitExceeded
+			kvvmi, err := h.getMigrationVMI(ctx, mig)
+			if err != nil {
+				return reason, message, err
+			}
+			message = inboundSlotWaitMessage(kvvmi)
+		} else if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReached, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
+			kvvmi, err := h.getMigrationVMI(ctx, mig)
+			if err != nil {
+				return reason, message, err
+			}
+			message = concurrencyLimitWaitMessage(cond.Reason, kvvmi)
 		}
 	case virtv1.MigrationScheduling:
 		reason = vmopcondition.ReasonTargetScheduling
@@ -708,15 +725,15 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	// Surface slot waits only after ruling out a broken target, and report them as a
 	// queue wait: the inbound wait happens in the Scheduled phase and must not look like
 	// target preparation, or the stall timeout would fail a healthy queued migration.
-	if waiting, err := h.isWaitingForInboundMigrationSlot(ctx, mig); err != nil {
+	kvvmi, err := h.getMigrationVMI(ctx, mig)
+	if err != nil {
 		return "", "", err
-	} else if waiting {
-		return vmopcondition.ReasonMigrationPending, messageTargetNodeIncomingMigrationLimitExceeded, nil
 	}
-	if waiting, err := h.isWaitingForSyncSlot(ctx, mig); err != nil {
-		return "", "", err
-	} else if waiting {
-		return vmopcondition.ReasonWaitingForSyncSlot, messageWaitingForSyncSlot, nil
+	if kvvmi != nil && livemigration.IsInboundMigrationSlotWaiting(kvvmi) {
+		return vmopcondition.ReasonMigrationPending, inboundSlotWaitMessage(kvvmi), nil
+	}
+	if kvvmi != nil && livemigration.IsSyncMigrationSlotWaiting(kvvmi) {
+		return vmopcondition.ReasonWaitingForSyncSlot, syncSlotWaitMessage(kvvmi), nil
 	}
 
 	if mig.Status.MigrationState != nil {
@@ -857,32 +874,52 @@ func humanizeMigrationFailedMessage(message string) string {
 	return message
 }
 
-func (h LifecycleHandler) isWaitingForInboundMigrationSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (bool, error) {
+// getMigrationVMI returns the internal virtual machine instance the migration
+// belongs to, or nil when it does not exist.
+func (h LifecycleHandler) getMigrationVMI(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*virtv1.VirtualMachineInstance, error) {
 	if mig == nil || mig.Spec.VMIName == "" {
-		return false, nil
+		return nil, nil
 	}
 
 	var kvvmi virtv1.VirtualMachineInstance
 	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
 	if err != nil {
-		return false, client.IgnoreNotFound(err)
+		return nil, client.IgnoreNotFound(err)
 	}
 
-	return livemigration.IsInboundMigrationSlotWaiting(&kvvmi), nil
+	return &kvvmi, nil
 }
 
-func (h LifecycleHandler) isWaitingForSyncSlot(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (bool, error) {
-	if mig == nil || mig.Spec.VMIName == "" {
-		return false, nil
+func inboundSlotWaitMessage(kvvmi *virtv1.VirtualMachineInstance) string {
+	if kvvmi != nil {
+		if node := livemigration.InboundMigrationWaitingTargetNode(kvvmi); node != "" {
+			return fmt.Sprintf(messageTargetNodeIncomingMigrationLimitExceededFmt, node)
+		}
 	}
+	return messageTargetNodeIncomingMigrationLimitExceeded
+}
 
-	var kvvmi virtv1.VirtualMachineInstance
-	err := h.client.Get(ctx, types.NamespacedName{Namespace: mig.Namespace, Name: mig.Spec.VMIName}, &kvvmi)
-	if err != nil {
-		return false, client.IgnoreNotFound(err)
+func syncSlotWaitMessage(kvvmi *virtv1.VirtualMachineInstance) string {
+	if kvvmi != nil {
+		if node := livemigration.SyncMigrationWaitingSourceNode(kvvmi); node != "" {
+			return fmt.Sprintf(messageWaitingForSyncSlotFmt, node)
+		}
 	}
+	return messageWaitingForSyncSlot
+}
 
-	return livemigration.IsSyncMigrationSlotWaiting(&kvvmi), nil
+func concurrencyLimitWaitMessage(condReason string, kvvmi *virtv1.VirtualMachineInstance) string {
+	switch condReason {
+	case virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReachedReasonCluster:
+		return messageClusterMigrationLimitReached
+	case virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReachedReasonOutboundNode:
+		if kvvmi != nil && kvvmi.Status.NodeName != "" {
+			return fmt.Sprintf(messageOutboundNodeMigrationLimitReachedFmt, kvvmi.Status.NodeName)
+		}
+		return messageOutboundNodeMigrationLimitReached
+	default:
+		return messageMigrationLimitReached
+	}
 }
 
 func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {

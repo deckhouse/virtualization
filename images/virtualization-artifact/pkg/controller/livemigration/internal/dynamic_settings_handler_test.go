@@ -236,6 +236,69 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			withMigrationState(newcomer, "newcomer-migration-uid")
 			Expect(inboundLimiter.TryAcquire(newcomer, "node-tgt")).To(BeTrue())
 		})
+
+		newRunningMigration := func() *virtv1.VirtualMachineInstanceMigration {
+			return &virtv1.VirtualMachineInstanceMigration{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: virtv1.SchemeGroupVersion.String(),
+					Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+				},
+				ObjectMeta: metav1.ObjectMeta{Name: "mig-1", Namespace: vmNamespace},
+				Spec:       virtv1.VirtualMachineInstanceMigrationSpec{VMIName: vmName},
+				Status:     virtv1.VirtualMachineInstanceMigrationStatus{Phase: virtv1.MigrationScheduling},
+			}
+		}
+
+		It("Should drop a stale inbound wait when the migration moves on to waiting for a sync slot", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			kvvmi.Status.MigrationState.SourceNode = "node-src"
+			kvvmi.Status.MigrationState.TargetNode = "node-tgt"
+			livemigration.MarkInboundMigrationSlotWaiting(kvvmi, "node-tgt")
+
+			otherKVVMI := newKVVMI()
+			otherKVVMI.Name = "other-vm"
+			withMigrationState(otherKVVMI, "other-migration-uid")
+			otherKVVMI.Status.MigrationState.SourceNode = "node-src"
+
+			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newRunningMigration(), newKVConfig())
+			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
+			Expect(syncLimiter.TryAcquire(otherKVVMI, "node-src")).To(BeTrue())
+
+			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, syncLimiter)
+			_, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotWaiting))
+			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.InboundMigrationSlotAnnotation))
+		})
+
+		It("Should drop a stale sync wait when the migration moves on to waiting for an inbound slot", func() {
+			vm := newVM()
+			kvvmi := newKVVMI()
+			withMigrationState(kvvmi, "migration-uid")
+			kvvmi.Status.MigrationState.SourceNode = "node-src"
+			kvvmi.Status.MigrationState.TargetNode = "node-a"
+			livemigration.MarkSyncMigrationSlotWaiting(kvvmi, "node-src")
+
+			otherKVVMI := newKVVMI()
+			otherKVVMI.Name = "other-vm"
+			withMigrationState(otherKVVMI, "other-migration-uid")
+
+			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newRunningMigration(), newKVConfig())
+			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
+			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
+			Expect(inboundLimiter.TryAcquire(otherKVVMI, "node-a")).To(BeTrue())
+
+			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, syncLimiter)
+			_, err := h.Handle(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotWaiting))
+			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.SyncMigrationSlotAnnotation))
+		})
 	})
 
 	newActiveMigration := func(phase virtv1.VirtualMachineInstanceMigrationPhase) *virtv1.VirtualMachineInstanceMigration {

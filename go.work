@@ -34,7 +34,7 @@ replace (
 
 // Fork redirects.
 replace (
-	kubevirt.io/api => fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.61
+	kubevirt.io/api => fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.69
 	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241108122445-9cf23c40b9ca
 )
 
