@@ -631,6 +631,18 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	return nil
 }
 
+// RemoveDisk deletes a disk and its volume from the KVVM spec by name.
+func (b *KVVM) RemoveDisk(name string) {
+	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.DeleteFunc(
+		b.Resource.Spec.Template.Spec.Domain.Devices.Disks,
+		func(d virtv1.Disk) bool { return d.Name == name },
+	)
+	b.Resource.Spec.Template.Spec.Volumes = slices.DeleteFunc(
+		b.Resource.Spec.Template.Spec.Volumes,
+		func(v virtv1.Volume) bool { return v.Name == name },
+	)
+}
+
 func (b *KVVM) SetTablet(name string) {
 	i := virtv1.Input{
 		Name: name,
@@ -658,13 +670,17 @@ func (b *KVVM) HasTablet(name string) bool {
 
 func (b *KVVM) SetProvisioning(p *v1alpha2.Provisioning) error {
 	if p == nil {
+		b.RemoveDisk(CloudInitDiskName)
+		b.RemoveDisk(SysprepDiskName)
 		return nil
 	}
 
 	switch p.Type {
 	case v1alpha2.ProvisioningTypeSysprepRef:
+		b.RemoveDisk(CloudInitDiskName)
 		return b.SetDisk(SysprepDiskName, SetDiskOptions{Provisioning: p, IsCdrom: true})
 	case v1alpha2.ProvisioningTypeUserData, v1alpha2.ProvisioningTypeUserDataRef:
+		b.RemoveDisk(SysprepDiskName)
 		return b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
 	default:
 		return fmt.Errorf("unexpected provisioning type %s. %w", p.Type, common.ErrUnknownType)

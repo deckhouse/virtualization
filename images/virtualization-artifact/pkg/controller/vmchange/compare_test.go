@@ -427,7 +427,7 @@ provisioning:
 			),
 		},
 		{
-			"restart on provisioning remove",
+			"apply immediate on provisioning remove",
 			`
 provisioning:
   type: UserDataRef
@@ -438,8 +438,60 @@ provisioning:
 			"",
 			nil,
 			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("provisioning", ChangeRemove),
+			),
+		},
+		{
+			"apply immediate on inline UserData provisioning remove",
+			`
+provisioning:
+  type: UserData
+  userData: |
+    #cloud-config
+`,
+			"",
+			nil,
+			assertChanges(
+				actionRequired(ActionApplyImmediate),
+				requirePathOperation("provisioning", ChangeRemove),
+			),
+		},
+		{
+			"restart on Sysprep provisioning remove",
+			`
+provisioning:
+  type: SysprepRef
+  sysprepRef:
+    kind: Secret
+    name: sysprep-secret
+`,
+			"",
+			nil,
+			assertChanges(
 				actionRequired(ActionRestart),
 				requirePathOperation("provisioning", ChangeRemove),
+			),
+		},
+		{
+			"restart on provisioning type change from UserData to Sysprep",
+			`
+provisioning:
+  type: UserData
+  userData: |
+    #cloud-config
+`,
+			`
+provisioning:
+  type: SysprepRef
+  sysprepRef:
+    kind: Secret
+    name: sysprep-secret
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("provisioning", ChangeReplace),
 			),
 		},
 		{
