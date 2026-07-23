@@ -61,6 +61,11 @@ CHANGES_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
+# A YAML block scalar header: `|`, `>` with optional chomping/indentation
+# indicators (`|-`, `>+`, `|2`, ...). The `changes` block is authored as YAML,
+# so a `summary: |` line means "the value is the indented lines below", NOT
+# that the value is the literal character `|`.
+BLOCK_SCALAR_RE = re.compile(r"^[|>][+-]?[0-9]?$")
 # Only these keys start a new field in a ```changes block. Any other line is
 # treated as a continuation of the current field, so multi-line values (most
 # importantly `impact:`, the high-impact migration note) are preserved instead
@@ -149,22 +154,95 @@ def api_request(
         return json.loads(response.read().decode("utf-8"))
 
 
+def unquote_scalar(value: str) -> str:
+    """Interpret a YAML-style quoted scalar written in a ```changes``` block.
+
+    Authors commonly write `summary: "text"` (or single-quoted); the naive line
+    parser used to keep the surrounding quotes, which then leaked into the
+    rendered changelog. Strip them the way a YAML loader would: double-quoted
+    values follow JSON escaping rules, single-quoted values use '' -> '.
+    Anything that is not a clean full-string quote is returned unchanged.
+    """
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    if len(value) >= 2 and value[0] == "'" and value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    return value
+
+
+def dedent_block(body_lines: list[str]) -> str:
+    """Render a YAML block scalar body from its raw indented lines.
+
+    Strips the block's common leading indentation (like a YAML literal block),
+    drops surrounding blank lines, and joins with newlines. Interior blank lines
+    are preserved. This is the stdlib stand-in for js-yaml's block scalar
+    handling in deckhouse/changelog-action.
+    """
+    lines = list(body_lines)
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if not lines:
+        return ""
+    indents = [len(ln) - len(ln.lstrip()) for ln in lines if ln.strip()]
+    common = min(indents)
+    return "\n".join(ln[common:] if ln.strip() else "" for ln in lines)
+
+
+def _is_known_key_line(line: str) -> bool:
+    match = KEY_VALUE_RE.match(line.strip())
+    return bool(match and match.group(1).strip().lower() in KNOWN_BLOCK_KEYS)
+
+
 def parse_changes_block(block_text: str) -> dict[str, str] | None:
     fields: dict[str, str] = {}
-    current_key: str | None = None
-    for raw_line in block_text.splitlines():
-        match = KEY_VALUE_RE.match(raw_line.rstrip())
-        if match and match.group(1).strip().lower() in KNOWN_BLOCK_KEYS:
-            key = match.group(1).strip().lower()
-            fields[key] = match.group(2).strip()
-            current_key = key
-        elif current_key is not None:
-            # Continuation line of the current field (e.g. a multi-line impact).
-            cont = raw_line.strip()
+    lines = block_text.splitlines()
+    i = 0
+    while i < len(lines):
+        raw_line = lines[i]
+        if not raw_line.strip():
+            i += 1
+            continue
+        if not _is_known_key_line(raw_line):
+            # A stray line before any recognized key; ignore it (continuation
+            # lines are consumed by their owning key below).
+            i += 1
+            continue
+        match = KEY_VALUE_RE.match(raw_line.strip())
+        assert match is not None  # guaranteed by _is_known_key_line
+        key = match.group(1).strip().lower()
+        value = match.group(2).strip()
+        key_indent = len(raw_line) - len(raw_line.lstrip())
+        i += 1
+        if BLOCK_SCALAR_RE.match(value):
+            # `key: |` / `key: >`: the indicator is not the value. The value is
+            # every following line indented deeper than the key (the YAML block
+            # body). A line that looks like `known_key:` is treated as body
+            # content, not a new field, as long as it stays indented.
+            body: list[str] = []
+            while i < len(lines):
+                ln = lines[i]
+                if ln.strip() and (len(ln) - len(ln.lstrip())) <= key_indent:
+                    break
+                body.append(ln)
+                i += 1
+            fields[key] = dedent_block(body)
+            continue
+        # Plain or quoted scalar. Following lines that are NOT themselves a
+        # known key are continuations (the historical multi-line impact form).
+        value = unquote_scalar(value)
+        while i < len(lines):
+            if _is_known_key_line(lines[i]):
+                break
+            cont = lines[i].strip()
             if cont:
-                fields[current_key] = (
-                    f"{fields[current_key]}\n{cont}" if fields[current_key] else cont
-                )
+                value = f"{value}\n{cont}" if value else cont
+            i += 1
+        fields[key] = value
     required = {"section", "type", "summary"}
     if not required.issubset(fields):
         return None
@@ -375,7 +453,12 @@ def render_release_markdown(entries: list[dict], milestone_title: str) -> str:
         if not items:
             continue
         lines.append(f"\n## {heading}\n")
-        lines.extend(f" - {item}" for item in items)
+        for item in items:
+            # A multi-line item (multi-line summary or impact note) must have
+            # its continuation lines indented to the bullet's text column ("
+            # - " is 3 chars), otherwise they escape the list item and render
+            # as separate top-level content.
+            lines.append(f" - {item.replace(chr(10), chr(10) + '   ')}")
     return "\n".join(lines) + "\n"
 
 

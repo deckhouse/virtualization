@@ -76,6 +76,57 @@ class ParseChangesBlockTest(unittest.TestCase):
         )
         self.assertEqual(parsed["impact_level"], "low")
 
+    def test_double_quoted_summary_is_unquoted(self):
+        parsed = cl.parse_changes_block(
+            'section: vd\ntype: feature\nsummary: "Creating a disk is faster."'
+        )
+        self.assertEqual(parsed["summary"], "Creating a disk is faster.")
+
+    def test_single_quoted_summary_is_unquoted(self):
+        parsed = cl.parse_changes_block(
+            "section: vd\ntype: feature\nsummary: 'it''s faster'"
+        )
+        self.assertEqual(parsed["summary"], "it's faster")
+
+    def test_block_scalar_summary_drops_indicator(self):
+        # `summary: |` is a YAML literal block; the value is the following
+        # lines, and the bare "|" must not leak into the summary.
+        parsed = cl.parse_changes_block(
+            "section: core\ntype: chore\nsummary: |\n"
+            "  Fixed vulnerabilities:\n  - CVE-2026-46600\n  - CVE-2025-27144"
+        )
+        self.assertFalse(parsed["summary"].startswith("|"))
+        self.assertNotIn("|", parsed["summary"])
+        self.assertIn("Fixed vulnerabilities:", parsed["summary"])
+        self.assertIn("CVE-2026-46600", parsed["summary"])
+
+    def test_block_scalar_with_chomping_indicator(self):
+        parsed = cl.parse_changes_block(
+            "section: core\ntype: chore\nsummary: |-\n  one line"
+        )
+        self.assertEqual(parsed["summary"], "one line")
+
+    def test_block_scalar_body_is_dedented(self):
+        parsed = cl.parse_changes_block(
+            "section: core\ntype: chore\nsummary: |\n"
+            "  Fixed vulnerabilities:\n  - CVE-2026-46600\n  - CVE-2025-27144"
+        )
+        self.assertEqual(
+            parsed["summary"],
+            "Fixed vulnerabilities:\n- CVE-2026-46600\n- CVE-2025-27144",
+        )
+
+    def test_block_scalar_body_keeps_key_like_lines(self):
+        # A body line that looks like `impact:` stays block content while it is
+        # indented deeper than the key, instead of starting a new field.
+        parsed = cl.parse_changes_block(
+            "section: core\ntype: chore\nsummary: |\n"
+            "  impact: none\n  detail: two\n"
+            "impact: real note"
+        )
+        self.assertEqual(parsed["summary"], "impact: none\ndetail: two")
+        self.assertEqual(parsed["impact"], "real note")
+
     def test_multiline_impact_is_preserved(self):
         parsed = cl.parse_changes_block(
             "section: core\ntype: feature\nsummary: containerd v2\n"
@@ -238,6 +289,22 @@ class RenderReleaseMarkdownTest(unittest.TestCase):
         out = cl.render_release_markdown(entries, "v1.11.0")
         self.assertIn("## Chore", out)
         self.assertIn(" - **[ci]** bump tool [!7]", out)
+
+    def test_multiline_summary_continuation_lines_are_indented(self):
+        # Continuation lines of a multi-line summary must be indented under the
+        # bullet, not left at column 0 where they escape the list item.
+        entries = [
+            entry(
+                "core", "chore",
+                "Fixed vulnerabilities:\n- CVE-2026-46600\n- CVE-2025-27144",
+                56, impact_level="default",
+            )
+        ]
+        out = cl.render_release_markdown(entries, "v1.11.0")
+        self.assertIn(" - **[core]** Fixed vulnerabilities:", out)
+        self.assertIn("\n   - CVE-2026-46600", out)
+        self.assertIn("\n   - CVE-2025-27144 [!56]", out)
+        self.assertNotIn("\n- CVE-2026-46600", out)
 
 
 class RenderMilestoneMdBlockTest(unittest.TestCase):
