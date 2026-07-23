@@ -181,6 +181,48 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
 
+		It("does not create the PVC while no VM consumes the disk on a WFFC storage class", func() {
+			var pvcCreated bool
+			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc).Build()
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+				pvcCreated = true
+				return corev1.PersistentVolumeClaim{}, nil
+			}
+
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, fakeClient)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			Expect(pvcCreated).To(BeFalse())
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
+		})
+
+		It("creates the PVC before the VM node is known once a VM consumes the disk on a WFFC storage class", func() {
+			var pvcCreated bool
+			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: vd.Namespace},
+			}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm.Name}}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cvi, sc, vm).Build()
+			pvcSvc.CreateTargetFromDVCRFunc = func(_ context.Context, _ types.NamespacedName, _ string, _ *resource.Quantity, _ kclient.Object, _ *service.PVCImportSourceRegistry, _ service.VolumeAndAccessModesGetter, _ *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
+				pvcCreated = true
+				return corev1.PersistentVolumeClaim{}, nil
+			}
+
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, fakeClient)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			Expect(pvcCreated).To(BeTrue())
+		})
+
 		It("propagates a target PVC quota rejection as Pending/QuotaExceeded instead of an error", func() {
 			vd.Status = v1alpha2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
@@ -206,12 +248,29 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 	})
 
 	Context("VirtualDisk is provisioning while its PVC is not yet Bound", func() {
-		// With the prime/rebind import flow the importer fills a separate prime PVC
-		// and the target PVC only becomes Bound at the very end (via rebind), so a
-		// Pending target means the import is in progress, regardless of the storage
-		// class binding mode.
-		It("reports Provisioning for WFFC storage class", func() {
+		// Until a consumer schedules onto the WFFC target (the scheduler stamps its
+		// selected-node annotation) the populator defers the import, so the disk
+		// keeps reporting WaitForFirstConsumer: the VirtualMachine controller only
+		// starts the consuming VM while the disk is in this phase.
+		It("reports WaitForFirstConsumer for WFFC storage class until a consumer is scheduled", func() {
 			pvc.Status.Phase = corev1.ClaimPending
+			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+
+			syncer := NewObjectRefClusterVirtualImage(svc, pvcSvc, stat, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
+		})
+
+		It("reports Provisioning for WFFC storage class once the consumer node is selected", func() {
+			pvc.Status.Phase = corev1.ClaimPending
+			pvc.Annotations = map[string]string{service.SelectedNodeAnnotation: "node-a"}
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 

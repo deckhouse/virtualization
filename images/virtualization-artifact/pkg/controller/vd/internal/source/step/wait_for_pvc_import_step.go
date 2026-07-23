@@ -24,11 +24,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -113,6 +115,19 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	// Bound would deadlock (the target waits for the rebind, the rebind waits for the
 	// import). The import and the rebind are driven by Import/WaitForImport below.
 
+	waiting, err := s.awaitingFirstConsumer(ctx, vd)
+	if err != nil {
+		return nil, err
+	}
+	if waiting {
+		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.WaitingForFirstConsumer).
+			Message("Awaiting the scheduling of the VirtualMachine with the attached VirtualDisk.")
+		return &reconcile.Result{}, nil
+	}
+
 	phase, err := s.pvcImportPodPhase(ctx, vd)
 	if err != nil {
 		return nil, err
@@ -135,6 +150,37 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 
 		return &reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
+}
+
+// awaitingFirstConsumer reports whether the target PVC exists on a
+// WaitForFirstConsumer storage class but no consumer has scheduled onto it yet:
+// it is unbound, unpopulated, carries no selected-node annotation and the
+// consuming VirtualMachine has no node. The populator defers the import until
+// the scheduler stamps selected-node (set for the VM's launcher pod, KubeVirt's
+// temporary first-consumer pod, or a hotplug attachment pod), so until then the
+// disk must keep reporting WaitForFirstConsumer: the VirtualMachine controller
+// only starts the VM that produces that consumer while the disk is in this
+// phase.
+func (s WaitForPVCImportStep) awaitingFirstConsumer(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	if s.pvc.Status.Phase == corev1.ClaimBound ||
+		s.pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" ||
+		s.pvc.Annotations[service.SelectedNodeAnnotation] != "" {
+		return false, nil
+	}
+
+	wffc, err := isStorageClassWFFC(ctx, s.client, ptr.Deref(s.pvc.Spec.StorageClassName, ""))
+	if err != nil {
+		return false, err
+	}
+	if !wffc {
+		return false, nil
+	}
+
+	nodePlacement, err := commonvd.GetNodePlacement(ctx, s.client, vd)
+	if err != nil {
+		return false, err
+	}
+	return nodePlacement == nil || nodePlacement.Node == "", nil
 }
 
 func (s WaitForPVCImportStep) pvcImportPodPhase(ctx context.Context, vd *v1alpha2.VirtualDisk) (corev1.PodPhase, error) {
