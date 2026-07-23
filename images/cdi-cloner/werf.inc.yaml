@@ -72,3 +72,5 @@ shell:
     go mod download
     {{- $_ := set $ "ProjectName" (list .ImageName "cdi-cloner" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cloner-startup ./cmd/cloner-startup`) | nindent 6 }}
+
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
