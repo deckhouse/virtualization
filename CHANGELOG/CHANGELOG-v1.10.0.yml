@@ -1,0 +1,28 @@
+ci:
+  fixes:
+    - summary: Changelog entries no longer require impact_level, scheduled changelog pipelines run only their own job, and changelog MRs carry a readable changelog body.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/35
+disks:
+  fixes:
+    - summary: A VirtualMachine with paravirtualization disabled no longer gets stuck in Pending when it boots from a newly created image-backed disk on a WaitForFirstConsumer storage class.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/75
+module:
+  features:
+    - summary: virtualMachineCIDRs in the ModuleConfig/virtualization is now optional; VM IP address management (IPAM) is simply unavailable until it is configured, instead of blocking the module from starting.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/1
+  fixes:
+    - summary: VirtualMachinePool RBAC is granted only in editions where the feature is available, so the resource is not exposed in CE.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/49
+vm:
+  fixes:
+    - summary: Live migration of a virtual machine with additional networks no longer gets stuck waiting for the network on the target node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/50
+    - summary: A VirtualMachine no longer stays stuck as migrating after a finished migration, which previously blocked all further migrations and evictions of that VM.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/46
+    - summary: A virtual machine restored from a snapshot in the stopped state no longer gets stuck in Pending and can be started again.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/31
+    - summary: "Virtual machines with several local disks migrate reliably: a migration no longer reports success while leaving a disk unmigrated, no longer hangs on an inconsistent volume set, no longer disrupts hotplugged disk attachments, and if it cannot proceed, it fails within minutes and the virtual machine recovers automatically."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/10
+    - summary: "Virtual machines with several local disks migrate reliably: a migration no longer reports success while leaving a disk unmigrated, no longer hangs on an inconsistent volume set, no longer disrupts hotplugged disk attachments, and if it cannot proceed, it fails within minutes and the virtual machine recovers automatically."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/2
+
