@@ -79,3 +79,7 @@ tools/addlicense/addlicense
 tools/validation/validation
 tools/moduleversions/moduleversions
 src/cli/d8v
+
+# dlv debug build artifacts
+images/virtualization-artifact/hack/out/
+images/virtualization-dra-usb/debug/out/

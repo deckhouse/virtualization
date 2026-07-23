@@ -275,10 +275,24 @@ tasks:
         cd tools/kubeconform
         ./kubeconform.sh
 
-  dlv:virt-controller:build:
-    desc: "Build image virt-controller with dlv"
+  dlv:kubevirt:build:
+    internal: true
+    desc: "Clone-and-build a kubevirt fork component with dlv (COMPONENT var)"
     cmds:
-      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-controller/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}"  --platform linux/amd64 .
+      - |
+        BRANCH="${BRANCH:-$(yq '.core.kubevirt' build/components/versions.yml)}"
+        if ! LSOUT=$(git ls-remote "ssh://git@fox.flant.com/deckhouse/virtualization/fork/kubevirt.git" "refs/heads/${BRANCH}" "refs/tags/${BRANCH}"); then
+          echo "git ls-remote to fox failed — ssh agent locked? Try: ssh-add ~/.ssh/id_rsa" >&2; exit 1
+        fi
+        COMMIT=$(echo "$LSOUT" | head -1 | cut -f1)
+        if [ -z "$COMMIT" ]; then echo "No branch or tag '${BRANCH}' on the fox kubevirt fork" >&2; exit 1; fi
+        docker build --ssh default --build-arg BRANCH="$BRANCH" --build-arg COMMIT="$COMMIT" -f ./images/{{ .COMPONENT }}/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+
+  dlv:virt-controller:build:
+    desc: "Build image virt-controller with dlv (clones the kubevirt fork from fox via the host ssh agent)"
+    cmds:
+      - task: dlv:kubevirt:build
+        vars: { COMPONENT: virt-controller }
 
   dlv:virt-controller:build-push:
     desc: "Build and Push image virt-controller with dlv"
@@ -315,9 +329,10 @@ tasks:
       EOF
 
   dlv:virt-handler:build:
-    desc: "Build image virt-handler with dlv"
+    desc: "Build image virt-handler with dlv (clones the kubevirt fork from fox via the host ssh agent)"
     cmds:
-      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-handler/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+      - task: dlv:kubevirt:build
+        vars: { COMPONENT: virt-handler }
 
   dlv:virt-handler:build-push:
     desc: "Build and Push image virt-handler with dlv"
@@ -354,9 +369,10 @@ tasks:
       EOF
 
   dlv:virt-api:build:
-    desc: "Build image virt-api with dlv"
+    desc: "Build image virt-api with dlv (clones the kubevirt fork from fox via the host ssh agent)"
     cmds:
-      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-api/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+      - task: dlv:kubevirt:build
+        vars: { COMPONENT: virt-api }
 
   dlv:virt-api:build-push:
     desc: "Build and Push image virt-api with dlv"
@@ -403,9 +419,16 @@ tasks:
       EOF
 
   dlv:virtualization-dra-usb:build:
-    desc: "Build image virtualization-dra-usb with dlv"
+    desc: "Build image virtualization-dra-usb with dlv (binary is cross-built on the host in workspace mode)"
     cmds:
-      - docker build --build-arg BRANCH=$BRANCH -f ./images/virtualization-dra-usb/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+      - GOOS=linux GOARCH=amd64 go install github.com/go-delve/delve/cmd/dlv@latest
+      - mkdir -p images/virtualization-dra-usb/debug/out
+      - |
+        DLV_SRC="$(go env GOPATH)/bin/linux_amd64/dlv"
+        [ -f "$DLV_SRC" ] || DLV_SRC="$(go env GOPATH)/bin/dlv"
+        cp "$DLV_SRC" images/virtualization-dra-usb/debug/out/dlv
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -gcflags "all=-N -l" -o images/virtualization-dra-usb/debug/out/virtualization-dra-usb ./images/virtualization-dra/cmd/usb/dra
+      - docker build -f ./images/virtualization-dra-usb/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:virtualization-dra-usb:build-push:
     desc: "Build and Push image virtualization-dra-usb with dlv"

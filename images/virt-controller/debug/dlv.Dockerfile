@@ -1,14 +1,23 @@
-FROM golang:1.24 AS builder
+# syntax=docker/dockerfile:1
+# Builder runs natively (no qemu emulation on arm64 hosts) and cross-compiles
+# everything to linux/amd64; only the final busybox stage is platform-pinned.
+FROM --platform=$BUILDPLATFORM golang:1.25 AS builder
 
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN GOOS=linux GOARCH=amd64 go install github.com/go-delve/delve/cmd/dlv@latest &&     { cp "$(go env GOPATH)/bin/linux_amd64/dlv" /usr/local/bin/dlv-linux-amd64 2>/dev/null ||       cp "$(go env GOPATH)/bin/dlv" /usr/local/bin/dlv-linux-amd64 ; }
 
 ARG BRANCH="v1.6.2-virtualization"
+# Tip commit of BRANCH, resolved on the host by the dlv:virt-controller:build
+# task; changing it invalidates the clone layer below.
+ARG COMMIT=""
 ENV VERSION="1.6.2"
 ENV GOVERSION="1.24.0"
 
-# Copy the git commits for rebuilding the image if the branch changes
-ADD "https://api.github.com/repos/deckhouse/3p-kubevirt/commits/$BRANCH" /.git-commit-hash.tmp
-RUN git clone --depth 1 --branch $BRANCH https://github.com/deckhouse/3p-kubevirt.git /kubevirt
+RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan fox.flant.com >> ~/.ssh/known_hosts
+
+# The kubevirt fork lives on fox (private); the clone authenticates through
+# the host ssh agent forwarded by `docker build --ssh default`.
+RUN --mount=type=ssh echo "commit: $COMMIT" && \
+    git clone --depth 1 --branch $BRANCH ssh://git@fox.flant.com/deckhouse/virtualization/fork/kubevirt.git /kubevirt
 WORKDIR /kubevirt
 
 RUN go mod edit -go=$GOVERSION && \
@@ -32,6 +41,6 @@ FROM busybox
 
 WORKDIR /app
 COPY --from=builder /kubevirt-binaries/virt-controller /app/virt-controller
-COPY --from=builder /go/bin/dlv /app/dlv
+COPY --from=builder /usr/local/bin/dlv-linux-amd64 /app/dlv
 USER 65532:65532
 ENTRYPOINT ["./dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/app/virt-controller", "--"]

@@ -1,31 +1,10 @@
-FROM golang:1.25.12-bookworm@sha256:a9c020ee3d1508c7be5435c262434e3d3fc1d0e76a11afeb9ddae7d60bc86aa4 AS builder
-ARG TARGETOS
-ARG TARGETARCH
-
-WORKDIR /app/images/virtualization-artifact
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
-
-COPY ./images/virtualization-artifact/go.mod /app/images/virtualization-artifact/
-COPY ./images/virtualization-artifact/go.sum /app/images/virtualization-artifact/
-COPY ./api/ /app/api/
-
-RUN go mod download
-
-COPY ./images/virtualization-artifact/cmd /app/images/virtualization-artifact/cmd
-COPY ./images/virtualization-artifact/pkg /app/images/virtualization-artifact/pkg
-
-ENV GO111MODULE=on
-ENV GOOS=${TARGETOS:-linux}
-ENV GOARCH=${TARGETARCH:-amd64}
-ENV CGO_ENABLED=0
-
-RUN go build -gcflags "all=-N -l" -a -o virtualization-audit ./cmd/virtualization-audit
-
 FROM busybox:1.36.1-glibc
 
+# The binary and dlv are cross-built on the host in go.work workspace mode by
+# `task dlv:build:audit` (see Taskfile dlv tasks); the Dockerfile only packages them.
 WORKDIR /app
-COPY --from=builder /go/bin/dlv /app/dlv
-COPY --from=builder /app/images/virtualization-artifact/virtualization-audit /app/virtualization-audit
+COPY ./images/virtualization-artifact/hack/out/dlv /app/dlv
+COPY ./images/virtualization-artifact/hack/out/virtualization-audit /app/virtualization-audit
 USER 65532:65532
 
 ENTRYPOINT ["./dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "./virtualization-audit", "--"]

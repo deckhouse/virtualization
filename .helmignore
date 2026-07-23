@@ -31,6 +31,5 @@ NOTES.txt
 .gitleaks.toml
 .gocache
 .idea
-.mirrord
 .pi*
 .prettierignore
