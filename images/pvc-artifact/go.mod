@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/client_model v0.6.0
 	github.com/ulikunitz/xz v0.5.15
-	golang.org/x/sys v0.45.0
+	golang.org/x/sys v0.46.0
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v8.0.0+incompatible
@@ -56,8 +56,8 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -108,8 +108,6 @@ replace (
 	kubevirt.io/controller-lifecycle-operator-sdk/api => kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.18.4
 )
-
-replace golang.org/x/crypto => golang.org/x/crypto v0.45.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914
 
 // Use reduced github.com/docker/docker module: only compare is needed for CDI.
 replace github.com/docker/docker => ./staging/src/github.com/docker/docker // CVE-2026-34040,CVE-2026-33997,CVE-2026-41567,CVE-2026-42306,CVE-2026-41568

@@ -11,7 +11,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.7
 	golang.org/x/term v0.44.0
-	golang.org/x/text v0.38.0
+	golang.org/x/text v0.39.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.34.2
 	k8s.io/apimachinery v0.34.2
@@ -84,7 +84,4 @@ require (
 replace github.com/deckhouse/virtualization/api => ../../api
 
 // CVE Replaces
-replace (
-	golang.org/x/net => golang.org/x/net v0.55.0
-	golang.org/x/sys => golang.org/x/sys v0.45.0
-)
+replace golang.org/x/net => golang.org/x/net v0.56.0

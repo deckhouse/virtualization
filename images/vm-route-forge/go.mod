@@ -104,7 +104,7 @@ require (
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
@@ -129,7 +129,6 @@ require (
 
 // CVE Replaces
 replace (
-	golang.org/x/crypto => golang.org/x/crypto v0.52.0 // CVE-2024-45337,CVE-2025-22869,CVE-2025-47914,+2026 high CVEs
-	golang.org/x/net => golang.org/x/net v0.55.0
+	golang.org/x/net => golang.org/x/net v0.56.0
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0
 )
