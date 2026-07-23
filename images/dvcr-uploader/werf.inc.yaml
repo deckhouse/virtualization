@@ -16,3 +16,5 @@ imageSpec:
     workingDir: "/"
     cmd: ["/usr/local/bin/dvcr-uploader"]
     user: 64535
+
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}

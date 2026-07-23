@@ -1,12 +1,12 @@
 module vlctl
 
-go 1.25.11
+go 1.25.12
 
 require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
-	google.golang.org/grpc v1.79.3
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/grpc v1.82.1
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apimachinery v0.32.5
 	kubevirt.io/api v0.0.0-20250930144221-aaa67e9803df
@@ -24,10 +24,10 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.32.5 // indirect
 	k8s.io/apiextensions-apiserver v0.32.5 // indirect
@@ -80,5 +80,5 @@ replace (
 // CVE Replaces
 replace (
 	github.com/golang/glog => github.com/golang/glog v1.2.4 // CVE-2024-45339
-	golang.org/x/net => golang.org/x/net v0.55.0
+	golang.org/x/net => golang.org/x/net v0.56.0
 )

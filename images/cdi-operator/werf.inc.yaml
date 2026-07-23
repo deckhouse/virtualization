@@ -14,3 +14,5 @@ imageSpec:
   config:
     entrypoint: ["/usr/bin/cdi-operator"]
     user: 64535
+
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
