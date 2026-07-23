@@ -42,12 +42,14 @@ import (
 const nameNetworkHandler = "NetworkInterfaceHandler"
 
 type NetworkInterfaceHandler struct {
-	featureGate featuregate.FeatureGate
+	featureGate         featuregate.FeatureGate
+	virtualMachineCIDRs []string
 }
 
-func NewNetworkInterfaceHandler(featureGate featuregate.FeatureGate) *NetworkInterfaceHandler {
+func NewNetworkInterfaceHandler(featureGate featuregate.FeatureGate, virtualMachineCIDRs []string) *NetworkInterfaceHandler {
 	return &NetworkInterfaceHandler{
-		featureGate: featureGate,
+		featureGate:         featureGate,
+		virtualMachineCIDRs: virtualMachineCIDRs,
 	}
 }
 
@@ -277,11 +279,15 @@ func (h *NetworkInterfaceHandler) Name() string {
 
 func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	if hasOnlyDefaultNetwork(vm) {
-		vm.Status.Networks = []v1alpha2.NetworksStatus{
-			{
-				ID:   network.ReservedMainID,
-				Type: v1alpha2.NetworksTypeMain,
-			},
+		if len(h.virtualMachineCIDRs) == 0 {
+			vm.Status.Networks = make([]v1alpha2.NetworksStatus, 0)
+		} else {
+			vm.Status.Networks = []v1alpha2.NetworksStatus{
+				{
+					ID:   network.ReservedMainID,
+					Type: v1alpha2.NetworksTypeMain,
+				},
+			}
 		}
 		return reconcile.Result{}, nil
 	}

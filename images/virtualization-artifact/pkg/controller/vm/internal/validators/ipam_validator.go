@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -30,16 +31,17 @@ import (
 )
 
 type IPAMValidator struct {
-	client client.Client
+	client              client.Client
+	virtualMachineCIDRs []string
 }
 
-func NewIPAMValidator(client client.Client) *IPAMValidator {
-	return &IPAMValidator{client: client}
+func NewIPAMValidator(client client.Client, virtualMachineCIDRs []string) *IPAMValidator {
+	return &IPAMValidator{client: client, virtualMachineCIDRs: virtualMachineCIDRs}
 }
 
 func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if vm.Spec.VirtualMachineIPAddress != "" && len(vm.Spec.Networks) > 0 && !network.HasMainNetworkSpec(vm.Spec.Networks) {
-		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	if err := v.validateVMIPUsage(vm); err != nil {
+		return nil, err
 	}
 
 	vmipName := vm.Spec.VirtualMachineIPAddress
@@ -67,11 +69,19 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 }
 
 func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM.Spec.VirtualMachineIPAddress != "" && len(newVM.Spec.Networks) > 0 && !network.HasMainNetworkSpec(newVM.Spec.Networks) {
-		return nil, fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	ipChanged := oldVM.Spec.VirtualMachineIPAddress != newVM.Spec.VirtualMachineIPAddress
+	networksChanged := !equality.Semantic.DeepEqual(oldVM.Spec.Networks, newVM.Spec.Networks)
+
+	// Skip vmip validation if related fields are not changed.
+	// Invalid network spec should not prevent metadata or status fields update.
+	if ipChanged || networksChanged {
+		if err := v.validateVMIPUsage(newVM); err != nil {
+			return nil, err
+		}
 	}
 
-	if oldVM.Spec.VirtualMachineIPAddress == newVM.Spec.VirtualMachineIPAddress {
+	// spec.network change validation is handled by another validator.
+	if !ipChanged {
 		return nil, nil
 	}
 
@@ -90,4 +100,20 @@ func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alph
 	}
 
 	return nil, nil
+}
+
+func (v *IPAMValidator) validateVMIPUsage(vm *v1alpha2.VirtualMachine) error {
+	if vm.Spec.VirtualMachineIPAddress == "" {
+		return nil
+	}
+
+	if len(v.virtualMachineCIDRs) == 0 {
+		return fmt.Errorf("spec.virtualMachineIPAddressName cannot be set when ModuleConfig/virtualization spec.settings.virtualMachineCIDRs is not configured")
+	}
+
+	if len(vm.Spec.Networks) > 0 && !network.HasMainNetworkSpec(vm.Spec.Networks) {
+		return fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
+	}
+
+	return nil
 }

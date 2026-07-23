@@ -47,6 +47,7 @@ func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
+	virtualMachineCIDRs []string,
 ) error {
 	if !featuregates.Default().Enabled(featuregates.VirtualMachinePool) {
 		return nil
@@ -86,7 +87,7 @@ func SetupController(
 	SetupScaleWebhook(mgr)
 	// Validates the embedded virtualMachineTemplate and virtualDiskTemplates specs
 	// on pool create/update.
-	if err = SetupValidationWebhook(mgr, log); err != nil {
+	if err = SetupValidationWebhook(mgr, log, virtualMachineCIDRs); err != nil {
 		return err
 	}
 

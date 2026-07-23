@@ -133,7 +133,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
 
-		h := NewNetworkInterfaceHandler(gate)
+		h := NewNetworkInterfaceHandler(gate, []string{"10.0.0.0/24"})
 		_, err = h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())

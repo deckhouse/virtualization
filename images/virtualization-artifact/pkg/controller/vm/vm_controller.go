@@ -52,6 +52,7 @@ func SetupController(
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
 	controllerNamespace string,
+	virtualMachineCIDRs []string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
@@ -82,7 +83,7 @@ func SetupController(
 		internal.NewStatisticHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
-		internal.NewNetworkInterfaceHandler(featuregates.Default()),
+		internal.NewNetworkInterfaceHandler(featuregates.Default(), virtualMachineCIDRs),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, featuregates.Default(), migrateVolumesService),
 		internal.NewHotplugHandler(attachmentService),
 		// SyncPowerStateHandler should be executed after PodHandler, because PodHandler store SharedShutdownInfo, which is used by SyncPowerStateHandler.
@@ -112,7 +113,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(client, blockDeviceService, attachmentService, featuregates.Default(), log)).
+		WithValidator(NewValidator(client, blockDeviceService, attachmentService, featuregates.Default(), log, virtualMachineCIDRs)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err

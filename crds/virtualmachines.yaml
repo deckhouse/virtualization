@@ -207,11 +207,11 @@ spec:
                   minLength: 1
                   type: string
                   description: |
-                    Name for the associated virtualMachineIPAddress resource.
+                    Name for the associated VirtualMachineIPAddress resource.
 
                     Specified when it is necessary to use a previously created IP address of a VM.
 
-                    If not explicitly specified, by default a virtualMachineIPAddress resource is created with a name similar to the VM resource (`.metadata.name`).
+                    If not explicitly specified, by default a VirtualMachineIPAddress resource is created with a name similar to the VM resource (`.metadata.name`).
 
                 topologySpreadConstraints:
                   description: |
@@ -1105,7 +1105,7 @@ spec:
                 virtualMachineIPAddressName:
                   type: string
                   description: |
-                    Name of the VirtualMachineIPAddressName resource with an IP address of the VM.
+                    Name of the VirtualMachineIPAddress resource with an IP address of the VM.
                 ipAddress:
                   type: string
                   description: |

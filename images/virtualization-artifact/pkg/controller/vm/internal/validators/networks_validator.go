@@ -18,6 +18,7 @@ package validators
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -35,19 +36,26 @@ import (
 )
 
 type NetworksValidator struct {
-	client      client.Client
-	featureGate featuregate.FeatureGate
+	client              client.Client
+	featureGate         featuregate.FeatureGate
+	virtualMachineCIDRs []string
 }
 
-func NewNetworksValidator(c client.Client, featureGate featuregate.FeatureGate) *NetworksValidator {
+func NewNetworksValidator(c client.Client, featureGate featuregate.FeatureGate, virtualMachineCIDRs []string) *NetworksValidator {
 	return &NetworksValidator{
-		client:      c,
-		featureGate: featureGate,
+		client:              c,
+		featureGate:         featureGate,
+		virtualMachineCIDRs: virtualMachineCIDRs,
 	}
 }
 
-func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *NetworksValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	networksSpec := vm.Spec.Networks
+
+	if err := v.validateMainOnlyNetworkSpec(networksSpec); err != nil {
+		return nil, err
+	}
+
 	if len(networksSpec) == 0 {
 		return nil, nil
 	}
@@ -61,6 +69,18 @@ func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.Virtu
 
 func (v *NetworksValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	newNetworksSpec := newVM.Spec.Networks
+	oldNetworksSpec := oldVM.Spec.Networks
+
+	// Skip networks validation if related fields are not changed.
+	// Invalid network spec should not prevent metadata or status fields update.
+	if equality.Semantic.DeepEqual(newNetworksSpec, oldNetworksSpec) {
+		return nil, nil
+	}
+
+	if err := v.validateMainOnlyNetworkSpec(newNetworksSpec); err != nil {
+		return nil, err
+	}
+
 	if len(newNetworksSpec) == 0 {
 		return nil, nil
 	}
@@ -69,20 +89,15 @@ func (v *NetworksValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
-	if err := v.validateNetworkIDsUnchanged(oldVM.Spec.Networks, newNetworksSpec, newVM.Status.Phase); err != nil {
+	if err := v.validateNetworkIDsUnchanged(oldNetworksSpec, newNetworksSpec, newVM.Status.Phase); err != nil {
 		return nil, err
-	}
-
-	isChanged := !equality.Semantic.DeepEqual(newNetworksSpec, oldVM.Spec.Networks)
-	if !isChanged {
-		return nil, nil
 	}
 
 	if warn, err := v.validateNetworksSpec(newNetworksSpec); err != nil {
 		return warn, err
 	}
 
-	added := networksAdded(oldVM.Spec.Networks, newNetworksSpec)
+	added := networksAdded(oldNetworksSpec, newNetworksSpec)
 	if len(added) == 0 {
 		return nil, nil
 	}
@@ -270,4 +285,20 @@ func (v *NetworksValidator) getNetworkIdentifier(network v1alpha2.NetworksSpec) 
 		return network.Type
 	}
 	return fmt.Sprintf("%s/%s", network.Type, network.Name)
+}
+
+func (v *NetworksValidator) validateMainOnlyNetworkSpec(networksSpec []v1alpha2.NetworksSpec) error {
+	hasCIDRs := len(v.virtualMachineCIDRs) > 0
+
+	hasExplicitMainNetwork := commonnetwork.HasMainNetworkSpec(networksSpec)
+	if !hasCIDRs && hasExplicitMainNetwork {
+		return errors.New("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
+	}
+
+	implicitMainNetwork := len(networksSpec) == 0
+	if !hasCIDRs && implicitMainNetwork {
+		return errors.New("spec.networks cannot be empty when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
+	}
+
+	return nil
 }

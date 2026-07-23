@@ -38,18 +38,20 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
-func NewValidator(log *log.Logger, client client.Client, ipAddressService *service.IPAddressService) *Validator {
+func NewValidator(log *log.Logger, client client.Client, ipAddressService *service.IPAddressService, virtualMachineCIDRs []string) *Validator {
 	return &Validator{
-		log:       log.With("webhook", "validation"),
-		client:    client,
-		ipService: ipAddressService,
+		log:                 log.With("webhook", "validation"),
+		client:              client,
+		ipService:           ipAddressService,
+		virtualMachineCIDRs: virtualMachineCIDRs,
 	}
 }
 
 type Validator struct {
-	log       *log.Logger
-	client    client.Client
-	ipService *service.IPAddressService
+	log                 *log.Logger
+	client              client.Client
+	ipService           *service.IPAddressService
+	virtualMachineCIDRs []string
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -60,9 +62,14 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	v.log.Info("Validate VirtualMachineIPAddress creating", "name", vmip.Name, "type", vmip.Spec.Type, "address", vmip.Spec.StaticIP)
 
-	err := v.validateSpecFields(vmip)
+	err := v.validateVirtualMachineCIDRsConfigured()
 	if err != nil {
-		return nil, fmt.Errorf("the VirtualMachineIPAddress validation is failed: %w", err)
+		return nil, err
+	}
+
+	err = v.validateSpecFields(vmip)
+	if err != nil {
+		return nil, err
 	}
 
 	if vmip.Spec.StaticIP != "" {
@@ -96,9 +103,18 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		"old.address", oldVmip.Spec.StaticIP, "new.address", newVmip.Spec.StaticIP,
 	)
 
+	// Forbid spec changes and allow changing metadata and status
+	// if ModuleConfig has no spec.settings.virtualMachineCIDRs field.
+	if oldVmip.Spec != newVmip.Spec {
+		err := v.validateVirtualMachineCIDRsConfigured()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err := v.validateSpecFields(newVmip)
 	if err != nil {
-		return nil, fmt.Errorf("error validating VirtualMachineIP update: %w", err)
+		return nil, err
 	}
 
 	var warnings admission.Warnings
@@ -192,6 +208,13 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 		}
 	}
 
+	return nil
+}
+
+func (v *Validator) validateVirtualMachineCIDRsConfigured() error {
+	if len(v.virtualMachineCIDRs) == 0 {
+		return fmt.Errorf("operations with VirtualMachineIPAddresses are forbidden: ModuleConfig/virtualization spec.settings.virtualMachineCIDRs field is not configured")
+	}
 	return nil
 }
 

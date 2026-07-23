@@ -42,18 +42,18 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceService, attachmentService *service.AttachmentService, featureGate featuregate.FeatureGate, log *log.Logger) *Validator {
+func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceService, attachmentService *service.AttachmentService, featureGate featuregate.FeatureGate, log *log.Logger, virtualMachineCIDRs []string) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
 			validators.NewMetaValidator(client),
-			validators.NewIPAMValidator(client),
+			validators.NewIPAMValidator(client, virtualMachineCIDRs),
 			validators.NewBlockDeviceSpecRefsValidator(),
 			validators.NewSizingPolicyValidator(client),
 			validators.NewBlockDeviceLimiterValidator(blockDeviceService, log),
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
 			validators.NewCPUCountValidator(),
-			validators.NewNetworksValidator(client, featureGate),
+			validators.NewNetworksValidator(client, featureGate, virtualMachineCIDRs),
 			validators.NewFirstDiskValidator(client),
 			validators.NewUSBDevicesValidator(client, featureGate),
 			validators.NewVMBDAConflictValidator(client),
@@ -67,7 +67,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 // (e.g. a VirtualMachinePool), where the replica's real disks and IP don't exist
 // yet. It runs the spec-level checks and omits the ones that resolve those absent
 // objects (IPAM, block-device limiter, PV node affinity).
-func NewTemplateSpecValidator(client client.Client, featureGate featuregate.FeatureGate, log *log.Logger) *Validator {
+func NewTemplateSpecValidator(client client.Client, featureGate featuregate.FeatureGate, log *log.Logger, virtualMachineCIDRs []string) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
 			validators.NewBlockDeviceSpecRefsValidator(),
@@ -76,7 +76,7 @@ func NewTemplateSpecValidator(client client.Client, featureGate featuregate.Feat
 			validators.NewTopologySpreadConstraintValidator(),
 			validators.NewMetaValidator(client),
 			validators.NewSizingPolicyValidator(client),
-			validators.NewNetworksValidator(client, featureGate),
+			validators.NewNetworksValidator(client, featureGate, virtualMachineCIDRs),
 			validators.NewFirstDiskValidator(client),
 		},
 		log: log.With("webhook", "vmpool-template-validation"),

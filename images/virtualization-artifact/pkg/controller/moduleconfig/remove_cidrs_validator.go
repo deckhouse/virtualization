@@ -49,6 +49,13 @@ func (v removeCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *
 		return admission.Warnings{}, err
 	}
 
+	// Once virtualMachineCIDRs has been configured, it can never be cleared entirely:
+	// that would silently disable IPAM for VirtualMachines/VirtualMachineIPAddresses
+	// that already depend on it.
+	if len(oldCIDRs) > 0 && len(newCIDRs) == 0 {
+		return nil, fmt.Errorf("virtualMachineCIDRs cannot be removed entirely: once configured, spec.settings.virtualMachineCIDRs cannot be cleared")
+	}
+
 	var validateCIDRs []netip.Prefix
 
 loop:

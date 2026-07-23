@@ -308,7 +308,7 @@ var _ = Describe("NetworkInterfaceHandler IPAM integration", func() {
 		gate, _, setFromMap, err := featuregates.New()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
-		h := NewNetworkInterfaceHandler(gate)
+		h := NewNetworkInterfaceHandler(gate, nil)
 		_, err = h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resource.Update(context.Background())).To(Succeed())

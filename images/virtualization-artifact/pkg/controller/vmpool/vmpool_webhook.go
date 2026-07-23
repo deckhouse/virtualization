@@ -40,14 +40,14 @@ const maxPoolNameLength = 57
 // SetupValidationWebhook validates the pool's template specs on create/update, so
 // a bad template is rejected up front instead of only as a FailedCreate event.
 // Gated like the controller: registered only in EE/SE+.
-func SetupValidationWebhook(mgr manager.Manager, log *log.Logger) error {
+func SetupValidationWebhook(mgr manager.Manager, log *log.Logger, virtualMachineCIDRs []string) error {
 	if !featuregates.Default().Enabled(featuregates.VirtualMachinePool) {
 		return nil
 	}
 	return builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachinePool{}).
 		WithValidator(&poolValidator{
-			vmValidator:   vm.NewTemplateSpecValidator(mgr.GetClient(), featuregates.Default(), log),
+			vmValidator:   vm.NewTemplateSpecValidator(mgr.GetClient(), featuregates.Default(), log, virtualMachineCIDRs),
 			diskValidator: vd.NewTemplateSpecValidator(mgr.GetClient()),
 		}).
 		Complete()

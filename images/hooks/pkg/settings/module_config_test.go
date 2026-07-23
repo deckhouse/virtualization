@@ -119,6 +119,24 @@ func TestCanRunWithModuleConfig(t *testing.T) {
 		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 			mc := obj.(*mcapi.ModuleConfig)
 			*mc = *NewModuleConfigForTest(map[string]any{
+				"dvcr": map[string]any{},
+			})
+			return nil
+		}}, nil)
+
+		ok, err := CanRunWithModuleConfig(context.Background(), input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !ok {
+			t.Fatalf("expected CanRunWithModuleConfig to return true")
+		}
+	})
+
+	t.Run("returns true when required settings and cidrs exist", func(t *testing.T) {
+		input := newInput(&fakeKubernetesClient{get: func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+			mc := obj.(*mcapi.ModuleConfig)
+			*mc = *NewModuleConfigForTest(map[string]any{
 				"virtualMachineCIDRs": []any{"10.0.0.0/24"},
 				"dvcr":                map[string]any{},
 			})
