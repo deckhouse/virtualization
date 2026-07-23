@@ -3,6 +3,72 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.10.0
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 23, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### New features
+
+- [vmpool] Added the [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) resource (EE/SE+) for declarative group management of identical virtual machines. The pool supports scaling via the standard `scale` subresource and HPA.
+- [vi] Added automatic recovery of [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) from the `ImageLost` phase when the image reappears in DVCR, without re-importing the data.
+- [module] Virtual disks and virtual images in `WaitForFirstConsumer` mode are created 22% faster.
+- [vd] The [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) name length limit has been raised from 60 to 253 characters.
+- [vi] The name length limit has been raised from 49 to 253 characters for [VirtualImage](/modules/virtualization/cr.html#virtualimage) and from 48 to 253 for [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage).
+- [dvcr] Added per-namespace authorization for DVCR: image access is isolated between namespaces.
+- [module] Added a limit on concurrent inbound live migrations per target node.
+- [network] Added the ability to route live migration traffic over a dedicated SystemNetwork via `liveMigration.network` in the ModuleConfig of the `virtualization` module.
+- [vm] Added IPAM for additional network interfaces: automatic (DHCP) and static IP allocation via SDN `IPAddress` resources.
+- [vm] Added the ability to change CPU and memory of a running VM without live migration (in-place resize). To enable this functionality, add `HotplugCPUAndMemoryWithInPlaceResize` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+- [vm] Switched VM networks to eBPF, providing more stable connectivity for additional networks with lower overhead.
+- [vmop] [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources can now supersede other active operations on the same VM.
+
+### Fixes
+
+- [vm] Fixed VM update failures while an image is being attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): VM changes could previously be interrupted at the moment of attachment.
+- [vm] Fixed flapping of the `VirtualMachineIPAddressReady` condition: guest-agent data now augments rather than clears the VM's already-known IP address.
+- [vd,vi,cvi] Fixed Upload-type disks and images getting stuck in `Pending` when the upload host certificate becomes invalid, and restored automatic recovery when the upload host changes (for example, after `publicDomainTemplate` is updated).
+- [vi] Fixed PVC storage-type virtual images being attached to virtual machines in read-write mode; they are now attached read-only, like ContainerRegistry storage-type images.
+- [module] Closed unauthorized access to the virtualization USB/IP gateway port.
+- [vm] Fixed disks and CD-ROMs remaining on the SATA bus after enabling paravirtualization, which prevented unplugging ISO drives from a running VM.
+- [vm] Fixed a live migration hanging when its target never became ready (`OOMKilled`, unschedulable, a disk that never attaches): it now fails by timeout and the migration slots it held are released.
+- [vm] Fixed virtual machines with local disks getting stuck and unable to migrate while a restart was pending; they can now be evacuated, updated, and re-migrated.
+- [vm] Fixed a false reboot requirement for VMs with only the `Main` network caused by implicit default network template synchronization.
+- [vm] Fixed CPU and memory hotplug updates failing when project quota cannot fit migration-time resources. Such changes now fall back to a restart.
+
+### Security
+
+- [module] Fixed vulnerabilities:
+  - CVE-2026-2303
+  - CVE-2026-25680
+  - CVE-2026-25681
+  - CVE-2026-27136
+  - CVE-2026-33814
+  - CVE-2026-39821
+  - CVE-2026-39822
+  - CVE-2026-39824
+  - CVE-2026-39827
+  - CVE-2026-39828
+  - CVE-2026-39829
+  - CVE-2026-39830
+  - CVE-2026-39831
+  - CVE-2026-39832
+  - CVE-2026-39833
+  - CVE-2026-39834
+  - CVE-2026-39835
+  - CVE-2026-41579
+  - CVE-2026-42502
+  - CVE-2026-42505
+  - CVE-2026-42506
+  - CVE-2026-42508
+  - CVE-2026-46595
+  - CVE-2026-46597
+  - CVE-2026-46598
+  - GO-2026-5932
+
 ## v1.9.4
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
