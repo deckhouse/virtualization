@@ -226,6 +226,18 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Authenticate go module fetches to the fox kubevirt mirror
+        env:
+          FOX_TOKEN: ${{ secrets.FOX_TOKEN }}
+        run: |
+          # kubevirt.io/api is replaced (go.work) with the private fox.flant.com
+          # fork; GOPRIVATE routes it past the public proxy/sumdb and the git
+          # insteadOf injects the token into git-over-https for fox fetches.
+          echo "GOPRIVATE=fox.flant.com/*" >> "$GITHUB_ENV"
+          git config --global \
+            url."https://oauth2:${FOX_TOKEN}@fox.flant.com/".insteadOf \
+            "https://fox.flant.com/"
+
       - name: Install golangci-lint
         run: |
           echo "Installing golangci-lint..."
@@ -315,6 +327,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Authenticate go module fetches to the fox kubevirt mirror
+        env:
+          FOX_TOKEN: ${{ secrets.FOX_TOKEN }}
+        run: |
+          # kubevirt.io/api is replaced (go.work) with the private fox.flant.com
+          # fork; GOPRIVATE routes it past the public proxy/sumdb and the git
+          # insteadOf injects the token into git-over-https for fox fetches.
+          echo "GOPRIVATE=fox.flant.com/*" >> "$GITHUB_ENV"
+          git config --global \
+            url."https://oauth2:${FOX_TOKEN}@fox.flant.com/".insteadOf \
+            "https://fox.flant.com/"
 
       - name: Run test GO hooks
         run: |
