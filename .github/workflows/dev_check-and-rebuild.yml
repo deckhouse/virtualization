@@ -1,0 +1,160 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Recheck a published module tag and rebuild it if any component image it references
+# was garbage-collected from dev-registry.
+#
+# A plain rebuild does not fix it: werf keeps reusing the collected stage (its tag still
+# resolves) and re-reports the dead digest. So for every broken component we delete its
+# stages by tag (the dead digest can't be deleted), forcing werf to rebuild and re-push;
+# then we delete images-digests and prepare-bundle to regenerate images_digests.json,
+# and the build action republishes :tag.
+
+name: Check dev images and rebuild
+
+env:
+  MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
+  CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
+  WERF_EXPERIMENTAL_IMPORT_BY_SOURCE_IMAGE_TAG: "true"
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+  SOURCE_REPO: "${{ secrets.SOURCE_REPO }}"
+  DECKHOUSE_PRIVATE_REPO: "${{ secrets.DECKHOUSE_PRIVATE_REPO }}"
+  GO_VERSION: "1.25.11"
+  MODULE_EDITION: "EE"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: |
+          Module tag to recheck and rebuild if broken (vX.Y.Z or vX.Y.Z-rc.N).
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.inputs.tag }}"
+  cancel-in-progress: false
+
+jobs:
+  check-and-rebuild:
+    runs-on: [self-hosted, large]
+    name: Check and rebuild
+    steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
+      - name: Validate tag
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if ! echo "$TAG" | grep -Pq '^v\d+\.\d+\.\d+(-rc\.\d+)?$'; then
+            echo "::error::Invalid tag '$TAG'. Use format vX.Y.Z or vX.Y.Z-rc.N"
+            exit 1
+          fi
+
+      # Stash the helper scripts from the workflow ref: the tag checkout below replaces
+      # the tree with the (older) released tag, which does not contain them.
+      - uses: actions/checkout@v6
+      - name: Stash helper scripts
+        run: cp -r .github/scripts/bash/check-and-rebuild "$RUNNER_TEMP/helpers"
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag }}
+          fetch-depth: 0
+
+      # Installs werf + crane and logs in to the registry (sets DOCKER_CONFIG,
+      # which crane also uses).
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - name: Check component images
+        id: check
+        run: |
+          set -uo pipefail
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+
+          rc=0
+          "$RUNNER_TEMP/helpers/check-image-digests.sh" \
+            --repo "$repo" --tag "${{ github.event.inputs.tag }}" || rc=$?
+          if [ "$rc" -eq 2 ]; then
+            exit 1
+          fi
+          if [ "$rc" -eq 0 ]; then
+            echo "needs_fix=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_fix=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Pass 1: build only to obtain the current stage tags/digests (mostly cached).
+      - name: Build (collect stage digests)
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        uses: deckhouse/modules-actions/build@v15
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE }}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{ secrets.DECKHOUSE_PRIVATE_3P_REPO }}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+          secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
+          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - name: Delete stale stages of broken images
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        run: |
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          "$RUNNER_TEMP/helpers/rebuild-broken-stages.sh" \
+            --repo "$repo" --report images_tags_werf.json
+
+      # Pass 2: full rebuild + publish; images-digests is regenerated with live digests.
+      - name: Rebuild and publish
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        uses: deckhouse/modules-actions/build@v15
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE }}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{ secrets.DECKHOUSE_PRIVATE_3P_REPO }}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+          secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
+          registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - name: Re-check component images
+        if: ${{ steps.check.outputs.needs_fix == 'true' }}
+        run: |
+          set -euo pipefail
+          repo="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+          if ! "$RUNNER_TEMP/helpers/check-image-digests.sh" \
+              --repo "$repo" --tag "${{ github.event.inputs.tag }}"; then
+            echo "::error::component image(s) still missing after rebuild"
+            exit 1
+          fi
+          echo "All component images are pullable."
+
+      - name: Cleanup Docker config
+        if: always()
+        run: |
+          rm -rf $DOCKER_CONFIG

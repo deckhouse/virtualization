@@ -45,6 +45,9 @@ import:
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" "https://github.com") }}
 
+# Token for cloning/fetching private forks on fox.flant.com (e.g. kubevirt mirror).
+{{- $_ := set . "CI_JOB_TOKEN" (env "CI_JOB_TOKEN" "") }}
+
 {{- $_ := set . "DECKHOUSE_PRIVATE_REPO" (env "DECKHOUSE_PRIVATE_REPO" "example.com") }}
 
 # Define packages proxy settings

@@ -1,0 +1,20 @@
+# Default settings applied to every job in the pipeline.
+#
+# This file replaces the previous root-level `default:` block. It mirrors
+# the same defaults: the `deckhouse` runner tag is used everywhere, and
+# resources are not pinned to a specific tag set (we leave GitLab's
+# scheduling to runner tags only).
+#
+# `interruptible: true` is the default so that pushing a new commit cancels
+# the now-redundant in-flight pipeline (the GitLab equivalent of GitHub's
+# concurrency cancel-in-progress; takes effect once "Auto-cancel redundant
+# pipelines" is enabled at the project level). Jobs that must NOT be cancelled
+# — prod release build/deploy/release and state-mutating jobs (registry
+# cleanup, changelog/backport/translate MR creation, long scheduled scans) —
+# override with `interruptible: false`, mostly via the .prod_vars /
+# .prod_release_rules templates.
+
+default:
+  tags:
+    - deckhouse
+  interruptible: true

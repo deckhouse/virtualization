@@ -16,8 +16,6 @@ name: Build main every 8 hours for dev
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 */8 * * *"
 defaults:
   run:
     shell: bash

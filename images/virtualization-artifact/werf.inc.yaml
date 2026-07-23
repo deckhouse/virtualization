@@ -31,13 +31,24 @@ import:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+- id: CI_JOB_TOKEN
+  value: "{{ env "CI_JOB_TOKEN" }}"
 mount:
 {{- include "mount points for golang builds" . }}
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
+  - export GOPRIVATE="fox.flant.com/*"
+  - |
+    # Authenticate to the private fox.flant.com kubevirt fork for `go mod download`.
+    CI_JOB_TOKEN=$(cat /run/secrets/CI_JOB_TOKEN)
+    if [ -n "$CI_JOB_TOKEN" ]; then
+      echo "machine fox.flant.com login gitlab-ci-token password $CI_JOB_TOKEN" > ~/.netrc
+      chmod 600 ~/.netrc
+    fi
   - cd /src/images/virtualization-artifact
   - go mod download
+  - rm -rf ~/.netrc
   setup:
   - cd /src/images/virtualization-artifact
   - mkdir /out

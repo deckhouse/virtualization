@@ -27,6 +27,7 @@ config:
     - DECKHOUSE_PRIVATE_REPO
     - GOPROXY
     - DISTRO_PACKAGES_PROXY
+    - CI_JOB_TOKEN
     allowEnvVariables:
       - REGISTRY_USER
       - REGISTRY_PASSWORD

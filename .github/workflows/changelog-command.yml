@@ -14,8 +14,7 @@
 
 name: Changelog Command
 on:
-  repository_dispatch:
-    types: [changelog-command]
+  workflow_dispatch:
 jobs:
   changelog:
     name: Milestone Changelog

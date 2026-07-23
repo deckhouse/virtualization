@@ -26,8 +26,6 @@ env:
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "00 04 * * 6"
 defaults:
   run:
     shell: bash

@@ -14,9 +14,6 @@
 
 name: "Daily CVE tests"
 on:
-  schedule:
-    # Run at 2:00 every night (UTC).
-    - cron: "0 02 * * *"
   workflow_dispatch:
     inputs:
       tag_name:

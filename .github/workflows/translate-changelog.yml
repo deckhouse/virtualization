@@ -15,10 +15,7 @@
 name: Translate Changelog and Create PR
 
 on:
-  push:
-    branches:
-      - main
-      - release-[0-9]+.[0-9]+
+  workflow_dispatch:
 
 jobs:
   translate-and-pr:

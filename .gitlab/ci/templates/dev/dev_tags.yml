@@ -1,0 +1,27 @@
+# DEV pipeline context: release-tag builds into the DEV registry.
+#
+# Mirrors the GitHub "Deploy Dev" workflow
+# (dev_module_build-and-registration.yml), which triggers on tag pushes
+# `v[0-9]+.[0-9]+.[0-9]+.*` and whose validation step accepts ONLY:
+#   - vX.Y.Z       (release tag)
+#   - vX.Y.Z-rc.N  (release candidate)
+# In GitHub the SAME vX.Y.Z tag also triggers the prod build
+# (release_module_build-and-registration.yml). We reproduce that by NOT making
+# this rule mutually exclusive with .prod_always: on a vX.Y.Z tag both
+# build_dev_tags (DEV, here) and build_prod (PROD, .prod_always) run in the
+# same pipeline; on a vX.Y.Z-rc.N tag only this DEV build runs (the prod rule
+# is strict `^vX.Y.Z$`). This intentionally drops the previous GitLab-only
+# `-dev*` scheme, which never matched a real GitHub tag.
+#
+# Build-only: the DEV registry has no release channels, so the image is just
+# pushed to DEV_REGISTRY tagged with the raw tag name; there is no deploy step.
+
+.dev_tags:
+  variables:
+    MODULES_MODULE_TAG: ${CI_COMMIT_REF_NAME}
+  extends:
+    - .dev_vars
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/'
+      when: always
+    - when: never
