@@ -155,6 +155,8 @@ on:
         required: true
       E2E_ARTIFACTS_GPG_PASSPHRASE:
         required: true
+      FOX_TOKEN:
+        required: false
     outputs:
       artifact-name:
         description: "Name of the uploaded artifact with E2E report"
@@ -591,6 +593,18 @@ jobs:
         with:
           checkout: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Authenticate go module fetches to the fox kubevirt mirror
+        env:
+          FOX_TOKEN: ${{ secrets.FOX_TOKEN }}
+        run: |
+          # go.work replaces kubevirt.io/api with the private fox.flant.com
+          # fork, so workspace-mode go commands (go install tool / go mod
+          # download) in ./test/e2e must authenticate to fox over git.
+          echo "GOPRIVATE=fox.flant.com/*" >> "$GITHUB_ENV"
+          git config --global \
+            url."https://oauth2:${FOX_TOKEN}@fox.flant.com/".insteadOf \
+            "https://fox.flant.com/"
 
       - name: Install ginkgo
         working-directory: ./test/e2e/

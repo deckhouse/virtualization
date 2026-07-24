@@ -128,6 +128,7 @@ jobs:
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+      FOX_TOKEN: ${{ secrets.FOX_TOKEN }}
 
   e2e-nfs:
     name: E2E Pipeline (NFS)
@@ -161,6 +162,7 @@ jobs:
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+      FOX_TOKEN: ${{ secrets.FOX_TOKEN }}
 
   e2e-sds-elastic:
     name: E2E Pipeline (Elastic)
@@ -197,6 +199,7 @@ jobs:
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
       BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
       E2E_ARTIFACTS_GPG_PASSPHRASE: ${{ secrets.E2E_ARTIFACTS_GPG_PASSPHRASE }}
+      FOX_TOKEN: ${{ secrets.FOX_TOKEN }}
 
   report-to-channel:
     runs-on: ubuntu-latest
