@@ -46,9 +46,15 @@ gitleaks_full_scheduled:
   rules:
     - when: never
 
+# gitleaks scans only the git history/diff of the checked-out commit, so it
+# has no build or lint prerequisite. `needs: []` starts it immediately and,
+# crucially, detaches it from the implicit "depends on every earlier-stage job"
+# behaviour that jobs without `needs` inherit — otherwise retrying an unrelated
+# earlier-stage job (e.g. check:milestone) would transitively re-run gitleaks.
 gitleaks:diff:
   extends: .gitleaks_scan
   stage: scan
+  needs: []
   variables:
     SCAN_MODE: "diff"
     GIT_DEPTH: "0"
@@ -58,6 +64,7 @@ gitleaks:diff:
 gitleaks:full:scheduled:
   extends: .gitleaks_scan
   stage: scan
+  needs: []
   interruptible: false
   variables:
     SCAN_MODE: "full"
@@ -68,6 +75,7 @@ gitleaks:full:scheduled:
 gitleaks:full:manual:
   extends: .gitleaks_scan
   stage: scan
+  needs: []
   interruptible: false
   variables:
     SCAN_MODE: "full"
