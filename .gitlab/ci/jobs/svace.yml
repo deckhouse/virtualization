@@ -133,16 +133,19 @@ svace:analyze:
 
 svace:notify:
   stage: cleanup
-  # needs svace:analyze (non-optional) so this job stays coupled to a real
-  # svace run: on an unrelated web pipeline svace:analyze is manual and never
-  # played, so it is skipped and this notify is skipped too. The on_success /
-  # on_failure rule pair (same idiom as prod:notify-loop) makes notify run on
-  # BOTH a passing and a failing svace:analyze. set-vars is pulled for the
-  # REF_NAME dotenv.
+  # Gated to a real svace run by its rules (a scheduled svace run or
+  # $SVACE_PIPELINE_ENABLED), NOT by the needs below. svace:analyze is an
+  # OPTIONAL need on purpose: when svace:build fails, svace:analyze is skipped
+  # (not failed), and a skipped non-optional need would propagate skip here and
+  # swallow the failure notification. With optional + when: always, notify runs
+  # whatever happened upstream, and the script derives the real status from the
+  # svace:analyze job via the API (reporting FAIL when it is missing / skipped /
+  # failed). set-vars is pulled for the REF_NAME dotenv.
   needs:
     - job: svace:set-vars
       artifacts: true
     - job: svace:analyze
+      optional: true
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   script:
@@ -172,10 +175,7 @@ svace:notify:
         "${LOOP_WEBHOOK_URL}" || echo "Loop webhook failed (non-fatal)"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
-      when: on_failure
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-      when: on_success
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-      when: on_failure
+      when: always
+    - if: '$SVACE_PIPELINE_ENABLED == "true"'
+      when: always
+    - when: never

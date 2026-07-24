@@ -482,11 +482,14 @@ prod:notify-loop:
       optional: true
     - job: prod:create-gitlab-release
       optional: true
+  # when: always so the result is posted to Loop regardless of whether the
+  # deploy / check-version / release jobs above succeeded or FAILED. All needs
+  # are optional, so skipped upstream jobs do not block this notify; the script
+  # derives the real status of each job via the API.
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $SEND_RESULTS_TO_LOOP == "true"
-      when: on_success
-    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $SEND_RESULTS_TO_LOOP == "true"
-      when: on_failure
+      when: always
+    - when: never
   before_script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
   script:
