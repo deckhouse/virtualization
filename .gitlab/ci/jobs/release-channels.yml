@@ -4,9 +4,9 @@
 # single-channel/single-tag release dispatch with on-demand build, deploy,
 # version verification, GitLab release creation, and a Loop notification.
 #
-# Trigger: CI/CD -> Pipelines -> Run pipeline, on the tag $RELEASE_TAG
-# (CI_PIPELINE_SOURCE == "web"). These jobs run ONLY on such manual web
-# pipelines, so they never collide with the tag-push flow
+# Trigger: CI/CD -> Pipelines -> Run pipeline, on ANY ref (typically main) with
+# $RELEASE_TAG set (CI_PIPELINE_SOURCE == "web"). These jobs run ONLY on such
+# manual web pipelines, so they never collide with the tag-push flow
 # (build_prod / deploy_to_prod_* in build-prod.yml / deploy-prod.yml).
 #
 # Run pipeline UI variables (all optional except RELEASE_TAG):
@@ -25,14 +25,21 @@
 #     instead of GitHub Releases, because development is moving to GitLab.
 #     The notes source is preserved: the merged changelog MR
 #     (label:changelog, milestone:$RELEASE_TAG) description.
-#   - Run the pipeline ON the tag $RELEASE_TAG (select it as the Run pipeline
-#     ref). The checkout is then already at the tag, so the upstream Setup
-#     before_script (werf ci-env / registry login) keeps working untouched.
-#     prod:print-vars enforces RELEASE_TAG == CI_COMMIT_TAG so a mismatch
-#     fails fast instead of building the wrong ref. GitHub let `tag` differ
-#     from the workflow ref (it checked out ref:inputs.tag); GitLab cannot
-#     do that without overriding the inherited Setup before_script, which
-#     we avoid.
+#   - Run the pipeline on any ref (typically main), NOT on the tag. This mirrors
+#     GitHub, where the workflow YAML comes from the dispatch ref while each
+#     build job checks out ref:inputs.tag. The build jobs here (.prod_release_build)
+#     `git checkout` $RELEASE_TAG before `werf build`, so werf builds the tagged
+#     commit even though the pipeline ran on main. The upstream Setup
+#     before_script (trdl / werf / registry login) is ref-independent, so it
+#     stays untouched — only the working tree is switched to the tag inside the
+#     build script. Benefit: if the release pipeline itself is broken, fix it on
+#     main and re-run; no need to move or recreate the tag. prod:print-vars only
+#     validates the tag format and that the tag exists. Deploy jobs are
+#     crane copy :tag -> :channel (registry-only), so they need no checkout.
+#     This is the same checkout-a-tag-off-any-ref pattern as build_dev_manual in
+#     build-dev.yml. Like that job we do NOT re-run `werf ci-env`, so the
+#     ci.werf.io/commit image annotation reflects the pipeline ref's commit —
+#     cosmetic; the built content and the applied :$RELEASE_TAG are correct.
 #   - Per-(channel,tag) concurrency uses resource_group (a mutex); GitLab has
 #     no cancel-in-progress equivalent, so concurrent same-(channel,tag)
 #     dispatches serialize instead of cancelling.
@@ -46,7 +53,7 @@ variables:
     description: "Release channel to deploy"
   RELEASE_TAG:
     value: ""
-    description: "Module tag like v1.21.1 (required, ^v\\d+\\.\\d+\\.\\d+$). Run the pipeline on this tag."
+    description: "Module tag like v1.21.1 (required, ^v\\d+\\.\\d+\\.\\d+$). The tag must already exist; run the pipeline on any ref (e.g. main)."
   EDITION_CE:
     value: "false"
     options: ["true", "false"]
@@ -93,14 +100,18 @@ prod:print-vars:
   extends: .prod_release_rules
   variables:
     MODULES_MODULE_TAG: "${RELEASE_TAG}"
+    # Full clone so the tag object is fetchable for the existence check below
+    # (and, in the build jobs, for the checkout).
+    GIT_DEPTH: 0
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git
   script:
     - |
       set -e
       echo "MODULES_REGISTRY=${PROD_REGISTRY}"
       echo "MODULES_MODULE_SOURCE=${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/<edition>/modules"
       echo "MODULES_MODULE_NAME=${MODULES_MODULE_NAME}"
+      echo "PIPELINE_REF=${CI_COMMIT_REF_NAME}"
       echo "RELEASE_CHANNEL=${RELEASE_CHANNEL}"
       echo "RELEASE_TAG=${RELEASE_TAG}"
       echo "EDITION_CE=${EDITION_CE} EDITION_EE=${EDITION_EE}"
@@ -109,13 +120,14 @@ prod:print-vars:
       echo "RELEASE_TO_GITLAB=${RELEASE_TO_GITLAB} SEND_RESULTS_TO_LOOP=${SEND_RESULTS_TO_LOOP}"
       echo "${RELEASE_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' \
         || { echo "Error: invalid tag format '${RELEASE_TAG}'. Use vX.Y.Z"; exit 1; }
-      # The pipeline must run on the tag itself so the checkout is at the tag
-      # and the upstream Setup before_script works unchanged.
-      if [ "${CI_COMMIT_TAG:-}" != "${RELEASE_TAG}" ]; then
-        echo "Error: RELEASE_TAG (${RELEASE_TAG}) must equal the pipeline ref tag" \
-             "(CI_COMMIT_TAG=${CI_COMMIT_TAG:-<unset>}). Run the pipeline on the tag."
-        exit 1
-      fi
+      # GitHub parity: the pipeline may run on any ref (e.g. main); the build
+      # jobs check out ${RELEASE_TAG} so werf builds the tagged commit. Verify
+      # the tag actually exists so the release fails fast here instead of deep
+      # in build/deploy.
+      git fetch --tags --force
+      git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null \
+        || { echo "Error: tag '${RELEASE_TAG}' not found. Push the tag before releasing."; exit 1; }
+      echo "Release tag ${RELEASE_TAG} resolves to $(git rev-parse --short "refs/tags/${RELEASE_TAG}")"
 
 # ---------------------------------------------------------------------------
 # 2. check-requirements-before-build
@@ -152,13 +164,33 @@ prod:check-requirements:
       echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
       crane copy "${IMAGE_SRC}" "${IMAGE_DST}"
 
+# Release build body: build the module at the release TAG regardless of the ref
+# the pipeline runs on (GitHub parity — workflow YAML from the dispatch ref,
+# source from ref:inputs.tag). Same pattern as build_dev_manual in build-dev.yml:
+# the inherited Setup before_script (trdl / werf / registry login) is
+# ref-independent and runs on the pipeline ref, then the script fetches and
+# checks out ${RELEASE_TAG} before `werf build`, so werf builds the tag's
+# committed tree under giterminism even when the pipeline ran on main.
+# `!reference [.base_build, script]` reuses the parent build body (check-runner
+# tools guard + the upstream .build_base werf build + registration).
+.prod_release_build:
+  extends: .base_build
+  variables:
+    # Full clone so even an old tag is fetchable and werf sees full history.
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+  script:
+    - git fetch --tags --force
+    - git checkout "tags/${RELEASE_TAG}"
+    - !reference [.base_build, script]
+
 # --- CE ---
 prod:build:ce:
   stage: build
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ce"
   extends:
     - .prod_release_rules
-    - .base_build
+    - .prod_release_build
     - .prod_vars
     - .dev_registry_pull_login
     - .werf_secondary_repo
@@ -200,7 +232,7 @@ prod:build:ee:
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ee"
   extends:
     - .prod_release_rules
-    - .base_build
+    - .prod_release_build
     - .prod_vars
     - .dev_registry_pull_login
     - .werf_secondary_repo
@@ -242,7 +274,7 @@ prod:build:se-plus:
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:se-plus"
   extends:
     - .prod_release_rules
-    - .base_build
+    - .prod_release_build
     - .prod_vars
     - .dev_registry_pull_login
     - .werf_secondary_repo
@@ -280,7 +312,7 @@ prod:build:fe:
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:fe"
   extends:
     - .prod_release_rules
-    - .base_build
+    - .prod_release_build
     - .prod_vars
     - .dev_registry_pull_login
     - .werf_secondary_repo
