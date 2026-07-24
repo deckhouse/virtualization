@@ -153,10 +153,15 @@ prod:check-requirements:
 # ---------------------------------------------------------------------------
 # Deploy step (crane copy :tag -> :channel). Separate from .base_deploy so
 # the job can land in the deploy_prod stage.
+#
+# It must NOT define its own before_script: the inherited Setup before_script is
+# what runs `werf cr login`, and that login is what authenticates crane against
+# the PROD registry (via the shared DOCKER_CONFIG). Overriding before_script here
+# would drop that login and crane copy fails with UNAUTHORIZED. So the crane
+# tool guard goes in `script` (first line), exactly like .base_deploy.
 .prod_deploy_script:
-  before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh crane
   script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh crane
     - |
       REPO="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}/release"
       IMAGE_SRC="${REPO}:${MODULES_MODULE_TAG}"
