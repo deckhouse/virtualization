@@ -90,6 +90,9 @@ svace:build:
     - .dev_vars
   stage: build
   interruptible: false
+  # Svace-instrumented builds are much slower than regular builds; allow up to
+  # 12h before the runner kills the job.
+  timeout: 12h
   needs:
     - svace:set-vars
   variables:
