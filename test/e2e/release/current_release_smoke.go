@@ -23,7 +23,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -43,7 +42,6 @@ const (
 	releaseTestPhasePostUpgrade  = "post-upgrade"
 	releaseUpgradeContextPathEnv = "RELEASE_UPGRADE_CONTEXT_PATH"
 	releaseNamespaceEnv          = "RELEASE_NAMESPACE"
-	releaseUpgradeStartedAtEnv   = "RELEASE_UPGRADE_STARTED_AT"
 )
 
 var _ = Describe("CurrentReleaseSmoke", func() {
@@ -203,12 +201,22 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	stopIPerfClient(t.framework, t.iperfClient.vm)
 
 	By("Validating the iperf report spans the module upgrade")
-	iperfServer := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
-	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath, iperfServer)
+	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
 	Expect(isExpectedIPerfReportError(report.Error)).To(BeTrue(), "iperf3 report contains an unexpected error: %q", report.Error)
 
-	upgradeStartedAt, err := strconv.ParseInt(mustGetEnv(releaseUpgradeStartedAtEnv), 10, 64)
-	Expect(err).NotTo(HaveOccurred(), "upgrade timestamp must be a unix second")
+	By("Verifying the iperf test brackets the migration window (started before, stopped after)")
+	migration := getMigrationWindow(t.framework, t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
+
+	iperfStart, err := report.startTime()
+	Expect(err).NotTo(HaveOccurred(), "iperf3 report start timestamp must be parseable")
+	iperfEnd := report.endTime()
+
+	Expect(iperfStart.Before(migration.start)).To(BeTrue(),
+		"the iperf test must start before the migration starts (iperf start %s, migration start %s)", iperfStart, migration.start)
+	Expect(iperfEnd.After(migration.end)).To(BeTrue(),
+		"the iperf test must stop after the migration ends (iperf end %s, migration end %s)", iperfEnd, migration.end)
+
+	upgradeStartedAt := migration.start.Unix()
 
 	startedAt := int64(report.Start.Timestamp.Timesecs)
 	endedAt := startedAt + int64(math.Ceil(report.End.SumSent.End))

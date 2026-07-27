@@ -17,6 +17,7 @@ limitations under the License.
 package release
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -24,10 +25,25 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
+
+// migrationWindow describes the time span of the migration (firmware-update)
+// triggered against the iperf server VM, derived from its migration VMOP.
+//
+// start is when the migration VMOP was created (i.e. the migration was
+// triggered); end is when the VMOP reached its terminal Completed condition.
+// These come from the VMOP resource, which persists after the migration, so —
+// unlike vm.Status.MigrationState — they remain reliably available in the
+// post-upgrade phase even after the VMI has been recreated.
+type migrationWindow struct {
+	start time.Time
+	end   time.Time
+}
 
 const (
 	releaseIPerfReportPath = "/tmp/release-upgrade-iperf-client-report.json"
@@ -70,6 +86,22 @@ type releaseUpgradeContext struct {
 	IPerfClientVM   string `json:"iperfClientVM"`
 	IPerfServerVM   string `json:"iperfServerVM"`
 	IPerfReportPath string `json:"iperfReportPath"`
+}
+
+// startTime returns the wall-clock time at which the iperf test started, taken
+// from the report header timestamp (RFC1123).
+func (r *iperfReport) startTime() (time.Time, error) {
+	return time.Parse(time.RFC1123, r.Start.Timestamp.Time)
+}
+
+// endTime returns the wall-clock time at which the iperf test stopped. iperf
+// reports the run duration as seconds elapsed since the start timestamp
+// (End.SumSent.End), so the absolute stop time is startTimesecs + duration.
+func (r *iperfReport) endTime() time.Time {
+	endSec := int64(r.Start.Timestamp.Timesecs) + int64(r.End.SumSent.End)
+	frac := r.End.SumSent.End - float64(int64(r.End.SumSent.End))
+	endNSec := int64(frac * 1e9)
+	return time.Unix(endSec, endNSec).UTC()
 }
 
 func waitForIPerfServerToStart(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
@@ -117,7 +149,19 @@ func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 }
 
-func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string, iperfServer *v1alpha2.VirtualMachine) *iperfReport {
+// getIPerfClientReport reads and parses the long-running iperf3 client report
+// from the guest.
+//
+// Unlike the live-migration test (test/e2e/vm/live_migration_tcp_session.go),
+// this release smoke test does not trigger an explicit VM migration and does not
+// wait for it to complete. The VM survives a *module upgrade*, during which the
+// iperf server VM's Status.MigrationState may be nil: either no KubeVirt VMI
+// migration record was ever created, or the VMI was recreated afterwards and the
+// controller reset MigrationState back to nil (see MigratingHandler.wrapMigrationState).
+// Therefore this function must NOT depend on MigrationState. The continuity of
+// the TCP session across the upgrade window is validated separately against the
+// upgrade timestamp in verifyIPerfContinuityAfterUpgrade.
+func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string) *iperfReport {
 	GinkgoHelper()
 
 	command := fmt.Sprintf("cat %s", reportPath)
@@ -140,15 +184,10 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 
 	Expect(result).NotTo(BeNil())
 
-	iPerfClientStartTime, err := time.Parse(time.RFC1123, result.Start.Timestamp.Time)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(iPerfClientStartTime.Before(iperfServer.Status.MigrationState.StartTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should start before the virtual machine is migrated")
-
-	iPerfClientEndTimeSec := int64(result.Start.Timestamp.Timesecs) + int64(result.End.SumSent.End)
-	iPerfClientEndTimeNSec := int64((result.End.SumSent.End - float64(int64(result.End.SumSent.End))) * 1e9)
-	iPerfClientEndTime := time.Unix(iPerfClientEndTimeSec, iPerfClientEndTimeNSec).UTC()
-	Expect(iPerfClientEndTime.After(iperfServer.Status.MigrationState.EndTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should stop after the virtual machine is migrated")
-
+	// A zero-byte interval (sum.bytes == 0, equivalently sum.bits_per_second == 0)
+	// means the TCP session stalled for that second. At most one such interval is
+	// tolerated for the brief switchover pause; more than one indicates the session
+	// was dropped.
 	zeroBytesIntervalCounter := 0
 	for _, i := range result.Intervals {
 		if i.Sum.Bytes == 0 {
@@ -158,6 +197,45 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 	Expect(zeroBytesIntervalCounter).To(BeNumerically("<=", 1), "there should not be more than one zero-byte interval during the migration process")
 
 	return result
+}
+
+// getMigrationWindow discovers the newest migration (Evict/Migrate) VMOP for the
+// given VM and returns its [start, end] window. It expects exactly the migration
+// triggered by the firmware-update step to be present and completed.
+func getMigrationWindow(f *framework.Framework, vmName, namespace string) migrationWindow {
+	GinkgoHelper()
+
+	vmops, err := f.Clients.VirtClient().VirtualMachineOperations(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	var newest *v1alpha2.VirtualMachineOperation
+	for i := range vmops.Items {
+		vmop := &vmops.Items[i]
+		if vmop.Spec.VirtualMachine != vmName {
+			continue
+		}
+		if vmop.Spec.Type != v1alpha2.VMOPTypeEvict {
+			continue
+		}
+		if newest == nil || vmop.CreationTimestamp.After(newest.CreationTimestamp.Time) {
+			newest = vmop
+		}
+	}
+
+	Expect(newest).NotTo(BeNil(), "a migration VMOP for %s/%s must exist so the iperf window can be validated against the migration", namespace, vmName)
+
+	window := migrationWindow{start: newest.CreationTimestamp.Time}
+	for _, c := range newest.Status.Conditions {
+		if c.Type == vmopcondition.TypeCompleted.String() {
+			window.end = c.LastTransitionTime.Time
+			break
+		}
+	}
+
+	Expect(window.end.IsZero()).To(BeFalse(), "migration VMOP %s/%s must have a Completed condition so the migration end time is known", newest.Namespace, newest.Name)
+	Expect(window.end.Before(window.start)).To(BeFalse(), "migration end must not precede migration start")
+
+	return window
 }
 
 // continuityWindowBounds returns the index range [lower, upper] of iperf intervals
