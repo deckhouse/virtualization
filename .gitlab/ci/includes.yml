@@ -6,7 +6,7 @@
 # stages: [build, deploy]; we explicitly extend stages via .gitlab/ci/stages.yml
 # so the final list is the union of both.
 #
-# Upstream template names (deckhouse/3p/deckhouse/modules-gitlab-ci, v13.0):
+# Upstream template names (deckhouse/3p/deckhouse/modules-gitlab-ci, v15.0):
 #   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
 #   - Build.gitlab-ci.yml           (.build_base — werf build + bundle/attestation
 #                                   copy + release-channel copy + registration;
@@ -22,13 +22,14 @@
 # so our own .dev / .main / .prod context templates drive gating.
 
 include:
-  # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v13.0) ---
-  # Tracks the v13.0 branch so upstream fixes flow in automatically. The
+  # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v15.0) ---
+  # Tracks the v15.0 branch so upstream fixes flow in automatically. The
   # rules-free base split (.build_base / .deploy_base / .lint_base, upstream
-  # #89) has landed in v13.0 (HEAD f900bab at the time of writing); to pin for
-  # reproducibility, swap the ref for that SHA.
+  # #89) and the CVE_Scan variable-collision fix (previously carried on the
+  # `fast-fix` branch) have both landed in v15.0; to pin for reproducibility,
+  # swap the ref for a tagged SHA.
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
-    ref: "v13.0"
+    ref: "v15.0"
     file:
       # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
       # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
@@ -47,21 +48,6 @@ include:
       - "/templates/CVE_Scan.gitlab-ci.yml"
       - "/templates/gitleaks.gitlab-ci.yml"
       - "/templates/Svace_Analayze.gitlab-ci.yml"
-  # Temporary override of CVE_Scan from the `fast-fix` branch (loaded after the
-  # v13.0 copy above, so it wins). Works around a CI variable-name collision:
-  # the upstream CVE_Scan script relied on a variable that clashes with a
-  # project-level variable defined in the repo's Settings > CI/CD `variables`
-  # section. Repo-level variables have the highest precedence and cannot be
-  # overridden from the pipeline/script, so the script picked up the wrong
-  # value. The `fast-fix` branch hardcodes PROD_REGISTRY when exporting
-  # variables before running the script. 3p-updater tracks this branch.
-  # Proper fix upstream: rename the colliding variable, or prefix all
-  # script-local variables to avoid intersections with repo variables. Drop
-  # this include once that lands in a tagged release.
-  - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
-    ref: "fast-fix"
-    file:
-      - "/templates/CVE_Scan.gitlab-ci.yml"
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
   - local: ".gitlab/ci/stages.yml"
