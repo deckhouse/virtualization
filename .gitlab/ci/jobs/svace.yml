@@ -91,8 +91,8 @@ svace:build:
   stage: build
   interruptible: false
   # Svace-instrumented builds are much slower than regular builds; allow up to
-  # 12h before the runner kills the job.
-  timeout: 12h
+  # 8h before the runner kills the job.
+  timeout: 8h
   needs:
     - svace:set-vars
   variables:
@@ -125,6 +125,9 @@ svace:analyze:
     - .dev_vars
   stage: scan
   interruptible: false
+  # Svace analysis over the full instrumented build is slow; allow up to 8h
+  # before the runner kills the job (same headroom as svace:build).
+  timeout: 8h
   needs:
     - job: svace:set-vars
       artifacts: true
