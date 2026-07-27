@@ -110,11 +110,19 @@ svace:build:
 # analyze: invoke the upstream `.svace_analyze` template.
 #
 # Id-token + vault wiring is inherited from the upstream template.
+#
+# `.dev_vars` is required even though analyze pulls nothing from a registry: it
+# only SSHes to the svace server and curls svacer. But the inherited Setup
+# before_script unconditionally runs `werf cr login ... ${MODULES_REGISTRY}`,
+# and without a registry bundle MODULES_REGISTRY is empty, so werf defaults to
+# Docker Hub and the GitLab creds fail there (unauthorized). `.dev_vars` points
+# the login at the DEV registry with valid creds, matching svace:build.
 # ---------------------------------------------------------------------------
 
 svace:analyze:
   extends:
     - .svace_analyze
+    - .dev_vars
   stage: scan
   interruptible: false
   needs:
