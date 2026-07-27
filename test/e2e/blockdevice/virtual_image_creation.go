@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -520,80 +519,12 @@ func runVirtualMachineFromImageDisk(ctx context.Context, f *framework.Framework,
 	}
 	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		opts = append(opts, withoutDiskStreamingProgress())
-		if size := restoreCreatedVIDiskSize(ctx, f, vi); size != nil {
-			vdOpts = append(vdOpts, vdbuilder.WithSize(size))
-		}
 	} else {
 		opts = append(opts, withIntermediateProgress())
 	}
 
 	vd := object.NewVDFromVI("vd-from-"+vi.Name, f.Namespace().Name, vi, vdOpts...)
 	createVirtualDiskAndRunVM(ctx, f, vd, opts...)
-}
-
-// lvmExtentSize is the LVM extent of sds-local-volume: the driver rounds every
-// logical volume up to a multiple of it.
-const lvmExtentSize = 4 * 1024 * 1024
-
-// restoreCreatedVIDiskSize returns the explicit size a VirtualDisk cloned from the
-// PVC-backed VirtualImage vi must request, or nil when the controller-derived size
-// provisions fine.
-//
-// TODO: remove this override once the sds-local-volume sizing bug is fixed. The
-// driver rounds every LV up to the 4MiB LVM extent but reports the requested size
-// as the PVC capacity, and only snapshots of restore-created volumes (a PVC-backed
-// VI sourced from a VD, a VDSnapshot or another PVC-backed VI) report the rounded
-// size as restoreSize. Cloning such a VirtualImage with the derived size fails
-// ("requested volume size ... is less than the size ... for the source snapshot"),
-// while any larger size hangs: the driver restores the LV at the snapshot size and
-// never expands it, so CreateVolume times out forever. The only size that
-// provisions is the source request rounded up to the LVM extent.
-func restoreCreatedVIDiskSize(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) *resource.Quantity {
-	GinkgoHelper()
-
-	if !virtualImageOnPVCIsRestoreCreated(ctx, f, vi) {
-		return nil
-	}
-
-	err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vi), vi)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(vi.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty(),
-		"PVC-backed VirtualImage %q must expose its target PVC", vi.Name)
-
-	var pvc corev1.PersistentVolumeClaim
-	err = f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Name: vi.Status.Target.PersistentVolumeClaim, Namespace: vi.Namespace}, &pvc)
-	Expect(err).NotTo(HaveOccurred())
-
-	requested := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
-	rounded := (requested.Value() + lvmExtentSize - 1) / lvmExtentSize * lvmExtentSize
-	return resource.NewQuantity(rounded, resource.BinarySI)
-}
-
-// virtualImageOnPVCIsRestoreCreated reports whether the PVC backing vi is populated
-// by restoring a volume snapshot (smart clone) rather than by an importer pod: that
-// is the case for a PVC-backed VirtualImage sourced from a VirtualDisk, a
-// VirtualDiskSnapshot or another PVC-backed VirtualImage.
-func virtualImageOnPVCIsRestoreCreated(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) bool {
-	GinkgoHelper()
-
-	if vi.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
-		return false
-	}
-	if vi.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
-		return false
-	}
-
-	switch vi.Spec.DataSource.ObjectRef.Kind {
-	case v1alpha2.VirtualImageObjectRefKindVirtualDisk, v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot:
-		return true
-	case v1alpha2.VirtualImageObjectRefKindVirtualImage:
-		refVI := &v1alpha2.VirtualImage{}
-		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, refVI)
-		Expect(err).NotTo(HaveOccurred())
-		return refVI.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim
-	default:
-		return false
-	}
 }
 
 func createSourceVirtualDiskAndWait(ctx context.Context, f *framework.Framework, name string, sc *string) *v1alpha2.VirtualDisk {
