@@ -98,6 +98,46 @@ func NewGenerator(prefix, name, namespace string, uid types.UID) Generator {
 	}
 }
 
+// pvcNameMaxLen limits the name of a PersistentVolumeClaim so that the claims
+// the populator derives from it also fit into the Kubernetes limit: it creates
+// them by appending "-prime" and "-prime-scratch" to the target name.
+const pvcNameMaxLen = kvalidation.DNS1123SubdomainMaxLength - len("-prime-scratch")
+
+// podNameMaxLen returns how long a Pod name may be for the Pod to actually
+// start on a node.
+//
+// The Kubernetes API accepts a Pod name of up to 253 characters, but kubelet
+// then has to create a directory for the Pod logs:
+//
+//	/var/log/pods/<namespace>_<name>_<uid>
+//	              └─────── one path component ───────┘
+//
+// Namespace, name and UID end up in a single path component rather than in
+// nested directories, and a path component is limited to NAME_MAX (255 bytes on
+// ext4 and xfs). So a name the API considers valid can still be impossible to
+// run: mkdir fails with ENAMETOOLONG, the sandbox is never created, and the Pod
+// stays in ContainerCreating forever with a FailedCreatePodSandBox event and no
+// way to recover on its own.
+//
+// Upstream is aware of the gap but does not close it: kubernetes/kubernetes#91410
+// reports exactly this failure and was closed as rotten, so neither the API
+// server validates the length nor does kubelet shorten the path. It cannot
+// shorten it silently either — the path is passed to the runtime as log_directory
+// and log collectors read it. Since we are the ones building the name, we are the
+// ones who have to leave room: everything kubelet adds to it is subtracted here.
+//
+// Names that already fit are returned unchanged by the caller, so a Pod that
+// starts today keeps its name after this change.
+func (g *generator) podNameMaxLen() int {
+	const (
+		nameMax    = 255
+		podUIDLen  = 36 // a UUID; kubelet uses the Pod UID, not the owner UID from g.uid
+		separators = 2  // the two underscores between the three parts
+	)
+
+	return min(kvalidation.DNS1123SubdomainMaxLength, nameMax-len(g.namespace)-podUIDLen-separators)
+}
+
 func (g *generator) generateName(template string, maxLength int) types.NamespacedName {
 	maxNameLen := maxLength - len(template) + 6 - len(g.prefix) - len(g.uid) // 6 is for %s placeholders
 	name := fmt.Sprintf(template, g.prefix, strings.ShortenString(g.name, maxNameLen), g.UID())
@@ -192,12 +232,12 @@ func (g *generator) PVCTargetImporterPod() types.NamespacedName {
 
 // BounderPod generates name for bounder Pod.
 func (g *generator) BounderPod() types.NamespacedName {
-	return g.generateName(tplBounderPod, kvalidation.DNS1123SubdomainMaxLength)
+	return g.generateName(tplBounderPod, g.podNameMaxLen())
 }
 
 // UploaderPod generates name for uploader Pod.
 func (g *generator) UploaderPod() types.NamespacedName {
-	return g.generateName(tplUploaderPod, kvalidation.DNS1123SubdomainMaxLength)
+	return g.generateName(tplUploaderPod, g.podNameMaxLen())
 }
 
 // UploaderService generates name for uploader Service.
@@ -233,7 +273,7 @@ func (g *generator) CommonSupplement() types.NamespacedName {
 // PersistentVolumeClaim generates name for underlying PersistentVolumeClaim.
 // PVC is always one for vmd/vmi, so prefix is used.
 func (g *generator) PersistentVolumeClaim() types.NamespacedName {
-	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
+	return g.generateName(tplCommon, pvcNameMaxLen)
 }
 
 // Legacy methods for backward compatibility

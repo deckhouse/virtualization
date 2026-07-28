@@ -487,3 +487,29 @@ func testSourcePVC(name, namespace string) *corev1.PersistentVolumeClaim {
 		},
 	}
 }
+
+func TestPopulatorSkipsPVCWhoseOwnerIsGone(t *testing.T) {
+	// The owner may be deleted while its PVC is still around: the PVC keeps the
+	// owner reference, but fetching it returns nothing. Reconciling must not panic
+	// on the missing supplements generator.
+	ctx := context.Background()
+	vi := testVI()
+	pvc := testVITargetPVC(vi)
+	pvc.Annotations[annotations.AnnPVCPopulationStrategy] = service.PopulationStrategyDVCR
+	pvc.Annotations[annotations.AnnPVCPopulationSourceDVCR] = "docker://registry.example/image:tag"
+
+	// Note: the VirtualImage itself is deliberately not added to the client.
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme(t)).
+		WithObjects(pvc).
+		Build()
+	r := testReconciler(c)
+
+	result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(pvc)})
+	if err != nil {
+		t.Fatalf("reconcile failed: %v", err)
+	}
+	if !result.IsZero() {
+		t.Fatalf("expected no requeue for an ownerless PVC, got %#v", result)
+	}
+}

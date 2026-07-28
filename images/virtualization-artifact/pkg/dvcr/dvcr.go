@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
+	dvcrrepo "github.com/deckhouse/virtualization/api/dvcr"
 )
 
 type Settings struct {
@@ -70,19 +71,19 @@ const (
 
 // RegistryImageForCVI returns image name for CVI.
 func (s *Settings) RegistryImageForCVI(obj client.Object) string {
-	imgPath := path.Clean(fmt.Sprintf(CVMIImageTmpl, obj.GetName(), obj.GetUID()))
+	imgPath := path.Clean(fmt.Sprintf(CVMIImageTmpl, dvcrrepo.ClusterImageRepoName(s.RegistryURL, obj.GetName()), obj.GetUID()))
 	return path.Join(s.RegistryURL, imgPath)
 }
 
 // RegistryImageForVI returns image name for VI.
 func (s *Settings) RegistryImageForVI(obj client.Object) string {
-	imgPath := path.Clean(fmt.Sprintf(VMIImageTmpl, obj.GetNamespace(), obj.GetName(), obj.GetUID()))
+	imgPath := path.Clean(fmt.Sprintf(VMIImageTmpl, obj.GetNamespace(), dvcrrepo.ImageRepoName(s.RegistryURL, obj.GetNamespace(), obj.GetName()), obj.GetUID()))
 	return path.Join(s.RegistryURL, imgPath)
 }
 
 // RegistryImageForVD returns image name for VD.
 func (s *Settings) RegistryImageForVD(obj client.Object) string {
-	imgPath := path.Clean(fmt.Sprintf(VMDImageTmpl, obj.GetNamespace(), obj.GetName(), obj.GetUID()))
+	imgPath := path.Clean(fmt.Sprintf(VMDImageTmpl, obj.GetNamespace(), dvcrrepo.DiskRepoName(s.RegistryURL, obj.GetNamespace(), obj.GetName()), obj.GetUID()))
 	return path.Join(s.RegistryURL, imgPath)
 }
 

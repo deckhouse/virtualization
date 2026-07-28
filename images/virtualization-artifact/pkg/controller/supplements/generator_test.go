@@ -101,5 +101,49 @@ var _ = Describe("Generator", func() {
 			Entry("NetworkPolicy - 253 limit", func(g Generator) types.NamespacedName { return g.NetworkPolicy() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("CommonSupplement - 253 limit", func(g Generator) types.NamespacedName { return g.CommonSupplement() }, kvalidation.DNS1123SubdomainMaxLength),
 		)
+
+		DescribeTable("should keep the kubelet log directory within NAME_MAX",
+			func(method func(Generator) types.NamespacedName) {
+				// kubelet creates /var/log/pods/<namespace>_<name>_<uid> as a single path component.
+				const nameMax = 255
+
+				for _, ns := range []string{"d8-virtualization", strings.Repeat("n", kvalidation.DNS1123LabelMaxLength)} {
+					gen = NewGenerator(prefix, strings.Repeat("very-long-resource-name-", 30), ns, uid)
+					result := method(gen)
+
+					logDir := ns + "_" + result.Name + "_" + string(uid)
+					Expect(len(logDir)).To(BeNumerically("<=", nameMax), "namespace %q", ns)
+				}
+			},
+			Entry("BounderPod", func(g Generator) types.NamespacedName { return g.BounderPod() }),
+			Entry("UploaderPod", func(g Generator) types.NamespacedName { return g.UploaderPod() }),
+			Entry("ImporterPod", func(g Generator) types.NamespacedName { return g.ImporterPod() }),
+			Entry("PVCImporterPod", func(g Generator) types.NamespacedName { return g.PVCImporterPod() }),
+			Entry("PVCSourceImporterPod", func(g Generator) types.NamespacedName { return g.PVCSourceImporterPod() }),
+			Entry("PVCTargetImporterPod", func(g Generator) types.NamespacedName { return g.PVCTargetImporterPod() }),
+		)
+
+		It("should not rename pods that already fit into NAME_MAX", func() {
+			// 200 = 255 - len("d8-virtualization") - 36 (pod UID) - 2 separators.
+			const namespace = "d8-virtualization"
+
+			gen = NewGenerator(prefix, strings.Repeat("a", 200-len("d8v--uploader--")-len(prefix)-len(uid)), namespace, uid)
+
+			Expect(len(gen.UploaderPod().Name)).To(Equal(200))
+			Expect(gen.UploaderPod().Name).To(ContainSubstring(strings.Repeat("a", 10)))
+		})
+	})
+})
+
+var _ = Describe("PersistentVolumeClaim name", func() {
+	It("should leave room for the claims the populator derives from it", func() {
+		// The populator creates "<pvc>-prime" and "<pvc>-prime-scratch"; both must
+		// stay within the Kubernetes limit, otherwise the import never starts.
+		gen := NewGenerator("vi", strings.Repeat("m", 253), strings.Repeat("n", 63), types.UID("12345678-1234-1234-1234-123456789012"))
+		name := gen.PersistentVolumeClaim().Name
+
+		for _, suffix := range []string{"-prime", "-prime-scratch"} {
+			Expect(len(name+suffix)).To(BeNumerically("<=", kvalidation.DNS1123SubdomainMaxLength), "suffix %q", suffix)
+		}
 	})
 })

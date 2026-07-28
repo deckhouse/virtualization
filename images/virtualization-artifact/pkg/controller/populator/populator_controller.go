@@ -167,6 +167,10 @@ func (r *Reconciler) reconcileImporter(ctx context.Context, pvc *corev1.Persiste
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	if owner == nil || sup == nil {
+		// The owner is already gone, so there is nothing left to populate.
+		return reconcile.Result{}, nil
+	}
 	if _, ok := owner.(*v1alpha2.VirtualDisk); ok && wffc && pvc.Annotations[service.SelectedNodeAnnotation] == "" {
 		r.log.Info("PVC population waiting for WaitForFirstConsumer node selection",
 			"namespace", pvc.Namespace,

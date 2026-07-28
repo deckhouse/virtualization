@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	dvcrrepo "github.com/deckhouse/virtualization/api/dvcr"
 )
 
 var DeleteCmd = &cobra.Command{
@@ -92,8 +93,7 @@ func DeleteImage(imageType, imgsDir string, cmd *cobra.Command, args []string) e
 	}
 
 	if len(args) != 0 {
-		imgName := args[0]
-		err := removeImageDir(imageType, imgsDir, imgName)
+		err := removeImageDir(imageType, imgsDir, repositoryToDelete(imageType, imgsDir, args[0]))
 		if err != nil {
 			return err
 		}
@@ -118,6 +118,29 @@ func DeleteImage(imageType, imgsDir string, cmd *cobra.Command, args []string) e
 	}
 
 	return cmd.Help()
+}
+
+// repositoryToDelete resolves what the user named into an existing repository.
+// A resource with a long name is stored under a shortened one, but the name may
+// also be copied from `dvcr-cleaner ls`, where it is already shortened — so try
+// the shortened form first and fall back to the argument as given.
+func repositoryToDelete(imageType, imgsDir, name string) string {
+	shortened := repoName(imageType, NamespaceFlag, name)
+	if shortened == name {
+		return name
+	}
+	if _, err := os.Stat(fmt.Sprintf("%s/%s", imgsDir, shortened)); err == nil {
+		return shortened
+	}
+	return name
+}
+
+// repoName returns the repository name a resource is stored under.
+func repoName(imageType, namespace, name string) string {
+	if imageType == v1alpha2.ClusterVirtualImageKind {
+		return dvcrrepo.ClusterImageRepoName(dvcrrepo.DefaultRegistryHost, name)
+	}
+	return dvcrrepo.ImageRepoName(dvcrrepo.DefaultRegistryHost, namespace, name)
 }
 
 func removeImageDir(imgType, imgsDir, imgName string) error {

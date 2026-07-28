@@ -27,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	dvcrrepo "github.com/deckhouse/virtualization/api/dvcr"
 )
 
 type Client struct {
@@ -59,8 +60,12 @@ func NewVirtualizationClient() (*Client, error) {
 type ImageInfo struct {
 	Type      string
 	Namespace string
-	Name      string
-	Phase     v1alpha2.DiskPhase
+	// Name is the name of the repository that holds the images of the resource,
+	// which is the resource name shortened to the OCI limit. Resources with long
+	// names are stored under a shortened name, so comparing repositories with
+	// resource names as is would report them as owned by nobody.
+	Name  string
+	Phase v1alpha2.DiskPhase
 }
 
 func (c *Client) ListAllPossibleImages(ctx context.Context) ([]ImageInfo, error) {
@@ -99,7 +104,7 @@ func (c *Client) ListClusterVirtualImages(ctx context.Context) ([]ImageInfo, err
 	for _, resource := range resources.Items {
 		image := ImageInfo{
 			Type: v1alpha2.ClusterVirtualImageKind,
-			Name: resource.GetName(),
+			Name: dvcrrepo.ClusterImageRepoName(dvcrrepo.DefaultRegistryHost, resource.GetName()),
 		}
 		images = append(images, image)
 	}
@@ -117,7 +122,7 @@ func (c *Client) ListVirtualImagesAll(ctx context.Context) ([]ImageInfo, error) 
 		image := ImageInfo{
 			Type:      v1alpha2.VirtualImageKind,
 			Namespace: resource.GetNamespace(),
-			Name:      resource.GetName(),
+			Name:      dvcrrepo.ImageRepoName(dvcrrepo.DefaultRegistryHost, resource.GetNamespace(), resource.GetName()),
 		}
 		images = append(images, image)
 	}
@@ -135,7 +140,7 @@ func (c *Client) ListVirtualDisksAll(ctx context.Context) ([]ImageInfo, error) {
 		image := ImageInfo{
 			Type:      v1alpha2.VirtualDiskKind,
 			Namespace: resource.GetNamespace(),
-			Name:      resource.GetName(),
+			Name:      dvcrrepo.DiskRepoName(dvcrrepo.DefaultRegistryHost, resource.GetNamespace(), resource.GetName()),
 			Phase:     resource.Status.Phase,
 		}
 		images = append(images, image)
