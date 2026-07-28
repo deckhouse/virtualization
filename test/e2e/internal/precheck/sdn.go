@@ -60,31 +60,10 @@ spec:
     - network: 192.168.200.0/24
 EOF`
 
-// isIPAMPoolConfiguredOnClusterNetwork checks if the given ClusterNetwork has
-// an IPAM pool reference (spec.ipam.ipAddressPoolRef).
-func isIPAMPoolConfiguredOnClusterNetwork(ctx context.Context, f *framework.Framework, name string) (bool, error) {
-	gvr := schema.GroupVersionResource{
-		Group: "network.deckhouse.io", Version: "v1alpha1", Resource: "clusternetworks",
-	}
-	obj, err := f.DynamicClient().Resource(gvr).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	poolName, found, err := unstructured.NestedString(obj.Object, "spec", "ipam", "ipAddressPoolRef", "name")
-	if err != nil {
-		return false, err
-	}
-	return found && poolName != "", nil
-}
-
-// ClusterNetworkName returns the name of ClusterNetwork for given VLAN ID.
-func ClusterNetworkName(vlanID int) string {
-	return fmt.Sprintf("cn-%d-for-e2e-test", vlanID)
-}
-
-// ClusterNetworkCreateCommand returns the kubectl command to create ClusterNetwork for given VLAN ID.
-func ClusterNetworkCreateCommand(vlanID int) string {
-	return fmt.Sprintf(`kubectl apply -f - <<EOF
+// clusterNetworkCreateTemplate is the base kubectl apply command for a
+// ClusterNetwork. The trailing %s is an optional spec stanza (e.g. the ipam
+// block) appended by ClusterNetworkCreateCommandWithIPAM.
+const clusterNetworkCreateTemplate = `kubectl apply -f - <<EOF
 apiVersion: network.deckhouse.io/v1alpha1
 kind: ClusterNetwork
 metadata:
@@ -97,26 +76,153 @@ spec:
         network.deckhouse.io/node-role: worker
   type: VLAN
   vlan:
-    id: %d
-EOF`, ClusterNetworkName(vlanID), vlanID)
+    id: %d%s
+EOF`
+
+// clusterNetworkIPAMBlock is the optional spec.ipam stanza appended to
+// clusterNetworkCreateTemplate when an IPAM pool must be bound to the network.
+const clusterNetworkIPAMBlock = `
+  ipam:
+    ipAddressPoolRef:
+      kind: ClusterIPAddressPool
+      name: %s`
+
+// clusterNetworkGVR is the GroupVersionResource for the SDN ClusterNetwork resource.
+var clusterNetworkGVR = schema.GroupVersionResource{
+	Group:    "network.deckhouse.io",
+	Version:  "v1alpha1",
+	Resource: "clusternetworks",
+}
+
+// clusterIPAddressPoolGVR is the GroupVersionResource for the SDN
+// ClusterIPAddressPool resource.
+var clusterIPAddressPoolGVR = schema.GroupVersionResource{
+	Group:    "network.deckhouse.io",
+	Version:  "v1alpha1",
+	Resource: "clusteripaddresspools",
+}
+
+// isClusterIPAddressPoolExists reports whether a ClusterIPAddressPool with
+// the given name exists in the cluster.
+func isClusterIPAddressPoolExists(ctx context.Context, f *framework.Framework, name string) bool {
+	GinkgoHelper()
+
+	_, err := f.DynamicClient().Resource(clusterIPAddressPoolGVR).Get(ctx, name, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		_, _ = fmt.Fprintf(GinkgoWriter, "error checking ClusterIPAddressPool %s: %v\n", name, err)
+	}
+	return err == nil || !k8serrors.IsNotFound(err)
+}
+
+// getClusterNetwork fetches the ClusterNetwork with the given name via the
+// dynamic client.
+func getClusterNetwork(ctx context.Context, f *framework.Framework, name string) (*unstructured.Unstructured, error) {
+	return f.DynamicClient().Resource(clusterNetworkGVR).Get(ctx, name, metav1.GetOptions{})
+}
+
+// getClusterNetworkIPAMPoolName returns the name of the ClusterIPAddressPool bound
+// to the given ClusterNetwork (spec.ipam.ipAddressPoolRef.name), or an empty
+// string if no IPAM pool is configured.
+func getClusterNetworkIPAMPoolName(ctx context.Context, f *framework.Framework, name string) (string, error) {
+	obj, err := getClusterNetwork(ctx, f, name)
+	if err != nil {
+		return "", err
+	}
+	poolName, found, err := unstructured.NestedString(obj.Object, "spec", "ipam", "ipAddressPoolRef", "name")
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", nil
+	}
+	return poolName, nil
+}
+
+// ClusterNetworkName returns the name of ClusterNetwork for given VLAN ID.
+func ClusterNetworkName(vlanID int) string {
+	return fmt.Sprintf("cn-%d-for-e2e-test", vlanID)
+}
+
+// ClusterNetworkCreateCommand returns the kubectl command to create ClusterNetwork for given VLAN ID.
+func ClusterNetworkCreateCommand(vlanID int) string {
+	return fmt.Sprintf(clusterNetworkCreateTemplate, ClusterNetworkName(vlanID), vlanID, "")
+}
+
+// ClusterNetworkCreateCommandWithIPAM returns the kubectl command to create ClusterNetwork
+// for given VLAN ID with an IPAM pool reference bound under spec.
+func ClusterNetworkCreateCommandWithIPAM(vlanID int, poolName string) string {
+	return fmt.Sprintf(clusterNetworkCreateTemplate, ClusterNetworkName(vlanID), vlanID,
+		fmt.Sprintf(clusterNetworkIPAMBlock, poolName))
 }
 
 // IsClusterNetworkExists checks if ClusterNetwork with given VLAN ID exists.
 func IsClusterNetworkExists(ctx context.Context, f *framework.Framework, vlanID int) bool {
 	GinkgoHelper()
 
-	gvr := schema.GroupVersionResource{
-		Group:    "network.deckhouse.io",
-		Version:  "v1alpha1",
-		Resource: "clusternetworks",
-	}
-
-	_, err := f.DynamicClient().Resource(gvr).Get(ctx, ClusterNetworkName(vlanID), metav1.GetOptions{})
+	name := ClusterNetworkName(vlanID)
+	_, err := getClusterNetwork(ctx, f, name)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		_, _ = fmt.Fprintf(GinkgoWriter, "error checking ClusterNetwork %s: %v\n", ClusterNetworkName(vlanID), err)
+		_, _ = fmt.Fprintf(GinkgoWriter, "error checking ClusterNetwork %s: %v\n", name, err)
 	}
 
 	return err == nil || !k8serrors.IsNotFound(err)
+}
+
+// requiredClusterNetwork describes a ClusterNetwork that must exist for e2e
+// tests and, when poolName is set, must reference that ClusterIPAddressPool.
+type requiredClusterNetwork struct {
+	vlanID   int
+	poolName string // when non-empty, the network must bind this ClusterIPAddressPool
+}
+
+func (r requiredClusterNetwork) getName() string { return ClusterNetworkName(r.vlanID) }
+
+// createCommand returns the kubectl command that creates this ClusterNetwork,
+// including the ipam stanza when a pool is required.
+func (r requiredClusterNetwork) createCommand() string {
+	if r.poolName == "" {
+		return ClusterNetworkCreateCommand(r.vlanID)
+	}
+	return ClusterNetworkCreateCommandWithIPAM(r.vlanID, r.poolName)
+}
+
+// recreateCommand returns the kubectl command that deletes and recreates
+// this ClusterNetwork. The spec.ipam stanza is immutable, so when the bound
+// pool must change the existing network has to be removed first.
+func (r requiredClusterNetwork) recreateCommand() string {
+	return fmt.Sprintf("kubectl delete clusternetwork.network.deckhouse.io %s && %s", r.getName(), r.createCommand())
+}
+
+// verify ensures the required ClusterNetwork exists and, when a pool is
+// required, that the ClusterIPAddressPool exists and is bound to the network.
+// The returned error embeds the exact kubectl command needed to remediate the
+// failure.
+func (r requiredClusterNetwork) verify(ctx context.Context, f *framework.Framework) error {
+	if r.poolName != "" && !isClusterIPAddressPoolExists(ctx, f, r.poolName) {
+		return fmt.Errorf("%s=no to disable this precheck: ClusterIPAddressPool %q does not exist. Create it first: %s",
+			sdnModuleCheckEnvName, r.poolName, fmt.Sprintf(clusterIPAddressPoolCreateCommand, r.poolName))
+	}
+	if !IsClusterNetworkExists(ctx, f, r.vlanID) {
+		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q does not exist. Create it first: %s",
+			sdnModuleCheckEnvName, r.getName(), r.createCommand())
+	}
+	if r.poolName == "" {
+		return nil
+	}
+	poolName, err := getClusterNetworkIPAMPoolName(ctx, f, r.getName())
+	if err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: failed to check IPAM pool on ClusterNetwork %q: %w",
+			sdnModuleCheckEnvName, r.getName(), err)
+	}
+	if poolName == "" {
+		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q has no IPAM pool configured. spec.ipam is immutable, delete and recreate the network with the expected pool: %s",
+			sdnModuleCheckEnvName, r.getName(), r.recreateCommand())
+	}
+	if poolName != r.poolName {
+		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q is bound to IPAM pool %q, expected %q. spec.ipam is immutable, delete and recreate the network with the expected pool: %s",
+			sdnModuleCheckEnvName, r.getName(), poolName, r.poolName, r.recreateCommand())
+	}
+	return nil
 }
 
 // sdnPrecheck implements Precheck interface for SDN module.
@@ -145,24 +251,14 @@ func (s *sdnPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 		return fmt.Errorf("%s=no to disable this precheck: SDN module should be ready; current status: %s", sdnModuleCheckEnvName, sdnModule.Status.Phase)
 	}
 
-	// Check required ClusterNetworks for e2e tests
-	for _, vlanID := range []int{WithIPPoolNetworkVLANID, L2OnlyNetworkVLANID} {
-		if !IsClusterNetworkExists(ctx, f, vlanID) {
-			return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q does not exist. Create it first: %s",
-				sdnModuleCheckEnvName, ClusterNetworkName(vlanID), ClusterNetworkCreateCommand(vlanID))
+	// Check required ClusterNetworks for e2e tests.
+	for _, r := range []requiredClusterNetwork{
+		{vlanID: WithIPPoolNetworkVLANID, poolName: e2eIPAMPoolName},
+		{vlanID: L2OnlyNetworkVLANID},
+	} {
+		if err := r.verify(ctx, f); err != nil {
+			return err
 		}
-	}
-
-	// Check that cn-4006 has IPAM pool configured (required for IPAM e2e tests).
-	hasPool, err := isIPAMPoolConfiguredOnClusterNetwork(ctx, f, ClusterNetworkName(WithIPPoolNetworkVLANID))
-	if err != nil {
-		return fmt.Errorf("%s=no to disable this precheck: failed to check IPAM pool on ClusterNetwork %q: %w",
-			sdnModuleCheckEnvName, ClusterNetworkName(WithIPPoolNetworkVLANID), err)
-	}
-	if !hasPool {
-		return fmt.Errorf("%s=no to disable this precheck: ClusterNetwork %q has no IPAM pool configured. Create the pool and bind it: %s",
-			sdnModuleCheckEnvName, ClusterNetworkName(WithIPPoolNetworkVLANID),
-			fmt.Sprintf(clusterIPAddressPoolCreateCommand, e2eIPAMPoolName))
 	}
 
 	return nil
