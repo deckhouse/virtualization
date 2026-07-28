@@ -512,7 +512,7 @@ jobs:
         run: bash "${E2E_SCRIPT_DIR}/configure-csi-nfs.sh"
 
       - name: Configure sds-elastic storage
-        if: ${{ inputs.storage_type == 'sds-elastic' }}
+        if: ${{ inputs.storage_type == 'ceph' }}
         id: storage-sds-elastic-setup
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-elastic
         env:

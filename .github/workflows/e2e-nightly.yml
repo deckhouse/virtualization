@@ -170,7 +170,7 @@ jobs:
       - set-vars
     uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
     with:
-      storage_type: sds-elastic
+      storage_type: ceph
       pipeline_job_name: "E2E Pipeline (Elastic)"
       nested_storageclass_name: nested-ceph-rbd
       nested_cluster_network_name: cn-4006-for-e2e-test
@@ -242,7 +242,7 @@ jobs:
         id: render-report
         uses: actions/github-script@v7
         env:
-          EXPECTED_STORAGE_TYPES: '["replicated","nfs","sds-elastic"]'
+          EXPECTED_STORAGE_TYPES: '["replicated","nfs","ceph"]'
           LOOP_API_BASE_URL: ${{ secrets.LOOP_API_BASE_URL }}
           LOOP_CHANNEL_ID: ${{ secrets.LOOP_CHANNEL_ID }}
           LOOP_TOKEN: ${{ secrets.LOOP_TOKEN }}

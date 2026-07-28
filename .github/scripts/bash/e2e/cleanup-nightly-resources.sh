@@ -23,10 +23,10 @@ source "${SCRIPT_DIR}/common.sh"
 LABEL_SELECTOR="${LABEL_SELECTOR:-test=nightly-e2e}"
 KEEP_HOURS="${KEEP_HOURS:-47}"
 FRIDAY_KEEP_HOURS="${FRIDAY_KEEP_HOURS:-71}"
-# sds-elastic (Ceph) nested clusters are heavy, so they are torn down sooner (~1 day)
+# Ceph nested clusters are heavy, so they are torn down sooner (~1 day)
 # and are not granted the Friday extension. Matched by storage type in the resource name.
 ELASTIC_KEEP_HOURS="${ELASTIC_KEEP_HOURS:-23}"
-ELASTIC_NAME_PATTERN="${ELASTIC_NAME_PATTERN:-sds-elastic}"
+ELASTIC_NAME_PATTERN="${ELASTIC_NAME_PATTERN:-ceph}"
 
 current_date_seconds="$(date -u +%s)"
 

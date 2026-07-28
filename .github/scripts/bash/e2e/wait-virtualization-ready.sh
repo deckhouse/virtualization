@@ -180,7 +180,7 @@ enable_maintenance_mode() {
     echo "[INFO] Switch csi-nfs module to maintenance mode"
     kubectl patch mc csi-nfs --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
     ;;
-  sds-elastic)
+  ceph)
     echo "[INFO] Switch sds-elastic and csi-ceph modules to maintenance mode"
     kubectl patch mc sds-elastic --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
     kubectl patch mc csi-ceph --type merge --patch '{"spec":{"maintenance":"NoResourceReconciliation"}}'
