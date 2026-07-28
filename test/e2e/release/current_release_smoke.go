@@ -84,6 +84,7 @@ func runPostUpgradeReleaseSmoke() {
 
 	test.verifyVMsSurvivedUpgrade()
 	test.verifyIPerfContinuityAfterUpgrade()
+	test.verifyEvictVMOPsCompleted()
 }
 
 func (t *currentReleaseSmokeTest) createResources() {
@@ -241,6 +242,24 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	Expect(zeroIntervals).To(BeNumerically("<=", 1), "iperf3 should not be interrupted during the module upgrade")
 	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
 	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
+}
+
+func (t *currentReleaseSmokeTest) verifyEvictVMOPsCompleted() {
+	GinkgoHelper()
+
+	By("Verifying that all Evict VMOPs settled in the Completed phase after the upgrade")
+
+	namespace := t.iperfClient.vm.Namespace
+	vmops, err := t.framework.Clients.VirtClient().VirtualMachineOperations(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, vmop := range vmops.Items {
+		if vmop.Spec.Type != v1alpha2.VMOPTypeEvict {
+			continue
+		}
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted),
+			"Evict VMOP %s/%s must be in Completed phase, got %q", vmop.Spec.VirtualMachine, vmop.Name, vmop.Status.Phase)
+	}
 }
 
 func (t *currentReleaseSmokeTest) getVirtualMachine(name, namespace string) *v1alpha2.VirtualMachine {
