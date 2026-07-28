@@ -650,6 +650,11 @@ jobs:
           echo "[INFO] Virtualization module status:"
           kubectl get modules virtualization
 
+      - name: Wait for all migrations to reach a terminal phase
+        env:
+          RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
+        run: bash "${E2E_SCRIPT_DIR}/wait-vmops-migration-terminal.sh"
+
   test-new-release:
     name: "E2E test (new-release: ${{ inputs.new_release }})"
     runs-on: ubuntu-latest
