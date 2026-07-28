@@ -155,6 +155,17 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
+	case condition.Reason == vicondition.WaitForUserUploadTimeout.String():
+		log.Debug("Upload wait timed out: clean up")
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case object.AnyTerminating(pod, svc, ing, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil || svc == nil || ing == nil:
@@ -201,14 +212,28 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		}
 
 		if !uploadStarted {
+			if condition.Reason == vicondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime) {
+				log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
+				ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
+
+				vi.Status.Phase = v1alpha2.ImageFailed
+				vi.Status.ImageUploadURLs = nil
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.WaitForUserUploadTimeout).
+					Message(uploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
+
+				return CleanUpSupplements(ctx, vi, ds)
+			}
+
 			if isUploaderReady {
-				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
+				log.Info("Waiting for the image to be uploaded", "pod.phase", pod.Status.Phase)
 
 				vi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.WaitForUserUpload).
-					Message("Waiting for the user upload.")
+					Message("Waiting for the image to be uploaded.")
 
 				vi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
@@ -224,7 +249,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 					Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name))
 			}
 
-			return reconcile.Result{RequeueAfter: time.Second}, nil
+			return reconcile.Result{RequeueAfter: uploader.WaitForUserUploadRequeueAfter}, nil
 		}
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
@@ -331,8 +356,18 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
+	case condition.Reason == vicondition.WaitForUserUploadTimeout.String():
+		log.Debug("Upload wait timed out: clean up")
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case object.AnyTerminating(pod, svc, ing):
-		vi.Status.Phase = v1alpha2.ImageProvisioning
 
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || ing == nil:
@@ -415,11 +450,23 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		}
 
 		log.Info("Provisioning...", "pod.phase", pod.Status.Phase)
+	case condition.Reason == vicondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
+		log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
+		ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.WaitForUserUploadTimeout).
+			Message(uploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case isUploaderReady:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.WaitForUserUpload).
-			Message("Waiting for the user upload.")
+			Message("Waiting for the image to be uploaded.")
 
 		vi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
@@ -428,7 +475,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
 		}
 
-		log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
+		log.Info("Waiting for the image to be uploaded", "pod.phase", pod.Status.Phase)
 	default:
 		cb.
 			Status(metav1.ConditionFalse).
@@ -440,7 +487,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 	}
 
-	return reconcile.Result{RequeueAfter: time.Second}, nil
+	return reconcile.Result{RequeueAfter: uploader.WaitForUserUploadRequeueAfter}, nil
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {

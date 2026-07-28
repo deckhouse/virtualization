@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -58,13 +59,13 @@ type WaitForUserUploadStepUploaderService interface {
 }
 
 type WaitForUserUploadStep struct {
-	pod      *corev1.Pod
-	svc      *corev1.Service
-	ing      *netv1.Ingress
-	stat     WaitForUserUploadStepStatService
-	uploader WaitForUserUploadStepUploaderService
-	client   client.Client
-	cb       *conditions.ConditionBuilder
+	pod             *corev1.Pod
+	svc             *corev1.Service
+	ing             *netv1.Ingress
+	stat            WaitForUserUploadStepStatService
+	uploaderService WaitForUserUploadStepUploaderService
+	client          client.Client
+	cb              *conditions.ConditionBuilder
 }
 
 func NewWaitForUserUploadStep(
@@ -72,18 +73,18 @@ func NewWaitForUserUploadStep(
 	svc *corev1.Service,
 	ing *netv1.Ingress,
 	stat WaitForUserUploadStepStatService,
-	uploader WaitForUserUploadStepUploaderService,
+	uploaderService WaitForUserUploadStepUploaderService,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *WaitForUserUploadStep {
 	return &WaitForUserUploadStep{
-		pod:      pod,
-		svc:      svc,
-		ing:      ing,
-		stat:     stat,
-		uploader: uploader,
-		client:   client,
-		cb:       cb,
+		pod:             pod,
+		svc:             svc,
+		ing:             ing,
+		stat:            stat,
+		uploaderService: uploaderService,
+		client:          client,
+		cb:              cb,
 	}
 }
 
@@ -121,10 +122,10 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitForUserUpload).
-			Message("Waiting for the user upload.")
+			Message("Waiting for the image to be uploaded.")
 		vd.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
-			External:  s.uploader.GetExternalURL(ctx, s.ing),
-			InCluster: s.uploader.GetInClusterURL(ctx, s.svc),
+			External:  s.uploaderService.GetExternalURL(ctx, s.ing),
+			InCluster: s.uploaderService.GetInClusterURL(ctx, s.svc),
 		}
 	} else {
 		vd.Status.Phase = v1alpha2.DiskProvisioning
@@ -134,7 +135,7 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", s.pod.Name))
 	}
 
-	return &reconcile.Result{RequeueAfter: time.Second}, nil
+	return &reconcile.Result{RequeueAfter: uploader.WaitForUserUploadRequeueAfter}, nil
 }
 
 type WaitForDVCRUploaderStep struct {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -280,6 +281,85 @@ var _ = Describe("UploadDataSource", func() {
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
+		})
+	})
+
+	Context("User upload wait has timed out", func() {
+		var (
+			pod *corev1.Pod
+			svc *corev1.Service
+			ing *netv1.Ingress
+		)
+
+		BeforeEach(func() {
+			disk.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+			pod = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "uploader", Namespace: vd.Namespace},
+				Status:     corev1.PodStatus{Phase: corev1.PodRunning},
+			}
+			svc = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}
+			ing = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "uploader-ing", Namespace: vd.Namespace}}
+
+			uploaderSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return pod, nil }
+			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return svc, nil }
+			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return ing, nil }
+			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+				return true, nil
+			}
+		})
+
+		It("fails the disk and cleans up the uploader when the wait window has expired", func() {
+			vd.Status.Conditions = []metav1.Condition{{
+				Type:               vdcondition.ReadyType.String(),
+				Status:             metav1.ConditionFalse,
+				Reason:             vdcondition.WaitForUserUpload.String(),
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-uploader.WaitForUserUploadTimeout - time.Minute)),
+			}}
+
+			var cleaned bool
+			uploaderSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+				cleaned = true
+				return true, nil
+			}
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+			res, err := newSyncer(cl).Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskFailed))
+			Expect(vd.Status.ImageUploadURLs).To(BeNil())
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitForUserUploadTimeout, true)
+			Expect(cleaned).To(BeTrue())
+		})
+
+		It("keeps the disk failed and does not recreate the uploader after the timeout has already fired", func() {
+			vd.Status.Phase = v1alpha2.DiskFailed
+			vd.Status.Conditions = []metav1.Condition{{
+				Type:   vdcondition.ReadyType.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vdcondition.WaitForUserUploadTimeout.String(),
+			}}
+
+			// Uploader supplements are already gone: the cleanup happened on a prior reconcile.
+			uploaderSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil }
+			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil }
+			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return nil, nil }
+			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+				return false, nil
+			}
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+			res, err := newSyncer(cl).Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskFailed))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitForUserUploadTimeout, true)
+			// StartFunc is nil: if the timeout step does not short-circuit, the pipeline would call
+			// uploaderSvc.Start and panic. The very fact that this test does not panic is the assertion.
 		})
 	})
 

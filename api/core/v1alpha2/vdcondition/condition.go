@@ -103,6 +103,8 @@ const (
 
 	// WaitForUserUpload indicates that the `VirtualDisk` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"
+	// WaitForUserUploadTimeout indicates that the user did not start the upload in time, so the import process has failed.
+	WaitForUserUploadTimeout ReadyReason = "WaitForUserUploadTimeout"
 	// Provisioning indicates that the provisioning process is currently in progress.
 	Provisioning ReadyReason = "Provisioning"
 	// ProvisioningNotStarted indicates that the provisioning process has not started yet.
