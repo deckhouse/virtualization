@@ -219,6 +219,15 @@ func (o ScaleOption) Apply(progress string) string {
 	return percent.ScalePercentage(progress, o.Low, o.High)
 }
 
+const (
+	// ProgressDone is the status.progress value of a fully imported image.
+	ProgressDone = "100%"
+	// ProgressMax is the cap for CapProgressBelow: during provisioning the
+	// streamed progress must stay below it, so watchers never see 100% before
+	// the resource is Ready.
+	ProgressMax = float64(100)
+)
+
 func CapProgressBelow(progress string, high float64) string {
 	value := percent.ExtractPercentageFloat(progress)
 	if math.IsNaN(value) || value < high {

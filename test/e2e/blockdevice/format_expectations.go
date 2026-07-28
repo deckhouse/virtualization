@@ -75,6 +75,61 @@ func expectedVirtualImageFormat(ctx context.Context, f *framework.Framework, vi 
 	return imageformat.FormatQCOW2
 }
 
+// expectedClusterVirtualImageFormat returns the image format actually stored for
+// cvi. A ClusterVirtualImage always lives on DVCR: object-ref imports that copy
+// from a block volume inherit the source storage class format; file-based
+// imports (HTTP, registry, CVI, upload) keep qcow2 (or ISO for ISO sources).
+func expectedClusterVirtualImageFormat(ctx context.Context, f *framework.Framework, cvi *v1alpha2.ClusterVirtualImage) string {
+	GinkgoHelper()
+
+	if cvi.Spec.DataSource.HTTP != nil && cvi.Spec.DataSource.HTTP.URL == object.ImageURLCustomISO {
+		return imageformat.FormatISO
+	}
+	if cvi.Spec.DataSource.ObjectRef != nil &&
+		cvi.Spec.DataSource.ObjectRef.Kind == v1alpha2.ClusterVirtualImageObjectRefKindClusterVirtualImage &&
+		cvi.Spec.DataSource.ObjectRef.Name == object.PrecreatedCVICustomISO {
+		return imageformat.FormatISO
+	}
+
+	if scName := clusterVirtualImageSourceStorageClassName(ctx, f, cvi); scName != "" {
+		return expectedFormatForStorageClass(ctx, f, scName)
+	}
+
+	return imageformat.FormatQCOW2
+}
+
+func clusterVirtualImageSourceStorageClassName(ctx context.Context, f *framework.Framework, cvi *v1alpha2.ClusterVirtualImage) string {
+	GinkgoHelper()
+
+	ref := cvi.Spec.DataSource.ObjectRef
+	if ref == nil {
+		return ""
+	}
+
+	switch ref.Kind {
+	case v1alpha2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot:
+		vdSnapshot := &v1alpha2.VirtualDiskSnapshot{}
+		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}, vdSnapshot)
+		Expect(err).NotTo(HaveOccurred())
+		return virtualDiskStorageClassName(ctx, f, vdSnapshot.Namespace, vdSnapshot.Spec.VirtualDiskName)
+
+	case v1alpha2.ClusterVirtualImageObjectRefKindVirtualDisk:
+		return virtualDiskStorageClassName(ctx, f, ref.Namespace, ref.Name)
+
+	case v1alpha2.ClusterVirtualImageObjectRefKindVirtualImage:
+		sourceVI := &v1alpha2.VirtualImage{}
+		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}, sourceVI)
+		Expect(err).NotTo(HaveOccurred())
+		if sourceVI.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
+			return ""
+		}
+		return ptr.Deref(sourceVI.Spec.PersistentVolumeClaim.StorageClass, "")
+
+	default:
+		return ""
+	}
+}
+
 func virtualImageSourceStorageClassName(ctx context.Context, f *framework.Framework, vi *v1alpha2.VirtualImage) string {
 	GinkgoHelper()
 

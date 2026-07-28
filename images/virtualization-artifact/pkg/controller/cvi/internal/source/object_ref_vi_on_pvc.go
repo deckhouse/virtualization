@@ -18,7 +18,6 @@ package source
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -143,19 +142,8 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = v1alpha2.ImageFailed
-
-			switch {
-			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(cvicondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
-			}
+			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+			return reconcile.Result{}, setPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		cb.
@@ -167,32 +155,15 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 		cvi.Status.Size = viRef.Status.Size
 		cvi.Status.CDROM = viRef.Status.CDROM
 		cvi.Status.Format = viRef.Status.Format
-		cvi.Status.Progress = "100%"
+		cvi.Status.Progress = service.ProgressDone
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = v1alpha2.ImageFailed
-
-			switch {
-			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(cvicondition.ProvisioningNotStarted).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(cvicondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
-			}
+			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+			return reconcile.Result{}, setPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		err = ds.importerService.Protect(ctx, pod, supgen)
@@ -206,7 +177,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
-		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
+		cvi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress), service.ProgressMax)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)

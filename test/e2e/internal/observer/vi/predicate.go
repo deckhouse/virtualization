@@ -331,14 +331,10 @@ func (o *progressObservations) record(p float64) {
 	switch {
 	case p == 0:
 		o.hasZero = true
-	case p > 0 && p < 50:
-		o.hasIntermediateExceptFifty = true
-	case p > 50 && p < 100:
-		o.hasIntermediateExceptFifty = true
-	case p > 0 && p < 100 && p != 50:
-		o.hasIntermediateExceptFifty = true
 	case p == 100:
 		o.hasHundred = true
+	case p != 50:
+		o.hasIntermediateExceptFifty = true
 	}
 }
 
