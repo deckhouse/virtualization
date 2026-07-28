@@ -21,7 +21,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -103,6 +105,65 @@ var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
 			})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("cannot evict hotplug pod"))
+		})
+	})
+
+	It("Should propagate priority class to hotplug pod", func() {
+		var (
+			vm            *v1alpha2.VirtualMachine
+			blank         *v1alpha2.VirtualDisk
+			priorityClass *schedulingv1.PriorityClass
+		)
+		By("Create priority class", func() {
+			// A dedicated class instead of a cluster one (develop etc.): the globalDefault
+			// admission would put the default class on the pod even without inheritance,
+			// making the test pass vacuously.
+			priorityClass = &schedulingv1.PriorityClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "e2e-hotplug-" + f.Namespace().Name,
+				},
+				Value:            100,
+				PreemptionPolicy: ptr.To(corev1.PreemptNever),
+			}
+			Expect(f.CreateWithDeferredDeletion(ctx, priorityClass)).To(Succeed())
+		})
+
+		By("Create VM", func() {
+			root := object.NewVDFromVI("root", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
+			blank = object.NewBlankVD("blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+			Expect(f.CreateWithDeferredDeletion(ctx, root, blank)).To(Succeed())
+
+			var err error
+			vm = object.NewMinimalVM("hotplug-pod-priority-", f.Namespace().Name,
+				vmbuilder.WithDisks(root),
+				vmbuilder.WithCPU(1, ptr.To("100%")),
+				vmbuilder.WithPriorityClassName(priorityClass.Name),
+			)
+			vm, err = f.VirtClient().VirtualMachines(f.Namespace().Name).Create(ctx, vm, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			f.DeferDelete(vm)
+		})
+
+		By("Wait until VM agent is ready", func() {
+			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		})
+
+		By("Attaching disk", func() {
+			vmbda := object.NewVMBDAFromDisk(vm.Name, vm.Name, blank)
+			Expect(f.CreateWithDeferredDeletion(ctx, vmbda)).To(Succeed())
+			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
+		})
+
+		By("Check hotplug pod priority class", func() {
+			pods, err := f.KubeClient().CoreV1().Pods(f.Namespace().Name).List(ctx, metav1.ListOptions{
+				LabelSelector: labels.SelectorFromSet(map[string]string{
+					"kubevirt.internal.virtualization.deckhouse.io": "d8v-hotplug-disk",
+				}).String(),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+
+			Expect(pods.Items[0].Spec.PriorityClassName).To(Equal(priorityClass.Name))
 		})
 	})
 })

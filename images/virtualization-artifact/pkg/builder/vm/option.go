@@ -129,6 +129,12 @@ func WithRestartApprovalMode(restartApprovalMode v1alpha2.RestartApprovalMode) O
 	}
 }
 
+func WithPriorityClassName(priorityClassName string) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.PriorityClassName = priorityClassName
+	}
+}
+
 func WithRunPolicy(runPolicy v1alpha2.RunPolicy) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.RunPolicy = runPolicy
