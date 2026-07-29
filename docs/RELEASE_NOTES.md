@@ -3,6 +3,30 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.5
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: July 29, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### Fixes
+
+- [observability] Fixed an issue where no notification was displayed when the transmission of audit logs was interrupted due to the use of outdated certificate authority data or because the audit resources lacked a certificate and key: when the transmission of audit logs is interrupted, a warning now appears prompting the user to take action.
+- [module] An optional dependency has been added for the virtualization module, requiring that the `sdn` module be version 0.6.2 or later. This prevents launching virtualization from running with earlier versions of `sdn`. The dependency applies only when the `sdn` module is enabled.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-46600
+  - CVE-2026-56852
+  - GHSA-hrxh-6v49-42gf
+  - CVE-2026-34986
+  - CVE-2025-27144
+  - CVE-2026-39822
+  - CVE-2026-42505
+
 ## v1.9.4
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
