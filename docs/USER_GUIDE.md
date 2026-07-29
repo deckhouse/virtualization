@@ -3612,7 +3612,6 @@ To ensure hotplugged interfaces are configured automatically, use one of the fol
   ```
 
 For interfaces present at VM boot (included in the initial network configuration), no additional configuration is required — the guest OS configures them during startup via Cloud-Init.
-{{< /alert >}}
 
 ## Snapshots
 
