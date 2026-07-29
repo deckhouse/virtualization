@@ -1,0 +1,5 @@
+module:
+  fixes:
+    - summary: Require sdn >= 0.6.2 when the sdn module is enabled.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/29
+
