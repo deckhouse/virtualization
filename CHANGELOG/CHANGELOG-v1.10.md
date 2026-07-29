@@ -1,5 +1,24 @@
 # Changelog v1.10
 
+## v1.10.2
+
+_No changelog entries._
+
+## v1.10.1
+
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-46600
+- CVE-2026-56852
+- GHSA-hrxh-6v49-42gf
+- CVE-2026-34986
+- CVE-2025-27144 ([!80](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/80))
+
+### module
+
+- **fix** (default): Require sdn >= 0.6.2 when the sdn module is enabled. ([!29](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/29))
+
 ## v1.10.0
 
 ### api
