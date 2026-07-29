@@ -32,39 +32,47 @@ required_env_value() {
 release_namespace="$(required_env_value RELEASE_NAMESPACE)"
 
 sleep_interval="${SLEEP_INTERVAL:-10}"
-timeout_seconds="${TIMEOUT_SECONDS:-600}"
+timeout_seconds="${TIMEOUT_SECONDS:-1200}"
 deadline=$(( $(date +%s) + timeout_seconds ))
 
-echo "[INFO] Waiting for all Evict VirtualMachineOperations in namespace ${release_namespace} to reach Completed or Failed phase (timeout: ${timeout_seconds}s)..."
+# The number of Running VMs at the start is the number of Evict VMOPs we
+# expect the workload updater to eventually create (one per migrated VM).
+# Reading it once, before the loop, avoids racing a VM that flips out of
+# Running while the wait is in progress.
+vm_count="$(kubectl -n "${release_namespace}" get vm \
+  -o jsonpath='{range .items[?(@.status.phase=="Running")]}{.metadata.name}{"\n"}{end}' \
+  | grep -c . || true)"
+
+echo "[INFO] Found ${vm_count} VirtualMachine(s) in Running phase in namespace ${release_namespace}."
+echo "[INFO] Waiting for ${vm_count} Evict VirtualMachineOperation(s) to appear and reach Completed or Failed phase (timeout: ${timeout_seconds}s)..."
 
 while true; do
   if [ "$(date +%s)" -ge "${deadline}" ]; then
-    echo "[ERROR] Timeout of ${timeout_seconds}s reached while waiting for Evict VMOPs to complete." >&2
+    echo "[ERROR] Timeout of ${timeout_seconds}s reached before ${vm_count} Evict VMOP(s) settled." >&2
     kubectl -n "${release_namespace}" get vmop || true
     exit 1
   fi
 
-  # VMOPs may be created or deleted at any moment, so re-read the full
-  # list on every iteration and only look at the current snapshot.
-  # Only consider migration operations (spec.type == Evict); other VMOP
-  # types are irrelevant for this wait.
+  # VMOPs may be created at any moment, so re-read the full list on every
+  # iteration and only look at the current snapshot. Only consider
+  # migration operations (spec.type == Evict); other VMOP types are
+  # irrelevant for this wait.
   phases="$(kubectl -n "${release_namespace}" get vmop \
     -o jsonpath='{range .items[?(@.spec.type=="Evict")]}{.status.phase}{"\n"}{end}')"
 
-  if [ -z "${phases}" ]; then
-    echo "[INFO] No Evict VMOPs found at the moment, nothing to wait for."
-    break
-  fi
+  vmop_count="$(printf '%s\n' "${phases}" | grep -c . || true)"
+  terminal_count="$(printf '%s\n' "${phases}" | grep -cE '^(Completed|Failed)$' || true)"
 
-  # Count Evict VMOPs that are not yet in a terminal phase.
-  pending="$(printf '%s\n' "${phases}" | grep -vE '^(Completed|Failed)$' | grep -c . || true)"
-
-  if [ "${pending}" -eq 0 ]; then
-    echo "[INFO] All Evict VMOPs are in a terminal phase (Completed or Failed)."
+  # Only stop once exactly as many Evict VMOPs exist as there were Running
+  # VMs, and every one of them has reached a terminal phase. Fewer VMOPs
+  # than VMs means migrations are still being created (or were never
+  # created at all), which must not be mistaken for "nothing to wait for".
+  if [ "${vmop_count}" -eq "${vm_count}" ] && [ "${terminal_count}" -eq "${vm_count}" ]; then
+    echo "[INFO] All ${vm_count} Evict VMOP(s) are in a terminal phase (Completed or Failed)."
     kubectl -n "${release_namespace}" get vmop || true
     break
   fi
 
-  echo "[INFO] ${pending} Evict VMOP(s) still in progress, re-checking in ${sleep_interval}s..."
+  echo "[INFO] ${terminal_count}/${vm_count} Evict VMOP(s) terminal (${vmop_count}/${vm_count} created); re-checking in ${sleep_interval}s..."
   sleep "${sleep_interval}"
 done
