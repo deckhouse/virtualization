@@ -1,5 +1,26 @@
 # Changelog v1.9
 
+## v1.9.5
+
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-46600
+- CVE-2026-56852
+- GHSA-hrxh-6v49-42gf
+- CVE-2026-34986
+- CVE-2025-27144
+- CVE-2026-39822
+- CVE-2026-42505 ([!81](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/81))
+
+### module
+
+- **fix** (default): Require sdn >= 0.6.2 when the sdn module is enabled. ([!29](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/29))
+
+### observability
+
+- **fix** (default): Audit log shipping no longer breaks silently: audit resources wait for the generated TLS certificate, and a log-shipper stuck with a stale CA after rotation is reported with an actionable warning. ([!4](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/4))
+
 ## Features
 
 
@@ -67,4 +88,3 @@
     - CVE-2026-42504 
     - CVE-2026-27145
     - CVE-2026-42507 [#2486](https://github.com/deckhouse/virtualization/pull/2486)
-
