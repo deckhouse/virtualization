@@ -22,6 +22,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,7 +54,16 @@ type staleResource struct {
 }
 
 func cleanup(ctx context.Context, input *pkg.HookInput) error {
-	if err := stripCDIConfigFinalizers(ctx, input); err != nil {
+	k8s, err := input.DC.GetK8sClient()
+	if err != nil {
+		return fmt.Errorf("get kubernetes client: %w", err)
+	}
+
+	if err := stripCDIConfigFinalizers(ctx, k8s); err != nil {
+		return err
+	}
+
+	if err := deleteStaleVPAs(ctx, k8s); err != nil {
 		return err
 	}
 
@@ -64,6 +74,39 @@ func cleanup(ctx context.Context, input *pkg.HookInput) error {
 	return nil
 }
 
+// deleteStaleVPAs removes the leftover cdi VerticalPodAutoscaler objects.
+// Done with a direct client rather than a PatchCollector operation: when the
+// VPA module is disabled the autoscaling.k8s.io/v1 kind is absent from the
+// cluster, and a collected delete fails the whole ModuleRun at the discovery
+// level ("apiVersion has no supported resources in cluster"), while here the
+// absent kind is just a no-op.
+func deleteStaleVPAs(ctx context.Context, k8s pkg.KubernetesClient) error {
+	for _, name := range staleVPANames() {
+		vpa := &unstructured.Unstructured{}
+		vpa.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "autoscaling.k8s.io",
+			Version: "v1",
+			Kind:    "VerticalPodAutoscaler",
+		})
+		vpa.SetNamespace(cdiCleanupNamespace)
+		vpa.SetName(name)
+
+		err := k8s.Delete(ctx, vpa, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		switch {
+		case apierrors.IsNotFound(err), meta.IsNoMatchError(err):
+			continue
+		case err != nil:
+			return fmt.Errorf("delete VPA %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+func staleVPANames() []string {
+	return []string{"cdi-operator", "cdi-apiserver", "cdi-deployment"}
+}
+
 // stripCDIConfigFinalizers removes the finalizers from the CDI `config` CR.
 // The CR is intentionally kept in the release (unused), but it carries
 // operator.cdi.kubevirt.io added by the now-removed cdi-operator; with that
@@ -71,12 +114,7 @@ func cleanup(ctx context.Context, input *pkg.HookInput) error {
 // deploy. Done with a direct client rather than a PatchCollector operation:
 // a collected patch fails the whole ModuleRun at the discovery level if the
 // CRD is absent, while here the absent kind is just a no-op.
-func stripCDIConfigFinalizers(ctx context.Context, input *pkg.HookInput) error {
-	k8s, err := input.DC.GetK8sClient()
-	if err != nil {
-		return fmt.Errorf("get kubernetes client: %w", err)
-	}
-
+func stripCDIConfigFinalizers(ctx context.Context, k8s pkg.KubernetesClient) error {
 	cr := &unstructured.Unstructured{}
 	cr.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "cdi.internal.virtualization.deckhouse.io",
@@ -84,7 +122,7 @@ func stripCDIConfigFinalizers(ctx context.Context, input *pkg.HookInput) error {
 		Kind:    "InternalVirtualizationCDI",
 	})
 
-	err = k8s.Get(ctx, client.ObjectKey{Name: "config"}, cr)
+	err := k8s.Get(ctx, client.ObjectKey{Name: "config"}, cr)
 	switch {
 	case apierrors.IsNotFound(err), meta.IsNoMatchError(err):
 		return nil
@@ -119,7 +157,6 @@ func cdiOperatorResources() []staleResource {
 	return []staleResource{
 		namespaced("apps/v1", "Deployment", "cdi-operator"),
 		namespaced("policy/v1", "PodDisruptionBudget", "cdi-operator"),
-		namespaced("autoscaling.k8s.io/v1", "VerticalPodAutoscaler", "cdi-operator"),
 	}
 }
 
@@ -171,8 +208,6 @@ func cdiRuntimeResources() []staleResource {
 		namespaced("rbac.authorization.k8s.io/v1", "RoleBinding", "cdi-deployment"),
 		namespaced("policy/v1", "PodDisruptionBudget", "cdi-apiserver"),
 		namespaced("policy/v1", "PodDisruptionBudget", "cdi-deployment"),
-		namespaced("autoscaling.k8s.io/v1", "VerticalPodAutoscaler", "cdi-apiserver"),
-		namespaced("autoscaling.k8s.io/v1", "VerticalPodAutoscaler", "cdi-deployment"),
 	}
 }
 

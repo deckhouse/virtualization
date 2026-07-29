@@ -80,6 +80,29 @@ func TestStaleCDIResources(t *testing.T) {
 	}
 }
 
+func TestStaleCDIResourcesHaveNoVPA(t *testing.T) {
+	// VPAs must never be deleted through the PatchCollector: when the VPA module
+	// is disabled the autoscaling.k8s.io/v1 kind is absent, and a collected
+	// delete fails the whole ModuleRun at discovery. They are handled by
+	// deleteStaleVPAs via a direct client, which tolerates the absent kind.
+	for _, resource := range staleCDIResources() {
+		if resource.kind == "VerticalPodAutoscaler" {
+			t.Fatalf("VPA must not be deleted via PatchCollector: %#v", resource)
+		}
+	}
+
+	want := map[string]bool{"cdi-operator": true, "cdi-apiserver": true, "cdi-deployment": true}
+	got := staleVPANames()
+	if len(got) != len(want) {
+		t.Fatalf("unexpected stale VPA names: %#v", got)
+	}
+	for _, name := range got {
+		if !want[name] {
+			t.Fatalf("unexpected stale VPA name: %q", name)
+		}
+	}
+}
+
 func assertHasResource(t *testing.T, resources []staleResource, want staleResource) {
 	t.Helper()
 
