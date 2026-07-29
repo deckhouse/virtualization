@@ -135,9 +135,10 @@ var _ = Describe("HTTPDataSource", func() {
 		}
 
 		importerSvc = &HTTPDataSourceImporterServiceMock{
-			GetPodFunc:  func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
-			CleanUpFunc: func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
-			ProtectFunc: func(_ context.Context, _ *corev1.Pod, _ supplements.Generator) error { return nil },
+			GetPodFunc:    func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
+			CleanUpFunc:   func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			ProtectFunc:   func(_ context.Context, _ *corev1.Pod, _ supplements.Generator) error { return nil },
+			UnprotectFunc: func(_ context.Context, _ *corev1.Pod, _ supplements.Generator) error { return nil },
 		}
 
 		stat = &HTTPDataSourceStatServiceMock{

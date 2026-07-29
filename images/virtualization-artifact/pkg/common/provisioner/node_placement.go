@@ -115,9 +115,13 @@ func AddTolerationForSystemNodes(placement *NodePlacement) {
 	if placement == nil {
 		return
 	}
-	// Do nothing if system-node toleration is present.
+	// Skip only an exact duplicate: a user toleration with the same key/value but
+	// a narrower operator/effect must not suppress the catch-all system one.
 	for _, toleration := range placement.Tolerations {
-		if toleration.Key == systemNodeToleration.Key && toleration.Value == systemNodeToleration.Value {
+		if toleration.Key == systemNodeToleration.Key &&
+			toleration.Value == systemNodeToleration.Value &&
+			toleration.Operator == systemNodeToleration.Operator &&
+			toleration.Effect == systemNodeToleration.Effect {
 			return
 		}
 	}

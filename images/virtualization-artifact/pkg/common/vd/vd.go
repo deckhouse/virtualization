@@ -165,6 +165,24 @@ func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.Virtual
 	return &nodePlacement, nil
 }
 
+// GetDVCRNodePlacement never returns nil so the DVCR provisioner tolerations hash
+// is identical at pod creation and change detection: a mismatch would endlessly
+// recreate an unschedulable pod.
+func GetDVCRNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.VirtualDisk) (*provisioner.NodePlacement, error) {
+	nodePlacement, err := GetNodePlacement(ctx, c, vd)
+	if err != nil {
+		return nil, err
+	}
+
+	if nodePlacement == nil {
+		nodePlacement = &provisioner.NodePlacement{}
+	}
+
+	provisioner.AddTolerationForSystemNodes(nodePlacement)
+
+	return nodePlacement, nil
+}
+
 // ValidateVirtualImageStorageClassProvisionerCompatibility forbids provisioning a
 // VirtualDisk from a PVC-backed VirtualImage that lives on a storage class backed
 // by a different CSI driver: the PVC-to-PVC copy cannot cross the driver boundary.

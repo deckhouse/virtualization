@@ -28,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -55,6 +56,7 @@ type CreateImporterStep struct {
 	pod             *corev1.Pod
 	settingsBuilder ImporterEnvSettingsBuilder
 	importer        CreateImporterStepImporterService
+	client          client.Client
 	recorder        eventrecord.EventRecorderLogger
 	cb              *conditions.ConditionBuilder
 	eventText       string
@@ -65,6 +67,7 @@ func NewCreateImporterStep(
 	pod *corev1.Pod,
 	settingsBuilder ImporterEnvSettingsBuilder,
 	importer CreateImporterStepImporterService,
+	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	eventText string,
@@ -74,6 +77,7 @@ func NewCreateImporterStep(
 		pod:             pod,
 		settingsBuilder: settingsBuilder,
 		importer:        importer,
+		client:          client,
 		recorder:        recorder,
 		cb:              cb,
 		eventText:       eventText,
@@ -105,7 +109,12 @@ func (s CreateImporterStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	settings := s.settingsBuilder(vd, supgen)
 	caBundle := datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource)
 
-	err := s.importer.Start(ctx, settings, vd, supgen, caBundle, service.WithSystemNodeToleration())
+	nodePlacement, err := commonvd.GetDVCRNodePlacement(ctx, s.client, vd)
+	if err != nil {
+		return nil, fmt.Errorf("get node placement: %w", err)
+	}
+
+	err = s.importer.Start(ctx, settings, vd, supgen, caBundle, service.WithNodePlacement(nodePlacement))
 	switch {
 	case err == nil:
 		// OK.

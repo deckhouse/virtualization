@@ -29,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -51,6 +52,7 @@ type CreateUploaderStep struct {
 	ing          *netv1.Ingress
 	uploader     CreateUploaderStepUploaderService
 	dvcrSettings *dvcr.Settings
+	client       client.Client
 	recorder     eventrecord.EventRecorderLogger
 	cb           *conditions.ConditionBuilder
 }
@@ -62,6 +64,7 @@ func NewCreateUploaderStep(
 	ing *netv1.Ingress,
 	uploader CreateUploaderStepUploaderService,
 	dvcrSettings *dvcr.Settings,
+	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 ) *CreateUploaderStep {
@@ -72,6 +75,7 @@ func NewCreateUploaderStep(
 		ing:          ing,
 		uploader:     uploader,
 		dvcrSettings: dvcrSettings,
+		client:       client,
 		recorder:     recorder,
 		cb:           cb,
 	}
@@ -101,10 +105,15 @@ func (s CreateUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	supgen := vdsupplements.NewGenerator(vd)
 	settings := s.getEnvSettings(vd, supgen)
 
-	err := s.uploader.Start(
+	nodePlacement, err := commonvd.GetDVCRNodePlacement(ctx, s.client, vd)
+	if err != nil {
+		return nil, fmt.Errorf("get node placement: %w", err)
+	}
+
+	err = s.uploader.Start(
 		ctx, settings, vd, supgen,
 		datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource),
-		service.WithSystemNodeToleration(),
+		service.WithNodePlacement(nodePlacement),
 	)
 	switch {
 	case err == nil:

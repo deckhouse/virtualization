@@ -131,3 +131,35 @@ var _ = Describe("IsNodePlacementChanged", func() {
 		})
 	})
 })
+
+var _ = Describe("AddTolerationForSystemNodes", func() {
+	systemToleration := corev1.Toleration{
+		Key:      "dedicated.deckhouse.io",
+		Operator: corev1.TolerationOpEqual,
+		Value:    "system",
+	}
+
+	It("appends to nil tolerations", func() {
+		placement := &NodePlacement{}
+		AddTolerationForSystemNodes(placement)
+		Expect(placement.Tolerations).To(Equal([]corev1.Toleration{systemToleration}))
+	})
+
+	It("does not duplicate an exact match", func() {
+		placement := &NodePlacement{Tolerations: []corev1.Toleration{systemToleration}}
+		AddTolerationForSystemNodes(placement)
+		Expect(placement.Tolerations).To(Equal([]corev1.Toleration{systemToleration}))
+	})
+
+	It("appends when the same key and value have a narrower effect", func() {
+		narrower := corev1.Toleration{
+			Key:      "dedicated.deckhouse.io",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "system",
+			Effect:   corev1.TaintEffectNoExecute,
+		}
+		placement := &NodePlacement{Tolerations: []corev1.Toleration{narrower}}
+		AddTolerationForSystemNodes(placement)
+		Expect(placement.Tolerations).To(Equal([]corev1.Toleration{narrower, systemToleration}))
+	})
+})

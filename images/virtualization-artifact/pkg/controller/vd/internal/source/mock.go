@@ -3205,6 +3205,9 @@ var _ HTTPDataSourceImporterService = &HTTPDataSourceImporterServiceMock{}
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
+//			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
+//				panic("mock out the Unprotect method")
+//			},
 //		}
 //
 //		// use mockedHTTPDataSourceImporterService in code that requires HTTPDataSourceImporterService
@@ -3223,6 +3226,9 @@ type HTTPDataSourceImporterServiceMock struct {
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+
+	// UnprotectFunc mocks the Unprotect method.
+	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -3264,11 +3270,21 @@ type HTTPDataSourceImporterServiceMock struct {
 			// Opts is the opts argument value.
 			Opts []service.Option
 		}
+		// Unprotect holds details about calls to the Unprotect method.
+		Unprotect []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Pod is the pod argument value.
+			Pod *corev1.Pod
+			// Sup is the sup argument value.
+			Sup supplements.Generator
+		}
 	}
-	lockCleanUp sync.RWMutex
-	lockGetPod  sync.RWMutex
-	lockProtect sync.RWMutex
-	lockStart   sync.RWMutex
+	lockCleanUp   sync.RWMutex
+	lockGetPod    sync.RWMutex
+	lockProtect   sync.RWMutex
+	lockStart     sync.RWMutex
+	lockUnprotect sync.RWMutex
 }
 
 // CleanUp calls CleanUpFunc.
@@ -3432,6 +3448,46 @@ func (mock *HTTPDataSourceImporterServiceMock) StartCalls() []struct {
 	mock.lockStart.RLock()
 	calls = mock.calls.Start
 	mock.lockStart.RUnlock()
+	return calls
+}
+
+// Unprotect calls UnprotectFunc.
+func (mock *HTTPDataSourceImporterServiceMock) Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
+	if mock.UnprotectFunc == nil {
+		panic("HTTPDataSourceImporterServiceMock.UnprotectFunc: method is nil but HTTPDataSourceImporterService.Unprotect was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Pod *corev1.Pod
+		Sup supplements.Generator
+	}{
+		Ctx: ctx,
+		Pod: pod,
+		Sup: sup,
+	}
+	mock.lockUnprotect.Lock()
+	mock.calls.Unprotect = append(mock.calls.Unprotect, callInfo)
+	mock.lockUnprotect.Unlock()
+	return mock.UnprotectFunc(ctx, pod, sup)
+}
+
+// UnprotectCalls gets all the calls that were made to Unprotect.
+// Check the length with:
+//
+//	len(mockedHTTPDataSourceImporterService.UnprotectCalls())
+func (mock *HTTPDataSourceImporterServiceMock) UnprotectCalls() []struct {
+	Ctx context.Context
+	Pod *corev1.Pod
+	Sup supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Pod *corev1.Pod
+		Sup supplements.Generator
+	}
+	mock.lockUnprotect.RLock()
+	calls = mock.calls.Unprotect
+	mock.lockUnprotect.RUnlock()
 	return calls
 }
 
@@ -4039,6 +4095,9 @@ var _ RegistryDataSourceImporterService = &RegistryDataSourceImporterServiceMock
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
+//			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
+//				panic("mock out the Unprotect method")
+//			},
 //		}
 //
 //		// use mockedRegistryDataSourceImporterService in code that requires RegistryDataSourceImporterService
@@ -4057,6 +4116,9 @@ type RegistryDataSourceImporterServiceMock struct {
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+
+	// UnprotectFunc mocks the Unprotect method.
+	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -4098,11 +4160,21 @@ type RegistryDataSourceImporterServiceMock struct {
 			// Opts is the opts argument value.
 			Opts []service.Option
 		}
+		// Unprotect holds details about calls to the Unprotect method.
+		Unprotect []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Pod is the pod argument value.
+			Pod *corev1.Pod
+			// Sup is the sup argument value.
+			Sup supplements.Generator
+		}
 	}
-	lockCleanUp sync.RWMutex
-	lockGetPod  sync.RWMutex
-	lockProtect sync.RWMutex
-	lockStart   sync.RWMutex
+	lockCleanUp   sync.RWMutex
+	lockGetPod    sync.RWMutex
+	lockProtect   sync.RWMutex
+	lockStart     sync.RWMutex
+	lockUnprotect sync.RWMutex
 }
 
 // CleanUp calls CleanUpFunc.
@@ -4266,6 +4338,46 @@ func (mock *RegistryDataSourceImporterServiceMock) StartCalls() []struct {
 	mock.lockStart.RLock()
 	calls = mock.calls.Start
 	mock.lockStart.RUnlock()
+	return calls
+}
+
+// Unprotect calls UnprotectFunc.
+func (mock *RegistryDataSourceImporterServiceMock) Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
+	if mock.UnprotectFunc == nil {
+		panic("RegistryDataSourceImporterServiceMock.UnprotectFunc: method is nil but RegistryDataSourceImporterService.Unprotect was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Pod *corev1.Pod
+		Sup supplements.Generator
+	}{
+		Ctx: ctx,
+		Pod: pod,
+		Sup: sup,
+	}
+	mock.lockUnprotect.Lock()
+	mock.calls.Unprotect = append(mock.calls.Unprotect, callInfo)
+	mock.lockUnprotect.Unlock()
+	return mock.UnprotectFunc(ctx, pod, sup)
+}
+
+// UnprotectCalls gets all the calls that were made to Unprotect.
+// Check the length with:
+//
+//	len(mockedRegistryDataSourceImporterService.UnprotectCalls())
+func (mock *RegistryDataSourceImporterServiceMock) UnprotectCalls() []struct {
+	Ctx context.Context
+	Pod *corev1.Pod
+	Sup supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Pod *corev1.Pod
+		Sup supplements.Generator
+	}
+	mock.lockUnprotect.RLock()
+	calls = mock.calls.Unprotect
+	mock.lockUnprotect.RUnlock()
 	return calls
 }
 

@@ -47,6 +47,7 @@ type WaitForDVCRImporterStepStatService interface {
 
 type WaitForDVCRImporterStepImporterService interface {
 	Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
+	Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 }
 
 // WaitForDVCRImporterStep tracks an importer Pod that downloads source data into
@@ -102,6 +103,26 @@ func (s WaitForDVCRImporterStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 	return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 }
 
+func (s WaitForDVCRImporterStep) deleteSupplements(ctx context.Context, supgen supplements.Generator) error {
+	authSecretKey := supgen.DVCRAuthSecret()
+	authSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: authSecretKey.Name, Namespace: authSecretKey.Namespace},
+	}
+	if err := client.IgnoreNotFound(s.client.Delete(ctx, authSecret)); err != nil {
+		return fmt.Errorf("delete dvcr auth secret: %w", err)
+	}
+
+	caBundleKey := supgen.CABundleConfigMap()
+	caBundle := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: caBundleKey.Name, Namespace: caBundleKey.Namespace},
+	}
+	if err := client.IgnoreNotFound(s.client.Delete(ctx, caBundle)); err != nil {
+		return fmt.Errorf("delete ca bundle config map: %w", err)
+	}
+
+	return nil
+}
+
 func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha2.VirtualDisk, podErr error) (*reconcile.Result, error) {
 	switch {
 	case errors.Is(podErr, service.ErrNotInitialized):
@@ -115,7 +136,7 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 		vd.Status.Phase = v1alpha2.DiskPending
 		vd.Status.Progress = ""
 
-		nodePlacement, err := commonvd.GetNodePlacement(ctx, s.client, vd)
+		nodePlacement, err := commonvd.GetDVCRNodePlacement(ctx, s.client, vd)
 		if err != nil {
 			return nil, fmt.Errorf("get node placement: %w", err)
 		}
@@ -126,14 +147,28 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 		}
 
 		if isChanged {
-			if err := s.client.Delete(ctx, s.pod); err != nil {
+			supgen := vdsupplements.NewGenerator(vd)
+
+			// Deleting without unprotect leaves the pod terminating forever under the finalizer.
+			if err := s.importer.Unprotect(ctx, s.pod, supgen); err != nil {
+				return nil, fmt.Errorf("unprotect importer pod: %w", err)
+			}
+
+			// The DVCR auth secret and CA bundle config map are owned by the pod being
+			// deleted: remove them along with it, otherwise garbage collection deletes
+			// them from under the recreated pod and it gets stuck without its volumes.
+			if err := s.deleteSupplements(ctx, supgen); err != nil {
+				return nil, fmt.Errorf("delete importer pod supplements: %w", err)
+			}
+
+			if err := client.IgnoreNotFound(s.client.Delete(ctx, s.pod)); err != nil {
 				return nil, fmt.Errorf("recreate importer pod: %w", err)
 			}
 
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningNotStarted).
-				Message("Provisioner recreation due to a changes in the virtual machine tolerations.")
+				Message("Provisioner recreation due to changes in the virtual machine tolerations.")
 		} else {
 			s.cb.
 				Status(metav1.ConditionFalse).
@@ -141,7 +176,9 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 				Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		}
 
-		return &reconcile.Result{}, nil
+		// Neither pod deletion nor VirtualMachineClass changes enqueue the VirtualDisk,
+		// so poll while the importer pod is unschedulable.
+		return &reconcile.Result{RequeueAfter: time.Second}, nil
 	case errors.Is(podErr, service.ErrProvisioningFailed):
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
