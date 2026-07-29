@@ -1,0 +1,9 @@
+module:
+  fixes:
+    - summary: Require sdn >= 0.6.2 when the sdn module is enabled.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/29
+observability:
+  fixes:
+    - summary: "Audit log shipping no longer breaks silently: audit resources wait for the generated TLS certificate, and a log-shipper stuck with a stale CA after rotation is reported with an actionable warning."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/4
+
