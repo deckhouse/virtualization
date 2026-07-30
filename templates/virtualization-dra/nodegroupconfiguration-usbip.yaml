@@ -33,7 +33,7 @@ spec:
 
     modules_exist=true
     for module in "${modules[@]}"; do
-      if [[ ! -e "${module_dir}/${module}" && ! -e "${module_dir}/${module}.zst" ]]; then
+      if [[ ! -e "${module_dir}/${module}" && ! -e "${module_dir}/${module}.zst" && ! -e "${module_dir}/${module}.xz" ]]; then
         modules_exist=false
         break
       fi
@@ -45,7 +45,11 @@ spec:
     fi
 
     if bb-is-distro-like? "debian"; then
-      packages=("linux-modules-extra-${kernel_release}")
+      if [[ "$bundle" == "debian" ]]; then
+        packages=("linux-image-${kernel_release}")
+      else
+        packages=("linux-modules-extra-${kernel_release}")
+      fi
     elif bb-is-distro-like? "rhel" || bb-is-distro-like? "centos" || bb-is-distro-like? "fedora"; then
       packages=("kernel-modules-extra-${kernel_release}" "kernel-modules-extra")
     elif [[ "$bundle" == "altlinux" ]]; then
