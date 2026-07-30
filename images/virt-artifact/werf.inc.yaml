@@ -113,6 +113,11 @@ shell:
     - export GOOS=linux
     - export GOARCH=amd64
     - export CGO_ENABLED=0
+    # Disable the Green Tea GC experiment baked into the ALT golang toolchain.
+    # It regresses the TLS migration-proxy data path (software AES fallback /
+    # high CPU, low throughput). Dropping only this experiment keeps the
+    # CVE-patched toolchain (version and ALT base) untouched.
+    - export GOEXPERIMENT=nogreenteagc
 
     - echo ============== Build container-disk ===================
     {{- $_ := set $ "ProjectName" (list .ImageName "container-disk" | join "/") }}
