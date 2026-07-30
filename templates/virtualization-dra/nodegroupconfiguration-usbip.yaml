@@ -33,7 +33,7 @@ spec:
 
     modules_exist=true
     for module in "${modules[@]}"; do
-      if [[ ! -e "${module_dir}/${module}" && ! -e "${module_dir}/${module}.zst" && ! -e "${module_dir}/${module}.xz" ]]; then
+      if [[ ! -e "${module_dir}/${module}" && ! -e "${module_dir}/${module}.zst" && ! -e "${module_dir}/${module}.xz" && ! -e "${module_dir}/${module}.gz" ]]; then
         modules_exist=false
         break
       fi

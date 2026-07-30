@@ -127,26 +127,33 @@ func (o *initOptions) getPreInstalledModules(kernelRelease string) ([]string, er
 		filepath.Join("/lib/modules", kernelRelease, "kernel/drivers/usb/usbip/vhci-hcd.ko"),
 	}
 
-	for i, m := range modules {
-		exists, err := fileExists(m)
+	for i, base := range modules {
+		resolved, err := resolveModulePath(base)
 		if err != nil {
 			return nil, err
 		}
-
-		if !exists {
-			m += ".zst"
-			exists, err = fileExists(m)
-			if err != nil {
-				return nil, err
-			}
-			if !exists {
-				return nil, fmt.Errorf("module %s not found", m)
-			}
-			modules[i] = m
-		}
+		modules[i] = resolved
 	}
 
 	return modules, nil
+}
+
+// resolveModulePath returns the module path as-is or with the first matching
+// compression suffix, since pre-installed modules may be shipped compressed
+// (.ko.zst, .ko.xz) depending on the host distribution.
+func resolveModulePath(base string) (string, error) {
+	for _, suffix := range []string{"", ".zst", ".xz", ".gz"} {
+		candidate := base + suffix
+		exists, err := fileExists(candidate)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("module %s not found", base)
 }
 
 func fileExists(path string) (bool, error) {
