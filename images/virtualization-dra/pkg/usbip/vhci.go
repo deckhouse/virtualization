@@ -29,10 +29,9 @@ const (
 	platformPath           = "/sys/devices/platform"
 	usbipVhciHcdNPortsPath = "/sys/devices/platform/vhci_hcd.0/nports"
 
-	vhciHcdAttach              = "/sys/devices/platform/vhci_hcd.0/attach"
-	vhciHcdDetach              = "/sys/devices/platform/vhci_hcd.0/detach"
-	vhciHcdStatus              = "/sys/devices/platform/vhci_hcd.0/status"
-	secondaryVhciHcdStatusTmpl = "/sys/devices/platform/vhci_hcd.%d/status.%d"
+	vhciHcdAttach = "/sys/devices/platform/vhci_hcd.0/attach"
+	vhciHcdDetach = "/sys/devices/platform/vhci_hcd.0/detach"
+	vhciHcdStatus = "/sys/devices/platform/vhci_hcd.0/status"
 
 	vhciStatePortTmpl = "/var/run/vhci_hcd/port%d"
 )
@@ -41,8 +40,15 @@ func vhciStatePortPath(port int) string {
 	return fmt.Sprintf(vhciStatePortTmpl, port)
 }
 
-func secondaryVhciHcdStatusPath(count int) string {
-	return fmt.Sprintf(secondaryVhciHcdStatusTmpl, count, count)
+// vhciHcdStatusPath returns the sysfs status attribute of the given vhci_hcd
+// controller. Every controller exposes its attribute on vhci_hcd.0: the first
+// one as "status", the rest as "status.<n>".
+func vhciHcdStatusPath(controller int) string {
+	if controller == 0 {
+		return vhciHcdStatus
+	}
+
+	return fmt.Sprintf("%s.%d", vhciHcdStatus, controller)
 }
 
 type vhciDriver struct {
@@ -130,12 +136,8 @@ func getNControllers() (int, error) {
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/libsrc/vhci_driver.c#L111
 func (d *vhciDriver) refreshImportDeviceList() error {
-	status := vhciHcdStatus
-
 	for i := 0; i < d.ncontrollers; i++ {
-		if i > 0 {
-			status = secondaryVhciHcdStatusPath(i)
-		}
+		status := vhciHcdStatusPath(i)
 
 		attrStatus, err := os.ReadFile(status)
 		if err != nil {
