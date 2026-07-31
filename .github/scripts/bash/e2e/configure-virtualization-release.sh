@@ -73,7 +73,6 @@ spec:
     featureGates:
       - HotplugCPUWithLiveMigration
       - HotplugMemoryWithLiveMigration
-      - HotplugCPUAndMemoryWithInPlaceResize
   source: deckhouse-dev
   version: 1
 ---
