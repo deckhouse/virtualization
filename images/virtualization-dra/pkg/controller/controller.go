@@ -85,15 +85,18 @@ func (c *controller) Run(ctx context.Context, workers int) error {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	c.log.Info("Starting workers controller")
-	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, c.worker, time.Second)
-	}
-
+	// Start the controller before spawning workers: Start may perform the
+	// initial state collection that Sync relies on. Spawning workers first
+	// lets a Sync run against not-yet-initialized state.
 	if exp, ok := c.controller.(ExpansionStart); ok {
 		if err := exp.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start controller: %w", err)
 		}
+	}
+
+	c.log.Info("Starting workers controller")
+	for i := 0; i < workers; i++ {
+		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}
 
 	<-ctx.Done()

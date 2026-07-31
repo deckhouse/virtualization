@@ -182,8 +182,12 @@ func (c *USBGatewayController) storeAttachInfo(info usbip.AttachInfo) {
 	c.attachInfo.Store(info)
 }
 
-func (c *USBGatewayController) getAttachInfo() usbip.AttachInfo {
-	return c.attachInfo.Load().(usbip.AttachInfo)
+// getAttachInfo returns the last stored attach info. The second return value is
+// false until Start has performed the initial collection, so callers can requeue
+// instead of acting on empty state.
+func (c *USBGatewayController) getAttachInfo() (usbip.AttachInfo, bool) {
+	info, ok := c.attachInfo.Load().(usbip.AttachInfo)
+	return info, ok
 }
 
 func (c *USBGatewayController) Start(ctx context.Context) error {
@@ -362,7 +366,12 @@ func (c *USBGatewayController) ensureAttachInfo(ctx context.Context, node *corev
 		return node, nil
 	}
 
-	attachInfo := c.getAttachInfo()
+	attachInfo, ok := c.getAttachInfo()
+	if !ok {
+		c.log.Info("attach info is not collected yet, requeue")
+		c.queueAddAfter(c.nodeName, time.Second)
+		return node, nil
+	}
 	hsHub, ssHub := calculateUsedPorts(attachInfo)
 
 	jp := patch.NewJSONPatch()
@@ -402,7 +411,12 @@ func (c *USBGatewayController) ensureAnno(jp *patch.JSONPatch, anno, newValue st
 }
 
 func (c *USBGatewayController) markNode(ctx context.Context) error {
-	attachInfo := c.getAttachInfo()
+	attachInfo, ok := c.getAttachInfo()
+	if !ok {
+		c.log.Info("attach info is not collected yet, requeue")
+		c.queueAddAfter(c.nodeName, time.Second)
+		return nil
+	}
 
 	perHub := attachInfo.NPorts / 2
 	hsHub, ssHub := calculateUsedPorts(attachInfo)
