@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -241,7 +242,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		cvi.Status.Size = dvcrDataSource.GetSize()
 		cvi.Status.CDROM = dvcrDataSource.IsCDROM()
 		cvi.Status.Format = dvcrDataSource.GetFormat()
-		cvi.Status.Progress = service.ProgressDone
+		cvi.Status.Progress = servicestat.ProgressDone
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)

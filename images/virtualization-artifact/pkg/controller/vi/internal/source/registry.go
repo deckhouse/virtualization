@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -150,7 +151,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtua
 			Reason(vicondition.Provisioning).
 			Message("Preparing to import the image.")
 
-		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50)), 100)
+		vi.Status.Progress = servicestat.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, servicestat.NewScaleOption(0, 50)), 100)
 
 		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
@@ -231,7 +232,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 			vi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
-			case errors.Is(err, service.ErrProvisioningFailed):
+			case errors.Is(err, servicestat.ErrProvisioningFailed):
 				ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
@@ -275,7 +276,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 			Message("The image is being imported.")
 
 		vi.Status.Phase = v1alpha2.ImageProvisioning
-		vi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress), 100)
+		vi.Status.Progress = servicestat.CapProgressBelow(ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress), 100)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)

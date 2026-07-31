@@ -20,7 +20,6 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,8 +27,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -48,18 +48,13 @@ type Importer interface {
 }
 
 type Uploader interface {
-	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	Apply(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error
+	EnsureExposure(ctx context.Context, obj client.Object, sup supplements.Generator) error
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
-	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
-	Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
-	Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
-	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
-	GetInClusterURL(ctx context.Context, svc *corev1.Service) string
-	EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
-	IngressHostDrifted(ing *netv1.Ingress) bool
-	ExpectedIngressHost() string
+	GetExposure(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error)
+	GetInClusterURL(svc *corev1.Service) string
+	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 type Stat interface {
@@ -68,8 +63,8 @@ type Stat interface {
 	GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize
 	GetDVCRImageName(pod *corev1.Pod) string
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
-	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
-	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error)
+	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
+	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error)
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	CheckPod(pod *corev1.Pod) error
 }

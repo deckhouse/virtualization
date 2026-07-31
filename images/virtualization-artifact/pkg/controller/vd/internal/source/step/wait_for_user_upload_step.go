@@ -23,18 +23,15 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
-	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -43,47 +40,43 @@ import (
 type WaitForUserUploadStepStatService interface {
 	CheckPod(pod *corev1.Pod) error
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
-	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error)
+	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error)
 }
 
 type WaitForDVCRUploaderStepStatService interface {
 	CheckPod(pod *corev1.Pod) error
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
-	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 }
 
 type WaitForUserUploadStepUploaderService interface {
-	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
-	GetInClusterURL(ctx context.Context, svc *corev1.Service) string
+	GetInClusterURL(svc *corev1.Service) string
 }
 
 type WaitForUserUploadStep struct {
 	pod             *corev1.Pod
 	svc             *corev1.Service
-	ing             *netv1.Ingress
+	exposure        serviceuploader.UploaderExposure
 	stat            WaitForUserUploadStepStatService
 	uploaderService WaitForUserUploadStepUploaderService
-	client          client.Client
 	cb              *conditions.ConditionBuilder
 }
 
 func NewWaitForUserUploadStep(
 	pod *corev1.Pod,
 	svc *corev1.Service,
-	ing *netv1.Ingress,
+	exposure serviceuploader.UploaderExposure,
 	stat WaitForUserUploadStepStatService,
 	uploaderService WaitForUserUploadStepUploaderService,
-	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *WaitForUserUploadStep {
 	return &WaitForUserUploadStep{
 		pod:             pod,
 		svc:             svc,
-		ing:             ing,
+		exposure:        exposure,
 		stat:            stat,
 		uploaderService: uploaderService,
-		client:          client,
 		cb:              cb,
 	}
 }
@@ -93,7 +86,6 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 		return nil, nil
 	}
 
-	supgen := vdsupplements.NewGenerator(vd)
 	uploadStarted := s.stat.IsUploadStarted(vd.GetUID(), s.pod) || hasUploadProgress(vd.Status.Progress)
 	if uploadStarted {
 		return nil, nil
@@ -103,12 +95,7 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 		return s.handlePodError(ctx, vd, err)
 	}
 
-	tlsSecret, err := supplements.GetTLSSecret(ctx, s.client, supgen.Generator)
-	if err != nil {
-		return nil, fmt.Errorf("fetch uploader tls secret: %w", err)
-	}
-
-	isUploaderReady, err := s.stat.IsUploaderReady(s.pod, s.svc, s.ing, tlsSecret)
+	isUploaderReady, err := s.stat.IsUploaderReady(s.pod, s.svc, s.exposure)
 	if err != nil {
 		// A probe error means the public upload endpoint is not reachable yet
 		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
@@ -124,8 +111,8 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 			Reason(vdcondition.WaitForUserUpload).
 			Message("Waiting for the image to be uploaded.")
 		vd.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
-			External:  s.uploaderService.GetExternalURL(ctx, s.ing),
-			InCluster: s.uploaderService.GetInClusterURL(ctx, s.svc),
+			External:  s.exposure.UploadURL,
+			InCluster: s.uploaderService.GetInClusterURL(s.svc),
 		}
 	} else {
 		vd.Status.Phase = v1alpha2.DiskProvisioning
@@ -135,7 +122,9 @@ func (s WaitForUserUploadStep) Take(ctx context.Context, vd *v1alpha2.VirtualDis
 			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", s.pod.Name))
 	}
 
-	return &reconcile.Result{RequeueAfter: uploader.WaitForUserUploadRequeueAfter}, nil
+	// Keep polling: the start of the upload is only visible through the pod metrics
+	// scraped on reconcile.
+	return &reconcile.Result{RequeueAfter: serviceuploader.WaitForUserUploadRequeueAfter}, nil
 }
 
 type WaitForDVCRUploaderStep struct {
@@ -179,7 +168,7 @@ func (s WaitForDVCRUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 		Reason(vdcondition.Provisioning).
 		Message("Import is in the process of provisioning to DVCR.")
 
-	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), s.pod, vd.Status.Progress, service.NewScaleOption(0, 50))
+	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), s.pod, vd.Status.Progress, servicestat.NewScaleOption(0, 50))
 	vd.Status.DownloadSpeed = s.stat.GetDownloadSpeed(vd.GetUID(), s.pod)
 
 	return &reconcile.Result{RequeueAfter: time.Second}, nil
@@ -191,7 +180,7 @@ func (s WaitForUserUploadStep) handlePodError(_ context.Context, vd *v1alpha2.Vi
 
 func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditions.ConditionBuilder, uploadStarted bool) (*reconcile.Result, error) {
 	switch {
-	case errors.Is(podErr, service.ErrNotInitialized), errors.Is(podErr, service.ErrNotScheduled):
+	case errors.Is(podErr, servicestat.ErrNotInitialized), errors.Is(podErr, servicestat.ErrNotScheduled):
 		if uploadStarted {
 			vd.Status.Phase = v1alpha2.DiskProvisioning
 			cb.
@@ -207,7 +196,7 @@ func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditio
 			Reason(vdcondition.Provisioning).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		return &reconcile.Result{}, nil
-	case errors.Is(podErr, service.ErrProvisioningFailed):
+	case errors.Is(podErr, servicestat.ErrProvisioningFailed):
 		vd.Status.Phase = v1alpha2.DiskFailed
 		cb.
 			Status(metav1.ConditionFalse).

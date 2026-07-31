@@ -25,8 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -84,11 +83,6 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch uploader service: %w", err)
 	}
-	ing, err := ds.uploaderService.GetIngress(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch uploader ingress: %w", err)
-	}
-
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
@@ -97,47 +91,38 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		ctx = logger.ToContext(ctx, log.With("pvc.name", pvc.Name, "pvc.status.phase", pvc.Status.Phase))
 	}
 
-	tlsSecret, err := supplements.GetTLSSecret(ctx, ds.client, supgen.Generator)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch uploader tls secret: %w", err)
+	// Repair the external exposure before it is read and probed below. The uploader
+	// is only needed until the PVC exists, and its initial creation is Apply's job.
+	if pod != nil && pvc == nil {
+		if err = ds.uploaderService.EnsureExposure(ctx, vd, supgen); err != nil {
+			return reconcile.Result{}, fmt.Errorf("reconcile uploader exposure: %w", err)
+		}
 	}
 
-	// Reconcile the uploader Ingress and its TLS secret before the readiness probe.
-	// All uploaders share one public host: if the Ingress host drifts (e.g. after
-	// publicDomainTemplate changed) or its copied TLS secret goes missing,
-	// ingress-nginx serves its default certificate for the whole host and every
-	// upload on it breaks. IsUploaderReady HTTPS-probes that host, so restore both
-	// first. Initial creation is handled by Start, so skip when the pod is absent.
-	tlsCopyMissing := tlsSecret == nil && supplements.ShouldCopyUploaderTLSSecret(ds.dvcrSettings, supgen.Generator)
-	if pod != nil && (ds.uploaderService.IngressHostDrifted(ing) || tlsCopyMissing) {
-		var oldHost string
-		if ing != nil && len(ing.Spec.Rules) > 0 {
-			oldHost = ing.Spec.Rules[0].Host
-		}
-		log.Info("Reconciling uploader Ingress", "hostDrifted", ds.uploaderService.IngressHostDrifted(ing), "tlsSecretMissing", tlsCopyMissing, "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
-		ing, err = ds.uploaderService.EnsureIngress(ctx, vd, supgen)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	// exposure is the transport-agnostic (Ingress or HTTPRoute) view of the
+	// uploader's external endpoint.
+	exposure, err := ds.uploaderService.GetExposure(ctx, supgen)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("fetch uploader exposure: %w", err)
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
-		step.NewCleanUpUploaderStep(pod, svc, ing, ds.uploaderService),
+		step.NewCleanUpUploaderStep(pod, svc, exposure.Exists, ds.uploaderService),
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewWaitForUserUploadTimeoutStep(ds.uploaderService, ds.recorder, cb),
-		step.NewCreateUploaderStep(pvc, pod, svc, ing, ds.uploaderService, ds.dvcrSettings, ds.client, ds.recorder, cb),
-		step.NewWaitForUserUploadStep(pod, svc, ing, ds.statService, ds.uploaderService, ds.client, cb),
+		step.NewCreateUploaderStep(pvc, pod, svc, exposure.Ensured(), ds.uploaderService, ds.dvcrSettings, ds.client, ds.recorder, cb),
+		step.NewWaitForUserUploadStep(pod, svc, exposure, ds.statService, ds.uploaderService, cb),
 		step.NewWaitForDVCRUploaderStep(pod, ds.statService, cb),
 		step.NewCreatePVCFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.pvcService, ds.client, cb),
-		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.pvcService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.pvcService, ds.statService, servicestat.NewScaleOption(50, 100), ds.client, cb),
 	).Run(ctx, vd)
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	uploaderRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
+	uploaderRequeue, err := ds.uploaderService.Cleanup(ctx, supgen)
 	if err != nil {
 		return false, fmt.Errorf("clean up uploader: %w", err)
 	}

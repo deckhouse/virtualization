@@ -22,17 +22,20 @@ import (
 	"crypto/md5"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -77,6 +80,7 @@ type DataProcessor struct {
 	sha256Sum     string
 	md5Sum        string
 	destInsecure  bool
+	destCABundle  string
 }
 
 type DestinationRegistry struct {
@@ -84,17 +88,21 @@ type DestinationRegistry struct {
 	Username  string
 	Password  string
 	Insecure  bool
+	// CABundle is a path to a PEM file or a directory with PEM files used to
+	// verify the destination registry certificate. Ignored when Insecure is set.
+	CABundle string
 }
 
 func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistry, sha256Sum, md5Sum string) (*DataProcessor, error) {
 	return &DataProcessor{
-		ds,
-		dest.Username,
-		dest.Password,
-		dest.ImageName,
-		sha256Sum,
-		md5Sum,
-		dest.Insecure,
+		ds:            ds,
+		destUsername:  dest.Username,
+		destPassword:  dest.Password,
+		destImageName: dest.ImageName,
+		sha256Sum:     sha256Sum,
+		md5Sum:        md5Sum,
+		destInsecure:  dest.Insecure,
+		destCABundle:  dest.CABundle,
 	}, nil
 }
 
@@ -325,7 +333,10 @@ func (p DataProcessor) uploadLayersAndImage(
 	informer *ImageInformer,
 ) error {
 	nameOpts := destNameOptions(p.destInsecure)
-	remoteOpts := destRemoteOptions(ctx, p.destUsername, p.destPassword, p.destInsecure)
+	remoteOpts, err := destRemoteOptions(ctx, p.destUsername, p.destPassword, p.destCABundle, p.destInsecure)
+	if err != nil {
+		return err
+	}
 	image := empty.Image
 
 	ref, err := name.ParseReference(p.destImageName, nameOpts...)
@@ -417,9 +428,19 @@ func destNameOptions(destInsecure bool) []name.Option {
 	return nameOpts
 }
 
-func destRemoteOptions(ctx context.Context, destUsername, destPassword string, destInsecure bool) []remote.Option {
+func destRemoteOptions(ctx context.Context, destUsername, destPassword, destCABundle string, destInsecure bool) ([]remote.Option, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: destInsecure,
+	}
+
+	// A custom CA bundle only makes sense when the certificate is being verified.
+	if !destInsecure && destCABundle != "" {
+		rootCAs, err := loadCABundle(destCABundle)
+		if err != nil {
+			return nil, fmt.Errorf("load destination CA bundle: %w", err)
+		}
+
+		tlsConfig.RootCAs = rootCAs
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -431,7 +452,55 @@ func destRemoteOptions(ctx context.Context, destUsername, destPassword string, d
 		remote.WithAuth(&authn.Basic{Username: destUsername, Password: destPassword}),
 	}
 
-	return remoteOpts
+	return remoteOpts, nil
+}
+
+// loadCABundle builds a CertPool from a PEM file or a directory with PEM files.
+// It starts from the system pool so well-known CAs keep working alongside the
+// supplied bundle.
+func loadCABundle(path string) (*x509.CertPool, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("stat %q: %w", path, err)
+	}
+
+	var files []string
+	if info.IsDir() {
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return nil, fmt.Errorf("read dir %q: %w", path, err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			files = append(files, filepath.Join(path, entry.Name()))
+		}
+	} else {
+		files = append(files, path)
+	}
+
+	appended := false
+	for _, file := range files {
+		pemData, err := os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("read %q: %w", file, err)
+		}
+		if pool.AppendCertsFromPEM(pemData) {
+			appended = true
+		}
+	}
+
+	if !appended {
+		return nil, fmt.Errorf("no valid certificates found in %q", path)
+	}
+
+	return pool, nil
 }
 
 type EmptyWriter struct{}

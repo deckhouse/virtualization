@@ -24,7 +24,6 @@ import (
 // Settings stores all possible settings for dvcr-uploader binary.
 // Fields from this struct are passed via environment variables.
 type Settings struct {
-	Verbose                string
 	DestinationEndpoint    string
 	DestinationInsecureTLS string
 	DestinationAuthSecret  string

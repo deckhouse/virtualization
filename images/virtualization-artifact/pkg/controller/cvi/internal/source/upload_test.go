@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,8 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -45,7 +45,7 @@ var _ = Describe("Upload DataSource", func() {
 		cvi            *v1alpha2.ClusterVirtualImage
 		pod            *corev1.Pod
 		svc            *corev1.Service
-		ing            *netv1.Ingress
+		exposure       serviceuploader.UploaderExposure
 		uploaderMock   *UploaderMock
 		statMock       *StatMock
 		recordedEvents []string
@@ -98,7 +98,10 @@ var _ = Describe("Upload DataSource", func() {
 			Status: corev1.PodStatus{Phase: corev1.PodRunning},
 		}
 		svc = &corev1.Service{}
-		ing = &netv1.Ingress{}
+		exposure = serviceuploader.UploaderExposure{
+			Exists:    true,
+			UploadURL: "https://upload.example.com",
+		}
 
 		uploaderMock = &UploaderMock{
 			GetPodFunc: func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) {
@@ -107,24 +110,21 @@ var _ = Describe("Upload DataSource", func() {
 			GetServiceFunc: func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) {
 				return svc, nil
 			},
-			GetIngressFunc: func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) {
-				return ing, nil
+			GetExposureFunc: func(_ context.Context, _ supplements.Generator) (serviceuploader.UploaderExposure, error) {
+				return exposure, nil
 			},
-			IngressHostDriftedFunc: func(_ *netv1.Ingress) bool {
-				return false
+			EnsureExposureFunc: func(_ context.Context, _ client.Object, _ supplements.Generator) error {
+				return nil
 			},
-			CleanUpFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
+			CleanupFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return true, nil
 			},
-			GetExternalURLFunc: func(_ context.Context, _ *netv1.Ingress) string {
-				return "https://upload.example.com"
-			},
-			GetInClusterURLFunc: func(_ context.Context, _ *corev1.Service) string {
+			GetInClusterURLFunc: func(_ *corev1.Service) string {
 				return "http://10.0.0.1/upload"
 			},
 		}
 		statMock = &StatMock{
-			IsUploaderReadyFunc: func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+			IsUploaderReadyFunc: func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 				return true, nil
 			},
 			IsUploadStartedFunc: func(_ types.UID, _ *corev1.Pod) bool {
@@ -142,11 +142,38 @@ var _ = Describe("Upload DataSource", func() {
 		res, err := ds.Sync(ctx, cvi)
 
 		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).To(Equal(uploader.WaitForUserUploadRequeueAfter))
+		// The start of the upload is only visible through the pod metrics scraped on
+		// reconcile, so waiting has to keep polling.
+		Expect(res.RequeueAfter).To(Equal(time.Second))
 		Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageWaitForUserUpload))
 		ready, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 		Expect(ready.Reason).To(Equal(cvicondition.WaitForUserUpload.String()))
-		Expect(uploaderMock.CleanUpCalls()).To(BeEmpty())
+		Expect(uploaderMock.CleanupCalls()).To(BeEmpty())
+	})
+
+	It("polls every second while the upload is in progress", func() {
+		statMock.IsUploadStartedFunc = func(_ types.UID, _ *corev1.Pod) bool {
+			return true
+		}
+		statMock.CheckPodFunc = func(_ *corev1.Pod) error {
+			return nil
+		}
+		statMock.GetProgressFunc = func(_ types.UID, _ *corev1.Pod, _ string, _ ...servicestat.GetProgressOption) string {
+			return "42%"
+		}
+		statMock.GetDownloadSpeedFunc = func(_ types.UID, _ *corev1.Pod) *v1alpha2.StatusSpeed {
+			return &v1alpha2.StatusSpeed{Current: "1Mbps"}
+		}
+		ds = newUploadDataSource()
+
+		res, err := ds.Sync(ctx, cvi)
+
+		Expect(err).NotTo(HaveOccurred())
+		// Progress is only refreshed on reconcile, so the poll has to stay tight.
+		Expect(res.RequeueAfter).To(Equal(time.Second))
+		Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
+		Expect(cvi.Status.Progress).To(Equal("42%"))
+		Expect(cvi.Status.DownloadSpeed).ToNot(BeNil())
 	})
 
 	It("fails the import when the upload has not started within the timeout", func() {
@@ -154,7 +181,7 @@ var _ = Describe("Upload DataSource", func() {
 			Type:               cvicondition.ReadyType.String(),
 			Status:             metav1.ConditionFalse,
 			Reason:             cvicondition.WaitForUserUpload.String(),
-			LastTransitionTime: metav1.NewTime(time.Now().Add(-uploader.WaitForUserUploadTimeout - time.Minute)),
+			LastTransitionTime: metav1.NewTime(time.Now().Add(-serviceuploader.WaitForUserUploadTimeout - time.Minute)),
 		}}
 		ds = newUploadDataSource()
 
@@ -167,8 +194,8 @@ var _ = Describe("Upload DataSource", func() {
 		ready, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 		Expect(ready.Reason).To(Equal(cvicondition.WaitForUserUploadTimeout.String()))
-		Expect(ready.Message).To(Equal(uploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage")))
-		Expect(uploaderMock.CleanUpCalls()).To(HaveLen(1))
+		Expect(ready.Message).To(Equal(serviceuploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage")))
+		Expect(uploaderMock.CleanupCalls()).To(HaveLen(1))
 		Expect(recordedEvents).To(ContainElement(v1alpha2.ReasonDataSourceSyncFailed))
 	})
 
@@ -185,10 +212,10 @@ var _ = Describe("Upload DataSource", func() {
 		uploaderMock.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) {
 			return nil, nil
 		}
-		uploaderMock.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) {
-			return nil, nil
+		uploaderMock.GetExposureFunc = func(_ context.Context, _ supplements.Generator) (serviceuploader.UploaderExposure, error) {
+			return serviceuploader.UploaderExposure{}, nil
 		}
-		statMock.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+		statMock.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 			return false, nil
 		}
 		ds = newUploadDataSource()
@@ -200,7 +227,7 @@ var _ = Describe("Upload DataSource", func() {
 		Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageFailed))
 		ready, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 		Expect(ready.Reason).To(Equal(cvicondition.WaitForUserUploadTimeout.String()))
-		// Start must not be called: StartFunc is nil and would panic.
-		Expect(uploaderMock.StartCalls()).To(BeEmpty())
+		// Apply must not be called: ApplyFunc is nil and would panic.
+		Expect(uploaderMock.ApplyCalls()).To(BeEmpty())
 	})
 })

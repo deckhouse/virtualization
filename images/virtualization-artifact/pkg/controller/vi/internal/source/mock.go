@@ -8,11 +8,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -525,44 +525,26 @@ var _ Uploader = &UploaderMock{}
 //
 //		// make and configure a mocked Uploader
 //		mockedUploader := &UploaderMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
-//				panic("mock out the CleanUp method")
+//			ApplyFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error {
+//				panic("mock out the Apply method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
-//				panic("mock out the CleanUpSupplements method")
+//			CleanupFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//				panic("mock out the Cleanup method")
 //			},
-//			EnsureIngressFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
-//				panic("mock out the EnsureIngress method")
+//			EnsureExposureFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) error {
+//				panic("mock out the EnsureExposure method")
 //			},
-//			ExpectedIngressHostFunc: func() string {
-//				panic("mock out the ExpectedIngressHost method")
+//			GetExposureFunc: func(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error) {
+//				panic("mock out the GetExposure method")
 //			},
-//			GetExternalURLFunc: func(ctx context.Context, ing *netv1.Ingress) string {
-//				panic("mock out the GetExternalURL method")
-//			},
-//			GetInClusterURLFunc: func(ctx context.Context, svc *corev1.Service) string {
+//			GetInClusterURLFunc: func(svc *corev1.Service) string {
 //				panic("mock out the GetInClusterURL method")
-//			},
-//			GetIngressFunc: func(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
-//				panic("mock out the GetIngress method")
 //			},
 //			GetPodFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
 //				panic("mock out the GetPod method")
 //			},
 //			GetServiceFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
 //				panic("mock out the GetService method")
-//			},
-//			IngressHostDriftedFunc: func(ing *netv1.Ingress) bool {
-//				panic("mock out the IngressHostDrifted method")
-//			},
-//			ProtectFunc: func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-//				panic("mock out the Protect method")
-//			},
-//			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
-//				panic("mock out the Start method")
-//			},
-//			UnprotectFunc: func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-//				panic("mock out the Unprotect method")
 //			},
 //		}
 //
@@ -571,26 +553,20 @@ var _ Uploader = &UploaderMock{}
 //
 //	}
 type UploaderMock struct {
-	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	// ApplyFunc mocks the Apply method.
+	ApplyFunc func(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error
 
-	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	// CleanupFunc mocks the Cleanup method.
+	CleanupFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
 
-	// EnsureIngressFunc mocks the EnsureIngress method.
-	EnsureIngressFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
+	// EnsureExposureFunc mocks the EnsureExposure method.
+	EnsureExposureFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) error
 
-	// ExpectedIngressHostFunc mocks the ExpectedIngressHost method.
-	ExpectedIngressHostFunc func() string
-
-	// GetExternalURLFunc mocks the GetExternalURL method.
-	GetExternalURLFunc func(ctx context.Context, ing *netv1.Ingress) string
+	// GetExposureFunc mocks the GetExposure method.
+	GetExposureFunc func(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error)
 
 	// GetInClusterURLFunc mocks the GetInClusterURL method.
-	GetInClusterURLFunc func(ctx context.Context, svc *corev1.Service) string
-
-	// GetIngressFunc mocks the GetIngress method.
-	GetIngressFunc func(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+	GetInClusterURLFunc func(svc *corev1.Service) string
 
 	// GetPodFunc mocks the GetPod method.
 	GetPodFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
@@ -598,36 +574,32 @@ type UploaderMock struct {
 	// GetServiceFunc mocks the GetService method.
 	GetServiceFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 
-	// IngressHostDriftedFunc mocks the IngressHostDrifted method.
-	IngressHostDriftedFunc func(ing *netv1.Ingress) bool
-
-	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
-
-	// StartFunc mocks the Start method.
-	StartFunc func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-
-	// UnprotectFunc mocks the Unprotect method.
-	UnprotectFunc func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
-
 	// calls tracks calls to the methods.
 	calls struct {
-		// CleanUp holds details about calls to the CleanUp method.
-		CleanUp []struct {
+		// Apply holds details about calls to the Apply method.
+		Apply []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Obj is the obj argument value.
+			Obj client.Object
+			// Sup is the sup argument value.
+			Sup supplements.Generator
+			// Settings is the settings argument value.
+			Settings serviceuploader.Settings
+			// CaBundle is the caBundle argument value.
+			CaBundle *datasource.CABundle
+			// Opts is the opts argument value.
+			Opts []serviceuploader.Option
+		}
+		// Cleanup holds details about calls to the Cleanup method.
+		Cleanup []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
-		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
-		CleanUpSupplements []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Sup is the sup argument value.
-			Sup supplements.Generator
-		}
-		// EnsureIngress holds details about calls to the EnsureIngress method.
-		EnsureIngress []struct {
+		// EnsureExposure holds details about calls to the EnsureExposure method.
+		EnsureExposure []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Obj is the obj argument value.
@@ -635,29 +607,17 @@ type UploaderMock struct {
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
-		// ExpectedIngressHost holds details about calls to the ExpectedIngressHost method.
-		ExpectedIngressHost []struct {
-		}
-		// GetExternalURL holds details about calls to the GetExternalURL method.
-		GetExternalURL []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-		}
-		// GetInClusterURL holds details about calls to the GetInClusterURL method.
-		GetInClusterURL []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Svc is the svc argument value.
-			Svc *corev1.Service
-		}
-		// GetIngress holds details about calls to the GetIngress method.
-		GetIngress []struct {
+		// GetExposure holds details about calls to the GetExposure method.
+		GetExposure []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
 			Sup supplements.Generator
+		}
+		// GetInClusterURL holds details about calls to the GetInClusterURL method.
+		GetInClusterURL []struct {
+			// Svc is the svc argument value.
+			Svc *corev1.Service
 		}
 		// GetPod holds details about calls to the GetPod method.
 		GetPod []struct {
@@ -673,72 +633,72 @@ type UploaderMock struct {
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
-		// IngressHostDrifted holds details about calls to the IngressHostDrifted method.
-		IngressHostDrifted []struct {
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-		}
-		// Protect holds details about calls to the Protect method.
-		Protect []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Sup is the sup argument value.
-			Sup supplements.Generator
-			// Pod is the pod argument value.
-			Pod *corev1.Pod
-			// Svc is the svc argument value.
-			Svc *corev1.Service
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-		}
-		// Start holds details about calls to the Start method.
-		Start []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Settings is the settings argument value.
-			Settings *uploader.Settings
-			// Obj is the obj argument value.
-			Obj client.Object
-			// Sup is the sup argument value.
-			Sup supplements.Generator
-			// CaBundle is the caBundle argument value.
-			CaBundle *datasource.CABundle
-			// Opts is the opts argument value.
-			Opts []service.Option
-		}
-		// Unprotect holds details about calls to the Unprotect method.
-		Unprotect []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Sup is the sup argument value.
-			Sup supplements.Generator
-			// Pod is the pod argument value.
-			Pod *corev1.Pod
-			// Svc is the svc argument value.
-			Svc *corev1.Service
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-		}
 	}
-	lockCleanUp             sync.RWMutex
-	lockCleanUpSupplements  sync.RWMutex
-	lockEnsureIngress       sync.RWMutex
-	lockExpectedIngressHost sync.RWMutex
-	lockGetExternalURL      sync.RWMutex
-	lockGetInClusterURL     sync.RWMutex
-	lockGetIngress          sync.RWMutex
-	lockGetPod              sync.RWMutex
-	lockGetService          sync.RWMutex
-	lockIngressHostDrifted  sync.RWMutex
-	lockProtect             sync.RWMutex
-	lockStart               sync.RWMutex
-	lockUnprotect           sync.RWMutex
+	lockApply           sync.RWMutex
+	lockCleanup         sync.RWMutex
+	lockEnsureExposure  sync.RWMutex
+	lockGetExposure     sync.RWMutex
+	lockGetInClusterURL sync.RWMutex
+	lockGetPod          sync.RWMutex
+	lockGetService      sync.RWMutex
 }
 
-// CleanUp calls CleanUpFunc.
-func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
-	if mock.CleanUpFunc == nil {
-		panic("UploaderMock.CleanUpFunc: method is nil but Uploader.CleanUp was just called")
+// Apply calls ApplyFunc.
+func (mock *UploaderMock) Apply(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error {
+	if mock.ApplyFunc == nil {
+		panic("UploaderMock.ApplyFunc: method is nil but Uploader.Apply was just called")
+	}
+	callInfo := struct {
+		Ctx      context.Context
+		Obj      client.Object
+		Sup      supplements.Generator
+		Settings serviceuploader.Settings
+		CaBundle *datasource.CABundle
+		Opts     []serviceuploader.Option
+	}{
+		Ctx:      ctx,
+		Obj:      obj,
+		Sup:      sup,
+		Settings: settings,
+		CaBundle: caBundle,
+		Opts:     opts,
+	}
+	mock.lockApply.Lock()
+	mock.calls.Apply = append(mock.calls.Apply, callInfo)
+	mock.lockApply.Unlock()
+	return mock.ApplyFunc(ctx, obj, sup, settings, caBundle, opts...)
+}
+
+// ApplyCalls gets all the calls that were made to Apply.
+// Check the length with:
+//
+//	len(mockedUploader.ApplyCalls())
+func (mock *UploaderMock) ApplyCalls() []struct {
+	Ctx      context.Context
+	Obj      client.Object
+	Sup      supplements.Generator
+	Settings serviceuploader.Settings
+	CaBundle *datasource.CABundle
+	Opts     []serviceuploader.Option
+} {
+	var calls []struct {
+		Ctx      context.Context
+		Obj      client.Object
+		Sup      supplements.Generator
+		Settings serviceuploader.Settings
+		CaBundle *datasource.CABundle
+		Opts     []serviceuploader.Option
+	}
+	mock.lockApply.RLock()
+	calls = mock.calls.Apply
+	mock.lockApply.RUnlock()
+	return calls
+}
+
+// Cleanup calls CleanupFunc.
+func (mock *UploaderMock) Cleanup(ctx context.Context, sup supplements.Generator) (bool, error) {
+	if mock.CleanupFunc == nil {
+		panic("UploaderMock.CleanupFunc: method is nil but Uploader.Cleanup was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -747,17 +707,17 @@ func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator
 		Ctx: ctx,
 		Sup: sup,
 	}
-	mock.lockCleanUp.Lock()
-	mock.calls.CleanUp = append(mock.calls.CleanUp, callInfo)
-	mock.lockCleanUp.Unlock()
-	return mock.CleanUpFunc(ctx, sup)
+	mock.lockCleanup.Lock()
+	mock.calls.Cleanup = append(mock.calls.Cleanup, callInfo)
+	mock.lockCleanup.Unlock()
+	return mock.CleanupFunc(ctx, sup)
 }
 
-// CleanUpCalls gets all the calls that were made to CleanUp.
+// CleanupCalls gets all the calls that were made to Cleanup.
 // Check the length with:
 //
-//	len(mockedUploader.CleanUpCalls())
-func (mock *UploaderMock) CleanUpCalls() []struct {
+//	len(mockedUploader.CleanupCalls())
+func (mock *UploaderMock) CleanupCalls() []struct {
 	Ctx context.Context
 	Sup supplements.Generator
 } {
@@ -765,52 +725,16 @@ func (mock *UploaderMock) CleanUpCalls() []struct {
 		Ctx context.Context
 		Sup supplements.Generator
 	}
-	mock.lockCleanUp.RLock()
-	calls = mock.calls.CleanUp
-	mock.lockCleanUp.RUnlock()
+	mock.lockCleanup.RLock()
+	calls = mock.calls.Cleanup
+	mock.lockCleanup.RUnlock()
 	return calls
 }
 
-// CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *UploaderMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
-	if mock.CleanUpSupplementsFunc == nil {
-		panic("UploaderMock.CleanUpSupplementsFunc: method is nil but Uploader.CleanUpSupplements was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Sup supplements.Generator
-	}{
-		Ctx: ctx,
-		Sup: sup,
-	}
-	mock.lockCleanUpSupplements.Lock()
-	mock.calls.CleanUpSupplements = append(mock.calls.CleanUpSupplements, callInfo)
-	mock.lockCleanUpSupplements.Unlock()
-	return mock.CleanUpSupplementsFunc(ctx, sup)
-}
-
-// CleanUpSupplementsCalls gets all the calls that were made to CleanUpSupplements.
-// Check the length with:
-//
-//	len(mockedUploader.CleanUpSupplementsCalls())
-func (mock *UploaderMock) CleanUpSupplementsCalls() []struct {
-	Ctx context.Context
-	Sup supplements.Generator
-} {
-	var calls []struct {
-		Ctx context.Context
-		Sup supplements.Generator
-	}
-	mock.lockCleanUpSupplements.RLock()
-	calls = mock.calls.CleanUpSupplements
-	mock.lockCleanUpSupplements.RUnlock()
-	return calls
-}
-
-// EnsureIngress calls EnsureIngressFunc.
-func (mock *UploaderMock) EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
-	if mock.EnsureIngressFunc == nil {
-		panic("UploaderMock.EnsureIngressFunc: method is nil but Uploader.EnsureIngress was just called")
+// EnsureExposure calls EnsureExposureFunc.
+func (mock *UploaderMock) EnsureExposure(ctx context.Context, obj client.Object, sup supplements.Generator) error {
+	if mock.EnsureExposureFunc == nil {
+		panic("UploaderMock.EnsureExposureFunc: method is nil but Uploader.EnsureExposure was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -821,17 +745,17 @@ func (mock *UploaderMock) EnsureIngress(ctx context.Context, obj client.Object, 
 		Obj: obj,
 		Sup: sup,
 	}
-	mock.lockEnsureIngress.Lock()
-	mock.calls.EnsureIngress = append(mock.calls.EnsureIngress, callInfo)
-	mock.lockEnsureIngress.Unlock()
-	return mock.EnsureIngressFunc(ctx, obj, sup)
+	mock.lockEnsureExposure.Lock()
+	mock.calls.EnsureExposure = append(mock.calls.EnsureExposure, callInfo)
+	mock.lockEnsureExposure.Unlock()
+	return mock.EnsureExposureFunc(ctx, obj, sup)
 }
 
-// EnsureIngressCalls gets all the calls that were made to EnsureIngress.
+// EnsureExposureCalls gets all the calls that were made to EnsureExposure.
 // Check the length with:
 //
-//	len(mockedUploader.EnsureIngressCalls())
-func (mock *UploaderMock) EnsureIngressCalls() []struct {
+//	len(mockedUploader.EnsureExposureCalls())
+func (mock *UploaderMock) EnsureExposureCalls() []struct {
 	Ctx context.Context
 	Obj client.Object
 	Sup supplements.Generator
@@ -841,115 +765,16 @@ func (mock *UploaderMock) EnsureIngressCalls() []struct {
 		Obj client.Object
 		Sup supplements.Generator
 	}
-	mock.lockEnsureIngress.RLock()
-	calls = mock.calls.EnsureIngress
-	mock.lockEnsureIngress.RUnlock()
+	mock.lockEnsureExposure.RLock()
+	calls = mock.calls.EnsureExposure
+	mock.lockEnsureExposure.RUnlock()
 	return calls
 }
 
-// ExpectedIngressHost calls ExpectedIngressHostFunc.
-func (mock *UploaderMock) ExpectedIngressHost() string {
-	if mock.ExpectedIngressHostFunc == nil {
-		panic("UploaderMock.ExpectedIngressHostFunc: method is nil but Uploader.ExpectedIngressHost was just called")
-	}
-	callInfo := struct {
-	}{}
-	mock.lockExpectedIngressHost.Lock()
-	mock.calls.ExpectedIngressHost = append(mock.calls.ExpectedIngressHost, callInfo)
-	mock.lockExpectedIngressHost.Unlock()
-	return mock.ExpectedIngressHostFunc()
-}
-
-// ExpectedIngressHostCalls gets all the calls that were made to ExpectedIngressHost.
-// Check the length with:
-//
-//	len(mockedUploader.ExpectedIngressHostCalls())
-func (mock *UploaderMock) ExpectedIngressHostCalls() []struct {
-} {
-	var calls []struct {
-	}
-	mock.lockExpectedIngressHost.RLock()
-	calls = mock.calls.ExpectedIngressHost
-	mock.lockExpectedIngressHost.RUnlock()
-	return calls
-}
-
-// GetExternalURL calls GetExternalURLFunc.
-func (mock *UploaderMock) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
-	if mock.GetExternalURLFunc == nil {
-		panic("UploaderMock.GetExternalURLFunc: method is nil but Uploader.GetExternalURL was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Ing *netv1.Ingress
-	}{
-		Ctx: ctx,
-		Ing: ing,
-	}
-	mock.lockGetExternalURL.Lock()
-	mock.calls.GetExternalURL = append(mock.calls.GetExternalURL, callInfo)
-	mock.lockGetExternalURL.Unlock()
-	return mock.GetExternalURLFunc(ctx, ing)
-}
-
-// GetExternalURLCalls gets all the calls that were made to GetExternalURL.
-// Check the length with:
-//
-//	len(mockedUploader.GetExternalURLCalls())
-func (mock *UploaderMock) GetExternalURLCalls() []struct {
-	Ctx context.Context
-	Ing *netv1.Ingress
-} {
-	var calls []struct {
-		Ctx context.Context
-		Ing *netv1.Ingress
-	}
-	mock.lockGetExternalURL.RLock()
-	calls = mock.calls.GetExternalURL
-	mock.lockGetExternalURL.RUnlock()
-	return calls
-}
-
-// GetInClusterURL calls GetInClusterURLFunc.
-func (mock *UploaderMock) GetInClusterURL(ctx context.Context, svc *corev1.Service) string {
-	if mock.GetInClusterURLFunc == nil {
-		panic("UploaderMock.GetInClusterURLFunc: method is nil but Uploader.GetInClusterURL was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Svc *corev1.Service
-	}{
-		Ctx: ctx,
-		Svc: svc,
-	}
-	mock.lockGetInClusterURL.Lock()
-	mock.calls.GetInClusterURL = append(mock.calls.GetInClusterURL, callInfo)
-	mock.lockGetInClusterURL.Unlock()
-	return mock.GetInClusterURLFunc(ctx, svc)
-}
-
-// GetInClusterURLCalls gets all the calls that were made to GetInClusterURL.
-// Check the length with:
-//
-//	len(mockedUploader.GetInClusterURLCalls())
-func (mock *UploaderMock) GetInClusterURLCalls() []struct {
-	Ctx context.Context
-	Svc *corev1.Service
-} {
-	var calls []struct {
-		Ctx context.Context
-		Svc *corev1.Service
-	}
-	mock.lockGetInClusterURL.RLock()
-	calls = mock.calls.GetInClusterURL
-	mock.lockGetInClusterURL.RUnlock()
-	return calls
-}
-
-// GetIngress calls GetIngressFunc.
-func (mock *UploaderMock) GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
-	if mock.GetIngressFunc == nil {
-		panic("UploaderMock.GetIngressFunc: method is nil but Uploader.GetIngress was just called")
+// GetExposure calls GetExposureFunc.
+func (mock *UploaderMock) GetExposure(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error) {
+	if mock.GetExposureFunc == nil {
+		panic("UploaderMock.GetExposureFunc: method is nil but Uploader.GetExposure was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -958,17 +783,17 @@ func (mock *UploaderMock) GetIngress(ctx context.Context, sup supplements.Genera
 		Ctx: ctx,
 		Sup: sup,
 	}
-	mock.lockGetIngress.Lock()
-	mock.calls.GetIngress = append(mock.calls.GetIngress, callInfo)
-	mock.lockGetIngress.Unlock()
-	return mock.GetIngressFunc(ctx, sup)
+	mock.lockGetExposure.Lock()
+	mock.calls.GetExposure = append(mock.calls.GetExposure, callInfo)
+	mock.lockGetExposure.Unlock()
+	return mock.GetExposureFunc(ctx, sup)
 }
 
-// GetIngressCalls gets all the calls that were made to GetIngress.
+// GetExposureCalls gets all the calls that were made to GetExposure.
 // Check the length with:
 //
-//	len(mockedUploader.GetIngressCalls())
-func (mock *UploaderMock) GetIngressCalls() []struct {
+//	len(mockedUploader.GetExposureCalls())
+func (mock *UploaderMock) GetExposureCalls() []struct {
 	Ctx context.Context
 	Sup supplements.Generator
 } {
@@ -976,9 +801,41 @@ func (mock *UploaderMock) GetIngressCalls() []struct {
 		Ctx context.Context
 		Sup supplements.Generator
 	}
-	mock.lockGetIngress.RLock()
-	calls = mock.calls.GetIngress
-	mock.lockGetIngress.RUnlock()
+	mock.lockGetExposure.RLock()
+	calls = mock.calls.GetExposure
+	mock.lockGetExposure.RUnlock()
+	return calls
+}
+
+// GetInClusterURL calls GetInClusterURLFunc.
+func (mock *UploaderMock) GetInClusterURL(svc *corev1.Service) string {
+	if mock.GetInClusterURLFunc == nil {
+		panic("UploaderMock.GetInClusterURLFunc: method is nil but Uploader.GetInClusterURL was just called")
+	}
+	callInfo := struct {
+		Svc *corev1.Service
+	}{
+		Svc: svc,
+	}
+	mock.lockGetInClusterURL.Lock()
+	mock.calls.GetInClusterURL = append(mock.calls.GetInClusterURL, callInfo)
+	mock.lockGetInClusterURL.Unlock()
+	return mock.GetInClusterURLFunc(svc)
+}
+
+// GetInClusterURLCalls gets all the calls that were made to GetInClusterURL.
+// Check the length with:
+//
+//	len(mockedUploader.GetInClusterURLCalls())
+func (mock *UploaderMock) GetInClusterURLCalls() []struct {
+	Svc *corev1.Service
+} {
+	var calls []struct {
+		Svc *corev1.Service
+	}
+	mock.lockGetInClusterURL.RLock()
+	calls = mock.calls.GetInClusterURL
+	mock.lockGetInClusterURL.RUnlock()
 	return calls
 }
 
@@ -1054,186 +911,6 @@ func (mock *UploaderMock) GetServiceCalls() []struct {
 	return calls
 }
 
-// IngressHostDrifted calls IngressHostDriftedFunc.
-func (mock *UploaderMock) IngressHostDrifted(ing *netv1.Ingress) bool {
-	if mock.IngressHostDriftedFunc == nil {
-		panic("UploaderMock.IngressHostDriftedFunc: method is nil but Uploader.IngressHostDrifted was just called")
-	}
-	callInfo := struct {
-		Ing *netv1.Ingress
-	}{
-		Ing: ing,
-	}
-	mock.lockIngressHostDrifted.Lock()
-	mock.calls.IngressHostDrifted = append(mock.calls.IngressHostDrifted, callInfo)
-	mock.lockIngressHostDrifted.Unlock()
-	return mock.IngressHostDriftedFunc(ing)
-}
-
-// IngressHostDriftedCalls gets all the calls that were made to IngressHostDrifted.
-// Check the length with:
-//
-//	len(mockedUploader.IngressHostDriftedCalls())
-func (mock *UploaderMock) IngressHostDriftedCalls() []struct {
-	Ing *netv1.Ingress
-} {
-	var calls []struct {
-		Ing *netv1.Ingress
-	}
-	mock.lockIngressHostDrifted.RLock()
-	calls = mock.calls.IngressHostDrifted
-	mock.lockIngressHostDrifted.RUnlock()
-	return calls
-}
-
-// Protect calls ProtectFunc.
-func (mock *UploaderMock) Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-	if mock.ProtectFunc == nil {
-		panic("UploaderMock.ProtectFunc: method is nil but Uploader.Protect was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Sup supplements.Generator
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
-	}{
-		Ctx: ctx,
-		Sup: sup,
-		Pod: pod,
-		Svc: svc,
-		Ing: ing,
-	}
-	mock.lockProtect.Lock()
-	mock.calls.Protect = append(mock.calls.Protect, callInfo)
-	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, sup, pod, svc, ing)
-}
-
-// ProtectCalls gets all the calls that were made to Protect.
-// Check the length with:
-//
-//	len(mockedUploader.ProtectCalls())
-func (mock *UploaderMock) ProtectCalls() []struct {
-	Ctx context.Context
-	Sup supplements.Generator
-	Pod *corev1.Pod
-	Svc *corev1.Service
-	Ing *netv1.Ingress
-} {
-	var calls []struct {
-		Ctx context.Context
-		Sup supplements.Generator
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
-	}
-	mock.lockProtect.RLock()
-	calls = mock.calls.Protect
-	mock.lockProtect.RUnlock()
-	return calls
-}
-
-// Start calls StartFunc.
-func (mock *UploaderMock) Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
-	if mock.StartFunc == nil {
-		panic("UploaderMock.StartFunc: method is nil but Uploader.Start was just called")
-	}
-	callInfo := struct {
-		Ctx      context.Context
-		Settings *uploader.Settings
-		Obj      client.Object
-		Sup      supplements.Generator
-		CaBundle *datasource.CABundle
-		Opts     []service.Option
-	}{
-		Ctx:      ctx,
-		Settings: settings,
-		Obj:      obj,
-		Sup:      sup,
-		CaBundle: caBundle,
-		Opts:     opts,
-	}
-	mock.lockStart.Lock()
-	mock.calls.Start = append(mock.calls.Start, callInfo)
-	mock.lockStart.Unlock()
-	return mock.StartFunc(ctx, settings, obj, sup, caBundle, opts...)
-}
-
-// StartCalls gets all the calls that were made to Start.
-// Check the length with:
-//
-//	len(mockedUploader.StartCalls())
-func (mock *UploaderMock) StartCalls() []struct {
-	Ctx      context.Context
-	Settings *uploader.Settings
-	Obj      client.Object
-	Sup      supplements.Generator
-	CaBundle *datasource.CABundle
-	Opts     []service.Option
-} {
-	var calls []struct {
-		Ctx      context.Context
-		Settings *uploader.Settings
-		Obj      client.Object
-		Sup      supplements.Generator
-		CaBundle *datasource.CABundle
-		Opts     []service.Option
-	}
-	mock.lockStart.RLock()
-	calls = mock.calls.Start
-	mock.lockStart.RUnlock()
-	return calls
-}
-
-// Unprotect calls UnprotectFunc.
-func (mock *UploaderMock) Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-	if mock.UnprotectFunc == nil {
-		panic("UploaderMock.UnprotectFunc: method is nil but Uploader.Unprotect was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Sup supplements.Generator
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
-	}{
-		Ctx: ctx,
-		Sup: sup,
-		Pod: pod,
-		Svc: svc,
-		Ing: ing,
-	}
-	mock.lockUnprotect.Lock()
-	mock.calls.Unprotect = append(mock.calls.Unprotect, callInfo)
-	mock.lockUnprotect.Unlock()
-	return mock.UnprotectFunc(ctx, sup, pod, svc, ing)
-}
-
-// UnprotectCalls gets all the calls that were made to Unprotect.
-// Check the length with:
-//
-//	len(mockedUploader.UnprotectCalls())
-func (mock *UploaderMock) UnprotectCalls() []struct {
-	Ctx context.Context
-	Sup supplements.Generator
-	Pod *corev1.Pod
-	Svc *corev1.Service
-	Ing *netv1.Ingress
-} {
-	var calls []struct {
-		Ctx context.Context
-		Sup supplements.Generator
-		Pod *corev1.Pod
-		Svc *corev1.Service
-		Ing *netv1.Ingress
-	}
-	mock.lockUnprotect.RLock()
-	calls = mock.calls.Unprotect
-	mock.lockUnprotect.RUnlock()
-	return calls
-}
-
 // Ensure, that StatMock does implement Stat.
 // If this is not the case, regenerate this file with moq.
 var _ Stat = &StatMock{}
@@ -1259,7 +936,7 @@ var _ Stat = &StatMock{}
 //			GetFormatFunc: func(pod *corev1.Pod) string {
 //				panic("mock out the GetFormat method")
 //			},
-//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
 //			GetSizeFunc: func(pod *corev1.Pod) v1alpha2.ImageStatusSize {
@@ -1268,7 +945,7 @@ var _ Stat = &StatMock{}
 //			IsUploadStartedFunc: func(ownerUID types.UID, pod *corev1.Pod) bool {
 //				panic("mock out the IsUploadStarted method")
 //			},
-//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
+//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error) {
 //				panic("mock out the IsUploaderReady method")
 //			},
 //		}
@@ -1294,7 +971,7 @@ type StatMock struct {
 	GetFormatFunc func(pod *corev1.Pod) string
 
 	// GetProgressFunc mocks the GetProgress method.
-	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 
 	// GetSizeFunc mocks the GetSize method.
 	GetSizeFunc func(pod *corev1.Pod) v1alpha2.ImageStatusSize
@@ -1303,7 +980,7 @@ type StatMock struct {
 	IsUploadStartedFunc func(ownerUID types.UID, pod *corev1.Pod) bool
 
 	// IsUploaderReadyFunc mocks the IsUploaderReady method.
-	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error)
+	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1343,7 +1020,7 @@ type StatMock struct {
 			// PrevProgress is the prevProgress argument value.
 			PrevProgress string
 			// Opts is the opts argument value.
-			Opts []service.GetProgressOption
+			Opts []servicestat.GetProgressOption
 		}
 		// GetSize holds details about calls to the GetSize method.
 		GetSize []struct {
@@ -1363,10 +1040,8 @@ type StatMock struct {
 			Pod *corev1.Pod
 			// Svc is the svc argument value.
 			Svc *corev1.Service
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-			// TlsSecret is the tlsSecret argument value.
-			TlsSecret *corev1.Secret
+			// Exposure is the exposure argument value.
+			Exposure serviceuploader.UploaderExposure
 		}
 	}
 	lockCheckPod         sync.RWMutex
@@ -1545,7 +1220,7 @@ func (mock *StatMock) GetFormatCalls() []struct {
 }
 
 // GetProgress calls GetProgressFunc.
-func (mock *StatMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+func (mock *StatMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 	if mock.GetProgressFunc == nil {
 		panic("StatMock.GetProgressFunc: method is nil but Stat.GetProgress was just called")
 	}
@@ -1553,7 +1228,7 @@ func (mock *StatMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgr
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}{
 		OwnerUID:     ownerUID,
 		Pod:          pod,
@@ -1574,13 +1249,13 @@ func (mock *StatMock) GetProgressCalls() []struct {
 	OwnerUID     types.UID
 	Pod          *corev1.Pod
 	PrevProgress string
-	Opts         []service.GetProgressOption
+	Opts         []servicestat.GetProgressOption
 } {
 	var calls []struct {
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}
 	mock.lockGetProgress.RLock()
 	calls = mock.calls.GetProgress
@@ -1657,25 +1332,23 @@ func (mock *StatMock) IsUploadStartedCalls() []struct {
 }
 
 // IsUploaderReady calls IsUploaderReadyFunc.
-func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
+func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error) {
 	if mock.IsUploaderReadyFunc == nil {
 		panic("StatMock.IsUploaderReadyFunc: method is nil but Stat.IsUploaderReady was just called")
 	}
 	callInfo := struct {
-		Pod       *corev1.Pod
-		Svc       *corev1.Service
-		Ing       *netv1.Ingress
-		TlsSecret *corev1.Secret
+		Pod      *corev1.Pod
+		Svc      *corev1.Service
+		Exposure serviceuploader.UploaderExposure
 	}{
-		Pod:       pod,
-		Svc:       svc,
-		Ing:       ing,
-		TlsSecret: tlsSecret,
+		Pod:      pod,
+		Svc:      svc,
+		Exposure: exposure,
 	}
 	mock.lockIsUploaderReady.Lock()
 	mock.calls.IsUploaderReady = append(mock.calls.IsUploaderReady, callInfo)
 	mock.lockIsUploaderReady.Unlock()
-	return mock.IsUploaderReadyFunc(pod, svc, ing, tlsSecret)
+	return mock.IsUploaderReadyFunc(pod, svc, exposure)
 }
 
 // IsUploaderReadyCalls gets all the calls that were made to IsUploaderReady.
@@ -1683,16 +1356,14 @@ func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing 
 //
 //	len(mockedStat.IsUploaderReadyCalls())
 func (mock *StatMock) IsUploaderReadyCalls() []struct {
-	Pod       *corev1.Pod
-	Svc       *corev1.Service
-	Ing       *netv1.Ingress
-	TlsSecret *corev1.Secret
+	Pod      *corev1.Pod
+	Svc      *corev1.Service
+	Exposure serviceuploader.UploaderExposure
 } {
 	var calls []struct {
-		Pod       *corev1.Pod
-		Svc       *corev1.Service
-		Ing       *netv1.Ingress
-		TlsSecret *corev1.Secret
+		Pod      *corev1.Pod
+		Svc      *corev1.Service
+		Exposure serviceuploader.UploaderExposure
 	}
 	mock.lockIsUploaderReady.RLock()
 	calls = mock.calls.IsUploaderReady

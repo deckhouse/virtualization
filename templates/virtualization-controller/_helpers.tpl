@@ -70,8 +70,16 @@ true
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"
 {{- if ne "<missing>" (dig "modules" "publicDomainTemplate" "<missing>" .Values.global) }}
+# The hosts image upload is published on, both derived from publicDomainTemplate.
+# Each exposure carries its own host so that the Ingress and the Gateway API paths
+# stay independent of each other; only one of them is active at a time. Without
+# publicDomainTemplate there is no host to publish on, so neither variable is
+# passed and the uploader is exposed by its Service only: the upload then goes
+# through the in-cluster URL.
 - name: UPLOADER_INGRESS_HOST
-  value: {{ include "helm_lib_module_public_domain" (list . "virtualization") }}
+  value: {{ include "helm_lib_module_public_domain" (list . "virtualization") | quote }}
+- name: UPLOADER_LISTENER_HOST
+  value: {{ include "virtualization.uploaderGatewayHost" . | quote }}
 {{- end }}
 {{- if (include "helm_lib_module_https_ingress_tls_enabled" .) }}
 - name: UPLOADER_INGRESS_TLS_SECRET
@@ -79,6 +87,18 @@ true
 {{- end }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
+{{- if (include "virtualization.uploadViaAPIGatewayEnabled" .) }}
+# The ListenerSet rendered by this chart into the module namespace; per-upload
+# HTTPRoutes attach to its listener instead of referencing the Gateway directly.
+- name: UPLOADER_LISTENER_SET_NAME
+  value: {{ include "virtualization.uploaderListenerSetName" . | quote }}
+- name: UPLOADER_LISTENER_NAME
+  value: {{ include "virtualization.uploaderListenerName" . | quote }}
+# Read by the controller to trust the public endpoint when probing the uploader
+# for readiness; the Secret lives next to the ListenerSet in this namespace.
+- name: UPLOADER_LISTENER_TLS_SECRET
+  value: {{ include "virtualization.uploaderGatewayTLSSecretName" . | quote }}
+{{- end }}
 # Keep parity with the podResourceRequirements of the removed CDI config:
 # cpu 1000m so image decompression and qemu-img convert are not throttled,
 # memory 3600M to avoid OOMKill during importing huge images ~2.9GiB on
@@ -140,6 +160,9 @@ true
 {{- $gates := list }}
 {{- if (.Values.global.enabledModules | has "sdn") }}
 {{- $gates = append $gates "SDN=true" }}
+{{- end }}
+{{- if (include "virtualization.uploadViaAPIGatewayEnabled" .) }}
+{{- $gates = append $gates "UploadViaAPIGateway=true" }}
 {{- end }}
 {{- range $feat := .Values.virtualization.internal.moduleConfig.featureGates }}
 {{- $gates = append $gates (printf "%s=true" $feat)}}

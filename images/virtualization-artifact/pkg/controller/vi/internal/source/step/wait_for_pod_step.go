@@ -29,12 +29,13 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type WaitForPodStepStat interface {
-	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 	GetDVCRImageName(pod *corev1.Pod) string
 	CheckPod(pod *corev1.Pod) error
 }
@@ -74,7 +75,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 	err := s.stat.CheckPod(s.pod)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+		case errors.Is(err, servicestat.ErrNotInitialized), errors.Is(err, servicestat.ErrNotScheduled):
 			if strings.Contains(err.Error(), "pod has unbound immediate PersistentVolumeClaims") {
 				vi.Status.Phase = v1alpha2.ImageProvisioning
 				s.cb.
@@ -91,7 +92,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 				Reason(vicondition.ProvisioningNotStarted).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			return &reconcile.Result{}, nil
-		case errors.Is(err, service.ErrProvisioningFailed):
+		case errors.Is(err, servicestat.ErrProvisioningFailed):
 			vi.Status.Phase = v1alpha2.ImageFailed
 			s.cb.
 				Status(metav1.ConditionFalse).
@@ -126,7 +127,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*rec
 		Message("The image is being imported.")
 
 	vi.Status.Phase = v1alpha2.ImageProvisioning
-	vi.Status.Progress = service.CapProgressBelow(s.stat.GetProgress(vi.GetUID(), s.pod, vi.Status.Progress), 100)
+	vi.Status.Progress = servicestat.CapProgressBelow(s.stat.GetProgress(vi.GetUID(), s.pod, vi.Status.Progress), 100)
 	vi.Status.Target.RegistryURL = s.stat.GetDVCRImageName(s.pod)
 
 	return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil

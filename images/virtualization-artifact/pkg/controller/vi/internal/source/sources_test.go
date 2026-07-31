@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -350,9 +351,9 @@ var _ = Describe("Sources helpers", func() {
 			Expect(cb.Condition().Reason).To(Equal(expectedReason))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
 		},
-		Entry("not initialized", service.ErrNotInitialized, nil, vicondition.ProvisioningNotStarted.String(), "Not initialized."),
-		Entry("not scheduled", service.ErrNotScheduled, nil, vicondition.ProvisioningNotStarted.String(), "Not scheduled."),
-		Entry("provisioning failed", service.ErrProvisioningFailed, nil, vicondition.ProvisioningFailed.String(), "Provisioning failed."),
+		Entry("not initialized", servicestat.ErrNotInitialized, nil, vicondition.ProvisioningNotStarted.String(), "Not initialized."),
+		Entry("not scheduled", servicestat.ErrNotScheduled, nil, vicondition.ProvisioningNotStarted.String(), "Not scheduled."),
+		Entry("provisioning failed", servicestat.ErrProvisioningFailed, nil, vicondition.ProvisioningFailed.String(), "Provisioning failed."),
 		Entry("unknown error", errors.New("boom"), errors.New("boom"), conditions.ReasonUnknown.String(), ""),
 	)
 

@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -57,7 +58,7 @@ var _ = Describe("HTTPDataSource", func() {
 		disk         *HTTPDataSourceDiskServiceMock
 		pvcSvc       *DataSourcePVCServiceMock
 		importerSvc  *HTTPDataSourceImporterServiceMock
-		stat         *HTTPDataSourceStatServiceMock
+		statSvc      *HTTPDataSourceStatServiceMock
 		recorder     eventrecord.EventRecorderLogger
 		dvcrSettings *dvcr.Settings
 	)
@@ -141,14 +142,14 @@ var _ = Describe("HTTPDataSource", func() {
 			UnprotectFunc: func(_ context.Context, _ *corev1.Pod, _ supplements.Generator) error { return nil },
 		}
 
-		stat = &HTTPDataSourceStatServiceMock{
+		statSvc = &HTTPDataSourceStatServiceMock{
 			GetDVCRImageNameFunc: func(_ *corev1.Pod) string { return "dvcr.example.com/cvi/vd:1" },
 			GetSizeFunc: func(_ *corev1.Pod) v1alpha2.ImageStatusSize {
 				return v1alpha2.ImageStatusSize{UnpackedBytes: "500Mi"}
 			},
 			GetFormatFunc:        func(_ *corev1.Pod) string { return "qcow2" },
 			GetDownloadSpeedFunc: func(_ types.UID, _ *corev1.Pod) *v1alpha2.StatusSpeed { return nil },
-			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...service.GetProgressOption) string {
+			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...servicestat.GetProgressOption) string {
 				if prev == "" {
 					return "10%"
 				}
@@ -159,7 +160,7 @@ var _ = Describe("HTTPDataSource", func() {
 	})
 
 	newSyncer := func(c client.Client) *HTTPDataSource {
-		return NewHTTPDataSource(recorder, stat, importerSvc, disk, pvcSvc, dvcrSettings, c)
+		return NewHTTPDataSource(recorder, statSvc, importerSvc, disk, pvcSvc, dvcrSettings, c)
 	}
 
 	Context("VirtualDisk has just been created (no importer pod yet)", func() {
@@ -233,7 +234,7 @@ var _ = Describe("HTTPDataSource", func() {
 		})
 
 		It("surfaces ProvisioningFailed when CheckPod returns ErrProvisioningFailed", func() {
-			stat.CheckPodFunc = func(_ *corev1.Pod) error { return service.ErrProvisioningFailed }
+			statSvc.CheckPodFunc = func(_ *corev1.Pod) error { return servicestat.ErrProvisioningFailed }
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
@@ -278,7 +279,7 @@ var _ = Describe("HTTPDataSource", func() {
 		})
 
 		It("fails the disk when the source is ISO", func() {
-			stat.GetFormatFunc = func(_ *corev1.Pod) string { return "iso" }
+			statSvc.GetFormatFunc = func(_ *corev1.Pod) string { return "iso" }
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
@@ -376,7 +377,7 @@ var _ = Describe("HTTPDataSource", func() {
 		})
 
 		It("keeps progress below 100 until PVC population is done", func() {
-			stat.GetProgressFunc = func(_ types.UID, _ *corev1.Pod, _ string, _ ...service.GetProgressOption) string {
+			statSvc.GetProgressFunc = func(_ types.UID, _ *corev1.Pod, _ string, _ ...servicestat.GetProgressOption) string {
 				return "100%"
 			}
 			pod := &corev1.Pod{

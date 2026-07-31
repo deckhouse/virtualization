@@ -24,6 +24,17 @@ properties:
     description: |
       Класс Ingress-контроллера, который использоваться для загрузки образов.
       По умолчанию используется глобальное значение `modules.ingressClass`.
+  gatewayAPIGateway:
+    description: |
+      Объект `Gateway` (Gateway API), через который публикуется загрузка образов.
+      По умолчанию используется шлюз по умолчанию кластера (`global.discovery.gatewayAPIDefaultGateway`,
+      предоставляется модулем `alb`); задайте параметр, чтобы публиковать загрузку образов через другой шлюз.
+      Загрузка образов публикуется через Gateway API вместо Ingress только при включённом модуле `alb`.
+    properties:
+      name:
+        description: Имя объекта Gateway.
+      namespace:
+        description: Пространство имён объекта Gateway.
   https:
     description: |
       Тип используемого сертификата.

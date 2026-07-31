@@ -33,6 +33,7 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -45,7 +46,7 @@ const pvcImportProgressRequeue = 2 * time.Second
 // WaitForPVCImportStepStatService is the subset of StatService used to extract
 // the pvc-importer pod's progress and project it into vd.Status.Progress.
 type WaitForPVCImportStepStatService interface {
-	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 }
 
 // PVCImportSourceProvider builds the PVCImportSource used by WaitForPVCImportStep.
@@ -69,7 +70,7 @@ type WaitForPVCImportStep struct {
 	sourceProvider PVCImportSourceProvider
 	pvcSvc         PVCService
 	stat           WaitForPVCImportStepStatService
-	progressScale  *service.ScaleOption
+	progressScale  *servicestat.ScaleOption
 	client         client.Client
 	cb             *conditions.ConditionBuilder
 }
@@ -79,7 +80,7 @@ func NewWaitForPVCImportStep(
 	sourceProvider PVCImportSourceProvider,
 	pvcSvc PVCService,
 	stat WaitForPVCImportStepStatService,
-	progressScale *service.ScaleOption,
+	progressScale *servicestat.ScaleOption,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *WaitForPVCImportStep {
@@ -213,12 +214,12 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1
 		return nil
 	}
 
-	var opts []service.GetProgressOption
+	var opts []servicestat.GetProgressOption
 	if s.progressScale != nil {
 		opts = append(opts, s.progressScale)
 	}
 	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), pod, vd.Status.Progress, opts...)
-	vd.Status.Progress = service.CapProgressBelow(vd.Status.Progress, 100)
+	vd.Status.Progress = servicestat.CapProgressBelow(vd.Status.Progress, 100)
 	return nil
 }
 

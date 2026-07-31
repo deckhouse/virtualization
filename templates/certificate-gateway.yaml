@@ -1,0 +1,27 @@
+{{/*
+  Certificate for the Gateway API exposure, issued by the same ClusterIssuer as the
+  Ingress one. It is a separate certificate because the ListenerSet terminates TLS
+  with its own Secret, so the listener does not depend on the Ingress certificate
+  being issued. With a custom certificate there is a single cluster-wide one, which
+  the ListenerSet reuses, so nothing is issued here.
+*/}}
+{{- if (include "virtualization.uploadViaAPIGatewayEnabled" .) }}
+{{- if eq (include "helm_lib_module_https_mode" .) "CertManager" }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "virtualization.uploaderGatewayTLSSecretName" . }}
+  namespace: d8-{{ $.Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+spec:
+  certificateOwnerRef: false
+  secretName: {{ include "virtualization.uploaderGatewayTLSSecretName" . }}
+  commonName: {{ include "virtualization.uploaderGatewayHost" . }}
+  dnsNames:
+    - {{ include "virtualization.uploaderGatewayHost" . }}
+  issuerRef:
+    name: {{ include "helm_lib_module_https_cert_manager_cluster_issuer_name" . }}
+    kind: ClusterIssuer
+{{- end }}
+{{- end }}

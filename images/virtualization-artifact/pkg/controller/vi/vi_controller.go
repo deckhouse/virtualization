@@ -36,11 +36,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vicollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -69,10 +72,10 @@ func NewController(
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualImageStorageClassSettings,
 ) (controller.Controller, error) {
-	stat := service.NewStatService(log)
+	stat := servicestat.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	uploader := serviceuploader.NewUploader(mgr.GetClient(), dvcr, uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, featuregates.Default())
 	bounder := service.NewBounderPodService(dvcr, mgr.GetClient(), bounderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName, service.DiskImporterConfig{
 		Image:                diskImporterImage,

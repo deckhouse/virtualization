@@ -1,0 +1,42 @@
+{{/*
+  ListenerSet publishing the upload host on the Gateway API gateway. The Gateway
+  itself belongs to the alb module (it is created by an ALBInstance together with
+  its data plane), so this chart only attaches a listener to it: the gateway's own
+  default listeners carry a placeholder certificate that does not cover the public
+  domain.
+
+  Per-upload HTTPRoutes are created by the virtualization-controller in user
+  namespaces and attach to the listener below, hence allowedRoutes.from: All.
+  TLS terminates here with the module ingress-tls certificate, so the secret is
+  not copied into user namespaces.
+*/}}
+{{- if (include "virtualization.uploadViaAPIGatewayEnabled" .) }}
+{{- $gateway := dict }}
+{{- include "helm_lib_module_gateway" (list . $gateway) }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: {{ include "virtualization.uploaderListenerSetName" . }}
+  namespace: d8-{{ $.Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+spec:
+  parentRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ $gateway.name }}
+    namespace: {{ $gateway.namespace }}
+  listeners:
+    - name: {{ include "virtualization.uploaderListenerName" . }}
+      protocol: HTTPS
+      port: 443
+      hostname: {{ include "virtualization.uploaderGatewayHost" . | quote }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: {{ include "virtualization.uploaderGatewayTLSSecretName" . }}
+      allowedRoutes:
+        namespaces:
+          from: All
+{{- end }}

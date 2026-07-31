@@ -28,8 +28,9 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -48,19 +49,19 @@ var _ = Describe("CreateUploaderStep", func() {
 			}).Build()
 
 		dvcrSettings := &dvcr.Settings{RegistryURL: "registry.example.com", TokenSigner: newTestSigner()}
-		uploaderService := service.NewUploaderService(
-			dvcrSettings,
+		uploaderService := serviceuploader.NewUploader(
 			fakeClient,
+			dvcrSettings,
 			"uploader-image",
 			corev1.ResourceRequirements{},
 			string(corev1.PullIfNotPresent),
 			"1",
 			"vd-controller",
-			service.NewProtectionService(fakeClient, "virtualization.deckhouse.io/vd-protection"),
+			featuregates.Default(),
 		)
 
 		cb := conditions.NewConditionBuilder(vdcondition.ReadyType)
-		result, err := NewCreateUploaderStep(nil, nil, nil, nil, uploaderService, dvcrSettings, fakeClient, newTestRecorder(), cb).
+		result, err := NewCreateUploaderStep(nil, nil, nil, false, uploaderService, dvcrSettings, fakeClient, newTestRecorder(), cb).
 			Take(context.Background(), vd)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).ToNot(BeNil())

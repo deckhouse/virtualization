@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -180,7 +180,7 @@ var _ = Describe("ReadyContainerRegistryStep", func() {
 				Expect(cb.Condition().Status).To(Equal(metav1.ConditionUnknown))
 			}
 		},
-		Entry("sets provisioning failed condition", fmt.Errorf("%w: importer failed", service.ErrProvisioningFailed), nil,
+		Entry("sets provisioning failed condition", fmt.Errorf("%w: importer failed", servicestat.ErrProvisioningFailed), nil,
 			v1alpha2.ImageFailed,
 			vicondition.ProvisioningFailed.String(),
 			"Provisioning failed: importer failed.",

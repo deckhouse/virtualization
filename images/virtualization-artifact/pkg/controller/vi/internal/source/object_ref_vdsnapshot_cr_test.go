@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	importer2 "github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -67,7 +68,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		recorder    eventrecord.EventRecorderLogger
 		diskService *DiskMock
 		importer    *ImporterMock
-		stat        *StatMock
+		statSvc     *StatMock
 	)
 
 	BeforeEach(func() {
@@ -91,7 +92,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				return pod, nil
 			},
 		}
-		stat = &StatMock{
+		statSvc = &StatMock{
 			GetDVCRImageNameFunc: func(_ *corev1.Pod) string {
 				return "image"
 			},
@@ -107,7 +108,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			GetFormatFunc: func(_ *corev1.Pod) string {
 				return "iso"
 			},
-			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, _ string, _ ...service.GetProgressOption) string {
+			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, _ string, _ ...servicestat.GetProgressOption) string {
 				return "N%"
 			},
 		}
@@ -242,7 +243,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				return service.NewPersistentVolumeClaimService(client, nil, nil, service.DiskImporterConfig{})
 			}
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, settings, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, statSvc, diskService, client, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -265,7 +266,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodPending
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, statSvc, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -279,7 +280,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodPending
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, statSvc, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -293,7 +294,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodRunning
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, statSvc, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -309,7 +310,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodSucceeded
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, statSvc, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -330,7 +331,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, statSvc, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())

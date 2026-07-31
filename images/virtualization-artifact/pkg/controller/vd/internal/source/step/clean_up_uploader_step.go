@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -32,35 +31,36 @@ import (
 )
 
 type CleanUpUploaderStepUploaderService interface {
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
-// CleanUpUploaderStep deletes uploader Pod/Service/Ingress once the disk has
-// reached a final state (Ready, Lost or Exporting). It is a no-op while the
-// disk is still being provisioned and when there is nothing left to clean up.
+// CleanUpUploaderStep deletes the uploader Pod/Service and its external exposure
+// once the disk has reached a final state (Ready, Lost or Exporting). It is a
+// no-op while the disk is still being provisioned and when there is nothing left
+// to clean up.
 type CleanUpUploaderStep struct {
-	pod      *corev1.Pod
-	svc      *corev1.Service
-	ing      *netv1.Ingress
-	uploader CleanUpUploaderStepUploaderService
+	pod            *corev1.Pod
+	svc            *corev1.Service
+	exposureExists bool
+	uploader       CleanUpUploaderStepUploaderService
 }
 
 func NewCleanUpUploaderStep(
 	pod *corev1.Pod,
 	svc *corev1.Service,
-	ing *netv1.Ingress,
+	exposureExists bool,
 	uploader CleanUpUploaderStepUploaderService,
 ) *CleanUpUploaderStep {
 	return &CleanUpUploaderStep{
-		pod:      pod,
-		svc:      svc,
-		ing:      ing,
-		uploader: uploader,
+		pod:            pod,
+		svc:            svc,
+		exposureExists: exposureExists,
+		uploader:       uploader,
 	}
 }
 
 func (s CleanUpUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
-	if s.pod == nil && s.svc == nil && s.ing == nil {
+	if s.pod == nil && s.svc == nil && !s.exposureExists {
 		return nil, nil
 	}
 
@@ -70,7 +70,7 @@ func (s CleanUpUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	}
 
 	supgen := vdsupplements.NewGenerator(vd)
-	if _, err := s.uploader.CleanUp(ctx, supgen); err != nil {
+	if _, err := s.uploader.Cleanup(ctx, supgen); err != nil {
 		return nil, fmt.Errorf("clean up uploader supplements: %w", err)
 	}
 

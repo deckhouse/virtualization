@@ -39,8 +39,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -59,7 +60,7 @@ var _ = Describe("UploadDataSource", func() {
 		disk         *UploadDataSourceDiskServiceMock
 		pvcSvc       *DataSourcePVCServiceMock
 		uploaderSvc  *UploadDataSourceUploaderServiceMock
-		stat         *UploadDataSourceStatServiceMock
+		statSvc      *UploadDataSourceStatServiceMock
 		recorder     eventrecord.EventRecorderLogger
 		dvcrSettings *dvcr.Settings
 	)
@@ -137,27 +138,26 @@ var _ = Describe("UploadDataSource", func() {
 		}
 
 		uploaderSvc = &UploadDataSourceUploaderServiceMock{
-			GetPodFunc:              func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
-			GetServiceFunc:          func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
-			GetIngressFunc:          func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return nil, nil },
-			CleanUpFunc:             func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
-			GetExternalURLFunc:      func(_ context.Context, _ *netv1.Ingress) string { return "https://upload.example.com" },
-			GetInClusterURLFunc:     func(_ context.Context, _ *corev1.Service) string { return "http://upload.svc/upload" },
-			IngressHostDriftedFunc:  func(_ *netv1.Ingress) bool { return false },
-			ExpectedIngressHostFunc: func() string { return "upload.example.com" },
-			EnsureIngressFunc: func(_ context.Context, _ client.Object, _ supplements.Generator) (*netv1.Ingress, error) {
-				return nil, nil
+			GetPodFunc:          func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
+			GetServiceFunc:      func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
+			CleanupFunc:         func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			GetInClusterURLFunc: func(_ *corev1.Service) string { return "http://upload.svc/upload" },
+			EnsureExposureFunc: func(_ context.Context, _ client.Object, _ supplements.Generator) error {
+				return nil
+			},
+			GetExposureFunc: func(_ context.Context, _ supplements.Generator) (serviceuploader.UploaderExposure, error) {
+				return serviceuploader.UploaderExposure{Exists: true, UploadURL: "https://upload.example.com"}, nil
 			},
 		}
 
-		stat = &UploadDataSourceStatServiceMock{
+		statSvc = &UploadDataSourceStatServiceMock{
 			GetDVCRImageNameFunc: func(_ *corev1.Pod) string { return "dvcr.example.com/cvi/vd:1" },
 			GetSizeFunc: func(_ *corev1.Pod) v1alpha2.ImageStatusSize {
 				return v1alpha2.ImageStatusSize{UnpackedBytes: "500Mi"}
 			},
 			GetFormatFunc:        func(_ *corev1.Pod) string { return "qcow2" },
 			GetDownloadSpeedFunc: func(_ types.UID, _ *corev1.Pod) *v1alpha2.StatusSpeed { return nil },
-			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...service.GetProgressOption) string {
+			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...servicestat.GetProgressOption) string {
 				if prev == "" {
 					return "10%"
 				}
@@ -165,14 +165,14 @@ var _ = Describe("UploadDataSource", func() {
 			},
 			CheckPodFunc:        func(_ *corev1.Pod) error { return nil },
 			IsUploadStartedFunc: func(_ types.UID, _ *corev1.Pod) bool { return false },
-			IsUploaderReadyFunc: func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+			IsUploaderReadyFunc: func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 				return false, nil
 			},
 		}
 	})
 
 	newSyncer := func(c client.Client) *UploadDataSource {
-		return NewUploadDataSource(recorder, stat, uploaderSvc, disk, pvcSvc, dvcrSettings, c)
+		return NewUploadDataSource(recorder, statSvc, uploaderSvc, disk, pvcSvc, dvcrSettings, c)
 	}
 
 	Context("VirtualDisk has just been created (no uploader supplements yet)", func() {
@@ -184,7 +184,7 @@ var _ = Describe("UploadDataSource", func() {
 
 		It("creates the uploader supplements and sets DiskProvisioning", func() {
 			var started bool
-			uploaderSvc.StartFunc = func(_ context.Context, _ *uploader.Settings, _ client.Object, _ supplements.Generator, _ *datasource.CABundle, _ ...service.Option) error {
+			uploaderSvc.ApplyFunc = func(_ context.Context, _ client.Object, _ supplements.Generator, _ serviceuploader.Settings, _ *datasource.CABundle, _ ...serviceuploader.Option) error {
 				started = true
 				return nil
 			}
@@ -201,7 +201,7 @@ var _ = Describe("UploadDataSource", func() {
 		})
 
 		It("propagates QuotaExceeded as DiskFailed/QuotaExceeded", func() {
-			uploaderSvc.StartFunc = func(_ context.Context, _ *uploader.Settings, _ client.Object, _ supplements.Generator, _ *datasource.CABundle, _ ...service.Option) error {
+			uploaderSvc.ApplyFunc = func(_ context.Context, _ client.Object, _ supplements.Generator, _ serviceuploader.Settings, _ *datasource.CABundle, _ ...serviceuploader.Option) error {
 				return errors.New("exceeded quota: storage requested but limit reached")
 			}
 
@@ -219,7 +219,6 @@ var _ = Describe("UploadDataSource", func() {
 		var (
 			pod *corev1.Pod
 			svc *corev1.Service
-			ing *netv1.Ingress
 		)
 
 		BeforeEach(func() {
@@ -231,22 +230,22 @@ var _ = Describe("UploadDataSource", func() {
 				Status:     corev1.PodStatus{Phase: corev1.PodRunning},
 			}
 			svc = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}
-			ing = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "uploader-ing", Namespace: vd.Namespace}}
 
 			uploaderSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return pod, nil }
 			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return svc, nil }
-			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return ing, nil }
 		})
 
 		It("reports WaitForUserUpload with ImageUploadURLs when the uploader is ready", func() {
-			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+			statSvc.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 				return true, nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.RequeueAfter).ToNot(BeZero())
+			// The start of the upload is only visible through the pod metrics scraped
+			// on reconcile, so waiting has to keep polling.
+			Expect(res.RequeueAfter).To(Equal(time.Second))
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForUserUpload))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitForUserUpload, true)
@@ -256,7 +255,7 @@ var _ = Describe("UploadDataSource", func() {
 		})
 
 		It("reports Provisioning while the uploader is not yet ready", func() {
-			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+			statSvc.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 				return false, nil
 			}
 
@@ -270,7 +269,7 @@ var _ = Describe("UploadDataSource", func() {
 		})
 
 		It("treats a readiness probe error as not-ready instead of failing the reconcile", func() {
-			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+			statSvc.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 				return false, errors.New("tls handshake failed")
 			}
 
@@ -288,7 +287,6 @@ var _ = Describe("UploadDataSource", func() {
 		var (
 			pod *corev1.Pod
 			svc *corev1.Service
-			ing *netv1.Ingress
 		)
 
 		BeforeEach(func() {
@@ -300,12 +298,13 @@ var _ = Describe("UploadDataSource", func() {
 				Status:     corev1.PodStatus{Phase: corev1.PodRunning},
 			}
 			svc = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}
-			ing = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "uploader-ing", Namespace: vd.Namespace}}
 
 			uploaderSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return pod, nil }
 			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return svc, nil }
-			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return ing, nil }
-			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+			uploaderSvc.GetExposureFunc = func(_ context.Context, _ supplements.Generator) (serviceuploader.UploaderExposure, error) {
+				return serviceuploader.UploaderExposure{Exists: true, UploadURL: "https://upload.example.com"}, nil
+			}
+			statSvc.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 				return true, nil
 			}
 		})
@@ -315,11 +314,11 @@ var _ = Describe("UploadDataSource", func() {
 				Type:               vdcondition.ReadyType.String(),
 				Status:             metav1.ConditionFalse,
 				Reason:             vdcondition.WaitForUserUpload.String(),
-				LastTransitionTime: metav1.NewTime(time.Now().Add(-uploader.WaitForUserUploadTimeout - time.Minute)),
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-serviceuploader.WaitForUserUploadTimeout - time.Minute)),
 			}}
 
 			var cleaned bool
-			uploaderSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
 				cleaned = true
 				return true, nil
 			}
@@ -346,8 +345,10 @@ var _ = Describe("UploadDataSource", func() {
 			// Uploader supplements are already gone: the cleanup happened on a prior reconcile.
 			uploaderSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil }
 			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil }
-			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) { return nil, nil }
-			stat.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ *netv1.Ingress, _ *corev1.Secret) (bool, error) {
+			uploaderSvc.GetExposureFunc = func(_ context.Context, _ supplements.Generator) (serviceuploader.UploaderExposure, error) {
+				return serviceuploader.UploaderExposure{}, nil
+			}
+			statSvc.IsUploaderReadyFunc = func(_ *corev1.Pod, _ *corev1.Service, _ serviceuploader.UploaderExposure) (bool, error) {
 				return false, nil
 			}
 
@@ -358,8 +359,8 @@ var _ = Describe("UploadDataSource", func() {
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskFailed))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitForUserUploadTimeout, true)
-			// StartFunc is nil: if the timeout step does not short-circuit, the pipeline would call
-			// uploaderSvc.Start and panic. The very fact that this test does not panic is the assertion.
+			// ApplyFunc is nil: if the timeout step does not short-circuit, the pipeline would call
+			// uploaderSvc.Apply and panic. The very fact that this test does not panic is the assertion.
 		})
 	})
 
@@ -376,24 +377,22 @@ var _ = Describe("UploadDataSource", func() {
 			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) {
 				return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}, nil
 			}
-			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) {
-				return &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "uploader-ing", Namespace: vd.Namespace}}, nil
-			}
-			stat.IsUploadStartedFunc = func(_ types.UID, _ *corev1.Pod) bool { return true }
+			statSvc.IsUploadStartedFunc = func(_ types.UID, _ *corev1.Pod) bool { return true }
 		})
 
 		It("reports DiskProvisioning while uploading to DVCR", func() {
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.RequeueAfter).ToNot(BeZero())
+			// Progress is only refreshed on reconcile, so the poll has to stay tight.
+			Expect(res.RequeueAfter).To(Equal(time.Second))
 
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 		})
 
 		It("keeps DiskProvisioning on transient uploader pod errors after upload has started", func() {
-			stat.CheckPodFunc = func(_ *corev1.Pod) error { return service.ErrNotScheduled }
+			statSvc.CheckPodFunc = func(_ *corev1.Pod) error { return servicestat.ErrNotScheduled }
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
@@ -418,9 +417,6 @@ var _ = Describe("UploadDataSource", func() {
 			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) {
 				return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}, nil
 			}
-			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) {
-				return &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "uploader-ing", Namespace: vd.Namespace}}, nil
-			}
 		})
 
 		It("starts the PVC import using a registry source", func() {
@@ -442,7 +438,7 @@ var _ = Describe("UploadDataSource", func() {
 		})
 
 		It("fails the disk when the uploaded source is an ISO", func() {
-			stat.GetFormatFunc = func(_ *corev1.Pod) string { return "iso" }
+			statSvc.GetFormatFunc = func(_ *corev1.Pod) string { return "iso" }
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)
@@ -474,11 +470,8 @@ var _ = Describe("UploadDataSource", func() {
 			uploaderSvc.GetServiceFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) {
 				return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}, nil
 			}
-			uploaderSvc.GetIngressFunc = func(_ context.Context, _ supplements.Generator) (*netv1.Ingress, error) {
-				return &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "uploader-ing", Namespace: vd.Namespace}}, nil
-			}
 			var cleaned bool
-			uploaderSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
 				cleaned = true
 				return true, nil
 			}
@@ -528,7 +521,7 @@ var _ = Describe("UploadDataSource", func() {
 	Context("CleanUp", func() {
 		It("delegates to both uploader and disk services", func() {
 			var uploaderCleaned, diskCleaned bool
-			uploaderSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
 				uploaderCleaned = true
 				return false, nil
 			}

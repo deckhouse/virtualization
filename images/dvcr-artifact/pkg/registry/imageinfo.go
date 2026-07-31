@@ -47,7 +47,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 	initialReadSize := syntheticHeadSize
 	headerBuf := make([]byte, initialReadSize)
 	n, err := io.ReadFull(sourceReader, headerBuf)
-	if err != nil && err != io.ErrUnexpectedEOF {
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return ImageInfo{}, fmt.Errorf("error reading initial data: %w", err)
 	}
 	headerBuf = headerBuf[:n]

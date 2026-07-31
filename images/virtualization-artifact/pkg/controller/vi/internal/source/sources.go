@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -158,17 +159,17 @@ const pvcImportProgressRequeue = 2 * time.Second
 // When scale is set, the metric (0..100) is projected into the
 // [scale.Low, scale.High] slice of the overall progress (e.g. 50..100 for the
 // HTTP/Registry/Upload data sources whose first half is already filled by the
-// DVCR phase). The previous progress is kept untouched when the stat service,
+// DVCR phase). The previous progress is kept untouched when the statSvc service,
 // the pod, or the metric is not yet available.
 func refreshPVCImportProgress(
 	ctx context.Context,
 	vi *v1alpha2.VirtualImage,
 	disk *service.DiskService,
-	stat Stat,
+	statSvc Stat,
 	supgen supplements.Generator,
-	scale *service.ScaleOption,
+	scale *servicestat.ScaleOption,
 ) error {
-	if stat == nil {
+	if statSvc == nil {
 		return nil
 	}
 
@@ -180,11 +181,11 @@ func refreshPVCImportProgress(
 		return nil
 	}
 
-	var opts []service.GetProgressOption
+	var opts []servicestat.GetProgressOption
 	if scale != nil {
 		opts = append(opts, scale)
 	}
-	vi.Status.Progress = service.CapProgressBelow(stat.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...), 100)
+	vi.Status.Progress = servicestat.CapProgressBelow(statSvc.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...), 100)
 	return nil
 }
 
@@ -233,13 +234,13 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *v1alpha2
 	vi.Status.Phase = v1alpha2.ImageFailed
 
 	switch {
-	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+	case errors.Is(err, servicestat.ErrNotInitialized), errors.Is(err, servicestat.ErrNotScheduled):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return nil
-	case errors.Is(err, service.ErrProvisioningFailed):
+	case errors.Is(err, servicestat.ErrProvisioningFailed):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
@@ -285,14 +286,14 @@ func reconcilePVCImportFromDVCR(
 	source *service.PVCImportSource,
 	cb *conditions.ConditionBuilder,
 	supgen supplements.Generator,
-	stat Stat,
+	statSvc Stat,
 	disk *service.DiskService,
 ) (reconcile.Result, error) {
 	if pvc == nil {
-		if err := stat.CheckPod(pod); err != nil {
+		if err := statSvc.CheckPod(pod); err != nil {
 			vi.Status.Phase = v1alpha2.ImageFailed
 			switch {
-			case errors.Is(err, service.ErrProvisioningFailed):
+			case errors.Is(err, servicestat.ErrProvisioningFailed):
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -304,9 +305,9 @@ func reconcilePVCImportFromDVCR(
 		}
 
 		vi.Status.Progress = "50.0%"
-		vi.Status.DownloadSpeed = stat.GetDownloadSpeed(vi.GetUID(), pod)
+		vi.Status.DownloadSpeed = statSvc.GetDownloadSpeed(vi.GetUID(), pod)
 
-		diskSize, err := getPVCSizeFromPod(stat, pod)
+		diskSize, err := getPVCSizeFromPod(statSvc, pod)
 		if err != nil {
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
@@ -340,10 +341,10 @@ func reconcilePVCImportFromDVCR(
 		vi.Status.Phase = v1alpha2.ImageReady
 		cb.Status(metav1.ConditionTrue).Reason(vicondition.Ready).Message("")
 		vi.Status.Progress = "100%"
-		vi.Status.Size = stat.GetSize(pod)
-		vi.Status.CDROM = stat.GetCDROM(pod)
+		vi.Status.Size = statSvc.GetSize(pod)
+		vi.Status.CDROM = statSvc.GetCDROM(pod)
 		vi.Status.Format = imageformat.StorageFormat(pvc)
-		vi.Status.DownloadSpeed = stat.GetDownloadSpeed(vi.GetUID(), pod)
+		vi.Status.DownloadSpeed = statSvc.GetDownloadSpeed(vi.GetUID(), pod)
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -367,16 +368,16 @@ func reconcilePVCImportFromDVCR(
 	}
 	// The DVCR phase fills the first half of the overall progress, so the
 	// pvc-importer metric (0..100) is projected into the 50..100 slice.
-	if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, service.NewScaleOption(50, 100)); err != nil {
+	if err := refreshPVCImportProgress(ctx, vi, disk, statSvc, supgen, servicestat.NewScaleOption(50, 100)); err != nil {
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 }
 
-func getPVCSizeFromPod(stat Stat, pod *corev1.Pod) (resource.Quantity, error) {
-	unpackedSize, err := resource.ParseQuantity(stat.GetSize(pod).UnpackedBytes)
+func getPVCSizeFromPod(statSvc Stat, pod *corev1.Pod) (resource.Quantity, error) {
+	unpackedSize, err := resource.ParseQuantity(statSvc.GetSize(pod).UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", stat.GetSize(pod).UnpackedBytes, err)
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", statSvc.GetSize(pod).UnpackedBytes, err)
 	}
 	if unpackedSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
@@ -392,7 +393,7 @@ func reconcilePVCImportFromReadySource(
 	size resource.Quantity,
 	cb *conditions.ConditionBuilder,
 	supgen supplements.Generator,
-	stat Stat,
+	statSvc Stat,
 	disk *service.DiskService,
 	ready func(),
 ) (reconcile.Result, error) {
@@ -458,7 +459,7 @@ func reconcilePVCImportFromReadySource(
 	if importPhase == corev1.PodSucceeded {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
-	if err := refreshPVCImportProgress(ctx, vi, disk, stat, supgen, nil); err != nil {
+	if err := refreshPVCImportProgress(ctx, vi, disk, statSvc, supgen, nil); err != nil {
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil

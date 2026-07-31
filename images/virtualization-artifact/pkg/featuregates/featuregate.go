@@ -34,6 +34,7 @@ const (
 	HotplugMemoryWithLiveMigration       featuregate.Feature = "HotplugMemoryWithLiveMigration"
 	HotplugCPUAndMemoryWithInPlaceResize featuregate.Feature = "HotplugCPUAndMemoryWithInPlaceResize"
 	VirtualMachinePool                   featuregate.Feature = "VirtualMachinePool"
+	UploadViaAPIGateway                  featuregate.Feature = "UploadViaAPIGateway"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -80,6 +81,10 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		Default:       version.GetEdition() == version.EditionEE,
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,
+	},
+	UploadViaAPIGateway: {
+		Default:    false,
+		PreRelease: featuregate.Alpha,
 	},
 }
 

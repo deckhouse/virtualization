@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//go:generate moq -rm -out image_checker_mock.go . ImageChecker
+//go:generate go tool moq -rm -out image_checker_mock.go . ImageChecker
 
 // ImageChecker provides functionality to check if images exist in a registry.
 type ImageChecker interface {

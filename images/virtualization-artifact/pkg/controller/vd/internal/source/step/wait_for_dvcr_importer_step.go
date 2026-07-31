@@ -33,6 +33,7 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -41,7 +42,7 @@ import (
 
 type WaitForDVCRImporterStepStatService interface {
 	CheckPod(pod *corev1.Pod) error
-	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 }
 
@@ -92,7 +93,7 @@ func (s WaitForDVCRImporterStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 		Reason(vdcondition.Provisioning).
 		Message("Import is in the process of provisioning to DVCR.")
 
-	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), s.pod, vd.Status.Progress, service.NewScaleOption(0, 50))
+	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), s.pod, vd.Status.Progress, servicestat.NewScaleOption(0, 50))
 	vd.Status.DownloadSpeed = s.stat.GetDownloadSpeed(vd.GetUID(), s.pod)
 
 	supgen := vdsupplements.NewGenerator(vd)
@@ -125,14 +126,14 @@ func (s WaitForDVCRImporterStep) deleteSupplements(ctx context.Context, supgen s
 
 func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha2.VirtualDisk, podErr error) (*reconcile.Result, error) {
 	switch {
-	case errors.Is(podErr, service.ErrNotInitialized):
+	case errors.Is(podErr, servicestat.ErrNotInitialized):
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		return &reconcile.Result{}, nil
-	case errors.Is(podErr, service.ErrNotScheduled):
+	case errors.Is(podErr, servicestat.ErrNotScheduled):
 		vd.Status.Phase = v1alpha2.DiskPending
 		vd.Status.Progress = ""
 
@@ -179,7 +180,7 @@ func (s WaitForDVCRImporterStep) handlePodError(ctx context.Context, vd *v1alpha
 		// Neither pod deletion nor VirtualMachineClass changes enqueue the VirtualDisk,
 		// so poll while the importer pod is unschedulable.
 		return &reconcile.Result{RequeueAfter: time.Second}, nil
-	case errors.Is(podErr, service.ErrProvisioningFailed):
+	case errors.Is(podErr, servicestat.ErrProvisioningFailed):
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).

@@ -51,8 +51,17 @@ const (
 	UploaderIngressTLSSecretVar = "UPLOADER_INGRESS_TLS_SECRET"
 	// UploaderIngressClassVar is a env variable
 	UploaderIngressClassVar = "UPLOADER_INGRESS_CLASS"
-	// UploaderIngressTLSSecretNS is a env variable
-	UploaderIngressTLSSecretNS = "UPLOADER_INGRESS_TLS_SECRET_NAMESPACE"
+	// UploaderIngressTLSSecretNSVar is a env variable
+	UploaderIngressTLSSecretNSVar = "UPLOADER_INGRESS_TLS_SECRET_NAMESPACE"
+
+	// UploaderListenerHostVar is an env variable holds the host image upload is published on through the Gateway API.
+	UploaderListenerHostVar = "UPLOADER_LISTENER_HOST"
+	// UploaderListenerSetNameVar is an env variable holds the name of the ListenerSet that publishes the upload host.
+	UploaderListenerSetNameVar = "UPLOADER_LISTENER_SET_NAME"
+	// UploaderListenerNameVar is an env variable holds the name of the listener the per-upload HTTPRoutes attach to.
+	UploaderListenerNameVar = "UPLOADER_LISTENER_NAME"
+	// UploaderListenerTLSSecretVar is an env variable holds the name of the Secret the listener terminates TLS with.
+	UploaderListenerTLSSecretVar = "UPLOADER_LISTENER_TLS_SECRET"
 )
 
 func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error) {
@@ -69,8 +78,15 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		UploaderIngressSettings: dvcr.UploaderIngressSettings{
 			Host:               os.Getenv(UploaderIngressHostVar),
 			TLSSecret:          os.Getenv(UploaderIngressTLSSecretVar),
-			TLSSecretNamespace: os.Getenv(UploaderIngressTLSSecretNS),
+			TLSSecretNamespace: os.Getenv(UploaderIngressTLSSecretNSVar),
 			Class:              os.Getenv(UploaderIngressClassVar),
+		},
+		UploaderListenerSetSettings: dvcr.UploaderListenerSetSettings{
+			Host:          os.Getenv(UploaderListenerHostVar),
+			Name:          os.Getenv(UploaderListenerSetNameVar),
+			Namespace:     controllerNamespace,
+			ListenerName:  os.Getenv(UploaderListenerNameVar),
+			TLSSecretName: os.Getenv(UploaderListenerTLSSecretVar),
 		},
 	}
 
@@ -78,6 +94,10 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", DVCRRegistryURLVar)
 	}
 
+	// Both upload hosts are optional: the module chart derives them from
+	// global.modules.publicDomainTemplate and omits them when it is not set. An
+	// uploader without a host is exposed by its Service only — no Ingress and no
+	// HTTPRoute is created — and the upload goes through the in-cluster URL.
 	if dvcrSettings.AuthSecret != "" && dvcrSettings.AuthSecretNamespace == "" {
 		dvcrSettings.AuthSecretNamespace = controllerNamespace
 	}

@@ -27,10 +27,17 @@ import (
 // before the import process is considered failed.
 const WaitForUserUploadTimeout = 10 * time.Minute
 
-// WaitForUserUploadRequeueAfter is the interval at which the controller re-reconciles
-// while the resource is sitting in the WaitForUserUpload phase. With a 10-minute TTL,
-// 30 seconds keeps the timeout accurate to within half a minute.
-const WaitForUserUploadRequeueAfter = 30 * time.Second
+// WaitForUserUploadRequeueAfter is the interval at which the controller
+// re-reconciles a resource that waits for the user upload.
+//
+// It has to stay short even though the resource looks idle. The start of an upload
+// is not observable through the API: the uploader pod stays Running and the pod
+// watchers only react to a phase change, so the only way to notice it is to scrape
+// the pod metrics (StatService.IsUploadStarted), which happens on reconcile and
+// nowhere else. Requeueing to the end of the wait window instead would leave the
+// resource asleep for the whole upload, publishing no progress until the pod
+// finally succeeds.
+const WaitForUserUploadRequeueAfter = time.Second
 
 // WaitForUserUploadTimeoutMessage returns the user-facing explanation for a TTL
 // timeout. Pass the kind of the failed resource (e.g. "VirtualDisk") so the

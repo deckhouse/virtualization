@@ -44,6 +44,8 @@ type Settings struct {
 	InsecureTLS string
 	// UploaderIngressSettings are settings for uploading images to the DVCR using ingress.
 	UploaderIngressSettings UploaderIngressSettings
+
+	UploaderListenerSetSettings UploaderListenerSetSettings
 	// ImageMonitorSchedule is a cron schedule for periodic DVCR image presence checks.
 	ImageMonitorSchedule string
 	// GCSchedule is a cron formatted schedule to periodically run a garbage collection.
@@ -60,6 +62,18 @@ type UploaderIngressSettings struct {
 	TLSSecret          string
 	TLSSecretNamespace string
 	Class              string
+}
+
+// UploaderListenerSetSettings points at the ListenerSet that publishes the upload
+// host on the Gateway API gateway. The Gateway belongs to the alb module, so the
+// module chart attaches its own listener to it and the per-upload HTTPRoutes
+// reference that listener.
+type UploaderListenerSetSettings struct {
+	Host          string
+	Name          string
+	Namespace     string
+	ListenerName  string
+	TLSSecretName string
 }
 
 const (

@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -34,11 +34,11 @@ import (
 )
 
 type WaitForUserUploadTimeoutStepUploaderService interface {
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 // WaitForUserUploadTimeoutStep fails the import when the user does not start the
-// upload within uploader.WaitForUserUploadTimeout. The timeout is anchored on the
+// upload within serviceuploader.WaitForUserUploadTimeout. The timeout is anchored on the
 // moment the disk entered the WaitForUserUpload phase (the Ready condition's last
 // transition time while it holds that reason), so the user always gets the full
 // window once the upload endpoint is reachable. Once the timeout fires the step
@@ -67,8 +67,8 @@ func (s WaitForUserUploadTimeoutStep) Take(ctx context.Context, vd *v1alpha2.Vir
 	switch {
 	case condition.Reason == vdcondition.WaitForUserUploadTimeout.String():
 		// Already timed out: keep the state terminal and ensure the uploader is gone.
-	case condition.Reason == vdcondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
-		s.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage("VirtualDisk"))
+	case condition.Reason == vdcondition.WaitForUserUpload.String() && serviceuploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
+		s.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, serviceuploader.WaitForUserUploadTimeoutMessage("VirtualDisk"))
 	default:
 		return nil, nil
 	}
@@ -78,10 +78,10 @@ func (s WaitForUserUploadTimeoutStep) Take(ctx context.Context, vd *v1alpha2.Vir
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.WaitForUserUploadTimeout).
-		Message(uploader.WaitForUserUploadTimeoutMessage("VirtualDisk"))
+		Message(serviceuploader.WaitForUserUploadTimeoutMessage("VirtualDisk"))
 
 	supgen := vdsupplements.NewGenerator(vd)
-	if _, err := s.uploader.CleanUp(ctx, supgen); err != nil {
+	if _, err := s.uploader.Cleanup(ctx, supgen); err != nil {
 		return nil, fmt.Errorf("clean up uploader supplements: %w", err)
 	}
 

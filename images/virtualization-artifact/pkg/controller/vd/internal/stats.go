@@ -26,6 +26,8 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -33,12 +35,12 @@ import (
 )
 
 type StatsHandler struct {
-	stat     *service.StatService
+	stat     *servicestat.StatService
 	importer *service.ImporterService
-	uploader *service.UploaderService
+	uploader serviceuploader.Uploader
 }
 
-func NewStatsHandler(stat *service.StatService, importer *service.ImporterService, uploader *service.UploaderService) *StatsHandler {
+func NewStatsHandler(stat *servicestat.StatService, importer *service.ImporterService, uploader serviceuploader.Uploader) *StatsHandler {
 	return &StatsHandler{
 		stat:     stat,
 		importer: importer,

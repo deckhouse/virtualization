@@ -55,6 +55,7 @@ type Generator interface {
 	UploaderPod() types.NamespacedName
 	UploaderService() types.NamespacedName
 	UploaderIngress() types.NamespacedName
+	UploaderHTTPRoute() types.NamespacedName
 	PersistentVolumeClaim() types.NamespacedName
 	CABundleConfigMap() types.NamespacedName
 	DVCRAuthSecret() types.NamespacedName
@@ -247,6 +248,13 @@ func (g *generator) UploaderService() types.NamespacedName {
 
 // UploaderIngress generates name for uploader Ingress.
 func (g *generator) UploaderIngress() types.NamespacedName {
+	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
+}
+
+// UploaderHTTPRoute generates name for uploader HTTPRoute.
+// The name matches UploaderIngress on purpose: an upload is exposed either
+// through an Ingress or through an HTTPRoute, never through both at once.
+func (g *generator) UploaderHTTPRoute() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
 

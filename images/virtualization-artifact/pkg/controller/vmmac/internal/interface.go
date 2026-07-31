@@ -23,7 +23,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . MACAddressService
+//go:generate go tool moq -rm -out mock.go . MACAddressService
 
 type MACAddressService interface {
 	GetLease(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error)

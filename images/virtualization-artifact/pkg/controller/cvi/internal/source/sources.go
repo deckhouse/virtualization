@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -121,13 +122,13 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, cvi *v1alpha
 	cvi.Status.Phase = v1alpha2.ImageFailed
 
 	switch {
-	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+	case errors.Is(err, servicestat.ErrNotInitialized), errors.Is(err, servicestat.ErrNotScheduled):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ProvisioningNotStarted).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return nil
-	case errors.Is(err, service.ErrProvisioningFailed):
+	case errors.Is(err, servicestat.ErrProvisioningFailed):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.ProvisioningFailed).
@@ -142,7 +143,7 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, cvi *v1alpha
 // so that the latter stays identical to its VirtualImage counterpart, which does
 // not record events.
 func recordProvisioningFailedEvent(recorder eventrecord.EventRecorderLogger, cvi *v1alpha2.ClusterVirtualImage, err error) {
-	if errors.Is(err, service.ErrProvisioningFailed) {
+	if errors.Is(err, servicestat.ErrProvisioningFailed) {
 		recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 	}
 }

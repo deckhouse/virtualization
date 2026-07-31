@@ -31,6 +31,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
@@ -64,10 +66,10 @@ func NewController(
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualDiskStorageClassSettings,
 ) (controller.Controller, error) {
-	stat := service.NewStatService(log)
+	stat := servicestat.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	uploader := serviceuploader.NewUploader(mgr.GetClient(), dvcr, uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, featuregates.Default())
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName, service.DiskImporterConfig{
 		Image:                diskImporterImage,
 		ResourceRequirements: requirements,

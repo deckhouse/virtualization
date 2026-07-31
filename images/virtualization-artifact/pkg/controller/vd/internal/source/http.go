@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -97,7 +97,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		step.NewCreateImporterStep(pvc, pod, ds.buildEnvSettings, ds.importerService, ds.client, ds.recorder, cb, "The HTTP DataSource import to DVCR has started"),
 		step.NewWaitForDVCRImporterStep(pod, ds.statService, ds.importerService, ds.client, cb),
 		step.NewCreatePVCFromDVCRStep(pvc, pod, ds.statService, ds.diskService, ds.pvcService, ds.client, cb),
-		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.pvcService, ds.statService, service.NewScaleOption(50, 100), ds.client, cb),
+		step.NewWaitForPVCImportStep(pvc, step.DVCRPodPVCImportSource(pod, ds.statService), ds.pvcService, ds.statService, servicestat.NewScaleOption(50, 100), ds.client, cb),
 	).Run(ctx, vd)
 }
 

@@ -9,13 +9,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -1182,7 +1182,7 @@ var _ ObjectRefVirtualImageStatService = &ObjectRefVirtualImageStatServiceMock{}
 //
 //		// make and configure a mocked ObjectRefVirtualImageStatService
 //		mockedObjectRefVirtualImageStatService := &ObjectRefVirtualImageStatServiceMock{
-//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
 //		}
@@ -1193,7 +1193,7 @@ var _ ObjectRefVirtualImageStatService = &ObjectRefVirtualImageStatServiceMock{}
 //	}
 type ObjectRefVirtualImageStatServiceMock struct {
 	// GetProgressFunc mocks the GetProgress method.
-	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1206,14 +1206,14 @@ type ObjectRefVirtualImageStatServiceMock struct {
 			// PrevProgress is the prevProgress argument value.
 			PrevProgress string
 			// Opts is the opts argument value.
-			Opts []service.GetProgressOption
+			Opts []servicestat.GetProgressOption
 		}
 	}
 	lockGetProgress sync.RWMutex
 }
 
 // GetProgress calls GetProgressFunc.
-func (mock *ObjectRefVirtualImageStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+func (mock *ObjectRefVirtualImageStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 	if mock.GetProgressFunc == nil {
 		panic("ObjectRefVirtualImageStatServiceMock.GetProgressFunc: method is nil but ObjectRefVirtualImageStatService.GetProgress was just called")
 	}
@@ -1221,7 +1221,7 @@ func (mock *ObjectRefVirtualImageStatServiceMock) GetProgress(ownerUID types.UID
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}{
 		OwnerUID:     ownerUID,
 		Pod:          pod,
@@ -1242,13 +1242,13 @@ func (mock *ObjectRefVirtualImageStatServiceMock) GetProgressCalls() []struct {
 	OwnerUID     types.UID
 	Pod          *corev1.Pod
 	PrevProgress string
-	Opts         []service.GetProgressOption
+	Opts         []servicestat.GetProgressOption
 } {
 	var calls []struct {
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}
 	mock.lockGetProgress.RLock()
 	calls = mock.calls.GetProgress
@@ -1438,7 +1438,7 @@ var _ ObjectRefClusterVirtualImageStatService = &ObjectRefClusterVirtualImageSta
 //
 //		// make and configure a mocked ObjectRefClusterVirtualImageStatService
 //		mockedObjectRefClusterVirtualImageStatService := &ObjectRefClusterVirtualImageStatServiceMock{
-//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
 //		}
@@ -1449,7 +1449,7 @@ var _ ObjectRefClusterVirtualImageStatService = &ObjectRefClusterVirtualImageSta
 //	}
 type ObjectRefClusterVirtualImageStatServiceMock struct {
 	// GetProgressFunc mocks the GetProgress method.
-	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1462,14 +1462,14 @@ type ObjectRefClusterVirtualImageStatServiceMock struct {
 			// PrevProgress is the prevProgress argument value.
 			PrevProgress string
 			// Opts is the opts argument value.
-			Opts []service.GetProgressOption
+			Opts []servicestat.GetProgressOption
 		}
 	}
 	lockGetProgress sync.RWMutex
 }
 
 // GetProgress calls GetProgressFunc.
-func (mock *ObjectRefClusterVirtualImageStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+func (mock *ObjectRefClusterVirtualImageStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 	if mock.GetProgressFunc == nil {
 		panic("ObjectRefClusterVirtualImageStatServiceMock.GetProgressFunc: method is nil but ObjectRefClusterVirtualImageStatService.GetProgress was just called")
 	}
@@ -1477,7 +1477,7 @@ func (mock *ObjectRefClusterVirtualImageStatServiceMock) GetProgress(ownerUID ty
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}{
 		OwnerUID:     ownerUID,
 		Pod:          pod,
@@ -1498,13 +1498,13 @@ func (mock *ObjectRefClusterVirtualImageStatServiceMock) GetProgressCalls() []st
 	OwnerUID     types.UID
 	Pod          *corev1.Pod
 	PrevProgress string
-	Opts         []service.GetProgressOption
+	Opts         []servicestat.GetProgressOption
 } {
 	var calls []struct {
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}
 	mock.lockGetProgress.RLock()
 	calls = mock.calls.GetProgress
@@ -1966,35 +1966,26 @@ var _ UploadDataSourceUploaderService = &UploadDataSourceUploaderServiceMock{}
 //
 //		// make and configure a mocked UploadDataSourceUploaderService
 //		mockedUploadDataSourceUploaderService := &UploadDataSourceUploaderServiceMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
-//				panic("mock out the CleanUp method")
+//			ApplyFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error {
+//				panic("mock out the Apply method")
 //			},
-//			EnsureIngressFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
-//				panic("mock out the EnsureIngress method")
+//			CleanupFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//				panic("mock out the Cleanup method")
 //			},
-//			ExpectedIngressHostFunc: func() string {
-//				panic("mock out the ExpectedIngressHost method")
+//			EnsureExposureFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) error {
+//				panic("mock out the EnsureExposure method")
 //			},
-//			GetExternalURLFunc: func(ctx context.Context, ing *netv1.Ingress) string {
-//				panic("mock out the GetExternalURL method")
+//			GetExposureFunc: func(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error) {
+//				panic("mock out the GetExposure method")
 //			},
-//			GetInClusterURLFunc: func(ctx context.Context, svc *corev1.Service) string {
+//			GetInClusterURLFunc: func(svc *corev1.Service) string {
 //				panic("mock out the GetInClusterURL method")
-//			},
-//			GetIngressFunc: func(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
-//				panic("mock out the GetIngress method")
 //			},
 //			GetPodFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
 //				panic("mock out the GetPod method")
 //			},
 //			GetServiceFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
 //				panic("mock out the GetService method")
-//			},
-//			IngressHostDriftedFunc: func(ing *netv1.Ingress) bool {
-//				panic("mock out the IngressHostDrifted method")
-//			},
-//			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
-//				panic("mock out the Start method")
 //			},
 //		}
 //
@@ -2003,23 +1994,20 @@ var _ UploadDataSourceUploaderService = &UploadDataSourceUploaderServiceMock{}
 //
 //	}
 type UploadDataSourceUploaderServiceMock struct {
-	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	// ApplyFunc mocks the Apply method.
+	ApplyFunc func(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error
 
-	// EnsureIngressFunc mocks the EnsureIngress method.
-	EnsureIngressFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
+	// CleanupFunc mocks the Cleanup method.
+	CleanupFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
 
-	// ExpectedIngressHostFunc mocks the ExpectedIngressHost method.
-	ExpectedIngressHostFunc func() string
+	// EnsureExposureFunc mocks the EnsureExposure method.
+	EnsureExposureFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) error
 
-	// GetExternalURLFunc mocks the GetExternalURL method.
-	GetExternalURLFunc func(ctx context.Context, ing *netv1.Ingress) string
+	// GetExposureFunc mocks the GetExposure method.
+	GetExposureFunc func(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error)
 
 	// GetInClusterURLFunc mocks the GetInClusterURL method.
-	GetInClusterURLFunc func(ctx context.Context, svc *corev1.Service) string
-
-	// GetIngressFunc mocks the GetIngress method.
-	GetIngressFunc func(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+	GetInClusterURLFunc func(svc *corev1.Service) string
 
 	// GetPodFunc mocks the GetPod method.
 	GetPodFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
@@ -2027,23 +2015,32 @@ type UploadDataSourceUploaderServiceMock struct {
 	// GetServiceFunc mocks the GetService method.
 	GetServiceFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 
-	// IngressHostDriftedFunc mocks the IngressHostDrifted method.
-	IngressHostDriftedFunc func(ing *netv1.Ingress) bool
-
-	// StartFunc mocks the Start method.
-	StartFunc func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-
 	// calls tracks calls to the methods.
 	calls struct {
-		// CleanUp holds details about calls to the CleanUp method.
-		CleanUp []struct {
+		// Apply holds details about calls to the Apply method.
+		Apply []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Obj is the obj argument value.
+			Obj client.Object
+			// Sup is the sup argument value.
+			Sup supplements.Generator
+			// Settings is the settings argument value.
+			Settings serviceuploader.Settings
+			// CaBundle is the caBundle argument value.
+			CaBundle *datasource.CABundle
+			// Opts is the opts argument value.
+			Opts []serviceuploader.Option
+		}
+		// Cleanup holds details about calls to the Cleanup method.
+		Cleanup []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
-		// EnsureIngress holds details about calls to the EnsureIngress method.
-		EnsureIngress []struct {
+		// EnsureExposure holds details about calls to the EnsureExposure method.
+		EnsureExposure []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Obj is the obj argument value.
@@ -2051,29 +2048,17 @@ type UploadDataSourceUploaderServiceMock struct {
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
-		// ExpectedIngressHost holds details about calls to the ExpectedIngressHost method.
-		ExpectedIngressHost []struct {
-		}
-		// GetExternalURL holds details about calls to the GetExternalURL method.
-		GetExternalURL []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-		}
-		// GetInClusterURL holds details about calls to the GetInClusterURL method.
-		GetInClusterURL []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Svc is the svc argument value.
-			Svc *corev1.Service
-		}
-		// GetIngress holds details about calls to the GetIngress method.
-		GetIngress []struct {
+		// GetExposure holds details about calls to the GetExposure method.
+		GetExposure []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
 			Sup supplements.Generator
+		}
+		// GetInClusterURL holds details about calls to the GetInClusterURL method.
+		GetInClusterURL []struct {
+			// Svc is the svc argument value.
+			Svc *corev1.Service
 		}
 		// GetPod holds details about calls to the GetPod method.
 		GetPod []struct {
@@ -2089,43 +2074,72 @@ type UploadDataSourceUploaderServiceMock struct {
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
-		// IngressHostDrifted holds details about calls to the IngressHostDrifted method.
-		IngressHostDrifted []struct {
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-		}
-		// Start holds details about calls to the Start method.
-		Start []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Settings is the settings argument value.
-			Settings *uploader.Settings
-			// Obj is the obj argument value.
-			Obj client.Object
-			// Sup is the sup argument value.
-			Sup supplements.Generator
-			// CaBundle is the caBundle argument value.
-			CaBundle *datasource.CABundle
-			// Opts is the opts argument value.
-			Opts []service.Option
-		}
 	}
-	lockCleanUp             sync.RWMutex
-	lockEnsureIngress       sync.RWMutex
-	lockExpectedIngressHost sync.RWMutex
-	lockGetExternalURL      sync.RWMutex
-	lockGetInClusterURL     sync.RWMutex
-	lockGetIngress          sync.RWMutex
-	lockGetPod              sync.RWMutex
-	lockGetService          sync.RWMutex
-	lockIngressHostDrifted  sync.RWMutex
-	lockStart               sync.RWMutex
+	lockApply           sync.RWMutex
+	lockCleanup         sync.RWMutex
+	lockEnsureExposure  sync.RWMutex
+	lockGetExposure     sync.RWMutex
+	lockGetInClusterURL sync.RWMutex
+	lockGetPod          sync.RWMutex
+	lockGetService      sync.RWMutex
 }
 
-// CleanUp calls CleanUpFunc.
-func (mock *UploadDataSourceUploaderServiceMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
-	if mock.CleanUpFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.CleanUpFunc: method is nil but UploadDataSourceUploaderService.CleanUp was just called")
+// Apply calls ApplyFunc.
+func (mock *UploadDataSourceUploaderServiceMock) Apply(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error {
+	if mock.ApplyFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.ApplyFunc: method is nil but UploadDataSourceUploaderService.Apply was just called")
+	}
+	callInfo := struct {
+		Ctx      context.Context
+		Obj      client.Object
+		Sup      supplements.Generator
+		Settings serviceuploader.Settings
+		CaBundle *datasource.CABundle
+		Opts     []serviceuploader.Option
+	}{
+		Ctx:      ctx,
+		Obj:      obj,
+		Sup:      sup,
+		Settings: settings,
+		CaBundle: caBundle,
+		Opts:     opts,
+	}
+	mock.lockApply.Lock()
+	mock.calls.Apply = append(mock.calls.Apply, callInfo)
+	mock.lockApply.Unlock()
+	return mock.ApplyFunc(ctx, obj, sup, settings, caBundle, opts...)
+}
+
+// ApplyCalls gets all the calls that were made to Apply.
+// Check the length with:
+//
+//	len(mockedUploadDataSourceUploaderService.ApplyCalls())
+func (mock *UploadDataSourceUploaderServiceMock) ApplyCalls() []struct {
+	Ctx      context.Context
+	Obj      client.Object
+	Sup      supplements.Generator
+	Settings serviceuploader.Settings
+	CaBundle *datasource.CABundle
+	Opts     []serviceuploader.Option
+} {
+	var calls []struct {
+		Ctx      context.Context
+		Obj      client.Object
+		Sup      supplements.Generator
+		Settings serviceuploader.Settings
+		CaBundle *datasource.CABundle
+		Opts     []serviceuploader.Option
+	}
+	mock.lockApply.RLock()
+	calls = mock.calls.Apply
+	mock.lockApply.RUnlock()
+	return calls
+}
+
+// Cleanup calls CleanupFunc.
+func (mock *UploadDataSourceUploaderServiceMock) Cleanup(ctx context.Context, sup supplements.Generator) (bool, error) {
+	if mock.CleanupFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.CleanupFunc: method is nil but UploadDataSourceUploaderService.Cleanup was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -2134,17 +2148,17 @@ func (mock *UploadDataSourceUploaderServiceMock) CleanUp(ctx context.Context, su
 		Ctx: ctx,
 		Sup: sup,
 	}
-	mock.lockCleanUp.Lock()
-	mock.calls.CleanUp = append(mock.calls.CleanUp, callInfo)
-	mock.lockCleanUp.Unlock()
-	return mock.CleanUpFunc(ctx, sup)
+	mock.lockCleanup.Lock()
+	mock.calls.Cleanup = append(mock.calls.Cleanup, callInfo)
+	mock.lockCleanup.Unlock()
+	return mock.CleanupFunc(ctx, sup)
 }
 
-// CleanUpCalls gets all the calls that were made to CleanUp.
+// CleanupCalls gets all the calls that were made to Cleanup.
 // Check the length with:
 //
-//	len(mockedUploadDataSourceUploaderService.CleanUpCalls())
-func (mock *UploadDataSourceUploaderServiceMock) CleanUpCalls() []struct {
+//	len(mockedUploadDataSourceUploaderService.CleanupCalls())
+func (mock *UploadDataSourceUploaderServiceMock) CleanupCalls() []struct {
 	Ctx context.Context
 	Sup supplements.Generator
 } {
@@ -2152,16 +2166,16 @@ func (mock *UploadDataSourceUploaderServiceMock) CleanUpCalls() []struct {
 		Ctx context.Context
 		Sup supplements.Generator
 	}
-	mock.lockCleanUp.RLock()
-	calls = mock.calls.CleanUp
-	mock.lockCleanUp.RUnlock()
+	mock.lockCleanup.RLock()
+	calls = mock.calls.Cleanup
+	mock.lockCleanup.RUnlock()
 	return calls
 }
 
-// EnsureIngress calls EnsureIngressFunc.
-func (mock *UploadDataSourceUploaderServiceMock) EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error) {
-	if mock.EnsureIngressFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.EnsureIngressFunc: method is nil but UploadDataSourceUploaderService.EnsureIngress was just called")
+// EnsureExposure calls EnsureExposureFunc.
+func (mock *UploadDataSourceUploaderServiceMock) EnsureExposure(ctx context.Context, obj client.Object, sup supplements.Generator) error {
+	if mock.EnsureExposureFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.EnsureExposureFunc: method is nil but UploadDataSourceUploaderService.EnsureExposure was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -2172,17 +2186,17 @@ func (mock *UploadDataSourceUploaderServiceMock) EnsureIngress(ctx context.Conte
 		Obj: obj,
 		Sup: sup,
 	}
-	mock.lockEnsureIngress.Lock()
-	mock.calls.EnsureIngress = append(mock.calls.EnsureIngress, callInfo)
-	mock.lockEnsureIngress.Unlock()
-	return mock.EnsureIngressFunc(ctx, obj, sup)
+	mock.lockEnsureExposure.Lock()
+	mock.calls.EnsureExposure = append(mock.calls.EnsureExposure, callInfo)
+	mock.lockEnsureExposure.Unlock()
+	return mock.EnsureExposureFunc(ctx, obj, sup)
 }
 
-// EnsureIngressCalls gets all the calls that were made to EnsureIngress.
+// EnsureExposureCalls gets all the calls that were made to EnsureExposure.
 // Check the length with:
 //
-//	len(mockedUploadDataSourceUploaderService.EnsureIngressCalls())
-func (mock *UploadDataSourceUploaderServiceMock) EnsureIngressCalls() []struct {
+//	len(mockedUploadDataSourceUploaderService.EnsureExposureCalls())
+func (mock *UploadDataSourceUploaderServiceMock) EnsureExposureCalls() []struct {
 	Ctx context.Context
 	Obj client.Object
 	Sup supplements.Generator
@@ -2192,115 +2206,16 @@ func (mock *UploadDataSourceUploaderServiceMock) EnsureIngressCalls() []struct {
 		Obj client.Object
 		Sup supplements.Generator
 	}
-	mock.lockEnsureIngress.RLock()
-	calls = mock.calls.EnsureIngress
-	mock.lockEnsureIngress.RUnlock()
+	mock.lockEnsureExposure.RLock()
+	calls = mock.calls.EnsureExposure
+	mock.lockEnsureExposure.RUnlock()
 	return calls
 }
 
-// ExpectedIngressHost calls ExpectedIngressHostFunc.
-func (mock *UploadDataSourceUploaderServiceMock) ExpectedIngressHost() string {
-	if mock.ExpectedIngressHostFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.ExpectedIngressHostFunc: method is nil but UploadDataSourceUploaderService.ExpectedIngressHost was just called")
-	}
-	callInfo := struct {
-	}{}
-	mock.lockExpectedIngressHost.Lock()
-	mock.calls.ExpectedIngressHost = append(mock.calls.ExpectedIngressHost, callInfo)
-	mock.lockExpectedIngressHost.Unlock()
-	return mock.ExpectedIngressHostFunc()
-}
-
-// ExpectedIngressHostCalls gets all the calls that were made to ExpectedIngressHost.
-// Check the length with:
-//
-//	len(mockedUploadDataSourceUploaderService.ExpectedIngressHostCalls())
-func (mock *UploadDataSourceUploaderServiceMock) ExpectedIngressHostCalls() []struct {
-} {
-	var calls []struct {
-	}
-	mock.lockExpectedIngressHost.RLock()
-	calls = mock.calls.ExpectedIngressHost
-	mock.lockExpectedIngressHost.RUnlock()
-	return calls
-}
-
-// GetExternalURL calls GetExternalURLFunc.
-func (mock *UploadDataSourceUploaderServiceMock) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
-	if mock.GetExternalURLFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.GetExternalURLFunc: method is nil but UploadDataSourceUploaderService.GetExternalURL was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Ing *netv1.Ingress
-	}{
-		Ctx: ctx,
-		Ing: ing,
-	}
-	mock.lockGetExternalURL.Lock()
-	mock.calls.GetExternalURL = append(mock.calls.GetExternalURL, callInfo)
-	mock.lockGetExternalURL.Unlock()
-	return mock.GetExternalURLFunc(ctx, ing)
-}
-
-// GetExternalURLCalls gets all the calls that were made to GetExternalURL.
-// Check the length with:
-//
-//	len(mockedUploadDataSourceUploaderService.GetExternalURLCalls())
-func (mock *UploadDataSourceUploaderServiceMock) GetExternalURLCalls() []struct {
-	Ctx context.Context
-	Ing *netv1.Ingress
-} {
-	var calls []struct {
-		Ctx context.Context
-		Ing *netv1.Ingress
-	}
-	mock.lockGetExternalURL.RLock()
-	calls = mock.calls.GetExternalURL
-	mock.lockGetExternalURL.RUnlock()
-	return calls
-}
-
-// GetInClusterURL calls GetInClusterURLFunc.
-func (mock *UploadDataSourceUploaderServiceMock) GetInClusterURL(ctx context.Context, svc *corev1.Service) string {
-	if mock.GetInClusterURLFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.GetInClusterURLFunc: method is nil but UploadDataSourceUploaderService.GetInClusterURL was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		Svc *corev1.Service
-	}{
-		Ctx: ctx,
-		Svc: svc,
-	}
-	mock.lockGetInClusterURL.Lock()
-	mock.calls.GetInClusterURL = append(mock.calls.GetInClusterURL, callInfo)
-	mock.lockGetInClusterURL.Unlock()
-	return mock.GetInClusterURLFunc(ctx, svc)
-}
-
-// GetInClusterURLCalls gets all the calls that were made to GetInClusterURL.
-// Check the length with:
-//
-//	len(mockedUploadDataSourceUploaderService.GetInClusterURLCalls())
-func (mock *UploadDataSourceUploaderServiceMock) GetInClusterURLCalls() []struct {
-	Ctx context.Context
-	Svc *corev1.Service
-} {
-	var calls []struct {
-		Ctx context.Context
-		Svc *corev1.Service
-	}
-	mock.lockGetInClusterURL.RLock()
-	calls = mock.calls.GetInClusterURL
-	mock.lockGetInClusterURL.RUnlock()
-	return calls
-}
-
-// GetIngress calls GetIngressFunc.
-func (mock *UploadDataSourceUploaderServiceMock) GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
-	if mock.GetIngressFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.GetIngressFunc: method is nil but UploadDataSourceUploaderService.GetIngress was just called")
+// GetExposure calls GetExposureFunc.
+func (mock *UploadDataSourceUploaderServiceMock) GetExposure(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error) {
+	if mock.GetExposureFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.GetExposureFunc: method is nil but UploadDataSourceUploaderService.GetExposure was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -2309,17 +2224,17 @@ func (mock *UploadDataSourceUploaderServiceMock) GetIngress(ctx context.Context,
 		Ctx: ctx,
 		Sup: sup,
 	}
-	mock.lockGetIngress.Lock()
-	mock.calls.GetIngress = append(mock.calls.GetIngress, callInfo)
-	mock.lockGetIngress.Unlock()
-	return mock.GetIngressFunc(ctx, sup)
+	mock.lockGetExposure.Lock()
+	mock.calls.GetExposure = append(mock.calls.GetExposure, callInfo)
+	mock.lockGetExposure.Unlock()
+	return mock.GetExposureFunc(ctx, sup)
 }
 
-// GetIngressCalls gets all the calls that were made to GetIngress.
+// GetExposureCalls gets all the calls that were made to GetExposure.
 // Check the length with:
 //
-//	len(mockedUploadDataSourceUploaderService.GetIngressCalls())
-func (mock *UploadDataSourceUploaderServiceMock) GetIngressCalls() []struct {
+//	len(mockedUploadDataSourceUploaderService.GetExposureCalls())
+func (mock *UploadDataSourceUploaderServiceMock) GetExposureCalls() []struct {
 	Ctx context.Context
 	Sup supplements.Generator
 } {
@@ -2327,9 +2242,41 @@ func (mock *UploadDataSourceUploaderServiceMock) GetIngressCalls() []struct {
 		Ctx context.Context
 		Sup supplements.Generator
 	}
-	mock.lockGetIngress.RLock()
-	calls = mock.calls.GetIngress
-	mock.lockGetIngress.RUnlock()
+	mock.lockGetExposure.RLock()
+	calls = mock.calls.GetExposure
+	mock.lockGetExposure.RUnlock()
+	return calls
+}
+
+// GetInClusterURL calls GetInClusterURLFunc.
+func (mock *UploadDataSourceUploaderServiceMock) GetInClusterURL(svc *corev1.Service) string {
+	if mock.GetInClusterURLFunc == nil {
+		panic("UploadDataSourceUploaderServiceMock.GetInClusterURLFunc: method is nil but UploadDataSourceUploaderService.GetInClusterURL was just called")
+	}
+	callInfo := struct {
+		Svc *corev1.Service
+	}{
+		Svc: svc,
+	}
+	mock.lockGetInClusterURL.Lock()
+	mock.calls.GetInClusterURL = append(mock.calls.GetInClusterURL, callInfo)
+	mock.lockGetInClusterURL.Unlock()
+	return mock.GetInClusterURLFunc(svc)
+}
+
+// GetInClusterURLCalls gets all the calls that were made to GetInClusterURL.
+// Check the length with:
+//
+//	len(mockedUploadDataSourceUploaderService.GetInClusterURLCalls())
+func (mock *UploadDataSourceUploaderServiceMock) GetInClusterURLCalls() []struct {
+	Svc *corev1.Service
+} {
+	var calls []struct {
+		Svc *corev1.Service
+	}
+	mock.lockGetInClusterURL.RLock()
+	calls = mock.calls.GetInClusterURL
+	mock.lockGetInClusterURL.RUnlock()
 	return calls
 }
 
@@ -2405,90 +2352,6 @@ func (mock *UploadDataSourceUploaderServiceMock) GetServiceCalls() []struct {
 	return calls
 }
 
-// IngressHostDrifted calls IngressHostDriftedFunc.
-func (mock *UploadDataSourceUploaderServiceMock) IngressHostDrifted(ing *netv1.Ingress) bool {
-	if mock.IngressHostDriftedFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.IngressHostDriftedFunc: method is nil but UploadDataSourceUploaderService.IngressHostDrifted was just called")
-	}
-	callInfo := struct {
-		Ing *netv1.Ingress
-	}{
-		Ing: ing,
-	}
-	mock.lockIngressHostDrifted.Lock()
-	mock.calls.IngressHostDrifted = append(mock.calls.IngressHostDrifted, callInfo)
-	mock.lockIngressHostDrifted.Unlock()
-	return mock.IngressHostDriftedFunc(ing)
-}
-
-// IngressHostDriftedCalls gets all the calls that were made to IngressHostDrifted.
-// Check the length with:
-//
-//	len(mockedUploadDataSourceUploaderService.IngressHostDriftedCalls())
-func (mock *UploadDataSourceUploaderServiceMock) IngressHostDriftedCalls() []struct {
-	Ing *netv1.Ingress
-} {
-	var calls []struct {
-		Ing *netv1.Ingress
-	}
-	mock.lockIngressHostDrifted.RLock()
-	calls = mock.calls.IngressHostDrifted
-	mock.lockIngressHostDrifted.RUnlock()
-	return calls
-}
-
-// Start calls StartFunc.
-func (mock *UploadDataSourceUploaderServiceMock) Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
-	if mock.StartFunc == nil {
-		panic("UploadDataSourceUploaderServiceMock.StartFunc: method is nil but UploadDataSourceUploaderService.Start was just called")
-	}
-	callInfo := struct {
-		Ctx      context.Context
-		Settings *uploader.Settings
-		Obj      client.Object
-		Sup      supplements.Generator
-		CaBundle *datasource.CABundle
-		Opts     []service.Option
-	}{
-		Ctx:      ctx,
-		Settings: settings,
-		Obj:      obj,
-		Sup:      sup,
-		CaBundle: caBundle,
-		Opts:     opts,
-	}
-	mock.lockStart.Lock()
-	mock.calls.Start = append(mock.calls.Start, callInfo)
-	mock.lockStart.Unlock()
-	return mock.StartFunc(ctx, settings, obj, sup, caBundle, opts...)
-}
-
-// StartCalls gets all the calls that were made to Start.
-// Check the length with:
-//
-//	len(mockedUploadDataSourceUploaderService.StartCalls())
-func (mock *UploadDataSourceUploaderServiceMock) StartCalls() []struct {
-	Ctx      context.Context
-	Settings *uploader.Settings
-	Obj      client.Object
-	Sup      supplements.Generator
-	CaBundle *datasource.CABundle
-	Opts     []service.Option
-} {
-	var calls []struct {
-		Ctx      context.Context
-		Settings *uploader.Settings
-		Obj      client.Object
-		Sup      supplements.Generator
-		CaBundle *datasource.CABundle
-		Opts     []service.Option
-	}
-	mock.lockStart.RLock()
-	calls = mock.calls.Start
-	mock.lockStart.RUnlock()
-	return calls
-}
-
 // Ensure, that UploadDataSourceStatServiceMock does implement UploadDataSourceStatService.
 // If this is not the case, regenerate this file with moq.
 var _ UploadDataSourceStatService = &UploadDataSourceStatServiceMock{}
@@ -2511,7 +2374,7 @@ var _ UploadDataSourceStatService = &UploadDataSourceStatServiceMock{}
 //			GetFormatFunc: func(pod *corev1.Pod) string {
 //				panic("mock out the GetFormat method")
 //			},
-//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
 //			GetSizeFunc: func(pod *corev1.Pod) v1alpha2.ImageStatusSize {
@@ -2520,7 +2383,7 @@ var _ UploadDataSourceStatService = &UploadDataSourceStatServiceMock{}
 //			IsUploadStartedFunc: func(ownerUID types.UID, pod *corev1.Pod) bool {
 //				panic("mock out the IsUploadStarted method")
 //			},
-//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
+//			IsUploaderReadyFunc: func(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error) {
 //				panic("mock out the IsUploaderReady method")
 //			},
 //		}
@@ -2543,7 +2406,7 @@ type UploadDataSourceStatServiceMock struct {
 	GetFormatFunc func(pod *corev1.Pod) string
 
 	// GetProgressFunc mocks the GetProgress method.
-	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 
 	// GetSizeFunc mocks the GetSize method.
 	GetSizeFunc func(pod *corev1.Pod) v1alpha2.ImageStatusSize
@@ -2552,7 +2415,7 @@ type UploadDataSourceStatServiceMock struct {
 	IsUploadStartedFunc func(ownerUID types.UID, pod *corev1.Pod) bool
 
 	// IsUploaderReadyFunc mocks the IsUploaderReady method.
-	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error)
+	IsUploaderReadyFunc func(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -2587,7 +2450,7 @@ type UploadDataSourceStatServiceMock struct {
 			// PrevProgress is the prevProgress argument value.
 			PrevProgress string
 			// Opts is the opts argument value.
-			Opts []service.GetProgressOption
+			Opts []servicestat.GetProgressOption
 		}
 		// GetSize holds details about calls to the GetSize method.
 		GetSize []struct {
@@ -2607,10 +2470,8 @@ type UploadDataSourceStatServiceMock struct {
 			Pod *corev1.Pod
 			// Svc is the svc argument value.
 			Svc *corev1.Service
-			// Ing is the ing argument value.
-			Ing *netv1.Ingress
-			// TlsSecret is the tlsSecret argument value.
-			TlsSecret *corev1.Secret
+			// Exposure is the exposure argument value.
+			Exposure serviceuploader.UploaderExposure
 		}
 	}
 	lockCheckPod         sync.RWMutex
@@ -2756,7 +2617,7 @@ func (mock *UploadDataSourceStatServiceMock) GetFormatCalls() []struct {
 }
 
 // GetProgress calls GetProgressFunc.
-func (mock *UploadDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+func (mock *UploadDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 	if mock.GetProgressFunc == nil {
 		panic("UploadDataSourceStatServiceMock.GetProgressFunc: method is nil but UploadDataSourceStatService.GetProgress was just called")
 	}
@@ -2764,7 +2625,7 @@ func (mock *UploadDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}{
 		OwnerUID:     ownerUID,
 		Pod:          pod,
@@ -2785,13 +2646,13 @@ func (mock *UploadDataSourceStatServiceMock) GetProgressCalls() []struct {
 	OwnerUID     types.UID
 	Pod          *corev1.Pod
 	PrevProgress string
-	Opts         []service.GetProgressOption
+	Opts         []servicestat.GetProgressOption
 } {
 	var calls []struct {
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}
 	mock.lockGetProgress.RLock()
 	calls = mock.calls.GetProgress
@@ -2868,25 +2729,23 @@ func (mock *UploadDataSourceStatServiceMock) IsUploadStartedCalls() []struct {
 }
 
 // IsUploaderReady calls IsUploaderReadyFunc.
-func (mock *UploadDataSourceStatServiceMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
+func (mock *UploadDataSourceStatServiceMock) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error) {
 	if mock.IsUploaderReadyFunc == nil {
 		panic("UploadDataSourceStatServiceMock.IsUploaderReadyFunc: method is nil but UploadDataSourceStatService.IsUploaderReady was just called")
 	}
 	callInfo := struct {
-		Pod       *corev1.Pod
-		Svc       *corev1.Service
-		Ing       *netv1.Ingress
-		TlsSecret *corev1.Secret
+		Pod      *corev1.Pod
+		Svc      *corev1.Service
+		Exposure serviceuploader.UploaderExposure
 	}{
-		Pod:       pod,
-		Svc:       svc,
-		Ing:       ing,
-		TlsSecret: tlsSecret,
+		Pod:      pod,
+		Svc:      svc,
+		Exposure: exposure,
 	}
 	mock.lockIsUploaderReady.Lock()
 	mock.calls.IsUploaderReady = append(mock.calls.IsUploaderReady, callInfo)
 	mock.lockIsUploaderReady.Unlock()
-	return mock.IsUploaderReadyFunc(pod, svc, ing, tlsSecret)
+	return mock.IsUploaderReadyFunc(pod, svc, exposure)
 }
 
 // IsUploaderReadyCalls gets all the calls that were made to IsUploaderReady.
@@ -2894,16 +2753,14 @@ func (mock *UploadDataSourceStatServiceMock) IsUploaderReady(pod *corev1.Pod, sv
 //
 //	len(mockedUploadDataSourceStatService.IsUploaderReadyCalls())
 func (mock *UploadDataSourceStatServiceMock) IsUploaderReadyCalls() []struct {
-	Pod       *corev1.Pod
-	Svc       *corev1.Service
-	Ing       *netv1.Ingress
-	TlsSecret *corev1.Secret
+	Pod      *corev1.Pod
+	Svc      *corev1.Service
+	Exposure serviceuploader.UploaderExposure
 } {
 	var calls []struct {
-		Pod       *corev1.Pod
-		Svc       *corev1.Service
-		Ing       *netv1.Ingress
-		TlsSecret *corev1.Secret
+		Pod      *corev1.Pod
+		Svc      *corev1.Service
+		Exposure serviceuploader.UploaderExposure
 	}
 	mock.lockIsUploaderReady.RLock()
 	calls = mock.calls.IsUploaderReady
@@ -3513,7 +3370,7 @@ var _ HTTPDataSourceStatService = &HTTPDataSourceStatServiceMock{}
 //			GetFormatFunc: func(pod *corev1.Pod) string {
 //				panic("mock out the GetFormat method")
 //			},
-//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
 //			GetSizeFunc: func(pod *corev1.Pod) v1alpha2.ImageStatusSize {
@@ -3539,7 +3396,7 @@ type HTTPDataSourceStatServiceMock struct {
 	GetFormatFunc func(pod *corev1.Pod) string
 
 	// GetProgressFunc mocks the GetProgress method.
-	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 
 	// GetSizeFunc mocks the GetSize method.
 	GetSizeFunc func(pod *corev1.Pod) v1alpha2.ImageStatusSize
@@ -3577,7 +3434,7 @@ type HTTPDataSourceStatServiceMock struct {
 			// PrevProgress is the prevProgress argument value.
 			PrevProgress string
 			// Opts is the opts argument value.
-			Opts []service.GetProgressOption
+			Opts []servicestat.GetProgressOption
 		}
 		// GetSize holds details about calls to the GetSize method.
 		GetSize []struct {
@@ -3726,7 +3583,7 @@ func (mock *HTTPDataSourceStatServiceMock) GetFormatCalls() []struct {
 }
 
 // GetProgress calls GetProgressFunc.
-func (mock *HTTPDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+func (mock *HTTPDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 	if mock.GetProgressFunc == nil {
 		panic("HTTPDataSourceStatServiceMock.GetProgressFunc: method is nil but HTTPDataSourceStatService.GetProgress was just called")
 	}
@@ -3734,7 +3591,7 @@ func (mock *HTTPDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod *
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}{
 		OwnerUID:     ownerUID,
 		Pod:          pod,
@@ -3755,13 +3612,13 @@ func (mock *HTTPDataSourceStatServiceMock) GetProgressCalls() []struct {
 	OwnerUID     types.UID
 	Pod          *corev1.Pod
 	PrevProgress string
-	Opts         []service.GetProgressOption
+	Opts         []servicestat.GetProgressOption
 } {
 	var calls []struct {
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}
 	mock.lockGetProgress.RLock()
 	calls = mock.calls.GetProgress
@@ -4403,7 +4260,7 @@ var _ RegistryDataSourceStatService = &RegistryDataSourceStatServiceMock{}
 //			GetFormatFunc: func(pod *corev1.Pod) string {
 //				panic("mock out the GetFormat method")
 //			},
-//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+//			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
 //			GetSizeFunc: func(pod *corev1.Pod) v1alpha2.ImageStatusSize {
@@ -4429,7 +4286,7 @@ type RegistryDataSourceStatServiceMock struct {
 	GetFormatFunc func(pod *corev1.Pod) string
 
 	// GetProgressFunc mocks the GetProgress method.
-	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
+	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string
 
 	// GetSizeFunc mocks the GetSize method.
 	GetSizeFunc func(pod *corev1.Pod) v1alpha2.ImageStatusSize
@@ -4467,7 +4324,7 @@ type RegistryDataSourceStatServiceMock struct {
 			// PrevProgress is the prevProgress argument value.
 			PrevProgress string
 			// Opts is the opts argument value.
-			Opts []service.GetProgressOption
+			Opts []servicestat.GetProgressOption
 		}
 		// GetSize holds details about calls to the GetSize method.
 		GetSize []struct {
@@ -4616,7 +4473,7 @@ func (mock *RegistryDataSourceStatServiceMock) GetFormatCalls() []struct {
 }
 
 // GetProgress calls GetProgressFunc.
-func (mock *RegistryDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
+func (mock *RegistryDataSourceStatServiceMock) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...servicestat.GetProgressOption) string {
 	if mock.GetProgressFunc == nil {
 		panic("RegistryDataSourceStatServiceMock.GetProgressFunc: method is nil but RegistryDataSourceStatService.GetProgress was just called")
 	}
@@ -4624,7 +4481,7 @@ func (mock *RegistryDataSourceStatServiceMock) GetProgress(ownerUID types.UID, p
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}{
 		OwnerUID:     ownerUID,
 		Pod:          pod,
@@ -4645,13 +4502,13 @@ func (mock *RegistryDataSourceStatServiceMock) GetProgressCalls() []struct {
 	OwnerUID     types.UID
 	Pod          *corev1.Pod
 	PrevProgress string
-	Opts         []service.GetProgressOption
+	Opts         []servicestat.GetProgressOption
 } {
 	var calls []struct {
 		OwnerUID     types.UID
 		Pod          *corev1.Pod
 		PrevProgress string
-		Opts         []service.GetProgressOption
+		Opts         []servicestat.GetProgressOption
 	}
 	mock.lockGetProgress.RLock()
 	calls = mock.calls.GetProgress

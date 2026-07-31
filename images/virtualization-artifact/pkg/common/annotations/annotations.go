@@ -52,10 +52,6 @@ const (
 	// AnnPodRetainAfterCompletionLegacy is the legacy PVC annotation for retaining transfer pods after completion.
 	AnnPodRetainAfterCompletionLegacy = AnnAPIGroupLegacy + "/storage.pod.retainAfterCompletion"
 
-	// AnnUploadURLDeprecated provides a const for CVMI/VMI/VMD uploadURL annotation.
-	// TODO remove annotation and its usages after version 1.0 becomes Stable.
-	AnnUploadURLDeprecated = AnnAPIGroupLegacy + "/upload.url"
-
 	// AnnTolerationsHash provides a const for annotation with hash of applied tolerations.
 	AnnTolerationsHash = AnnAPIGroup + "/tolerations-hash"
 	// AnnTolerationsHashLegacy provides a const for legacy annotation with hash of applied tolerations.

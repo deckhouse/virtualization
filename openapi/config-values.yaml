@@ -36,6 +36,29 @@ properties:
     description: |
       The Ingress class that will be used to upload images.
       By default, the `modules.ingressClass` global value is used.
+  gatewayAPIGateway:
+    type: object
+    description: |
+      The Gateway API `Gateway` that image upload is published through.
+      By default the cluster default Gateway is used (`global.discovery.gatewayAPIDefaultGateway`,
+      provided by the `alb` module); set this to publish image upload through a different Gateway.
+      Image upload is exposed through the Gateway API instead of an Ingress only when
+      the `alb` module is enabled.
+    x-examples:
+      - name: main
+        namespace: d8-alb
+    required:
+      - name
+      - namespace
+    properties:
+      name:
+        type: string
+        pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        description: The name of the Gateway.
+      namespace:
+        type: string
+        pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        description: The namespace of the Gateway.
   https:
     type: object
     x-examples:

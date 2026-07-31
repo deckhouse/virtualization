@@ -22,7 +22,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -31,9 +30,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -42,26 +40,26 @@ import (
 )
 
 type CreateUploaderStepUploaderService interface {
-	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	Apply(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error
 }
 
 type CreateUploaderStep struct {
-	pvc          *corev1.PersistentVolumeClaim
-	pod          *corev1.Pod
-	svc          *corev1.Service
-	ing          *netv1.Ingress
-	uploader     CreateUploaderStepUploaderService
-	dvcrSettings *dvcr.Settings
-	client       client.Client
-	recorder     eventrecord.EventRecorderLogger
-	cb           *conditions.ConditionBuilder
+	pvc             *corev1.PersistentVolumeClaim
+	pod             *corev1.Pod
+	svc             *corev1.Service
+	exposureEnsured bool
+	uploader        CreateUploaderStepUploaderService
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	recorder        eventrecord.EventRecorderLogger
+	cb              *conditions.ConditionBuilder
 }
 
 func NewCreateUploaderStep(
 	pvc *corev1.PersistentVolumeClaim,
 	pod *corev1.Pod,
 	svc *corev1.Service,
-	ing *netv1.Ingress,
+	exposureEnsured bool,
 	uploader CreateUploaderStepUploaderService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
@@ -69,15 +67,15 @@ func NewCreateUploaderStep(
 	cb *conditions.ConditionBuilder,
 ) *CreateUploaderStep {
 	return &CreateUploaderStep{
-		pvc:          pvc,
-		pod:          pod,
-		svc:          svc,
-		ing:          ing,
-		uploader:     uploader,
-		dvcrSettings: dvcrSettings,
-		client:       client,
-		recorder:     recorder,
-		cb:           cb,
+		pvc:             pvc,
+		pod:             pod,
+		svc:             svc,
+		exposureEnsured: exposureEnsured,
+		uploader:        uploader,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		recorder:        recorder,
+		cb:              cb,
 	}
 }
 
@@ -89,7 +87,7 @@ func (s CreateUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		return nil, nil
 	}
 
-	if s.pod != nil && s.svc != nil && s.ing != nil {
+	if s.pod != nil && s.svc != nil && s.exposureEnsured {
 		return nil, nil
 	}
 
@@ -110,10 +108,10 @@ func (s CreateUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		return nil, fmt.Errorf("get node placement: %w", err)
 	}
 
-	err = s.uploader.Start(
-		ctx, settings, vd, supgen,
+	err = s.uploader.Apply(
+		ctx, vd, supgen, settings,
 		datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource),
-		service.WithNodePlacement(nodePlacement),
+		serviceuploader.WithNodePlacement(nodePlacement),
 	)
 	switch {
 	case err == nil:
@@ -139,15 +137,15 @@ func (s CreateUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	return &reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (s CreateUploaderStep) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen supplements.Generator) *uploader.Settings {
-	var settings uploader.Settings
+func (s CreateUploaderStep) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen supplements.Generator) serviceuploader.Settings {
+	var settings serviceuploader.Settings
 
-	uploader.ApplyDVCRDestinationSettings(
+	serviceuploader.ApplyDVCRDestinationSettings(
 		&settings,
 		s.dvcrSettings,
 		supgen,
 		s.dvcrSettings.RegistryImageForVD(vd),
 	)
 
-	return &settings
+	return settings
 }

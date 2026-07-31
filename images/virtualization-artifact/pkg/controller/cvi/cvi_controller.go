@@ -37,8 +37,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	cvicollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/cvi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -65,10 +68,10 @@ func NewController(
 	dvcrSettings *dvcr.Settings,
 	ns string,
 ) (controller.Controller, error) {
-	stat := service.NewStatService(log)
+	stat := servicestat.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerCVIProtection)
 	importer := service.NewImporterService(dvcrSettings, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	uploader := service.NewUploaderService(dvcrSettings, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	uploader := serviceuploader.NewUploader(mgr.GetClient(), dvcrSettings, uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, featuregates.Default())
 	disk := service.NewDiskService(mgr.GetClient(), dvcrSettings, protection, ControllerName)
 	dvcrService := service.NewDVCRService(mgr.GetClient())
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)

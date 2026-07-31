@@ -18,7 +18,6 @@ package service
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
 )
@@ -32,12 +31,6 @@ func importerTokenScope(s *dvcr.Settings, settings *importer.Settings) []registr
 		access = append(access, repoAccess(s.RepoPath(settings.Endpoint), "pull"))
 	}
 	return access
-}
-
-// uploaderTokenScope is the DVCR access an uploader Pod needs: push+pull on its
-// destination repository (an uploader has no DVCR source).
-func uploaderTokenScope(s *dvcr.Settings, settings *uploader.Settings) []registrytoken.Access {
-	return []registrytoken.Access{repoAccess(s.RepoPath(settings.DestinationEndpoint), "pull", "push")}
 }
 
 func repoAccess(name string, actions ...string) registrytoken.Access {

@@ -33,9 +33,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -91,42 +91,20 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	ing, err := ds.uploaderService.GetIngress(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	tlsSecret, err := supplements.GetTLSSecret(ctx, ds.client, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Reconcile the uploader Ingress and its TLS secret before the readiness probe.
-	// All uploaders share one public host: if the Ingress host drifts (e.g. after
-	// publicDomainTemplate changed) or its copied TLS secret goes missing,
-	// ingress-nginx serves its default certificate for the whole host and every
-	// upload on it breaks. IsUploaderReady HTTPS-probes that host, so restore both
-	// first. Initial creation is handled by Start, so skip when the pod is absent.
-	tlsCopyMissing := tlsSecret == nil && supplements.ShouldCopyUploaderTLSSecret(ds.dvcrSettings, supgen)
-	if pod != nil && (ds.uploaderService.IngressHostDrifted(ing) || tlsCopyMissing) {
-		var oldHost string
-		if ing != nil && len(ing.Spec.Rules) > 0 {
-			oldHost = ing.Spec.Rules[0].Host
-		}
-		log.Info("Reconciling uploader Ingress", "hostDrifted", ds.uploaderService.IngressHostDrifted(ing), "tlsSecretMissing", tlsCopyMissing, "old", oldHost, "new", ds.uploaderService.ExpectedIngressHost())
-		ing, err = ds.uploaderService.EnsureIngress(ctx, cvi, supgen)
-		if err != nil {
+	// Repair the external exposure before it is read and probed below. Initial
+	// creation is Apply's job, so this only matters while the uploader is running.
+	if pod != nil && !isDiskProvisioningFinished(condition) {
+		if err = ds.uploaderService.EnsureExposure(ctx, cvi, supgen); err != nil {
 			return reconcile.Result{}, err
 		}
-		if tlsCopyMissing {
-			tlsSecret, err = supplements.GetTLSSecret(ctx, ds.client, supgen)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
 	}
 
-	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, ing, tlsSecret)
+	exposure, err := ds.uploaderService.GetExposure(ctx, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	isUploaderReady, err := ds.statService.IsUploaderReady(pod, svc, exposure)
 	if err != nil {
 		// A probe error means the public upload endpoint is not reachable yet
 		// (e.g. TLS not settled after a secret restore). Treat as not-ready and
@@ -146,12 +124,6 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 
 		cvi.Status.Phase = v1alpha2.ImageReady
 
-		// Unprotect upload time supplements to delete them later.
-		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
 		_, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -166,7 +138,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.WaitForUserUploadTimeout).
-			Message(uploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
+			Message(serviceuploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
 
 		_, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
@@ -174,12 +146,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		}
 
 		return reconcile.Result{}, nil
-	case object.AnyTerminating(pod, svc, ing):
-
+	case object.AnyTerminating(pod, svc):
 		log.Info("Cleaning up...")
-	case pod == nil || svc == nil || ing == nil:
+	case pod == nil || svc == nil || !exposure.Ensured():
 		envSettings := ds.getEnvSettings(cvi, supgen)
-		err = ds.uploaderService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), service.WithSystemNodeToleration())
+		err = ds.uploaderService.Apply(ctx, cvi, supgen, envSettings, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), serviceuploader.WithSystemNodeToleration())
 		switch {
 		case err == nil:
 			// OK.
@@ -223,7 +194,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cvi.Status.Size = ds.statService.GetSize(pod)
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
-		cvi.Status.Progress = service.ProgressDone
+		cvi.Status.Progress = servicestat.ProgressDone
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
@@ -245,26 +216,21 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
-		cvi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress), service.ProgressMax)
+		cvi.Status.Progress = servicestat.CapProgressBelow(ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress), servicestat.ProgressMax)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
-		err = ds.uploaderService.Protect(ctx, supgen, pod, svc, ing)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
-	case condition.Reason == cvicondition.WaitForUserUpload.String() && uploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
+	case condition.Reason == cvicondition.WaitForUserUpload.String() && serviceuploader.IsWaitForUserUploadTimeoutExpired(condition.LastTransitionTime):
 		log.Info("Upload has not started in time: the import process has failed", "pod.name", pod.Name)
-		ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, uploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
+		ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, serviceuploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
 
 		cvi.Status.Phase = v1alpha2.ImageFailed
 		cvi.Status.ImageUploadURLs = nil
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.WaitForUserUploadTimeout).
-			Message(uploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
+			Message(serviceuploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
 
 		_, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
@@ -281,11 +247,15 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cvi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		cvi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
-			External:  ds.uploaderService.GetExternalURL(ctx, ing),
-			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
+			External:  exposure.UploadURL,
+			InCluster: ds.uploaderService.GetInClusterURL(svc),
 		}
 
 		log.Info("Waiting for the image to be uploaded", "pod.phase", pod.Status.Phase)
+
+		// Keep polling: the start of the upload is only visible through the pod
+		// metrics scraped on reconcile.
+		return reconcile.Result{RequeueAfter: serviceuploader.WaitForUserUploadRequeueAfter}, nil
 	default:
 		cb.
 			Status(metav1.ConditionFalse).
@@ -297,13 +267,15 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 	}
 
-	return reconcile.Result{RequeueAfter: uploader.WaitForUserUploadRequeueAfter}, nil
+	// The upload is in progress (or the uploader is not serving yet): keep polling
+	// every second so the reported progress and download speed stay live.
+	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
-	return ds.uploaderService.CleanUp(ctx, supgen)
+	return ds.uploaderService.Cleanup(ctx, supgen)
 }
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.ClusterVirtualImage) error {
@@ -319,7 +291,7 @@ func setUploadProvisioningPhaseCondition(cb *conditions.ConditionBuilder, cvi *v
 }
 
 func isTransientPodError(err error) bool {
-	return errors.Is(err, service.ErrNotInitialized) || errors.Is(err, service.ErrNotScheduled)
+	return errors.Is(err, servicestat.ErrNotInitialized) || errors.Is(err, servicestat.ErrNotScheduled)
 }
 
 func hasUploadProgress(progress string) bool {
@@ -331,15 +303,15 @@ func hasUploadProgress(progress string) bool {
 	}
 }
 
-func (ds UploadDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, supgen supplements.Generator) *uploader.Settings {
-	var settings uploader.Settings
+func (ds UploadDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, supgen supplements.Generator) serviceuploader.Settings {
+	var settings serviceuploader.Settings
 
-	uploader.ApplyDVCRDestinationSettings(
+	serviceuploader.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
 		supgen,
 		ds.dvcrSettings.RegistryImageForCVI(cvi),
 	)
 
-	return &settings
+	return settings
 }

@@ -29,6 +29,7 @@ import (
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -104,7 +105,7 @@ func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *v1alpha2.Virtu
 		vi.Status.Phase = v1alpha2.ImageFailed
 
 		switch {
-		case errors.Is(err, service.ErrProvisioningFailed):
+		case errors.Is(err, servicestat.ErrProvisioningFailed):
 			log.Debug("Provisioning is failed")
 
 			s.cb.

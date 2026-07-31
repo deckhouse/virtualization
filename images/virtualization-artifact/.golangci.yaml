@@ -130,3 +130,7 @@ linters:
           alias: metav1
         - pkg: k8s.io/api/resource/v1
           alias: resourcev1
+        - pkg: github.com/deckhouse/virtualization-controller/pkg/controller/service/stat
+          alias: servicestat
+        - pkg: github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader
+          alias: serviceuploader

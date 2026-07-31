@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package stat
 
 import (
 	"crypto/tls"
@@ -30,19 +30,18 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/humanize_bytes"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/percent"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -311,8 +310,8 @@ func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 	return progress.ProgressRaw() > 0
 }
 
-func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress, tlsSecret *corev1.Secret) (bool, error) {
-	if pod == nil || svc == nil || ing == nil {
+func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, exposure serviceuploader.UploaderExposure) (bool, error) {
+	if pod == nil || svc == nil {
 		return false, nil
 	}
 
@@ -335,15 +334,20 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 		return false, nil
 	}
 
-	uploadURL, ok := ing.Annotations[annotations.AnnUploadURL]
-	if ok && uploadURL != "" {
+	// The external fallback below probes the public endpoint (Ingress or the
+	// Gateway HTTPRoute), so it needs the exposure to exist.
+	if !exposure.Exists {
+		return false, nil
+	}
+
+	if exposure.UploadURL != "" {
 		certPool, err := x509.SystemCertPool()
 		if err != nil {
 			certPool = x509.NewCertPool()
 		}
 
-		if tlsSecret != nil {
-			if certData, ok := tlsSecret.Data["tls.crt"]; ok && len(certData) > 0 {
+		if exposure.TLSSecret != nil {
+			if certData, ok := exposure.TLSSecret.Data["tls.crt"]; ok && len(certData) > 0 {
 				certPool.AppendCertsFromPEM(certData)
 			}
 		}
@@ -353,7 +357,7 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 		}
 		client := &http.Client{Transport: tr, Timeout: 5 * time.Second}
 
-		response, err := client.Get(uploadURL)
+		response, err := client.Get(exposure.UploadURL)
 		if err != nil {
 			return false, fmt.Errorf("failed to get upload server status: %w", err)
 		}
@@ -366,7 +370,7 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 		return false, nil
 	}
 
-	return ing.Annotations[annotations.AnnUploadPath] != "" || ing.Annotations[annotations.AnnUploadURLDeprecated] != "", nil
+	return exposure.UploadPath != "", nil
 }
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {

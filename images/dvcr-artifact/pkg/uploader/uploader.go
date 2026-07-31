@@ -19,14 +19,12 @@ package uploader
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -37,43 +35,45 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
-	"kubevirt.io/containerized-data-importer/pkg/util"
 	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
-	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/registry"
 )
 
 const (
-	healthzPort = 8080
-	healthzPath = "/healthz"
-	uploadPath  = "/upload"
+	defaultHealthzPort = 8080
+	healthzPath        = "/healthz"
+	uploadPath         = "/upload"
 )
 
-// UploadServer is the interface to uploadServerApp
-type UploadServer interface {
-	Run() error
-	PreallocationApplied() bool
+// Destination describes the DVCR registry the uploaded image is pushed to.
+type Destination struct {
+	Endpoint string
+	Username string
+	Password string
+	// Insecure skips TLS verification of the DVCR registry certificate.
+	Insecure bool
+	// CABundle is a path to a PEM file or a directory with PEM files used to
+	// verify the DVCR registry certificate.
+	CABundle string
 }
 
-type uploadServerApp struct {
-	bindAddress     string
-	bindPort        int
-	bindHealthzPort int
-	tlsKey          string
-	tlsCert         string
-	clientCert      string
-	clientName      string
-	cryptoConfig    cryptowatch.CryptoConfig
-	keyFile         string
-	certFile        string
-	mux             *http.ServeMux
-	uploading       bool
-	keepAlive       bool
-	keepConcurrent  bool
-	mutex           sync.Mutex
+// Server receives an uploaded image over HTTP(S) and pushes it to the DVCR
+// registry. It is created either from Options.Complete or directly via NewServer
+// with an already-built *tls.Config.
+type Server struct {
+	address     string
+	healthzPort int
+	// tlsConfig is nil for plain HTTP; when set the server serves HTTPS.
+	tlsConfig   *tls.Config
+	destination Destination
+
+	mux            *http.ServeMux
+	uploading      bool
+	keepAlive      bool
+	keepConcurrent bool
+	mutex          sync.Mutex
 
 	startListeningChan chan struct{}
 	stopListeningChan  chan struct{}
@@ -82,111 +82,68 @@ type uploadServerApp struct {
 	healthzServer *http.Server
 	uploadServer  *http.Server
 
-	destImageName string
-	destUsername  string
-	destPassword  string
-	destInsecure  bool
+	// boundPort is the actual upload port after Listen (useful when the
+	// requested port was 0, e.g. in tests).
+	boundPort int
 }
 
-type imageReadCloser func(*http.Request) (io.ReadCloser, error)
+// NewServer builds an upload server from a minimal set of already-prepared
+// parameters. TLS is fully described by tlsConfig (nil means plain HTTP), so the
+// server does not deal with certificate files or crypto options itself.
+func NewServer(address string, healthzPort int, tlsConfig *tls.Config, destination Destination) *Server {
+	if healthzPort == 0 {
+		healthzPort = defaultHealthzPort
+	}
 
-func bodyReadCloser(r *http.Request) (io.ReadCloser, error) {
-	return r.Body, nil
-}
+	s := &Server{
+		address:     address,
+		healthzPort: healthzPort,
+		tlsConfig:   tlsConfig,
+		destination: destination,
 
-// NewUploadServer returns a new instance of uploadServerApp
-func NewUploadServer(bindAddress string, bindPort int, tlsKey, tlsCert, clientCert, clientName string, cryptoConfig cryptowatch.CryptoConfig) (UploadServer, error) {
-	server := &uploadServerApp{
-		bindAddress:        bindAddress,
-		bindPort:           bindPort,
-		bindHealthzPort:    healthzPort,
-		tlsKey:             tlsKey,
-		tlsCert:            tlsCert,
-		clientCert:         clientCert,
-		clientName:         clientName,
-		cryptoConfig:       cryptoConfig,
 		mux:                http.NewServeMux(),
 		stopListeningChan:  make(chan struct{}),
 		errChan:            make(chan error),
 		startListeningChan: make(chan struct{}),
 	}
 
-	err := server.parseOptions()
-	if err != nil {
-		return nil, err
-	}
+	s.mux.HandleFunc(uploadPath, s.uploadHandler())
 
-	server.mux.HandleFunc(uploadPath, server.uploadHandler(bodyReadCloser))
-
-	return server, nil
+	return s
 }
 
-func (app *uploadServerApp) parseOptions() error {
-	app.destImageName, _ = util.ParseEnvVar(common.UploaderDestinationEndpoint, false)
-	app.destInsecure, _ = strconv.ParseBool(os.Getenv(common.DestinationInsecureTLSVar))
-
-	app.destUsername, _ = util.ParseEnvVar(common.UploaderDestinationAccessKeyID, false)
-	app.destPassword, _ = util.ParseEnvVar(common.UploaderDestinationSecretKey, false)
-	if app.destUsername == "" && app.destPassword == "" {
-		destAuthConfig, _ := util.ParseEnvVar(common.UploaderDestinationAuthConfig, false)
-		if destAuthConfig != "" {
-			authFile, err := auth.RegistryAuthFile(destAuthConfig)
-			if err != nil {
-				return fmt.Errorf("error parsing destination auth config: %w", err)
-			}
-
-			app.destUsername, app.destPassword, err = auth.CredsFromRegistryAuthFile(authFile, app.destImageName)
-			if err != nil {
-				return fmt.Errorf("error getting creds from destination auth config: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (app *uploadServerApp) Run() error {
-	uploadListener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", app.bindAddress, app.bindPort))
+func (s *Server) Run() error {
+	uploadListener, err := net.Listen("tcp", s.address)
 	if err != nil {
-		return errors.Wrap(err, "Error creating upload listerner")
+		return errors.Wrap(err, "Error creating upload listener")
 	}
+	s.boundPort = uploadListener.Addr().(*net.TCPAddr).Port
 
-	// if binded port was 0 (unit tests) assign port here
-	if app.bindPort == 0 {
-		app.bindPort = uploadListener.Addr().(*net.TCPAddr).Port
-	}
-
-	healthzListener, err := net.Listen("tcp", fmt.Sprintf(":%d", app.bindHealthzPort))
+	healthzListener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.healthzPort))
 	if err != nil {
-		return errors.Wrap(err, "Error creating healthz listerner")
+		return errors.Wrap(err, "Error creating healthz listener")
 	}
 
-	// if binded port was 0 (unit tests) assign port here
-	if app.bindHealthzPort == 0 {
-		app.bindHealthzPort = healthzListener.Addr().(*net.TCPAddr).Port
+	close(s.startListeningChan)
+
+	s.uploadServer = &http.Server{
+		Handler:   s.mux,
+		TLSConfig: s.tlsConfig,
 	}
-
-	close(app.startListeningChan)
-
-	app.uploadServer, err = app.createUploadServer()
-	if err != nil {
-		return errors.Wrap(err, "Error creating upload http server")
-	}
-
-	app.healthzServer = app.createHealthzServer()
+	s.healthzServer = s.createHealthzServer()
 
 	go func() {
-		if app.keyFile != "" && app.certFile != "" {
-			app.errChan <- app.uploadServer.ServeTLS(uploadListener, app.certFile, app.keyFile)
+		if s.tlsConfig != nil {
+			// Certificates are already loaded into the server TLSConfig.
+			s.errChan <- s.uploadServer.ServeTLS(uploadListener, "", "")
 			return
 		}
 
-		// not sure we want to support this code path
-		app.errChan <- app.uploadServer.Serve(uploadListener)
+		s.errChan <- s.uploadServer.Serve(uploadListener)
 	}()
 
 	go func() {
-		app.errChan <- app.healthzServer.Serve(healthzListener)
+		s.errChan <- s.healthzServer.Serve(healthzListener)
 	}()
 
 	promCertsDir, err := os.MkdirTemp("", "certsdir")
@@ -200,86 +157,44 @@ func (app *uploadServerApp) Run() error {
 	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 
 	select {
-	case err = <-app.errChan:
-	case <-app.stopListeningChan:
+	case err = <-s.errChan:
+	case <-s.stopListeningChan:
 		klog.Info("Shutting down http server after successful upload")
 	case <-exit:
 		klog.Errorf("Shutting down http server")
 	}
 
-	app.shutdown()
+	s.shutdown()
 
 	return err
 }
 
-func (app *uploadServerApp) shutdown() {
-	if err := app.healthzServer.Shutdown(context.Background()); err != nil {
+func (s *Server) shutdown() {
+	if err := s.healthzServer.Shutdown(context.Background()); err != nil {
 		klog.Errorf("failed to shutdown healthzServer; %v", err)
 	}
-	if err := app.uploadServer.Shutdown(context.Background()); err != nil {
+	if err := s.uploadServer.Shutdown(context.Background()); err != nil {
 		klog.Errorf("failed to shutdown uploadServer; %v", err)
 	}
 }
 
-func (app *uploadServerApp) createUploadServer() (*http.Server, error) {
-	server := &http.Server{
-		Handler: app,
-	}
-
-	if app.tlsKey != "" && app.tlsCert != "" {
-		certDir, err := os.MkdirTemp("", "uploadserver-tls")
-		if err != nil {
-			return nil, errors.Wrap(err, "Error creating cert dir")
-		}
-
-		app.keyFile = filepath.Join(certDir, "tls.key")
-		app.certFile = filepath.Join(certDir, "tls.crt")
-
-		err = os.WriteFile(app.keyFile, []byte(app.tlsKey), 0o600)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error creating key file")
-		}
-
-		err = os.WriteFile(app.certFile, []byte(app.tlsCert), 0o600)
-		if err != nil {
-			return nil, errors.Wrap(err, "Error creating cert file")
-		}
-	}
-
-	if app.clientCert != "" {
-		caCertPool := x509.NewCertPool()
-		if ok := caCertPool.AppendCertsFromPEM([]byte(app.clientCert)); !ok {
-			klog.Fatalf("Invalid ca cert file %s", app.clientCert)
-		}
-
-		server.TLSConfig = &tls.Config{
-			CipherSuites: app.cryptoConfig.CipherSuites,
-			ClientCAs:    caCertPool,
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			MinVersion:   app.cryptoConfig.MinVersion,
-		}
-	}
-
-	return server, nil
-}
-
-func (app *uploadServerApp) createHealthzServer() *http.Server {
+func (s *Server) createHealthzServer() *http.Server {
 	mux := http.NewServeMux()
-	mux.HandleFunc(healthzPath, app.healthzHandler)
+	mux.HandleFunc(healthzPath, s.healthzHandler)
 	return &http.Server{Handler: mux}
 }
 
-func (app *uploadServerApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	app.mux.ServeHTTP(w, r)
-}
-
-func (app *uploadServerApp) healthzHandler(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) healthzHandler(w http.ResponseWriter, _ *http.Request) {
 	if _, err := io.WriteString(w, "OK"); err != nil {
 		klog.Errorf("healthzHandler: failed to send response; %v", err)
 	}
 }
 
-func (app *uploadServerApp) validateShouldHandleRequest(w http.ResponseWriter, r *http.Request) bool {
+// validateShouldHandleRequest handles the readiness signal (GET), rejects
+// unsupported methods and guards against concurrent uploads. Client certificate
+// verification (mTLS) is enforced by the TLS layer via the server's tls.Config,
+// so it is intentionally not repeated here.
+func (s *Server) validateShouldHandleRequest(w http.ResponseWriter, r *http.Request) bool {
 	// This method is used to signal that ingress is configured and the server can upload user data.
 	if r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
@@ -290,34 +205,17 @@ func (app *uploadServerApp) validateShouldHandleRequest(w http.ResponseWriter, r
 		w.WriteHeader(http.StatusNotFound)
 		return false
 	}
-	if r.TLS != nil {
-		found := false
 
-		for _, cert := range r.TLS.PeerCertificates {
-			if cert.Subject.CommonName == app.clientName {
-				found = true
-				break
-			}
-		}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-		if !found {
-			w.WriteHeader(http.StatusUnauthorized)
-			return false
-		}
-	} else {
-		klog.V(3).Infof("Handling HTTP connection")
-	}
-
-	app.mutex.Lock()
-	defer app.mutex.Unlock()
-
-	if app.uploading && !app.keepConcurrent {
+	if s.uploading && !s.keepConcurrent {
 		klog.Warning("Got concurrent upload request")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return false
 	}
 
-	app.uploading = true
+	s.uploading = true
 
 	return true
 }
@@ -337,8 +235,8 @@ func parseHTTPHeader(resp *http.Request) int {
 	return 0
 }
 
-func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWriter, r *http.Request, dvContentType cdiv1.DataVolumeContentType) {
-	if !app.validateShouldHandleRequest(w, r) {
+func (s *Server) processUpload(w http.ResponseWriter, r *http.Request, dvContentType cdiv1.DataVolumeContentType) {
+	if !s.validateShouldHandleRequest(w, r) {
 		return
 	}
 
@@ -346,50 +244,41 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 
 	klog.Infof("Content type header is %q\n", cdiContentType)
 
-	readCloser, err := irc(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	app.mutex.Lock()
-	defer app.mutex.Unlock()
-
-	err = app.upload(readCloser, cdiContentType, dvContentType, parseHTTPHeader(r))
-
+	err := s.upload(r.Body, cdiContentType, dvContentType, parseHTTPHeader(r))
 	if err != nil {
 		klog.Errorf("Saving stream failed: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		app.errChan <- err
+		s.errChan <- err
 
 		return
 	}
 
-	if !app.keepAlive {
-		close(app.stopListeningChan)
+	if !s.keepAlive {
+		close(s.stopListeningChan)
 	}
 }
 
-func (app *uploadServerApp) uploadHandler(irc imageReadCloser) http.HandlerFunc {
+func (s *Server) uploadHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		app.processUpload(irc, w, r, cdiv1.DataVolumeKubeVirt)
+		s.processUpload(w, r, cdiv1.DataVolumeKubeVirt)
 	}
 }
 
-func (app *uploadServerApp) PreallocationApplied() bool {
-	panic("not implemented")
-}
-
-func (app *uploadServerApp) upload(stream io.ReadCloser, sourceContentType string, dvContentType cdiv1.DataVolumeContentType, contentLength int) error {
+func (s *Server) upload(stream io.ReadCloser, sourceContentType string, dvContentType cdiv1.DataVolumeContentType, contentLength int) error {
 	durCollector := monitoring.NewDurationCollector()
 
 	uds := importer.NewUploadDataSource(newContentReader(stream, sourceContentType), dvContentType, contentLength)
 	defer uds.Close()
 
 	processor, err := registry.NewDataProcessor(uds, registry.DestinationRegistry{
-		ImageName: app.destImageName,
-		Username:  app.destUsername,
-		Password:  app.destPassword,
-		Insecure:  app.destInsecure,
+		ImageName: s.destination.Endpoint,
+		Username:  s.destination.Username,
+		Password:  s.destination.Password,
+		Insecure:  s.destination.Insecure,
+		CABundle:  s.destination.CABundle,
 	}, "", "")
 	if err != nil {
 		return err

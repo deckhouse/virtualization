@@ -20,12 +20,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/fuzz"
-	"kubevirt.io/containerized-data-importer/pkg/common"
-	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 )
 
 const (
@@ -55,30 +52,26 @@ func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort
 
 	endpoint := fmt.Sprintf("%s:%d/uploader", addr, mockPort)
 
-	if err := os.Setenv(common.UploaderDestinationEndpoint, endpoint); err != nil {
-		tb.Fatalf("failed to set env var; %v", err)
+	o := &Options{
+		ListenAddress:         addr,
+		ListenPort:            0, // take a free port for the uploader server
+		DestinationEndpoint:   endpoint,
+		DestinationAuthConfig: "testdata/auth.json",
+		DestinationInsecure:   true,
 	}
 
-	if err := os.Setenv(common.UploaderDestinationAuthConfig, "testdata/auth.json"); err != nil {
-		tb.Fatalf("failed to set env var; %v", err)
-	}
-
-	uploaderServer, err := NewUploadServer(addr, uploaderPort, "", "", "", "", cryptowatch.CryptoConfig{})
+	srv, err := o.Complete()
 	if err != nil {
 		tb.Fatalf("failed to initialize uploader server; %v", err)
 	}
 
-	srv := uploaderServer.(*uploadServerApp)
 	srv.keepAlive = true
 	srv.keepConcurrent = true
-	srv.destInsecure = true
-	// take free port for uploader server
-	srv.bindPort = 0
-	// take free port for healthz endpoint
-	srv.bindHealthzPort = 0
+	// take a free port for the healthz endpoint
+	srv.healthzPort = 0
 
 	go func() {
-		if err := uploaderServer.Run(); err != nil {
+		if err := srv.Run(); err != nil {
 			tb.Fatalf("failed to run uploader server: %v", err)
 		}
 	}()
@@ -86,7 +79,7 @@ func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort
 	// wait server for start listening
 	<-srv.startListeningChan
 
-	return srv.bindPort
+	return srv.boundPort
 }
 
 func startDVCRMockServer(tb testing.TB, addr string) (port int) {

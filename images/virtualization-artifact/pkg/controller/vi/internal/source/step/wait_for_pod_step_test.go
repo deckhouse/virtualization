@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -41,7 +41,7 @@ type waitForPodStepStatStub struct {
 	progress      string
 }
 
-func (s waitForPodStepStatStub) GetProgress(_ types.UID, _ *corev1.Pod, _ string, _ ...service.GetProgressOption) string {
+func (s waitForPodStepStatStub) GetProgress(_ types.UID, _ *corev1.Pod, _ string, _ ...servicestat.GetProgressOption) string {
 	return s.progress
 }
 
@@ -109,7 +109,7 @@ var _ = Describe("WaitForPodStep", func() {
 		),
 		Entry("requeues when pvc is not yet bound",
 			&corev1.Pod{},
-			waitForPodStepStatStub{checkPodErr: fmt.Errorf("%w: pod has unbound immediate PersistentVolumeClaims", service.ErrNotInitialized)},
+			waitForPodStepStatStub{checkPodErr: fmt.Errorf("%w: pod has unbound immediate PersistentVolumeClaims", servicestat.ErrNotInitialized)},
 			nil,
 			reconcile.Result{Requeue: true},
 			v1alpha2.ImageProvisioning,
@@ -120,7 +120,7 @@ var _ = Describe("WaitForPodStep", func() {
 		),
 		Entry("fails when provisioning did not start",
 			&corev1.Pod{},
-			waitForPodStepStatStub{checkPodErr: fmt.Errorf("%w: waiting for init", service.ErrNotInitialized)},
+			waitForPodStepStatStub{checkPodErr: fmt.Errorf("%w: waiting for init", servicestat.ErrNotInitialized)},
 			nil,
 			reconcile.Result{},
 			v1alpha2.ImageFailed,
@@ -131,7 +131,7 @@ var _ = Describe("WaitForPodStep", func() {
 		),
 		Entry("fails when provisioning has failed",
 			&corev1.Pod{},
-			waitForPodStepStatStub{checkPodErr: fmt.Errorf("%w: importer failed", service.ErrProvisioningFailed)},
+			waitForPodStepStatStub{checkPodErr: fmt.Errorf("%w: importer failed", servicestat.ErrProvisioningFailed)},
 			nil,
 			reconcile.Result{},
 			v1alpha2.ImageFailed,

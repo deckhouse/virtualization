@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -70,9 +70,9 @@ var _ = Describe("Sources", func() {
 			Expect(cb.Condition().Reason).To(Equal(expectedReason))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
 		},
-		Entry("not initialized", service.ErrNotInitialized, nil, cvicondition.ProvisioningNotStarted.String(), "Not initialized."),
-		Entry("not scheduled", service.ErrNotScheduled, nil, cvicondition.ProvisioningNotStarted.String(), "Not scheduled."),
-		Entry("provisioning failed", service.ErrProvisioningFailed, nil, cvicondition.ProvisioningFailed.String(), "Provisioning failed."),
+		Entry("not initialized", servicestat.ErrNotInitialized, nil, cvicondition.ProvisioningNotStarted.String(), "Not initialized."),
+		Entry("not scheduled", servicestat.ErrNotScheduled, nil, cvicondition.ProvisioningNotStarted.String(), "Not scheduled."),
+		Entry("provisioning failed", servicestat.ErrProvisioningFailed, nil, cvicondition.ProvisioningFailed.String(), "Provisioning failed."),
 		Entry("unknown error", errors.New("boom"), errors.New("boom"), conditions.ReasonUnknown.String(), ""),
 	)
 
@@ -92,9 +92,9 @@ var _ = Describe("Sources", func() {
 
 			Expect(recorded).To(Equal(expectEvent))
 		},
-		Entry("provisioning failed", service.ErrProvisioningFailed, true),
-		Entry("wrapped provisioning failed", errors.Join(service.ErrProvisioningFailed, errors.New("details")), true),
-		Entry("not initialized", service.ErrNotInitialized, false),
+		Entry("provisioning failed", servicestat.ErrProvisioningFailed, true),
+		Entry("wrapped provisioning failed", errors.Join(servicestat.ErrProvisioningFailed, errors.New("details")), true),
+		Entry("not initialized", servicestat.ErrNotInitialized, false),
 		Entry("unknown error", errors.New("boom"), false),
 	)
 })

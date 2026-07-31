@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -40,7 +41,7 @@ type ObjectRefDataSource struct {
 
 func NewObjectRefDataSource(
 	recorder eventrecord.EventRecorderLogger,
-	statService *service.StatService,
+	statService *servicestat.StatService,
 	diskService *service.DiskService,
 	client client.Client,
 ) *ObjectRefDataSource {

@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -155,7 +156,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 		cvi.Status.Size = viRef.Status.Size
 		cvi.Status.CDROM = viRef.Status.CDROM
 		cvi.Status.Format = viRef.Status.Format
-		cvi.Status.Progress = service.ProgressDone
+		cvi.Status.Progress = servicestat.ProgressDone
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
@@ -177,7 +178,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
-		cvi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress), service.ProgressMax)
+		cvi.Status.Progress = servicestat.CapProgressBelow(ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress), servicestat.ProgressMax)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)

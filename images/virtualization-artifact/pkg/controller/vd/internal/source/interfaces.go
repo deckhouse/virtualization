@@ -20,10 +20,10 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -91,12 +91,10 @@ type UploadDataSourceUploaderService interface {
 	step.WaitForUserUploadStepUploaderService
 	step.CleanUpUploaderStepUploaderService
 
+	EnsureExposure(ctx context.Context, obj client.Object, sup supplements.Generator) error
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
-	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
-	EnsureIngress(ctx context.Context, obj client.Object, sup supplements.Generator) (*netv1.Ingress, error)
-	IngressHostDrifted(ing *netv1.Ingress) bool
-	ExpectedIngressHost() string
+	GetExposure(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error)
 }
 
 type UploadDataSourceStatService interface {

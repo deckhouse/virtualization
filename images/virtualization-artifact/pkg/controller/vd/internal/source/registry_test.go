@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -57,7 +58,7 @@ var _ = Describe("RegistryDataSource", func() {
 		disk         *RegistryDataSourceDiskServiceMock
 		pvcSvc       *DataSourcePVCServiceMock
 		importerSvc  *RegistryDataSourceImporterServiceMock
-		stat         *RegistryDataSourceStatServiceMock
+		statSvc      *RegistryDataSourceStatServiceMock
 		recorder     eventrecord.EventRecorderLogger
 		dvcrSettings *dvcr.Settings
 	)
@@ -143,14 +144,14 @@ var _ = Describe("RegistryDataSource", func() {
 			UnprotectFunc: func(_ context.Context, _ *corev1.Pod, _ supplements.Generator) error { return nil },
 		}
 
-		stat = &RegistryDataSourceStatServiceMock{
+		statSvc = &RegistryDataSourceStatServiceMock{
 			GetDVCRImageNameFunc: func(_ *corev1.Pod) string { return "dvcr.example.com/cvi/vd:1" },
 			GetSizeFunc: func(_ *corev1.Pod) v1alpha2.ImageStatusSize {
 				return v1alpha2.ImageStatusSize{UnpackedBytes: "500Mi"}
 			},
 			GetFormatFunc:        func(_ *corev1.Pod) string { return "qcow2" },
 			GetDownloadSpeedFunc: func(_ types.UID, _ *corev1.Pod) *v1alpha2.StatusSpeed { return nil },
-			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...service.GetProgressOption) string {
+			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, prev string, _ ...servicestat.GetProgressOption) string {
 				if prev == "" {
 					return "10%"
 				}
@@ -161,7 +162,7 @@ var _ = Describe("RegistryDataSource", func() {
 	})
 
 	newSyncer := func(c client.Client) *RegistryDataSource {
-		return NewRegistryDataSource(recorder, stat, importerSvc, disk, pvcSvc, dvcrSettings, c)
+		return NewRegistryDataSource(recorder, statSvc, importerSvc, disk, pvcSvc, dvcrSettings, c)
 	}
 
 	Context("Validate", func() {
@@ -281,7 +282,7 @@ var _ = Describe("RegistryDataSource", func() {
 		})
 
 		It("fails the disk when the source is ISO", func() {
-			stat.GetFormatFunc = func(_ *corev1.Pod) string { return "iso" }
+			statSvc.GetFormatFunc = func(_ *corev1.Pod) string { return "iso" }
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).Build()
 			res, err := newSyncer(cl).Sync(ctx, vd)

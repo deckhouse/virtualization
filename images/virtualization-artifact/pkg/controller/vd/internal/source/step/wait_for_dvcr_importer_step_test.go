@@ -32,6 +32,7 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -41,10 +42,10 @@ import (
 type waitForDVCRImporterStatStub struct{}
 
 func (s waitForDVCRImporterStatStub) CheckPod(_ *corev1.Pod) error {
-	return service.ErrNotScheduled
+	return servicestat.ErrNotScheduled
 }
 
-func (s waitForDVCRImporterStatStub) GetProgress(_ types.UID, _ *corev1.Pod, prevProgress string, _ ...service.GetProgressOption) string {
+func (s waitForDVCRImporterStatStub) GetProgress(_ types.UID, _ *corev1.Pod, prevProgress string, _ ...servicestat.GetProgressOption) string {
 	return prevProgress
 }
 

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package stat
 
 import (
 	"crypto/ecdsa"
@@ -28,17 +28,21 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 )
+
+func TestStat(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Stat")
+}
 
 // genCert produces a self-signed certificate (also usable as its own CA) valid
 // for the given hosts (IPs vs DNS names are detected automatically).
@@ -99,10 +103,8 @@ func readyPod(ready bool) *corev1.Pod {
 	}
 }
 
-func ingWithURL(url string) *netv1.Ingress {
-	return &netv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotations.AnnUploadURL: url}},
-	}
+func exposureWithURL(url string) serviceuploader.UploaderExposure {
+	return serviceuploader.UploaderExposure{Exists: true, UploadURL: url}
 }
 
 func tlsSecret(certPEM []byte) *corev1.Secret {
@@ -121,13 +123,13 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 	})
 
 	It("returns false without probing when the pod is nil", func() {
-		ready, err := s.IsUploaderReady(nil, svc, ingWithURL("https://127.0.0.1:1/upload"), nil)
+		ready, err := s.IsUploaderReady(nil, svc, exposureWithURL("https://127.0.0.1:1/upload"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ready).To(BeFalse())
 	})
 
 	It("returns false without probing when the pod is not ready", func() {
-		ready, err := s.IsUploaderReady(readyPod(false), svc, ingWithURL("https://127.0.0.1:1/upload"), nil)
+		ready, err := s.IsUploaderReady(readyPod(false), svc, exposureWithURL("https://127.0.0.1:1/upload"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ready).To(BeFalse())
 	})
@@ -137,7 +139,9 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 		srv := tlsServer(cert, http.StatusOK)
 		defer srv.Close()
 
-		ready, err := s.IsUploaderReady(readyPod(true), svc, ingWithURL(srv.URL+"/upload"), tlsSecret(certPEM))
+		exposure := exposureWithURL(srv.URL + "/upload")
+		exposure.TLSSecret = tlsSecret(certPEM)
+		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ready).To(BeTrue())
 	})
@@ -147,7 +151,9 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 		srv := tlsServer(cert, http.StatusInternalServerError)
 		defer srv.Close()
 
-		ready, err := s.IsUploaderReady(readyPod(true), svc, ingWithURL(srv.URL+"/upload"), tlsSecret(certPEM))
+		exposure := exposureWithURL(srv.URL + "/upload")
+		exposure.TLSSecret = tlsSecret(certPEM)
+		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ready).To(BeFalse())
 	})
@@ -162,16 +168,16 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 
 		// srv.URL is https://127.0.0.1:<port>, which the "ingress.local" cert does
 		// not cover, even though we trust the cert itself via the secret.
-		ready, err := s.IsUploaderReady(readyPod(true), svc, ingWithURL(srv.URL+"/upload"), tlsSecret(certPEM))
+		exposure := exposureWithURL(srv.URL + "/upload")
+		exposure.TLSSecret = tlsSecret(certPEM)
+		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
 		Expect(err).To(HaveOccurred())
 		Expect(ready).To(BeFalse())
 	})
 
 	It("falls back to the upload-path annotation when no upload URL is set", func() {
-		ing := &netv1.Ingress{
-			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotations.AnnUploadPath: "/upload/token"}},
-		}
-		ready, err := s.IsUploaderReady(readyPod(true), svc, ing, nil)
+		exposure := serviceuploader.UploaderExposure{Exists: true, UploadPath: "/upload/token"}
+		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ready).To(BeTrue())
 	})

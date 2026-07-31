@@ -51,6 +51,21 @@ rules:
   - list
   - watch
   - patch
+# The uploader is exposed either via an Ingress or, when the UploadViaAPIGateway
+# feature gate is on, via an HTTPRoute attached to the shared Gateway. The CRD is
+# provided by the alb module, so these rules are inert while it is absent.
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - get
+  - create
+  - update
+  - delete
+  - list
+  - watch
+  - patch
 - apiGroups:
   - ""
   resources:
