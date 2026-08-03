@@ -13,11 +13,21 @@
 #
 # Note vs GitHub: GH runs ce and ee in parallel, then se-plus and fe after
 # ee (needs: prod_ee_setup_build). The GitLab matrix runs all four in
-# parallel. Each edition builds into its own registry subpath with no shared
-# artifact, so the GH `needs: ee` ordering is a sequencing/resource guard,
-# not a data dependency; the parallel matrix is acceptable.
+# parallel (each leg gets its own resource_group via $EDITION — see below).
+# Each edition builds into its own registry subpath with no shared artifact,
+# so the GH `needs: ee` ordering is a sequencing/resource guard, not a data
+# dependency; the parallel matrix is acceptable.
 #
-# Resource group: prod — prevents two prod builds from racing.
+# Resource group: prod:$CI_COMMIT_TAG:$EDITION — a per-(tag, edition) mutex.
+# resource_group is a project-wide mutex: only one job sharing a given value
+# runs at a time, across all pipelines. A constant "prod" therefore serialized
+# every prod build project-wide — different tags waited on each other, and the
+# four parallel:matrix legs (which all share the job's resource_group) even
+# serialized against one another within a single tag pipeline. Scoping the
+# group by $CI_COMMIT_TAG and $EDITION lets distinct tags and distinct editions
+# build concurrently, while a re-run of the same (tag, edition) still
+# serializes — the only race worth guarding against (two builds pushing the
+# same image path).
 #
 # Upstream .build expects MODULES_MODULE_SOURCE and WERF_REPO; .prod_vars
 # sets MODULES_MODULE_SOURCE per-edition (PROD_REGISTRY/PROD_MODULE_SOURCE_NAME/
@@ -34,7 +44,7 @@
 
 build_prod:
   stage: build
-  resource_group: prod
+  resource_group: "prod:${CI_COMMIT_TAG}:${EDITION}"
   # interruptible: false is inherited from .prod_vars (via .prod_always).
   # needs: [] opts into DAG mode with NO dependencies so build_prod does not
   # inherit prior-stage dotenv. On a vX.Y.Z tag, set_vars (info stage) emits
