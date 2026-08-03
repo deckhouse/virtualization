@@ -2,7 +2,10 @@
 
 ## v1.10.2
 
-_No changelog entries._
+### module
+
+- **fix** (default): Module cleanup no longer blocks Deckhouse queue when the VPA module is disabled. ([!103](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/103))
+- **fix** (default): Fix virtualization-dra crash loop caused by the USB gateway controller starting workers before the initial attach-info collection. ([!135](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/135))
 
 ## v1.10.1
 
