@@ -63,6 +63,8 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vmop.GetNamespace(),
 			Name:      migrationName(vmop),
+			// VMIM has specific annotations, such as kubevirt.io/migrationUnschedulablePodTimeoutSeconds. This is useful for testing.
+			Annotations: vmop.GetAnnotations(),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         v1alpha2.SchemeGroupVersion.String(),
