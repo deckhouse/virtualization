@@ -1,0 +1,13 @@
+core:
+  fixes:
+    - summary: USB device passthrough now works on nodes where the usbip driver provides more than one virtual host controller.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/129
+    - summary: USB passthrough now works on nodes where usbip kernel modules are compressed with xz or gzip, not only zstd.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/128
+module:
+  fixes:
+    - summary: Fix virtualization-dra crash loop caused by the USB gateway controller starting workers before the initial attach-info collection.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/133
+    - summary: Detect xz-compressed USB/IP kernel modules on Debian and avoid installing Ubuntu-specific kernel module packages.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/127
+
