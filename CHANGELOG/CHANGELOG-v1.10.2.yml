@@ -1,0 +1,7 @@
+module:
+  fixes:
+    - summary: Fix virtualization-dra crash loop caused by the USB gateway controller starting workers before the initial attach-info collection.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/135
+    - summary: Module cleanup no longer blocks Deckhouse queue when the VPA module is disabled.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/103
+
