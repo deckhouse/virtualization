@@ -1,9 +1,9 @@
 *                                                         @dmitry.rakitin
 /.github/                                                 @nikita.korolev @maksim.fedotov
 
-/crds/                                                    @pavel.tishkov @artem.kladov @georgy.dauman
-/docs/                                                    @pavel.tishkov @artem.kladov @georgy.dauman
-/openapi/                                                 @pavel.tishkov @artem.kladov @georgy.dauman
+/crds/                                                    @pavel.tishkov @vladislav.panfilov @georgy.dauman
+/docs/                                                    @pavel.tishkov @vladislav.panfilov @georgy.dauman
+/openapi/                                                 @pavel.tishkov @vladislav.panfilov @georgy.dauman
 /monitoring/                                              @pavel.tishkov @dmitry.rakitin
 /tests/                                                   @roman.sysoev @daniil.antoshin
 /CHANGELOG/                                               @nikita.korolev @maksim.fedotov
