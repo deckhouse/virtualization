@@ -2222,6 +2222,8 @@ github.com/googleapis/go-type-adapters v1.0.0/go.mod h1:zHW75FOG2aur7gAO2B+MLby+
 github.com/googleapis/google-cloud-go-testing v0.0.0-20200911160855-bcd43fbb19e8/go.mod h1:dvDLG8qkwmyD9a/MJJN3XJcT3xFxOKAvTZGvuZmac9g=
 github.com/googleapis/google-cloud-go-testing v0.0.0-20210719221736-1c9a4c676720 h1:zC34cGQu69FG7qzJ3WiKW244WfhDC3xxYMeNOX2gtUQ=
 github.com/googleapis/google-cloud-go-testing v0.0.0-20210719221736-1c9a4c676720/go.mod h1:dvDLG8qkwmyD9a/MJJN3XJcT3xFxOKAvTZGvuZmac9g=
+github.com/gopacket/gopacket v1.6.1 h1:S19Ok/KVGDFNHVW2uCva5U0vZ+uHqiZQdxteL50v6Ak=
+github.com/gopacket/gopacket v1.6.1/go.mod h1:i3NaGaqfoWKAr1+g7qxEdWsmfT+MXuWkAe9+THv8LME=
 github.com/gophercloud/gophercloud/v2 v2.0.0-rc.1 h1:B0J9VVGlNuMF/743KMVFScDB8M2Bd5N1KlsEZykSBlc=
 github.com/gophercloud/gophercloud/v2 v2.0.0-rc.1/go.mod h1:cwPW9cbJmfBt1c7o/yzXuNjwonhWA+F9Zw8LNQzd3Zk=
 github.com/gophercloud/utils/v2 v2.0.0-20240529145014-bdd9ea767dd2 h1:5DlksvMo44t2c8LdewhSGZoZVTolp1FHdxUdjKaIKaA=
