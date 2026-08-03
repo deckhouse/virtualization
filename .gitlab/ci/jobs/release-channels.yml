@@ -140,12 +140,19 @@ prod:check-requirements:
   needs: ["prod:print-vars"]
   variables:
     MODULES_MODULE_TAG: "${RELEASE_TAG}"
-  before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go task curl jq
+  # NOTE: do NOT define a job-level before_script here. The registry login
+  # (`werf cr login` into $PROD_READ_REGISTRY == registry.deckhouse.io) comes
+  # from the inherited global default before_script (upstream Setup); a
+  # job-level before_script REPLACES it, dropping the login. Without it the
+  # shared DOCKER_CONFIG has no credentials and `crane` in tools/moduleversions
+  # pulls registry.deckhouse.io/deckhouse/<edition> anonymously, failing with
+  # UNAUTHORIZED. So the check-runner-tools guard goes in `script` (first line),
+  # exactly like .base_build / .base_deploy / .prod_deploy_script.
   rules:
     - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $CHECK_ONLY != "true" && $SKIP_REQUIREMENTS_CHECK != "true" && ($EDITION_CE == "true" || $EDITION_EE == "true")
     - when: never
   script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go task curl jq
     - CHANNEL="${RELEASE_CHANNEL}" VERSION="${RELEASE_TAG}" task -d tools/moduleversions check:requirements
 
 # ---------------------------------------------------------------------------
@@ -369,9 +376,16 @@ prod:check-version:
   parallel:
     matrix:
       - CHECK: [registry, releases, documentation]
-  before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go task crane curl jq
+  # NOTE: do NOT define a job-level before_script here. The CHECK=registry leg
+  # runs `task check:registry`, which `crane export`s the license-gated ee/fe
+  # release images; it relies on the `werf cr login` from the inherited global
+  # default before_script (upstream Setup). A job-level before_script REPLACES
+  # that default, dropping the login, so crane pulls anonymously and fails with
+  # UNAUTHORIZED (same trap as prod:check-requirements above). The
+  # check-runner-tools guard therefore goes in `script` (first line). The
+  # releases/documentation legs hit public HTTP sites and need no login.
   script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go task crane curl jq
     - |
       set -euo pipefail
       if [ "$CHECK_ONLY" != "true" ]; then
