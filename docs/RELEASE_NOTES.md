@@ -3,6 +3,20 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.9.6
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: August 3, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### Fixes
+
+- [core] Fixed an issue where USB device passthrough to virtual machines was unavailable on hosts where the preinstalled usbip kernel modules were compressed (using xz or gzip). USB device passthrough is now available if kernel modules are compressed using xz or gzip, not just zstd. Also, for Debian, the `linux-modules-extra-${kernel_release}` package is now used instead of attempting to install the Ubuntu-specific `linux-modules-extra`.
+- [core] Fixed an issue where USB device passthrough to virtual machines was unavailable on hosts where the usbip driver was running more than one virtual host controller.
+- [module] Fixed a `CrashLoopBackOff` error in the `virtualization-dra` pod on hosts with USB devices, caused by starting controller worker processes before the initial connection information had been collected. Initialization now occurs before the workers start, which prevents the error caused by accessing data that has not yet been populated.
+
 ## v1.9.5
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
