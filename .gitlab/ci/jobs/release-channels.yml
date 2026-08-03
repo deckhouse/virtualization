@@ -43,8 +43,16 @@
 #   - Per-(channel,tag) concurrency uses resource_group (a mutex); GitLab has
 #     no cancel-in-progress equivalent, so concurrent same-(channel,tag)
 #     dispatches serialize instead of cancelling.
-#   - SE-Plus / FE builds `needs: prod:build:ee` to mirror the GitHub
-#     job-SE-Plus/job-FE cascade; ce/ee build in parallel.
+#   - Edition cascade (GitHub parity — job-SE-Plus / job-FE): SE-Plus and FE both
+#     derive from EE, so neither builds nor deploys until EE does. Both the build
+#     and the deploy of se-plus/fe `needs` the ee counterpart; ce/ee themselves
+#     build+deploy in parallel and gate on prod:check-requirements. This keeps the
+#     requirements check binding for the whole family even on a deploy-only run
+#     (ENABLE_BUILD=false), where the build cascade is absent: ee's deploy still
+#     `needs: prod:check-requirements`, and se-plus/fe deploys inherit the gate
+#     transitively through deploy:ee. Without this, se-plus/fe deploys had only an
+#     optional need on their (absent) build job, so a failed check-requirements
+#     did not block them.
 
 variables:
   RELEASE_CHANNEL:
@@ -310,6 +318,12 @@ prod:deploy:se-plus:
   needs:
     - job: prod:build:se-plus
       optional: true
+    # SE-Plus derives from EE: block its deploy whenever the EE deploy is
+    # blocked (e.g. a failed prod:check-requirements skips deploy:ee). On a
+    # deploy-only run the build cascade is absent, so this is the only link
+    # that keeps the requirements gate binding for SE-Plus.
+    - job: prod:deploy:ee
+      optional: true
   variables:
     EDITION: se-plus
     MODULE_EDITION: EE
@@ -347,6 +361,12 @@ prod:deploy:fe:
     - .dev_registry_pull_login
   needs:
     - job: prod:build:fe
+      optional: true
+    # FE derives from EE: block its deploy whenever the EE deploy is blocked
+    # (e.g. a failed prod:check-requirements skips deploy:ee). On a deploy-only
+    # run the build cascade is absent, so this is the only link that keeps the
+    # requirements gate binding for FE.
+    - job: prod:deploy:ee
       optional: true
   variables:
     EDITION: fe
