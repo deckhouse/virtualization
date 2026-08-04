@@ -766,7 +766,7 @@ var _ = Describe("InUseHandler", func() {
 		})
 	})
 	Context("when VirtualDisk is used by DataExport", func() {
-		It("must set status True and reason UsedForDataExport", func() {
+		DescribeTable("must set status True and reason UsedForDataExport", func(annotationKey string) {
 			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -784,7 +784,7 @@ var _ = Describe("InUseHandler", func() {
 					Name:      "test-pvc",
 					Namespace: "default",
 					Annotations: map[string]string{
-						annotations.AnnDataExportRequest: "true",
+						annotationKey: "true",
 					},
 				},
 				Status: corev1.PersistentVolumeClaimStatus{
@@ -803,6 +803,9 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.UsedForDataExport.String()))
-		})
+		},
+			Entry("annotation of the storage-foundation module", annotations.AnnDataExportRequest),
+			Entry("annotation of the storage module before the rename", annotations.AnnDataExportRequestLegacy),
+		)
 	})
 })

@@ -174,7 +174,10 @@ const (
 	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
 
 	// AnnDataExportRequest is the annotation for indicating that export requested.
-	AnnDataExportRequest = "storage.deckhouse.io/data-export-request"
+	AnnDataExportRequest = "storage-foundation.deckhouse.io/data-export-request"
+	// AnnDataExportRequestLegacy is the same annotation as it was named before the storage module
+	// was renamed to storage-foundation. Set by storage-volume-data-manager up to v0.1.24.
+	AnnDataExportRequestLegacy = "storage.deckhouse.io/data-export-request"
 
 	// PVC population annotations.
 	// AnnPVCPopulationStrategy stores the strategy used by populator-controller.
@@ -283,6 +286,14 @@ const (
 	// DefaultUSBDeviceUser is the default device user ID for USB devices.
 	DefaultUSBDeviceUser = "64535"
 )
+
+// IsDataExportRequested reports whether the storage module requested a data export of the object.
+// Both annotation keys are checked: the storage module renamed its API group to storage-foundation,
+// so a cluster may run either the current or the pre-rename version of the export controller.
+func IsDataExportRequested(obj metav1.Object) bool {
+	anns := obj.GetAnnotations()
+	return anns[AnnDataExportRequest] == "true" || anns[AnnDataExportRequestLegacy] == "true"
+}
 
 // AddAnnotation adds an annotation to an object
 func AddAnnotation(obj metav1.Object, key, value string) {
