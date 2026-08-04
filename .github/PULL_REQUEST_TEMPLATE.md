@@ -1,3 +1,16 @@
+## Links
+<!---
+  - Kaiten card: link to the related Kaiten card.
+  - ADR: link to the related Architecture Decision Record, if applicable
+    (repo: https://fox.flant.com/deckhouse/docs/architecture-decision-records).
+  - KubeVirt MR: link(s) to the related MR(s) in the KubeVirt fork, if any
+    (repo: https://fox.flant.com/deckhouse/virtualization/fork/kubevirt).
+-->
+- Kaiten card:
+- ADR:
+- KubeVirt MR:
+
+
 ## Description
 <!---
   Describe your changes with technical details.
