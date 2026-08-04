@@ -31,7 +31,7 @@ import (
 )
 
 type CleanUpUploaderStepUploaderService interface {
-	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
+	Cleanup(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 // CleanUpUploaderStep deletes the uploader Pod/Service and its external exposure
@@ -70,7 +70,7 @@ func (s CleanUpUploaderStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	}
 
 	supgen := vdsupplements.NewGenerator(vd)
-	if _, err := s.uploader.Cleanup(ctx, supgen); err != nil {
+	if _, _, err := s.uploader.Cleanup(ctx, supgen); err != nil {
 		return nil, fmt.Errorf("clean up uploader supplements: %w", err)
 	}
 

@@ -151,37 +151,35 @@ func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev
 	return nil
 }
 
-func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
-	subResourcesHaveDeleted, err := s.CleanUpSupplements(ctx, sup)
+func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error) {
+	subResourcesRequeue, subResourcesReason, err := s.CleanUpSupplements(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	var resourcesHaveDeleted bool
-
 	if pvc != nil {
-		resourcesHaveDeleted = true
+		reason = CleanUpReasonForObject(CleanUpRolePersistentVolumeClaim, pvc)
 
 		err = s.protection.RemoveProtection(ctx, pvc)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		err = s.client.Delete(ctx, pvc)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, "", err
 		}
 	}
 
-	return resourcesHaveDeleted || subResourcesHaveDeleted, nil
+	return reason != "" || subResourcesRequeue, MergeCleanUpReasons(reason, subResourcesReason), nil
 }
 
-func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error) {
 	target := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sup.PersistentVolumeClaim().Name,
@@ -190,27 +188,30 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 	}
 	importSupplementsDeleted, err := s.pvc.Cleanup(ctx, sup, target)
 	if err != nil {
-		return false, fmt.Errorf("delete pvc import supplements: %w", err)
+		return false, "", fmt.Errorf("delete pvc import supplements: %w", err)
 	}
 
 	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyCommonResourceName(), sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
+	var networkPolicyReason string
 	if networkPolicy != nil {
+		networkPolicyReason = CleanUpReasonForObject(CleanUpRoleNetworkPolicy, networkPolicy)
+
 		err = s.protection.RemoveProtection(ctx, networkPolicy)
 		if err != nil {
-			return false, fmt.Errorf("remove protection from network policy: %w", err)
+			return false, "", fmt.Errorf("remove protection from network policy: %w", err)
 		}
 
 		err = s.client.Delete(ctx, networkPolicy)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, fmt.Errorf("delete network policy: %w", err)
+			return false, "", fmt.Errorf("delete network policy: %w", err)
 		}
 	}
 
-	return importSupplementsDeleted || networkPolicy != nil, nil
+	return importSupplementsDeleted || networkPolicy != nil, networkPolicyReason, nil
 }
 
 func (s DiskService) Unprotect(_ context.Context, _ supplements.Generator) error {

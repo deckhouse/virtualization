@@ -19,6 +19,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -89,8 +90,8 @@ func IsComputeContainer(name string) bool {
 	return strings.HasSuffix(name, VMContainerNameSuffix)
 }
 
-func IsVMActive(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachine) (bool, error) {
-	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, cli, &virtv1.VirtualMachine{})
+func IsVMActive(ctx context.Context, c client.Client, vm v1alpha2.VirtualMachine) (bool, error) {
+	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, c, &virtv1.VirtualMachine{})
 	if err != nil {
 		return false, fmt.Errorf("error getting kvvms: %w", err)
 	}
@@ -99,7 +100,7 @@ func IsVMActive(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachi
 	}
 
 	podList := corev1.PodList{}
-	err = cli.List(ctx, &podList, &client.ListOptions{
+	err = c.List(ctx, &podList, &client.ListOptions{
 		Namespace:     vm.GetNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
 	})
@@ -114,6 +115,75 @@ func IsVMActive(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachi
 	}
 
 	return false, nil
+}
+
+// BlockDeviceUsage reports whether a VM status references a block device and whether that reference is actively mounted.
+func BlockDeviceUsage(
+	ctx context.Context,
+	c client.Client,
+	vm v1alpha2.VirtualMachine,
+	kind v1alpha2.BlockDeviceKind,
+	name string,
+) (referenced, mounted bool, err error) {
+	if !HasBlockDeviceStatusRef(vm, kind, name) {
+		return false, false, nil
+	}
+
+	switch vm.Status.Phase {
+	case "":
+		return true, false, nil
+	case v1alpha2.MachineStopped:
+		vmIsActive, err := IsVMActive(ctx, c, vm)
+		if err != nil {
+			return true, false, err
+		}
+
+		return true, vmIsActive, nil
+	default:
+		return true, true, nil
+	}
+}
+
+// MountedVirtualMachineNames returns the sorted names of VirtualMachines that currently
+// mount the block device of the given kind and name. When namespace is empty, all namespaces
+// are scanned. When withNamespace is true, each name is formatted as "<namespace>/<name>".
+func MountedVirtualMachineNames(ctx context.Context, c client.Client, kind v1alpha2.BlockDeviceKind, name, namespace string, withNamespace bool) ([]string, error) {
+	var vms v1alpha2.VirtualMachineList
+	if err := c.List(ctx, &vms, &client.ListOptions{Namespace: namespace}); err != nil {
+		return nil, err
+	}
+
+	var names []string
+	for _, vm := range vms.Items {
+		_, mounted, err := BlockDeviceUsage(ctx, c, vm, kind, name)
+		if err != nil {
+			return nil, err
+		}
+
+		if !mounted {
+			continue
+		}
+
+		if withNamespace {
+			names = append(names, vm.Namespace+"/"+vm.Name)
+		} else {
+			names = append(names, vm.Name)
+		}
+	}
+
+	sort.Strings(names)
+	return names, nil
+}
+
+// HasBlockDeviceStatusRef reports whether VM status contains a block device reference with the provided kind and name.
+func HasBlockDeviceStatusRef(vm v1alpha2.VirtualMachine, kind v1alpha2.BlockDeviceKind, name string) bool {
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind == kind && bd.Name == name {
+			return true
+		}
+	}
+
+	return false
 }
 
 func GetActivePodName(vm *v1alpha2.VirtualMachine) (string, bool) {

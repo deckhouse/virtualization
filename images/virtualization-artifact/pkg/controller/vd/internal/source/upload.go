@@ -25,6 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -119,20 +120,20 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	).Run(ctx, vd)
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (requeue bool, reason string, err error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	uploaderRequeue, err := ds.uploaderService.Cleanup(ctx, supgen)
+	uploaderRequeue, uploaderReason, err := ds.uploaderService.Cleanup(ctx, supgen)
 	if err != nil {
-		return false, fmt.Errorf("clean up uploader: %w", err)
+		return false, "", fmt.Errorf("clean up uploader: %w", err)
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, fmt.Errorf("clean up disk: %w", err)
+		return false, "", fmt.Errorf("clean up disk: %w", err)
 	}
 
-	return uploaderRequeue || diskRequeue, nil
+	return uploaderRequeue || diskRequeue, service.MergeCleanUpReasons(uploaderReason, diskReason), nil
 }
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualDisk) error {

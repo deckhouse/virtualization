@@ -25,7 +25,7 @@ var _ Handler = &HandlerMock{}
 //
 //		// make and configure a mocked Handler
 //		mockedHandler := &HandlerMock{
-//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
 //			NameFunc: func() string {
@@ -45,7 +45,7 @@ var _ Handler = &HandlerMock{}
 //	}
 type HandlerMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
+	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error)
 
 	// NameFunc mocks the Name method.
 	NameFunc func() string
@@ -90,7 +90,7 @@ type HandlerMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *HandlerMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (mock *HandlerMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("HandlerMock.CleanUpFunc: method is nil but Handler.CleanUp was just called")
 	}
@@ -237,7 +237,7 @@ var _ Sources = &SourcesMock{}
 //			ChangedFunc: func(contextMoqParam context.Context, vi *v1alpha2.VirtualDisk) bool {
 //				panic("mock out the Changed method")
 //			},
-//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
 //			GetFunc: func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
@@ -254,7 +254,7 @@ type SourcesMock struct {
 	ChangedFunc func(contextMoqParam context.Context, vi *v1alpha2.VirtualDisk) bool
 
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
+	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error)
 
 	// GetFunc mocks the Get method.
 	GetFunc func(dsType v1alpha2.DataSourceType) (source.Handler, bool)
@@ -323,7 +323,7 @@ func (mock *SourcesMock) ChangedCalls() []struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *SourcesMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (mock *SourcesMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("SourcesMock.CleanUpFunc: method is nil but Sources.CleanUp was just called")
 	}

@@ -118,8 +118,8 @@ var _ = Describe("HTTPDataSource", func() {
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			},
-			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
-			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, string, error) { return false, "", nil },
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) { return false, "", nil },
 			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			},
@@ -137,7 +137,7 @@ var _ = Describe("HTTPDataSource", func() {
 
 		importerSvc = &HTTPDataSourceImporterServiceMock{
 			GetPodFunc:    func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
-			CleanUpFunc:   func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			CleanUpFunc:   func(_ context.Context, _ supplements.Generator) (bool, string, error) { return false, "", nil },
 			ProtectFunc:   func(_ context.Context, _ *corev1.Pod, _ supplements.Generator) error { return nil },
 			UnprotectFunc: func(_ context.Context, _ *corev1.Pod, _ supplements.Generator) error { return nil },
 		}
@@ -451,9 +451,9 @@ var _ = Describe("HTTPDataSource", func() {
 			}
 			importerSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return pod, nil }
 			var cleaned bool
-			importerSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			importerSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				cleaned = true
-				return true, nil
+				return true, "", nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
@@ -471,17 +471,17 @@ var _ = Describe("HTTPDataSource", func() {
 	Context("CleanUp", func() {
 		It("delegates to both importer and disk services", func() {
 			var importerCleaned, diskCleaned bool
-			importerSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			importerSvc.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				importerCleaned = true
-				return true, nil
+				return true, "", nil
 			}
-			disk.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			disk.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				diskCleaned = true
-				return false, nil
+				return false, "", nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
-			requeue, err := newSyncer(cl).CleanUp(ctx, vd)
+			requeue, _, err := newSyncer(cl).CleanUp(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(requeue).To(BeTrue())
 			Expect(importerCleaned).To(BeTrue())

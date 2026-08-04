@@ -88,8 +88,13 @@ func NewController(
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewImagePresenceHandler(recorder, dvcr.NewImageChecker(mgr.GetClient(), dvcrSettings)),
-		internal.NewDeletionHandler(sources),
+		// Order matters: AttacheeHandler must run before DeletionHandler.
+		// AttacheeHandler owns the protection finalizer (it drops it once no VirtualMachine
+		// uses the image), and DeletionHandler decides whether deletion is blocked by checking
+		// that finalizer. Running the attachee first lets a freed image proceed to cleanup within
+		// the same reconcile instead of waiting for the next one.
 		internal.NewAttacheeHandler(mgr.GetClient()),
+		internal.NewDeletionHandler(sources, mgr.GetClient()),
 	)
 
 	cviController, err := controller.New(ControllerName, mgr, controller.Options{

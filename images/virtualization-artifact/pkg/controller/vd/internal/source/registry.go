@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
@@ -106,20 +107,20 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	).Run(ctx, vd)
 }
 
-func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (requeue bool, reason string, err error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, importerReason, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, fmt.Errorf("clean up importer: %w", err)
+		return false, "", fmt.Errorf("clean up importer: %w", err)
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, diskReason, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, fmt.Errorf("clean up disk: %w", err)
+		return false, "", fmt.Errorf("clean up disk: %w", err)
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue || diskRequeue, service.MergeCleanUpReasons(importerReason, diskReason), nil
 }
 
 func (ds RegistryDataSource) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {

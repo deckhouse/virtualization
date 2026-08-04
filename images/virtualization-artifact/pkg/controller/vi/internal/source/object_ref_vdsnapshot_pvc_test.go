@@ -77,13 +77,13 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 		}
 
 		importer = &ImporterMock{
-			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
-				return false, nil
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) {
+				return false, "", nil
 			},
 		}
 		bounder = &BounderMock{
-			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
-				return false, nil
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) {
+				return false, "", nil
 			},
 		}
 		statSvc = &StatMock{

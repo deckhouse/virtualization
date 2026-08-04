@@ -83,7 +83,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtu
 			ObservedGeneration: cvi.Status.ObservedGeneration,
 		}
 
-		_, err := h.sources.CleanUp(ctx, cvi)
+		_, _, err := h.sources.CleanUp(ctx, cvi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

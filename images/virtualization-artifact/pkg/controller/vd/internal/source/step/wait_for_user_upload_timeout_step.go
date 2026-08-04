@@ -34,7 +34,7 @@ import (
 )
 
 type WaitForUserUploadTimeoutStepUploaderService interface {
-	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
+	Cleanup(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 // WaitForUserUploadTimeoutStep fails the import when the user does not start the
@@ -81,7 +81,7 @@ func (s WaitForUserUploadTimeoutStep) Take(ctx context.Context, vd *v1alpha2.Vir
 		Message(serviceuploader.WaitForUserUploadTimeoutMessage("VirtualDisk"))
 
 	supgen := vdsupplements.NewGenerator(vd)
-	if _, err := s.uploader.Cleanup(ctx, supgen); err != nil {
+	if _, _, err := s.uploader.Cleanup(ctx, supgen); err != nil {
 		return nil, fmt.Errorf("clean up uploader supplements: %w", err)
 	}
 

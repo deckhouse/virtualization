@@ -38,8 +38,8 @@ import (
 type Importer interface {
 	Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	DeletePod(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error)
 	Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
@@ -54,7 +54,7 @@ type Uploader interface {
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 	GetExposure(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error)
 	GetInClusterURL(svc *corev1.Service) string
-	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
+	Cleanup(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type Stat interface {

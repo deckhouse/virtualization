@@ -54,17 +54,17 @@ func (kv *KubeVirt) IsEnabledFeatureGate(featureGate string) bool {
 	return false
 }
 
-func New(ctx context.Context, cli client.Client, namespace string) (*KubeVirt, error) {
-	kv, err := GetKubeVirt(ctx, cli, namespace)
+func New(ctx context.Context, c client.Client, namespace string) (*KubeVirt, error) {
+	kv, err := GetKubeVirt(ctx, c, namespace)
 	if err != nil {
 		return nil, err
 	}
 	return &KubeVirt{kubevirt: *kv}, nil
 }
 
-func GetKubeVirt(ctx context.Context, cli client.Client, namespace string) (*virtv1.KubeVirt, error) {
+func GetKubeVirt(ctx context.Context, c client.Client, namespace string) (*virtv1.KubeVirt, error) {
 	kubevirts := virtv1.KubeVirtList{}
-	err := cli.List(ctx, &kubevirts, client.InNamespace(namespace))
+	err := c.List(ctx, &kubevirts, client.InNamespace(namespace))
 	if err != nil {
 		return nil, err
 	}

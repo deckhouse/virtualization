@@ -37,8 +37,8 @@ import (
 type Importer interface {
 	step.CreatePodStepImporter
 	step.ReadyContainerRegistryStepImporter
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 	Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
@@ -52,7 +52,7 @@ type Uploader interface {
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 	GetExposure(ctx context.Context, sup supplements.Generator) (serviceuploader.UploaderExposure, error)
 	GetInClusterURL(svc *corev1.Service) string
-	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
+	Cleanup(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type Stat interface {
@@ -66,13 +66,13 @@ type Stat interface {
 
 type Bounder interface {
 	step.CreateBounderPodStepBounder
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 type Disk interface {
 	service.VolumeAndAccessModesGetter
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	PersistentVolumeClaim() *service.PersistentVolumeClaimService
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }

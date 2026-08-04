@@ -35,7 +35,7 @@ import (
 
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 type ReadyStep struct {
@@ -104,7 +104,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 
 		if object.ShouldCleanupSubResources(vd) {
 			supgen := vdsupplements.NewGenerator(vd)
-			if _, err := s.diskService.CleanUpSupplements(ctx, supgen); err != nil {
+			if _, _, err := s.diskService.CleanUpSupplements(ctx, supgen); err != nil {
 				return nil, fmt.Errorf("clean up supplements: %w", err)
 			}
 		}

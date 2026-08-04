@@ -30,6 +30,10 @@ const (
 	ReadyType Type = "Ready"
 	// StorageClassReadyType indicates whether the storageClass ready.
 	StorageClassReadyType Type = "StorageClassReady"
+	// InUseType indicates whether the VirtualImage is attached to a VirtualMachine.
+	InUseType Type = "InUse"
+	// TerminatingType indicates that the VirtualImage is being deleted and reports what the deletion is waiting for.
+	TerminatingType Type = "Terminating"
 )
 
 type (
@@ -39,6 +43,10 @@ type (
 	ReadyReason string
 	// StorageClassReadyReason represents the various reasons for the StorageClassReady condition type.
 	StorageClassReadyReason string
+	// InUseReason represents the various reasons for the InUse condition type.
+	InUseReason string
+	// TerminatingReason represents the various reasons for the Terminating condition type.
+	TerminatingReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -50,6 +58,14 @@ func (s ReadyReason) String() string {
 }
 
 func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
+
+func (s InUseReason) String() string {
+	return string(s)
+}
+
+func (s TerminatingReason) String() string {
 	return string(s)
 }
 
@@ -105,4 +121,13 @@ const (
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
+
+	// AttachedToVirtualMachine indicates that the VirtualImage is attached to a VirtualMachine, which protects it from deletion.
+	AttachedToVirtualMachine InUseReason = "AttachedToVirtualMachine"
+	// NotInUse indicates that the VirtualImage is free for use.
+	NotInUse InUseReason = "NotInUse"
+
+	// CleanupPending indicates that the auxiliary resources of the VirtualImage are still being deleted.
+	// A deletion held by a VirtualMachine is reported by the InUse condition instead.
+	CleanupPending TerminatingReason = "CleanupPending"
 )

@@ -34,7 +34,7 @@ import (
 type Handler interface {
 	Name() string
 	Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
-	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
+	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (requeue bool, reason string, err error)
 	Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error
 }
 
@@ -52,7 +52,7 @@ type BlankDataSourceDiskService interface {
 	step.VolumeAndAccessModesGetter
 	step.ReadyStepDiskService
 
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 type ObjectRefVirtualImageDiskService interface {
@@ -83,7 +83,7 @@ type UploadDataSourceDiskService interface {
 	step.PVCImportStepDiskService
 
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 type UploadDataSourceUploaderService interface {
@@ -109,7 +109,7 @@ type HTTPDataSourceDiskService interface {
 	step.PVCImportStepDiskService
 
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 type HTTPDataSourceImporterService interface {
@@ -131,7 +131,7 @@ type RegistryDataSourceDiskService interface {
 	step.PVCImportStepDiskService
 
 	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 type RegistryDataSourceImporterService interface {

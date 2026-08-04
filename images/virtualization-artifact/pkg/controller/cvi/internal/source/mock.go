@@ -29,10 +29,10 @@ var _ Importer = &ImporterMock{}
 //
 //		// make and configure a mocked Importer
 //		mockedImporter := &ImporterMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			DeletePodFunc: func(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error) {
@@ -64,10 +64,10 @@ var _ Importer = &ImporterMock{}
 //	}
 type ImporterMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// DeletePodFunc mocks the DeletePod method.
 	DeletePodFunc func(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error)
@@ -196,7 +196,7 @@ type ImporterMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpFunc == nil {
 		panic("ImporterMock.CleanUpFunc: method is nil but Importer.CleanUp was just called")
 	}
@@ -232,7 +232,7 @@ func (mock *ImporterMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("ImporterMock.CleanUpSupplementsFunc: method is nil but Importer.CleanUpSupplements was just called")
 	}
@@ -588,7 +588,7 @@ var _ Uploader = &UploaderMock{}
 //			ApplyFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error {
 //				panic("mock out the Apply method")
 //			},
-//			CleanupFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanupFunc: func(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 //				panic("mock out the Cleanup method")
 //			},
 //			EnsureExposureFunc: func(ctx context.Context, obj client.Object, sup supplements.Generator) error {
@@ -617,7 +617,7 @@ type UploaderMock struct {
 	ApplyFunc func(ctx context.Context, obj client.Object, sup supplements.Generator, settings serviceuploader.Settings, caBundle *datasource.CABundle, opts ...serviceuploader.Option) error
 
 	// CleanupFunc mocks the Cleanup method.
-	CleanupFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanupFunc func(ctx context.Context, sup supplements.Generator) (bool, string, error)
 
 	// EnsureExposureFunc mocks the EnsureExposure method.
 	EnsureExposureFunc func(ctx context.Context, obj client.Object, sup supplements.Generator) error
@@ -756,7 +756,7 @@ func (mock *UploaderMock) ApplyCalls() []struct {
 }
 
 // Cleanup calls CleanupFunc.
-func (mock *UploaderMock) Cleanup(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *UploaderMock) Cleanup(ctx context.Context, sup supplements.Generator) (bool, string, error) {
 	if mock.CleanupFunc == nil {
 		panic("UploaderMock.CleanupFunc: method is nil but Uploader.Cleanup was just called")
 	}

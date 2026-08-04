@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +39,7 @@ import (
 
 type Handler interface {
 	Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error)
-	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error)
+	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requeue bool, reason string, err error)
 	Validate(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error
 }
 
@@ -64,31 +66,42 @@ func (s Sources) Changed(_ context.Context, cvi *v1alpha2.ClusterVirtualImage) b
 	return cvi.Generation != cvi.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
-	var requeue bool
+func (s Sources) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requeue bool, reason string, err error) {
+	var reasons []string
 
-	for _, source := range s.sources {
-		ok, err := source.CleanUp(ctx, cvi)
+	// Iterate over the data sources in a stable order: the reasons are merged into the
+	// Terminating condition message, so a map iteration would reshuffle them (and thus
+	// the part of the message that survives truncation) on every reconcile.
+	for _, dsType := range slices.Sorted(maps.Keys(s.sources)) {
+		source := s.sources[dsType]
+
+		sourceRequeue, sourceReason, err := source.CleanUp(ctx, cvi)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
-		requeue = requeue || ok
+		requeue = requeue || sourceRequeue
+		reasons = append(reasons, sourceReason)
 	}
 
-	return requeue, nil
+	reason = service.MergeCleanUpReasons(reasons...)
+	if requeue && reason == "" {
+		reason = service.DefaultCleanUpReason
+	}
+
+	return requeue, reason, nil
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error)
+	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requeue bool, reason string, err error)
 }
 
-func CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage, c Cleaner) (bool, error) {
+func CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage, c Cleaner) (requeue bool, reason string, err error) {
 	if object.ShouldCleanupSubResources(cvi) {
 		return c.CleanUp(ctx, cvi)
 	}
 
-	return false, nil
+	return false, "", nil
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {

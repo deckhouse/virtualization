@@ -120,8 +120,8 @@ var _ = Describe("UploadDataSource", func() {
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			},
-			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
-			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, string, error) { return false, "", nil },
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) { return false, "", nil },
 			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			},
@@ -138,9 +138,11 @@ var _ = Describe("UploadDataSource", func() {
 		}
 
 		uploaderSvc = &UploadDataSourceUploaderServiceMock{
-			GetPodFunc:          func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
-			GetServiceFunc:      func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
-			CleanupFunc:         func(_ context.Context, _ supplements.Generator) (bool, error) { return false, nil },
+			GetPodFunc:     func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return nil, nil },
+			GetServiceFunc: func(_ context.Context, _ supplements.Generator) (*corev1.Service, error) { return nil, nil },
+			CleanupFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) {
+				return false, "", nil
+			},
 			GetInClusterURLFunc: func(_ *corev1.Service) string { return "http://upload.svc/upload" },
 			EnsureExposureFunc: func(_ context.Context, _ client.Object, _ supplements.Generator) error {
 				return nil
@@ -318,9 +320,9 @@ var _ = Describe("UploadDataSource", func() {
 			}}
 
 			var cleaned bool
-			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				cleaned = true
-				return true, nil
+				return true, "", nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -471,9 +473,9 @@ var _ = Describe("UploadDataSource", func() {
 				return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "uploader-svc", Namespace: vd.Namespace}}, nil
 			}
 			var cleaned bool
-			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				cleaned = true
-				return true, nil
+				return true, "", nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
@@ -521,17 +523,17 @@ var _ = Describe("UploadDataSource", func() {
 	Context("CleanUp", func() {
 		It("delegates to both uploader and disk services", func() {
 			var uploaderCleaned, diskCleaned bool
-			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			uploaderSvc.CleanupFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				uploaderCleaned = true
-				return false, nil
+				return false, "", nil
 			}
-			disk.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, error) {
+			disk.CleanUpFunc = func(_ context.Context, _ supplements.Generator) (bool, string, error) {
 				diskCleaned = true
-				return true, nil
+				return true, "", nil
 			}
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).Build()
-			requeue, err := newSyncer(cl).CleanUp(ctx, vd)
+			requeue, _, err := newSyncer(cl).CleanUp(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(requeue).To(BeTrue())
 			Expect(uploaderCleaned).To(BeTrue())

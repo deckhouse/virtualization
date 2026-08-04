@@ -28,6 +28,10 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `ClusterVirtualImage` is ready for use.
 	ReadyType Type = "Ready"
+	// InUseType indicates whether the ClusterVirtualImage is attached to a VirtualMachine.
+	InUseType Type = "InUse"
+	// TerminatingType indicates that the ClusterVirtualImage is being deleted and reports what the deletion is waiting for.
+	TerminatingType Type = "Terminating"
 )
 
 type (
@@ -35,6 +39,10 @@ type (
 	DatasourceReadyReason string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason string
+	// InUseReason represents the various reasons for the InUse condition type.
+	InUseReason string
+	// TerminatingReason represents the various reasons for the Terminating condition type.
+	TerminatingReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -42,6 +50,14 @@ func (s DatasourceReadyReason) String() string {
 }
 
 func (s ReadyReason) String() string {
+	return string(s)
+}
+
+func (s InUseReason) String() string {
+	return string(s)
+}
+
+func (s TerminatingReason) String() string {
 	return string(s)
 }
 
@@ -77,4 +93,13 @@ const (
 	Ready ReadyReason = "Ready"
 	// ImageLost indicates that the image in DVCR has been lost and the `ClusterVirtualImage` can no longer be used.
 	ImageLost ReadyReason = "ImageLost"
+
+	// AttachedToVirtualMachine indicates that the ClusterVirtualImage is attached to a VirtualMachine, which protects it from deletion.
+	AttachedToVirtualMachine InUseReason = "AttachedToVirtualMachine"
+	// NotInUse indicates that the ClusterVirtualImage is free for use.
+	NotInUse InUseReason = "NotInUse"
+
+	// CleanupPending indicates that the auxiliary resources of the ClusterVirtualImage are still being deleted.
+	// A deletion held by a VirtualMachine is reported by the InUse condition instead.
+	CleanupPending TerminatingReason = "CleanupPending"
 )

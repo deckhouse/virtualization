@@ -116,8 +116,8 @@ var _ = Describe("Upload DataSource", func() {
 			EnsureExposureFunc: func(_ context.Context, _ client.Object, _ supplements.Generator) error {
 				return nil
 			},
-			CleanupFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
-				return true, nil
+			CleanupFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) {
+				return true, "", nil
 			},
 			GetInClusterURLFunc: func(_ *corev1.Service) string {
 				return "http://10.0.0.1/upload"

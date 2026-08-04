@@ -391,6 +391,7 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
+			Expect(cond.Message).To(Equal(`The VirtualDisk is in use by the VirtualMachine "test-vm"; detach it or stop the VirtualMachine to release the VirtualDisk.`))
 		})
 	})
 
@@ -488,6 +489,7 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.UsedForImageCreation.String()))
+			Expect(cond.Message).To(Equal(`The VirtualDisk is in use for creating the VirtualImage "test-vi"; the creation must finish to release the disk.`))
 		})
 	})
 
@@ -536,6 +538,7 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.UsedForImageCreation.String()))
+			Expect(cond.Message).To(Equal(`The VirtualDisk is in use for creating the ClusterVirtualImage "test-vi"; the creation must finish to release the disk.`))
 		})
 	})
 
@@ -803,6 +806,7 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.UsedForDataExport.String()))
+			Expect(cond.Message).To(Equal("The VirtualDisk is in use by a data export request; the export must finish to release the disk."))
 		},
 			Entry("annotation of the storage-foundation module", annotations.AnnDataExportRequest),
 			Entry("annotation of the storage module before the rename", annotations.AnnDataExportRequestLegacy),

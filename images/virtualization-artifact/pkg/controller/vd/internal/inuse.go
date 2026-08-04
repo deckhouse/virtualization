@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,7 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -56,7 +58,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 
 	var (
 		usedByVM         bool
-		usedByImage      bool
+		usedByImage      string
 		usedByDataExport bool
 	)
 
@@ -67,30 +69,33 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 			return reconcile.Result{}, err
 		}
 	}
-	if !usedByVM && !usedByImage {
+	if !usedByVM && usedByImage == "" {
 		usedByDataExport, err = h.checkDataExportUsage(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
+	// The messages name what holds the disk: this condition is the answer to "why does
+	// the disk not detach" and, since a disk in use is protected from deletion, to
+	// "why does the disk stay in Terminating".
 	cb := conditions.NewConditionBuilder(vdcondition.InUseType).Generation(vd.Generation)
 	switch {
 	case usedByVM:
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.AttachedToVirtualMachine).
-			Message("")
-	case usedByImage:
+			Message(service.InUseByVirtualMachinesMessage("VirtualDisk", mountedVirtualMachineNames(vd)))
+	case usedByImage != "":
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.UsedForImageCreation).
-			Message("")
+			Message(fmt.Sprintf("The VirtualDisk is in use for creating the %s; the creation must finish to release the disk.", usedByImage))
 	case usedByDataExport:
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.UsedForDataExport).
-			Message("")
+			Message("The VirtualDisk is in use by a data export request; the export must finish to release the disk.")
 	default:
 		cb.
 			Status(metav1.ConditionFalse).
@@ -100,16 +105,6 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 
 	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return reconcile.Result{}, nil
-}
-
-func (h InUseHandler) isVDAttachedToVM(vdName string, vm v1alpha2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == v1alpha2.DiskDevice && bda.Name == vdName {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
@@ -129,20 +124,23 @@ func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *v1alpha2.Vir
 	return annotations.IsDataExportRequested(pvc), nil
 }
 
-func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+// checkImageUsage reports the image being created from the disk, e.g. `VirtualImage "golden"`,
+// or an empty string when no image creation uses the disk. The kind and the name go into the
+// InUse condition message so that the user knows which object to look at.
+func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
 	// If disk is not ready, it cannot be used for create image
 	if vd.Status.Phase != v1alpha2.DiskReady {
-		return false, nil
+		return "", nil
 	}
 
 	usedByImage, err := h.checkUsageByVI(ctx, vd)
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	if !usedByImage {
+	if usedByImage == "" {
 		usedByImage, err = h.checkUsageByCVI(ctx, vd)
 		if err != nil {
-			return false, err
+			return "", err
 		}
 	}
 
@@ -171,25 +169,16 @@ func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *v1alpha
 	usageMap := make(map[string]bool)
 
 	for _, vm := range vms.Items {
-		if !h.isVDAttachedToVM(vd.GetName(), vm) {
+		referenced, mounted, err := commonvm.BlockDeviceUsage(ctx, h.client, vm, v1alpha2.DiskDevice, vd.GetName())
+		if err != nil {
+			return nil, err
+		}
+
+		if !referenced {
 			continue
 		}
 
-		switch vm.Status.Phase {
-		case "":
-			usageMap[vm.GetName()] = false
-		case v1alpha2.MachinePending:
-			usageMap[vm.GetName()] = true
-		case v1alpha2.MachineStopped:
-			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
-			if err != nil {
-				return nil, err
-			}
-
-			usageMap[vm.GetName()] = vmIsActive
-		default:
-			usageMap[vm.GetName()] = true
-		}
+		usageMap[vm.GetName()] = mounted
 	}
 
 	return usageMap, nil
@@ -245,43 +234,75 @@ func (h InUseHandler) checkUsageByVM(vd *v1alpha2.VirtualDisk) bool {
 	return false
 }
 
-func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
 	var vis v1alpha2.VirtualImageList
 	err := h.client.List(ctx, &vis, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
-		return false, fmt.Errorf("error getting virtual images: %w", err)
+		return "", fmt.Errorf("error getting virtual images: %w", err)
 	}
 
+	names := make([]string, 0, len(vis.Items))
 	for _, vi := range vis.Items {
 		if slices.Contains(imagePhasesUsingDisk, vi.Status.Phase) &&
 			vi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef &&
 			vi.Spec.DataSource.ObjectRef != nil &&
 			vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind &&
 			vi.Spec.DataSource.ObjectRef.Name == vd.Name {
-			return true, nil
+			names = append(names, vi.GetName())
 		}
 	}
 
-	return false, nil
+	// Several images may be created from the same disk: report the first one by name so
+	// that the message does not depend on the list order returned by the client cache.
+	if len(names) == 0 {
+		return "", nil
+	}
+
+	sort.Strings(names)
+
+	return fmt.Sprintf("%s %q", v1alpha2.VirtualImageKind, names[0]), nil
 }
 
-func (h InUseHandler) checkUsageByCVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (h InUseHandler) checkUsageByCVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
 	var cvis v1alpha2.ClusterVirtualImageList
 	err := h.client.List(ctx, &cvis, &client.ListOptions{})
 	if err != nil {
-		return false, fmt.Errorf("error getting cluster virtual images: %w", err)
+		return "", fmt.Errorf("error getting cluster virtual images: %w", err)
 	}
+
+	names := make([]string, 0, len(cvis.Items))
 	for _, cvi := range cvis.Items {
 		if slices.Contains(imagePhasesUsingDisk, cvi.Status.Phase) &&
 			cvi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef &&
 			cvi.Spec.DataSource.ObjectRef != nil &&
 			cvi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind &&
 			cvi.Spec.DataSource.ObjectRef.Name == vd.Name {
-			return true, nil
+			names = append(names, cvi.GetName())
 		}
 	}
 
-	return false, nil
+	if len(names) == 0 {
+		return "", nil
+	}
+
+	sort.Strings(names)
+
+	return fmt.Sprintf("%s %q", v1alpha2.ClusterVirtualImageKind, names[0]), nil
+}
+
+// mountedVirtualMachineNames returns the sorted names of the VirtualMachines that
+// currently mount the disk.
+func mountedVirtualMachineNames(vd *v1alpha2.VirtualDisk) []string {
+	names := make([]string, 0, len(vd.Status.AttachedToVirtualMachines))
+	for _, vm := range vd.Status.AttachedToVirtualMachines {
+		if vm.Mounted {
+			names = append(names, vm.Name)
+		}
+	}
+
+	sort.Strings(names)
+
+	return names
 }

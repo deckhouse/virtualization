@@ -20,13 +20,17 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
 type AttacheeHandler struct {
@@ -42,13 +46,16 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 func (h AttacheeHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
 
-	hasAttachedVM, err := h.hasAttachedVM(ctx, cvi)
+	// The image is cluster-scoped, so the names are reported as "<namespace>/<name>".
+	attachedVMs, err := commonvm.MountedVirtualMachineNames(ctx, h.client, v1alpha2.ClusterImageDevice, cvi.GetName(), "", true)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("error getting virtual machines: %w", err)
 	}
 
+	h.setInUseCondition(cvi, attachedVMs)
+
 	switch {
-	case !hasAttachedVM:
+	case len(attachedVMs) == 0:
 		log.Debug("Allow cluster virtual image deletion")
 		controllerutil.RemoveFinalizer(cvi, v1alpha2.FinalizerCVIProtection)
 	case cvi.DeletionTimestamp == nil:
@@ -61,43 +68,23 @@ func (h AttacheeHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	return reconcile.Result{}, nil
 }
 
-func (h AttacheeHandler) hasAttachedVM(ctx context.Context, cvi client.Object) (bool, error) {
-	var vms v1alpha2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.ListOptions{})
-	if err != nil {
-		return false, fmt.Errorf("error getting virtual machines: %w", err)
+// setInUseCondition reports the VirtualMachines that mount the image. An image in use is
+// protected from deletion by the protection finalizer, so this condition is also the answer
+// to "why does the image stay in Terminating".
+func (h AttacheeHandler) setInUseCondition(cvi *v1alpha2.ClusterVirtualImage, attachedVMs []string) {
+	cb := conditions.NewConditionBuilder(cvicondition.InUseType).Generation(cvi.Generation)
+
+	if len(attachedVMs) > 0 {
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(cvicondition.AttachedToVirtualMachine).
+			Message(service.InUseByVirtualMachinesMessage("ClusterVirtualImage", attachedVMs))
+	} else {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.NotInUse).
+			Message("")
 	}
 
-	for _, vm := range vms.Items {
-		if vm.Status.Phase == "" {
-			continue
-		}
-
-		if vm.Status.Phase == v1alpha2.MachineStopped {
-			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
-			if err != nil {
-				return false, err
-			}
-
-			if !vmIsActive {
-				continue
-			}
-		}
-
-		if h.isCVIAttachedToVM(cvi.GetName(), vm) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (h AttacheeHandler) isCVIAttachedToVM(cviName string, vm v1alpha2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == v1alpha2.ClusterImageDevice && bda.Name == cviName {
-			return true
-		}
-	}
-
-	return false
+	conditions.SetCondition(cb, &cvi.Status.Conditions)
 }

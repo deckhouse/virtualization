@@ -31,7 +31,7 @@ import (
 )
 
 type CleanUpImporterStepImporterService interface {
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error)
 }
 
 // CleanUpImporterStep deletes the importer Pod once the disk has reached a
@@ -63,7 +63,7 @@ func (s CleanUpImporterStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	}
 
 	supgen := vdsupplements.NewGenerator(vd)
-	if _, err := s.importer.CleanUp(ctx, supgen); err != nil {
+	if _, _, err := s.importer.CleanUp(ctx, supgen); err != nil {
 		return nil, fmt.Errorf("clean up importer supplements: %w", err)
 	}
 

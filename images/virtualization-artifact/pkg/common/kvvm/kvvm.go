@@ -48,7 +48,7 @@ func GetRunStrategy(kvvm *virtv1.VirtualMachine) virtv1.VirtualMachineRunStrateg
 }
 
 // FindPodByKVVMI returns pod by kvvmi.
-func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.VirtualMachineInstance) (*corev1.Pod, error) {
+func FindPodByKVVMI(ctx context.Context, c client.Client, kvvmi *virtv1.VirtualMachineInstance) (*corev1.Pod, error) {
 	if kvvmi == nil {
 		return nil, fmt.Errorf("kvvmi must not be empty")
 	}
@@ -57,7 +57,7 @@ func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virtua
 		return nil, err
 	}
 	podList := corev1.PodList{}
-	err = cli.List(ctx, &podList, &client.ListOptions{Namespace: kvvmi.GetNamespace(), LabelSelector: labelSelector})
+	err = c.List(ctx, &podList, &client.ListOptions{Namespace: kvvmi.GetNamespace(), LabelSelector: labelSelector})
 	if err != nil || len(podList.Items) == 0 {
 		return nil, err
 	}
@@ -104,8 +104,8 @@ func GetVMPod(kvvmi *virtv1.VirtualMachineInstance, podList *corev1.PodList) *co
 }
 
 // DeletePodByKVVMI deletes pod by kvvmi.
-func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.VirtualMachineInstance, opts client.DeleteOption) error {
-	pod, err := FindPodByKVVMI(ctx, cli, kvvmi)
+func DeletePodByKVVMI(ctx context.Context, cl client.Client, kvvmi *virtv1.VirtualMachineInstance, opts client.DeleteOption) error {
+	pod, err := FindPodByKVVMI(ctx, cl, kvvmi)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virt
 		return nil
 	}
 
-	return object.DeleteObject(ctx, cli, pod, opts)
+	return object.DeleteObject(ctx, cl, pod, opts)
 }
 
 func AddRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {

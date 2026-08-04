@@ -19,9 +19,12 @@ package source
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -53,19 +56,30 @@ func (s Sources) Changed(_ context.Context, vd *v1alpha2.VirtualDisk) bool {
 	return vd.Generation != vd.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
-	var requeue bool
+func (s Sources) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (requeue bool, reason string, err error) {
+	var reasons []string
 
-	for _, source := range s.sources {
-		ok, err := source.CleanUp(ctx, vd)
+	// Iterate over the data sources in a stable order: the reasons are merged into the
+	// Terminating condition message, so a map iteration would reshuffle them (and thus
+	// the part of the message that survives truncation) on every reconcile.
+	for _, dsType := range slices.Sorted(maps.Keys(s.sources)) {
+		source := s.sources[dsType]
+
+		sourceRequeue, sourceReason, err := source.CleanUp(ctx, vd)
 		if err != nil {
-			return false, fmt.Errorf("clean up failed for data source %s: %w", source.Name(), err)
+			return false, "", fmt.Errorf("clean up failed for data source %s: %w", source.Name(), err)
 		}
 
-		requeue = requeue || ok
+		requeue = requeue || sourceRequeue
+		reasons = append(reasons, sourceReason)
 	}
 
-	return requeue, nil
+	reason = service.MergeCleanUpReasons(reasons...)
+	if requeue && reason == "" {
+		reason = service.DefaultCleanUpReason
+	}
+
+	return requeue, reason, nil
 }
 
 // IsDiskProvisioningFinished reports whether the disk has reached a terminal

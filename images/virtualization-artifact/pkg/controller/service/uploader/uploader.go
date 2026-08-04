@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr/registrytoken"
@@ -63,7 +64,9 @@ type Uploader interface {
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 	GetExposure(ctx context.Context, sup supplements.Generator) (UploaderExposure, error)
 	GetInClusterURL(svc *corev1.Service) string
-	Cleanup(ctx context.Context, sup supplements.Generator) (bool, error)
+	// Cleanup deletes the uploader objects and returns whether something was
+	// deleted along with a human-readable reason describing what it waits for.
+	Cleanup(ctx context.Context, sup supplements.Generator) (bool, string, error)
 }
 
 type uploaderService struct {
@@ -408,37 +411,52 @@ func (u *uploaderService) GetExposure(ctx context.Context, sup supplements.Gener
 	}, nil
 }
 
-func (u *uploaderService) Cleanup(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (u *uploaderService) Cleanup(ctx context.Context, sup supplements.Generator) (requeue bool, reason string, err error) {
 	pod, err := u.GetPod(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	svc, err := u.GetService(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	ing, err := u.getIngress(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	route, err := u.getHTTPRoute(ctx, sup)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	npName := sup.NetworkPolicy()
 	np := &netv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: npName.Name, Namespace: npName.Namespace}}
 
-	var haveDeleted bool
-	for _, obj := range []client.Object{pod, svc, ing, route, np} {
-		deleted, err := u.deleteIfPresent(ctx, obj)
-		if err != nil {
-			return false, err
-		}
-		haveDeleted = haveDeleted || deleted
+	targets := []struct {
+		role string
+		obj  client.Object
+	}{
+		{service.CleanUpRoleUploaderPod, pod},
+		{service.CleanUpRoleUploaderService, svc},
+		{service.CleanUpRoleUploaderIngress, ing},
+		{service.CleanUpRoleUploaderHTTPRoute, route},
+		{service.CleanUpRoleNetworkPolicy, np},
 	}
 
-	return haveDeleted, nil
+	var reasons []string
+	for _, target := range targets {
+		deleted, err := u.deleteIfPresent(ctx, target.obj)
+		if err != nil {
+			return false, "", err
+		}
+		if deleted {
+			reasons = append(reasons, service.CleanUpReasonForObject(target.role, target.obj))
+		}
+	}
+
+	reason = service.MergeCleanUpReasons(reasons...)
+
+	return reason != "", reason, nil
 }
 
 func (u *uploaderService) newFactory(sup supplements.Generator, ownerRef metav1.OwnerReference, settings Settings, np *provisioner.NodePlacement) Factory {

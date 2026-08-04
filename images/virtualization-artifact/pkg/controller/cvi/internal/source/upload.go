@@ -124,7 +124,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 
 		cvi.Status.Phase = v1alpha2.ImageReady
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -140,7 +140,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 			Reason(cvicondition.WaitForUserUploadTimeout).
 			Message(serviceuploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -232,7 +232,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 			Reason(cvicondition.WaitForUserUploadTimeout).
 			Message(serviceuploader.WaitForUserUploadTimeoutMessage("ClusterVirtualImage"))
 
-		_, err = CleanUp(ctx, cvi, ds)
+		_, _, err = CleanUp(ctx, cvi, ds)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -272,7 +272,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requeue bool, reason string, err error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	return ds.uploaderService.Cleanup(ctx, supgen)
