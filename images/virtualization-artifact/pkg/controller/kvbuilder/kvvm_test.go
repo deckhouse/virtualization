@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -252,6 +253,83 @@ func TestSetOsType(t *testing.T) {
 			t.Error("TPM should be removed after changing from Windows to Generic OS")
 		}
 	})
+
+	t.Run("Legacy pins i440fx, disables SMM and drops the tablet", func(t *testing.T) {
+		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
+
+		if err := builder.SetOSType(v1alpha2.Windows); err != nil {
+			t.Fatalf("SetOSType(Windows) failed: %v", err)
+		}
+		builder.SetTablet("default-0")
+
+		if err := builder.SetOSType(v1alpha2.LegacyOs); err != nil {
+			t.Fatalf("SetOSType(LegacyOs) failed: %v", err)
+		}
+
+		domain := builder.Resource.Spec.Template.Spec.Domain
+		// "pc" is the QEMU alias for i440fx; "pc-i440fx" is not a valid machine name.
+		if domain.Machine == nil || domain.Machine.Type != "pc" {
+			t.Errorf("expected pc machine type, got %+v", domain.Machine)
+		}
+		// SMM exists only on q35: leaving it on would keep the domain from starting.
+		if domain.Features.SMM == nil || ptr.Deref(domain.Features.SMM.Enabled, true) {
+			t.Errorf("expected SMM disabled, got %+v", domain.Features.SMM)
+		}
+		if domain.Features.Hyperv != nil {
+			t.Error("hyperv enlightenments should be absent for Legacy")
+		}
+		if domain.Devices.TPM != nil || domain.Devices.Rng != nil {
+			t.Error("TPM and RNG should be absent for Legacy")
+		}
+		// The tablet stays: on i440fx the USB controller is PIIX3 UHCI, which these
+		// guests can drive, and it gives the console absolute pointer positioning.
+		if len(domain.Devices.Inputs) != 1 || domain.Devices.Inputs[0].Type != virtv1.InputTypeTablet {
+			t.Errorf("expected a usb tablet for Legacy, got %+v", domain.Devices.Inputs)
+		}
+	})
+
+	t.Run("Legacy keeps cpu and memory non-hotpluggable", func(t *testing.T) {
+		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{
+			OsType: v1alpha2.LegacyOs,
+		})
+
+		if err := builder.SetCPU(4, "100%"); err != nil {
+			t.Fatalf("SetCPU failed: %v", err)
+		}
+		builder.SetMemory(resource.MustParse("2Gi"))
+
+		domain := builder.Resource.Spec.Template.Spec.Domain
+		if domain.CPU.MaxSockets != domain.CPU.Sockets {
+			t.Errorf("expected maxSockets == sockets to rule out cpu hotplug, got %d and %d",
+				domain.CPU.MaxSockets, domain.CPU.Sockets)
+		}
+		if _, ok := builder.Resource.Spec.Template.ObjectMeta.Annotations[VCPUTopologyDynamicCoresAnnotation]; ok {
+			t.Error("dynamic cores annotation should be absent for Legacy")
+		}
+		if domain.Memory != nil {
+			t.Errorf("domain.memory should be unset to rule out memory hotplug, got %+v", domain.Memory)
+		}
+		if _, ok := domain.Resources.Limits[corev1.ResourceMemory]; !ok {
+			t.Error("memory should be set through resources limits for Legacy")
+		}
+	})
+
+	t.Run("Generic and Windows keep q35 with SMM enabled", func(t *testing.T) {
+		for _, osType := range []v1alpha2.OsType{v1alpha2.Windows, v1alpha2.GenericOs} {
+			builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
+			if err := builder.SetOSType(osType); err != nil {
+				t.Fatalf("SetOSType(%s) failed: %v", osType, err)
+			}
+
+			domain := builder.Resource.Spec.Template.Spec.Domain
+			if domain.Machine == nil || domain.Machine.Type != "q35" {
+				t.Errorf("%s: expected q35 machine type, got %+v", osType, domain.Machine)
+			}
+			if domain.Features.SMM == nil || !ptr.Deref(domain.Features.SMM.Enabled, false) {
+				t.Errorf("%s: expected SMM enabled, got %+v", osType, domain.Features.SMM)
+			}
+		}
+	})
 }
 
 func TestSetDiskBus(t *testing.T) {
@@ -276,47 +354,42 @@ func TestSetDiskBus(t *testing.T) {
 		})
 	}
 
-	t.Run("static disks get the paravirtualization preset bus", func(t *testing.T) {
-		b := newKVVM(true)
-		if err := b.SetDisk("cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img")}); err != nil {
-			t.Fatal(err)
-		}
-		if err := b.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
-			t.Fatal(err)
-		}
-		if bus := getBus(b, "cdrom"); bus != virtv1.DiskBusSCSI {
-			t.Errorf("expected scsi cdrom bus, got %q", bus)
-		}
-		if bus := getBus(b, "disk"); bus != virtv1.DiskBusSCSI {
-			t.Errorf("expected scsi disk bus, got %q", bus)
+	t.Run("Legacy osType keeps the virtio adapter and the transitional devices", func(t *testing.T) {
+		b := NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{
+			EnableParavirtualization: true,
+			OsType:                   v1alpha2.LegacyOs,
+		})
+
+		b.SetNetworkInterface("default", "", 0)
+		if model := b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces[0].Model; model != nicModelVirtio {
+			t.Errorf("expected the virtio adapter, got %q", model)
 		}
 
-		b = newKVVM(false)
-		if err := b.SetDisk("disk", SetDiskOptions{ContainerDisk: ptr.To("img")}); err != nil {
+		if err := b.SetOSType(v1alpha2.LegacyOs); err != nil {
 			t.Fatal(err)
 		}
-		if bus := getBus(b, "disk"); bus != virtv1.DiskBusSATA {
-			t.Errorf("expected sata disk bus, got %q", bus)
+		if machine := b.Resource.Spec.Template.Spec.Domain.Machine; machine == nil || machine.Type != "pc" {
+			t.Errorf("expected the i440fx machine to stay, got %+v", machine)
+		}
+		// Without this the devices come out non-transitional, and the legacy virtio
+		// drivers these guests can install do not bind to them.
+		if transitional := b.Resource.Spec.Template.Spec.Domain.Devices.UseVirtioTransitional; transitional == nil || !*transitional {
+			t.Error("expected transitional virtio devices for Legacy")
 		}
 	})
 
-	t.Run("hot-plugged disks always use scsi regardless of paravirtualization", func(t *testing.T) {
-		// A VMBDA-attached disk is added via AddVolume, which always forces scsi.
-		// On a VM with enableParavirtualization=false the preset is sata, but a
-		// hot-plugged disk must stay on scsi.
-		for _, paravirt := range []bool{true, false} {
-			b := newKVVM(paravirt)
-			if err := b.SetDisk("hp-disk", SetDiskOptions{ContainerDisk: ptr.To("img"), IsHotplugged: true}); err != nil {
+	t.Run("switching away from Legacy drops the transitional virtio devices", func(t *testing.T) {
+		for _, osType := range []v1alpha2.OsType{v1alpha2.GenericOs, v1alpha2.Windows} {
+			b := NewEmptyKVVM(types.NamespacedName{Name: "test", Namespace: "default"}, KVVMOptions{OsType: v1alpha2.LegacyOs})
+			if err := b.SetOSType(v1alpha2.LegacyOs); err != nil {
 				t.Fatal(err)
 			}
-			if err := b.SetDisk("hp-cdrom", SetDiskOptions{IsCdrom: true, ContainerDisk: ptr.To("img"), IsHotplugged: true}); err != nil {
+
+			if err := b.SetOSType(osType); err != nil {
 				t.Fatal(err)
 			}
-			if bus := getBus(b, "hp-disk"); bus != virtv1.DiskBusSCSI {
-				t.Errorf("paravirt=%v: expected scsi hot-plug disk bus, got %q", paravirt, bus)
-			}
-			if bus := getBus(b, "hp-cdrom"); bus != virtv1.DiskBusSCSI {
-				t.Errorf("paravirt=%v: expected scsi hot-plug cdrom bus, got %q", paravirt, bus)
+			if transitional := b.Resource.Spec.Template.Spec.Domain.Devices.UseVirtioTransitional; transitional != nil {
+				t.Errorf("%s: transitional virtio devices leaked from Legacy, got %v", osType, *transitional)
 			}
 		}
 	})

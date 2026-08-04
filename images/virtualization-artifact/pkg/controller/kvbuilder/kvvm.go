@@ -274,6 +274,13 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 }
 
 func (b *KVVM) SetCPU(cores int, coreFraction string) error {
+	// Legacy guests cannot bring a hot-plugged vCPU online: the change goes through a restart.
+	if b.opts.OsType == v1alpha2.LegacyOs {
+		// Drop the "dynamic cores" marker: it makes the swapped cores/sockets topology
+		// of the hotplug strategy be read back, and a VM switched to Legacy no longer uses it.
+		b.RemoveKVVMIAnnotation(VCPUTopologyDynamicCoresAnnotation)
+		return b.setCPUNonHotpluggable(cores, coreFraction)
+	}
 	// Support for VMs started with cpu configuration in requests-limits.
 	// TODO delete this in the future (around 3-4 more versions after enabling cpu hotplug by default).
 	if b.ResourceExists && isVMRunningWithCPUResources(b.Resource) {
@@ -351,6 +358,14 @@ func (b *KVVM) setCPUHotpluggable(cores int, coreFraction string) error {
 //
 // (1) is a new approach, and (2) should be respected for Running VMs started by previous version of the controller.
 func (b *KVVM) SetMemory(memorySize resource.Quantity) {
+	// Legacy guests have no memory hotplug support: the change goes through a restart.
+	if b.opts.OsType == v1alpha2.LegacyOs {
+		// Drop domain.memory left by the hotplug strategy, otherwise maxGuest keeps
+		// advertising hotpluggable memory slots to a guest switched to Legacy.
+		b.Resource.Spec.Template.Spec.Domain.Memory = nil
+		b.setMemoryNonHotpluggable(memorySize)
+		return
+	}
 	// Support for VMs started with memory size in requests-limits.
 	// TODO delete this in the future (around 3-4 more versions after enabling memory hotplug by default).
 	if b.ResourceExists && shouldKeepMemoryNonHotpluggable(b.Resource) {
@@ -516,8 +531,23 @@ func (b *KVVM) ClearDisks() {
 	b.Resource.Spec.Template.Spec.Volumes = nil
 }
 
+// deviceOptions returns the device preset for the VM. The Legacy osType has its
+// own pair of presets, because the common paravirtualized one is unusable for it:
+// see LegacyDeviceOptions and LegacyVirtioDeviceOptions.
+func (b *KVVM) deviceOptions() DeviceOptions {
+	if b.opts.OsType == v1alpha2.LegacyOs {
+		return LegacyDeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+	}
+	return DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+}
+
 func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
-	diskBus, cdromBus := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization).Buses(opts.IsHotplugged)
+	// A guest on the ide bus keeps it even for a volume already marked hotpluggable:
+	// that bus cannot be hot-plugged, so the scsi fallback would silently move its
+	// disks onto a controller the guest has no driver for.
+	isIDEBus := b.opts.OsType == v1alpha2.LegacyOs && !b.opts.EnableParavirtualization
+	isHotplugged := opts.IsHotplugged && !isIDEBus
+	diskBus, cdromBus := b.deviceOptions().Buses(isHotplugged)
 
 	var dd virtv1.DiskDevice
 	if opts.IsCdrom {
@@ -698,6 +728,7 @@ func (b *KVVM) SetOSType(osType v1alpha2.OsType) error {
 		}
 		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = ptr.To(true)
 		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{}
+		b.Resource.Spec.Template.Spec.Domain.Devices.UseVirtioTransitional = nil
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
 			ACPI: virtv1.FeatureState{Enabled: ptr.To(true)},
 			APIC: &virtv1.FeatureAPIC{Enabled: ptr.To(true)},
@@ -734,10 +765,41 @@ func (b *KVVM) SetOSType(osType v1alpha2.OsType) error {
 		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = ptr.To(true)
 		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = nil
 		b.Resource.Spec.Template.Spec.Domain.Devices.Rng = &virtv1.Rng{}
+		// Reset what the Legacy branch sets: a VM switched away from it must not keep
+		// transitional virtio devices.
+		b.Resource.Spec.Template.Spec.Domain.Devices.UseVirtioTransitional = nil
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
 			ACPI: virtv1.FeatureState{Enabled: ptr.To(true)},
 			SMM:  &virtv1.FeatureState{Enabled: ptr.To(true)},
 		}
+
+	case v1alpha2.LegacyOs:
+		// The i440fx machine type is the only one legacy guests can boot from: q35
+		// exposes PCIe and an ICH9 AHCI controller they have no driver for.
+		// "pc" is the QEMU alias for the current i440fx machine, the counterpart of
+		// "q35" above; "pc-i440fx" alone is not a machine name.
+		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
+			Type: "pc",
+		}
+		// A usb tablet works here: on the i440fx machine the USB controller is PIIX3
+		// UHCI, which these guests have an in-box driver for, and it gives the console
+		// absolute pointer positioning instead of relative PS/2 movement.
+		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = ptr.To(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = nil
+		b.Resource.Spec.Template.Spec.Domain.Devices.Rng = nil
+		// Ask for transitional virtio devices. The default is non-transitional, which
+		// speaks virtio 1.0 only, while the drivers these guests can install are the
+		// legacy 0.9.5 ones and would not bind to it. A transitional device speaks both,
+		// so it also stays usable for a guest that has modern drivers.
+		b.Resource.Spec.Template.Spec.Domain.Devices.UseVirtioTransitional = ptr.To(true)
+		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
+			ACPI: virtv1.FeatureState{Enabled: ptr.To(true)},
+			APIC: &virtv1.FeatureAPIC{Enabled: ptr.To(true)},
+			// SMM is only available on q35 in QEMU: keeping it enabled on i440fx
+			// prevents the domain from starting.
+			SMM: &virtv1.FeatureState{Enabled: ptr.To(false)},
+		}
+
 	default:
 		return fmt.Errorf("unexpected os type %q. %w", osType, common.ErrUnknownType)
 	}
@@ -800,7 +862,7 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 		}, true,
 	)
 
-	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+	devPreset := b.deviceOptions()
 
 	iface := virtv1.Interface{
 		Name:      name,

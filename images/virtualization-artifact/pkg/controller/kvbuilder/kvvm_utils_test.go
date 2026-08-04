@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -467,6 +468,93 @@ var _ = Describe("setBlockDeviceDisk", func() {
 		Expect(pvc).NotTo(BeNil())
 		Expect(pvc.ClaimName).To(Equal(vdPVC))
 		Expect(pvc.ReadOnly).To(BeFalse())
+	})
+})
+
+// applyBlockDeviceRefs is the first gate of the two that decide a disk bus: it
+// marks static disks of a stopped VM hotpluggable so they can be detached later
+// without a restart, and a hotpluggable disk is then pinned to virtio-scsi by
+// SetDisk regardless of the osType preset. That is how a Windows XP boot disk
+// silently ended up on a controller it has no driver for: the Legacy osType asked
+// for ide, but enableParavirtualization defaults to true, so the disk was marked
+// hotpluggable and the bus followed the mark instead of the preset. The device
+// matrix in kvvm_devices_test.go covers the second gate — it is handed the answer
+// this function produces.
+var _ = Describe("applyBlockDeviceRefs", func() {
+	const (
+		vdName = "data"
+		vdPVC  = "vd-pvc"
+	)
+
+	newVM := func(osType v1alpha2.OsType, paravirt bool) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "vm-ns"},
+			Spec: v1alpha2.VirtualMachineSpec{
+				OsType:                   osType,
+				EnableParavirtualization: ptr.To(paravirt),
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
+					{Kind: v1alpha2.DiskDevice, Name: vdName},
+				},
+			},
+		}
+	}
+
+	apply := func(vm *v1alpha2.VirtualMachine, isVmRunning bool) *KVVM {
+		kvvm := NewEmptyKVVM(namespacedName("vm", "vm-ns"), KVVMOptions{
+			OsType:                   vm.Spec.OsType,
+			EnableParavirtualization: vm.Spec.IsParavirtualizationEnabled(),
+		})
+		vd := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: vdName, Namespace: "vm-ns", UID: "vd-uid"},
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: vdPVC},
+			},
+		}
+		Expect(applyBlockDeviceRefs(
+			kvvm, vm, isVmRunning,
+			map[string]*v1alpha2.VirtualDisk{vdName: vd}, nil, nil, nil,
+		)).To(Succeed())
+		return kvvm
+	}
+
+	hotpluggableOf := func(kvvm *KVVM) bool {
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		pvc := kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim
+		Expect(pvc).NotTo(BeNil())
+		return pvc.Hotpluggable
+	}
+
+	busOf := func(kvvm *KVVM) virtv1.DiskBus {
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+		disk := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks[0].Disk
+		Expect(disk).NotTo(BeNil())
+		return disk.Bus
+	}
+
+	DescribeTable("marks a static disk of a stopped VM hotpluggable",
+		func(osType v1alpha2.OsType, paravirt, wantHotpluggable bool, wantBus virtv1.DiskBus) {
+			kvvm := apply(newVM(osType, paravirt), false)
+			Expect(hotpluggableOf(kvvm)).To(Equal(wantHotpluggable))
+			Expect(busOf(kvvm)).To(Equal(wantBus))
+		},
+		Entry("Generic, paravirtualized", v1alpha2.GenericOs, true, true, virtv1.DiskBusSCSI),
+		Entry("Generic, emulated", v1alpha2.GenericOs, false, false, virtv1.DiskBusSATA),
+		Entry("Windows, paravirtualized", v1alpha2.Windows, true, true, virtv1.DiskBusSCSI),
+		Entry("Windows, emulated", v1alpha2.Windows, false, false, virtv1.DiskBusSATA),
+		// Legacy opts out of the semi-dynamic mode in both modes: the mark would take
+		// the boot disk off the bus the osType deliberately picked — virtio-blk with
+		// paravirtualization on, ide with it off — and put it on virtio-scsi, for which
+		// no driver exists for these guests.
+		Entry("Legacy, paravirtualized", v1alpha2.LegacyOs, true, false, virtv1.DiskBusVirtio),
+		Entry("Legacy, emulated", v1alpha2.LegacyOs, false, false, virtv1.DiskBusIDE),
+	)
+
+	It("does not mark a static disk of a running VM", func() {
+		// A running VM keeps the disks it booted with: marking them now would change
+		// the bus under a live guest.
+		kvvm := apply(newVM(v1alpha2.GenericOs, true), true)
+		Expect(hotpluggableOf(kvvm)).To(BeFalse())
+		Expect(busOf(kvvm)).To(Equal(virtv1.DiskBusSCSI))
 	})
 })
 

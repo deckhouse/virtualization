@@ -45,6 +45,7 @@ func NewValidator(c client.Client, attachmentService *service.AttachmentService,
 		log: log.With("webhook", "validation"),
 		validators: []VirtualMachineBlockDeviceAttachmentValidator{
 			validators.NewSpecMutateValidator(),
+			validators.NewLegacyOSValidator(attachmentService),
 			validators.NewAttachmentConflictValidator(attachmentService, log),
 			validators.NewVMConnectLimiterValidator(service, log),
 			validators.NewPVNodeAffinityValidator(c, attachmentService),

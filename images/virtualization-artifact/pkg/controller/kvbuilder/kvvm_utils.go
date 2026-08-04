@@ -288,7 +288,13 @@ func applyBlockDeviceRefs(
 		return err
 	}
 
-	isParavirtualizationEnabled := vm.Spec.IsParavirtualizationEnabled()
+	// The Legacy osType never gets the semi-dynamic disk mode, in either
+	// paravirtualization mode. It marks static disks hotpluggable, and a hotpluggable
+	// disk is moved to virtio-scsi — which would silently take the boot disk off the
+	// virtio-blk bus this osType deliberately puts it on. An explicit
+	// VirtualMachineBlockDeviceAttachment is a different matter: that is the user
+	// asking for a scsi disk, not the controller deciding for them.
+	isParavirtualizationEnabled := vm.Spec.IsParavirtualizationEnabled() && vm.Spec.OsType != v1alpha2.LegacyOs
 
 	hasExplicitBootOrder := false
 	for _, bd := range vm.Spec.BlockDeviceRefs {

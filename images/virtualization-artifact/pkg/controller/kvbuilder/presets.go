@@ -55,17 +55,47 @@ func (o DeviceOptions) Buses(isHotplugged bool) (diskBus, cdromBus virtv1.DiskBu
 	return o.DiskBus, o.CdromBus
 }
 
+// Network adapter models the presets pick from.
+const (
+	nicModelVirtio  = "virtio"
+	nicModelE1000   = "e1000"
+	nicModelRTL8139 = "rtl8139"
+)
+
+// LegacyDeviceOptionsPresets is the pair of device sets for osType Legacy: guests
+// with no in-box AHCI or virtio driver (Windows NT 5.x, DOS-era systems, kernels
+// older than 2.6.19). They exist apart from the common presets below because the
+// paravirtualized one is unusable for these guests: it puts disks on virtio-scsi,
+// and the driver package that still carries them — the archived virtio-win — has
+// no virtio-scsi build older than Windows 7 and Server 2008. It does carry
+// virtio-blk for Windows XP and Server 2003, so that is the bus paravirtualization
+// gives them. The CD-ROM stays on IDE either way: virtio-blk has no CD-ROM.
+var LegacyDeviceOptionsPresets DeviceOptionsList = []DeviceOptions{
+	{
+		EnableParavirtualization: true,
+		DiskBus:                  virtv1.DiskBusVirtio,
+		CdromBus:                 virtv1.DiskBusIDE,
+		InterfaceModel:           nicModelVirtio,
+	},
+	{
+		EnableParavirtualization: false,
+		DiskBus:                  virtv1.DiskBusIDE,
+		CdromBus:                 virtv1.DiskBusIDE,
+		InterfaceModel:           nicModelRTL8139,
+	},
+}
+
 var DeviceOptionsPresets DeviceOptionsList = []DeviceOptions{
 	{
 		EnableParavirtualization: true,
 		DiskBus:                  virtv1.DiskBusSCSI,
 		CdromBus:                 virtv1.DiskBusSCSI,
-		InterfaceModel:           "virtio",
+		InterfaceModel:           nicModelVirtio,
 	},
 	{
 		EnableParavirtualization: false,
 		DiskBus:                  virtv1.DiskBusSATA,
 		CdromBus:                 virtv1.DiskBusSATA,
-		InterfaceModel:           "e1000",
+		InterfaceModel:           nicModelE1000,
 	},
 }

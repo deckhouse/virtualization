@@ -75,6 +75,8 @@ type VirtualMachinePoolList struct {
 // +kubebuilder:validation:XValidation:rule="has(self.virtualMachineTemplate.spec) && has(self.virtualMachineTemplate.spec.blockDeviceRefs) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').all(r, self.virtualDiskTemplates.exists(t, t.name == r.name))",message="each VirtualDisk reference in virtualMachineTemplate.spec.blockDeviceRefs must name a virtualDiskTemplates entry"
 // The reference is one-to-one: no virtualDiskTemplates entry is referenced twice.
 // +kubebuilder:validation:XValidation:rule="has(self.virtualMachineTemplate.spec) && has(self.virtualMachineTemplate.spec.blockDeviceRefs) && self.virtualMachineTemplate.spec.blockDeviceRefs.filter(r, r.kind == 'VirtualDisk').size() == self.virtualDiskTemplates.size()",message="each virtualDiskTemplates entry must be referenced exactly once (no duplicate VirtualDisk references)"
+// A pool tells its replicas apart through provisioning, which the Legacy osType forbids.
+// +kubebuilder:validation:XValidation:rule="!has(self.virtualMachineTemplate.spec) || !has(self.virtualMachineTemplate.spec.osType) || self.virtualMachineTemplate.spec.osType != 'Legacy'",message="The Legacy osType is not supported in a VirtualMachinePool: replicas of such a pool cannot be told apart, because provisioning is unavailable for these operating systems."
 type VirtualMachinePoolSpec struct {
 	// Replicas is the desired number of virtual machines in the pool.
 	//

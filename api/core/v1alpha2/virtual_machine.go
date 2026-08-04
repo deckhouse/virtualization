@@ -62,6 +62,9 @@ type VirtualMachine struct {
 	Status VirtualMachineStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.osType) && self.osType == 'Legacy' ? !has(self.bootloader) || self.bootloader == 'BIOS' : true",message="The Legacy osType requires the BIOS bootloader."
+// +kubebuilder:validation:XValidation:rule="has(self.osType) && self.osType == 'Legacy' ? !has(self.provisioning) : true",message="The Legacy osType does not support provisioning: such operating systems have no cloud-init or Sysprep support."
+// +kubebuilder:validation:XValidation:rule="has(self.osType) && self.osType == 'Legacy' && has(self.enableParavirtualization) && !self.enableParavirtualization ? size(self.blockDeviceRefs) <= 4 : true",message="The Legacy osType with enableParavirtualization=false supports at most 4 block devices."
 type VirtualMachineSpec struct {
 	// +kubebuilder:default:="AlwaysOnUnlessStoppedManually"
 	RunPolicy RunPolicy `json:"runPolicy,omitempty"`
@@ -98,6 +101,7 @@ type VirtualMachineSpec struct {
 
 	// Use the `virtio` bus to connect virtual devices of the VM. Set false to disable `virtio` for this VM.
 	// Note: To use paravirtualization mode, some operating systems require the appropriate drivers to be installed.
+	// Note: For the `Legacy` osType set it to false unless the virtio drivers are already installed in the guest OS: these operating systems have no built-in ones and will not boot with virtio devices.
 	// +kubebuilder:default:=true
 	EnableParavirtualization *bool `json:"enableParavirtualization,omitempty"`
 
@@ -126,7 +130,10 @@ type VirtualMachineSpec struct {
 }
 
 func (s *VirtualMachineSpec) IsParavirtualizationEnabled() bool {
-	return s == nil || s.EnableParavirtualization == nil || *s.EnableParavirtualization
+	if s == nil {
+		return true
+	}
+	return s.EnableParavirtualization == nil || *s.EnableParavirtualization
 }
 
 // RunPolicy parameter defines the VM startup policy
@@ -149,12 +156,14 @@ const (
 //
 // * Windows - for Microsoft Windows family operating systems.
 // * Generic - for other types of OS.
-// +kubebuilder:validation:Enum={Windows,Generic}
+// * Legacy - for operating systems with no built-in AHCI or virtio drivers (Windows XP, 2000, Server 2003, DOS-era systems, Linux kernels older than 2.6.19): the i440fx chipset and `BIOS` only. Set `enableParavirtualization` to false to get an IDE bus, an RTL8139 adapter and a limit of 4 block devices; with it on, disks move to virtio-blk while the CD-ROM stays on IDE. Provisioning, changing `.spec.blockDeviceRefs` on a running VM, CPU and memory hot-plugging are unavailable, and the guest agent is reported as an unsupported version.
+// +kubebuilder:validation:Enum={Windows,Generic,Legacy}
 type OsType string
 
 const (
 	Windows   OsType = "Windows"
 	GenericOs OsType = "Generic"
+	LegacyOs  OsType = "Legacy"
 )
 
 // The BootloaderType defines bootloader for VM.

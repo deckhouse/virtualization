@@ -58,6 +58,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 			validators.NewUSBDevicesValidator(client, featureGate),
 			validators.NewVMBDAConflictValidator(client),
 			validators.NewPVNodeAffinityValidator(client, attachmentService),
+			validators.NewLegacyOSValidator(),
 		},
 		log: log.With("webhook", "validation"),
 	}
@@ -78,6 +79,8 @@ func NewTemplateSpecValidator(client client.Client, featureGate featuregate.Feat
 			validators.NewSizingPolicyValidator(client),
 			validators.NewNetworksValidator(client, featureGate, virtualMachineCIDRs),
 			validators.NewFirstDiskValidator(client),
+			// No LegacyOSValidator here: the Legacy osType is rejected outright in a
+			// pool template by the schema, so there is nothing left to warn about.
 		},
 		log: log.With("webhook", "vmpool-template-validation"),
 	}

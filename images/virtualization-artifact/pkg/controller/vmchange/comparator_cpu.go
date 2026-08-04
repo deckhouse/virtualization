@@ -60,6 +60,12 @@ func (c *comparatorCPU) Compare(current, desired *v1alpha2.VirtualMachineSpec) [
 		fractionChangedAction = ActionRestart
 	}
 
+	// Legacy guests cannot bring a hot-plugged vCPU online.
+	if desired.OsType == v1alpha2.LegacyOs || current.OsType == v1alpha2.LegacyOs {
+		coresChangedAction = ActionRestart
+		fractionChangedAction = ActionRestart
+	}
+
 	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, coresChangedAction)
 	if HasChanges(coresChanges) && coresRestartMsg != "" {
 		coresChanges[0].RestartMessage = coresRestartMsg

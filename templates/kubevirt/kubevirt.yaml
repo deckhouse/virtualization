@@ -28,6 +28,16 @@ spec:
             qps: 5000
             burst: 6000
     selinuxLauncherType: container_kvm_t
+    # The default allowlist is q35 only. The i440fx machine type is required by
+    # virtual machines with the Legacy osType: "pc" is the alias the controller sets,
+    # "pc-i440fx*" covers the versioned names it resolves to.
+    architectureConfiguration:
+      amd64:
+        emulatedMachines:
+          - "q35*"
+          - "pc-q35*"
+          - "pc"
+          - "pc-i440fx*"
     migrations:
       {{- include "kubevirt.migrations" . | nindent 6 }}
     smbios:

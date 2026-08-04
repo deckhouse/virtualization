@@ -63,5 +63,10 @@ func (c *comparatorMemory) Compare(current, desired *v1alpha2.VirtualMachineSpec
 		actionType = ActionRestart
 	}
 
+	// Legacy guests have no memory hotplug support at all.
+	if desired.OsType == v1alpha2.LegacyOs || current.OsType == v1alpha2.LegacyOs {
+		actionType = ActionRestart
+	}
+
 	return compareQuantity("memory.size", current.Memory.Size, desired.Memory.Size, resource.Quantity{}, actionType)
 }

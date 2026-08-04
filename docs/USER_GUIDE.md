@@ -1388,10 +1388,56 @@ Supported values:
 
 - `Generic` (default): For Linux and other operating systems. Uses standard virtual device configuration.
 - `Windows`: For Microsoft Windows family operating systems. Automatically enables Hyper-V features, TPM device, and other settings optimized for Windows.
+- `Legacy`: For operating systems with no built-in AHCI or virtio drivers: Windows XP, Windows 2000, Windows Server 2003, DOS-era systems, and Linux with a kernel older than 2.6.19. Such a VM gets the i440fx chipset, and with `enableParavirtualization: false` also an IDE bus for disks and CD-ROMs and an RTL8139 network adapter, which these operating systems have drivers for.
 
 {{< alert level="warning" >}}
 The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset. It is recommended to consider this limitation when planning to use Windows security features that depend on TPM.
 {{< /alert >}}
+
+The set of virtual devices the guest sees:
+
+| Device                     | `Generic`                                             | `Windows`                                             | `Legacy`               |
+| -------------------------- | ----------------------------------------------------- | ----------------------------------------------------- | ---------------------- |
+| Chipset                    | q35                                                   | q35                                                   | i440fx                 |
+| Bootloader                 | `BIOS`, `EFI`, `EFIWithSecureBoot`                    | `BIOS`, `EFI`, `EFIWithSecureBoot`                    | `BIOS` only            |
+| Disk bus                   | virtio-scsi, or SATA with `enableParavirtualization: false` | virtio-scsi, or SATA with `enableParavirtualization: false` | virtio-blk, or IDE with `enableParavirtualization: false` |
+| CD-ROM bus                 | virtio-scsi, or SATA with `enableParavirtualization: false` | virtio-scsi, or SATA with `enableParavirtualization: false` | IDE |
+| Block devices in `.spec.blockDeviceRefs` | up to 16                                | up to 16                                              | up to 16, or up to 4 with `enableParavirtualization: false` |
+| Network adapter            | virtio-net, or e1000 with `enableParavirtualization: false` | virtio-net, or e1000 with `enableParavirtualization: false` | virtio-net, or RTL8139 with `enableParavirtualization: false` |
+| USB controller             | xHCI (USB 3.0)                                        | xHCI (USB 3.0)                                        | UHCI (USB 1.1)         |
+| TPM                        | no                                                    | TPM 2.0                                               | no                     |
+| Random number generator    | virtio-rng                                            | no                                                    | no                     |
+| Hyper-V enlightenments     | no                                                    | yes                                                   | no                     |
+| Disk hot-plug              | yes                                                   | yes                                                   | only with `enableParavirtualization: true`, and only if the guest has a virtio-scsi driver |
+| CPU and memory hot-plug    | yes                                                   | yes                                                   | no                     |
+
+USB device passthrough works for `Legacy`, but the UHCI controller is limited to USB 1.1 speed (12 Mbit/s): enough for a mouse, a keyboard or a token, but not for fast storage.
+
+Choose `Legacy` when the guest operating system cannot drive an AHCI controller, not merely because it is old: Linux with a kernel 2.6.19 or newer works with `osType: Generic` and `enableParavirtualization: false`, which has no four-device limit and still allows hot-plugging via `VirtualMachineBlockDeviceAttachment`.
+
+{{< alert level="warning" >}}
+The following capabilities are not available for `Legacy`:
+
+- changing the number of CPU cores or the memory size on the fly: these guests bring neither online. The change is accepted, the VM reports it in `.status.restartAwaitingChanges` with the `AwaitingRestartToApplyConfiguration` condition, and it takes effect after a restart;
+- the `EFI` and `EFIWithSecureBoot` bootloaders and initial provisioning (`cloud-init` and Sysprep): these guests support none of them;
+- guest OS information in the VM status and file system information. The QEMU guest agent can be installed in such a guest from an archived virtio-win release and the VM does report `AgentReady`, but its version is too old for the platform: the VM also gets the `AgentVersionNotSupported` condition, no guest OS information is collected, and there is no newer agent to update to. A snapshot with `requiredConsistency: true` cannot succeed either, for a separate reason: the platform does ask the agent to freeze the file system, and the agent answers that the command is disabled in its build — `guest-fsfreeze-status has been disabled for this instance`. On Windows a freeze goes through a VSS provider, which that build does not carry. The snapshot waits in `InProgress` and ends in `Failed` about ten minutes later. Take snapshots of such VMs with `requiredConsistency: false`.
+
+- changing `.spec.blockDeviceRefs` on a running VM: those disks stay static in both paravirtualization modes, so a block device has to be added before the VM is started.
+
+With `enableParavirtualization: false` one more limit applies:
+
+- no more than 4 block devices in total: an IDE bus provides two channels with two devices each.
+{{< /alert >}}
+
+Example configuration for a Windows XP virtual machine:
+
+```yaml
+spec:
+  osType: Legacy
+  bootloader: BIOS
+  enableParavirtualization: false
+  # other parameters...
+```
 
 The `bootloader` parameter determines the bootloader type for the virtual machine:
 
@@ -1428,11 +1474,17 @@ For most modern Linux distributions, it is recommended to use `bootloader: EFI`.
 The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices to the VM. Changing the parameter value takes effect only after the VM is restarted.
 
 - `true` (default): The `virtio` bus is used for disks, network interfaces, and other devices, which provides better performance. You can change `.spec.blockDeviceRefs` on a running VM without rebooting by adding and removing devices if the disk is available on the node where the VM runs.
-- `false`: Standard device emulation is used (SATA for disks, e1000e for network interfaces), which may be required for compatibility with older guest OSes without `VirtIO` drivers. Changes to `.spec.blockDeviceRefs` on a running VM (adding or removing disks and images, including ISO images) take effect after rebooting the VM. To attach and detach disks without rebooting, use the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`) resource without changing the list in the VM specification.
+- `false`: Standard device emulation is used (SATA for disks, e1000 for network interfaces; IDE and RTL8139 for the `Legacy` osType), which may be required for compatibility with older guest OSes without `VirtIO` drivers. Changes to `.spec.blockDeviceRefs` on a running VM (adding or removing disks and images, including ISO images) take effect after rebooting the VM. To attach and detach disks without rebooting, use the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`) resource without changing the list in the VM specification.
 
 {{< alert level="info" >}}
 To use paravirtualization mode (`virtio`), some operating systems require installing the corresponding drivers. If drivers are not installed, the VM may fail to boot or devices may not work correctly.
 {{< /alert >}}
+
+For the `Legacy` osType the default of `true` is the wrong one: these operating systems have no built-in virtio drivers, so a VM you are going to install from the original media needs `enableParavirtualization: false` — otherwise the installer reports that it found no hard disks. Creating or updating such a VM produces an admission warning.
+
+Keep `enableParavirtualization: true` for a `Legacy` VM only when the virtio drivers are already installed in the guest. The VM then keeps the i440fx chipset and the `BIOS` bootloader, but gets its disks on virtio-blk, a virtio-net adapter, and no four-device limit. The CD-ROM stays on IDE, because virtio-blk has no CD-ROM. To switch an installed guest: install the drivers, shut the VM down, set `enableParavirtualization: true` and start it again. Windows XP, 2000 and Server 2003 need an archived virtio-win release, the current ones no longer ship drivers for them — and the disk driver to install is `viostor`, the virtio-blk one, since that package carries no virtio-scsi driver for these operating systems.
+
+The disk controller driver has to be installed in the guest before the switch, not after: the guest boots from that controller. If the VM does not boot after the switch, set `enableParavirtualization` back to `false` and restart it — the disks return to the IDE bus and the guest boots as before.
 
 Example configuration with paravirtualization disabled:
 
@@ -2247,14 +2299,18 @@ Block device types and access modes:
 Two attachment methods are available:
 
 - Via the VM specification (`.spec.blockDeviceRefs`): Disks are listed in the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) configuration and boot order is set for them (by position in the list or via the `bootOrder` field). Recommended when configuring the VM manually or via GitOps, or when you need to control boot order (e.g., an ISO for OS installation).
-- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Disks are always attached using the `virtio-scsi` bus regardless of `enableParavirtualization`. Recommended for automation and when you do not have permission to edit the VM.
+- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Disks are attached using the `virtio-scsi` bus regardless of `enableParavirtualization`. Recommended for automation and when you do not have permission to edit the VM.
 
 With `enableParavirtualization: true`, both methods let you attach and detach disks on a running VM without rebooting, if the disk is available on the node where the VM runs. With `enableParavirtualization: false`, the `.spec.blockDeviceRefs` list on a running VM changes only after a reboot; you can still attach and detach disks without rebooting using [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`).
 
 {{< alert level="warning" >}}
+For the `Legacy` osType with `enableParavirtualization: false` an attachment is rejected: its disks are on the IDE bus, which cannot be hot-plugged. Add the device to `.spec.blockDeviceRefs` and restart the VM. With paravirtualization on an attachment is accepted, but the disk still arrives on the `virtio-scsi` bus: Windows XP and Server 2003 have no driver for it and will not see it, whereas a guest that does have one — the osType picks a chipset, not an operating system — uses it like any other VM.
+{{< /alert >}}
+
+{{< alert level="warning" >}}
 For VMs with `enableParavirtualization: false`, the following applies:
 
-- devices in `.spec.blockDeviceRefs` use the SATA bus; changes to the list on a running VM (adding or removing a disk, including an ISO image) take effect after rebooting the VM. Account for this when using the web interface and in automation;
+- devices in `.spec.blockDeviceRefs` use the SATA bus, or the IDE bus for the `Legacy` osType; changes to the list on a running VM (adding or removing a disk, including an ISO image) take effect after rebooting the VM. Account for this when using the web interface and in automation;
 - disks attached through [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) use the `virtio-scsi` bus and can be attached and detached without rebooting the VM; `VirtIO` drivers for the SCSI controller must be installed in the guest OS, otherwise the disk may not appear in the OS even when the `vmbda` resource is created successfully in the cluster.
 {{< /alert >}}
 
@@ -3025,6 +3081,10 @@ Available in the EE and SE+ editions. Requires the `VirtualMachinePool` feature 
 {{< /alert >}}
 
 The [VirtualMachinePool](cr.html#virtualmachinepool) resource maintains a requested number of identical virtual machines and lets you scale them via the `scale` subresource, a HorizontalPodAutoscaler (HPA), or KEDA. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
+
+{{< alert level="warning" >}}
+The `Legacy` osType is not supported in a pool: replicas are told apart by initial provisioning, which these operating systems do not support, so every replica would be a byte-for-byte clone of the same disk — for Windows guests that also means a duplicate SID on the network. A pool template with `osType: Legacy` is rejected. Create such virtual machines individually.
+{{< /alert >}}
 
 This functionality is disabled by default. To enable it, add `VirtualMachinePool` to the `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
 

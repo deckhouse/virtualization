@@ -107,6 +107,44 @@ cpu:
 			),
 		},
 		{
+			"restart on cpu section change for Legacy osType even with hotplug enabled",
+			`
+osType: Legacy
+cpu:
+  cores: 2
+  coreFraction: 60%
+`,
+			`
+osType: Legacy
+cpu:
+  cores: 4
+  coreFraction: 60%
+`,
+			[]featuregate.Feature{featuregates.HotplugCPUWithLiveMigration},
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("cpu.cores", ChangeReplace),
+			),
+		},
+		{
+			"restart on memory.size change for Legacy osType even with hotplug enabled",
+			`
+osType: Legacy
+memory:
+  size: 2Gi
+`,
+			`
+osType: Legacy
+memory:
+  size: 4Gi
+`,
+			[]featuregate.Feature{featuregates.HotplugMemoryWithLiveMigration},
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("memory.size", ChangeReplace),
+			),
+		},
+		{
 			"no restart cpu.coreFraction from empty to default value",
 			`
 cpu:
