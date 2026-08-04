@@ -1371,3 +1371,36 @@ Let's see how it works on the example:
 1. The `linux-vm` virtual machine is started on another suitable node (`workerB`).
 
 ![ColdStandBy mechanism diagram](./images/coldstandby.png)
+
+## USB devices
+
+{{< alert level="warning" >}}
+USB device passthrough is available only in the Deckhouse Virtualization Platform **Enterprise Edition (EE)**.
+{{< /alert >}}
+
+USB device passthrough is handled by the `virtualization-dra` DaemonSet. Its pods require the following kernel modules on the node:
+
+- `usbip_core`
+- `usbip_host`
+- `vhci_hcd`
+
+The module tries to make these kernel modules available on every node automatically. A node where all three modules are present gets the `virtualization.deckhouse.io/usbip=true` label, and the `virtualization-dra` pod is scheduled only on labeled nodes. If the modules are no longer available on a node, the label is removed and the pod is evicted from it.
+
+To check which nodes are ready for USB device passthrough:
+
+```bash
+d8 k get nodes -l virtualization.deckhouse.io/usbip=true
+```
+
+```console
+NAME     STATUS   ROLES    AGE   VERSION
+node-1   Ready    worker   10d   v1.34.1
+```
+
+To check that the pods are running:
+
+```bash
+d8 k -n d8-virtualization get pods -l app=virtualization-dra -o wide
+```
+
+If a node is missing from the output, the required kernel modules could not be made available on it, so USB devices connected to that node are not discovered. In this case, provide the kernel modules on the node yourself: install them from a package of your operating system, or build them for the running kernel. The kernel modules are picked up automatically, and the node is labeled within a few minutes.
