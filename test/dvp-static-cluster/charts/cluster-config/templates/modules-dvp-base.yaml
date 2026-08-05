@@ -85,6 +85,14 @@ spec:
   enabled: true
   version: 1
 ---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: ingress-nginx
+spec:
+  enabled: true
+  version: 1
+---
 apiVersion: deckhouse.io/v1
 kind: IngressNginxController
 metadata:
