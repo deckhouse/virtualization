@@ -20,10 +20,45 @@
 #
 # Required variables (documented in variables.yml + upstream Setup):
 #   MODULES_MODULE_SOURCE, MODULES_MODULE_NAME, MODULES_MODULE_TAG,
-#   WERF_REPO, SVACE_ENABLED (optional).
+#   WERF_REPO, SVACE_ENABLED (optional), SOURCE_REPO_SSH_KEY.
 
 .base_build:
   stage: build
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf jq crane
+    # Load the private-mirror key into the ssh-agent werf forwards into stapel
+    # build containers. The `*-src-artifact` stages clone package sources from
+    # git@${DECKHOUSE_PRIVATE_REPO}:deckhouse/3p (see .werf/images.yaml), and
+    # the container has no key files of its own, so the agent is the only way a
+    # key gets there. werf picks keys in the order $WERF_SSH_KEY_* -> running
+    # ssh-agent -> ~/.ssh/id_{rsa,dsa}, and the upstream Setup before_script
+    # already exports SSH_AUTH_SOCK for an agent holding the svace key alone —
+    # which is why every such clone failed with "Permission denied (publickey)"
+    # as soon as a src stage lost its cache. The GitHub path does the same in
+    # deckhouse/modules-actions/build (step "Add source repo key").
+    #
+    # before_script and script share one shell, so ssh-add here lands in that
+    # agent. The fallback branch only fires when upstream started no agent (no
+    # svace key configured), so overriding its EXIT trap is not a concern.
+    - |
+      if [[ -n "${SOURCE_REPO_SSH_KEY}" ]]; then
+        if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+          eval "$(ssh-agent -s)" >/dev/null
+          trap 'kill -3 ${SSH_AGENT_PID}' ERR EXIT HUP INT QUIT TERM
+        fi
+        # The variable is declared as a "file" type, so the environment holds a
+        # path rather than the key, and the stored content keeps its newlines
+        # escaped as literal \n. printf %b turns those back into real newlines
+        # (and leaves a key that already has them alone) — ssh-add rejects the
+        # key otherwise with `error in libcrypto`. Both branches keep working if
+        # the variable is ever switched back to a plain value.
+        source_repo_key="${SOURCE_REPO_SSH_KEY}"
+        if [[ -f "${source_repo_key}" ]]; then
+          source_repo_key="$(cat "${source_repo_key}")"
+        fi
+        printf '%b\n' "${source_repo_key}" | ssh-add -
+        ssh-add -l
+      else
+        echo "SOURCE_REPO_SSH_KEY is not set: clones from the private mirror will fail."
+      fi
     - !reference [.build_base, script]
