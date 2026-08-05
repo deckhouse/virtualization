@@ -74,16 +74,6 @@ func CopyFile(src, dst string) error {
 	return out.Close()
 }
 
-// LinkFile symlinks the source to the target
-func LinkFile(source, target string) error {
-	out, err := exec.Command("/usr/bin/ln", "-s", source, target).CombinedOutput()
-	if err != nil {
-		fmt.Printf("out [%s]\n", string(out))
-		return err
-	}
-	return nil
-}
-
 // CopyDir copies a dir from one location to another.
 func CopyDir(source, dest string) error {
 	// get properties of source dir

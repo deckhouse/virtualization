@@ -59,22 +59,11 @@ type RegistryDataSource struct {
 
 // NewRegistryDataSource creates a new instance of the Registry Data Source.
 func NewRegistryDataSource(endpoint, accessKey, secKey, certDir string, insecureTLS, directTransfer bool) *RegistryDataSource {
-	allCertDir, err := CreateCertificateDir(certDir)
-	if err != nil {
-		klog.Infof("Error creating allCertDir %v", err)
-		if allCertDir != "/" {
-			err = os.RemoveAll(allCertDir)
-			if err != nil {
-				klog.Errorf("Unable to clean up all cert dir %v", err)
-			}
-		}
-		allCertDir = certDir
-	}
 	return &RegistryDataSource{
 		endpoint:       endpoint,
 		accessKey:      accessKey,
 		secKey:         secKey,
-		certDir:        allCertDir,
+		certDir:        certDir,
 		insecureTLS:    insecureTLS,
 		directTransfer: directTransfer,
 	}
@@ -199,42 +188,4 @@ func getImageFileName(dir string) (string, error) {
 	klog.V(1).Infof("VM disk image filename is %s", filename)
 
 	return filename, nil
-}
-
-// CreateCertificateDir creates a common certificate dir
-func CreateCertificateDir(registryCertDir string) (string, error) {
-	allCerts := "/tmp/all_certs"
-	if err := os.MkdirAll(allCerts, 0o700); err != nil {
-		return allCerts, err
-	}
-
-	klog.Info("Copying proxy certs")
-	if err := collectCerts(common.ImporterProxyCertDir, allCerts, "proxy-"); err != nil {
-		return allCerts, err
-	}
-	klog.Info("Copying registry certs")
-	if err := collectCerts(registryCertDir, allCerts, ""); err != nil {
-		return allCerts, err
-	}
-	return allCerts, nil
-}
-
-func collectCerts(certDir, targetDir, targetPrefix string) error {
-	directory, err := os.Open(certDir)
-	if err != nil {
-		return err
-	}
-	objects, err := directory.Readdir(-1)
-	if err != nil {
-		return err
-	}
-	for _, obj := range objects {
-		if !strings.HasSuffix(obj.Name(), ".crt") {
-			continue
-		}
-		if err := util.LinkFile(filepath.Join(certDir, obj.Name()), filepath.Join(targetDir, targetPrefix+obj.Name())); err != nil {
-			return err
-		}
-	}
-	return nil
 }

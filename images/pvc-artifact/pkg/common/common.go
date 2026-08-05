@@ -42,7 +42,6 @@ const (
 	ImporterDirectTransfer = "IMPORTER_DIRECT_TRANSFER"
 	ImporterCertDirVar     = "IMPORTER_CERT_DIR"
 	ImporterDoneFile       = "IMPORTER_DONE_FILE"
-	ImporterProxyCertDir   = "/proxycerts/"
 	InsecureTLSVar         = "INSECURE_TLS"
 	CacheMode              = "CACHE_MODE"
 	CacheModeTryNone       = "TRYNONE"
