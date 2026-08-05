@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type LifeCycleHandler struct {
@@ -247,6 +248,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		}
 
 		if ad.PVCName != "" {
+			if isVirtualMachineMigrating(vm) {
+				log.Info("Cannot hotplug a disk while the virtual machine is migrating")
+
+				vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmbdacondition.BlockedByMigration).
+					Message("Cannot hotplug a disk while the virtual machine is migrating.")
+				return reconcile.Result{}, nil
+			}
+
 			pvc, err := h.attacher.GetPersistentVolumeClaim(ctx, ad)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -300,4 +312,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	default:
 		return reconcile.Result{}, canErr
 	}
+}
+
+func isVirtualMachineMigrating(vm *v1alpha2.VirtualMachine) bool {
+	_, migrating := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	return migrating
 }
