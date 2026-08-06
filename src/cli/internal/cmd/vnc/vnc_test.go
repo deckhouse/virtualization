@@ -111,7 +111,8 @@ var _ = Describe("VNC", func() {
 			err := (&VNC{}).Run(cmd, []string{"test-vm"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(connectCalls).To(Equal(2))
-			Expect(clientCalls).To(Equal(2))
+			// One client for asking who holds the VNC, then one per connection attempt.
+			Expect(clientCalls).To(Equal(3))
 		})
 
 		It("keeps proxy listener alive until context is canceled", func() {

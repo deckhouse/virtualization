@@ -26,6 +26,24 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+# Leases hold the console and VNC session of a virtual machine: they live in the namespace
+# of the virtual machine and are renewed while the stream is open.
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+  - delete
+- apiGroups:
   - authentication.k8s.io
   resources:
   - tokenreviews

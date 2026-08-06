@@ -17,6 +17,9 @@ limitations under the License.
 package rest
 
 import (
+	coordinationclient "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	"k8s.io/client-go/tools/record"
+
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 )
@@ -25,12 +28,20 @@ type BaseREST struct {
 	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtAPIServerConfig
+	sessions         *sessionManager
 }
 
-func NewBaseREST(vmLister virtlisters.VirtualMachineLister, proxyCertManager certmanager.CertificateManager, kubevirt KubevirtAPIServerConfig) *BaseREST {
+func NewBaseREST(
+	vmLister virtlisters.VirtualMachineLister,
+	proxyCertManager certmanager.CertificateManager,
+	kubevirt KubevirtAPIServerConfig,
+	leases coordinationclient.LeasesGetter,
+	recorder record.EventRecorder,
+) *BaseREST {
 	return &BaseREST{
 		vmLister:         vmLister,
 		proxyCertManager: proxyCertManager,
 		kubevirt:         kubevirt,
+		sessions:         newSessionManager(leases, recorder),
 	}
 }

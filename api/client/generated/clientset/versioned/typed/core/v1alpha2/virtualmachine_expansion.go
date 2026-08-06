@@ -27,8 +27,13 @@ import (
 )
 
 type VirtualMachineExpansion interface {
-	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
-	VNC(name string) (StreamInterface, error)
+	// SerialConsole connects to the serial console of the virtual machine, or, with Probe set in
+	// the options, reports who holds it right now and leaves them alone: connecting is exclusive,
+	// so a client is expected to probe first and warn about the user it is about to disconnect.
+	// Exactly one of the two is returned, the stream or the session, depending on Probe.
+	SerialConsole(ctx context.Context, name string, options *SerialConsoleOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error)
+	// VNC connects to the VNC of the virtual machine. See SerialConsole about Probe.
+	VNC(ctx context.Context, name string, options *VNCOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error)
 	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
 	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
 	Unfreeze(ctx context.Context, name string) error
@@ -41,7 +46,15 @@ type VirtualMachineExpansion interface {
 
 type SerialConsoleOptions struct {
 	ConnectionTimeout time.Duration
+	// Probe asks who holds the serial console instead of connecting to it.
+	Probe bool
 }
+
+type VNCOptions struct {
+	// Probe asks who holds the VNC instead of connecting to it.
+	Probe bool
+}
+
 type StreamOptions struct {
 	In  io.Reader
 	Out io.Writer
@@ -52,12 +65,12 @@ type StreamInterface interface {
 	AsConn() net.Conn
 }
 
-func (c *virtualMachines) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
-	return nil, fmt.Errorf("not implemented")
+func (c *virtualMachines) SerialConsole(_ context.Context, name string, options *SerialConsoleOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
-func (c *virtualMachines) VNC(name string) (StreamInterface, error) {
-	return nil, fmt.Errorf("not implemented")
+func (c *virtualMachines) VNC(_ context.Context, name string, options *VNCOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (c *virtualMachines) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error) {

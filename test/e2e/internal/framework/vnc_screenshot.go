@@ -83,7 +83,7 @@ func (f *Framework) saveVMScreenshots(ctx context.Context, dumpDir string) {
 		fileName := path.Join(dumpDir, fmt.Sprintf("vm_%s_screen.png", vm.Name))
 		var lastErr error
 		for attempt := 1; attempt <= vncScreenshotAttempts; attempt++ {
-			lastErr = f.captureVNCScreenshot(vm.Name, fileName)
+			lastErr = f.captureVNCScreenshot(ctx, vm.Name, fileName)
 			if lastErr == nil {
 				break
 			}
@@ -102,8 +102,8 @@ func (f *Framework) saveVMScreenshots(ctx context.Context, dumpDir string) {
 	}
 }
 
-func (f *Framework) captureVNCScreenshot(vmName, fileName string) error {
-	stream, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).VNC(vmName)
+func (f *Framework) captureVNCScreenshot(ctx context.Context, vmName, fileName string) error {
+	stream, _, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).VNC(ctx, vmName, nil)
 	if err != nil {
 		return fmt.Errorf("open VNC stream: %w", err)
 	}

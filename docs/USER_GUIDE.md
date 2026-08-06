@@ -1734,6 +1734,24 @@ Password: cloud
 
 Press `Ctrl+]` to finalize the serial console.
 
+{{< alert level="warning" >}}
+The serial console and the VNC of a virtual machine are exclusive: only one user works in them at a time, and connecting disconnects whoever is already there.
+
+Before connecting, `d8 v console` and `d8 v vnc` report who is using the stream and since when, and ask what to do:
+
+```txt
+The serial console of linux-vm is in use:
+  user       serviceaccount default/alice
+  connected  12 minutes ago (14:32), from the d8 v command line
+
+Connect and disconnect them? [y] yes  [N] no  [w] wait until free:
+```
+
+Answer `w` to wait until the other user disconnects and then connect automatically. Pressing Enter cancels the connection: the safe answer is the default one.
+
+Use `--force` to connect without the question. When the command runs non-interactively (in a script), it connects the way it always did and reports in its error output who was disconnected.
+{{< /alert >}}
+
 {{< alert level="info" >}}
 The serial console does not support automatic terminal resizing. If full-screen applications or text editors are displayed incorrectly, run the following command after you log in:
 
@@ -1751,6 +1769,8 @@ Example command for connecting via VNC:
 ```bash
 d8 v vnc linux-vm
 ```
+
+The VNC of a virtual machine is exclusive in the same way the serial console is: connecting disconnects whoever is already there, and `d8 v vnc` asks about it first. See the warning above.
 
 Example command for connecting via SSH.
 

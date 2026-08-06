@@ -36,7 +36,9 @@ import (
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
+	"github.com/deckhouse/virtualization/src/cli/internal/session"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 	"github.com/deckhouse/virtualization/src/cli/internal/util"
 )
@@ -52,12 +54,14 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.Flags().DurationVar(&console.timeout, "timeout", 5*time.Minute, "Duration to wait until console is successfully connected (e.g., 1s, 5m, 300s).")
+	cmd.Flags().BoolVar(&console.force, "force", false, "Connect without asking, even when somebody else is using the console.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 type Console struct {
 	timeout time.Duration
+	force   bool
 }
 
 func usage() string {
@@ -67,7 +71,9 @@ func usage() string {
   {{ProgramName}} console myvm -n mynamespace
   # Configure timeout (default 5 minutes)
   {{ProgramName}} console --timeout=1m myvm
-  {{ProgramName}} console --timeout=300s myvm`
+  {{ProgramName}} console --timeout=300s myvm
+  # Connect without asking, even when somebody else is using the console:
+  {{ProgramName}} console --force myvm`
 
 	return usage
 }
@@ -89,6 +95,14 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	targetNamespace, name, err := templates.ParseTarget(args[0])
 	if err != nil {
 		return err
+	}
+
+	// Connecting takes the console over, so ask about it first — once, before the loop below:
+	// a later reconnect continues the session of this very user and needs no question.
+	if decision, err := c.askAboutHolder(cmd, targetNamespace, name); err != nil {
+		return err
+	} else if decision == session.Abort {
+		return nil
 	}
 
 	// Set terminal to raw mode once for all connections
@@ -227,6 +241,23 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	}
 }
 
+// askAboutHolder warns about the user who is going to be disconnected and lets this one decide.
+// It never keeps a user away from the console: anything that goes wrong on the way to the answer
+// means the connection proceeds as it did before this existed.
+func (c *Console) askAboutHolder(cmd *cobra.Command, targetNamespace, name string) (session.Decision, error) {
+	client, defaultNamespace, _, err := clientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return session.Connect, err
+	}
+	namespace := targetNamespace
+	if namespace == "" {
+		namespace = defaultNamespace
+	}
+
+	return session.AskBeforeConnecting(cmd.Context(), client.VirtualMachines(namespace), name,
+		subv1alpha2.ConsoleSession, c.force), nil
+}
+
 func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout time.Duration, stdinCh <-chan []byte, doneChan <-chan struct{}) error {
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
@@ -238,7 +269,7 @@ func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Cli
 	writeStopErr := make(chan error)
 	readStopErr := make(chan error)
 
-	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: timeout})
+	console, _, err := virtCli.VirtualMachines(namespace).SerialConsole(ctx, name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: timeout})
 	if err != nil {
 		return fmt.Errorf("can't access VM %s: %w", name, err)
 	}

@@ -23,13 +23,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/tools/record"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	vmpoolstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
-	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
@@ -82,12 +83,15 @@ func Install(
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	virtCli virtclient.Interface,
+	virtCli kubeclient.Client,
+	recorder record.EventRecorder,
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
 		kubevirt,
 		proxyCertManager,
+		virtCli.CoordinationV1(),
+		recorder,
 	)
 	// Enterprise (EE/SE+) subresources are constructed here and injected, the same
 	// way vmStorage is. They are registered unconditionally: the apiserver process

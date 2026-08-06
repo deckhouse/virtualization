@@ -53,6 +53,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":         schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveResourceClaim": schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveResourceClaim(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveVolume":        schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineSession":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineSession(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineUnfreeze":            schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineVNC":                 schema_virtualization_api_subresources_v1alpha2_VirtualMachineVNC(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                   schema_pkg_apis_meta_v1_APIGroup(ref),
@@ -913,6 +914,13 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref c
 							Format:      "",
 						},
 					},
+					"probe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Probe asks who holds the serial console instead of connecting to it: the answer is a VirtualMachineSession and the session of the current holder is left alone. Connecting is exclusive, so a client is expected to probe first and warn the user about who is going to be disconnected.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -1160,6 +1168,41 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(
 	}
 }
 
+func schema_virtualization_api_subresources_v1alpha2_VirtualMachineSession(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineSession reports who is currently connected to the serial console or to the VNC of the virtual machine, depending on the subresource it is read from. Both are exclusive: connecting disconnects that user, so clients are expected to read this first and warn before they do.\n\nThis is a plain struct rather than an API object: console and vnc are subresources with a raw upgradable connection, which is why the server can write arbitrary data into that connection to talk to the client before the connection is upgraded. A probe request is answered exactly there, as JSON written into the not-yet-upgraded connection — it never goes through the scheme, the conversion or the codecs, so the type needs no TypeMeta, no deepcopy and no registration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"holder": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Holder is the connected user. Empty if nobody is connected.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"startTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartTime is when that user connected.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is how the connected client introduced itself, its user agent. It tells a UI from a command line client, which often is what one needs to go and find the person.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1203,6 +1246,13 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineVNC(ref commo
 						SchemaProps: spec.SchemaProps{
 							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"probe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Probe asks who holds the VNC instead of connecting to it. See VirtualMachineConsole.Probe.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},

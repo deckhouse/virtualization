@@ -26,7 +26,6 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	vmpoolrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/rest"
-	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/subresources"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
@@ -36,7 +35,7 @@ import (
 // scaleDownWith; Get is served only so the meta-object resolves for an existing
 // pool, mirroring the VirtualMachine storage.
 type VirtualMachinePoolStorage struct {
-	client        virtclient.Interface
+	client        vmpoolrest.Client
 	scaleDownWith *vmpoolrest.ScaleDownWithREST
 }
 
@@ -48,7 +47,7 @@ var (
 	_ rest.SingularNameProvider = &VirtualMachinePoolStorage{}
 )
 
-func NewStorage(c virtclient.Interface) *VirtualMachinePoolStorage {
+func NewStorage(c vmpoolrest.Client) *VirtualMachinePoolStorage {
 	return &VirtualMachinePoolStorage{
 		client:        c,
 		scaleDownWith: vmpoolrest.NewScaleDownWithREST(c),
@@ -86,7 +85,7 @@ func (store VirtualMachinePoolStorage) GetSingularName() string {
 // meta-object for a pool that exists and NotFound only when it truly does not.
 func (store VirtualMachinePoolStorage) Get(ctx context.Context, name string, opts *metav1.GetOptions) (runtime.Object, error) {
 	namespace := genericreq.NamespaceValue(ctx)
-	pool, err := store.client.VirtualizationV1alpha2().VirtualMachinePools(namespace).Get(ctx, name, *opts)
+	pool, err := store.client.VirtualMachinePools(namespace).Get(ctx, name, *opts)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, k8serrors.NewNotFound(subresources.Resource("virtualmachinepools"), name)

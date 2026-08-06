@@ -429,6 +429,7 @@ func Convert_url_Values_To_v1alpha2_VirtualMachineCancelEvacuation(in *url.Value
 }
 
 func autoConvert_v1alpha2_VirtualMachineConsole_To_subresources_VirtualMachineConsole(in *VirtualMachineConsole, out *subresources.VirtualMachineConsole, s conversion.Scope) error {
+	out.Probe = in.Probe
 	return nil
 }
 
@@ -438,6 +439,7 @@ func Convert_v1alpha2_VirtualMachineConsole_To_subresources_VirtualMachineConsol
 }
 
 func autoConvert_subresources_VirtualMachineConsole_To_v1alpha2_VirtualMachineConsole(in *subresources.VirtualMachineConsole, out *VirtualMachineConsole, s conversion.Scope) error {
+	out.Probe = in.Probe
 	return nil
 }
 
@@ -449,6 +451,13 @@ func Convert_subresources_VirtualMachineConsole_To_v1alpha2_VirtualMachineConsol
 func autoConvert_url_Values_To_v1alpha2_VirtualMachineConsole(in *url.Values, out *VirtualMachineConsole, s conversion.Scope) error {
 	// WARNING: Field TypeMeta does not have json tag, skipping.
 
+	if values, ok := map[string][]string(*in)["probe"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_bool(&values, &out.Probe, s); err != nil {
+			return err
+		}
+	} else {
+		out.Probe = false
+	}
 	return nil
 }
 
@@ -716,6 +725,7 @@ func Convert_url_Values_To_v1alpha2_VirtualMachineUnfreeze(in *url.Values, out *
 }
 
 func autoConvert_v1alpha2_VirtualMachineVNC_To_subresources_VirtualMachineVNC(in *VirtualMachineVNC, out *subresources.VirtualMachineVNC, s conversion.Scope) error {
+	out.Probe = in.Probe
 	return nil
 }
 
@@ -725,6 +735,7 @@ func Convert_v1alpha2_VirtualMachineVNC_To_subresources_VirtualMachineVNC(in *Vi
 }
 
 func autoConvert_subresources_VirtualMachineVNC_To_v1alpha2_VirtualMachineVNC(in *subresources.VirtualMachineVNC, out *VirtualMachineVNC, s conversion.Scope) error {
+	out.Probe = in.Probe
 	return nil
 }
 
@@ -736,6 +747,13 @@ func Convert_subresources_VirtualMachineVNC_To_v1alpha2_VirtualMachineVNC(in *su
 func autoConvert_url_Values_To_v1alpha2_VirtualMachineVNC(in *url.Values, out *VirtualMachineVNC, s conversion.Scope) error {
 	// WARNING: Field TypeMeta does not have json tag, skipping.
 
+	if values, ok := map[string][]string(*in)["probe"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_bool(&values, &out.Probe, s); err != nil {
+			return err
+		}
+	} else {
+		out.Probe = false
+	}
 	return nil
 }
 

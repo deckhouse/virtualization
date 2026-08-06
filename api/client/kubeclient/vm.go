@@ -50,7 +50,16 @@ type connectionStruct struct {
 	err error
 }
 
-func (v vm) SerialConsole(name string, options *virtualizationv1alpha2.SerialConsoleOptions) (virtualizationv1alpha2.StreamInterface, error) {
+func (v vm) SerialConsole(ctx context.Context, name string, options *virtualizationv1alpha2.SerialConsoleOptions) (virtualizationv1alpha2.StreamInterface, *subv1alpha2.VirtualMachineSession, error) {
+	if options != nil && options.Probe {
+		session, err := v.probe(ctx, name, subv1alpha2.ConsoleSession)
+		return nil, session, err
+	}
+	stream, err := v.serialConsole(name, options)
+	return stream, nil, err
+}
+
+func (v vm) serialConsole(name string, options *virtualizationv1alpha2.SerialConsoleOptions) (virtualizationv1alpha2.StreamInterface, error) {
 	if options != nil && options.ConnectionTimeout != 0 {
 		ticker := time.NewTicker(options.ConnectionTimeout)
 		connectionChan := make(chan connectionStruct)
@@ -92,8 +101,36 @@ func (v vm) SerialConsole(name string, options *virtualizationv1alpha2.SerialCon
 	}
 }
 
-func (v vm) VNC(name string) (virtualizationv1alpha2.StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
+func (v vm) VNC(ctx context.Context, name string, options *virtualizationv1alpha2.VNCOptions) (virtualizationv1alpha2.StreamInterface, *subv1alpha2.VirtualMachineSession, error) {
+	if options != nil && options.Probe {
+		session, err := v.probe(ctx, name, subv1alpha2.VNCSession)
+		return nil, session, err
+	}
+	stream, err := asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
+	return stream, nil, err
+}
+
+// probe reports who holds the serial console or the VNC of the virtual machine right now, or an
+// empty session when nobody does. It asks the very endpoint it would connect to, the one the
+// options belong to.
+//
+// This is a plain request on purpose, not a request to connect: a platform that does not know the
+// probe parameter yet ignores it and would connect instead, disconnecting whoever is there. Plain,
+// it fails with "Upgrade request required" on such a platform without ever reaching the virtual
+// machine, so callers can treat any error as "unknown" and carry on.
+func (v vm) probe(ctx context.Context, name string, kind subv1alpha2.SessionKind) (*subv1alpha2.VirtualMachineSession, error) {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, string(kind))
+
+	body, err := v.restClient.Get().AbsPath(path).Param("probe", "true").Do(ctx).Raw()
+	if err != nil {
+		return nil, err
+	}
+
+	session := &subv1alpha2.VirtualMachineSession{}
+	if err := json.Unmarshal(body, session); err != nil {
+		return nil, fmt.Errorf("cannot read the session of the virtual machine: %w", err)
+	}
+	return session, nil
 }
 
 func (v vm) PortForward(name string, opts subv1alpha2.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error) {

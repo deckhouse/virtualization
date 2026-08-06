@@ -27,10 +27,17 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/util/retry"
 
-	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
+
+// Client is what the pool subresources need from the platform client: the pools and their
+// members. kubeclient.Client, the one the apiserver runs with, satisfies it.
+type Client interface {
+	VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface
+	VirtualMachinePools(namespace string) virtualizationv1alpha2.VirtualMachinePoolInterface
+}
 
 // ScaleDownWithREST serves the addressed scale-down handle:
 //
@@ -42,7 +49,7 @@ import (
 // so it bypasses the /scale guard — that is what makes addressed removal work
 // for Explicit pools.
 type ScaleDownWithREST struct {
-	client virtclient.Interface
+	client Client
 }
 
 var (
@@ -50,7 +57,7 @@ var (
 	_ rest.NamedCreater = &ScaleDownWithREST{}
 )
 
-func NewScaleDownWithREST(c virtclient.Interface) *ScaleDownWithREST {
+func NewScaleDownWithREST(c Client) *ScaleDownWithREST {
 	return &ScaleDownWithREST{client: c}
 }
 
@@ -86,8 +93,8 @@ func (r *ScaleDownWithREST) Create(ctx context.Context, name string, obj runtime
 }
 
 func (r *ScaleDownWithREST) scaleDown(ctx context.Context, namespace, poolName string, targets []string) error {
-	vms := r.client.VirtualizationV1alpha2().VirtualMachines(namespace)
-	pools := r.client.VirtualizationV1alpha2().VirtualMachinePools(namespace)
+	vms := r.client.VirtualMachines(namespace)
+	pools := r.client.VirtualMachinePools(namespace)
 
 	// Reads go straight to the API server (no cache): scaleDownWith is a rare,
 	// user-initiated mutation, and validating targets before deleting them must

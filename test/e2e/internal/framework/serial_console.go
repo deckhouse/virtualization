@@ -61,7 +61,7 @@ func (f *Framework) saveVMSerialConsoles(ctx context.Context, dumpDir string) {
 		}
 
 		fileName := path.Join(dumpDir, fmt.Sprintf("vm_%s_serial.log", vm.Name))
-		if err := f.captureSerialConsole(vm.Name, fileName); err != nil {
+		if err := f.captureSerialConsole(ctx, vm.Name, fileName); err != nil {
 			GinkgoWriter.Printf("Failed to capture serial console:\nVirtualMachine: %s\nError: %v\n", vm.Name, err)
 			// Leave an explicit breadcrumb so a missing serial log is explained.
 			msg := fmt.Sprintf("failed to capture serial console for VirtualMachine %q (phase %s): %v\n", vm.Name, vm.Status.Phase, err)
@@ -76,8 +76,9 @@ func (f *Framework) saveVMSerialConsoles(ctx context.Context, dumpDir string) {
 // records whatever the guest streams within serialConsoleReadTimeout. A live
 // console never reaches EOF, so a read timeout is the normal path — whatever was
 // buffered is still written.
-func (f *Framework) captureSerialConsole(vmName, fileName string) error {
-	stream, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).SerialConsole(
+func (f *Framework) captureSerialConsole(ctx context.Context, vmName, fileName string) error {
+	stream, _, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).SerialConsole(
+		ctx,
 		vmName,
 		&genv1alpha2.SerialConsoleOptions{ConnectionTimeout: serialConsoleConnectTimeout},
 	)

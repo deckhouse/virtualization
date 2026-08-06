@@ -23,12 +23,12 @@ import (
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
-func (c *fakeVirtualMachines) SerialConsole(name string, options *corev1alpha2.SerialConsoleOptions) (corev1alpha2.StreamInterface, error) {
-	return nil, nil
+func (c *fakeVirtualMachines) SerialConsole(ctx context.Context, name string, options *corev1alpha2.SerialConsoleOptions) (corev1alpha2.StreamInterface, *v1alpha2.VirtualMachineSession, error) {
+	return nil, nil, nil
 }
 
-func (c *fakeVirtualMachines) VNC(name string) (corev1alpha2.StreamInterface, error) {
-	return nil, nil
+func (c *fakeVirtualMachines) VNC(ctx context.Context, name string, options *corev1alpha2.VNCOptions) (corev1alpha2.StreamInterface, *v1alpha2.VirtualMachineSession, error) {
+	return nil, nil, nil
 }
 
 func (c *fakeVirtualMachines) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (corev1alpha2.StreamInterface, error) {

@@ -30,12 +30,25 @@ import (
 
 	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtfake "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
+// poolClient adapts the generated clientset to the narrow client the subresource takes, the way
+// kubeclient.Client does in the running apiserver.
+type poolClient struct{ virtclient.Interface }
+
+func (c poolClient) VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface {
+	return c.VirtualizationV1alpha2().VirtualMachines(namespace)
+}
+
+func (c poolClient) VirtualMachinePools(namespace string) virtualizationv1alpha2.VirtualMachinePoolInterface {
+	return c.VirtualizationV1alpha2().VirtualMachinePools(namespace)
+}
+
 // callCreate drives the scaleDownWith Create handler with the given targets.
-func callCreate(ctx context.Context, c virtclient.Interface, targets ...string) (runtime.Object, error) {
+func callCreate(ctx context.Context, c poolClient, targets ...string) (runtime.Object, error) {
 	ctx = genericapirequest.WithNamespace(ctx, ns)
 	body := &subresources.VirtualMachinePoolScaleDownWith{Targets: targets}
 	return NewScaleDownWithREST(c).Create(ctx, poolName, body, nil, &metav1.CreateOptions{})
@@ -47,8 +60,8 @@ const (
 	poolUID  = types.UID("pool-uid-1")
 )
 
-func newClient(objs ...runtime.Object) virtclient.Interface {
-	return virtfake.NewSimpleClientset(objs...)
+func newClient(objs ...runtime.Object) poolClient {
+	return poolClient{virtfake.NewSimpleClientset(objs...)}
 }
 
 func pool(replicas int32) *v1alpha2.VirtualMachinePool {
@@ -74,13 +87,13 @@ func foreignVM(name string) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, UID: types.UID(name + "-uid")}}
 }
 
-func getReplicas(ctx context.Context, c virtclient.Interface) int32 {
+func getReplicas(ctx context.Context, c poolClient) int32 {
 	p, err := c.VirtualizationV1alpha2().VirtualMachinePools(ns).Get(ctx, poolName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	return ptr.Deref(p.Spec.Replicas, -1)
 }
 
-func vmExists(ctx context.Context, c virtclient.Interface, name string) bool {
+func vmExists(ctx context.Context, c poolClient, name string) bool {
 	_, err := c.VirtualizationV1alpha2().VirtualMachines(ns).Get(ctx, name, metav1.GetOptions{})
 	return err == nil
 }

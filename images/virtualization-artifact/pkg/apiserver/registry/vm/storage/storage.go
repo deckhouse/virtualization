@@ -24,6 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	genericreq "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
+	coordinationclient "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	"k8s.io/client-go/tools/record"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
@@ -58,8 +60,10 @@ func NewStorage(
 	vmLister virtlisters.VirtualMachineLister,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
+	leases coordinationclient.LeasesGetter,
+	recorder record.EventRecorder,
 ) *VirtualMachineStorage {
-	baseRest := vmrest.NewBaseREST(vmLister, proxyCertManager, kubevirt)
+	baseRest := vmrest.NewBaseREST(vmLister, proxyCertManager, kubevirt, leases, recorder)
 	return &VirtualMachineStorage{
 		vmLister:            vmLister,
 		console:             vmrest.NewConsoleREST(baseRest),

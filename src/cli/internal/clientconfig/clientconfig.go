@@ -30,6 +30,15 @@ type key struct{}
 
 var clientConfigKey key
 
+// streamUserAgent is how this command introduces itself to the platform. The platform records the
+// client of a console or VNC session and shows it to whoever is about to disconnect it, so the name
+// is a contract with the other clients rather than a detail.
+//
+// Set explicitly, because the client-go default is the name of the binary, and the same command
+// ships both as `d8 v` and as a standalone `d8v` — one client would be reported under two names and
+// recognised as neither.
+const streamUserAgent = "d8"
+
 // NewContext returns a new Context that stores a clientConfig as value.
 func NewContext(ctx context.Context, clientConfig clientcmd.ClientConfig) context.Context {
 	return context.WithValue(ctx, clientConfigKey, clientConfig)
@@ -40,7 +49,13 @@ func ClientAndNamespaceFromContext(ctx context.Context) (client kubeclient.Clien
 	if !ok {
 		return nil, "", false, fmt.Errorf("unable to get client config from context")
 	}
-	client, err = kubeclient.GetClientFromClientConfig(clientConfig)
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, "", false, err
+	}
+	restConfig.UserAgent = streamUserAgent
+
+	client, err = kubeclient.GetClientFromRESTConfig(restConfig)
 	if err != nil {
 		return nil, "", false, err
 	}

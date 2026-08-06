@@ -23,11 +23,13 @@ import (
 	"net/url"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type VNCREST struct {
@@ -53,16 +55,24 @@ func (r VNCREST) Destroy() {
 }
 
 func (r VNCREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	_, ok := opts.(*subresources.VirtualMachineVNC)
+	vncOpts, ok := opts.(*subresources.VirtualMachineVNC)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
+	}
+	vm, err := r.vmLister.VirtualMachines(request.NamespaceValue(ctx)).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	if vncOpts.Probe {
+		return r.probeSession(vm, subv1alpha2.VNCSession), nil
 	}
 	location, transport, err := VNCLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
 	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
-	return handler, nil
+	// Tracked like the console, so the state is already there when VNC gets its own handle.
+	return r.trackSession(vm, subv1alpha2.VNCSession, handler), nil
 }
 
 // NewConnectOptions implements rest.Connecter interface

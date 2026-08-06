@@ -20,13 +20,18 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
-	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -81,10 +86,16 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
-	// Write-capable typed client used by enterprise subresources (e.g.
-	// scaleDownWith) to delete pool members and adjust spec.replicas from the
-	// apiserver's own identity.
-	virtCli, err := virtclient.NewForConfig(c.Rest)
+	// Write-capable client used by enterprise subresources (e.g. scaleDownWith) to delete pool
+	// members and adjust spec.replicas from the apiserver's own identity, and to hold the console
+	// and VNC session leases: it speaks both APIs, the virtualization one and Kubernetes itself.
+	virtCli, err := kubeclient.GetClientFromRESTConfig(c.Rest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reports a session takeover on the virtual machine.
+	recorder, err := newEventRecorder(virtCli)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +105,7 @@ func (c Config) Complete() (*Server, error) {
 		c.Kubevirt,
 		proxyCertManager,
 		virtCli,
+		recorder,
 	)
 	if err != nil {
 		return nil, err
@@ -104,4 +116,16 @@ func (c Config) Complete() (*Server, error) {
 		genericServer,
 		proxyCertManager,
 	), nil
+}
+
+// newEventRecorder builds a recorder that reports events on virtual machines. The broadcaster
+// lives as long as the process: the apiserver has no shutdown hook to attach it to.
+func newEventRecorder(kubeCli kubeclient.Client) (record.EventRecorder, error) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha2.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeCli.CoreV1().Events("")})
+	return broadcaster.NewRecorder(scheme, corev1.EventSource{Component: "virtualization-api"}), nil
 }

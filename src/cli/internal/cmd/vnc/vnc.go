@@ -39,7 +39,9 @@ import (
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
+	"github.com/deckhouse/virtualization/src/cli/internal/session"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 	"github.com/deckhouse/virtualization/src/cli/internal/util"
 )
@@ -92,16 +94,33 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the vnc proxy and show the port where VNC viewers can connect")
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
+	cmd.Flags().BoolVar(&vnc.force, "force", false, "Connect without asking, even when somebody else is using the VNC.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-type VNC struct{}
+type VNC struct {
+	force bool
+}
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	targetNamespace, vmName, err := templates.ParseTarget(args[0])
 	if err != nil {
 		return err
+	}
+
+	// Connecting takes the VNC over, so ask about it first — once, before the loop below.
+	client, defaultNamespace, _, err := clientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+	askNamespace := targetNamespace
+	if askNamespace == "" {
+		askNamespace = defaultNamespace
+	}
+	if session.AskBeforeConnecting(cmd.Context(), client.VirtualMachines(askNamespace), vmName,
+		subv1alpha2.VNCSession, o.force) == session.Abort {
+		return nil
 	}
 
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
@@ -169,7 +188,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command, namespace, vmName string) (err error) {
 	// setup connection with VM
-	vnc, err := virtCli.VirtualMachines(namespace).VNC(vmName)
+	vnc, _, err := virtCli.VirtualMachines(namespace).VNC(ctx, vmName, nil)
 	if err != nil {
 		return fmt.Errorf("can't access VM %s: %s", vmName, err.Error())
 	}
@@ -390,5 +409,7 @@ func usage() string {
 	return `  # Connect to 'testvm' via remote-viewer:
    {{ProgramName}} vnc myvm
    {{ProgramName}} vnc myvm.mynamespace
-   {{ProgramName}} vnc myvm -n mynamespace`
+   {{ProgramName}} vnc myvm -n mynamespace
+   # Connect without asking, even when somebody else is using the VNC:
+   {{ProgramName}} vnc --force myvm`
 }

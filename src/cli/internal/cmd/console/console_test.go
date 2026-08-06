@@ -109,7 +109,8 @@ var _ = Describe("Console", func() {
 			err = (&Console{timeout: time.Second}).Run(cmd, []string{"test-vm"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(connectCalls).To(Equal(2))
-			Expect(clientCalls).To(Equal(2))
+			// One client for asking who holds the console, then one per connection attempt.
+			Expect(clientCalls).To(Equal(3))
 		})
 	})
 
