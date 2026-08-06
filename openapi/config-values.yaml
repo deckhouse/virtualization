@@ -14,6 +14,7 @@ properties:
     minItems: 1
     description: |
       Optional list of CIDRs used to allocate static IP addresses for Virtual Machines.
+      Specify the subnet start address aligned to the mask, not an arbitrary IP from the range (for example, `192.168.1.192/27`, not `192.168.1.190/27`).
 
       If this parameter is omitted, the module can still be enabled, but IPAM-dependent scenarios are unavailable:
       - `VirtualMachineIPAddress` resources cannot be created or used;
