@@ -1090,8 +1090,15 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 		if !isActiveLauncherPod(kvvmi, pod) {
 			continue
 		}
-		if pod.Annotations[annotations.AnnNetworksSpec] != desiredStr ||
-			pod.Annotations[annotations.AnnTapProvisionByDVPSupported] != "true" {
+		if pod.Annotations[annotations.AnnNetworksSpec] != desiredStr {
+			return true, nil
+		}
+		tapExpected, tapKnown, err := h.tapProvisionByDVPExpected(ctx, pod)
+		if err != nil {
+			return false, err
+		}
+		_, tapPresent := pod.Annotations[annotations.AnnTapProvisionByDVPSupported]
+		if tapKnown && tapPresent != tapExpected {
 			return true, nil
 		}
 	}
@@ -1253,8 +1260,13 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		if !isActiveLauncherPod(kvvmi, pod) {
 			continue
 		}
-		if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr &&
-			pod.Annotations[annotations.AnnTapProvisionByDVPSupported] == "true" {
+		tapExpected, tapKnown, err := h.tapProvisionByDVPExpected(ctx, pod)
+		if err != nil {
+			return nil, err
+		}
+		_, tapPresent := pod.Annotations[annotations.AnnTapProvisionByDVPSupported]
+		tapInSync := !tapKnown || tapPresent == tapExpected
+		if pod.Annotations[annotations.AnnNetworksSpec] == networkConfigStr && tapInSync {
 			continue
 		}
 
@@ -1263,7 +1275,13 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 			pod.Annotations = make(map[string]string)
 		}
 		pod.Annotations[annotations.AnnNetworksSpec] = networkConfigStr
-		pod.Annotations[annotations.AnnTapProvisionByDVPSupported] = "true"
+		if tapKnown {
+			if tapExpected {
+				pod.Annotations[annotations.AnnTapProvisionByDVPSupported] = "true"
+			} else {
+				delete(pod.Annotations, annotations.AnnTapProvisionByDVPSupported)
+			}
+		}
 		if err := h.client.Patch(ctx, pod, patch); err != nil {
 			return nil, fmt.Errorf("failed to patch pod %s network annotation: %w", pod.Name, err)
 		}
@@ -1271,6 +1289,33 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 	}
 
 	return desired, nil
+}
+
+// tapProvisionByDVPExpected reports whether the launcher pod must carry the
+// tap-provision-by-dvp-supported annotation. SDN keys on the mere presence of the key
+// (the value is ignored) and, when it is present, provides only a veth, expecting
+// virt-handler to create the TAP — which it does only on nodes whose SDN agent declares
+// support via the same annotation on the Node. An unmatched pair leaves the TAP with no
+// owner and the VM in a start crash-loop, so the pod annotation is gated by the node one.
+// known=false means the annotation must be left untouched: the pod is unscheduled, its
+// node is not visible, or SDN has already configured the pod (networks-status present) —
+// flipping the mode on a configured pod would make SDN rebuild the links of a live VM.
+func (h *SyncKvvmHandler) tapProvisionByDVPExpected(ctx context.Context, pod *corev1.Pod) (expected, known bool, err error) {
+	if _, configured := pod.Annotations[annotations.AnnNetworksStatus]; configured {
+		return false, false, nil
+	}
+	if pod.Spec.NodeName == "" {
+		return false, false, nil
+	}
+	node := &corev1.Node{}
+	if err := h.client.Get(ctx, types.NamespacedName{Name: pod.Spec.NodeName}, node); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, false, nil
+		}
+		return false, false, err
+	}
+	_, ok := node.Annotations[annotations.AnnTapProvisionByDVPSupported]
+	return ok, true, nil
 }
 
 func isActiveLauncherPod(kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod) bool {
