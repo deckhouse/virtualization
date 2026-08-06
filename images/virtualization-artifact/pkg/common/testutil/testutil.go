@@ -34,6 +34,7 @@ import (
 	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
@@ -41,6 +42,11 @@ import (
 func registerNetworkGVKs(scheme *apiruntime.Scheme) {
 	scheme.AddKnownTypeWithName(commonnetwork.NetworkGVK, &unstructured.Unstructured{})
 	scheme.AddKnownTypeWithName(commonnetwork.ClusterNetworkGVK, &unstructured.Unstructured{})
+}
+
+func registerGPUGVKs(scheme *apiruntime.Scheme) {
+	scheme.AddKnownTypeWithName(kvbuilder.GPUClassGVK, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(kvbuilder.GPUClassGVK.GroupVersion().WithKind("GPUClassList"), &unstructured.UnstructuredList{})
 }
 
 func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
@@ -58,6 +64,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		}
 	}
 	registerNetworkGVKs(scheme)
+	registerGPUGVKs(scheme)
 	var newObjs []client.Object
 	for _, obj := range objs {
 		if reflect.ValueOf(obj).IsNil() {
@@ -88,6 +95,7 @@ func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs
 		}
 	}
 	registerNetworkGVKs(scheme)
+	registerGPUGVKs(scheme)
 	var newObjs []client.Object
 	for _, obj := range objs {
 		if reflect.ValueOf(obj).IsNil() {

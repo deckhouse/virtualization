@@ -50,6 +50,9 @@ const (
 	// TypeMaintenance indicates that the VirtualMachine is in maintenance mode.
 	// During this condition, the VM remains stopped and no changes are allowed.
 	TypeMaintenance Type = "Maintenance"
+
+	// TypeGPUClassReady indicates whether every GPUClass referenced by spec.gpus exists.
+	TypeGPUClassReady Type = "GPUClassReady"
 )
 
 type AgentReadyReason string
@@ -282,4 +285,16 @@ func (r MaintenanceReason) String() string {
 
 const (
 	ReasonMaintenanceRestore MaintenanceReason = "RestoreInProgress"
+)
+
+type GPUClassReadyReason string
+
+func (r GPUClassReadyReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonGPUClassReady    GPUClassReadyReason = "GPUClassReady"
+	ReasonGPUClassNotFound GPUClassReadyReason = "GPUClassNotFound"
+	ReasonGPUClassNotReady GPUClassReadyReason = "GPUClassNotReady"
 )

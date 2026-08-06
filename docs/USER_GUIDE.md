@@ -4186,6 +4186,51 @@ spec:
 
 As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` will be created.
 
+## GPU Devices
+
+{{< alert level="warning" >}}
+GPU device passthrough is an experimental feature. It requires the Enterprise Edition (EE), Kubernetes DRA support, and an external GPU DRA provider that publishes GPUs as DRA resources with `gpu.deckhouse.io` device attributes.
+{{< /alert >}}
+
+The virtualization module can attach physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A GPU is requested by referencing a `GPUClass` through the `.spec.gpus` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+
+GPU device passthrough requires:
+
+- Kubernetes version 1.34 or higher with DRA feature gates required by the cluster configuration.
+- The `GPU` feature gate enabled in the `virtualization` module settings.
+- A GPU DRA provider installed in the cluster that publishes GPUs with `gpu.deckhouse.io` device attributes.
+- A `GPUClass` that selects the GPU, referenced from `.spec.gpus[].gpuClassName`. The GPU module creates a DRA DeviceClass with the same name, which is used to allocate the device.
+
+To enable the module feature gate:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+      - GPU
+```
+
+To request a GPU device, add `.spec.gpus` to the VM specification:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+spec:
+  # ... other VM settings ...
+  gpus:
+    - gpuClassName: nvidia-h100
+```
+
+The `gpuClassName` field must be the name of an existing `GPUClass` that selects the GPU to attach. To attach several GPUs, add more entries (list order is not significant).
+
+Changing `.spec.gpus` requires restarting the virtual machine to apply the new configuration.
+
 ## USB Devices
 
 {{< alert level="warning" >}}

@@ -1077,6 +1077,27 @@ spec:
                         type: string
                         description: |
                           The name of USBDevice resource in the same namespace.
+                gpus:
+                  type: array
+                  maxItems: 16
+                  x-kubernetes-list-type: atomic
+                  description: |
+                    List of GPU devices to attach to the virtual machine.
+                    Each entry references a GPUClass by name; list order is not significant.
+                    This feature requires the GPU feature gate.
+                  items:
+                    type: object
+                    required:
+                      - gpuClassName
+                    properties:
+                      gpuClassName:
+                        minLength: 1
+                        maxLength: 253
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                        description: |
+                          Name of the GPUClass that selects the GPU to attach, for example nvidia-h100.
+                          The GPUClass must already exist: a DRA DeviceClass with the same name is created by the GPU module and is used to allocate the device.
             status:
               type: object
               properties:

@@ -127,6 +127,12 @@ type VirtualMachineSpec struct {
 	// Devices are referenced by name of USBDevice resource in the same namespace.
 	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
+	// List of GPU devices to attach to the virtual machine.
+	// Each entry references a GPUClass by name; list order is not significant.
+	// This feature requires the GPU feature gate.
+	// +kubebuilder:validation:MaxItems:=16
+	// +listType=atomic
+	GPUs []GPUDeviceSpec `json:"gpus,omitempty"`
 }
 
 func (s *VirtualMachineSpec) IsParavirtualizationEnabled() bool {
@@ -522,6 +528,17 @@ const (
 type USBDeviceSpecRef struct {
 	// The name of USBDevice resource in the same namespace.
 	Name string `json:"name"`
+}
+
+// GPUDeviceSpec requests a GPU device by GPUClass.
+type GPUDeviceSpec struct {
+	// Name of the GPUClass that selects the GPU to attach, for example nvidia-h100.
+	// The GPUClass must already exist: a DRA DeviceClass with the same name is
+	// created by the GPU module and is used to allocate the device.
+	// +kubebuilder:validation:MinLength:=1
+	// +kubebuilder:validation:MaxLength:=253
+	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	GPUClassName string `json:"gpuClassName"`
 }
 
 // USBDeviceStatusRef represents the status of a USB device attached to the virtual machine.

@@ -599,6 +599,17 @@ spec:
                       name:
                         description: |
                           Имя ресурса `USBDevice` в том же пространстве имен.
+                gpus:
+                  description: |
+                    Список GPU-устройств для подключения к виртуальной машине.
+                    Каждое устройство ссылается на GPUClass по имени.
+                    Для использования требуется feature gate `GPU`.
+                  items:
+                    properties:
+                      gpuClassName:
+                        description: |
+                          Имя GPUClass, который выбирает подключаемый GPU, например `nvidia-h100`.
+                          GPUClass должен уже существовать: DRA DeviceClass с тем же именем создаётся модулем GPU и используется для выделения устройства.
             status:
               properties:
                 blockDeviceRefs:

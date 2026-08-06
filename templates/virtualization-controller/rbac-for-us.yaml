@@ -360,6 +360,14 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - gpu.deckhouse.io
+  resources:
+  - gpuclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions

@@ -4217,6 +4217,51 @@ spec:
 
 В результате будет создана ВМ с именем `clone-database-prod` и диск с именем `clone-database-root-prod`.
 
+## GPU-устройства
+
+{{< alert level="warning" >}}
+Проброс GPU-устройств — экспериментальная возможность. Для работы требуются Enterprise Edition (EE), поддержка Kubernetes DRA и внешний GPU DRA-провайдер, публикующий GPU как DRA-ресурсы с атрибутами устройства `gpu.deckhouse.io`.
+{{< /alert >}}
+
+Модуль виртуализации может подключать физические GPU-устройства к виртуальным машинам с помощью DRA (Dynamic Resource Allocation). GPU запрашивается по ссылке на `GPUClass` через поле `.spec.gpus` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+
+Для проброса GPU требуются:
+
+- Kubernetes версии 1.34 или выше с DRA feature gates, необходимыми для конфигурации кластера.
+- Feature gate `GPU`, включённый в настройках модуля `virtualization`.
+- Установленный в кластере GPU DRA-провайдер, публикующий GPU с атрибутами устройства `gpu.deckhouse.io`.
+- `GPUClass`, выбирающий GPU, на который ссылается `.spec.gpus[].gpuClassName`. Модуль GPU создаёт DRA DeviceClass с тем же именем, который используется для выделения устройства.
+
+Чтобы включить feature gate модуля:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+      - GPU
+```
+
+Чтобы запросить GPU-устройство, добавьте `.spec.gpus` в спецификацию ВМ:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+spec:
+  # ... другие настройки ВМ ...
+  gpus:
+    - gpuClassName: nvidia-h100
+```
+
+Поле `gpuClassName` должно быть именем существующего `GPUClass`, который выбирает подключаемый GPU. Чтобы подключить несколько GPU, добавьте больше элементов (порядок в списке не важен).
+
+Изменение `.spec.gpus` требует перезапуска виртуальной машины для применения новой конфигурации.
+
 ## USB-устройства
 
 {{< alert level="warning">}}

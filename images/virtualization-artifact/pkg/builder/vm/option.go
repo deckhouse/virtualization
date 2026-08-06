@@ -174,6 +174,12 @@ func WithUSBDevices(usbDevices []v1alpha2.USBDeviceSpecRef) Option {
 	}
 }
 
+func WithGPUDevices(gpus []v1alpha2.GPUDeviceSpec) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.GPUs = gpus
+	}
+}
+
 func WithIpAddress(ipAddress string) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.VirtualMachineIPAddress = ipAddress

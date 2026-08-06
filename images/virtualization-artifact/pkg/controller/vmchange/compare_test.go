@@ -799,6 +799,46 @@ networks:
 				requirePathOperation("networks", ChangeReplace),
 			),
 		},
+		{
+			"no restart when gpu devices only change order",
+			`
+gpus:
+- gpuClassName: nvidia-h100
+- gpuClassName: nvidia-a100
+`,
+			`
+gpus:
+- gpuClassName: nvidia-a100
+- gpuClassName: nvidia-h100
+`,
+			nil,
+			assertNoChanges(),
+		},
+		{
+			"restart when gpu device gpuClassName changes",
+			`
+gpus:
+- gpuClassName: nvidia-a100
+`,
+			`
+gpus:
+- gpuClassName: nvidia-h100
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("gpus", ChangeReplace),
+			),
+		},
+		{
+			"no restart when gpu devices change between empty list and unset",
+			`
+gpus: []
+`,
+			``,
+			nil,
+			assertNoChanges(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -881,6 +921,13 @@ func assertChanges(asserts ...func(t *testing.T, changes SpecChanges)) func(t *t
 		for _, fn := range asserts {
 			fn(t, changes)
 		}
+	}
+}
+
+func assertNoChanges() func(t *testing.T, changes SpecChanges) {
+	return func(t *testing.T, changes SpecChanges) {
+		t.Helper()
+		require.True(t, changes.IsEmpty(), "expected no changes, got %+v", changes.GetAll())
 	}
 }
 

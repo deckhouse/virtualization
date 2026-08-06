@@ -56,6 +56,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 			validators.NewNetworksValidator(client, featureGate, virtualMachineCIDRs),
 			validators.NewFirstDiskValidator(client),
 			validators.NewUSBDevicesValidator(client, featureGate),
+			validators.NewGPUDevicesValidator(client, featureGate),
 			validators.NewVMBDAConflictValidator(client),
 			validators.NewPVNodeAffinityValidator(client, attachmentService),
 			validators.NewLegacyOSValidator(),
@@ -79,6 +80,7 @@ func NewTemplateSpecValidator(client client.Client, featureGate featuregate.Feat
 			validators.NewSizingPolicyValidator(client),
 			validators.NewNetworksValidator(client, featureGate, virtualMachineCIDRs),
 			validators.NewFirstDiskValidator(client),
+			validators.NewGPUDevicesValidator(nil, featureGate),
 			// No LegacyOSValidator here: the Legacy osType is rejected outright in a
 			// pool template by the schema, so there is nothing left to warn about.
 		},
