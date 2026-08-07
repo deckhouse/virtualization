@@ -1,0 +1,46 @@
+# The `propagated-` prefix in the file name is what makes this work: helm_lib renders such
+# files as ClusterObservabilityPropagatedMetricsRulesGroup, and only that kind is exempt from
+# namespace enforcement. Every other rules group has its expressions rewritten to match system
+# namespaces only, while the metrics of virtual machines carry the namespace of their owner,
+# so the alert below would never fire in a cluster running the observability module.
+- name: virtualization.vm.state
+  rules:
+    - alert: D8VirtualizationMachinesWithOutdatedFirmware
+      # Aggregated on purpose: outdated firmware is a routine consequence of a module update,
+      # and a cluster with a thousand virtual machines would otherwise raise a thousand
+      # notifications about the same maintenance task.
+      expr: |
+        count(
+          d8_virtualization_virtualmachine_firmware_up_to_date == 0
+        )
+      labels:
+        severity_level: "9"
+        tier: application
+      for: 60m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Some virtual machines run outdated firmware.
+        description: |
+          {{ $value }} virtual machines run on firmware older than the one provided by the current version of the virtualization module.
+
+          Impact:
+          - Nothing is broken: those virtual machines keep working as before.
+          - Until the firmware is updated, they miss the fixes shipped with the module, including security ones.
+
+          A virtual machine keeps the firmware it was started with. After the module is updated, newer firmware becomes available, but running virtual machines pick it up only after a migration or a restart.
+
+          The recommended course of action:
+
+          1. Find the affected virtual machines — those with `False` in the last column:
+             ```bash
+             d8 k get vm -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,FIRMWARE_UP_TO_DATE:.status.conditions[?(@.type=="FirmwareUpToDate")].status'
+             ```
+          2. Update the firmware of each of them in one of two ways, during a maintenance window:
+             - migrate the virtual machine to another node — no downtime, but the virtual machine must be migratable:
+               `d8 v -n <namespace> evict <name>`
+             - restart the virtual machine — simpler, but the guest operating system will be down for the duration of the restart:
+               `d8 v -n <namespace> restart <name>`
+          3. The new firmware is applied automatically once the virtual machine has migrated or restarted.

@@ -1,0 +1,42 @@
+- name: kubernetes.virtualization.deployments_state
+  rules:
+    - alert: D8VirtualizationComponentDegraded
+      expr: |
+        (
+          max by (namespace, deployment) (
+            kube_deployment_spec_replicas{namespace="d8-virtualization"}
+            - kube_deployment_status_replicas_available{namespace="d8-virtualization"}
+          ) > 0
+        )
+        and
+        (
+          max by (namespace, deployment) (
+            kube_deployment_status_replicas_available{namespace="d8-virtualization"}
+          ) > 0
+        )
+      labels:
+        severity_level: "6"
+        tier: cluster
+      for: 10m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Some replicas of {{ $labels.deployment }} are unavailable.
+        description: |
+          The Deployment {{ $labels.deployment }} has fewer available replicas than desired, but at least one replica is still serving.
+
+          Impact:
+          - Nothing is broken right now: the component works with reduced redundancy.
+          - The next replica failure will take the component down completely, and that will raise a separate alert.
+
+          This alert only fires in a highly available installation, where a component runs more than one replica.
+
+          The recommended course of action:
+
+          1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy {{ $labels.deployment }}`
+          2. View the status of the Pods and find out why they are not available. The selector is taken from the Deployment itself, because the components of the module do not share a common Pod label: the ones created by virt-operator follow the upstream KubeVirt convention instead.
+             ```bash
+             d8 k -n d8-virtualization get pod -o wide -l "$(d8 k -n d8-virtualization get deploy {{ $labels.deployment }} -o jsonpath='{.spec.selector.matchLabels}' | tr -d '{}"' | tr ':' '=')"
+             ```

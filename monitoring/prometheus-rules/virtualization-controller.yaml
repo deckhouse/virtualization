@@ -1,27 +1,91 @@
 - name: kubernetes.virtualization.controller_state
   rules:
-    - alert: D8VirtualizationControllerTargetDown
-      expr: max by (job) (up{job="virtualization-controller-metrics"}) == 0
-      for: 1m
+    - alert: D8VirtualizationResourcesNotProcessed
+      # The absent() branch covers a deleted Deployment: without it the series is gone
+      # and `== 0` has nothing to compare. The guard keeps the alert silent when the
+      # metrics of every Deployment in the namespace are missing — that is a failure of
+      # kube-state-metrics, not of this component.
+      # The absent() branch only counts when the object existed at some point during the
+      # last week: during the very first installation the components created by
+      # virt-operator do not exist yet, and a slow rollout must not page anybody.
+      expr: |
+        (
+          max by (namespace, deployment) (
+            kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-controller"}
+          ) == 0
+          or
+          (
+            absent(kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-controller"})
+            and on()
+            count(max_over_time(kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-controller"}[7d])) > 0
+          )
+        )
+        unless on()
+        absent(kube_deployment_status_replicas_available{namespace="d8-virtualization"})
       labels:
-        severity_level: "6"
+        severity_level: "3"
         tier: cluster
+      for: 10m
       annotations:
-        plk_markup_format: "markdown"
         plk_protocol_version: "1"
+        plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_ignore_labels: "job"
-        summary: Prometheus cannot scrape the virtualization-controller metrics.
+        summary: Virtualization resources are no longer processed.
         description: |
-          The recommended course of action:
-          1. Check the Pod status: `kubectl -n d8-virtualization get pod -l app=virtualization-controller`
-          2. Or check the Pod logs: `kubectl -n d8-virtualization logs deploy/virtualization-controller`
+          The virtualization-controller component has no available replicas, so nothing is being reconciled.
 
-    - alert: D8VirtualizationControllerTargetAbsent
+          Impact:
+          - New VirtualMachine, VirtualDisk and VirtualImage resources are accepted but never provisioned, and changes to existing ones are not applied.
+          - Statuses stop being updated, so `d8 k get vm` shows stale data.
+          - VirtualMachineOperation resources do not progress: start, stop, restart and evict hang.
+          - Running virtual machines keep working, and so do console access and migrations.
+
+          The recommended course of action:
+          1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virtualization-controller`
+          2. View the logs: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=100`
+          3. Check that the Pods can be scheduled: `d8 k -n d8-virtualization describe pod -l app=virtualization-controller`
+
+    - alert: D8VirtualizationResourcesStuck
+      expr: |
+        (
+          max by (namespace) (
+            leader_election_master_status{job="virtualization-controller-metrics", name="d8-virt-operator-leader-election-helper"}
+          ) == 0
+        )
+        or
+        (
+          max by (namespace) (
+            workqueue_longest_running_processor_seconds{job="virtualization-controller-metrics"}
+          ) > 600
+        )
+      labels:
+        severity_level: "3"
+        tier: cluster
+      for: 5m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Virtualization resources are stuck while the component looks healthy.
+        description: |
+          The virtualization-controller Pods are up and Ready, but either no leader has been elected, or a single item has been processing for more than 10 minutes.
+
+          Impact:
+          - The same as a complete outage of the component, except that every Pod looks healthy, so nothing else reports a problem.
+          - New VirtualMachine, VirtualDisk and VirtualImage resources are not provisioned, statuses are not updated, VirtualMachineOperation resources hang.
+          - Running virtual machines keep working.
+
+          The recommended course of action:
+          1. Check the leader election lease: `d8 k -n d8-virtualization get lease d8-virt-operator-leader-election-helper -o yaml`
+          2. Look for reconcile errors and stuck workers in the logs: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=200`
+          3. If there is no leader and the lease holder no longer exists, restart the component: `d8 k -n d8-virtualization rollout restart deploy virtualization-controller`
+
+    - alert: D8VirtualizationMetricsMissing
       expr: absent(up{job="virtualization-controller-metrics"}) == 1
       labels:
-        severity_level: "6"
+        severity_level: "5"
         tier: cluster
       for: 15m
       annotations:
@@ -30,43 +94,17 @@
         plk_ignore_labels: "job"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: There is no `virtualization-controller` target in Prometheus.
+        summary: Virtualization resource metrics are not collected.
         description: |
-          The recommended course of action:
-          1. Check the Pod status: `kubectl -n d8-virtualization get pod -l app=virtualization-controller`
-          2. Or check the Pod logs: `kubectl -n d8-virtualization logs deploy/virtualization-controller`
+          Prometheus has no scrape target for virtualization-controller, so the module exports no resource metrics.
 
-    - alert: D8VirtualizationControllerPodIsNotReady
-      expr: min by (pod) (kube_pod_status_ready{condition="true", namespace="d8-virtualization", pod=~"virtualization-controller-.*"}) != 1
-      labels:
-        severity_level: "6"
-        tier: cluster
-      for: 10m
-      annotations:
-        plk_protocol_version: "1"
-        plk_markup_format: "markdown"
-        plk_labels_as_annotations: "pod"
-        plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: The virtualization-controller Pod is NOT Ready.
-        description: |
-          The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy virtualization-controller`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l app=virtualization-controller`
+          Impact:
+          - Resource phases, virtual machine configuration, agent readiness, firmware state and all VirtualDisk, VirtualImage and VirtualMachineOperation metrics are gone.
+          - Dashboards built on them are empty, and alerts based on them cannot fire.
+          - Virtual machine performance metrics (CPU, memory, disks, network) keep being collected — they come from a different source.
+          - This alert alone does not mean the component is down: check `D8VirtualizationResourcesNotProcessed` as well.
 
-    - alert: D8VirtualizationControllerPodIsNotRunning
-      expr: absent(kube_pod_status_phase{namespace="d8-virtualization",phase="Running",pod=~"virtualization-controller-.*"})
-      labels:
-        severity_level: "6"
-        tier: cluster
-      for: 10m
-      annotations:
-        plk_protocol_version: "1"
-        plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: The virtualization-controller Pod is NOT Running.
-        description: |
           The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy virtualization-controller`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l app=virtualization-controller`
+          1. Check the Pod status: `d8 k -n d8-virtualization get pod -l app=virtualization-controller`
+          2. Check the Service and its endpoints: `d8 k -n d8-virtualization get svc,endpoints virtualization-controller-metrics`
+          3. Check the ServiceMonitor: `d8 k -n d8-monitoring get servicemonitor virtualization-controller -o yaml`

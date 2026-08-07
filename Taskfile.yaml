@@ -241,6 +241,13 @@ tasks:
         cd tools/kubeconform
         ./kubeconform.sh
 
+  validation:alert-rules:
+    desc: "Check alerting rules: PromQL syntax and unit tests"
+    cmds:
+      - |
+        cd tools/prometheus-rules
+        ./test-rules.sh
+
   dlv:virt-controller:build:
     desc: "Build image virt-controller with dlv"
     cmds:
