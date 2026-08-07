@@ -136,6 +136,10 @@ func (r ProvisioningReadyReason) String() string {
 const (
 	ReasonProvisioningReady    ProvisioningReadyReason = "ProvisioningReady"
 	ReasonProvisioningNotReady ProvisioningReadyReason = "ProvisioningNotReady"
+	// ReasonProvisioningReadyWithWarnings means the provisioning settings are
+	// usable and the virtual machine starts, but something in them looks wrong:
+	// the message of the condition says what.
+	ReasonProvisioningReadyWithWarnings ProvisioningReadyReason = "ProvisioningReadyWithWarnings"
 )
 
 type ConfigurationAppliedReason string
