@@ -1,0 +1,62 @@
+# The `propagated-` prefix in the file name is what makes this work: helm_lib renders such
+# files as ClusterObservabilityPropagatedMetricsRulesGroup, and only that kind is exempt from
+# namespace enforcement. Every other rules group has its expressions rewritten to match system
+# namespaces only, while the metrics of virtual machines carry the namespace of their owner,
+# so the alert below would never fire in a cluster running the observability module.
+- name: virtualization.vm.node
+  rules:
+    - alert: D8VirtualizationNodeEvacuationStuck
+      # The node condition the shutdown inhibitor maintains cannot be used here: its status is
+      # `True` on every node at all times, and only its reason tells "waiting for a shutdown
+      # signal" apart from "shutdown is being held back", while kube_node_status_condition does
+      # not export the reason. What is observable is the node being closed for new workloads,
+      # which is what both `d8 k drain` and an automatic node update do.
+      # The virtual machine count is on the left so that it becomes the value of the alert.
+      expr: |
+        (
+          sum by (node) (d8_virtualization_virtualmachine_status_phase{phase="Running"}) > 0
+        )
+        and on(node)
+        (
+          max by (node) (kube_node_spec_unschedulable) == 1
+        )
+      labels:
+        severity_level: "6"
+        tier: cluster
+      # Evacuating a node full of large virtual machines legitimately takes a long time, and
+      # nothing here has to be handled at night.
+      for: 1h
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__node_maintenance: "NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__node_maintenance: "NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Virtual machines are not leaving a node that is being taken out of service.
+        description: |
+          The node `{{ $labels.node }}` accepts no new workloads, but {{ $value }} virtual machines are still running on it an hour later.
+
+          Impact:
+          - Maintenance of the node cannot be completed: a node that still runs virtual machines is not shut down or rebooted, and an automatic node update stalls on it.
+          - The virtual machines themselves keep working, and nothing is lost. Holding the node back is the expected protection, not a failure.
+
+          The recommended course of action:
+
+          1. List the virtual machines on the node and check whether they can be migrated:
+             ```bash
+             d8 k get vm -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,NODE:.status.nodeName,MIGRATABLE:.status.conditions[?(@.type=="Migratable")].status' | grep {{ $labels.node }}
+             ```
+          2. For each virtual machine:
+             - `Migratable=True` — move it to another node without stopping the guest operating system:
+               `d8 v evict <name> -n <namespace>`
+             - `Migratable=False` — it has to be stopped for the duration of the maintenance. Stopping is only accepted for the `Manual` and `AlwaysOnUnlessStoppedManually` run policies, so check the policy first:
+               ```bash
+               d8 k -n <namespace> get vm <name> -o jsonpath='{.spec.runPolicy}'
+               ```
+               With `AlwaysOn` the request is refused with `NotApplicableForVirtualMachineRunPolicy`, so switch the policy, stop the machine, and restore both once the maintenance is over:
+               ```bash
+               d8 k -n <namespace> patch vm <name> --type merge -p '{"spec":{"runPolicy":"AlwaysOnUnlessStoppedManually"}}'
+               d8 v stop <name> -n <namespace>
+               ```
+
+             A virtual machine can be non-migratable because of local disks or devices passed through from the node.
+          3. Once every virtual machine has left the node, the maintenance continues on its own.

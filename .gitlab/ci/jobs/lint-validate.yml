@@ -229,6 +229,26 @@ lint:go:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
+# Helm is not guaranteed on the runner host, and two jobs below render the chart
+# with it. The binary goes into a user-writable dir on PATH, so no sudo is needed.
+# ---------------------------------------------------------------------------
+
+.setup-helm:
+  before_script:
+    - |
+      set -e
+      bin_dir="$HOME/.local/bin"
+      mkdir -p "$bin_dir"
+      export PATH="$bin_dir:$PATH"
+      if ! command -v helm >/dev/null 2>&1; then
+        echo "Installing Helm v${HELM_VERSION}..."
+        curl -sSfL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" -o /tmp/helm.tar.gz
+        tar -xzf /tmp/helm.tar.gz -C /tmp linux-amd64/helm
+        install -m 0755 /tmp/linux-amd64/helm "$bin_dir/helm"
+        helm version
+      fi
+
+# ---------------------------------------------------------------------------
 # helm_templates
 #
 # GH used dorny/paths-filter to gate this on changes to helm-related
@@ -242,28 +262,15 @@ lint:helm-templates:
     # needed by tools/kubeconform/kubeconform.sh (clone kubeconform.git, fetch
     # CRD schemas, run openapi2jsonschema.py).
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task docker git curl python3
+    - !reference [.setup-helm, before_script]
     - |
-      # Helm and jq are not guaranteed on the runner host. Install portable
-      # prebuilt binaries into a user-writable dir on PATH (no sudo needed).
+      # jq is not guaranteed either; helm has just put $bin_dir on PATH for us.
       set -e
-      case "$(uname -m)" in
-        x86_64)         arch="amd64" ;;
-        aarch64|arm64)  arch="arm64" ;;
-        *)              arch="amd64" ;;
-      esac
       bin_dir="$HOME/.local/bin"
-      mkdir -p "$bin_dir"
       export PATH="$bin_dir:$PATH"
-      if ! command -v helm >/dev/null 2>&1; then
-        echo "Installing Helm v${HELM_VERSION} (${arch})..."
-        curl -sSfL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${arch}.tar.gz" -o /tmp/helm.tar.gz
-        tar -xzf /tmp/helm.tar.gz -C /tmp "linux-${arch}/helm"
-        install -m 0755 "/tmp/linux-${arch}/helm" "$bin_dir/helm"
-        helm version
-      fi
       if ! command -v jq >/dev/null 2>&1; then
-        echo "Installing jq v${JQ_VERSION} (${arch})..."
-        curl -sSfL -o "$bin_dir/jq" "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-${arch}"
+        echo "Installing jq v${JQ_VERSION}..."
+        curl -sSfL -o "$bin_dir/jq" "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-amd64"
         chmod +x "$bin_dir/jq"
         jq --version
       fi
@@ -302,6 +309,45 @@ lint:helm-templates:
           - ".helmignore"
           - "Chart.yaml"
           - "Taskfile.yaml"
+
+# ---------------------------------------------------------------------------
+# alert_rules
+#
+# Renders the chart, extracts the alerting rules from the rendered
+# PrometheusRule resources and runs promtool against them: `check rules`
+# for PromQL and annotation-template syntax, `test rules` for the unit tests
+# in tools/prometheus-rules/tests (an alert must fire when it should and stay
+# silent when it should not — a rollout or a short restart must not page).
+#
+# promtool comes from the official Prometheus image via docker, so nothing
+# extra is installed on the runner — the same approach kubeconform uses.
+# ---------------------------------------------------------------------------
+
+lint:alert-rules:
+  stage: lint
+  before_script:
+    # task is a host tool; docker runs promtool; python3 extracts the rules
+    # out of the rendered manifests.
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh task docker curl python3
+    - !reference [.setup-helm, before_script]
+  script:
+    - task validation:alert-rules
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/alert_rules/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths: &alert_rules_paths
+          - "monitoring/prometheus-rules/**/*"
+          - "tools/prometheus-rules/**/*"
+          - "templates/monitoring.yaml"
+          - "Taskfile.yaml"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths: *alert_rules_paths
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths: *alert_rules_paths
 
 # ---------------------------------------------------------------------------
 # check_gens_files

@@ -1,0 +1,85 @@
+- name: kubernetes.internal.virtualization.virt_handler_state
+  rules:
+    - alert: D8VirtualizationMachinesUnmanageable
+      # virt-handler only runs on nodes labeled for virtualization, so an installation
+      # without such nodes has zero Pods scheduled and zero available: that is a matter of
+      # configuration, not an outage, hence the `desired > 0` requirement. The absent()
+      # branch covers a DaemonSet that virt-operator has not created or that was deleted,
+      # and the guard keeps the alert silent when kube-state-metrics itself stops
+      # exporting DaemonSet metrics for the whole namespace.
+      # The absent() branch only counts when the object existed at some point during the
+      # last week: during the very first installation the components created by
+      # virt-operator do not exist yet, and a slow rollout must not page anybody.
+      expr: |
+        (
+          (
+            max by (namespace, daemonset) (
+              kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+            ) == 0
+            and
+            max by (namespace, daemonset) (
+              kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virt-handler"}
+            ) > 0
+          )
+          or
+          (
+            absent(kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"})
+            and on()
+            count(max_over_time(kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}[7d])) > 0
+          )
+        )
+        unless on()
+        absent(kube_daemonset_status_number_available{namespace="d8-virtualization"})
+      for: 10m
+      labels:
+        severity_level: "3"
+        tier: cluster
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: There is no virt-handler on any node.
+        description: |
+          Not a single virt-handler Pod is available in the cluster.
+
+          Impact:
+          - Virtual machines are unmanageable everywhere: they cannot be started, stopped or migrated.
+          - Node drain and cluster updates will stall, because virtual machines cannot be evacuated.
+          - Virtual machine domain metrics (CPU, memory, disks, network) are no longer collected.
+          - Already running virtual machines keep running: once started, they do not depend on virt-handler.
+
+          The recommended course of action:
+          1. Check the DaemonSet: `d8 k -n d8-virtualization describe daemonset virt-handler`
+          2. virt-handler only runs on nodes labeled `virtualization.deckhouse.io/kvm-enabled=true`. Check that such nodes exist: `d8 k get nodes -l virtualization.deckhouse.io/kvm-enabled=true`
+          3. If there are none, make sure `/dev/kvm` is present on the nodes intended for virtualization — hardware virtualization may be disabled in the BIOS, or nested virtualization may be off at the provider.
+
+    - alert: D8VirtualizationNodesWithoutVirtualizationAgent
+      expr: |
+        max by (namespace, daemonset) (
+          kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virt-handler"}
+          - kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        ) > 0
+      # A DaemonSet rolls out one Pod at a time, so on a large cluster a routine update of
+      # the module keeps some nodes without virt-handler for far longer than 15 minutes.
+      # Nothing here has to be handled at night either.
+      for: 1h
+      labels:
+        severity_level: "6"
+        tier: cluster
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: virt-handler is missing on some nodes.
+        description: |
+          virt-handler is not available on every node it is scheduled to.
+
+          Impact:
+          - Virtual machines on the affected nodes are unmanageable and cannot be migrated away, which will block draining those nodes.
+          - The rest of the cluster works normally, and virtual machines on healthy nodes are unaffected.
+
+          The recommended course of action:
+          1. Find the nodes without a running virt-handler: `d8 k -n d8-virtualization get pod -l kubevirt.internal.virtualization.deckhouse.io=virt-handler -o wide`
+          2. Find the failing Pods and then look into one of them: `d8 k -n d8-virtualization get pod -l kubevirt.internal.virtualization.deckhouse.io=virt-handler --field-selector=status.phase!=Running -o wide`, then `d8 k -n d8-virtualization describe pod <name>`

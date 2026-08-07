@@ -1,36 +1,48 @@
 - name: kubernetes.virtualization.api_state
   rules:
-    - alert: D8VirtualizationAPIPodIsNotReady
-      expr: min by (pod) (kube_pod_status_ready{condition="true", namespace="d8-virtualization", pod=~"virtualization-api-.*"}) != 1
+    - alert: D8VirtualizationApiUnavailable
+      # The absent() branch covers a deleted Deployment: without it the series is gone
+      # and `== 0` has nothing to compare. The guard keeps the alert silent when the
+      # metrics of every Deployment in the namespace are missing — that is a failure of
+      # kube-state-metrics, not of this component.
+      # The absent() branch only counts when the object existed at some point during the
+      # last week: during the very first installation the components created by
+      # virt-operator do not exist yet, and a slow rollout must not page anybody.
+      expr: |
+        (
+          max by (namespace, deployment) (
+            kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-api"}
+          ) == 0
+          or
+          (
+            absent(kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-api"})
+            and on()
+            count(max_over_time(kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-api"}[7d])) > 0
+          )
+        )
+        unless on()
+        absent(kube_deployment_status_replicas_available{namespace="d8-virtualization"})
       labels:
-        severity_level: "6"
+        severity_level: "4"
         tier: cluster
       for: 10m
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_labels_as_annotations: "pod"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: The virtualization-api Pod is NOT Ready.
+        summary: Interactive access to virtual machines is unavailable.
         description: |
-          The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy virtualization-api`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l app=virtualization-api`
+          The virtualization-api component has no available replicas. It serves the subresources of the virtualization API, so every operation performed on a running virtual machine is refused.
 
-    - alert: D8VirtualizationAPIPodIsNotRunning
-      expr: absent(kube_pod_status_phase{namespace="d8-virtualization",phase="Running",pod=~"virtualization-api-.*"})
-      labels:
-        severity_level: "6"
-        tier: cluster
-      for: 10m
-      annotations:
-        plk_protocol_version: "1"
-        plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: The virtualization-api Pod is NOT Running.
-        description: |
+          Impact:
+          - Console and VNC are unavailable both in the web interface and in the command line: `d8 v console`, `d8 v vnc`, `d8 v port-forward` and `d8 v ssh` fail for every virtual machine.
+          - Disks cannot be attached to or detached from a running virtual machine.
+          - Snapshots with guaranteed consistency cannot be taken: the guest file system cannot be frozen.
+          - Creating, changing and deleting VirtualMachine, VirtualDisk and VirtualImage resources still works, and so do starting, stopping and migrating virtual machines.
+          - Running virtual machines are not affected.
+
           The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy virtualization-api`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l app=virtualization-api`
+          1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virtualization-api`
+          2. View the logs: `d8 k -n d8-virtualization logs deploy/virtualization-api --tail=100`
+          3. Check that the API is registered: `d8 k get apiservice v1alpha2.subresources.virtualization.deckhouse.io`

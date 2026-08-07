@@ -1,37 +1,28 @@
 - name: kubernetes.internal.virtualization.virt_metrics_state
   rules:
-    - alert: D8InternalVirtualizationMetricsTargetDown
-      expr: max by (job) (up{job="kubevirt-prometheus-metrics"}) == 0
-      for: 1m
-      labels:
-        severity_level: "6"
-        tier: cluster
-      annotations:
-        plk_markup_format: "markdown"
-        plk_protocol_version: "1"
-        plk_create_group_if_not_exists__d8_internal_virtualization_health: "D8InternalVirtualizationlHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_internal_virtualization_health: "D8InternalVirtualizationlHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_ignore_labels: "job"
-        summary: Prometheus cannot scrape the virt-handler, virt-api, and virt-controller metrics.
-        description: |
-          The recommended course of action:
-          1. Check the service: `kubectl -n d8-virtualization get service kubevirt-prometheus-metrics`
-          2. Check that virt-handler, virt-api, and virt-controller exist: `kubectl -n d8-virtualization get po -l prometheus.kubevirt.internal.virtualization.deckhouse.io=true`
-
-    - alert: D8InternalVirtualizationVirtMetricsTargetAbsent
+    - alert: D8VirtualizationMachineMetricsMissing
       expr: absent(up{job="kubevirt-prometheus-metrics"}) == 1
       labels:
-        severity_level: "6"
+        severity_level: "5"
         tier: cluster
-      for: 1m
+      for: 15m
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
         plk_ignore_labels: "job"
         plk_create_group_if_not_exists__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Prometheus can't discover targets for virt-handler, virt-api, and virt-controller metrics.
+        summary: There is no target for virt-handler, virt-api and virt-controller metrics in Prometheus.
         description: |
+          Prometheus has no scrape target for the metrics endpoint shared by virt-handler, virt-api and virt-controller.
+
+          Impact:
+          - Virtual machine domain statistics are no longer collected: CPU, memory, disks, network and migration metrics.
+          - Dashboards built on them are empty, and alerts based on them cannot fire.
+          - Resource phases and inventory metrics keep being collected — they come from virtualization-controller.
+          - This alert alone does not mean the components are down: check the `Unavailable` alerts for virt-api, virt-controller and virt-handler too.
+
           The recommended course of action:
-          1. Check that service exists `kubectl -n d8-virtualization get service kubevirt-prometheus-metrics`
-          2. Check that virt-handler, virt-api, and virt-controller exist: `kubectl -n d8-virtualization get po -l prometheus.kubevirt.internal.virtualization.deckhouse.io=true`
+          1. Check that the Service exists: `d8 k -n d8-virtualization get service kubevirt-prometheus-metrics`
+          2. Check that the components are running: `d8 k -n d8-virtualization get po -l prometheus.kubevirt.internal.virtualization.deckhouse.io=true`
+          3. Check the ServiceMonitor: `d8 k -n d8-monitoring get servicemonitor -l app=kubevirt -o yaml`

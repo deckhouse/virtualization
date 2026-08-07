@@ -1,0 +1,589 @@
+# Unit tests for the alerting rules of the virtualization module.
+# Run them with tools/prometheus-rules/test-rules.sh (or: task validation:alert-rules).
+# Each test asserts both that an alert fires when it should and that it stays
+# silent when it should not - the second half is what keeps the on-call quiet.
+
+rule_files:
+  - ../rendered-rules.yaml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    name: ResourcesNotProcessed fires when no replicas are available
+    input_series:
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-controller"}
+        values: 1 1 0+0x20
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: D8VirtualizationResourcesNotProcessed
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: D8VirtualizationResourcesNotProcessed
+        exp_alerts:
+          - exp_labels:
+              severity_level: "3"
+              tier: cluster
+              namespace: d8-virtualization
+              deployment: virtualization-controller
+            exp_annotations: &resourcesNotProcessedAnnotations
+              description: "The virtualization-controller component has no available replicas, so nothing is being reconciled.\n\nImpact:\n- New VirtualMachine, VirtualDisk and VirtualImage resources are accepted but never provisioned, and changes to existing ones are not applied.\n- Statuses stop being updated, so `d8 k get vm` shows stale data.\n- VirtualMachineOperation resources do not progress: start, stop, restart and evict hang.\n- Running virtual machines keep working, and so do console access and migrations.\n\nThe recommended course of action:\n1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virtualization-controller`\n2. View the logs: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=100`\n3. Check that the Pods can be scheduled: `d8 k -n d8-virtualization describe pod -l app=virtualization-controller`\n"
+              plk_create_group_if_not_exists__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Virtualization resources are no longer processed.
+  - interval: 1m
+    name: a rolling update raises no alert
+    input_series:
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-controller"}
+        values: 1 1 1 0 0 0 0 0 1 1 1 1 1 1 1
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: D8VirtualizationResourcesNotProcessed
+        exp_alerts: []
+  - interval: 1m
+    name: ResourcesStuck fires when no leader is elected
+    input_series:
+      - series: leader_election_master_status{job="virtualization-controller-metrics", name="d8-virt-operator-leader-election-helper", namespace="d8-virtualization"}
+        values: 1 1 0+0x20
+      - series: workqueue_longest_running_processor_seconds{job="virtualization-controller-metrics", namespace="d8-virtualization"}
+        values: 0+0x25
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: D8VirtualizationResourcesStuck
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: D8VirtualizationResourcesStuck
+        exp_alerts:
+          - exp_labels:
+              severity_level: "3"
+              tier: cluster
+              namespace: d8-virtualization
+            exp_annotations: &resourcesStuckAnnotations
+              description: "The virtualization-controller Pods are up and Ready, but either no leader has been elected, or a single item has been processing for more than 10 minutes.\n\nImpact:\n- The same as a complete outage of the component, except that every Pod looks healthy, so nothing else reports a problem.\n- New VirtualMachine, VirtualDisk and VirtualImage resources are not provisioned, statuses are not updated, VirtualMachineOperation resources hang.\n- Running virtual machines keep working.\n\nThe recommended course of action:\n1. Check the leader election lease: `d8 k -n d8-virtualization get lease d8-virt-operator-leader-election-helper -o yaml`\n2. Look for reconcile errors and stuck workers in the logs: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=200`\n3. If there is no leader and the lease holder no longer exists, restart the component: `d8 k -n d8-virtualization rollout restart deploy virtualization-controller`\n"
+              plk_create_group_if_not_exists__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Virtualization resources are stuck while the component looks healthy.
+  - interval: 1m
+    name: ResourcesStuck fires on a stuck work queue
+    input_series:
+      - series: leader_election_master_status{job="virtualization-controller-metrics", name="d8-virt-operator-leader-election-helper", namespace="d8-virtualization"}
+        values: 1+0x25
+      - series: workqueue_longest_running_processor_seconds{job="virtualization-controller-metrics", namespace="d8-virtualization"}
+        values: 0 0 700+0x20
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: D8VirtualizationResourcesStuck
+        exp_alerts:
+          - exp_labels:
+              severity_level: "3"
+              tier: cluster
+              namespace: d8-virtualization
+            exp_annotations: *resourcesStuckAnnotations
+  - interval: 1m
+    name: a three-second reconcile raises no alert
+    input_series:
+      - series: leader_election_master_status{job="virtualization-controller-metrics", name="d8-virt-operator-leader-election-helper", namespace="d8-virtualization"}
+        values: 1+0x25
+      - series: workqueue_longest_running_processor_seconds{job="virtualization-controller-metrics", namespace="d8-virtualization"}
+        values: 0 3 3 3 0 0 0 0 0 0 0 0 0 0 0
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: D8VirtualizationResourcesStuck
+        exp_alerts: []
+  - interval: 1m
+    name: ComponentDegraded fires when some replicas are unavailable
+    input_series:
+      - series: kube_deployment_spec_replicas{namespace="d8-virtualization", deployment="virt-api"}
+        values: 2+0x20
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virt-api"}
+        values: 2 2 1+0x20
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: D8VirtualizationComponentDegraded
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+              namespace: d8-virtualization
+              deployment: virt-api
+            exp_annotations:
+              description: "The Deployment virt-api has fewer available replicas than desired, but at least one replica is still serving.\n\nImpact:\n- Nothing is broken right now: the component works with reduced redundancy.\n- The next replica failure will take the component down completely, and that will raise a separate alert.\n\nThis alert only fires in a highly available installation, where a component runs more than one replica.\n\nThe recommended course of action:\n\n1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virt-api`\n2. View the status of the Pods and find out why they are not available. The selector is taken from the Deployment itself, because the components of the module do not share a common Pod label: the ones created by virt-operator follow the upstream KubeVirt convention instead.\n   ```bash\n   d8 k -n d8-virtualization get pod -o wide -l \"$(d8 k -n d8-virtualization get deploy virt-api -o jsonpath='{.spec.selector.matchLabels}' | tr -d '{}\"' | tr ':' '=')\"\n   ```\n"
+              plk_create_group_if_not_exists__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Some replicas of virt-api are unavailable.
+  - interval: 1m
+    name: ComponentDegraded stays silent when no replica is available at all
+    input_series:
+      - series: kube_deployment_spec_replicas{namespace="d8-virtualization", deployment="virt-api"}
+        values: 2+0x20
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virt-api"}
+        values: 2 2 0+0x20
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: D8VirtualizationComponentDegraded
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: D8VirtualizationVirtApiUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity_level: "4"
+              tier: cluster
+              namespace: d8-virtualization
+              deployment: virt-api
+            exp_annotations:
+              description: "The virt-api component has no available replicas. Requests for console, VNC and port forwarding are proxied to it, so they fail even when virtualization-api itself is healthy.\n\nImpact:\n- Console and VNC are unavailable both in the web interface and in the command line: `d8 v console`, `d8 v vnc`, `d8 v port-forward` and `d8 v ssh` fail for every virtual machine.\n- Disks cannot be attached to or detached from a running virtual machine, and consistent snapshots cannot be taken.\n- Creating, changing and deleting resources still works, and so do starting, stopping and migrating virtual machines.\n- Running virtual machines are not affected.\n\nIf `D8VirtualizationApiUnavailable` is firing at the same time, fix that one first: both break the same operations for users.\n\nThe recommended course of action:\n1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virt-api`\n2. View the logs: `d8 k -n d8-virtualization logs deploy/virt-api --tail=100`\n3. Check that the Pods can be scheduled: `d8 k -n d8-virtualization describe pod -l kubevirt.internal.virtualization.deckhouse.io=virt-api`\n"
+              plk_create_group_if_not_exists__d8_internal_virtualization_health: D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_internal_virtualization_health: D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Interactive access to virtual machines is unavailable (backend).
+  - interval: 1m
+    name: MachinesUnmanageable fires when virt-handler runs nowhere
+    input_series:
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 4 4 0+0x20
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 4+0x22
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: D8VirtualizationMachinesUnmanageable
+        exp_alerts:
+          - exp_labels:
+              severity_level: "3"
+              tier: cluster
+              namespace: d8-virtualization
+              daemonset: virt-handler
+            exp_annotations: &machinesUnmanageableAnnotations
+              description: "Not a single virt-handler Pod is available in the cluster.\n\nImpact:\n- Virtual machines are unmanageable everywhere: they cannot be started, stopped or migrated.\n- Node drain and cluster updates will stall, because virtual machines cannot be evacuated.\n- Virtual machine domain metrics (CPU, memory, disks, network) are no longer collected.\n- Already running virtual machines keep running: once started, they do not depend on virt-handler.\n\nThe recommended course of action:\n1. Check the DaemonSet: `d8 k -n d8-virtualization describe daemonset virt-handler`\n2. virt-handler only runs on nodes labeled `virtualization.deckhouse.io/kvm-enabled=true`. Check that such nodes exist: `d8 k get nodes -l virtualization.deckhouse.io/kvm-enabled=true`\n3. If there are none, make sure `/dev/kvm` is present on the nodes intended for virtualization \u2014 hardware virtualization may be disabled in the BIOS, or nested virtualization may be off at the provider.\n"
+              plk_create_group_if_not_exists__d8_internal_virtualization_health: D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_internal_virtualization_health: D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: There is no virt-handler on any node.
+  - interval: 1m
+    name: NodesWithoutVirtualizationAgent fires on incomplete node coverage
+    input_series:
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 4+0x80
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 4 4 3+0x80
+    alert_rule_test:
+      # A DaemonSet rollout keeps one Pod unavailable at a time and takes much longer than
+      # the old 15 minutes on a large cluster, so the alert has to stay silent that long.
+      - eval_time: 30m
+        alertname: D8VirtualizationNodesWithoutVirtualizationAgent
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: D8VirtualizationNodesWithoutVirtualizationAgent
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+              namespace: d8-virtualization
+              daemonset: virt-handler
+            exp_annotations:
+              description: "virt-handler is not available on every node it is scheduled to.\n\nImpact:\n- Virtual machines on the affected nodes are unmanageable and cannot be migrated away, which will block draining those nodes.\n- The rest of the cluster works normally, and virtual machines on healthy nodes are unaffected.\n\nThe recommended course of action:\n1. Find the nodes without a running virt-handler: `d8 k -n d8-virtualization get pod -l kubevirt.internal.virtualization.deckhouse.io=virt-handler -o wide`\n2. Find the failing Pods and then look into one of them: `d8 k -n d8-virtualization get pod -l kubevirt.internal.virtualization.deckhouse.io=virt-handler --field-selector=status.phase!=Running -o wide`, then `d8 k -n d8-virtualization describe pod <name>`\n"
+              plk_create_group_if_not_exists__d8_internal_virtualization_health: D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_internal_virtualization_health: D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: virt-handler is missing on some nodes.
+  - interval: 1m
+    name: a DVCR rollout raises no alert
+    input_series:
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="dvcr"}
+        values: 1 1 1 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+      - eval_time: 19m
+        alertname: D8VirtualizationImageStorageUnavailable
+        exp_alerts: []
+  - interval: 1m
+    name: ImageStorageUnavailable fires on a prolonged outage
+    input_series:
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="dvcr"}
+        values: 1 0+0x25
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: D8VirtualizationImageStorageUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity_level: "4"
+              tier: cluster
+              namespace: d8-virtualization
+              deployment: dvcr
+            exp_annotations:
+              description: "DVCR, the container registry of the virtualization module, has no available replicas. It always runs as a single replica, so the registry is completely unavailable.\n\nImpact:\n- New VirtualImage, ClusterVirtualImage and VirtualDisk resources cannot be created.\n- Virtual machines using images stored in DVCR cannot start: the image pull fails and the virtual machine stays in `Pending`.\n- Such virtual machines also cannot be migrated: the image pull fails on the destination node, so node drain and cluster updates will stall.\n- Already running virtual machines are not affected: their disks are already provisioned.\n\nThe recommended course of action:\n1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy dvcr`\n2. View the status of the Pod and try to figure out why it is not available: `d8 k -n d8-virtualization describe pod -l app=dvcr`\n3. Check that the PersistentVolumeClaim is bound: `d8 k -n d8-virtualization get pvc dvcr`\n"
+              plk_create_group_if_not_exists__d8_virtualization_dvcr_health: D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_dvcr_health: D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: The DVCR container registry is unavailable.
+  - interval: 1m
+    name: UsbPassthroughDegraded catches a node without the required labels
+    input_series:
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 3+0x80
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 3+0x80
+      - series: kube_node_labels{node="n1", label_virtualization_deckhouse_io_kvm_enabled="true", label_virtualization_deckhouse_io_usbip="true", label_virtualization_deckhouse_io_containerd_version="v2"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n2", label_virtualization_deckhouse_io_kvm_enabled="true", label_virtualization_deckhouse_io_usbip="true", label_virtualization_deckhouse_io_containerd_version="v2"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n3", label_virtualization_deckhouse_io_kvm_enabled="true"}
+        values: 1+0x80
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: D8VirtualizationUsbPassthroughDegraded
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+            exp_annotations: &usbPassthroughDegradedAnnotations
+              description: "USB passthrough does not work on every node that runs virtual machines, either because the component failed there or because the node does not meet its requirements.\n\nImpact:\n- A virtual machine requesting a USB device will not start on the affected nodes, and may fail to schedule at all if the remaining nodes cannot host it.\n- Virtual machines without USB devices are unaffected.\n\nThe recommended course of action:\n\n1. Compare the nodes that run virtual machines with those ready for USB passthrough:\n   ```bash\n   d8 k get nodes -l virtualization.deckhouse.io/kvm-enabled=true\n   d8 k get nodes -l virtualization.deckhouse.io/usbip=true,virtualization.deckhouse.io/containerd-version=v2\n   ```\n2. A node missing from the second list does not meet the requirements:\n   - no `usbip` label \u2014 the `usbip_core`, `usbip_host` and `vhci_hcd` kernel modules could not be loaded there;\n   - `containerd-version` is not `v2` \u2014 the node runs containerd v1, which cannot run the required hooks.\n3. If a node has both labels but the component is still not running there, inspect it:\n   `d8 k -n d8-virtualization get pod -l app=virtualization-dra --field-selector=status.phase!=Running -o wide`\n"
+              plk_create_group_if_not_exists__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: USB passthrough is unavailable on some nodes.
+  - interval: 1m
+    name: UsbPassthroughDegraded stays silent when every node is ready
+    input_series:
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 2+0x80
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 2+0x80
+      - series: kube_node_labels{node="n1", label_virtualization_deckhouse_io_kvm_enabled="true", label_virtualization_deckhouse_io_usbip="true", label_virtualization_deckhouse_io_containerd_version="v2"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n2", label_virtualization_deckhouse_io_kvm_enabled="true", label_virtualization_deckhouse_io_usbip="true", label_virtualization_deckhouse_io_containerd_version="v2"}
+        values: 1+0x80
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: D8VirtualizationUsbPassthroughDegraded
+        exp_alerts: []
+  - interval: 1m
+    name: MetricsMissing fires when the scrape target is gone
+    input_series:
+      - series: up{job="kube-state-metrics"}
+        values: 1+0x25
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationMetricsMissing
+        exp_alerts:
+          - exp_labels:
+              severity_level: "5"
+              tier: cluster
+              job: virtualization-controller-metrics
+            exp_annotations:
+              description: "Prometheus has no scrape target for virtualization-controller, so the module exports no resource metrics.\n\nImpact:\n- Resource phases, virtual machine configuration, agent readiness, firmware state and all VirtualDisk, VirtualImage and VirtualMachineOperation metrics are gone.\n- Dashboards built on them are empty, and alerts based on them cannot fire.\n- Virtual machine performance metrics (CPU, memory, disks, network) keep being collected \u2014 they come from a different source.\n- This alert alone does not mean the component is down: check `D8VirtualizationResourcesNotProcessed` as well.\n\nThe recommended course of action:\n1. Check the Pod status: `d8 k -n d8-virtualization get pod -l app=virtualization-controller`\n2. Check the Service and its endpoints: `d8 k -n d8-virtualization get svc,endpoints virtualization-controller-metrics`\n3. Check the ServiceMonitor: `d8 k -n d8-monitoring get servicemonitor virtualization-controller -o yaml`\n"
+              plk_create_group_if_not_exists__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_ignore_labels: job
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Virtualization resource metrics are not collected.
+  - interval: 1m
+    name: MachinesWithOutdatedFirmware reports one incident for every affected machine
+    input_series:
+      - series: d8_virtualization_virtualmachine_firmware_up_to_date{namespace="default", name="myvm"}
+        values: 0+0x70
+      - series: d8_virtualization_virtualmachine_firmware_up_to_date{namespace="prod", name="other"}
+        values: 0+0x70
+      - series: d8_virtualization_virtualmachine_firmware_up_to_date{namespace="prod", name="uptodate"}
+        values: 1+0x70
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: D8VirtualizationMachinesWithOutdatedFirmware
+        exp_alerts:
+          - exp_labels:
+              severity_level: "9"
+              tier: application
+            exp_annotations:
+              description: "2 virtual machines run on firmware older than the one provided by the current version of the virtualization module.\n\nImpact:\n- Nothing is broken: those virtual machines keep working as before.\n- Until the firmware is updated, they miss the fixes shipped with the module, including security ones.\n\nA virtual machine keeps the firmware it was started with. After the module is updated, newer firmware becomes available, but running virtual machines pick it up only after a migration or a restart.\n\nThe recommended course of action:\n\n1. Find the affected virtual machines \u2014 those with `False` in the last column:\n   ```bash\n   d8 k get vm -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,FIRMWARE_UP_TO_DATE:.status.conditions[?(@.type==\"FirmwareUpToDate\")].status'\n   ```\n2. Update the firmware of each of them in one of two ways, during a maintenance window:\n   - migrate the virtual machine to another node \u2014 no downtime, but the virtual machine must be migratable:\n     `d8 v -n <namespace> evict <name>`\n   - restart the virtual machine \u2014 simpler, but the guest operating system will be down for the duration of the restart:\n     `d8 v -n <namespace> restart <name>`\n3. The new firmware is applied automatically once the virtual machine has migrated or restarted.\n"
+              plk_create_group_if_not_exists__d8_virtualization_virtualmachine_state: D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_virtualmachine_state: D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Some virtual machines run outdated firmware.
+  - interval: 1m
+    name: MachinesWithOutdatedFirmware stays silent when every machine is current
+    input_series:
+      - series: d8_virtualization_virtualmachine_firmware_up_to_date{namespace="default", name="myvm"}
+        values: 1+0x70
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: D8VirtualizationMachinesWithOutdatedFirmware
+        exp_alerts: []
+  - interval: 1m
+    name: NodeEvacuationStuck fires when machines stay on a node closed for workloads
+    input_series:
+      - series: kube_node_spec_unschedulable{node="n1"}
+        values: 0 0 1+0x80
+      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="default", name="vm1"}
+        values: 1+0x80
+      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="prod", name="vm2"}
+        values: 1+0x80
+    alert_rule_test:
+      # Draining a node full of large machines takes a while, so the first hour is silent.
+      - eval_time: 45m
+        alertname: D8VirtualizationNodeEvacuationStuck
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: D8VirtualizationNodeEvacuationStuck
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+              node: n1
+            exp_annotations:
+              description: "The node `n1` accepts no new workloads, but 2 virtual machines are still running on it an hour later.\n\nImpact:\n- Maintenance of the node cannot be completed: a node that still runs virtual machines is not shut down or rebooted, and an automatic node update stalls on it.\n- The virtual machines themselves keep working, and nothing is lost. Holding the node back is the expected protection, not a failure.\n\nThe recommended course of action:\n\n1. List the virtual machines on the node and check whether they can be migrated:\n   ```bash\n   d8 k get vm -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,NODE:.status.nodeName,MIGRATABLE:.status.conditions[?(@.type==\"Migratable\")].status' | grep n1\n   ```\n2. For each virtual machine:\n   - `Migratable=True` \u2014 move it to another node without stopping the guest operating system:\n     `d8 v evict <name> -n <namespace>`\n   - `Migratable=False` \u2014 it has to be stopped for the duration of the maintenance. Stopping is only accepted for the `Manual` and `AlwaysOnUnlessStoppedManually` run policies, so check the policy first:\n     ```bash\n     d8 k -n <namespace> get vm <name> -o jsonpath='{.spec.runPolicy}'\n     ```\n     With `AlwaysOn` the request is refused with `NotApplicableForVirtualMachineRunPolicy`, so switch the policy, stop the machine, and restore both once the maintenance is over:\n     ```bash\n     d8 k -n <namespace> patch vm <name> --type merge -p '{\"spec\":{\"runPolicy\":\"AlwaysOnUnlessStoppedManually\"}}'\n     d8 v stop <name> -n <namespace>\n     ```\n\n   A virtual machine can be non-migratable because of local disks or devices passed through from the node.\n3. Once every virtual machine has left the node, the maintenance continues on its own.\n"
+              plk_create_group_if_not_exists__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Virtual machines are not leaving a node that is being taken out of service.
+  - interval: 1m
+    name: NodeEvacuationStuck stays silent on a node that accepts workloads
+    input_series:
+      - series: kube_node_spec_unschedulable{node="n1"}
+        values: 0+0x80
+      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="default", name="vm1"}
+        values: 1+0x80
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: D8VirtualizationNodeEvacuationStuck
+        exp_alerts: []
+  - interval: 1m
+    name: NodeEvacuationStuck stays silent once the machines have left
+    input_series:
+      - series: kube_node_spec_unschedulable{node="n1"}
+        values: 1+0x80
+      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="default", name="vm1"}
+        values: 0+0x80
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: D8VirtualizationNodeEvacuationStuck
+        exp_alerts: []
+  # The regression tests below cover the state that the previous set of rules caught with
+  # absent(kube_pod_status_phase) and the rewrite initially lost: the object itself is gone,
+  # so there is no series to compare with zero.
+  - interval: 1m
+    name: ResourcesNotProcessed fires when the Deployment itself is gone
+    input_series:
+      # The Deployment existed and then disappeared: that is a deletion, not an installation
+      # that has not finished yet.
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-controller"}
+        values: 1 1 1 _x20
+      # Another Deployment of the module is healthy, so kube-state-metrics is clearly alive.
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virt-api"}
+        values: 1+0x20
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: D8VirtualizationResourcesNotProcessed
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationResourcesNotProcessed
+        exp_alerts:
+          - exp_labels:
+              severity_level: "3"
+              tier: cluster
+              namespace: d8-virtualization
+              deployment: virtualization-controller
+            exp_annotations: *resourcesNotProcessedAnnotations
+  - interval: 1m
+    name: MachinesUnmanageable fires when the DaemonSet itself is gone
+    input_series:
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 4 4 4 _x20
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 4 4 4 _x20
+      # The other DaemonSet of the module is reported, so kube-state-metrics is alive.
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="vm-route-forge"}
+        values: 4+0x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationMachinesUnmanageable
+        exp_alerts:
+          - exp_labels:
+              severity_level: "3"
+              tier: cluster
+              namespace: d8-virtualization
+              daemonset: virt-handler
+            exp_annotations: *machinesUnmanageableAnnotations
+  - interval: 1m
+    name: a failure of kube-state-metrics wakes nobody
+    input_series:
+      # No Deployment and no DaemonSet metrics at all: the components may well be healthy,
+      # and paging for every one of them would be wrong.
+      - series: up{job="kube-state-metrics"}
+        values: 0+0x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationResourcesNotProcessed
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationApiUnavailable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationVirtApiUnavailable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationMachinesCannotStart
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationModuleCannotBeUpdated
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationImageStorageUnavailable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationSecurityEventsNotRecorded
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationMachinesUnmanageable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: D8VirtualizationMachineNetworkingDown
+        exp_alerts: []
+  - interval: 1m
+    name: MachinesUnmanageable stays silent when no node runs virtual machines
+    input_series:
+      # A cluster without nodes labeled for virtualization: the DaemonSet schedules nowhere,
+      # which is a matter of configuration rather than an outage.
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 0+0x20
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 0+0x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationMachinesUnmanageable
+        exp_alerts: []
+  - interval: 1m
+    name: UsbPassthroughDegraded catches the worst case of no node being ready at all
+    input_series:
+      # Not a single node carries all three labels, so the DaemonSet schedules nowhere and
+      # the second count() has nothing to return.
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 0+0x80
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 0+0x80
+      - series: kube_node_labels{node="n1", label_virtualization_deckhouse_io_kvm_enabled="true"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n2", label_virtualization_deckhouse_io_kvm_enabled="true"}
+        values: 1+0x80
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: D8VirtualizationUsbPassthroughDegraded
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+            exp_annotations: *usbPassthroughDegradedAnnotations
+  - interval: 1m
+    name: UsbPassthroughDegraded raises a single incident when both branches match
+    input_series:
+      # One Pod is down and one node lacks the labels at the same time: the two branches of
+      # the expression must not turn into two incidents.
+      - series: kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 2+0x80
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virtualization-dra"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n1", label_virtualization_deckhouse_io_kvm_enabled="true", label_virtualization_deckhouse_io_usbip="true", label_virtualization_deckhouse_io_containerd_version="v2"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n2", label_virtualization_deckhouse_io_kvm_enabled="true", label_virtualization_deckhouse_io_usbip="true", label_virtualization_deckhouse_io_containerd_version="v2"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n3", label_virtualization_deckhouse_io_kvm_enabled="true"}
+        values: 1+0x80
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: D8VirtualizationUsbPassthroughDegraded
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+            exp_annotations: *usbPassthroughDegradedAnnotations
+  - interval: 1m
+    name: SecurityEventsNotRecorded fires when the audit component is down
+    input_series:
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-audit"}
+        values: 1 1 0+0x20
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: D8VirtualizationSecurityEventsNotRecorded
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: D8VirtualizationSecurityEventsNotRecorded
+        exp_alerts:
+          - exp_labels:
+              severity_level: "5"
+              tier: cluster
+              namespace: d8-virtualization
+              deployment: virtualization-audit
+            exp_annotations: &securityEventsNotRecordedAnnotations
+              description: "Audit is enabled in the module settings, but the virtualization-audit component has no available replicas, so no security events are produced.\n\nImpact:\n- Access to virtual machines through the console, VNC and port forwarding, changes to virtual machines, and forbidden operations are no longer recorded.\n- The events that happen while the component is down are lost for good: they are not collected retroactively.\n- Nothing else is affected: virtual machines, their disks, networking and the module API keep working.\n\nThe recommended course of action:\n1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virtualization-audit`\n2. View the logs: `d8 k -n d8-virtualization logs deploy/virtualization-audit --tail=100`\n3. Check that the audit TLS certificate exists: `d8 k -n d8-virtualization get secret virtualization-audit-tls`\n"
+              plk_create_group_if_not_exists__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: Security events of the virtualization module are not recorded.
+  - interval: 1m
+    name: SecurityEventsNotRecorded fires when the audit Deployment is gone
+    input_series:
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-audit"}
+        values: 1 1 1 _x20
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virt-api"}
+        values: 1+0x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationSecurityEventsNotRecorded
+        exp_alerts:
+          - exp_labels:
+              severity_level: "5"
+              tier: cluster
+              namespace: d8-virtualization
+              deployment: virtualization-audit
+            exp_annotations: *securityEventsNotRecordedAnnotations
+  - interval: 1m
+    name: SecurityEventsNotRecorded stays silent while audit keeps a replica
+    input_series:
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virtualization-audit"}
+        values: 1+0x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationSecurityEventsNotRecorded
+        exp_alerts: []
+  - interval: 1m
+    name: a first installation wakes nobody while the components are still being created
+    input_series:
+      # virt-operator is up and busy creating the rest; the components it manages have never
+      # existed in this cluster, so their absence is not an outage.
+      - series: kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="virt-operator"}
+        values: 1+0x40
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: D8VirtualizationVirtApiUnavailable
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: D8VirtualizationMachinesCannotStart
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: D8VirtualizationMachinesUnmanageable
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: D8VirtualizationApiUnavailable
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: D8VirtualizationResourcesNotProcessed
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: D8VirtualizationImageStorageUnavailable
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: D8VirtualizationSecurityEventsNotRecorded
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: D8VirtualizationMachineNetworkingDown
+        exp_alerts: []

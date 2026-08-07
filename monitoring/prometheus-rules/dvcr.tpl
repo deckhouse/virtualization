@@ -1,0 +1,79 @@
+{{- if eq (include "dvcr.isEnabled" .) "true" }}
+- name: kubernetes.internal.virtualization.dvcr_state
+  rules:
+    - alert: D8VirtualizationImageStorageUnavailable
+      # The absent() branch covers a deleted Deployment: without it the series is gone
+      # and `== 0` has nothing to compare. It is safe here only because these rules are
+      # rendered when DVCR is deployed at all — otherwise the alert would fire forever.
+      # The guard keeps the alert silent when the metrics of every Deployment in the
+      # namespace are missing — that is a failure of kube-state-metrics, not of DVCR.
+      # The absent() branch only counts when the object existed at some point during the
+      # last week: during the very first installation the components created by
+      # virt-operator do not exist yet, and a slow rollout must not page anybody.
+      expr: |
+        (
+          max by (namespace, deployment) (
+            kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="dvcr"}
+          ) == 0
+          or
+          (
+            absent(kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="dvcr"})
+            and on()
+            count(max_over_time(kube_deployment_status_replicas_available{namespace="d8-virtualization", deployment="dvcr"}[7d])) > 0
+          )
+        )
+        unless on()
+        absent(kube_deployment_status_replicas_available{namespace="d8-virtualization"})
+      labels:
+        severity_level: "4"
+        tier: cluster
+      for: 15m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_dvcr_health: "D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_dvcr_health: "D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: The DVCR container registry is unavailable.
+        description: |
+          DVCR, the container registry of the virtualization module, has no available replicas. It always runs as a single replica, so the registry is completely unavailable.
+
+          Impact:
+          - New VirtualImage, ClusterVirtualImage and VirtualDisk resources cannot be created.
+          - Virtual machines using images stored in DVCR cannot start: the image pull fails and the virtual machine stays in `Pending`.
+          - Such virtual machines also cannot be migrated: the image pull fails on the destination node, so node drain and cluster updates will stall.
+          - Already running virtual machines are not affected: their disks are already provisioned.
+
+          The recommended course of action:
+          1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy dvcr`
+          2. View the status of the Pod and try to figure out why it is not available: `d8 k -n d8-virtualization describe pod -l app=dvcr`
+          3. Check that the PersistentVolumeClaim is bound: `d8 k -n d8-virtualization get pvc dvcr`
+
+    - alert: D8VirtualizationImageStorageSpaceLow
+      expr: |
+        min by (persistentvolumeclaim, namespace) (
+          (kubelet_volume_stats_available_bytes{namespace="d8-virtualization", persistentvolumeclaim="dvcr"} < 5 * 1024 * 1024 * 1024)
+          or
+          (kubelet_volume_stats_available_bytes{namespace="d8-virtualization", persistentvolumeclaim="dvcr"} / (kubelet_volume_stats_capacity_bytes / 100) < 20)
+        )
+      for: 10m
+      labels:
+        severity_level: "5"
+        tier: cluster
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_dvcr_health: "D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_dvcr_health: "D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Risk of insufficient DVCR storage capacity.
+        description: |
+          The DVCR storage (PersistentVolumeClaim `dvcr` in namespace `d8-virtualization`) has less than 5 GiB or less than 20% free space.
+
+          Impact:
+          - Nothing is broken yet, but once the volume is full, no new VirtualImage, ClusterVirtualImage or VirtualDisk can be created.
+          - Virtual machines that are already running, and images already stored, are not affected.
+
+          The recommended course of action:
+
+          - Check the PersistentVolumeClaim details: `d8 k -n d8-virtualization describe pvc dvcr`
+          - Extend the DVCR storage size in the virtualization module settings, or remove unnecessary ClusterVirtualImage and VirtualImage resources.
+{{- end }}
