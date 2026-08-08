@@ -30,7 +30,7 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Interactive access to virtual machines is unavailable (backend).
+        summary: "Operations on running virtual machines fail: virt-api, the backend of the subresource API, has no available replicas."
         description: |
           The virt-api component has no available replicas. Requests for console, VNC and port forwarding are proxied to it, so they fail even when virtualization-api itself is healthy.
 

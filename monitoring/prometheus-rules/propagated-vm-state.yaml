@@ -5,7 +5,7 @@
 # so the alert below would never fire in a cluster running the observability module.
 - name: virtualization.vm.state
   rules:
-    - alert: D8VirtualizationMachinesWithOutdatedFirmware
+    - alert: D8VirtualizationVirtualMachinesWithOutdatedFirmware
       # Aggregated on purpose: outdated firmware is a routine consequence of a module update,
       # and a cluster with a thousand virtual machines would otherwise raise a thousand
       # notifications about the same maintenance task.

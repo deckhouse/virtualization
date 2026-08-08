@@ -1,6 +1,6 @@
 - name: kubernetes.internal.virtualization.virt_controller_state
   rules:
-    - alert: D8VirtualizationMachinesCannotStart
+    - alert: D8VirtualizationVirtControllerUnavailable
       # The absent() branch covers a Deployment that virt-operator has not created or
       # that was deleted; the guard keeps the alert silent when kube-state-metrics itself
       # stops exporting Deployment metrics for the whole namespace.
@@ -30,7 +30,7 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Virtual machines cannot be started or migrated.
+        summary: "Virtual machines cannot be started or migrated: virt-controller is unavailable."
         description: |
           The virt-controller component has no available replicas.
 
