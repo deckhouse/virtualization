@@ -1,10 +1,13 @@
 - name: kubernetes.internal.virtualization.virt_metrics_state
   rules:
-    - alert: D8VirtualizationMachineMetricsMissing
+    - alert: D8VirtualizationMetricsNotCollected
       expr: absent(up{job="kubevirt-prometheus-metrics"}) == 1
       labels:
         severity_level: "5"
         tier: cluster
+        # Both scrape targets of the module raise the same alert; the label is what keeps
+        # them apart in the incident and points at the Service to look at.
+        component: internal-virtualization
       for: 15m
       annotations:
         plk_protocol_version: "1"
@@ -12,7 +15,7 @@
         plk_ignore_labels: "job"
         plk_create_group_if_not_exists__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_internal_virtualization_health: "D8InternalVirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: There is no target for virt-handler, virt-api and virt-controller metrics in Prometheus.
+        summary: Metrics of virt-handler, virt-api and virt-controller are not collected.
         description: |
           Prometheus has no scrape target for the metrics endpoint shared by virt-handler, virt-api and virt-controller.
 

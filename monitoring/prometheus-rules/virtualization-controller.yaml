@@ -1,6 +1,6 @@
 - name: kubernetes.virtualization.controller_state
   rules:
-    - alert: D8VirtualizationResourcesNotProcessed
+    - alert: D8VirtualizationControllerUnavailable
       # The absent() branch covers a deleted Deployment: without it the series is gone
       # and `== 0` has nothing to compare. The guard keeps the alert silent when the
       # metrics of every Deployment in the namespace are missing — that is a failure of
@@ -31,7 +31,7 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Virtualization resources are no longer processed.
+        summary: "VirtualMachine, VirtualDisk and VirtualImage resources are no longer processed: virtualization-controller has no available replicas."
         description: |
           The virtualization-controller component has no available replicas, so nothing is being reconciled.
 
@@ -46,19 +46,11 @@
           2. View the logs: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=100`
           3. Check that the Pods can be scheduled: `d8 k -n d8-virtualization describe pod -l app=virtualization-controller`
 
-    - alert: D8VirtualizationResourcesStuck
+    - alert: D8VirtualizationControllerHasNoLeader
       expr: |
-        (
-          max by (namespace) (
-            leader_election_master_status{job="virtualization-controller-metrics", name="d8-virt-operator-leader-election-helper"}
-          ) == 0
-        )
-        or
-        (
-          max by (namespace) (
-            workqueue_longest_running_processor_seconds{job="virtualization-controller-metrics"}
-          ) > 600
-        )
+        max by (namespace) (
+          leader_election_master_status{job="virtualization-controller-metrics", name="d8-virt-operator-leader-election-helper"}
+        ) == 0
       labels:
         severity_level: "3"
         tier: cluster
@@ -68,9 +60,9 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Virtualization resources are stuck while the component looks healthy.
+        summary: "VirtualMachine, VirtualDisk and VirtualImage resources are no longer processed: virtualization-controller has no elected leader."
         description: |
-          The virtualization-controller Pods are up and Ready, but either no leader has been elected, or a single item has been processing for more than 10 minutes.
+          The virtualization-controller Pods are up and Ready, but none of them holds the leader lease, so no replica does any work.
 
           Impact:
           - The same as a complete outage of the component, except that every Pod looks healthy, so nothing else reports a problem.
@@ -79,14 +71,46 @@
 
           The recommended course of action:
           1. Check the leader election lease: `d8 k -n d8-virtualization get lease d8-virt-operator-leader-election-helper -o yaml`
-          2. Look for reconcile errors and stuck workers in the logs: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=200`
-          3. If there is no leader and the lease holder no longer exists, restart the component: `d8 k -n d8-virtualization rollout restart deploy virtualization-controller`
+          2. Look for leader election errors in the logs: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=200`
+          3. If the lease holder no longer exists, restart the component: `d8 k -n d8-virtualization rollout restart deploy virtualization-controller`
 
-    - alert: D8VirtualizationMetricsMissing
+    - alert: D8VirtualizationControllerQueueIsHung
+      # Aggregated by controller on purpose: every controller of the component has its own
+      # queue, and the name of the stuck one is what turns the runbook into a single grep.
+      expr: |
+        max by (namespace, controller) (
+          workqueue_longest_running_processor_seconds{job="virtualization-controller-metrics"}
+        ) > 600
+      labels:
+        severity_level: "3"
+        tier: cluster
+      for: 5m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: "The {{ $labels.controller }} of virtualization-controller has been processing the same item for more than 10 minutes."
+        description: |
+          The {{ $labels.controller }} of virtualization-controller has been holding the same queue item for more than 10 minutes. The component itself is healthy, and its other controllers keep working.
+
+          Impact:
+          - The resources handled by this controller are not processed: they are not provisioned, and their statuses are not updated.
+          - Everything handled by the other controllers, and every running virtual machine, is unaffected.
+
+          The recommended course of action:
+          1. Find the resource the controller is stuck on: `d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=500 | grep {{ $labels.controller }}`
+          2. Check whether its queue keeps growing: the `workqueue_depth{controller="{{ $labels.controller }}"}` metric of the `virtualization-controller-metrics` job.
+          3. If the controller does not recover, restart the component: `d8 k -n d8-virtualization rollout restart deploy virtualization-controller`
+
+    - alert: D8VirtualizationMetricsNotCollected
       expr: absent(up{job="virtualization-controller-metrics"}) == 1
       labels:
         severity_level: "5"
         tier: cluster
+        # Both scrape targets of the module raise the same alert; the label is what keeps
+        # them apart in the incident and points at the Service to look at.
+        component: virtualization-controller
       for: 15m
       annotations:
         plk_protocol_version: "1"
@@ -94,7 +118,7 @@
         plk_ignore_labels: "job"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Virtualization resource metrics are not collected.
+        summary: Metrics of virtualization-controller are not collected.
         description: |
           Prometheus has no scrape target for virtualization-controller, so the module exports no resource metrics.
 
@@ -102,7 +126,7 @@
           - Resource phases, virtual machine configuration, agent readiness, firmware state and all VirtualDisk, VirtualImage and VirtualMachineOperation metrics are gone.
           - Dashboards built on them are empty, and alerts based on them cannot fire.
           - Virtual machine performance metrics (CPU, memory, disks, network) keep being collected — they come from a different source.
-          - This alert alone does not mean the component is down: check `D8VirtualizationResourcesNotProcessed` as well.
+          - This alert alone does not mean the component is down: check `D8VirtualizationControllerUnavailable` as well.
 
           The recommended course of action:
           1. Check the Pod status: `d8 k -n d8-virtualization get pod -l app=virtualization-controller`

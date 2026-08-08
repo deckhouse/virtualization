@@ -1,7 +1,7 @@
 {{- if eq (include "audit.isEnabled" .) "true" }}
 - name: kubernetes.virtualization.audit_state
   rules:
-    - alert: D8VirtualizationSecurityEventsNotRecorded
+    - alert: D8VirtualizationAuditUnavailable
       # The absent() branch covers a deleted Deployment: without it the series is gone
       # and `== 0` has nothing to compare. It is safe here only because these rules are
       # rendered when audit is enabled at all. The guard keeps the alert silent when the
@@ -33,7 +33,7 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Security events of the virtualization module are not recorded.
+        summary: 'Security events are not recorded: virtualization-audit is unavailable.'
         description: |
           Audit is enabled in the module settings, but the virtualization-audit component has no available replicas, so no security events are produced.
 

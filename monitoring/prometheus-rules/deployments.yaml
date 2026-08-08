@@ -1,6 +1,6 @@
 - name: kubernetes.virtualization.deployments_state
   rules:
-    - alert: D8VirtualizationComponentDegraded
+    - alert: D8VirtualizationComponentReplicasUnavailable
       expr: |
         (
           max by (namespace, deployment) (

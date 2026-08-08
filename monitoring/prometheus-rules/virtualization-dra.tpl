@@ -1,7 +1,7 @@
 {{- if eq (include "virtualization-dra.isEnabled" .) "true" }}
 - name: kubernetes.virtualization.dra_state
   rules:
-    - alert: D8VirtualizationUsbPassthroughUnavailable
+    - alert: D8VirtualizationUSBPassthroughUnavailable
       expr: |
         max by (namespace, daemonset) (
           kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virtualization-dra"}
@@ -33,7 +33,7 @@
           3. If the `containerd-version` label is not `v2`, the node runs containerd v1, which cannot run the required NRI hooks.
           4. Inspect the Pods if they exist but fail: `d8 k -n d8-virtualization describe pod -l app=virtualization-dra`
 
-    - alert: D8VirtualizationUsbPassthroughDegraded
+    - alert: D8VirtualizationNodesWithoutUSBPassthrough
       # Both branches are aggregated without labels on purpose: count() drops them anyway,
       # and matching label sets keep the two branches from raising two separate incidents.
       # `or vector(0)` is what makes the worst case work: with no node carrying all three

@@ -1,6 +1,6 @@
 - name: kubernetes.virtualization.vm_route_forge_state
   rules:
-    - alert: D8VirtualizationMachineNetworkingDown
+    - alert: D8VirtualizationVMRouteForgeUnavailable
       # The absent() branch covers a deleted DaemonSet: without it the series is gone and
       # `== 0` has nothing to compare. The guard keeps the alert silent when the metrics
       # of every DaemonSet in the namespace are missing — that is a failure of
@@ -31,7 +31,7 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: There is no vm-route-forge on any node.
+        summary: "Routes to new and migrated virtual machines are not configured: there is no vm-route-forge on any node."
         description: |
           Not a single vm-route-forge Pod is available in the cluster.
 
@@ -43,7 +43,7 @@
           1. Check the DaemonSet: `d8 k -n d8-virtualization describe daemonset vm-route-forge`
           2. View the status of the Pods: `d8 k -n d8-virtualization describe pod -l app=vm-route-forge`
 
-    - alert: D8VirtualizationNodesWithoutMachineNetworking
+    - alert: D8VirtualizationNodesWithoutVMRouteForge
       expr: |
         max by (namespace, daemonset) (
           kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="vm-route-forge"}
@@ -61,7 +61,7 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: vm-route-forge is missing on some nodes.
+        summary: "Routes to virtual machines on some nodes are not configured: vm-route-forge is missing on those nodes."
         description: |
           vm-route-forge is not available on every node it is scheduled to.
 

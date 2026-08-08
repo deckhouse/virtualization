@@ -31,7 +31,7 @@
         plk_markup_format: "markdown"
         plk_create_group_if_not_exists__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_virtualization_health: "D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: Interactive access to virtual machines is unavailable.
+        summary: "Operations on running virtual machines fail: virtualization-api has no available replicas."
         description: |
           The virtualization-api component has no available replicas. It serves the subresources of the virtualization API, so every operation performed on a running virtual machine is refused.
 
