@@ -100,6 +100,9 @@ var _ = Describe("LifeCycle handler", func() {
 			SyncFSFreezeRequestFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
 				return nil
 			},
+			UnfreezeFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
+				return nil
+			},
 		}
 	})
 
@@ -187,7 +190,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return vs, nil
 			}
 			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
-				return false, nil
+				return true, nil
 			}
 
 			h := NewLifeCycleHandler(snapshotter)
@@ -201,6 +204,34 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady.String()))
 			Expect(ready.Message).To(BeEmpty())
+		})
+
+		It("waits for other VDSnapshots before unfreezing", func() {
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
+			// Set Consistent to skip the early branch that sets consistent=true
+			vdSnapshot.Status.Consistent = ptr.To(true)
+
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+				vs.Status = &vsv1.VolumeSnapshotStatus{
+					ReadyToUse: ptr.To(true),
+				}
+				return vs, nil
+			}
+			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
+				// Simulate other VDSnapshots are still in progress
+				return false, nil
+			}
+
+			h := NewLifeCycleHandler(snapshotter)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			// Should stay in InProgress when other snapshots are active
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseInProgress))
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
+			Expect(ready.Message).To(ContainSubstring("other virtual disk snapshots"))
 		})
 
 		It("fails when the virtual disk is missing", func() {
