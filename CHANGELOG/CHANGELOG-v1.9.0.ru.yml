@@ -1,0 +1,229 @@
+ci:
+  features:
+  - summary: Добавляйте диаграммы длительности E2E, сгенерированные Python, и артефакты
+      рабочего процесса с самыми медленными характеристиками.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2361
+  - summary: Добавьте шаг для переключения модулей в режим обслуживания перед тестированием
+      e2e.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2321
+  - summary: Рабочий процесс развертывания Prod может готовить выпуски GitHub на основе
+      запросов журнала изменений и сообщать о статусе выпуска в Loop.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2291
+  - summary: протестируйте перенос версии на версию
+    pull_request: https://github.com/deckhouse/virtualization/pull/2195
+  fixes:
+  - summary: Тайм-аут готовности SDN во время вложенной загрузки e2e был увеличен.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2413
+  - summary: Увеличьте время ожидания проверки сайта выпуска, чтобы уменьшить количество
+      ошибок CI во время распространения версий модуля.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2386
+  - summary: Проверка канала выпуска теперь проверяет версии модулей на странице выпуска
+      конкретного модуля.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2381
+  - summary: Исправлена ​​обработка загрузки и скачивания артефактов рабочего процесса
+      E2E для зашифрованных сгенерированных файлов.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2364
+  - summary: Улучшите причины сбоев в отчетах E2E Messenger, отчеты о сбоях настройки
+      пакета и расчет вероятности успеха.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2355
+  - summary: Настройка вложенного модуля e2e Хардена для борьбы с распространением
+      модулей Deckhouse и гонками готовности к приему.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2349
+  - summary: использовать обнаруженные учетные данные SSH для виртуальных машин Alpine
+      в инфраструктуре e2e статического кластера.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2337
+  - summary: Подождите дольше, пока вложенная авторизация e2e kubeconfig не будет
+      готова.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2336
+  - summary: шаг входа в докер
+    pull_request: https://github.com/deckhouse/virtualization/pull/2325
+  - summary: Повторите попытку применения конфигурации виртуализации во вложенном
+      рабочем процессе E2E.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2319
+  - summary: Сделайте так, чтобы вложенная диагностика начальной загрузки E2E допускала
+      временные сбои API Kubernetes.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2317
+  - summary: Включите импорт исходного изображения на основе тегов werf в рабочих
+      процессах сборки prod, чтобы избежать ненужных пересборок, вызванных несоответствием
+      метаданных кэша между версиями werf.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2310
+  - summary: Пропустите вложенный USB e2e в версиях Kubernetes ниже 1.34 и вернитесь
+      к классу хранилища NFS по умолчанию.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2307
+  - summary: Предотвратите сбои анализа отчетов E2E, отделив необработанный отчет
+      Ginkgo JSON от сводного отчета в артефактах CI.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2305
+  - summary: добавить параметры поддержки активности SSH для доступа к вложенному
+      кластеру на основе d8 в помощниках CI и e2e
+    pull_request: https://github.com/deckhouse/virtualization/pull/2301
+  - summary: Реорганизуйте создание вложенных отчетов E2E в протестированные сценарии
+      Node.js с отчетами JSON и улучшите циклические отчеты о недостающих артефактах,
+      пропущенных тестах и ​​сбоях этапов.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2245
+core:
+  features:
+  - summary: Добавьте сведения о передаче динамической миграции в сообщения об условиях
+      VMOP.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2436
+  - summary: Команды жизненного цикла CLI (запуск, остановка, перезапуск, изгнание,
+      миграция) теперь поддерживают несколько целевых виртуальных машин, флаг --all,
+      флаг --label-selector для таргетинга на основе меток и флаг --yes для неинтерактивного
+      подтверждения.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2412
+  - summary: Совместимые ресурсы VirtualMachineOperation теперь могут заменять другую
+      активную операцию на той же виртуальной машине.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2338
+  - summary: В ресурсы VirtualMachine добавлен столбец Uptime, показывающий время
+      с момента запуска виртуальной машины.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2279
+  fixes:
+  - summary: Исправьте USB startPolicy='optional' в контейнерах, где sysfs предоставляет
+      хост-устройства, но узлы устройств отсутствуют в пространстве имен монтирования.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2432
+  - summary: Создайте сетевые интерфейсы с правом собственности пользователя рубки
+      (UID/GID 64535).
+    pull_request: https://github.com/deckhouse/virtualization/pull/2430
+  - summary: Исправлена ​​паника в обработчике событий CRD kubevirt при доставке объекта-захоронения.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2420
+  - summary: Исправлена ​​очистка устаревших модулей горячего подключения после удаления
+      дисков виртуальной машины.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2409
+  - summary: Предотвратите утечки при монтировании тома с горячим подключением при
+      неудачной очистке миграции, подключив KubeVirt.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2385
+  - summary: 'Улучшенная обработка гостей Windows: запуск и миграция должны работать
+      в кластерах с частыми изменениями частоты процессора.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2345
+  - summary: Сохраняйте время безотказной работы VirtualMachine во время миграции,
+      отслеживая время последнего запуска в статусе.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2304
+  - summary: Восстановите MigrationPending с ходом выполнения 0 % и рассматривайте
+      целевое планирование как выполняющееся для операций миграции виртуальных машин.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2272
+  - summary: Распространите незапланированные сведения о целевом модуле миграции на
+      условия VMOP.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2261
+  - summary: Логика повторного подключения в консоли d8 v vnc и d8 v теперь обновляет
+      конфигурацию клиента перед повторным подключением, что позволяет избежать сбоев
+      устаревшего токена обновления OIDC.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2253
+dvcr:
+  fixes:
+  - summary: Сборка мусора DVCR больше не завершается сбоем в новом реестре с поддержкой
+      PVC перед первой загрузкой образа.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2447
+module:
+  fixes:
+  - summary: Запретить бесконечное повторение этапа установки модуля USB/IP, если
+      пакеты модулей ядра недоступны.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2371
+  - summary: Пропустите очистку отсоединения USBGateway для неотслеживаемых USB-устройств
+      и отключите отслеживаемые устройства только на последнем активном потребителе.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2298
+  - summary: Исправлена ​​проблема, из-за которой неверные настройки ModuleConfig
+      модуля виртуализации могли блокировать очередь Deckhouse.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2246
+  - summary: Добавьте идемпотентность для очистки USB-устройства в виртуализацию-dra,
+      чтобы предотвратить ошибки при повторных вызовах unprepare.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2216
+  - summary: Исправлены повторяющиеся серии на панели инструментов «Виртуализация/Обзор».
+    pull_request: https://github.com/deckhouse/virtualization/pull/2189
+test:
+  features:
+  - summary: Добавьте систему предварительной проверки для тестов e2e, которая проверяет
+      конфигурацию кластера перед выполнением теста.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2269
+  fixes:
+  - summary: Сделайте предварительную проверку меток e2e совместимой с фильтрами меток,
+      отрицающими Ginkgo.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2439
+  - summary: Тест VirtualDiskResizing e2e теперь ожидает SSH перед проверкой размера
+      диска после изменения размера.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2424
+  - summary: Упростите проверку размера диска VirtualDiskResizing, чтобы уменьшить
+      нестабильность команд SSH.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2405
+  - summary: Увеличьте долю ядра ЦП для виртуальных машин e2e с возможностью горячего
+      подключения, чтобы избежать тайм-аутов проверки диска SSH.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2403
+  - summary: Неудачные артефакты дампа e2e теперь хранятся в e2e_failed/<testcase>/...
+      как для новых, так и для устаревших тестов.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2383
+  - summary: Повысьте надежность теста e2e при переподключении USB, разделив логику
+      монтирования на этапы поиска, форматирования и монтирования.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2332
+  - summary: Исправлена ​​предварительная проверка e2e при подготовке к фильтрам фокуса/метки,
+      содержащим пробелы.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2318
+  - summary: Сделайте так, чтобы проверка внешнего подключения e2e полагалась на успешный
+      исходящий доступ к резервным хостам, а не на HTTP 200 с одного сайта.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2313
+  - summary: Стабилизирован тест VirtualMachineUSB e2e за счет улучшения обнаружения
+      гостевых USB-дисков, потока перемонтирования и тайм-аутов при миграции.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2297
+  - summary: Улучшите надежность и диагностику тестирования VirtualMachineAdditionalNetworkInterfaces
+      e2e.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2290
+  - summary: Увеличьте время ожидания для повторной миграции сходства в устаревшем
+      тесте e2e на сходство/толерантность.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2267
+  - summary: Увеличьте время ожидания готовности VirtualMachineSnapshot в тесте VirtualMachineOperationRestore
+      e2e, чтобы устранить нестабильность хранилища NFS.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2254
+vd:
+  fixes:
+  - summary: Время, затраченное на этапе «WaitForFirstConsumer», больше не включается
+      в «.status.stats.creationDuration.totalProvisioning» виртуальных дисков.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2379
+  - summary: Разрешить вход из пространства имен виртуализации в модули импорта
+    pull_request: https://github.com/deckhouse/virtualization/pull/2356
+  - summary: Восстановите запрошенный размер VirtualDisk из метаданных моментального
+      снимка.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2278
+vm:
+  features:
+  - summary: Статус виртуальной машины теперь включает сообщение «Нет загрузочного
+      устройства», когда виртуальная машина не может найти загрузочный диск для запуска.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2404
+  - summary: Добавьте подкоманды задания домена и информацию о блокировке заданий
+      в vlctl.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2280
+  - summary: Добавлена ​​возможность изменять `coreFraction` на работающей виртуальной
+      машине без перезагрузки. Новое значение применяется посредством динамической
+      миграции.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2210
+  - summary: Добавлена ​​возможность подключать дополнительные сетевые интерфейсы
+      без перезагрузки через `.spec.networks` виртуальной машины.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2187
+  - summary: Предоставьте событие «нет загрузочного устройства» в virt-launcher.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2183
+  - summary: Ресурсы системных виртуальных машин (модули с префиксами `d8v-hp-` и
+      `d8v-vm-`) теперь запускаются от имени пользователя `deckhouse` без привилегий
+      root.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2097
+  - summary: 'Перезапуск больше не требуется для подключения и отключения виртуальных
+      дисков и образов через `.spec.blockDeviceRefs` виртуальной машины:
+
+      - Работает для новых виртуальных машин, начиная с версии 1.9.0.
+
+      - Для ранее созданных виртуальных машин требуется перезагрузка, чтобы включить
+      такое поведение.'
+    pull_request: https://github.com/deckhouse/virtualization/pull/2033
+  fixes:
+  - summary: разрешить каталог xml для установки без полномочий root
+    pull_request: https://github.com/deckhouse/virtualization/pull/2434
+  - summary: Исправлено обновление диска для остановленных виртуальных машин с классом
+      хранения WaitForFirstConsumer. Раньше, когда виртуальная машина была остановлена
+      ​​и заменены диски, KVVM не обновлялась, что приводило к зависанию виртуальной
+      машины на этапе запуска.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2407
+  - summary: Исправлена ​​ошибка миграции виртуальной машины, вызванная неправильным
+      размером целевого диска для томов горячего подключения с поддержкой файловой
+      системы.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2402
+  - summary: Устраните возможные проблемы с планированием после изменения vmclass
+      с типа обнаружения на тип модели.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2352
+  - summary: Исправлена ​​проблема с отменой миграции виртуальных машин, из-за которой
+      не могли начаться новые миграции.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2282
