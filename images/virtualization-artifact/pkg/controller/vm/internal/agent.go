@@ -69,23 +69,15 @@ func (h *AgentHandler) syncAgentReady(vm *v1alpha2.VirtualMachine, kvvmi *virtv1
 		return
 	}
 
-	cb := conditions.NewConditionBuilder(vmcondition.TypeAgentReady).Generation(vm.GetGeneration())
-
-	defer func() {
-		phase := vm.Status.Phase
-		if phase == v1alpha2.MachinePending || phase == v1alpha2.MachineStarting || phase == v1alpha2.MachineStopped {
-			conditions.RemoveCondition(vmcondition.TypeAgentReady, &vm.Status.Conditions)
-		} else {
-			conditions.SetCondition(cb, &vm.Status.Conditions)
-		}
-	}()
-
 	if kvvmi == nil {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonAgentNotReady).
-			Message("VirtualMachine is not running.")
+		conditions.RemoveCondition(vmcondition.TypeAgentReady, &vm.Status.Conditions)
 		return
 	}
+
+	cb := conditions.NewConditionBuilder(vmcondition.TypeAgentReady).Generation(vm.GetGeneration())
+	defer func() {
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+	}()
 
 	for _, c := range kvvmi.Status.Conditions {
 		if c.Type == virtv1.VirtualMachineInstanceAgentConnected {

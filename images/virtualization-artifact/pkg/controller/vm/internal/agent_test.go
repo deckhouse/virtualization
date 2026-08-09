@@ -94,10 +94,13 @@ var _ = Describe("AgentHandler Tests", func() {
 	}
 
 	DescribeTable("AgentReady Condition Tests",
-		func(phase v1alpha2.MachinePhase, agentConnected bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+		func(phase v1alpha2.MachinePhase, kvvmiExists, agentConnected bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			vm := newVM(phase)
-			kvvmi := newKVVMI(agentConnected, false)
-			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+			if kvvmiExists {
+				fakeClient, resource, vmState = setupEnvironment(vm, newKVVMI(agentConnected, false))
+			} else {
+				fakeClient, resource, vmState = setupEnvironment(vm)
+			}
 
 			reconcile()
 
@@ -111,23 +114,20 @@ var _ = Describe("AgentHandler Tests", func() {
 				Expect(cond.Status).To(Equal(expectedStatus))
 			}
 		},
-		Entry("Should add AgentReady as True if agent is connected", v1alpha2.MachineRunning, true, metav1.ConditionTrue, true),
-		Entry("Should add AgentReady as False if agent is not connected", v1alpha2.MachineRunning, false, metav1.ConditionFalse, true),
+		Entry("Should add AgentReady as True if agent is connected", v1alpha2.MachineRunning, true, true, metav1.ConditionTrue, true),
+		Entry("Should add AgentReady as False if agent is not connected", v1alpha2.MachineRunning, true, false, metav1.ConditionFalse, true),
 
-		Entry("Should add AgentReady as True if agent is connected", v1alpha2.MachineStopping, true, metav1.ConditionTrue, true),
-		Entry("Should add AgentReady as False if agent is not connected", v1alpha2.MachineStopping, false, metav1.ConditionFalse, true),
+		Entry("Should add AgentReady as True if agent is connected", v1alpha2.MachineStopping, true, true, metav1.ConditionTrue, true),
+		Entry("Should add AgentReady as False if agent is not connected", v1alpha2.MachineStopping, true, false, metav1.ConditionFalse, true),
 
-		Entry("Should add AgentReady as True if agent is connected", v1alpha2.MachineMigrating, true, metav1.ConditionTrue, true),
-		Entry("Should add AgentReady as False if agent is not connected", v1alpha2.MachineMigrating, false, metav1.ConditionFalse, true),
+		Entry("Should add AgentReady as True if agent is connected", v1alpha2.MachineMigrating, true, true, metav1.ConditionTrue, true),
+		Entry("Should add AgentReady as False if agent is not connected", v1alpha2.MachineMigrating, true, false, metav1.ConditionFalse, true),
 
-		Entry("Should not add AgentReady if VM is in Pending phase and the agent is connected", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
-		Entry("Should not add AgentReady if VM is in Pending phase and the agent is not connected", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Pending phase and there is no instance", v1alpha2.MachinePending, false, false, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Stopped phase and there is no instance", v1alpha2.MachineStopped, false, false, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Starting phase and there is no instance", v1alpha2.MachineStarting, false, false, metav1.ConditionUnknown, false),
 
-		Entry("Should not add AgentReady if VM is in Starting phase and the agent is connected", v1alpha2.MachineStarting, true, metav1.ConditionUnknown, false),
-		Entry("Should not add AgentReady if VM is in Starting phase and the agent is not connected", v1alpha2.MachineStarting, false, metav1.ConditionUnknown, false),
-
-		Entry("Should not add AgentReady if VM is in Stopped phase and the agent is connected", v1alpha2.MachineStopped, true, metav1.ConditionUnknown, false),
-		Entry("Should not add AgentReady if VM is in Stopped phase and the agent is not connected", v1alpha2.MachineStopped, false, metav1.ConditionUnknown, false),
+		Entry("Should add AgentReady as True if agent is connected while phase still lags at Starting", v1alpha2.MachineStarting, true, true, metav1.ConditionTrue, true),
 	)
 
 	DescribeTable("AgentVersionNotSupported Condition Tests",
