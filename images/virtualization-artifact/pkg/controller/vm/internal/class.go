@@ -70,7 +70,9 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		return reconcile.Result{}, err
 	}
 
-	//nolint:staticcheck // it's deprecated.
+	// nolintlint is listed because the golangci-lint pinned in CI does not report this use and
+	// would call the directive unused, while a newer one does report it.
+	//nolint:staticcheck,nolintlint // it's deprecated.
 	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeClassReady).
 		Generation(current.GetGeneration())

@@ -1411,11 +1411,17 @@ func (h *SyncKvvmHandler) buildInProgressInplaceResizeMsg(kvvmi *virtv1.VirtualM
 		msg.WriteString(strings.ReplaceAll(cond.Message, "Pod", "VM"))
 	case virtv1.VirtualMachineInstanceReasonPodResizeCompleted:
 		msg.WriteString(" Waiting when cpu and memory will be hotplugged on virtual machine.")
+	case "":
+		// The runtime has not reported the resize yet: it has either just started, or the request
+		// has been rejected and the changes will be applied via live migration instead.
+		msg.WriteString(" Waiting for the runtime to confirm the resize.")
 	default:
-		msg.WriteString(" reason: ")
+		msg.WriteString(" ")
 		msg.WriteString(cond.Reason)
-		msg.WriteString(", message: ")
-		msg.WriteString(cond.Message)
+		if cond.Message != "" {
+			msg.WriteString(": ")
+			msg.WriteString(cond.Message)
+		}
 	}
 
 	return msg.String()

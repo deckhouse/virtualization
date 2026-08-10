@@ -129,6 +129,25 @@ var _ = Describe("TestStatisticHandler", func() {
 		return kvvmi
 	}
 
+	// Override the topology of the running domain: while CPU hotplug is in progress it
+	// lags behind the spec. Cores and sockets are swapped, as in newKVVMIHotplug.
+	withCurrentCPUTopology := func(kvvmi *virtv1.VirtualMachineInstance, cores, sockets int) *virtv1.VirtualMachineInstance {
+		kvvmi.Status.CurrentCPUTopology = &virtv1.CPUTopology{
+			Cores:   uint32(sockets),
+			Sockets: uint32(cores),
+		}
+		return kvvmi
+	}
+
+	// Override the memory size of the running domain: while memory hotplug is in progress it
+	// lags behind the spec.
+	withCurrentMemory := func(kvvmi *virtv1.VirtualMachineInstance, memory string) *virtv1.VirtualMachineInstance {
+		kvvmi.Status.Memory = &virtv1.MemoryStatus{
+			GuestCurrent: ptr.To(resource.MustParse(memory)),
+		}
+		return kvvmi
+	}
+
 	newPod := func(requestCPU, limitCPU, requestMemory, limitMemory string) *corev1.Pod {
 		pod := newEmptyPOD(podName, vmNamespace, vmName)
 		pod.UID = podUID
@@ -275,6 +294,40 @@ var _ = Describe("TestStatisticHandler", func() {
 
 				MemorySize:            2147483648,
 				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Hotplug in progress: spec is already 8 cores, guest still runs 1",
+			newVM(8, ptr.To("100%"), "2Gi"),
+			withCurrentCPUTopology(newKVVMIHotplug(8, 1, 16, "100", "2Gi"), 1, 1),
+			newPod("8", "8", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           1,
+				CPUCoreFraction:    "100%",
+				CPURequestedCores:  8000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 1,
+				TopologySockets:        1,
+
+				MemorySize:            2147483648,
+				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Memory hotplug in progress: spec is already 2 Gi, guest still runs 1 Gi",
+			newVM(1, ptr.To("100%"), "2Gi"),
+			withCurrentMemory(newKVVMIHotplug(1, 1, 16, "100", "2Gi"), "1Gi"),
+			newPod("1", "1", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           1,
+				CPUCoreFraction:    "100%",
+				CPURequestedCores:  1000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 1,
+				TopologySockets:        1,
+
+				MemorySize:            1073741824,
+				MemoryRuntimeOverhead: 1024 * 1024 * 1024,
 			},
 		),
 		Entry("Hotplug enabled: 8 cores, 25% fraction, 2 Gi",

@@ -25,6 +25,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"k8s.io/component-base/featuregate"
+
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 )
 
 var defaultFeatures = []string{"AllAlpha", "AllBeta"}
@@ -58,6 +60,19 @@ func TestNew(t *testing.T) {
 
 	testKnownFeatures(t, gate)
 	require.True(t, gate.Enabled(SDN))
+}
+
+func TestLockedToDisabled(t *testing.T) {
+	// The hotplug gates are locked to a disabled default in CE and configurable everywhere else,
+	// so the expectation follows the edition this test binary was built for.
+	lockedInCE := version.GetEdition() == version.EditionCE
+
+	require.Equal(t, lockedInCE, LockedToDisabled(string(HotplugCPUAndMemoryWithInPlaceResize)))
+	require.Equal(t, lockedInCE, LockedToDisabled(string(HotplugCPUWithLiveMigration)))
+	require.Equal(t, lockedInCE, LockedToDisabled(string(HotplugMemoryWithLiveMigration)))
+
+	require.False(t, LockedToDisabled("NoSuchFeatureGate"), "an unknown gate is not locked")
+	require.False(t, LockedToDisabled(string(SDN)), "a freely configurable gate is not locked")
 }
 
 func testKnownFeatures(t *testing.T, gate featuregate.FeatureGate) {

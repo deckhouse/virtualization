@@ -29,7 +29,9 @@ func isDeletion(class *v1alpha2.VirtualMachineClass) bool {
 }
 
 func addAllUnknown(class *v1alpha2.VirtualMachineClass, conds ...vmclasscondition.Type) (update bool) {
-	//nolint:staticcheck // it's deprecated.
+	// nolintlint is listed because the golangci-lint pinned in CI does not report this use and
+	// would call the directive unused, while a newer one does report it.
+	//nolint:staticcheck,nolintlint // it's deprecated.
 	mgr := conditions.NewManager(class.Status.Conditions)
 	for _, c := range conds {
 		if add := mgr.Add(conditions.NewConditionBuilder(c).

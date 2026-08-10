@@ -200,6 +200,22 @@ var _ = Describe("SyncKvvmHandler", func() {
 		return kvvmi
 	}
 
+	// makeUnconfirmedResizeKVVMI returns a KVVMI whose in-place resize has been requested but never
+	// confirmed by the runtime: the marker is set, the resize condition is absent.
+	makeUnconfirmedResizeKVVMI := func(conditionType virtv1.VirtualMachineInstanceConditionType) *virtv1.VirtualMachineInstance {
+		kvvmi := makeResizingKVVMI("", "", conditionType)
+
+		conds := make([]virtv1.VirtualMachineInstanceCondition, 0, len(kvvmi.Status.Conditions))
+		for _, cond := range kvvmi.Status.Conditions {
+			if cond.Type != virtv1.VirtualMachineInstancePodResourceResizeInProgress {
+				conds = append(conds, cond)
+			}
+		}
+		kvvmi.Status.Conditions = conds
+
+		return kvvmi
+	}
+
 	makeVMIP := func() *v1alpha2.VirtualMachineIPAddress {
 		return &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{
@@ -672,7 +688,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 			"unexpected resize reason",
 			newFeatureGateEnableResourceInPlaceResize(),
 			makeResizingKVVMI("UnexpectedReason", "unexpected", ""),
-			"Hotplug is in progress. reason: UnexpectedReason, message: unexpected",
+			"Hotplug is in progress. UnexpectedReason: unexpected",
+		),
+		Entry(
+			"unexpected resize reason without a message",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeResizingKVVMI("UnexpectedReason", "", ""),
+			"Hotplug is in progress. UnexpectedReason",
+		),
+		Entry(
+			"resize is not confirmed by the runtime",
+			newFeatureGateEnableResourceInPlaceResize(),
+			makeUnconfirmedResizeKVVMI(virtv1.VirtualMachineInstanceVCPUChange),
+			"CPU hotplug is in progress. Waiting for the runtime to confirm the resize.",
 		),
 	)
 

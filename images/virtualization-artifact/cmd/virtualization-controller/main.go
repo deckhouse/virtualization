@@ -220,6 +220,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	kubernetesVersion, err := appconfig.LoadKubernetesVersionFromEnv()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	viStorageClassSettings, err := appconfig.LoadVirtualImageStorageClassSettings()
 	if err != nil {
 		log.Error(err.Error())
@@ -501,7 +507,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = mc.SetupWebhookWithManager(mgr, clusterSubnets); err != nil {
+	if err = mc.SetupWebhookWithManager(mgr, clusterSubnets, kubernetesVersion); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

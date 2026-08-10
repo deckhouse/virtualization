@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,6 +56,7 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 
 	type inPlaceResizeState struct {
 		inProgress                bool
+		conditionMissing          bool
 		conditionReason           string
 		podResizePendingReason    string
 		podResizeInProgressReason string
@@ -76,11 +78,13 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				kvvmi.Annotations = make(map[string]string)
 			}
 			kvvmi.Annotations[virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn] = "true"
-			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
-				Type:   virtv1.VirtualMachineInstancePodResourceResizeInProgress,
-				Status: corev1.ConditionTrue,
-				Reason: resizeState.conditionReason,
-			})
+			if !resizeState.conditionMissing {
+				kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstancePodResourceResizeInProgress,
+					Status: corev1.ConditionTrue,
+					Reason: resizeState.conditionReason,
+				})
+			}
 		}
 
 		return vm, kvvmi
@@ -154,9 +158,13 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 		hasHotMemoryChangeCondition bool
 		awaitingRestart             bool
 		shouldMigrate               bool
-		expectedMigrationCalls      int
-		expectedErr                 error
-		resizeState                 inPlaceResizeState
+		// waitTimeoutExpired drops the wait for the resize condition to zero, emulating a runtime
+		// that has not confirmed the resize within the timeout.
+		waitTimeoutExpired     bool
+		expectedMigrationCalls int
+		expectedRequeueAfter   time.Duration
+		expectedErr            error
+		resizeState            inPlaceResizeState
 	}
 
 	DescribeTable("HotplugResourcesHandler should return serviceCompleteErr if migration executed",
@@ -189,9 +197,13 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			h := NewHotplugHandler(fakeClient, mockMigration, inplaceresize.New(gate, fakeClient), gate, newNoOpRecorder())
-			_, err = h.Handle(ctx, vm)
+			if settings.waitTimeoutExpired {
+				h.inplaceResizeTimeout = 0
+			}
+			result, err := h.Handle(ctx, vm)
 
 			Expect(mockMigration.OnceMigrateCalls()).To(HaveLen(settings.expectedMigrationCalls))
+			Expect(result.RequeueAfter).To(Equal(settings.expectedRequeueAfter))
 
 			if settings.expectedErr != nil {
 				Expect(err).To(MatchError(settings.expectedErr))
@@ -295,7 +307,101 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 				},
 			},
 		),
+		Entry(
+			"Migration should not be executed while the in-place resize condition may still appear",
+			testResourcesSettings{
+				hasHotMemoryChangeCondition: true,
+				expectedMigrationCalls:      0,
+				expectedRequeueAfter:        time.Second,
+				resizeState: inPlaceResizeState{
+					inProgress:       true,
+					conditionMissing: true,
+				},
+			},
+		),
+		Entry(
+			"Migration should be executed when the in-place resize condition has not appeared in time",
+			testResourcesSettings{
+				hasHotMemoryChangeCondition: true,
+				shouldMigrate:               true,
+				waitTimeoutExpired:          true,
+				expectedMigrationCalls:      1,
+				expectedErr:                 serviceCompleteErr,
+				resizeState: inPlaceResizeState{
+					inProgress:       true,
+					conditionMissing: true,
+				},
+			},
+		),
 	)
+
+	It("Announces the fallback to live migration once per desired state", func() {
+		resizeState := inPlaceResizeState{inProgress: true, conditionMissing: true}
+		vm, kvvmi := newVMAndKVVMI(true, resizeState)
+		fakeClient = setupEnvironment(vm, kvvmi, newLauncherPod(kvvmi, resizeState))
+
+		events := 0
+		var recorder *eventrecord.EventRecorderLoggerMock
+		recorder = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:           func(_ client.Object, _, _, _ string) { events++ },
+			EventfFunc:          func(_ client.Object, _, _, _ string, _ ...any) {},
+			AnnotatedEventfFunc: func(_ client.Object, _ map[string]string, _, _, _ string, _ ...any) {},
+			// Return the same mock so events recorded through WithLogging are counted too.
+			WithLoggingFunc: func(_ eventrecord.InfoLogger) eventrecord.EventRecorderLogger { return recorder },
+		}
+
+		gate, setFromMap, err := featuregates.NewUnlocked()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(setFromMap(map[string]bool{
+			string(featuregates.HotplugMemoryWithLiveMigration):       true,
+			string(featuregates.HotplugCPUWithLiveMigration):          true,
+			string(featuregates.HotplugCPUAndMemoryWithInPlaceResize): true,
+		})).To(Succeed())
+
+		h := NewHotplugHandler(fakeClient, newOnceMigrationMock(false), inplaceresize.New(gate, fakeClient), gate, recorder)
+		h.inplaceResizeTimeout = 0
+
+		// The fallback is re-evaluated on every reconcile, but the user must not be flooded.
+		for range 5 {
+			_, err = h.Handle(ctx, vm)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		Expect(events).To(Equal(1))
+	})
+
+	It("Restarts the wait when the desired resources change, so the next resize is not migrated at once", func() {
+		resizeState := inPlaceResizeState{inProgress: true, conditionMissing: true}
+		vm, kvvmi := newVMAndKVVMI(true, resizeState)
+		vm.Spec.CPU.Cores = 4
+		fakeClient = setupEnvironment(vm, kvvmi, newLauncherPod(kvvmi, resizeState))
+
+		mockMigration := newOnceMigrationMock(true)
+
+		gate, setFromMap, err := featuregates.NewUnlocked()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(setFromMap(map[string]bool{
+			string(featuregates.HotplugMemoryWithLiveMigration):       true,
+			string(featuregates.HotplugCPUWithLiveMigration):          true,
+			string(featuregates.HotplugCPUAndMemoryWithInPlaceResize): true,
+		})).To(Succeed())
+
+		h := NewHotplugHandler(fakeClient, mockMigration, inplaceresize.New(gate, fakeClient), gate, newNoOpRecorder())
+
+		// The runtime never confirms this resize, so it falls back to live migration.
+		h.inplaceResizeTimeout = 0
+		_, err = h.Handle(ctx, vm)
+		Expect(err).To(MatchError(serviceCompleteErr))
+		Expect(mockMigration.OnceMigrateCalls()).To(HaveLen(1))
+
+		// A new desired state must get the full timeout instead of being migrated immediately.
+		h.inplaceResizeTimeout = time.Minute
+		vm.Spec.CPU.Cores = 2
+		result, err := h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(Equal(time.Second))
+		Expect(mockMigration.OnceMigrateCalls()).To(HaveLen(1))
+	})
 })
 
 func newNoOpRecorder() *eventrecord.EventRecorderLoggerMock {

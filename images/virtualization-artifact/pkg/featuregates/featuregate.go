@@ -116,6 +116,19 @@ func Default() featuregate.FeatureGate {
 	return instance
 }
 
+// LockedToDisabled reports whether the named feature gate cannot be enabled in this build: its
+// default is false and locked to it, which is how a feature unavailable in the current edition is
+// expressed. Passing such a gate via --feature-gates makes the process exit during flag parsing,
+// so the configuration has to be rejected before it is rendered into flags.
+func LockedToDisabled(name string) bool {
+	spec, ok := featureSpecs[featuregate.Feature(name)]
+	if !ok {
+		return false
+	}
+
+	return spec.LockToDefault && !spec.Default
+}
+
 type (
 	AddFlagsFunc   func(fs *pflag.FlagSet)
 	SetFromMapFunc func(m map[string]bool) error

@@ -113,7 +113,7 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 			if err != nil {
 				return err
 			}
-			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
+			memorySize = h.getCurrentMemorySizeByKVVMI(kvvmi)
 
 			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
 			topology = h.getCurrentTopologyByKVVMI(kvvmi)
@@ -159,12 +159,12 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 			cpuOverhead.Set(0)
 		}
 
-		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
+		memorySize := h.getCurrentMemorySizeByKVVMI(kvvmi)
 		// Kubevirt makes memory limits equal or slightly greater than requests. See https://github.com/deckhouse/virtualization/pull/1947
 		memoryPodLimit := ctr.Resources.Limits[corev1.ResourceMemory]
 
 		memoryOverhead := memoryPodLimit.DeepCopy()
-		memoryOverhead.Sub(memoryKVVMIRequest)
+		memoryOverhead.Sub(memorySize)
 		mi := int64(1024 * 1024)
 		memoryOverhead = *resource.NewQuantity(int64(math.Ceil(float64(memoryOverhead.Value())/float64(mi)))*mi, resource.BinarySI)
 		if memoryOverhead.Value() < 0 {
@@ -180,7 +180,7 @@ func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 				Topology:        topology,
 			},
 			Memory: v1alpha2.MemoryStatus{
-				Size:            memoryKVVMIRequest,
+				Size:            memorySize,
 				RuntimeOverhead: memoryOverhead,
 			},
 		}
@@ -265,14 +265,16 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 	cores := -1
 	sockets := -1
 
-	if kvvmi.Status.CurrentCPUTopology != nil {
-		cores = int(kvvmi.Status.CurrentCPUTopology.Cores)
-		sockets = int(kvvmi.Status.CurrentCPUTopology.Sockets)
-	}
-
 	if kvvmi.Spec.Domain.CPU != nil {
 		cores = int(kvvmi.Spec.Domain.CPU.Cores)
 		sockets = int(kvvmi.Spec.Domain.CPU.Sockets)
+	}
+
+	// CurrentCPUTopology is the topology applied to the running domain: while CPU hotplug
+	// is in progress the spec is already updated, but the guest still runs the old topology.
+	if current := kvvmi.Status.CurrentCPUTopology; current != nil && current.Cores > 0 && current.Sockets > 0 {
+		cores = int(current.Cores)
+		sockets = int(current.Sockets)
 	}
 
 	if _, isDynamicCores := kvvmi.Annotations[kvbuilder.VCPUTopologyDynamicCoresAnnotation]; isDynamicCores {
@@ -290,6 +292,27 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 	cores = h.getCoresByKVVMI(kvvmi)
 	sockets, coresPerSocket, _ := vm.CalculateCoresAndSockets(cores)
 	return v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
+}
+
+// getCurrentMemorySizeByKVVMI returns the memory size the guest actually runs with.
+// Status.Memory.GuestCurrent is updated once memory hotplug is applied to the domain, while
+// the spec carries the desired size as soon as the change is requested.
+func (h *StatisticHandler) getCurrentMemorySizeByKVVMI(kvvmi *virtv1.VirtualMachineInstance) resource.Quantity {
+	if kvvmi == nil {
+		return resource.Quantity{}
+	}
+
+	if kvvmi.Status.Memory != nil && kvvmi.Status.Memory.GuestCurrent != nil {
+		return *kvvmi.Status.Memory.GuestCurrent
+	}
+
+	// Hotpluggable memory is set in domain.memory.guest, see kvbuilder.KVVM.SetMemory.
+	if kvvmi.Spec.Domain.Memory != nil && kvvmi.Spec.Domain.Memory.Guest != nil {
+		return *kvvmi.Spec.Domain.Memory.Guest
+	}
+
+	// Also support previous implementation: memory size is set in requests.
+	return kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 }
 
 func (h *StatisticHandler) syncPods(changed *v1alpha2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {

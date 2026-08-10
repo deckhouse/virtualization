@@ -19,6 +19,7 @@ package moduleconfig
 import (
 	"log/slog"
 
+	k8sversion "k8s.io/apimachinery/pkg/util/version"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -31,8 +32,8 @@ import (
 
 const moduleConfigName = "virtualization"
 
-func SetupWebhookWithManager(mgr manager.Manager, clusterSubnets *appconfig.ClusterSubnets) error {
-	moduleConfigValidator := NewModuleConfigValidator(mgr.GetClient(), clusterSubnets)
+func SetupWebhookWithManager(mgr manager.Manager, clusterSubnets *appconfig.ClusterSubnets, kubernetesVersion *k8sversion.Version) error {
+	moduleConfigValidator := NewModuleConfigValidator(mgr.GetClient(), clusterSubnets, kubernetesVersion)
 	if err := builder.WebhookManagedBy(mgr).
 		For(&mcapi.ModuleConfig{}).
 		WithValidator(moduleConfigValidator).
@@ -42,7 +43,7 @@ func SetupWebhookWithManager(mgr manager.Manager, clusterSubnets *appconfig.Clus
 	return nil
 }
 
-func NewModuleConfigValidator(client client.Client, clusterSubnets *appconfig.ClusterSubnets) *validator.Validator[*mcapi.ModuleConfig] {
+func NewModuleConfigValidator(client client.Client, clusterSubnets *appconfig.ClusterSubnets, kubernetesVersion *k8sversion.Version) *validator.Validator[*mcapi.ModuleConfig] {
 	logger := log.Default().With(slog.String("validator", "moduleconfig"))
 
 	cidrs := newCIDRsValidator(client, clusterSubnets)
@@ -50,6 +51,7 @@ func NewModuleConfigValidator(client client.Client, clusterSubnets *appconfig.Cl
 	viStorageClasses := newViStorageClassValidator(client)
 	dvcrValidator := newDvcrValidator(client)
 	liveMigration := newLiveMigrationValidator(client)
+	featureGates := newFeatureGatesValidator(kubernetesVersion)
 
 	return validator.NewValidator[*mcapi.ModuleConfig](logger).
 		WithPredicate(&validator.Predicate[*mcapi.ModuleConfig]{
@@ -61,6 +63,5 @@ func NewModuleConfigValidator(client client.Client, clusterSubnets *appconfig.Cl
 					oldMC.GetGeneration() != newMC.GetGeneration()
 			},
 		}).
-		WithCreateValidators(liveMigration).
-		WithUpdateValidators(cidrs, reduceCIDRs, viStorageClasses, dvcrValidator, liveMigration)
+		WithUpdateValidators(cidrs, reduceCIDRs, viStorageClasses, dvcrValidator, liveMigration, featureGates)
 }

@@ -148,6 +148,8 @@ true
   value: {{ .Values.virtualization.internal.disableFirmwareUpdate | default false | quote }}
 - name: CLUSTER_UUID
   value: {{ .Values.global.discovery.clusterUUID }}
+- name: KUBERNETES_VERSION
+  value: {{ .Values.global.discovery.kubernetesVersion | quote }}
 - name: CLUSTER_POD_SUBNET_CIDR
   value: {{ .Values.global.clusterConfiguration.podSubnetCIDR }}
 - name: CLUSTER_SERVICE_SUBNET_CIDR
