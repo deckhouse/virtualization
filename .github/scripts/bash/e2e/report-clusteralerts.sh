@@ -25,6 +25,7 @@ require_env CLUSTERALERTS_DIR
 alerts_dir="${CLUSTERALERTS_DIR:-}"
 alert_prefix="${CLUSTERALERTS_PREFIX:-D8Virtualization}"
 fail_on_alerts="${FAIL_ON_ALERTS:-true}"
+watch_result="${WATCH_RESULT:-}"
 summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
 # The watch runs as a single job and does not know which pipeline phase it is
@@ -77,6 +78,13 @@ oneline='def oneline: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "");'
 } >> "${summary_file}"
 
 if [ "${count}" -eq 0 ]; then
+  # An empty report means "nothing was firing" only if the watch actually ran.
+  if [ -n "${watch_result}" ] && [ "${watch_result}" != "success" ]; then
+    echo "The watch job did not complete (result: \`${watch_result}\`), so alerts were **not** monitored." >> "${summary_file}"
+    echo "::warning title=ClusterAlerts were not monitored::The watch job result is '${watch_result}'"
+    exit 0
+  fi
+
   echo "No \`${alert_prefix}*\` alerts were firing during the release rollover." >> "${summary_file}"
   echo "[INFO] No ${alert_prefix}* alerts were firing during the release rollover"
   exit 0

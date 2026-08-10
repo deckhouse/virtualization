@@ -802,8 +802,13 @@ jobs:
   report-clusteralerts:
     name: ClusterAlerts in nested cluster
     runs-on: ubuntu-latest
+    # Depends on the test jobs as well, not only on the watch: should the watch
+    # job die early, the report must still wait for the whole rollover instead
+    # of declaring "no alerts" while the tests are still running.
     needs:
+      - test-current-release
       - patch-modulepulloverride
+      - test-new-release
       - watch-clusteralerts
     if: always()
     # A firing alert must be visible but must not fail the pipeline: this job
@@ -826,4 +831,5 @@ jobs:
         env:
           RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
           RELEASE_UPGRADE_FINISHED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_finished_at }}
+          WATCH_RESULT: ${{ needs.watch-clusteralerts.result }}
         run: bash "${E2E_SCRIPT_DIR}/report-clusteralerts.sh"
