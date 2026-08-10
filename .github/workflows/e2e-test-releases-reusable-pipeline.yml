@@ -833,3 +833,29 @@ jobs:
           RELEASE_UPGRADE_FINISHED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_finished_at }}
           WATCH_RESULT: ${{ needs.watch-clusteralerts.result }}
         run: bash "${E2E_SCRIPT_DIR}/report-clusteralerts.sh"
+
+  # TEMPORARY: drop before merge. Frees the nested cluster right after the
+  # ClusterAlerts report instead of waiting for the nightly cleanup.
+  delete-nested-cluster:
+    name: Delete nested cluster (temporary)
+    runs-on: ubuntu-latest
+    # report-clusteralerts already waits for the whole test and upgrade
+    # sequence, so this runs once nothing needs the cluster any more.
+    needs:
+      - bootstrap
+      - report-clusteralerts
+    if: always()
+    steps:
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+      - name: Delete the namespace and the cluster-scoped VirtualMachineClass
+        env:
+          NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
+        run: |
+          kubectl delete namespace "${NAMESPACE}" --timeout=300s || true
+          kubectl delete vmclass "${NAMESPACE}-cpu" --timeout=300s || true
