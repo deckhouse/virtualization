@@ -283,6 +283,21 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 		return false, nil
 	}
 
+	if svc.Spec.ClusterIP != "" {
+		client := &http.Client{Timeout: 5 * time.Second}
+		response, err := client.Get(fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP))
+		if err != nil {
+			return false, nil
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode == http.StatusOK {
+			return true, nil
+		}
+
+		return false, nil
+	}
+
 	uploadURL, ok := ing.Annotations[annotations.AnnUploadURL]
 	if ok && uploadURL != "" {
 		certPool, err := x509.SystemCertPool()
