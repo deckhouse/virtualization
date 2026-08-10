@@ -76,7 +76,7 @@ jobs:
     steps:
       - name: Resolve release refs
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CURRENT_RELEASE_INPUT: ${{ github.event.inputs.current-release }}
           NEXT_RELEASE_INPUT: ${{ github.event.inputs.next-release }}
