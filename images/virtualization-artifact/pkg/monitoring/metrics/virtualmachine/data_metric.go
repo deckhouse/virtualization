@@ -52,6 +52,7 @@ type dataMetric struct {
 	// AppliedVirtualMachineClassName is the class name that is actually applied to the running VM.
 	// It may differ from spec.virtualMachineClassName if the spec was changed but the VM wasn't restarted.
 	AppliedVirtualMachineClassName string
+	Migratable                     bool
 }
 
 // DO NOT mutate VirtualMachine!
@@ -81,6 +82,10 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 
 	firmwareUpToDateCondition, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
 	firmwareUpToDate = firmwareUpToDateCondition.Status != metav1.ConditionFalse
+
+	// A machine with local disks is migratable in EE — its volumes travel along with it — and the
+	// condition says so, which is why the condition is the source here rather than the disks.
+	migratableCondition, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
 	pods := make([]v1alpha2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {
@@ -112,6 +117,7 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
 		firmwareUpToDate: firmwareUpToDate,
+		Migratable:       migratableCondition.Status == metav1.ConditionTrue,
 	}
 }
 

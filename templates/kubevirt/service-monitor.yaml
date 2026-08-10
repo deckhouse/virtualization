@@ -22,6 +22,13 @@ spec:
           regex: 'kubevirt_vmi_(migration_)?phase_(.*)'
           sourceLabels:
             - __name__
+        # drop kubevirt_vmi_non_evictable: it reports a machine with local disks as non-migratable,
+        # while the platform migrates it along with its volumes. Use
+        # d8_virtualization_virtualmachine_migratable instead.
+        - action: drop
+          regex: 'kubevirt_vmi_non_evictable'
+          sourceLabels:
+            - __name__
         # add / drop labels ========================================================================
         # storage ----------------------------------------------------------------------------------
         # get device label value without cvi, vi, vd prefixes and create new label block_device_name

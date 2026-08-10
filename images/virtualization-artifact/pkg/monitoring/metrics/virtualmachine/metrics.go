@@ -40,6 +40,7 @@ const (
 	MetricVirtualMachineAnnotations                             = "virtualmachine_annotations"
 	MetricVirtualMachineFirmwareUpToDate                        = "virtualmachine_firmware_up_to_date"
 	MetricVirtualMachineInfo                                    = "virtualmachine_info"
+	MetricVirtualMachineMigratable                              = "virtualmachine_migratable"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "node"}
@@ -178,6 +179,13 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 		"Information about the virtualmachine.",
 		prometheus.GaugeValue,
 		WithBaseLabels("virtualmachineclass"),
+		nil,
+	),
+
+	MetricVirtualMachineMigratable: metrics.NewMetricInfo(MetricVirtualMachineMigratable,
+		"Whether the virtualmachine can be live migrated.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
 		nil,
 	),
 }
