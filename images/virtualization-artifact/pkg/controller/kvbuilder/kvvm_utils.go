@@ -233,6 +233,7 @@ func ApplyVirtualMachineSpec(
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
+	kvvm.SetUSBGatewayNodeSelector(len(vm.Spec.USBDevices) > 0)
 	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
 	kvvm.SetAffinity(v1alpha2.NewAffinityFromVMAffinity(vm.Spec.Affinity), class.Spec.NodeSelector.MatchExpressions)
 	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)

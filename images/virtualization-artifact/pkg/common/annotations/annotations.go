@@ -283,6 +283,9 @@ const (
 	AnnUSBIPSuperSpeedHubUsedPorts = "usb.virtualization.deckhouse.io/usbip-super-speed-hub-used-ports"
 	AnnUSBIPAddress                = "usb.virtualization.deckhouse.io/usbip-address"
 
+	// USBGatewayLabel is the label on nodes that provide a USB gateway.
+	USBGatewayLabel = LabelsPrefix + "/usb-gateway"
+
 	// DefaultUSBDeviceGroup is the default device group ID for USB devices.
 	DefaultUSBDeviceGroup = "64535"
 	// DefaultUSBDeviceUser is the default device user ID for USB devices.

@@ -33,6 +33,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
@@ -217,6 +218,19 @@ func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]stri
 	maps.Copy(selector, vmNodeSelector)
 	maps.Copy(selector, classNodeSelector)
 	b.Resource.Spec.Template.Spec.NodeSelector = selector
+}
+
+// SetUSBGatewayNodeSelector restricts scheduling to the nodes with a USB gateway
+// when the virtual machine has USB devices attached.
+// It should be called after SetNodeSelector, which rewrites the whole node selector.
+func (b *KVVM) SetUSBGatewayNodeSelector(hasUSBDevices bool) {
+	if !hasUSBDevices {
+		return
+	}
+	if b.Resource.Spec.Template.Spec.NodeSelector == nil {
+		b.Resource.Spec.Template.Spec.NodeSelector = make(map[string]string, 1)
+	}
+	b.Resource.Spec.Template.Spec.NodeSelector[annotations.USBGatewayLabel] = "true"
 }
 
 func (b *KVVM) SetTolerations(vmTolerations, classTolerations []corev1.Toleration) {
