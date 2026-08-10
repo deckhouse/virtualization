@@ -669,6 +669,7 @@ jobs:
       - name: Wait for all migrations to reach a terminal phase
         env:
           RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
         run: bash "${E2E_SCRIPT_DIR}/wait-vmops-migration-terminal.sh"
 
       # Closes the upgrade window for the ClusterAlerts report; runs even on

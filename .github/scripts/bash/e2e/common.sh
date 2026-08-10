@@ -69,6 +69,15 @@ virtualization_feature_gates() {
   echo "HotplugCPUAndMemoryWithInPlaceResize"
 }
 
+# Echoes images_digests.json packaged in the module image of a given release.
+# Usage: module_images_digests <module_source> <release>
+module_images_digests() {
+  local module_source="$1"
+  local release="$2"
+
+  crane export "${module_source}/virtualization:${release}" - | tar -Oxf - images_digests.json
+}
+
 # Reads a manifest from stdin and applies it with retries.
 # Usage: kubectl_apply_with_retry [count] [delay] [diag_fn]
 # diag_fn is an optional function name invoked on each failed attempt.
