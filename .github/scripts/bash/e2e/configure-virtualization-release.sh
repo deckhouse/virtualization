@@ -37,6 +37,13 @@ current_release="$(required_env_value CURRENT_RELEASE)"
 
 REGISTRY="$(registry_host_from_docker_cfg "${dev_registry_docker_cfg}")"
 
+# Only the gates this release knows: a gate it does not support fails
+# ModulePullOverride validation and the module never installs. The upgrade
+# revisits the list for the new release (patch-virtualization-feature-gates.sh).
+feature_gates_yaml="$(virtualization_feature_gates "${current_release}" | sed 's/^/      - /')"
+echo "[INFO] Feature gates for ${current_release}:"
+echo "${feature_gates_yaml}"
+
 echo "[INFO] Apply ModuleSource prod config"
 kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
 apiVersion: deckhouse.io/v1alpha1
@@ -71,9 +78,7 @@ spec:
     virtualMachineCIDRs:
       - 192.168.10.0/24
     featureGates:
-      - HotplugCPUWithLiveMigration
-      - HotplugMemoryWithLiveMigration
-      - HotplugCPUAndMemoryWithInPlaceResize
+${feature_gates_yaml}
   source: deckhouse-dev
   version: 1
 ---

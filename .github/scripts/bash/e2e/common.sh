@@ -47,6 +47,28 @@ modules_repo_for_registry() {
   fi
 }
 
+# Echoes the virtualization feature gates supported by every given release, one
+# per line. A gate the pulled module does not know fails ModulePullOverride
+# validation and leaves the module uninstalled, so a gate is only listed when
+# none of the releases predate it. In-place resize never shipped in the 1.9
+# line. Anything that is not a release tag (a PR reference, a build off main)
+# carries the current gates.
+# Usage: virtualization_feature_gates [release]...
+virtualization_feature_gates() {
+  local release
+
+  echo "HotplugCPUWithLiveMigration"
+  echo "HotplugMemoryWithLiveMigration"
+
+  for release in "$@"; do
+    if [[ "${release}" =~ ^v([0-9]+)\.([0-9]+)\. ]] && (( BASH_REMATCH[1] == 1 && BASH_REMATCH[2] < 10 )); then
+      return 0
+    fi
+  done
+
+  echo "HotplugCPUAndMemoryWithInPlaceResize"
+}
+
 # Reads a manifest from stdin and applies it with retries.
 # Usage: kubectl_apply_with_retry [count] [delay] [diag_fn]
 # diag_fn is an optional function name invoked on each failed attempt.

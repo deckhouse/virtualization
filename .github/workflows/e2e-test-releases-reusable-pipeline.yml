@@ -623,6 +623,13 @@ jobs:
           echo "[INFO] Current ModulePullOverride before patching:"
           kubectl get mpo virtualization -o yaml
 
+      # Gates the new release does not know would fail its validation, so they
+      # go before the image tag is switched, while the old module is still live.
+      - name: Drop feature gates the new release does not support
+        run: |
+          bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" \
+            "${CURRENT_RELEASE}" "${NEW_RELEASE}"
+
       - name: "Patch ModulePullOverride to new-release: ${{ env.NEW_RELEASE }}"
         id: patch-modulepulloverride
         run: |
@@ -646,6 +653,11 @@ jobs:
           DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
           NEW_RELEASE: ${{ env.NEW_RELEASE }}
         run: bash "${E2E_SCRIPT_DIR}/verify-image-digests.sh"
+
+      # Now that the new images are running, the gates only that release knows
+      # can be enabled, so the new release is tested with all of them on.
+      - name: Enable every feature gate the new release supports
+        run: bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" "${NEW_RELEASE}"
 
       - name: Show ModulePullOverride state after upgrade
         run: |
