@@ -67,6 +67,18 @@ func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 		}
 	}
 
+	// The Ready condition keeps the WaitingForFirstConsumer reason as long as the disk waits for the
+	// virtual machine to be scheduled, so the duration is recalculated on every reconciliation until
+	// the disk leaves this state.
+	if readyCondition.Reason == vdcondition.WaitingForFirstConsumer.String() && !readyCondition.LastTransitionTime.IsZero() {
+		waitingForFirstConsumer := time.Since(readyCondition.LastTransitionTime.Time).Truncate(time.Second)
+		if waitingForFirstConsumer > 0 {
+			vd.Status.Stats.CreationDuration.WaitingForFirstConsumer = &metav1.Duration{
+				Duration: waitingForFirstConsumer,
+			}
+		}
+	}
+
 	if readyCondition.Status == metav1.ConditionTrue &&
 		conditions.IsLastUpdated(readyCondition, vd) &&
 		vd.Status.Stats.CreationDuration.TotalProvisioning == nil {

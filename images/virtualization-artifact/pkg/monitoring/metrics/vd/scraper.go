@@ -45,30 +45,31 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricDiskStatusInUse(m)
 }
 
+// diskPhases must list every phase from the VirtualDisk status enum: a phase missing here
+// zeroes out all the series of a disk in that phase, and it disappears from the phase picture.
+var diskPhases = []v1alpha2.DiskPhase{
+	v1alpha2.DiskPending,
+	v1alpha2.DiskWaitForUserUpload,
+	v1alpha2.DiskWaitForFirstConsumer,
+	v1alpha2.DiskProvisioning,
+	v1alpha2.DiskFailed,
+	v1alpha2.DiskLost,
+	v1alpha2.DiskReady,
+	v1alpha2.DiskResizing,
+	v1alpha2.DiskExporting,
+	v1alpha2.DiskTerminating,
+	v1alpha2.DiskMigrating,
+}
+
 func (s *scraper) updateMetricDiskStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
 		phase = v1alpha2.DiskPending
 	}
-	phases := []struct {
-		value bool
-		name  string
-	}{
-		{phase == v1alpha2.DiskPending, string(v1alpha2.DiskPending)},
-		{phase == v1alpha2.DiskWaitForUserUpload, string(v1alpha2.DiskWaitForUserUpload)},
-		{phase == v1alpha2.DiskWaitForFirstConsumer, string(v1alpha2.DiskWaitForFirstConsumer)},
-		{phase == v1alpha2.DiskProvisioning, string(v1alpha2.DiskProvisioning)},
-		{phase == v1alpha2.DiskFailed, string(v1alpha2.DiskFailed)},
-		{phase == v1alpha2.DiskLost, string(v1alpha2.DiskLost)},
-		{phase == v1alpha2.DiskReady, string(v1alpha2.DiskReady)},
-		{phase == v1alpha2.DiskResizing, string(v1alpha2.DiskResizing)},
-		{phase == v1alpha2.DiskTerminating, string(v1alpha2.DiskTerminating)},
-		{phase == v1alpha2.DiskMigrating, string(v1alpha2.DiskMigrating)},
-	}
 
-	for _, p := range phases {
+	for _, p := range diskPhases {
 		s.defaultUpdate(MetricDiskStatusPhase,
-			common.BoolFloat64(p.value), m, p.name)
+			common.BoolFloat64(phase == p), m, string(p))
 	}
 }
 

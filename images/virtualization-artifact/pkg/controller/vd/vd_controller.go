@@ -94,11 +94,14 @@ func NewController(
 		internal.NewInitHandler(),
 		internal.NewStorageClassReadyHandler(scService),
 		internal.NewDatasourceReadyHandler(recorder, blank, sources),
+		// StatsHandler should be executed before LifeCycleHandler.
+		// It measures how long the disk stays in the WaitForFirstConsumer state by the Ready condition,
+		// which LifeCycleHandler overwrites as soon as the underlying PersistentVolumeClaim is bound.
+		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewLifeCycleHandler(recorder, blank, sources, mgr.GetClient()),
 		internal.NewSnapshottingHandler(disk),
 		internal.NewResizingHandler(recorder, disk),
 		internal.NewDeletionHandler(sources, mgr.GetClient()),
-		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
 		internal.NewMigrationHandler(mgr.GetClient(), scService, disk, featuregates.Default()),
 		internal.NewProtectionHandler(),
