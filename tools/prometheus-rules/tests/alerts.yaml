@@ -628,3 +628,87 @@ tests:
       - eval_time: 35m
         alertname: D8VirtualizationVMRouteForgeUnavailable
         exp_alerts: []
+  - interval: 1m
+    name: VirtualMachineClassNotReady fires for a class that stays Pending
+    input_series:
+      - series: d8_virtualization_virtualmachineclass_status_phase{name="pending-class", uid="uid-1", phase="Pending", pod="virtualization-controller-abc"}
+        values: 1+0x90
+      - series: d8_virtualization_virtualmachineclass_status_phase{name="pending-class", uid="uid-1", phase="Ready", pod="virtualization-controller-abc"}
+        values: 0+0x90
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: D8VirtualizationVirtualMachineClassNotReady
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: D8VirtualizationVirtualMachineClassNotReady
+        exp_alerts:
+          - exp_labels:
+              severity_level: "5"
+              tier: cluster
+              name: pending-class
+            exp_annotations:
+              plk_protocol_version: "1"
+              plk_markup_format: markdown
+              plk_create_group_if_not_exists__d8_virtualization_virtualmachineclass_state: D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_virtualmachineclass_state: D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              summary: No virtual machine of the `pending-class` class can be started.
+              description: "The VirtualMachineClass `pending-class` has been in the `Pending` phase for an hour: it has found no node it can place a virtual machine on.\n\nImpact:\n- Virtual machines of this class are accepted but never start, and stay in `Pending` with no clear reason.\n- Machines of this class that are already running keep working, but once stopped they will not start again.\n- Other classes are not affected.\n\nThe recommended course of action:\n\n1. Find out what the class is waiting for — the reason of its conditions:\n   ```bash\n   d8 k get vmclass pending-class -o jsonpath='{range .status.conditions[*]}{.type}{\"\\t\"}{.status}{\"\\t\"}{.reason}{\"\\t\"}{.message}{\"\\n\"}{end}'\n   ```\n2. Act on the reason:\n   - `NoSuitableNodesFound` — no node matches `.spec.nodeSelector` of the class, or the nodes that used to match are gone. Compare the selector with the labels of the nodes:\n     ```bash\n     d8 k get vmclass pending-class -o jsonpath='{.spec.nodeSelector}'\n     d8 k get nodes --show-labels\n     ```\n   - `NoCpuFeaturesEnabled` — nodes were found, but they share no common CPU features, so no CPU model can be built for them. This happens when a `Discovery` class selects nodes with different processors: narrow the selector down to a group of identical nodes.\n   - `DiscoveryFailed` — the discovery itself failed. The details are in the message of the condition and in the logs:\n     ```bash\n     d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=100 | grep vmclass\n     ```\n3. If the class is no longer needed, delete it — a class nobody uses should not keep raising this alert:\n   ```bash\n   d8 k delete vmclass pending-class\n   ```\n"
+  - interval: 1m
+    name: a class that becomes Ready within the hour wakes nobody
+    input_series:
+      - series: d8_virtualization_virtualmachineclass_status_phase{name="new-class", uid="uid-2", phase="Pending", pod="virtualization-controller-abc"}
+        values: 1+0x10 0+0x80
+      - series: d8_virtualization_virtualmachineclass_status_phase{name="new-class", uid="uid-2", phase="Ready", pod="virtualization-controller-abc"}
+        values: 0+0x10 1+0x80
+      - series: d8_virtualization_virtualmachineclass_available_node{name="new-class", uid="uid-2", node="node-1", pod="virtualization-controller-abc"}
+        values: 1+0x90
+    alert_rule_test:
+      - eval_time: 80m
+        alertname: D8VirtualizationVirtualMachineClassNotReady
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: D8VirtualizationVirtualMachineClassHasNoNodes
+        exp_alerts: []
+  - interval: 1m
+    name: VirtualMachineClassHasNoNodes fires for a Ready class whose nodes are all gone
+    input_series:
+      - series: d8_virtualization_virtualmachineclass_status_phase{name="host-class", uid="uid-3", phase="Ready", pod="virtualization-controller-abc"}
+        values: 1+0x90
+      - series: d8_virtualization_virtualmachineclass_available_node{name="host-class", uid="uid-3", node="node-1", pod="virtualization-controller-abc"}
+        values: 1+0x10 _x80
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationVirtualMachineClassHasNoNodes
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: D8VirtualizationVirtualMachineClassHasNoNodes
+        exp_alerts:
+          - exp_labels:
+              severity_level: "5"
+              tier: cluster
+              name: host-class
+            exp_annotations:
+              plk_protocol_version: "1"
+              plk_markup_format: markdown
+              plk_create_group_if_not_exists__d8_virtualization_virtualmachineclass_state: D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_virtualmachineclass_state: D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              summary: The `host-class` class reports itself ready, but has no node to run a virtual machine on.
+              description: "The VirtualMachineClass `host-class` is in the `Ready` phase, yet not a single node is available to it.\n\nImpact:\n- Virtual machines of this class are accepted but never start, and stay in `Pending`.\n- The phase of the class gives no hint about it: for the `Host` and `HostPassthrough` types it is set to `Ready` regardless of whether any node matched.\n- Machines of this class that are already running keep working, but they cannot be migrated, and once stopped they will not start again.\n\nThe recommended course of action:\n\n1. Compare the node selector of the class with the labels of the nodes:\n   ```bash\n   d8 k get vmclass host-class -o jsonpath='{.spec.nodeSelector}'\n   d8 k get nodes --show-labels\n   ```\n2. Check that the nodes that used to match are still there and schedulable — a node under maintenance is excluded from the list:\n   ```bash\n   d8 k get nodes\n   ```\n3. Check the tolerations of the class against the taints of those nodes: a node whose taints the class does not tolerate is excluded as well.\n   ```bash\n   d8 k get vmclass host-class -o jsonpath='{.spec.tolerations}'\n   d8 k get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints[*].key'\n   ```\n4. If the class is no longer needed, delete it — a class nobody uses should not keep raising this alert:\n   ```bash\n   d8 k delete vmclass host-class\n   ```\n"
+  - interval: 1m
+    name: a healthy class raises neither of the two alerts
+    input_series:
+      - series: d8_virtualization_virtualmachineclass_status_phase{name="generic", uid="uid-4", phase="Ready", pod="virtualization-controller-abc"}
+        values: 1+0x90
+      - series: d8_virtualization_virtualmachineclass_status_phase{name="generic", uid="uid-4", phase="Pending", pod="virtualization-controller-abc"}
+        values: 0+0x90
+      - series: d8_virtualization_virtualmachineclass_available_node{name="generic", uid="uid-4", node="node-1", pod="virtualization-controller-abc"}
+        values: 1+0x90
+      - series: d8_virtualization_virtualmachineclass_available_node{name="generic", uid="uid-4", node="node-2", pod="virtualization-controller-abc"}
+        values: 1+0x90
+    alert_rule_test:
+      - eval_time: 80m
+        alertname: D8VirtualizationVirtualMachineClassNotReady
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: D8VirtualizationVirtualMachineClassHasNoNodes
+        exp_alerts: []

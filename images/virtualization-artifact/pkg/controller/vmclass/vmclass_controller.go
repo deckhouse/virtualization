@@ -24,12 +24,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	vmclasscollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmclass"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
@@ -83,6 +85,8 @@ func NewController(
 		Complete(); err != nil {
 		return nil, err
 	}
+
+	vmclasscollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineClass controller")
 	return c, nil

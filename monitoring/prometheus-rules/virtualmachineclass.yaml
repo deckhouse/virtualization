@@ -1,0 +1,108 @@
+- name: virtualization.virtualmachineclass.state
+  rules:
+    - alert: D8VirtualizationVirtualMachineClassNotReady
+      # Built on the phase rather than on an empty list of available nodes, because an empty
+      # list is only one of the reasons a class ends up in `Pending`: a `Discovery` class also
+      # waits when its nodes share no CPU features, and when the discovery itself fails. All
+      # three have the same consequence for the user, and the phase covers all three.
+      # Aggregated to drop the labels of the scrape target: the alert is about the class, and
+      # the name of the controller Pod must not become part of its identity.
+      expr: |
+        max by (name) (
+          d8_virtualization_virtualmachineclass_status_phase{phase="Pending"}
+        ) == 1
+      labels:
+        severity_level: "5"
+        tier: cluster
+      # Discovering the nodes of a freshly created class takes a reconcile or two, and nothing
+      # here has to be handled at night.
+      for: 1h
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachineclass_state: "D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachineclass_state: "D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: No virtual machine of the `{{ $labels.name }}` class can be started.
+        description: |
+          The VirtualMachineClass `{{ $labels.name }}` has been in the `Pending` phase for an hour: it has found no node it can place a virtual machine on.
+
+          Impact:
+          - Virtual machines of this class are accepted but never start, and stay in `Pending` with no clear reason.
+          - Machines of this class that are already running keep working, but once stopped they will not start again.
+          - Other classes are not affected.
+
+          The recommended course of action:
+
+          1. Find out what the class is waiting for — the reason of its conditions:
+             ```bash
+             d8 k get vmclass {{ $labels.name }} -o jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.reason}{"\t"}{.message}{"\n"}{end}'
+             ```
+          2. Act on the reason:
+             - `NoSuitableNodesFound` — no node matches `.spec.nodeSelector` of the class, or the nodes that used to match are gone. Compare the selector with the labels of the nodes:
+               ```bash
+               d8 k get vmclass {{ $labels.name }} -o jsonpath='{.spec.nodeSelector}'
+               d8 k get nodes --show-labels
+               ```
+             - `NoCpuFeaturesEnabled` — nodes were found, but they share no common CPU features, so no CPU model can be built for them. This happens when a `Discovery` class selects nodes with different processors: narrow the selector down to a group of identical nodes.
+             - `DiscoveryFailed` — the discovery itself failed. The details are in the message of the condition and in the logs:
+               ```bash
+               d8 k -n d8-virtualization logs deploy/virtualization-controller --tail=100 | grep vmclass
+               ```
+          3. If the class is no longer needed, delete it — a class nobody uses should not keep raising this alert:
+             ```bash
+             d8 k delete vmclass {{ $labels.name }}
+             ```
+
+    - alert: D8VirtualizationVirtualMachineClassHasNoNodes
+      # The `Host` and `HostPassthrough` types get the `Ready` phase unconditionally, without
+      # looking at the nodes, so for them the phase says nothing about where a virtual machine
+      # can be placed and the alert above never fires. The list of available nodes, on the other
+      # hand, is computed for every type, and an empty one means the same thing everywhere.
+      # `unless` and not `== 0`: a class without nodes has no series in the node matrix at all,
+      # so there is nothing to compare with zero. The phase provides the anchor.
+      expr: |
+        max by (name) (
+          d8_virtualization_virtualmachineclass_status_phase{phase="Ready"}
+        ) == 1
+        unless on (name)
+        count by (name) (
+          d8_virtualization_virtualmachineclass_available_node
+        )
+      labels:
+        severity_level: "5"
+        tier: cluster
+      for: 1h
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachineclass_state: "D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachineclass_state: "D8VirtualizationVirtualMachineClassState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: The `{{ $labels.name }}` class reports itself ready, but has no node to run a virtual machine on.
+        description: |
+          The VirtualMachineClass `{{ $labels.name }}` is in the `Ready` phase, yet not a single node is available to it.
+
+          Impact:
+          - Virtual machines of this class are accepted but never start, and stay in `Pending`.
+          - The phase of the class gives no hint about it: for the `Host` and `HostPassthrough` types it is set to `Ready` regardless of whether any node matched.
+          - Machines of this class that are already running keep working, but they cannot be migrated, and once stopped they will not start again.
+
+          The recommended course of action:
+
+          1. Compare the node selector of the class with the labels of the nodes:
+             ```bash
+             d8 k get vmclass {{ $labels.name }} -o jsonpath='{.spec.nodeSelector}'
+             d8 k get nodes --show-labels
+             ```
+          2. Check that the nodes that used to match are still there and schedulable — a node under maintenance is excluded from the list:
+             ```bash
+             d8 k get nodes
+             ```
+          3. Check the tolerations of the class against the taints of those nodes: a node whose taints the class does not tolerate is excluded as well.
+             ```bash
+             d8 k get vmclass {{ $labels.name }} -o jsonpath='{.spec.tolerations}'
+             d8 k get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints[*].key'
+             ```
+          4. If the class is no longer needed, delete it — a class nobody uses should not keep raising this alert:
+             ```bash
+             d8 k delete vmclass {{ $labels.name }}
+             ```
