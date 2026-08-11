@@ -47,26 +47,52 @@ modules_repo_for_registry() {
   fi
 }
 
-# Echoes the virtualization feature gates supported by every given release, one
-# per line. A gate the pulled module does not know fails ModulePullOverride
-# validation and leaves the module uninstalled, so a gate is only listed when
-# none of the releases predate it. In-place resize never shipped in the 1.9
-# line. Anything that is not a release tag (a PR reference, a build off main)
-# carries the current gates.
+# The feature gates an e2e run enables, each with the release it first shipped
+# in. An empty version marks a gate no release carries yet, so only a build off
+# main or a pull request has it. Keep this list in step with the enum of
+# openapi/config-values.yaml: a gate the pulled module does not know fails
+# ModulePullOverride validation and leaves the module uninstalled.
+VIRTUALIZATION_FEATURE_GATES=(
+  "HotplugCPUWithLiveMigration:v1.0"
+  "HotplugMemoryWithLiveMigration:v1.0"
+  "HotplugCPUAndMemoryWithInPlaceResize:v1.10"
+  "GPU:"
+)
+
+# Tells whether a release ref knows a gate that first shipped in a given version.
+# Anything that is not a release tag - a pull request reference, a build off main
+# - carries every gate the repository has.
+release_knows_feature_gate() {
+  local release="$1"
+  local since="$2"
+  local major minor since_major since_minor
+
+  [[ "${release}" =~ ^v([0-9]+)\.([0-9]+)\. ]] || return 0
+  major="${BASH_REMATCH[1]}"
+  minor="${BASH_REMATCH[2]}"
+
+  [[ "${since}" =~ ^v([0-9]+)\.([0-9]+) ]] || return 1
+  since_major="${BASH_REMATCH[1]}"
+  since_minor="${BASH_REMATCH[2]}"
+
+  (( major > since_major || ( major == since_major && minor >= since_minor ) ))
+}
+
+# Echoes the feature gates every given release supports, one per line.
 # Usage: virtualization_feature_gates [release]...
 virtualization_feature_gates() {
-  local release
+  local entry gate since release
 
-  echo "HotplugCPUWithLiveMigration"
-  echo "HotplugMemoryWithLiveMigration"
+  for entry in "${VIRTUALIZATION_FEATURE_GATES[@]}"; do
+    gate="${entry%%:*}"
+    since="${entry#*:}"
 
-  for release in "$@"; do
-    if [[ "${release}" =~ ^v([0-9]+)\.([0-9]+)\. ]] && (( BASH_REMATCH[1] == 1 && BASH_REMATCH[2] < 10 )); then
-      return 0
-    fi
+    for release in "$@"; do
+      release_knows_feature_gate "${release}" "${since}" || continue 2
+    done
+
+    echo "${gate}"
   done
-
-  echo "HotplugCPUAndMemoryWithInPlaceResize"
 }
 
 # Echoes images_digests.json packaged in the module image of a given release.
