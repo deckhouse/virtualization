@@ -34,7 +34,7 @@ on:
         type: boolean
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.event.inputs.current-release }}-${{ github.event.inputs.next-release || 'no-next' }}"
+  group: "${{ github.workflow }}- ${{ github.ref }}"
   cancel-in-progress: true
 
 defaults:
