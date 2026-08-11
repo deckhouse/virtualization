@@ -42,6 +42,7 @@ const (
 	releaseTestPhasePostUpgrade  = "post-upgrade"
 	releaseUpgradeContextPathEnv = "RELEASE_UPGRADE_CONTEXT_PATH"
 	releaseNamespaceEnv          = "RELEASE_NAMESPACE"
+	releaseUpgradeMigratesVMsEnv = "RELEASE_UPGRADE_MIGRATES_VMS"
 )
 
 var _ = Describe("CurrentReleaseSmoke", func() {
@@ -205,6 +206,14 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
 	Expect(isExpectedIPerfReportError(report.Error)).To(BeTrue(), "iperf3 report contains an unexpected error: %q", report.Error)
 
+	if !upgradeMigratesVMs() {
+		By("Skipping the migration window checks: the upgrade does not migrate virtual machines")
+		Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
+		Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
+
+		return
+	}
+
 	By("Verifying the iperf test brackets the migration window (started before, stopped after)")
 	migration := getMigrationWindow(t.framework, t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
 
@@ -276,6 +285,13 @@ func getReleaseTestPhase() string {
 	}
 
 	return releaseTestPhasePreUpgrade
+}
+
+// Upgrades between releases that ship the same virt-handler and virt-launcher
+// never move a virtual machine. An unset value means the pipeline could not tell,
+// so a migration is still expected.
+func upgradeMigratesVMs() bool {
+	return os.Getenv(releaseUpgradeMigratesVMsEnv) != "false"
 }
 
 func mustGetEnv(name string) string {

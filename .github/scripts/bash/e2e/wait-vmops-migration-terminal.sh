@@ -65,10 +65,20 @@ migration_expected() {
   return 1
 }
 
+# The verdict is published so the new-release tests can tell a missing migration
+# from one that was never going to happen.
+publish_verdict() {
+  [ -n "${GITHUB_OUTPUT:-}" ] || return 0
+  echo "migrates_vms=$1" >> "${GITHUB_OUTPUT}"
+}
+
 if ! migration_expected; then
+  publish_verdict false
   echo "[INFO] ${CURRENT_RELEASE} and ${NEW_RELEASE} ship the same virt-handler and virt-launcher: the upgrade does not migrate virtual machines, nothing to wait for"
   exit 0
 fi
+
+publish_verdict true
 
 deadline=$(( $(date +%s) + timeout_seconds ))
 

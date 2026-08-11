@@ -605,6 +605,7 @@ jobs:
     outputs:
       upgrade_started_at: ${{ steps.patch-modulepulloverride.outputs.upgrade_started_at }}
       upgrade_finished_at: ${{ steps.upgrade-finished.outputs.upgrade_finished_at }}
+      migrates_vms: ${{ steps.wait-migrations.outputs.migrates_vms }}
     steps:
       - uses: actions/checkout@v6
 
@@ -669,6 +670,7 @@ jobs:
           kubectl get modules virtualization
 
       - name: Wait for all migrations to reach a terminal phase
+        id: wait-migrations
         env:
           RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
           DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
@@ -741,6 +743,7 @@ jobs:
           RELEASE_TEST_PHASE: post-upgrade
           RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
           RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
+          RELEASE_UPGRADE_MIGRATES_VMS: ${{ needs.patch-modulepulloverride.outputs.migrates_vms }}
         run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
 
   # Runs alongside the whole test and upgrade sequence: starts together with
