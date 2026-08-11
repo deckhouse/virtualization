@@ -146,7 +146,7 @@ jobs:
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
-      go_version: "1.24.13"
+      go_version: "1.25.12"
       e2e_timeout: "3.5h"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
@@ -180,7 +180,7 @@ jobs:
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
-      go_version: "1.24.13"
+      go_version: "1.25.12"
       e2e_timeout: "3.5h"
       e2e_focus_tests: "VirtualDiskProvisioning|VirtualDiskSnapshots|VirtualImageCreation|VirtualDiskResizing|DiskAttachment|BlockDeviceHotplug|Migration|StorageClassMigration|RWOVirtualDiskMigration|VMSOP|Restore|DataExports"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}

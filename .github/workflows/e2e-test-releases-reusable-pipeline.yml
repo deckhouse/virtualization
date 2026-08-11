@@ -140,6 +140,8 @@ env:
   DECKHOUSE_VERSION: ${{ inputs.deckhouse_version }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
+  # setup-go v6 would pin the toolchain; a checked out ref may need a newer one.
+  GOTOOLCHAIN: auto
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
   E2E_SCRIPT_DIR: ${{ github.workspace }}/.github/scripts/bash/e2e
   K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
