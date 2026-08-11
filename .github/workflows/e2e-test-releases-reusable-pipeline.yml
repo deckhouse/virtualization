@@ -780,7 +780,11 @@ jobs:
           checkout: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Red must mean "an alert fired" and nothing else, so neither a missing
+      # cluster nor a failed query is allowed to fail this job: the report step
+      # turns both into a "not checked" verdict.
       - name: Setup kubeconfig
+        continue-on-error: true
         uses: ./.github/actions/use-nested-kubeconfig
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
@@ -788,6 +792,8 @@ jobs:
 
       - name: Collect ClusterAlerts
         id: collect
+        if: always()
+        continue-on-error: true
         env:
           CLUSTERALERTS_WINDOW_STARTED_AT: ${{ needs.configure-virtualization.outputs.configured_at }}
           RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
