@@ -64,6 +64,7 @@ fi
 
 range_file="${alerts_dir}/clusteralerts-query-range.json"
 rules_file="${alerts_dir}/clusteralerts-rules.json"
+templates_file="${alerts_dir}/clusteralerts-templates.json"
 alerts_log="${alerts_dir}/clusteralerts.jsonl"
 port_forward_log="${alerts_dir}/clusteralerts-port-forward.log"
 
@@ -140,8 +141,10 @@ templates_program='
 ] | from_entries
 '
 
-# shellcheck disable=SC2016 # $started, $finished and $templates are jq variables, passed in via --argjson
+# shellcheck disable=SC2016 # $started, $finished and $templates_wrapper are jq variables, passed in on the command line
 records_program='
+($templates_wrapper[0] // {}) as $templates
+|
 def phase_of($t):
   if $started == 0 or $t < $started then { phase: "pre-upgrade", order: 0 }
   elif $finished == 0 or $t < $finished then { phase: "upgrade", order: 1 }
@@ -224,12 +227,15 @@ fi
 
 fetch_rules
 
-templates="$(jq "${templates_program}" "${rules_file}")"
+# Through a file rather than --argjson: a cluster carries hundreds of alerting
+# rules, and their annotations do not fit in the 128 KiB Linux allows a single
+# command line argument.
+jq "${templates_program}" "${rules_file}" > "${templates_file}"
 
 jq -c \
   --argjson started "${started}" \
   --argjson finished "${finished}" \
-  --argjson templates "${templates}" \
+  --slurpfile templates_wrapper "${templates_file}" \
   "${records_program}" "${range_file}" > "${alerts_log}"
 
 count="$(grep -c . "${alerts_log}" || true)"
