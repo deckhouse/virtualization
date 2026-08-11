@@ -25,7 +25,6 @@ source "${SCRIPT_DIR}/deckhouse.sh"
 require_env DEV_REGISTRY_DOCKER_CFG
 require_env NESTED_STORAGE_CLASS_NAME
 require_env VIRTUALIZATION_TAG
-require_env DEV_MODULE_SOURCE
 
 # shellcheck disable=SC2153,SC2154
 dev_registry_docker_cfg="${DEV_REGISTRY_DOCKER_CFG}"
@@ -33,21 +32,6 @@ dev_registry_docker_cfg="${DEV_REGISTRY_DOCKER_CFG}"
 nested_storage_class_name="${NESTED_STORAGE_CLASS_NAME}"
 # shellcheck disable=SC2153,SC2154
 virtualization_tag="${VIRTUALIZATION_TAG}"
-# shellcheck disable=SC2153,SC2154
-dev_module_source="${DEV_MODULE_SOURCE}"
-
-# The gate list of the build under test, taken as is: the ModuleConfig is created
-# before the module exists, so no webhook can be asked about it here. Read before
-# anything is applied, so a registry problem fails the job before it touches the
-# cluster.
-feature_gates_yaml="$(virtualization_feature_gates "${dev_module_source}" "${virtualization_tag}" | sed 's/^/      - /')"
-if [ -z "${feature_gates_yaml}" ]; then
-  echo "[ERROR] No feature gates were read from the ${virtualization_tag} module bundle; an empty list would render featureGates as null" >&2
-  exit 1
-fi
-
-echo "[INFO] Feature gates for ${virtualization_tag}:"
-echo "${feature_gates_yaml}"
 
 show_modulesource_status() {
   local ms_json
@@ -164,6 +148,10 @@ spec:
 EOF
 }
 
+# No featureGates here: the module webhook validates only gates being added to a
+# live config, so gates set at creation time reach the controller unchecked and a
+# gate this edition locks makes it exit on start - taking that very webhook with
+# it. patch-virtualization-feature-gates.sh adds them once the module is Ready.
 apply_virtualization_module_config() {
   echo "[INFO] Apply Virtualization module config"
   kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
@@ -182,8 +170,6 @@ spec:
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 192.168.10.0/24
-    featureGates:
-${feature_gates_yaml}
   source: deckhouse-dev
   version: 1
 ---

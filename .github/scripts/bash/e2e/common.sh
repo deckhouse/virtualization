@@ -67,13 +67,23 @@ module_feature_gates() {
 virtualization_feature_gates() {
   local module_source="$1"
   shift
-  local gates release other
-
-  gates="$(module_feature_gates "${module_source}" "$1")"
-  shift
+  local gates="" release other first=1
 
   for release in "$@"; do
     other="$(module_feature_gates "${module_source}" "${release}")"
+    # An empty intersection of two releases is legitimate, an empty enum of a
+    # single release is not: crane or yq failed to read the bundle.
+    if [ -z "${other}" ]; then
+      echo "[ERROR] No feature gates were read from the ${release} module bundle" >&2
+      return 1
+    fi
+
+    if [ "${first}" = 1 ]; then
+      gates="${other}"
+      first=0
+      continue
+    fi
+
     gates="$(grep -xF -f <(printf '%s\n' "${other}") <<< "${gates}" || true)"
   done
 

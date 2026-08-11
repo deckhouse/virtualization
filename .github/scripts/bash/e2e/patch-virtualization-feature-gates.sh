@@ -19,11 +19,15 @@
 #
 # Usage: DEV_MODULE_SOURCE=<repo> patch-virtualization-feature-gates.sh <release>...
 #
-# During a release upgrade this runs twice. Before the image tag is patched it
-# is called with both releases, which drops the gates the new release does not
-# know - otherwise the new module fails validation and never installs. After the
-# upgrade it is called with the new release alone, which enables the gates only
-# that release supports.
+# This is the only place that sets the gates: the install scripts create the
+# ModuleConfig without them, so every gate goes through the webhook as an
+# addition and can be dropped here instead of breaking the module.
+#
+# During a release upgrade this runs again, twice. Before the image tag is
+# patched it is called with both releases, which drops the gates the new release
+# does not know - otherwise the new module fails validation and never installs.
+# After the upgrade it is called with the new release alone, which enables the
+# gates only that release supports.
 #
 # A gate the cluster refuses - locked in this edition, or needing a newer
 # Kubernetes - is dropped with a warning instead of failing the run: the point of
@@ -89,6 +93,9 @@ if [ -n "${dropped_rows}" ]; then
 fi
 
 gates_json="$(jq -Rsc 'split("\n") | map(select(length > 0))' <<< "${accepted}")"
+# Empty on the install path, where the config carries no featureGates key yet.
+# jq always prints an array, so it never compares equal to that and the patch
+# below happens.
 current_json="$(kubectl get mc virtualization -o jsonpath='{.spec.settings.featureGates}')"
 
 echo "[INFO] Feature gates to apply: ${gates_json}"

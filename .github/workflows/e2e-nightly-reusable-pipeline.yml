@@ -550,7 +550,8 @@ jobs:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
 
-      # crane reads the feature gate list out of the module bundle image.
+      # crane reads the feature gate list of the module bundle image for the
+      # feature gate step below.
       - name: Setup crane and registry auth
         uses: deckhouse/modules-actions/setup@v2
         with:
@@ -561,7 +562,6 @@ jobs:
       - name: Configure Virtualization
         env:
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
           NESTED_STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
           VIRTUALIZATION_TAG: ${{ env.VIRTUALIZATION_TAG }}
         run: |
@@ -569,8 +569,6 @@ jobs:
           # Deckhouse queue/source propagation before applying ModuleConfig.
           bash "${E2E_SCRIPT_DIR}/configure-virtualization.sh"
       - name: Wait for Virtualization to be ready
-        env:
-          STORAGE_TYPE: ${{ inputs.storage_type }}
         run: |
           source "${E2E_SCRIPT_DIR}/wait-virtualization-ready.sh"
 
@@ -584,6 +582,22 @@ jobs:
           kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 900s
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
+
+      # Only now, with the module Ready, its webhook can validate each gate as an
+      # addition and reject the ones this cluster does not admit.
+      - name: Enable every feature gate the build under test supports
+        env:
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+        run: bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" "${VIRTUALIZATION_TAG}"
+
+      # Maintenance mode stops module reconciliation, so it has to come after the
+      # feature gate patch: otherwise the new gates never reach the rendered
+      # resources.
+      - name: Switch modules to maintenance mode
+        env:
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+        run: |
+          source "${E2E_SCRIPT_DIR}/wait-virtualization-ready.sh"
 
           enable_maintenance_mode "${STORAGE_TYPE}"
 
