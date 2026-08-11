@@ -24,6 +24,7 @@ source "${SCRIPT_DIR}/deckhouse.sh"
 
 require_env DEV_REGISTRY_DOCKER_CFG
 require_env CURRENT_RELEASE
+require_env DEV_MODULE_SOURCE
 
 required_env_value() {
   local name="$1"
@@ -34,13 +35,21 @@ required_env_value() {
 
 dev_registry_docker_cfg="$(required_env_value DEV_REGISTRY_DOCKER_CFG)"
 current_release="$(required_env_value CURRENT_RELEASE)"
+dev_module_source="$(required_env_value DEV_MODULE_SOURCE)"
 
 REGISTRY="$(registry_host_from_docker_cfg "${dev_registry_docker_cfg}")"
 
-# Only the gates this release knows: a gate it does not support fails
-# ModulePullOverride validation and the module never installs. The upgrade
-# revisits the list for the new release (patch-virtualization-feature-gates.sh).
-feature_gates_yaml="$(virtualization_feature_gates "${current_release}" | sed 's/^/      - /')"
+# The gate list of this very release, taken as is: nothing can dry-run it here,
+# because the ModuleConfig is created before the module exists and its webhook
+# guards updates only. A gate the release does not know fails ModulePullOverride
+# validation and the module never installs. The upgrade revisits the list for the
+# new release (patch-virtualization-feature-gates.sh).
+feature_gates_yaml="$(virtualization_feature_gates "${dev_module_source}" "${current_release}" | sed 's/^/      - /')"
+if [ -z "${feature_gates_yaml}" ]; then
+  echo "[ERROR] No feature gates were read from the ${current_release} module bundle; an empty list would render featureGates as null" >&2
+  exit 1
+fi
+
 echo "[INFO] Feature gates for ${current_release}:"
 echo "${feature_gates_yaml}"
 

@@ -47,52 +47,84 @@ modules_repo_for_registry() {
   fi
 }
 
-# The feature gates an e2e run enables, each with the release it first shipped
-# in. An empty version marks a gate no release carries yet, so only a build off
-# main or a pull request has it. Keep this list in step with the enum of
-# openapi/config-values.yaml: a gate the pulled module does not know fails
-# ModulePullOverride validation and leaves the module uninstalled.
-VIRTUALIZATION_FEATURE_GATES=(
-  "HotplugCPUWithLiveMigration:v1.0"
-  "HotplugMemoryWithLiveMigration:v1.0"
-  "HotplugCPUAndMemoryWithInPlaceResize:v1.10"
-  "GPU:"
-)
+# Echoes the feature gates a release accepts, one per line. The module bundle
+# carries openapi/config-values.yaml, and its enum is the very schema the
+# ModuleConfig of that release is validated against - so every release states
+# its own gate list and no version table has to be kept by hand.
+# Usage: module_feature_gates <module_source> <release>
+module_feature_gates() {
+  local module_source="$1"
+  local release="$2"
 
-# Tells whether a release ref knows a gate that first shipped in a given version.
-# Anything that is not a release tag - a pull request reference, a build off main
-# - carries every gate the repository has.
-release_knows_feature_gate() {
-  local release="$1"
-  local since="$2"
-  local major minor since_major since_minor
-
-  [[ "${release}" =~ ^v([0-9]+)\.([0-9]+)\. ]] || return 0
-  major="${BASH_REMATCH[1]}"
-  minor="${BASH_REMATCH[2]}"
-
-  [[ "${since}" =~ ^v([0-9]+)\.([0-9]+) ]] || return 1
-  since_major="${BASH_REMATCH[1]}"
-  since_minor="${BASH_REMATCH[2]}"
-
-  (( major > since_major || ( major == since_major && minor >= since_minor ) ))
+  crane export "${module_source}/virtualization:${release}" - |
+    tar -Oxf - openapi/config-values.yaml |
+    yq '.properties.featureGates.items.enum[]'
 }
 
-# Echoes the feature gates every given release supports, one per line.
-# Usage: virtualization_feature_gates [release]...
+# Echoes the gates every given release accepts, one per line, in the order the
+# first release lists them.
+# Usage: virtualization_feature_gates <module_source> <release>...
 virtualization_feature_gates() {
-  local entry gate since release
+  local module_source="$1"
+  shift
+  local gates release other
 
-  for entry in "${VIRTUALIZATION_FEATURE_GATES[@]}"; do
-    gate="${entry%%:*}"
-    since="${entry#*:}"
+  gates="$(module_feature_gates "${module_source}" "$1")"
+  shift
 
-    for release in "$@"; do
-      release_knows_feature_gate "${release}" "${since}" || continue 2
-    done
-
-    echo "${gate}"
+  for release in "$@"; do
+    other="$(module_feature_gates "${module_source}" "${release}")"
+    gates="$(grep -xF -f <(printf '%s\n' "${other}") <<< "${gates}" || true)"
   done
+
+  if [ -n "${gates}" ]; then
+    printf '%s\n' "${gates}"
+  fi
+}
+
+# Server-side dry-run of the feature gate patch: the moduleconfig webhook
+# declares sideEffects: None, so the real admission chain can be asked whether a
+# gate list would be accepted without writing anything. Echoes the admission
+# error when it is not.
+# Usage: gate_accepted <gates_json>
+gate_accepted() {
+  local gates_json="$1"
+  local output
+
+  if output="$(kubectl patch mc virtualization --type merge --dry-run=server \
+    -p "{\"spec\":{\"settings\":{\"featureGates\":${gates_json}}}}" 2>&1)"; then
+    return 0
+  fi
+
+  printf '%s' "${output}"
+  return 1
+}
+
+# Waits until the moduleconfig webhook answers again. It is served by
+# virtualization-controller itself and has no failurePolicy, so right after an
+# image switch every patch is rejected for a while. The probe dry-runs the gates
+# the config already carries: that adds no gate, so the validator returns nil
+# and only an unreachable webhook can fail it.
+# Usage: moduleconfig_writable [count] [delay]
+moduleconfig_writable() {
+  local count="${1:-12}"
+  local delay="${2:-10}"
+  local current error i
+
+  for ((i = 1; i <= count; i++)); do
+    current="$(kubectl get mc virtualization -o jsonpath='{.spec.settings.featureGates}' 2>/dev/null || true)"
+
+    if error="$(gate_accepted "${current:-[]}")"; then
+      return 0
+    fi
+
+    echo "[WARN] Module config is not writable yet (attempt ${i}/${count}): ${error}"
+    if [ "$i" -lt "$count" ]; then
+      sleep "$delay"
+    fi
+  done
+
+  return 1
 }
 
 # Echoes images_digests.json packaged in the module image of a given release.

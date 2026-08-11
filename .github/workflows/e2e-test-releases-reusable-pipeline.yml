@@ -494,10 +494,20 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
+
+      # crane reads the feature gate list out of the release bundle image.
+      - name: Setup crane and registry auth
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
       - name: Configure Virtualization
         env:
           CURRENT_RELEASE: ${{ env.CURRENT_RELEASE }}
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
         run: bash "${E2E_SCRIPT_DIR}/configure-virtualization-release.sh"
       - name: Wait for Virtualization to be ready
         run: |
@@ -630,6 +640,15 @@ jobs:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
 
+      # crane reads the feature gate lists and the image digests out of the
+      # release bundle images.
+      - name: Setup crane and registry auth
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
       - name: Show current MPO state
         run: |
           echo "[INFO] Current ModulePullOverride before patching:"
@@ -638,6 +657,8 @@ jobs:
       # Gates the new release does not know would fail its validation, so they
       # go before the image tag is switched, while the old module is still live.
       - name: Drop feature gates the new release does not support
+        env:
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
         run: |
           bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" \
             "${CURRENT_RELEASE}" "${NEW_RELEASE}"
@@ -653,13 +674,6 @@ jobs:
           echo "[INFO] Show patched ModulePullOverride:"
           kubectl get mpo virtualization -o yaml
 
-      - name: Setup crane and registry auth
-        uses: deckhouse/modules-actions/setup@v2
-        with:
-          registry: ${{ vars.DEV_REGISTRY }}
-          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-
       - name: Verify image digests in pods after upgrade
         env:
           DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
@@ -669,6 +683,8 @@ jobs:
       # Now that the new images are running, the gates only that release knows
       # can be enabled, so the new release is tested with all of them on.
       - name: Enable every feature gate the new release supports
+        env:
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
         run: bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" "${NEW_RELEASE}"
 
       - name: Show ModulePullOverride state after upgrade

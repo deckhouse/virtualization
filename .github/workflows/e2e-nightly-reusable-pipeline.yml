@@ -153,6 +153,8 @@ on:
         required: false
       BOOTSTRAP_DEV_PROXY:
         required: true
+      DEV_MODULES_REGISTRY_PASSWORD:
+        required: true
       E2E_ARTIFACTS_GPG_PASSPHRASE:
         required: true
       FOX_TOKEN:
@@ -547,9 +549,19 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
+
+      # crane reads the feature gate list out of the module bundle image.
+      - name: Setup crane and registry auth
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
       - name: Configure Virtualization
         env:
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
           NESTED_STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
           VIRTUALIZATION_TAG: ${{ env.VIRTUALIZATION_TAG }}
         run: |
