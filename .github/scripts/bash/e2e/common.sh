@@ -69,6 +69,14 @@ virtualization_feature_gates() {
   echo "HotplugCPUAndMemoryWithInPlaceResize"
 }
 
+# Echoes the name of the ConfigMap that stops the ClusterAlerts watch. The name
+# carries the run attempt so a marker left by another run, or by a previous
+# attempt of this one, can never stop this watch - and this watch never has to
+# delete a marker that another job may have just created for it.
+watch_stop_configmap_name() {
+  printf 'e2e-clusteralerts-watch-stop-%s-%s' "${GITHUB_RUN_ID:-local}" "${GITHUB_RUN_ATTEMPT:-1}"
+}
+
 # Echoes images_digests.json packaged in the module image of a given release.
 # Usage: module_images_digests <module_source> <release>
 module_images_digests() {

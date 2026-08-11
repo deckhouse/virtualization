@@ -36,16 +36,12 @@ poll_interval="${POLL_INTERVAL:-15}"
 # collected alerts can be uploaded.
 timeout_seconds="${TIMEOUT_SECONDS:-17400}"
 stop_namespace="${WATCH_STOP_NAMESPACE:-default}"
-stop_configmap="${WATCH_STOP_CONFIGMAP:-e2e-clusteralerts-watch-stop}"
+stop_configmap="$(watch_stop_configmap_name)"
 
 mkdir -p "$(dirname -- "${alerts_log}")"
 : > "${alerts_log}"
 
 deadline=$(( $(date +%s) + timeout_seconds ))
-
-# A marker left over from a previous run against the same cluster (a re-run of
-# failed jobs, for example) would stop the watch immediately.
-kubectl -n "${stop_namespace}" delete configmap "${stop_configmap}" --ignore-not-found
 
 echo "[INFO] Watching ClusterAlerts matching '${alert_prefix}*'"
 echo "[INFO] Poll interval: ${poll_interval}s, watch timeout: ${timeout_seconds}s, log: ${alerts_log}"

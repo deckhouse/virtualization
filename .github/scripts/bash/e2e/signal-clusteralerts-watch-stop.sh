@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 stop_namespace="${WATCH_STOP_NAMESPACE:-default}"
-stop_configmap="${WATCH_STOP_CONFIGMAP:-e2e-clusteralerts-watch-stop}"
+stop_configmap="$(watch_stop_configmap_name)"
 
 echo "[INFO] Creating stop marker: configmap ${stop_configmap} in namespace ${stop_namespace}"
 
