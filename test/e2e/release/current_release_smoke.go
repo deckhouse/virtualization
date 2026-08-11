@@ -205,11 +205,11 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	By("Validating the iperf report spans the module upgrade")
 	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
 	Expect(isExpectedIPerfReportError(report.Error)).To(BeTrue(), "iperf3 report contains an unexpected error: %q", report.Error)
+	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
+	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
 
 	if !upgradeMigratesVMs() {
 		By("Skipping the migration window checks: the upgrade does not migrate virtual machines")
-		Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
-		Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
 
 		return
 	}
@@ -249,8 +249,6 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 
 	Expect(transmittedAroundUpgrade).To(BeNumerically(">", 0), "iperf3 should transmit data around the module upgrade")
 	Expect(zeroIntervals).To(BeNumerically("<=", 1), "iperf3 should not be interrupted during the module upgrade")
-	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
-	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
 }
 
 func (t *currentReleaseSmokeTest) verifyEvictVMOPsCompleted() {
