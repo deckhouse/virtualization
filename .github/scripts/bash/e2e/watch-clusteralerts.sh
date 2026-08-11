@@ -38,7 +38,9 @@ timeout_seconds="${TIMEOUT_SECONDS:-17400}"
 stop_namespace="${WATCH_STOP_NAMESPACE:-default}"
 stop_configmap="$(watch_stop_configmap_name)"
 
-mkdir -p "$(dirname -- "${alerts_log}")"
+alerts_dir="$(dirname -- "${alerts_log}")"
+
+mkdir -p "${alerts_dir}"
 : > "${alerts_log}"
 
 deadline=$(( $(date +%s) + timeout_seconds ))
@@ -46,6 +48,32 @@ deadline=$(( $(date +%s) + timeout_seconds ))
 echo "[INFO] Watching ClusterAlerts matching '${alert_prefix}*'"
 echo "[INFO] Poll interval: ${poll_interval}s, watch timeout: ${timeout_seconds}s, log: ${alerts_log}"
 echo "[INFO] Stop marker: configmap ${stop_configmap} in namespace ${stop_namespace}"
+
+# Keeps the whole object of every matching alert, as first seen, next to the log:
+# the ClusterAlert is gone from the cluster once the alert stops firing, and the
+# cluster itself does not outlive the pipeline.
+dump_alert_objects() {
+  local snapshot="$1"
+  local id name dump
+
+  while IFS=$'\t' read -r id name; do
+    [ -n "${id}" ] || continue
+    dump="${alerts_dir}/${name:-clusteralert}-${id}.yaml"
+    [ -e "${dump}" ] && continue
+
+    if ! printf '%s' "${snapshot}" \
+      | jq --arg id "${id}" '.items[] | select(.metadata.name == $id)' \
+      | yq -p=json -o=yaml > "${dump}"; then
+      echo "[WARN] Failed to dump the object of ClusterAlert ${id}"
+      rm -f "${dump}"
+    fi
+  done < <(printf '%s' "${snapshot}" | jq -r \
+    --arg prefix "${alert_prefix}" \
+    '.items[]
+     | select((.alert.name // "") | startswith($prefix))
+     | [.metadata.name, (.alert.name // "")]
+     | @tsv')
+}
 
 # A ClusterAlert object exists only while the alert is firing, so the log
 # accumulates one line per poll per firing alert. Deduplication and the split
@@ -80,6 +108,8 @@ while [ "$(date +%s)" -lt "${deadline}" ]; do
          firstSeen: (.status.startsAt // .metadata.creationTimestamp // "")
        }' >> "${alerts_log}" \
     || echo "[WARN] Failed to parse the ClusterAlerts snapshot, skipping this poll"
+
+  dump_alert_objects "${snapshot}"
 
   sleep "${poll_interval}"
 done

@@ -783,7 +783,7 @@ jobs:
         if: always()
         with:
           name: clusteralerts-${{ github.run_id }}
-          path: ${{ env.CLUSTERALERTS_DIR }}/*.jsonl
+          path: ${{ env.CLUSTERALERTS_DIR }}
           if-no-files-found: ignore
           retention-days: 3
 
