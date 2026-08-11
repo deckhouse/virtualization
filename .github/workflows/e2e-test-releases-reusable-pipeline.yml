@@ -478,6 +478,8 @@ jobs:
     needs:
       - bootstrap
       - configure-storage
+    outputs:
+      configured_at: ${{ steps.mark-configured.outputs.configured_at }}
     steps:
       - uses: actions/checkout@v6
 
@@ -511,6 +513,13 @@ jobs:
           kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 900s
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
+
+      # Opens the observation window of the ClusterAlerts report. Runs even on
+      # failure, so a module that never became ready is still observed.
+      - name: Mark the start of the ClusterAlerts observation window
+        id: mark-configured
+        if: always()
+        run: echo "configured_at=$(date +%s)" >> "$GITHUB_OUTPUT"
 
   test-current-release:
     name: "E2E test (current-release: ${{ inputs.current_release }})"
@@ -746,18 +755,22 @@ jobs:
           RELEASE_UPGRADE_MIGRATES_VMS: ${{ needs.patch-modulepulloverride.outputs.migrates_vms }}
         run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
 
-  # Runs alongside the whole test and upgrade sequence: starts together with
-  # test-current-release and ends when signal-watch-stop places the marker in
-  # the nested cluster.
-  watch-clusteralerts:
-    name: Watch ClusterAlerts in nested cluster
+  report-clusteralerts:
+    name: ClusterAlerts in nested cluster
     runs-on: ubuntu-latest
+    # Waits for the whole test and upgrade sequence: Prometheus is queried once,
+    # at the end, so everything that could fire must have happened by then.
     needs:
       - bootstrap
       - configure-virtualization
-    # Safety net only: the watch itself stops earlier, on its own timeout, so
-    # that the collected alerts are still uploaded.
-    timeout-minutes: 300
+      - test-current-release
+      - patch-modulepulloverride
+      - test-new-release
+    if: always()
+    # A firing alert must be visible but must not fail the pipeline: this job
+    # exits non-zero (turning red in the UI) while the workflow conclusion
+    # stays successful.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
 
@@ -773,10 +786,21 @@ jobs:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
 
-      - name: Watch ClusterAlerts
+      - name: Collect ClusterAlerts
+        id: collect
         env:
-          CLUSTERALERTS_LOG: ${{ env.CLUSTERALERTS_DIR }}/clusteralerts.jsonl
-        run: bash "${E2E_SCRIPT_DIR}/watch-clusteralerts.sh"
+          CLUSTERALERTS_WINDOW_STARTED_AT: ${{ needs.configure-virtualization.outputs.configured_at }}
+          RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
+          RELEASE_UPGRADE_FINISHED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_finished_at }}
+        run: bash "${E2E_SCRIPT_DIR}/collect-clusteralerts.sh"
+
+      - name: Report ClusterAlerts
+        # Runs even when the collection failed: the report is the only place
+        # that says so, and a silent job would read as "no alerts".
+        if: always()
+        env:
+          COLLECT_RESULT: ${{ steps.collect.outcome }}
+        run: bash "${E2E_SCRIPT_DIR}/report-clusteralerts.sh"
 
       - name: Upload collected ClusterAlerts
         uses: actions/upload-artifact@v7
@@ -786,71 +810,6 @@ jobs:
           path: ${{ env.CLUSTERALERTS_DIR }}
           if-no-files-found: ignore
           retention-days: 3
-
-  # Separate job rather than a final step of test-new-release: it must also run
-  # when that job never started because an earlier one failed, otherwise the
-  # watch would keep polling until its timeout.
-  signal-watch-stop:
-    name: Stop the ClusterAlerts watch
-    runs-on: ubuntu-latest
-    needs:
-      - bootstrap
-      - test-new-release
-    # Without a bootstrapped cluster there is no watch to stop and no
-    # kubeconfig to reach it with.
-    if: always() && needs.bootstrap.result == 'success'
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup E2E toolchain
-        uses: ./.github/actions/setup-e2e-toolchain
-        with:
-          checkout: "false"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup kubeconfig
-        uses: ./.github/actions/use-nested-kubeconfig
-        with:
-          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
-          check-api: "false"
-
-      - name: Signal the ClusterAlerts watch to stop
-        run: bash "${E2E_SCRIPT_DIR}/signal-clusteralerts-watch-stop.sh"
-
-  report-clusteralerts:
-    name: ClusterAlerts in nested cluster
-    runs-on: ubuntu-latest
-    # Depends on the test jobs as well, not only on the watch: should the watch
-    # job die early, the report must still wait for the whole rollover instead
-    # of declaring "no alerts" while the tests are still running.
-    needs:
-      - test-current-release
-      - patch-modulepulloverride
-      - test-new-release
-      - watch-clusteralerts
-    if: always()
-    # A firing alert must be visible but must not fail the pipeline: this job
-    # exits non-zero (turning red in the UI) while the workflow conclusion
-    # stays successful.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Download collected ClusterAlerts
-        uses: actions/download-artifact@v8
-        # Nothing to download when the pipeline failed before the watch ran;
-        # that must not be mistaken for a firing alert.
-        continue-on-error: true
-        with:
-          name: clusteralerts-${{ github.run_id }}
-          path: ${{ env.CLUSTERALERTS_DIR }}
-
-      - name: Report ClusterAlerts
-        env:
-          RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
-          RELEASE_UPGRADE_FINISHED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_finished_at }}
-          WATCH_RESULT: ${{ needs.watch-clusteralerts.result }}
-        run: bash "${E2E_SCRIPT_DIR}/report-clusteralerts.sh"
 
   # TEMPORARY: drop before merge. Frees the nested cluster right after the
   # ClusterAlerts report instead of waiting for the nightly cleanup.

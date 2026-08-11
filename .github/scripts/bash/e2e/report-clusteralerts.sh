@@ -25,46 +25,44 @@ require_env CLUSTERALERTS_DIR
 alerts_dir="${CLUSTERALERTS_DIR:-}"
 alert_prefix="${CLUSTERALERTS_PREFIX:-D8Virtualization}"
 fail_on_alerts="${FAIL_ON_ALERTS:-true}"
-watch_result="${WATCH_RESULT:-}"
+collect_result="${COLLECT_RESULT:-}"
 summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
-# The watch runs as a single job and does not know which pipeline phase it is
-# observing, so the phase is derived here from the upgrade timestamps. A zero
-# means the corresponding job never reported one.
-started="${RELEASE_UPGRADE_STARTED_AT:-0}"
-finished="${RELEASE_UPGRADE_FINISHED_AT:-0}"
-[[ "${started}" =~ ^[0-9]+$ ]] || started=0
-[[ "${finished}" =~ ^[0-9]+$ ]] || finished=0
+{
+  echo "## ClusterAlerts in the nested cluster"
+  echo
+} >> "${summary_file}"
 
-# shellcheck disable=SC2016 # $started and $finished are jq variables, passed in via --argjson
-phase_program='
-def phase_of(upgrade_started; upgrade_finished):
-  if upgrade_started == 0 or .observedAt < upgrade_started
-  then { phase: "pre-upgrade", order: 0 }
-  elif upgrade_finished == 0 or .observedAt < upgrade_finished
-  then { phase: "upgrade", order: 1 }
-  else { phase: "post-upgrade", order: 2 }
-  end;
-map(. + phase_of($started; $finished))
-| unique_by([.phase, .name, .id])
-| sort_by([.order, .name])
-'
+# Renders the "we could not check" verdict: an empty report is only good news
+# when the collection itself succeeded.
+not_collected() {
+  local reason="$1"
+
+  echo "${reason}" >> "${summary_file}"
+  echo "::warning title=ClusterAlerts were not collected::${reason}"
+  exit 0
+}
 
 shopt -s nullglob
 logs=("${alerts_dir}"/*.jsonl)
 shopt -u nullglob
 
-if [ "${#logs[@]}" -eq 0 ]; then
-  echo "[WARN] No ClusterAlerts logs found in ${alerts_dir}"
-  alerts='[]'
-else
-  echo "[INFO] Reading collected ClusterAlerts from: ${logs[*]}"
-  echo "[INFO] Upgrade window: started_at=${started}, finished_at=${finished}"
-  alerts="$(jq -s \
-    --argjson started "${started}" \
-    --argjson finished "${finished}" \
-    "${phase_program}" "${logs[@]}")"
+if [ -n "${collect_result}" ] && [ "${collect_result}" != "success" ]; then
+  not_collected "The collection step did not complete (result: \`${collect_result}\`), so alerts were **not** checked."
 fi
+
+# collect-clusteralerts.sh always writes its log, empty or not, so a missing one
+# means the collection never got that far - a step that never ran reports no
+# result at all.
+if [ "${#logs[@]}" -eq 0 ]; then
+  echo "[WARN] No collected ClusterAlerts found in ${alerts_dir}"
+  not_collected "No collected alerts were found, so alerts were **not** checked."
+fi
+
+echo "[INFO] Reading collected ClusterAlerts from: ${logs[*]}"
+# The phase, the state and the firing interval come from the collector; sorting
+# is repeated here only to keep the order stable across several log files.
+alerts="$(jq -s 'sort_by([.order, .name, .alertstate])' "${logs[@]}")"
 
 count="$(jq 'length' <<< "${alerts}")"
 
@@ -72,40 +70,46 @@ count="$(jq 'length' <<< "${alerts}")"
 # table and for annotations.
 oneline='def oneline: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "");'
 
-{
-  echo "## ClusterAlerts in the nested cluster"
-  echo
-} >> "${summary_file}"
-
 if [ "${count}" -eq 0 ]; then
-  # An empty report means "nothing was firing" only if the watch actually ran.
-  if [ -n "${watch_result}" ] && [ "${watch_result}" != "success" ]; then
-    echo "The watch job did not complete (result: \`${watch_result}\`), so alerts were **not** monitored." >> "${summary_file}"
-    echo "::warning title=ClusterAlerts were not monitored::The watch job result is '${watch_result}'"
-    exit 0
-  fi
-
-  echo "No \`${alert_prefix}*\` alerts were firing during the release rollover." >> "${summary_file}"
-  echo "[INFO] No ${alert_prefix}* alerts were firing during the release rollover"
+  echo "No \`${alert_prefix}*\` alerts were active during the release rollover." >> "${summary_file}"
+  echo "[INFO] No ${alert_prefix}* alerts were active during the release rollover"
   exit 0
 fi
 
 {
-  echo "| Phase | Alert | Severity | First seen | Summary |"
-  echo "|---|---|---|---|---|"
-  jq -r "${oneline}"' .[] | "| \(.phase) | \(.name) | \(.severityLevel) | \(.firstSeen) | \(.summary | oneline | gsub("\\|"; "\\|")) |"' <<< "${alerts}"
+  echo "| Phase | Alert | State | Severity | First seen | Summary |"
+  echo "|---|---|---|---|---|---|"
+  jq -r "${oneline}"' .[] | "| \(.phase) | \(.name) | \(.alertstate) | \(.severityLevel) | \(.firstSeen) | \(.summary | oneline | gsub("\\|"; "\\|")) |"' <<< "${alerts}"
   echo
   echo "<details><summary>Alert details</summary>"
   echo
-  jq -r '.[] | "#### \(.name) — \(.phase)\n\n- severity level: \(.severityLevel)\n- labels: `\(.labels | tojson)`\n\n\(.description)\n"' <<< "${alerts}"
+  jq -r '.[] | "#### \(.name) — \(.phase) (\(.alertstate))\n\n- severity level: \(.severityLevel)\n- active: \(.firstSeen) .. \(.lastSeen)\n- labels: `\(.labels | tojson)`\n\n\(.description)\n"' <<< "${alerts}"
   echo "</details>"
 } >> "${summary_file}"
 
 # Annotations put the alerts on top of the run page, not only in the summary.
-jq -r "${oneline}"' .[] | "::warning title=ClusterAlert \(.name)::[\(.phase)] \(.summary | oneline)"' <<< "${alerts}"
+# A pending alert is a notice rather than a warning: it did not hold long enough
+# to be one.
+jq -r "${oneline}"' .[]
+  | (if .alertstate == "firing" then "::warning" else "::notice" end)
+    + " title=ClusterAlert \(.name)::[\(.phase)/\(.alertstate)] \(.summary | oneline)"' <<< "${alerts}"
 
-echo "[INFO] Firing alerts:"
-jq -r '.[] | "  [\(.phase)] \(.name) (severity \(.severityLevel))"' <<< "${alerts}"
+echo "[INFO] Active alerts:"
+jq -r '.[] | "  [\(.phase)] \(.name) \(.alertstate) (severity \(.severityLevel))"' <<< "${alerts}"
+
+firing_count="$(jq '[.[] | select(.alertstate == "firing")] | length' <<< "${alerts}")"
+
+# Only a fired alert paints the job red. Components restart during a rollover,
+# so rules with a `for` clause go pending on almost every run: failing on those
+# would make a red job the norm and tell the reviewer nothing.
+if [ "${firing_count}" -eq 0 ]; then
+  {
+    echo
+    echo "No \`${alert_prefix}*\` alert reached the firing state; ${count} were pending only."
+  } >> "${summary_file}"
+  echo "[INFO] No ${alert_prefix}* alert reached the firing state, ${count} were pending only"
+  exit 0
+fi
 
 if [ "${fail_on_alerts}" != "true" ]; then
   echo "[INFO] FAIL_ON_ALERTS is not 'true', not failing the job"
@@ -114,6 +118,6 @@ fi
 
 # Failing here is what paints this job red; the job itself is
 # continue-on-error, so the workflow conclusion stays successful.
-echo "[ERROR] ${count} ClusterAlert(s) were firing in the nested cluster, see the job summary" >&2
+echo "[ERROR] ${firing_count} ClusterAlert(s) were firing in the nested cluster, see the job summary" >&2
 trap - ERR
 exit 1
