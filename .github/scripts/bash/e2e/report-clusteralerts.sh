@@ -24,7 +24,6 @@ require_env CLUSTERALERTS_DIR
 
 alerts_dir="${CLUSTERALERTS_DIR:-}"
 alert_prefix="${CLUSTERALERTS_PREFIX:-D8Virtualization}"
-fail_on_alerts="${FAIL_ON_ALERTS:-true}"
 collect_result="${COLLECT_RESULT:-}"
 summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
@@ -111,13 +110,7 @@ if [ "${firing_count}" -eq 0 ]; then
   exit 0
 fi
 
-if [ "${fail_on_alerts}" != "true" ]; then
-  echo "[INFO] FAIL_ON_ALERTS is not 'true', not failing the job"
-  exit 0
-fi
-
 # Failing here is what paints this job red; the job itself is
 # continue-on-error, so the workflow conclusion stays successful.
 echo "[ERROR] ${firing_count} ClusterAlert(s) were firing in the nested cluster, see the job summary" >&2
-trap - ERR
 exit 1

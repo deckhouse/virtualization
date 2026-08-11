@@ -30,20 +30,19 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 require_env CLUSTERALERTS_DIR
-require_env CLUSTERALERTS_WINDOW_STARTED_AT
 
 alerts_dir="${CLUSTERALERTS_DIR:-}"
 alert_prefix="${CLUSTERALERTS_PREFIX:-D8Virtualization}"
-prometheus_namespace="${PROMETHEUS_NAMESPACE:-d8-monitoring}"
-prometheus_selector="${PROMETHEUS_SELECTOR:-prometheus=main}"
-# Port of the prometheus container inside the pod, discovered below when not
-# pinned. port-forward joins the pod network namespace, so a listener bound to
+prometheus_namespace="d8-monitoring"
+prometheus_selector="prometheus=main"
+# Port of the prometheus container inside the pod, discovered below.
+# port-forward joins the pod network namespace, so a listener bound to
 # localhost there is reachable too.
-prometheus_port="${PROMETHEUS_PORT:-}"
-local_port="${PROMETHEUS_LOCAL_PORT:-19090}"
-query_step="${QUERY_STEP:-30}"
-ready_attempts="${READY_ATTEMPTS:-30}"
-ready_delay="${READY_DELAY:-2}"
+prometheus_port=""
+local_port="19090"
+query_step="30"
+ready_attempts=30
+ready_delay=2
 
 # The window starts when virtualization was configured, not when the pipeline
 # started: before that the module does not exist, and its alerts cannot either.
@@ -151,12 +150,14 @@ def phase_of($t):
   else { phase: "post-upgrade", order: 2 }
   end;
 
-# The annotations are Go templates that reference $labels only (verified over
-# monitoring/prometheus-rules), so replacing every label by its value renders
-# them. A reference to a label the series does not carry is left as it is.
+# The annotations are Go templates. Every $labels.X reference is substituted by
+# the value the series carries for that label, and whatever template action is
+# left afterwards becomes a "?" placeholder: notably $value, the sample value the
+# ALERTS series does not carry, and references to labels absent from the series.
 def render($labels):
   reduce ($labels | to_entries[]) as $l
-    (.; gsub("\\{\\{\\s*\\$labels\\." + $l.key + "\\s*\\}\\}"; $l.value));
+    (.; gsub("\\{\\{\\s*\\$labels\\." + $l.key + "\\s*\\}\\}"; $l.value))
+  | gsub("\\{\\{[^{}]*\\}\\}"; "?");
 
 [ .data.result[]
   | . as $series
@@ -192,10 +193,12 @@ echo "[INFO] Collecting alerts matching '${alert_prefix}*' from Prometheus in ${
 echo "[INFO] Observation window: ${window_start}..${window_end} ($(( window_end - window_start ))s), step ${query_step}s"
 echo "[INFO] Upgrade window: started_at=${started}, finished_at=${finished}"
 
+# "|| true" so an empty item list, on which the jsonpath itself fails, reaches the
+# explicit error below instead of aborting on the jsonpath error.
 pod="$(kubectl -n "${prometheus_namespace}" get pod \
   -l "${prometheus_selector}" \
   --field-selector=status.phase=Running \
-  -o jsonpath='{.items[0].metadata.name}')"
+  -o jsonpath='{.items[0].metadata.name}' || true)"
 
 if [ -z "${pod}" ]; then
   echo "[ERROR] No Running pod matching '${prometheus_selector}' in namespace ${prometheus_namespace}" >&2
@@ -204,24 +207,20 @@ fi
 
 # Asking the pod which port carries the API beats assuming one: an authenticating
 # sidecar may well be the container that owns 9090 there.
-if [ -z "${prometheus_port}" ]; then
-  prometheus_port="$(kubectl -n "${prometheus_namespace}" get pod "${pod}" \
-    -o jsonpath='{.spec.containers[?(@.name=="prometheus")].ports[?(@.name=="web")].containerPort}' || true)"
-  prometheus_port="${prometheus_port:-9090}"
-fi
+prometheus_port="$(kubectl -n "${prometheus_namespace}" get pod "${pod}" \
+  -o jsonpath='{.spec.containers[?(@.name=="prometheus")].ports[?(@.name=="web")].containerPort}' || true)"
+prometheus_port="${prometheus_port:-9090}"
 
 start_port_forward "${pod}"
 
 # query_range and not query: an instant query would only see what is still
 # active now, while the report is about what was active during the rollover.
-prom_api /api/v1/query_range \
+if ! prom_api /api/v1/query_range \
   --data-urlencode "query=ALERTS{alertname=~\"${alert_prefix}.*\"}" \
   --data-urlencode "start=${window_start}" \
   --data-urlencode "end=${window_end}" \
-  --data-urlencode "step=${query_step}" > "${range_file}"
-
-if [ "$(jq -r '.status // ""' "${range_file}")" != "success" ]; then
-  echo "[ERROR] Prometheus rejected the range query: $(jq -c '.' "${range_file}")" >&2
+  --data-urlencode "step=${query_step}" > "${range_file}"; then
+  echo "[ERROR] Prometheus rejected the range query 'ALERTS{alertname=~\"${alert_prefix}.*\"}' over ${window_start}..${window_end} with step ${query_step}s" >&2
   exit 1
 fi
 
