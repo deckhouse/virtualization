@@ -215,9 +215,19 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 
 func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, log *slog.Logger) (action, error) {
 	// If VirtualMachine is not running, we can't migrate it. Should be reverted.
+	//
+	// The phase is the fallback for the Running condition: while the VirtualMachine is
+	// migrating, the condition mirrors the internal instance readiness and flaps for a
+	// moment at the switchover. For a VirtualMachine with USB devices the hotplug
+	// attachment pod is recreated on the migration target (the USB resource claim is
+	// reallocated there), so a fresh pod in ContainerCreating together with a volume
+	// event on its disk turns Running to False for about a second. The phase does not
+	// flap, so a running or migrating VirtualMachine keeps the migration alive; without
+	// that fallback the revert deletes the target PersistentVolumeClaim the guest has
+	// just switched to.
 	running, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
-	if running.Status != metav1.ConditionTrue {
-		log.Info("VirtualMachine is not running. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
+	if running.Status != metav1.ConditionTrue && !isRunningOrMigratingPhase(vm) {
+		log.Info("VirtualMachine is not running. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace), slog.String("vm.phase", string(vm.Status.Phase)))
 		return revert, nil
 	}
 
@@ -261,11 +271,9 @@ func (h MigrationHandler) getActionIfDisksShouldBeMigrating(ctx context.Context,
 		return none, client.IgnoreNotFound(err)
 	}
 
-	for _, mode := range pvc.Spec.AccessModes {
-		if mode == corev1.ReadWriteMany {
-			log.Debug("PersistentVolumeClaim has ReadWriteMany access mode. Migrate VirtualDisk is no need. Skip...")
-			return none, nil
-		}
+	if slices.Contains(pvc.Spec.AccessModes, corev1.ReadWriteMany) {
+		log.Debug("PersistentVolumeClaim has ReadWriteMany access mode. Migrate VirtualDisk is no need. Skip...")
+		return none, nil
 	}
 
 	log.Info("VirtualDisk should be migrated.")
@@ -649,13 +657,34 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 		return nil, err
 	}
 
+	var candidate *v1alpha2.VirtualMachineOperation
+
 	for _, vmop := range vmops.Items {
-		if commonvmop.IsMigration(&vmop) && commonvmop.IsInProgressOrPending(&vmop) {
-			return &vmop, nil
+		if vmop.Spec.VirtualMachine != vm.Name {
+			continue
+		}
+		if !commonvmop.IsMigration(&vmop) {
+			continue
+		}
+		if !commonvmop.IsInProgressOrPending(&vmop) {
+			continue
+		}
+		if candidate == nil || isOlderVMOP(&vmop, candidate) {
+			candidate = &vmop
 		}
 	}
 
-	return nil, nil
+	return candidate, nil
+}
+
+func isOlderVMOP(a, b *v1alpha2.VirtualMachineOperation) bool {
+	return a.CreationTimestamp.Before(&b.CreationTimestamp)
+}
+
+// isRunningOrMigratingPhase reports whether the VirtualMachine is still alive from
+// the migration point of view.
+func isRunningOrMigratingPhase(vm *v1alpha2.VirtualMachine) bool {
+	return vm.Status.Phase == v1alpha2.MachineRunning || vm.Status.Phase == v1alpha2.MachineMigrating
 }
 
 // migratingIsWaitingForDisks reports whether the in-progress migrating operation
