@@ -148,6 +148,10 @@ spec:
 EOF
 }
 
+# No featureGates here: the module webhook validates only gates being added to a
+# live config, so gates set at creation time reach the controller unchecked and a
+# gate this edition locks makes it exit on start - taking that very webhook with
+# it. patch-virtualization-feature-gates.sh adds them once the module is Ready.
 apply_virtualization_module_config() {
   echo "[INFO] Apply Virtualization module config"
   kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
@@ -166,10 +170,6 @@ spec:
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 192.168.10.0/24
-    featureGates:
-      - HotplugCPUWithLiveMigration
-      - HotplugMemoryWithLiveMigration
-      - HotplugCPUAndMemoryWithInPlaceResize
   source: deckhouse-dev
   version: 1
 ---

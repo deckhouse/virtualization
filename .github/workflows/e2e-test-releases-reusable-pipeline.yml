@@ -140,11 +140,14 @@ env:
   DECKHOUSE_VERSION: ${{ inputs.deckhouse_version }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
+  # setup-go v6 would pin the toolchain; a checked out ref may need a newer one.
+  GOTOOLCHAIN: auto
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
   E2E_SCRIPT_DIR: ${{ github.workspace }}/.github/scripts/bash/e2e
   K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
   STORAGE_TYPE: ${{ inputs.storage_type }}
   E2E_START_TIME: ${{ inputs.date_start }}
+  CLUSTERALERTS_DIR: ${{ github.workspace }}/clusteralerts
 
 defaults:
   run:
@@ -190,8 +193,8 @@ jobs:
         with:
           docker_cfg: ${{ secrets.REGISTRY_DOCKER_CFG }}
 
-      - name: Configure kubectl via azure/k8s-set-context@v4
-        uses: azure/k8s-set-context@v4
+      - name: Configure kubectl via azure/k8s-set-context@v5
+        uses: azure/k8s-set-context@v5
         with:
           method: kubeconfig
           context: e2e-cluster-nightly-e2e-virt-sa
@@ -475,6 +478,8 @@ jobs:
     needs:
       - bootstrap
       - configure-storage
+    outputs:
+      configured_at: ${{ steps.mark-configured.outputs.configured_at }}
     steps:
       - uses: actions/checkout@v6
 
@@ -489,6 +494,16 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
+
+      # crane reads the feature gate list of the release bundle image for the
+      # feature gate step below.
+      - name: Setup crane and registry auth
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
       - name: Configure Virtualization
         env:
           CURRENT_RELEASE: ${{ env.CURRENT_RELEASE }}
@@ -509,6 +524,20 @@ jobs:
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
 
+      # Only now, with the module Ready, its webhook can validate each gate as an
+      # addition and reject the ones this cluster does not admit.
+      - name: Enable every feature gate the current release supports
+        env:
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+        run: bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" "${CURRENT_RELEASE}"
+
+      # Opens the observation window of the ClusterAlerts report. Runs even on
+      # failure, so a module that never became ready is still observed.
+      - name: Mark the start of the ClusterAlerts observation window
+        id: mark-configured
+        if: always()
+        run: echo "configured_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
   test-current-release:
     name: "E2E test (current-release: ${{ inputs.current_release }})"
     runs-on: ubuntu-latest
@@ -521,7 +550,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
@@ -536,6 +565,7 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
+
       - name: Authenticate go module fetches to the fox kubevirt mirror
         env:
           FOX_TOKEN: ${{ secrets.FOX_TOKEN }}
@@ -600,6 +630,8 @@ jobs:
       - test-current-release
     outputs:
       upgrade_started_at: ${{ steps.patch-modulepulloverride.outputs.upgrade_started_at }}
+      upgrade_finished_at: ${{ steps.upgrade-finished.outputs.upgrade_finished_at }}
+      migrates_vms: ${{ steps.wait-migrations.outputs.migrates_vms }}
     steps:
       - uses: actions/checkout@v6
 
@@ -614,10 +646,29 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
+
+      # crane reads the feature gate lists and the image digests out of the
+      # release bundle images.
+      - name: Setup crane and registry auth
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
       - name: Show current MPO state
         run: |
           echo "[INFO] Current ModulePullOverride before patching:"
           kubectl get mpo virtualization -o yaml
+
+      # Gates the new release does not know would fail its validation, so they
+      # go before the image tag is switched, while the old module is still live.
+      - name: Drop feature gates the new release does not support
+        env:
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+        run: |
+          bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" \
+            "${CURRENT_RELEASE}" "${NEW_RELEASE}"
 
       - name: "Patch ModulePullOverride to new-release: ${{ env.NEW_RELEASE }}"
         id: patch-modulepulloverride
@@ -630,18 +681,18 @@ jobs:
           echo "[INFO] Show patched ModulePullOverride:"
           kubectl get mpo virtualization -o yaml
 
-      - name: Setup crane and registry auth
-        uses: deckhouse/modules-actions/setup@v2
-        with:
-          registry: ${{ vars.DEV_REGISTRY }}
-          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-
       - name: Verify image digests in pods after upgrade
         env:
           DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
           NEW_RELEASE: ${{ env.NEW_RELEASE }}
         run: bash "${E2E_SCRIPT_DIR}/verify-image-digests.sh"
+
+      # Now that the new images are running, the gates only that release knows
+      # can be enabled, so the new release is tested with all of them on.
+      - name: Enable every feature gate the new release supports
+        env:
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+        run: bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" "${NEW_RELEASE}"
 
       - name: Show ModulePullOverride state after upgrade
         run: |
@@ -651,9 +702,18 @@ jobs:
           kubectl get modules virtualization
 
       - name: Wait for all migrations to reach a terminal phase
+        id: wait-migrations
         env:
           RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
         run: bash "${E2E_SCRIPT_DIR}/wait-vmops-migration-terminal.sh"
+
+      # Closes the upgrade window for the ClusterAlerts report; runs even on
+      # failure so alerts are still attributed to the right phase.
+      - name: Mark the end of the upgrade window
+        id: upgrade-finished
+        if: always()
+        run: echo "upgrade_finished_at=$(date +%s)" >> "$GITHUB_OUTPUT"
 
   test-new-release:
     name: "E2E test (new-release: ${{ inputs.new_release }})"
@@ -671,8 +731,14 @@ jobs:
           checkout: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup kubeconfig
+        uses: ./.github/actions/use-nested-kubeconfig
+        with:
+          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+          check-api: "false"
+
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
@@ -700,11 +766,6 @@ jobs:
           echo "Download dependencies"
           go mod download
 
-      - name: Setup kubeconfig
-        uses: ./.github/actions/use-nested-kubeconfig
-        with:
-          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
-          check-api: "false"
       - name: "Run E2E tests on new-release"
         env:
           NEW_RELEASE: ${{ env.NEW_RELEASE }}
@@ -714,4 +775,93 @@ jobs:
           RELEASE_TEST_PHASE: post-upgrade
           RELEASE_NAMESPACE: ${{ needs.test-current-release.outputs.release_namespace }}
           RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
+          RELEASE_UPGRADE_MIGRATES_VMS: ${{ needs.patch-modulepulloverride.outputs.migrates_vms }}
         run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
+
+  report-clusteralerts:
+    name: ClusterAlerts in nested cluster
+    runs-on: ubuntu-latest
+    # Waits for the whole test and upgrade sequence: Prometheus is queried once,
+    # at the end, so everything that could fire must have happened by then.
+    needs:
+      - bootstrap
+      - configure-virtualization
+      - test-current-release
+      - patch-modulepulloverride
+      - test-new-release
+    if: always()
+    # A firing alert must be visible but must not fail the pipeline: this job
+    # exits non-zero (turning red in the UI) while the workflow conclusion
+    # stays successful.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup E2E toolchain
+        uses: ./.github/actions/setup-e2e-toolchain
+        with:
+          checkout: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Red must mean "an alert fired" and nothing else, so neither a missing
+      # cluster nor a failed query is allowed to fail this job: the report step
+      # turns both into a "not checked" verdict.
+      - name: Setup kubeconfig
+        continue-on-error: true
+        uses: ./.github/actions/use-nested-kubeconfig
+        with:
+          kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+          check-api: "false"
+
+      - name: Collect ClusterAlerts
+        id: collect
+        if: always()
+        continue-on-error: true
+        env:
+          CLUSTERALERTS_WINDOW_STARTED_AT: ${{ needs.configure-virtualization.outputs.configured_at }}
+          RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
+          RELEASE_UPGRADE_FINISHED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_finished_at }}
+        run: bash "${E2E_SCRIPT_DIR}/collect-clusteralerts.sh"
+
+      - name: Report ClusterAlerts
+        # Runs even when the collection failed: the report is the only place
+        # that says so, and a silent job would read as "no alerts".
+        if: always()
+        env:
+          COLLECT_RESULT: ${{ steps.collect.outcome }}
+        run: bash "${E2E_SCRIPT_DIR}/report-clusteralerts.sh"
+
+      - name: Upload collected ClusterAlerts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: clusteralerts-${{ github.run_id }}
+          path: ${{ env.CLUSTERALERTS_DIR }}
+          if-no-files-found: ignore
+          retention-days: 3
+
+  # TEMPORARY: drop before merge. Frees the nested cluster right after the
+  # ClusterAlerts report instead of waiting for the nightly cleanup.
+  # delete-nested-cluster:
+  #   name: Delete nested cluster (temporary)
+  #   runs-on: ubuntu-latest
+  #   # report-clusteralerts already waits for the whole test and upgrade
+  #   # sequence, so this runs once nothing needs the cluster any more.
+  #   needs:
+  #     - bootstrap
+  #     - report-clusteralerts
+  #   if: always() && 
+  #   steps:
+  #     - name: Configure kubectl via azure/k8s-set-context@v5
+  #       uses: azure/k8s-set-context@v5
+  #       with:
+  #         method: kubeconfig
+  #         context: e2e-cluster-nightly-e2e-virt-sa
+  #         kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
+  #     - name: Delete the namespace and the cluster-scoped VirtualMachineClass
+  #       env:
+  #         NAMESPACE: ${{ needs.bootstrap.outputs.namespace }}
+  #       run: |
+  #         kubectl delete namespace "${NAMESPACE}" --timeout=300s || true
+  #         kubectl delete vmclass "${NAMESPACE}-cpu" --timeout=300s || true

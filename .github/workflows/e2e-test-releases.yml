@@ -20,12 +20,12 @@ on:
       current-release:
         description: "Current release tag like v1.4.1, or PR reference like pr2034/2034"
         required: false # before merge to main, set to true
-        default: "v1.6.3-rc.3" # before merge to main, remove
+        default: "v1.9.6" # before merge to main, remove
         type: string
       next-release:
         description: "Next release like v1.5.0, or PR reference like pr2034/2034"
         required: false # before merge to main, set to true
-        default: "v1.7.0" # before merge to main, remove
+        default: "v1.9.7-rc.0" # before merge to main, remove
         type: string
       enableBuild:
         description: "Build release images before E2E tests"
@@ -34,7 +34,7 @@ on:
         type: boolean
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.event.inputs.current-release }}-${{ github.event.inputs.next-release || 'no-next' }}"
+  group: "${{ github.workflow }}- ${{ github.ref }}"
   cancel-in-progress: true
 
 defaults:
@@ -76,7 +76,7 @@ jobs:
     steps:
       - name: Resolve release refs
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CURRENT_RELEASE_INPUT: ${{ github.event.inputs.current-release }}
           NEXT_RELEASE_INPUT: ${{ github.event.inputs.next-release }}
@@ -229,7 +229,7 @@ jobs:
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
-      go_version: "1.25.8"
+      go_version: "1.25.12"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"

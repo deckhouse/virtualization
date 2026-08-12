@@ -47,6 +47,111 @@ modules_repo_for_registry() {
   fi
 }
 
+# Echoes the feature gates a release accepts, one per line. The module bundle
+# carries openapi/config-values.yaml, and its enum is the very schema the
+# ModuleConfig of that release is validated against - so every release states
+# its own gate list and no version table has to be kept by hand.
+# Usage: module_feature_gates <module_source> <release>
+module_feature_gates() {
+  local module_source="$1"
+  local release="$2"
+
+  crane export "${module_source}/virtualization:${release}" - |
+    tar -Oxf - openapi/config-values.yaml |
+    yq '.properties.featureGates.items.enum[]'
+}
+
+# Echoes the gates every given release accepts, one per line, in the order the
+# first release lists them.
+# Usage: virtualization_feature_gates <module_source> <release>...
+virtualization_feature_gates() {
+  local module_source="$1"
+  shift
+  local gates="" release other first=1
+
+  for release in "$@"; do
+    other="$(module_feature_gates "${module_source}" "${release}")"
+    # An empty intersection of two releases is legitimate, an empty enum of a
+    # single release is not: crane or yq failed to read the bundle.
+    if [ -z "${other}" ]; then
+      echo "[ERROR] No feature gates were read from the ${release} module bundle" >&2
+      return 1
+    fi
+
+    if [ "${first}" = 1 ]; then
+      gates="${other}"
+      first=0
+      continue
+    fi
+
+    gates="$(grep -xF -f <(printf '%s\n' "${other}") <<< "${gates}" || true)"
+  done
+
+  if [ -n "${gates}" ]; then
+    printf '%s\n' "${gates}"
+  fi
+}
+
+# Server-side dry-run of the feature gate patch: the moduleconfig webhook
+# declares sideEffects: None, so the real admission chain can be asked whether a
+# gate list would be accepted without writing anything. Echoes the admission
+# error when it is not.
+# Usage: gate_accepted <gates_json>
+gate_accepted() {
+  local gates_json="$1"
+  local output
+
+  if output="$(kubectl patch mc virtualization --type merge --dry-run=server \
+    -p "{\"spec\":{\"settings\":{\"featureGates\":${gates_json}}}}" 2>&1)"; then
+    return 0
+  fi
+
+  printf '%s' "${output}"
+  return 1
+}
+
+# Waits until the moduleconfig webhook answers again. It is served by
+# virtualization-controller itself and has no failurePolicy, so right after an
+# image switch every patch is rejected for a while. The probe dry-runs the gates
+# the config already carries: the spec does not change, so the generation does
+# not either, and the webhook skips its whole validator chain on that predicate -
+# leaving reachability as the only thing the probe can fail on. The API server
+# still calls the webhook, which is what makes it a reachability check at all.
+#
+# A real gate patch is a different matter: the chain then runs every validator
+# against the whole config - CIDRs, storage classes, DVCR, live migration - so
+# such a patch can be refused for a reason that has nothing to do with gates.
+# Usage: moduleconfig_writable [count] [delay]
+moduleconfig_writable() {
+  local count="${1:-12}"
+  local delay="${2:-10}"
+  local current error i
+
+  for ((i = 1; i <= count; i++)); do
+    current="$(kubectl get mc virtualization -o jsonpath='{.spec.settings.featureGates}' 2>/dev/null || true)"
+
+    if error="$(gate_accepted "${current:-[]}")"; then
+      return 0
+    fi
+
+    echo "[WARN] Module config is not writable yet (attempt ${i}/${count}): ${error}"
+    if [ "$i" -lt "$count" ]; then
+      sleep "$delay"
+    fi
+  done
+
+  return 1
+}
+
+# Echoes images_digests.json packaged in the module image of a given release.
+# Usage: module_images_digests <module_source> <release>
+module_images_digests() {
+  local module_source="$1"
+  local release="$2"
+
+  crane export "${module_source}/virtualization:${release}" - | tar -Oxf - images_digests.json
+}
+
 # Reads a manifest from stdin and applies it with retries.
 # Usage: kubectl_apply_with_retry [count] [delay] [diag_fn]
 # diag_fn is an optional function name invoked on each failed attempt.

@@ -153,6 +153,8 @@ on:
         required: false
       BOOTSTRAP_DEV_PROXY:
         required: true
+      DEV_MODULES_REGISTRY_PASSWORD:
+        required: true
       E2E_ARTIFACTS_GPG_PASSPHRASE:
         required: true
       FOX_TOKEN:
@@ -187,6 +189,8 @@ env:
   DECKHOUSE_VERSION: ${{ inputs.deckhouse_version }}
   DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
+  # setup-go v6 would pin the toolchain; a checked out ref may need a newer one.
+  GOTOOLCHAIN: auto
   SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
   E2E_SCRIPT_DIR: ${{ github.workspace }}/.github/scripts/bash/e2e
   K8S_VERSION: ${{ inputs.cluster_config_k8s_version }}
@@ -237,8 +241,8 @@ jobs:
         with:
           docker_cfg: ${{ secrets.REGISTRY_DOCKER_CFG }}
 
-      - name: Configure kubectl via azure/k8s-set-context@v4
-        uses: azure/k8s-set-context@v4
+      - name: Configure kubectl via azure/k8s-set-context@v5
+        uses: azure/k8s-set-context@v5
         with:
           method: kubeconfig
           context: e2e-cluster-nightly-e2e-virt-sa
@@ -545,6 +549,16 @@ jobs:
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
           check-api: "false"
+
+      # crane reads the feature gate list of the module bundle image for the
+      # feature gate step below.
+      - name: Setup crane and registry auth
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
       - name: Configure Virtualization
         env:
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
@@ -555,8 +569,6 @@ jobs:
           # Deckhouse queue/source propagation before applying ModuleConfig.
           bash "${E2E_SCRIPT_DIR}/configure-virtualization.sh"
       - name: Wait for Virtualization to be ready
-        env:
-          STORAGE_TYPE: ${{ inputs.storage_type }}
         run: |
           source "${E2E_SCRIPT_DIR}/wait-virtualization-ready.sh"
 
@@ -571,6 +583,22 @@ jobs:
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
 
+      # Only now, with the module Ready, its webhook can validate each gate as an
+      # addition and reject the ones this cluster does not admit.
+      - name: Enable every feature gate the build under test supports
+        env:
+          DEV_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+        run: bash "${E2E_SCRIPT_DIR}/patch-virtualization-feature-gates.sh" "${VIRTUALIZATION_TAG}"
+
+      # Maintenance mode stops module reconciliation, so it has to come after the
+      # feature gate patch: otherwise the new gates never reach the rendered
+      # resources.
+      - name: Switch modules to maintenance mode
+        env:
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+        run: |
+          source "${E2E_SCRIPT_DIR}/wait-virtualization-ready.sh"
+
           enable_maintenance_mode "${STORAGE_TYPE}"
 
   e2e-test:
@@ -584,7 +612,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
@@ -696,7 +724,7 @@ jobs:
 
       - name: Determine failed stage and prepare report
         id: determine-stage
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           STORAGE_TYPE: ${{ inputs.storage_type }}
           PIPELINE_JOB_NAME: ${{ inputs.pipeline_job_name }}
@@ -763,8 +791,8 @@ jobs:
             "$artifact_path"
           unzip -o "${RUNNER_TEMP}/${ARTIFACT_NAME}.zip" -d "${{ env.SETUP_CLUSTER_TYPE_PATH }}"
 
-      - name: Configure kubectl via azure/k8s-set-context@v4
-        uses: azure/k8s-set-context@v4
+      - name: Configure kubectl via azure/k8s-set-context@v5
+        uses: azure/k8s-set-context@v5
         with:
           method: kubeconfig
           context: e2e-cluster-nightly-e2e-virt-sa
