@@ -76,7 +76,7 @@ jobs:
     steps:
       - name: Resolve release refs
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CURRENT_RELEASE_INPUT: ${{ github.event.inputs.current-release }}
           NEXT_RELEASE_INPUT: ${{ github.event.inputs.next-release }}
@@ -229,7 +229,7 @@ jobs:
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
       default_user: cloud
-      go_version: "1.25.8"
+      go_version: "1.25.12"
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"

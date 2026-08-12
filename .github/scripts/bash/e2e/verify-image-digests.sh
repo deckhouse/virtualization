@@ -33,9 +33,8 @@ required_env_value() {
 new_release="$(required_env_value NEW_RELEASE)"
 dev_module_source="$(required_env_value DEV_MODULE_SOURCE)"
 
-MODULE_IMAGE="${dev_module_source}/virtualization:${new_release}"
 echo "[INFO] Extracting images_digests.json from virtualization:${new_release}"
-images_hash="$(crane export "${MODULE_IMAGE}" - | tar -Oxf - images_digests.json)"
+images_hash="$(module_images_digests "${dev_module_source}" "${new_release}")"
 echo "[INFO] Expected image digests:"
 echo "::group::images_digests.json"
 echo "${images_hash}" | jq .

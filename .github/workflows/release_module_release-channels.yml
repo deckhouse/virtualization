@@ -142,7 +142,7 @@ jobs:
 
       - name: Set up Go ${{ env.GO_VERSION }}
         if: ${{ !inputs.skip_requirements_check }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
@@ -449,7 +449,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 

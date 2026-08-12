@@ -33,6 +33,56 @@ release_namespace="$(required_env_value RELEASE_NAMESPACE)"
 
 sleep_interval="${SLEEP_INTERVAL:-10}"
 timeout_seconds="${TIMEOUT_SECONDS:-1200}"
+# A heuristic over the workload images: a new virt-handler drains the VMs off its
+# node, a new virt-launcher makes the workload updater migrate the running ones,
+# so an upgrade that changes neither digest usually moves nothing.
+# It does not see template-only changes: new args, env, resources or tolerations
+# roll the virt-handler DaemonSet at unchanged digests and migrate VMs all the
+# same. A wrong "no migration" verdict is not silent - the wait is skipped and
+# test-new-release then fails on an Evict VMOP still InProgress.
+migration_expected() {
+  local module_source="${DEV_MODULE_SOURCE:-}"
+  local current="${CURRENT_RELEASE:-}"
+  local new="${NEW_RELEASE:-}"
+  local current_digests new_digests image
+
+  if [ -z "${module_source}" ] || [ -z "${current}" ] || [ -z "${new}" ]; then
+    echo "[WARN] DEV_MODULE_SOURCE, CURRENT_RELEASE or NEW_RELEASE is not set, cannot tell whether the upgrade migrates VMs; waiting anyway"
+    return 0
+  fi
+
+  if ! current_digests="$(module_images_digests "${module_source}" "${current}")" ||
+     ! new_digests="$(module_images_digests "${module_source}" "${new}")"; then
+    echo "[WARN] Failed to read the image digests of ${current} or ${new}, cannot tell whether the upgrade migrates VMs; waiting anyway"
+    return 0
+  fi
+
+  for image in virtHandler virtLauncher; do
+    if [ "$(jq -r --arg i "${image}" '.[$i] // ""' <<< "${current_digests}")" \
+      != "$(jq -r --arg i "${image}" '.[$i] // ""' <<< "${new_digests}")" ]; then
+      echo "[INFO] The ${image} image differs between ${current} and ${new}, virtual machines are expected to be migrated"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+# The verdict is published so the new-release tests can tell a missing migration
+# from one that was never going to happen.
+publish_verdict() {
+  [ -n "${GITHUB_OUTPUT:-}" ] || return 0
+  echo "migrates_vms=$1" >> "${GITHUB_OUTPUT}"
+}
+
+if ! migration_expected; then
+  publish_verdict false
+  echo "[INFO] ${CURRENT_RELEASE} and ${NEW_RELEASE} ship the same virt-handler and virt-launcher: no migration is expected, nothing to wait for"
+  exit 0
+fi
+
+publish_verdict true
+
 deadline=$(( $(date +%s) + timeout_seconds ))
 
 # The number of Running VMs at the start is the number of Evict VMOPs we

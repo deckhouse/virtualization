@@ -40,7 +40,7 @@ runs:
 
     - name: Restore d8 cache
       id: d8-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: /opt/deckhouse/bin/d8
         key: d8-${{ inputs.d8-version }}-${{ runner.os }}
@@ -57,7 +57,7 @@ runs:
 
     - name: Install kubectl CLI
       if: inputs.install-kubectl == 'true'
-      uses: azure/setup-kubectl@v4
+      uses: azure/setup-kubectl@v5
 
     - name: Install htpasswd utility
       if: inputs.install-htpasswd == 'true'

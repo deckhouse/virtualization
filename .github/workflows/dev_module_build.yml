@@ -63,7 +63,7 @@ jobs:
     steps:
       - name: Get Pull Request Labels
         id: get-labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             function processDelveLabels(labelList) {
@@ -212,7 +212,7 @@ jobs:
     name: Run go linter
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
@@ -314,7 +314,7 @@ jobs:
     name: Run unit test
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
@@ -464,7 +464,7 @@ jobs:
     needs: set_vars
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
@@ -644,7 +644,7 @@ jobs:
     steps:
       - name: Create Initial PR Comment
         id: create_comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
@@ -696,7 +696,7 @@ jobs:
         uses: ./.github/actions/install-d8
 
       - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.GO_VERSION }}"
 
