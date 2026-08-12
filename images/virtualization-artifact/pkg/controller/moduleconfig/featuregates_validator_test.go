@@ -101,6 +101,30 @@ var _ = Describe("featureGatesValidator", func() {
 		})
 	})
 
+	Context("kubernetes version for GPU", func() {
+		It("allows the gate on Kubernetes 1.34", func() {
+			Expect(enable(newValidator("v1.34.2"), gpuFeatureGate)).To(Succeed())
+		})
+
+		It("rejects the gate on Kubernetes 1.33", func() {
+			err := enable(newValidator("v1.33.13"), gpuFeatureGate)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(gpuFeatureGate))
+			Expect(err.Error()).To(ContainSubstring("1.34"))
+			Expect(err.Error()).To(ContainSubstring("1.33.13"))
+			Expect(err.Error()).To(ContainSubstring("resource.k8s.io/v1"))
+		})
+
+		It("rejects the gate when the Kubernetes version is unknown", func() {
+			v := newValidator("v1.34.2")
+			v.kubernetesVersion = nil
+
+			err := enable(v, gpuFeatureGate)
+			Expect(err).To(MatchError(errKubernetesVersionUnknown))
+			Expect(err.Error()).To(ContainSubstring(gpuFeatureGate))
+		})
+	})
+
 	Context("edition", func() {
 		// Gates unavailable in an edition are locked to a false default, see pkg/featuregates.
 		newCEValidator := func() featureGatesValidator {

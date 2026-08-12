@@ -20,21 +20,32 @@ import (
 	"fmt"
 
 	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewResourceClaimTemplateWatcher() *ResourceClaimTemplateWatcher {
-	return &ResourceClaimTemplateWatcher{}
+func NewResourceClaimTemplateWatcher(featureGate featuregate.FeatureGate) *ResourceClaimTemplateWatcher {
+	return &ResourceClaimTemplateWatcher{featureGate: featureGate}
 }
 
-type ResourceClaimTemplateWatcher struct{}
+type ResourceClaimTemplateWatcher struct {
+	featureGate featuregate.FeatureGate
+}
 
 func (w *ResourceClaimTemplateWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+	// ResourceClaimTemplate belongs to resource.k8s.io, an API group that reached v1 in Kubernetes
+	// 1.34. Watching a kind the cluster does not serve never syncs the cache and brings the whole
+	// manager down, so the watch is set only for the feature that owns these templates.
+	if !w.featureGate.Enabled(featuregates.GPU) {
+		return nil
+	}
+
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),

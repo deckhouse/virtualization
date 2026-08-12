@@ -73,7 +73,7 @@ func SetupController(
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
 		internal.NewUSBDeviceDetachHandler(client, virtClient),
 		internal.NewUSBDeviceAttachHandler(client, virtClient),
-		internal.NewGPUResourceClaimHandler(client),
+		internal.NewGPUResourceClaimHandler(client, featuregates.Default()),
 		internal.NewProvisioningHandler(client, recorder),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),

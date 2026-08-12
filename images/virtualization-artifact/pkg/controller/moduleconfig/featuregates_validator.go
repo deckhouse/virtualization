@@ -31,7 +31,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 )
 
-const inPlaceResizeFeatureGate = string(featuregates.HotplugCPUAndMemoryWithInPlaceResize)
+const (
+	inPlaceResizeFeatureGate = string(featuregates.HotplugCPUAndMemoryWithInPlaceResize)
+	gpuFeatureGate           = string(featuregates.GPU)
+)
 
 // inPlaceResizeMinKubeVersion is the first Kubernetes release carrying the PodResizePending and
 // PodResizeInProgress pod conditions (KEP-1287); before it kubelet reports the resize progress in
@@ -39,6 +42,11 @@ const inPlaceResizeFeatureGate = string(featuregates.HotplugCPUAndMemoryWithInPl
 // only, so on older clusters CPU and memory hotplug never completes: the virt-launcher pod is
 // resized, but the guest keeps the old topology and no migration is started either.
 var inPlaceResizeMinKubeVersion = k8sversion.MustParseGeneric("1.33")
+
+// gpuMinKubeVersion is the first Kubernetes release with the DRA API group promoted to
+// resource.k8s.io/v1: GPUs are attached by a ResourceClaimTemplate from that group, so on older
+// clusters the feature has nothing to create the claims in.
+var gpuMinKubeVersion = k8sversion.MustParseGeneric("1.34")
 
 // errKubernetesVersionUnknown is returned when the cluster version did not reach the validator:
 // the requirement cannot be checked, so the gate is not let through. A sentinel, so that the
@@ -84,8 +92,15 @@ func (v featureGatesValidator) validate(gates []string) error {
 		return err
 	}
 
+	if slices.Contains(gates, gpuFeatureGate) {
+		if err := v.validateMinKubeVersion(gpuFeatureGate, gpuMinKubeVersion, "attaching a GPU relies on the resource.k8s.io/v1 API"); err != nil {
+			return err
+		}
+	}
+
 	if slices.Contains(gates, inPlaceResizeFeatureGate) {
-		return v.validateInPlaceResizeSupported()
+		return v.validateMinKubeVersion(inPlaceResizeFeatureGate, inPlaceResizeMinKubeVersion,
+			fmt.Sprintf("use %s and %s instead", featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration))
 	}
 
 	return nil
@@ -112,16 +127,17 @@ func (v featureGatesValidator) validateAvailableInEdition(gates []string) error 
 	)
 }
 
-func (v featureGatesValidator) validateInPlaceResizeSupported() error {
+// validateMinKubeVersion rejects a gate whose feature needs a Kubernetes API that the cluster does
+// not carry yet. The hint tells the user what to do instead of just what is broken.
+func (v featureGatesValidator) validateMinKubeVersion(gate string, minVersion *k8sversion.Version, hint string) error {
 	if v.kubernetesVersion == nil {
-		return fmt.Errorf("spec.settings.featureGates: %s: %w", inPlaceResizeFeatureGate, errKubernetesVersionUnknown)
+		return fmt.Errorf("spec.settings.featureGates: %s: %w", gate, errKubernetesVersionUnknown)
 	}
 
-	if v.kubernetesVersion.LessThan(inPlaceResizeMinKubeVersion) {
+	if v.kubernetesVersion.LessThan(minVersion) {
 		return fmt.Errorf(
-			"spec.settings.featureGates: %s requires Kubernetes %s or newer on the control plane and on every node running virtual machines, but the cluster runs %s; use %s and %s instead",
-			inPlaceResizeFeatureGate, inPlaceResizeMinKubeVersion.String(), v.kubernetesVersion.String(),
-			featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration,
+			"spec.settings.featureGates: %s requires Kubernetes %s or newer on the control plane and on every node running virtual machines, but the cluster runs %s; %s",
+			gate, minVersion.String(), v.kubernetesVersion.String(), hint,
 		)
 	}
 

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -45,12 +47,13 @@ import (
 
 const nameGPUResourceClaimHandler = "GPUResourceClaimHandler"
 
-func NewGPUResourceClaimHandler(client client.Client) *GPUResourceClaimHandler {
-	return &GPUResourceClaimHandler{client: client}
+func NewGPUResourceClaimHandler(client client.Client, featureGate featuregate.FeatureGate) *GPUResourceClaimHandler {
+	return &GPUResourceClaimHandler{client: client, featureGate: featureGate}
 }
 
 type GPUResourceClaimHandler struct {
-	client client.Client
+	client      client.Client
+	featureGate featuregate.FeatureGate
 }
 
 func (h *GPUResourceClaimHandler) Name() string {
@@ -58,6 +61,12 @@ func (h *GPUResourceClaimHandler) Name() string {
 }
 
 func (h *GPUResourceClaimHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	// Orphaned templates are looked up for every virtual machine, GPUs or not, so without the gate
+	// each reconciliation would query resource.k8s.io/v1 on a cluster that may not serve it.
+	if !h.featureGate.Enabled(featuregates.GPU) {
+		return reconcile.Result{}, nil
+	}
+
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
