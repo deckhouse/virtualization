@@ -14,14 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Collects the alerts of the virtualization module that were active in the
-# nested cluster during the release rollover. Runs once, at the end of the
-# pipeline, against the nested kubeconfig.
+# Collects the alerts of the virtualization module that fired in the nested
+# cluster during the release rollover. Runs once, at the end of the pipeline,
+# against the nested kubeconfig.
 #
 # Prometheus is the source rather than the ClusterAlerts objects: a ClusterAlert
-# exists only while its alert is active, so a single late look at the API server
+# exists only while its alert fires, so a single late look at the API server
 # would see nothing of what happened during the upgrade, while the ALERTS series
 # keep the whole history of the observation window.
+#
+# Only alertstate="firing" is collected, which is the same set the ClusterAlerts
+# of a cluster hold. Pending is deliberately left out: components restart during
+# a rollover, so rules with a `for` clause go pending on almost every run, and
+# reporting those buries the alerts that actually fired.
 
 set -Eeuo pipefail
 
@@ -179,24 +184,23 @@ def render($labels):
   | { phase: .[0].ph.phase,
       order: .[0].ph.order,
       name: $name,
-      alertstate: ($series.metric.alertstate // ""),
       severityLevel: ($series.metric.severity_level // ""),
       labels: $labels,
       firstSeen: (map(.t) | min | todate),
       lastSeen: (map(.t) | max | todate),
       summary: (($templates[$name].summary // "") | render($labels)),
       description: (($templates[$name].description // "") | render($labels)),
-      id: ([$name, ($series.metric.alertstate // ""), ($labels | tojson)] | join("|"))
+      id: ([$name, ($labels | tojson)] | join("|"))
     }
 ]
 | unique_by([.order, .id])
-| sort_by([.order, .name, .alertstate])
+| sort_by([.order, .name])
 | .[]
 '
 
 mkdir -p "${alerts_dir}"
 
-echo "[INFO] Collecting alerts matching '${alert_prefix}*' from Prometheus in ${prometheus_namespace}"
+echo "[INFO] Collecting firing alerts matching '${alert_prefix}*' from Prometheus in ${prometheus_namespace}"
 echo "[INFO] Observation window: ${window_start}..${window_end} ($(( window_end - window_start ))s), step ${query_step}s"
 echo "[INFO] Upgrade window: started_at=${started}, finished_at=${finished}"
 
@@ -223,11 +227,11 @@ start_port_forward "${pod}"
 # query_range and not query: an instant query would only see what is still
 # active now, while the report is about what was active during the rollover.
 if ! prom_api /api/v1/query_range \
-  --data-urlencode "query=ALERTS{alertname=~\"${alert_prefix}.*\"}" \
+  --data-urlencode "query=ALERTS{alertname=~\"${alert_prefix}.*\",alertstate=\"firing\"}" \
   --data-urlencode "start=${window_start}" \
   --data-urlencode "end=${window_end}" \
   --data-urlencode "step=${query_step}" > "${range_file}"; then
-  echo "[ERROR] Prometheus rejected the range query 'ALERTS{alertname=~\"${alert_prefix}.*\"}' over ${window_start}..${window_end} with step ${query_step}s" >&2
+  echo "[ERROR] Prometheus rejected the range query 'ALERTS{alertname=~\"${alert_prefix}.*\",alertstate=\"firing\"}' over ${window_start}..${window_end} with step ${query_step}s" >&2
   echo "[ERROR] Response: $(jq -rc '.error // .' "${range_file}" 2>/dev/null || head -c 500 "${range_file}")" >&2
   exit 1
 fi
@@ -247,4 +251,4 @@ jq -c \
 
 count="$(grep -c . "${alerts_log}" || true)"
 echo "[INFO] Collected ${count} alert record(s) into ${alerts_log}"
-jq -r '"  [\(.phase)] \(.name) \(.alertstate) (\(.firstSeen) .. \(.lastSeen))"' "${alerts_log}"
+jq -r '"  [\(.phase)] \(.name) (\(.firstSeen) .. \(.lastSeen))"' "${alerts_log}"

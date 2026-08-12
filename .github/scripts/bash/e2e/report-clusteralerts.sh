@@ -59,9 +59,9 @@ if [ "${#logs[@]}" -eq 0 ]; then
 fi
 
 echo "[INFO] Reading collected ClusterAlerts from: ${logs[*]}"
-# The phase, the state and the firing interval come from the collector; sorting
-# is repeated here only to keep the order stable across several log files.
-alerts="$(jq -s 'sort_by([.order, .name, .alertstate])' "${logs[@]}")"
+# The phase and the firing interval come from the collector; sorting is repeated
+# here only to keep the order stable across several log files.
+alerts="$(jq -s 'sort_by([.order, .name])' "${logs[@]}")"
 
 count="$(jq 'length' <<< "${alerts}")"
 
@@ -70,47 +70,31 @@ count="$(jq 'length' <<< "${alerts}")"
 oneline='def oneline: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "");'
 
 if [ "${count}" -eq 0 ]; then
-  echo "No \`${alert_prefix}*\` alerts were active during the release rollover." >> "${summary_file}"
-  echo "[INFO] No ${alert_prefix}* alerts were active during the release rollover"
+  echo "No \`${alert_prefix}*\` alert fired during the release rollover." >> "${summary_file}"
+  echo "[INFO] No ${alert_prefix}* alert fired during the release rollover"
   exit 0
 fi
 
 {
-  echo "| Phase | Alert | State | Severity | First seen | Summary |"
-  echo "|---|---|---|---|---|---|"
-  jq -r "${oneline}"' .[] | "| \(.phase) | \(.name) | \(.alertstate) | \(.severityLevel) | \(.firstSeen) | \(.summary | oneline | gsub("\\|"; "\\|")) |"' <<< "${alerts}"
+  echo "| Phase | Alert | Severity | First seen | Summary |"
+  echo "|---|---|---|---|---|"
+  jq -r "${oneline}"' .[] | "| \(.phase) | \(.name) | \(.severityLevel) | \(.firstSeen) | \(.summary | oneline | gsub("\\|"; "\\|")) |"' <<< "${alerts}"
   echo
   echo "<details><summary>Alert details</summary>"
   echo
-  jq -r '.[] | "#### \(.name) — \(.phase) (\(.alertstate))\n\n- severity level: \(.severityLevel)\n- active: \(.firstSeen) .. \(.lastSeen)\n- labels: `\(.labels | tojson)`\n\n\(.description)\n"' <<< "${alerts}"
+  jq -r '.[] | "#### \(.name) — \(.phase)\n\n- severity level: \(.severityLevel)\n- active: \(.firstSeen) .. \(.lastSeen)\n- labels: `\(.labels | tojson)`\n\n\(.description)\n"' <<< "${alerts}"
   echo "</details>"
 } >> "${summary_file}"
 
 # Annotations put the alerts on top of the run page, not only in the summary.
-# A pending alert is a notice rather than a warning: it did not hold long enough
-# to be one.
 jq -r "${oneline}"' .[]
-  | (if .alertstate == "firing" then "::warning" else "::notice" end)
-    + " title=ClusterAlert \(.name)::[\(.phase)/\(.alertstate)] \(.summary | oneline)"' <<< "${alerts}"
+  | "::warning title=ClusterAlert \(.name)::[\(.phase)] \(.summary | oneline)"' <<< "${alerts}"
 
-echo "[INFO] Active alerts:"
-jq -r '.[] | "  [\(.phase)] \(.name) \(.alertstate) (severity \(.severityLevel))"' <<< "${alerts}"
-
-firing_count="$(jq '[.[] | select(.alertstate == "firing")] | length' <<< "${alerts}")"
-
-# Only a fired alert paints the job red. Components restart during a rollover,
-# so rules with a `for` clause go pending on almost every run: failing on those
-# would make a red job the norm and tell the reviewer nothing.
-if [ "${firing_count}" -eq 0 ]; then
-  {
-    echo
-    echo "No \`${alert_prefix}*\` alert reached the firing state; ${count} were pending only."
-  } >> "${summary_file}"
-  echo "[INFO] No ${alert_prefix}* alert reached the firing state, ${count} were pending only"
-  exit 0
-fi
+echo "[INFO] Fired alerts:"
+jq -r '.[] | "  [\(.phase)] \(.name) (severity \(.severityLevel))"' <<< "${alerts}"
 
 # Failing here is what paints this job red; the job itself is
-# continue-on-error, so the workflow conclusion stays successful.
-echo "[ERROR] ${firing_count} ClusterAlert(s) were firing in the nested cluster, see the job summary" >&2
+# continue-on-error, so the workflow conclusion stays successful. Only firing
+# alerts reach this script, so any of them is worth the red.
+echo "[ERROR] ${count} ClusterAlert(s) fired in the nested cluster, see the job summary" >&2
 exit 1
