@@ -113,8 +113,14 @@ gate_accepted() {
 # Waits until the moduleconfig webhook answers again. It is served by
 # virtualization-controller itself and has no failurePolicy, so right after an
 # image switch every patch is rejected for a while. The probe dry-runs the gates
-# the config already carries: that adds no gate, so the validator returns nil
-# and only an unreachable webhook can fail it.
+# the config already carries: the spec does not change, so the generation does
+# not either, and the webhook skips its whole validator chain on that predicate -
+# leaving reachability as the only thing the probe can fail on. The API server
+# still calls the webhook, which is what makes it a reachability check at all.
+#
+# A real gate patch is a different matter: the chain then runs every validator
+# against the whole config - CIDRs, storage classes, DVCR, live migration - so
+# such a patch can be refused for a reason that has nothing to do with gates.
 # Usage: moduleconfig_writable [count] [delay]
 moduleconfig_writable() {
   local count="${1:-12}"

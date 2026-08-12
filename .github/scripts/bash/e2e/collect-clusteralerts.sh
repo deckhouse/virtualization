@@ -40,7 +40,11 @@ prometheus_selector="prometheus=main"
 # localhost there is reachable too.
 prometheus_port=""
 local_port="19090"
-query_step="30"
+# The ALERTS series exists only while its alert is active, so an alert shorter
+# than the step can fall between two samples and be missed entirely. Prometheus
+# allows 11000 points per series, and a rollover window is under half an hour, so
+# a step this small is nowhere near the limit.
+query_step="10"
 ready_attempts=30
 ready_delay=2
 
@@ -76,10 +80,13 @@ cleanup() {
   port_forward_pid=""
 }
 
+# --fail-with-body and not -f: Prometheus reports a rejected query with an HTTP
+# error code and puts the reason in the body, which -f would throw away along
+# with the only explanation of what went wrong.
 prom_api() {
   local path="$1"
   shift
-  curl -sS -f --max-time 120 -G "http://127.0.0.1:${local_port}${path}" "$@"
+  curl -sS --fail-with-body --max-time 120 -G "http://127.0.0.1:${local_port}${path}" "$@"
 }
 
 # port-forward plus curl on the runner, not kubectl exec plus curl in the
@@ -221,6 +228,7 @@ if ! prom_api /api/v1/query_range \
   --data-urlencode "end=${window_end}" \
   --data-urlencode "step=${query_step}" > "${range_file}"; then
   echo "[ERROR] Prometheus rejected the range query 'ALERTS{alertname=~\"${alert_prefix}.*\"}' over ${window_start}..${window_end} with step ${query_step}s" >&2
+  echo "[ERROR] Response: $(jq -rc '.error // .' "${range_file}" 2>/dev/null || head -c 500 "${range_file}")" >&2
   exit 1
 fi
 
