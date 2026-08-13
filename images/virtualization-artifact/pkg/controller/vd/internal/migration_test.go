@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -265,6 +266,92 @@ var _ = Describe("MigrationHandler", func() {
 				action, err := migrationHandler.getAction(ctx, vd, log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(migratePrepareTarget))
+			})
+		})
+
+		Context("when the disk migration is in progress", func() {
+			BeforeEach(func() {
+				vd.Status.Conditions = []metav1.Condition{
+					{
+						Type:   vdcondition.InUseType.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vdcondition.AttachedToVirtualMachine.String(),
+					},
+					{
+						Type:   vdcondition.MigratingType.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vdcondition.InProgress.String(),
+					},
+				}
+				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+					{Name: "test-vm", Mounted: true},
+				}
+				vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+					SourcePVC:      "test-pvc",
+					TargetPVC:      "target-pvc",
+					StartTimestamp: metav1.Now(),
+				}
+
+				vm.Status.Conditions = []metav1.Condition{
+					{
+						Type:   vmcondition.TypeRunning.String(),
+						Status: metav1.ConditionFalse,
+						Reason: vmcondition.ReasonPodNotStarted.String(),
+					},
+					{
+						Type:   vmcondition.TypeMigrating.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vmcondition.ReasonMigratingInProgress.String(),
+					},
+				}
+			})
+
+			DescribeTable("should not revert while the phase keeps the VirtualMachine alive", func(phase v1alpha2.MachinePhase) {
+				// The Running condition flaps for a moment at the switchover: for a
+				// VirtualMachine with USB devices the hotplug attachment pod is recreated
+				// on the migration target.
+				vm.Status.Phase = phase
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+				vmop := &v1alpha2.VirtualMachineOperation{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-vmop", Namespace: "default"},
+					Spec: v1alpha2.VirtualMachineOperationSpec{
+						Type:           v1alpha2.VMOPTypeMigrate,
+						VirtualMachine: "test-vm",
+					},
+					Status: v1alpha2.VirtualMachineOperationStatus{Phase: v1alpha2.VMOPPhaseInProgress},
+				}
+				Expect(fakeClient.Create(ctx, vmop)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(migrateSync))
+			},
+				Entry("running", v1alpha2.MachineRunning),
+				Entry("migrating", v1alpha2.MachineMigrating),
+			)
+
+			It("should complete the migration once it succeeded despite the flapping condition", func() {
+				vm.Status.Phase = v1alpha2.MachineRunning
+				vm.Status.MigrationState = &v1alpha2.VirtualMachineMigrationState{
+					StartTimestamp: ptr.To(metav1.NewTime(vd.Status.MigrationState.StartTimestamp.Add(time.Second))),
+					EndTimestamp:   ptr.To(metav1.NewTime(vd.Status.MigrationState.StartTimestamp.Add(2 * time.Second))),
+					Result:         v1alpha2.MigrationResultSucceeded,
+				}
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(complete))
+			})
+
+			It("should revert when the phase confirms the VirtualMachine is not running", func() {
+				vm.Status.Phase = v1alpha2.MachineStopped
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(revert))
 			})
 		})
 
