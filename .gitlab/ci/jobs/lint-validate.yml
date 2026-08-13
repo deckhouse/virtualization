@@ -182,7 +182,7 @@ lint:yaml:
 lint:go:
   stage: lint
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go curl
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go curl git
     - |
       set -e
       # Install the pinned prebuilt golangci-lint v2 binary.
@@ -209,7 +209,21 @@ lint:go:
       # cache dir on the linter/Go/dependency versions pins its lifetime to
       # those inputs, and stale keys from this slot are dropped so the
       # per-runner disk does not grow without bound.
-      cache_key=$( { echo "${GOLANGCI_LINT_VERSION}"; go version; cat go.work go.work.sum; } | sha256sum | cut -c1-12 )
+      #
+      # The dependency part of the key is read from the tracked module files
+      # rather than from go.work directly: go.work exists only on main, so
+      # `cat go.work go.work.sum` aborted the whole job under `set -e` on every
+      # release-* branch. Hashing whatever `git ls-files` reports keeps the key
+      # meaningful on both layouts (go.work on main, per-module go.mod/go.sum on
+      # release branches) instead of degrading to linter+Go version only.
+      cache_key=$(
+        {
+          echo "${GOLANGCI_LINT_VERSION}"
+          go version
+          git ls-files -z 'go.work' 'go.work.sum' 'go.mod' 'go.sum' '*/go.mod' '*/go.sum' \
+            | sort -z | xargs -0 -r cat
+        } | sha256sum | cut -c1-12
+      )
       export TMPDIR="${TMPDIR:-/tmp}/golangci-lint-${CI_CONCURRENT_ID}"
       export GOLANGCI_LINT_CACHE="${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}-${cache_key}"
       mkdir -p "$TMPDIR" "$GOLANGCI_LINT_CACHE"
