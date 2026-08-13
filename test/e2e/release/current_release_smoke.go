@@ -65,6 +65,24 @@ type currentReleaseSmokeTest struct {
 	dataDiskByName map[string]*dataDiskScenario
 	iperfClient    *vmScenario
 	iperfServer    *vmScenario
+
+	migrationWindowCache *migrationWindow
+}
+
+// migration returns the migration window for the module upgrade, fetching and
+// caching it on the first call so later callers don't re-list VMOPs. ok is
+// false when the upgrade does not migrate virtual machines, in which case
+// there is no migration window to report.
+func (t *currentReleaseSmokeTest) migration() (window migrationWindow, ok bool) {
+	if !upgradeMigratesVMs() {
+		return migrationWindow{}, false
+	}
+
+	if t.migrationWindowCache == nil {
+		window := getMigrationWindow(t.framework, t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
+		t.migrationWindowCache = &window
+	}
+	return *t.migrationWindowCache, true
 }
 
 func runPreUpgradeReleaseSmoke() {
@@ -84,6 +102,7 @@ func runPostUpgradeReleaseSmoke() {
 	test := newCurrentReleaseSmokeTest(f, namespace)
 
 	test.verifyVMsSurvivedUpgrade()
+	test.verifyVMsDidNotRestart()
 	test.verifyIPerfContinuityAfterUpgrade()
 	test.verifyEvictVMOPsCompleted()
 }
@@ -144,6 +163,24 @@ func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 	By("Checking attached disks after module upgrade")
 	for _, vmScenario := range t.vms {
 		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+	}
+}
+
+func (t *currentReleaseSmokeTest) verifyVMsDidNotRestart() {
+	GinkgoHelper()
+
+	migration, ok := t.migration()
+	if !ok {
+		By("Skipping the restart check: the upgrade does not migrate virtual machines")
+		return
+	}
+
+	By("Verifying that virtual machines did not restart since creation")
+
+	for _, vmScenario := range t.vms {
+		vm := t.getVirtualMachine(vmScenario.vm.Name, vmScenario.vm.Namespace)
+		Expect(vm.Status.Stats.LastStartTime.Time).To(BeTemporally("<", migration.start),
+			"VM %s/%s restarted during the module upgrade (last start %s)", vm.Namespace, vm.Name, vm.Status.Stats.LastStartTime.Time)
 	}
 }
 
@@ -208,14 +245,14 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
 	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
 
-	if !upgradeMigratesVMs() {
+	migration, ok := t.migration()
+	if !ok {
 		By("Skipping the migration window checks: the upgrade does not migrate virtual machines")
 
 		return
 	}
 
 	By("Verifying the iperf test brackets the migration window (started before, stopped after)")
-	migration := getMigrationWindow(t.framework, t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
 
 	iperfStart, err := report.startTime()
 	Expect(err).NotTo(HaveOccurred(), "iperf3 report start timestamp must be parseable")
@@ -233,22 +270,15 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	Expect(startedAt).To(BeNumerically("<=", upgradeStartedAt), "iperf3 should start before the module upgrade")
 	Expect(endedAt).To(BeNumerically(">", upgradeStartedAt), "iperf3 should continue after the module upgrade")
 
-	lowerIdx, upperIdx := continuityWindowBounds(startedAt, upgradeStartedAt, report.Intervals)
-	Expect(upperIdx).To(BeNumerically(">=", lowerIdx), "iperf3 report must include intervals around the module upgrade")
+	Expect(report.Intervals).NotTo(BeEmpty(), "iperf3 report must include intervals")
 
 	zeroIntervals := 0
-	transmittedAroundUpgrade := int64(0)
-	for idx := lowerIdx; idx <= upperIdx; idx++ {
-		interval := report.Intervals[idx]
+	for _, interval := range report.Intervals {
 		if interval.Sum.Bytes == 0 {
 			zeroIntervals++
-			continue
 		}
-		transmittedAroundUpgrade += interval.Sum.Bytes
 	}
-
-	Expect(transmittedAroundUpgrade).To(BeNumerically(">", 0), "iperf3 should transmit data around the module upgrade")
-	Expect(zeroIntervals).To(BeNumerically("<=", 1), "iperf3 should not be interrupted during the module upgrade")
+	Expect(zeroIntervals).To(BeNumerically("<=", 1), "iperf3 should not be interrupted over the whole test run")
 }
 
 func (t *currentReleaseSmokeTest) verifyEvictVMOPsCompleted() {

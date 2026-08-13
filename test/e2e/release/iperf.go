@@ -151,16 +151,6 @@ func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 
 // getIPerfClientReport reads and parses the long-running iperf3 client report
 // from the guest.
-//
-// Unlike the live-migration test (test/e2e/vm/live_migration_tcp_session.go),
-// this release smoke test does not trigger an explicit VM migration and does not
-// wait for it to complete. The VM survives a *module upgrade*, during which the
-// iperf server VM's Status.MigrationState may be nil: either no KubeVirt VMI
-// migration record was ever created, or the VMI was recreated afterwards and the
-// controller reset MigrationState back to nil (see MigratingHandler.wrapMigrationState).
-// Therefore this function must NOT depend on MigrationState. The continuity of
-// the TCP session across the upgrade window is validated separately against the
-// upgrade timestamp in verifyIPerfContinuityAfterUpgrade.
 func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, reportPath string) *iperfReport {
 	GinkgoHelper()
 
@@ -183,18 +173,6 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
 
 	Expect(result).NotTo(BeNil())
-
-	// A zero-byte interval (sum.bytes == 0, equivalently sum.bits_per_second == 0)
-	// means the TCP session stalled for that second. At most one such interval is
-	// tolerated for the brief switchover pause; more than one indicates the session
-	// was dropped.
-	zeroBytesIntervalCounter := 0
-	for _, i := range result.Intervals {
-		if i.Sum.Bytes == 0 {
-			zeroBytesIntervalCounter++
-		}
-	}
-	Expect(zeroBytesIntervalCounter).To(BeNumerically("<=", 1), "there should not be more than one zero-byte interval during the migration process")
 
 	return result
 }
@@ -236,31 +214,6 @@ func getMigrationWindow(f *framework.Framework, vmName, namespace string) migrat
 	Expect(window.end.Before(window.start)).To(BeFalse(), "migration end must not precede migration start")
 
 	return window
-}
-
-// continuityWindowBounds returns the index range [lower, upper] of iperf intervals
-// around the upgrade timestamp.
-func continuityWindowBounds(startedAt, upgradeStartedAt int64, intervals []iperfReportInterval) (int, int) {
-	if len(intervals) == 0 {
-		return 1, 0
-	}
-
-	upgradeOffset := float64(upgradeStartedAt - startedAt)
-	index := len(intervals) - 1
-	for idx, interval := range intervals {
-		if upgradeOffset < interval.Sum.Start {
-			index = idx
-			break
-		}
-		if upgradeOffset >= interval.Sum.Start && upgradeOffset < interval.Sum.End {
-			index = idx
-			break
-		}
-	}
-
-	lower := max(index-1, 0)
-	upper := min(index+1, len(intervals)-1)
-	return lower, upper
 }
 
 func parseIPerfReport(raw string) (*iperfReport, error) {
