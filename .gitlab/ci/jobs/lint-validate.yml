@@ -188,7 +188,8 @@ lint:go:
       # cache dir on the linter/Go/dependency versions pins its lifetime to
       # those inputs, and stale keys from this slot are dropped so the
       # per-runner disk does not grow without bound.
-      cache_key=$( { echo "${GOLANGCI_LINT_VERSION}"; go version; cat go.work go.work.sum; } | sha256sum | cut -c1-12 )
+      # go.work is absent on release branches; fall back to linter/Go versions only.
+      cache_key=$( { echo "${GOLANGCI_LINT_VERSION}"; go version; cat go.work go.work.sum 2>/dev/null || true; } | sha256sum | cut -c1-12 )
       export TMPDIR="${TMPDIR:-/tmp}/golangci-lint-${CI_CONCURRENT_ID}"
       export GOLANGCI_LINT_CACHE="${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}-${cache_key}"
       mkdir -p "$TMPDIR" "$GOLANGCI_LINT_CACHE"
