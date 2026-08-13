@@ -85,8 +85,34 @@ func readFile(fName string) (*DiffInfo, error) {
 	return ParseDiffOutput(br)
 }
 
+const zeroSHA = "0000000000000000000000000000000000000000"
+
+// resolveDiffRange returns the git revision range covering the change under
+// validation. The range must not depend on a hardcoded base branch: on a
+// release branch, a diff against origin/main spans everything backported since
+// the branch point, so unrelated files get reported as changed.
+//
+//  1. Merge request pipeline: three-dot diff against the target branch, so only
+//     the commits of this change are validated.
+//  2. Push pipeline: the commits actually pushed. There is no target branch
+//     here, and a three-dot diff against the branch itself would be empty.
+//  3. Anything else (a new branch, a local run): three-dot diff against
+//     origin/main.
+func resolveDiffRange(getenv func(string) string) string {
+	if target := getenv("CI_MERGE_REQUEST_TARGET_BRANCH_NAME"); target != "" {
+		return "origin/" + target + "..."
+	}
+	if before := getenv("CI_COMMIT_BEFORE_SHA"); before != "" && before != zeroSHA {
+		return before + "..HEAD"
+	}
+	return "origin/main..."
+}
+
 func executeGitDiff() (*DiffInfo, error) {
-	gitCmd := exec.Command("git", "diff", "origin/main...", "-w", "--ignore-blank-lines")
+	diffRange := resolveDiffRange(os.Getenv)
+	fmt.Printf("Diff range: %s\n", diffRange)
+
+	gitCmd := exec.Command("git", "diff", diffRange, "-w", "--ignore-blank-lines")
 	out, err := gitCmd.Output()
 	if err != nil {
 		return nil, err
