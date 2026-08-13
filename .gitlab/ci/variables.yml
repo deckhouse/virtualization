@@ -34,6 +34,16 @@ variables:
     value: ""
     description: "Existing git tag (vX.Y.Z or vX.Y.Z-rc.N) to build into the DEV registry. Run the pipeline for branch main, not for the tag."
 
+  # --- Manual dispatch: Svace-analyze an existing git ref ---
+  # Accepts any ref the server can resolve: a tag, a branch or a commit SHA.
+  # Same branch-not-tag rule as BUILD_TAG, and for the same reason plus one
+  # more: a pipeline on a vX.Y.Z ref also auto-fires build_prod / build_dev_tags
+  # (they key on $CI_COMMIT_TAG alone). svace:build checks the ref out itself,
+  # so the pipeline ref stays main. See jobs/svace.yml.
+  SVACE_BUILD_REF:
+    value: ""
+    description: "Existing git ref — tag, branch or commit SHA — to build and analyze with Svace (image tag <ref>-svace in the DEV registry). Run the pipeline for branch main, not for a tag. svace:build and svace:analyze then start automatically."
+
   # --- Module identity ---
   MODULE_NAME: virtualization
   # Kept for backwards compatibility with the previous root .gitlab-ci.yml;

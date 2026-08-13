@@ -18,6 +18,18 @@
 #     dedicated schedule and not under any other pipeline schedule.
 #   - workflow_dispatch -> when: manual.
 #   - MR opt-in -> set SVACE_PIPELINE_ENABLED=true when running a pipeline.
+#   - Git-ref dispatch -> run a pipeline for branch main with
+#     $SVACE_BUILD_REF=<tag|branch|commit SHA> (see variables.yml), either from
+#     the Run pipeline form or with
+#     `glab ci run -b main --variables SVACE_BUILD_REF:<ref>`.
+#     Do NOT run the pipeline for
+#     a release tag itself: `.prod_always` / `.dev_tags` key on $CI_COMMIT_TAG
+#     alone, so any pipeline on a vX.Y.Z ref also fires build_prod (all four
+#     editions, when: always) and build_dev_tags, and the pipeline would use the
+#     CI config from the tagged commit instead of main. With SVACE_BUILD_REF the
+#     pipeline ref stays a branch (no $CI_COMMIT_TAG, no prod build) and
+#     svace:build checks the requested ref out itself — same trick as
+#     build_dev_manual in jobs/build-dev.yml.
 #   - Loop notification kept as a manual / always job. The original GH
 #     webhook URL is the LOOP_WEBHOOK_URL masked variable.
 #
@@ -51,15 +63,21 @@ svace:set-vars:
       when: always
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: always
+    # Ref dispatch from the CLI: `glab ci run` goes through the API, so its
+    # source is "api" and the `web` rule above never matches it.
+    - if: '$CI_PIPELINE_SOURCE == "api" && $SVACE_BUILD_REF'
+      when: always
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
       when: always
     - when: never
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git
   script:
     - |
       set -euo pipefail
-      REF="${CI_COMMIT_REF_NAME:-}"
+      # In ref-dispatch mode the pipeline ref is the dispatch branch (main), but
+      # everything downstream must describe the ref that svace:build checks out.
+      REF="${SVACE_BUILD_REF:-${CI_COMMIT_REF_NAME:-}}"
       case "$REF" in
         main|release-*)
           TAG="${REF}-svace" ;;
@@ -68,9 +86,36 @@ svace:set-vars:
         *)
           TAG="${REF//\//_}-svace" ;;
       esac
-      echo "MODULES_MODULE_TAG=${TAG}" > svace.env
-      echo "MODULE_EDITION=EE"        >> svace.env
-      echo "REF_NAME=${REF}"          >> svace.env
+      # Resolve and validate the ref BEFORE writing svace.env: a dotenv report is
+      # uploaded even by a failed job, so a half-written one would still reach
+      # the jobs that consume it.
+      if [[ -n "${SVACE_BUILD_REF:-}" ]]; then
+        # One shallow fetch validates every ref kind uniformly — annotated or
+        # lightweight tag, branch, or raw commit SHA — before the 8h build
+        # starts, and keeps this job's clone shallow. git exits 128 with
+        # "couldn't find remote ref" / "not our ref" for anything the server
+        # cannot resolve; its own message is left visible on stderr.
+        if ! git fetch --no-tags --depth=1 origin "$SVACE_BUILD_REF"; then
+          echo "SVACE_BUILD_REF=${SVACE_BUILD_REF} is not an existing tag, branch or commit in ${CI_PROJECT_URL}" >&2
+          exit 1
+        fi
+        # ^{commit} matters for an annotated tag: FETCH_HEAD then holds the tag
+        # object, and svacer would be labeled with a hash that is not a commit.
+        SHA=$(git rev-parse "FETCH_HEAD^{commit}")
+      fi
+      {
+        echo "MODULES_MODULE_TAG=${TAG}"
+        echo "MODULE_EDITION=EE"
+        echo "REF_NAME=${REF}"
+        if [[ -n "${SVACE_BUILD_REF:-}" ]]; then
+          # The upstream .svace_analyze template labels the svacer import with
+          # COMMIT_REF_NAME / COMMIT_HASH, which default to $CI_COMMIT_REF_NAME /
+          # $CI_COMMIT_SHA — i.e. the dispatch branch, not the analyzed ref. A
+          # dotenv report overrides job variables, so these relabel the import.
+          echo "COMMIT_REF_NAME=${SVACE_BUILD_REF}"
+          echo "COMMIT_HASH=${SHA}"
+        fi
+      } > svace.env
       cat svace.env
   artifacts:
     reports:
@@ -82,6 +127,15 @@ svace:set-vars:
 # Reuses `.base_build` so it does not inherit the dev-tag-only rules from
 # `.dev_tags`. The preceding svace:set-vars job writes the actual
 # MODULES_MODULE_TAG into a dotenv artifact.
+#
+# Ref-dispatch mode ($SVACE_BUILD_REF): the job checks the requested ref out
+# before building, so the pipeline can stay on a branch ref. GIT_STRATEGY=clone +
+# GIT_DEPTH=0 (set only in that mode, so the weekly run keeps its cheap fetch)
+# give a full clone from which even an old tag or a bare commit SHA is checkable
+# out. The checkout runs at the START of script:, AFTER the upstream Setup
+# before_script (werf setup + registry login — neither depends on git HEAD) and
+# BEFORE `werf build`, so werf builds the requested commit's tree under
+# giterminism. Same pattern as build_dev_manual (jobs/build-dev.yml).
 # ---------------------------------------------------------------------------
 
 svace:build:
@@ -100,11 +154,35 @@ svace:build:
     SVACE_ENABLED: "true"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+    # Ref dispatch runs unattended (one `glab ci run` / one Run pipeline form is
+    # the whole interaction), so it starts on its own. Must precede the generic
+    # web rule below, which is `when: manual`. Both sources are matched: the Run
+    # pipeline form gives "web", `glab ci run` (REST API) gives "api".
+    #
+    # Any non-empty value matches: a branch name or a commit SHA has no shape to
+    # validate against, so svace:set-vars is what rejects a ref that does not
+    # exist.
+    #
+    # No `when:` on purpose — the implicit on_success is what keeps this job
+    # behind svace:set-vars. `when: always` would start the 8h build even when
+    # set-vars rejected the ref, and with no dotenv the build would fall back to
+    # MODULES_MODULE_TAG=$CI_COMMIT_REF_NAME and push a `main`-tagged image.
+    - if: '($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $SVACE_BUILD_REF'
+      variables:
+        GIT_STRATEGY: clone
+        GIT_DEPTH: "0"
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'
       when: manual
     - when: never
+  script:
+    - |
+      if [[ -n "${SVACE_BUILD_REF:-}" ]]; then
+        git fetch --force origin "$SVACE_BUILD_REF"
+        git checkout --detach FETCH_HEAD
+      fi
+    - !reference [.base_build, script]
 
 # ---------------------------------------------------------------------------
 # analyze: invoke the upstream `.svace_analyze` template.
@@ -135,6 +213,8 @@ svace:analyze:
       optional: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "svace"'
+    # Ref dispatch: follow svace:build automatically (see its rules).
+    - if: '($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $SVACE_BUILD_REF'
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $SVACE_PIPELINE_ENABLED == "true"'

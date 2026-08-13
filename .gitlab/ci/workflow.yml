@@ -33,6 +33,13 @@ workflow:
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "web"
+    # Svace git-ref dispatch from the CLI (`glab ci run --variables
+    # SVACE_BUILD_REF:<tag|branch|SHA>`). A pipeline created through the API has
+    # $CI_PIPELINE_SOURCE == "api", NOT "web" — "web" is only the Run pipeline
+    # form — so without this rule the CLI dispatch is rejected outright on any
+    # ref except main. Gated on the dispatch variable instead of opening `api`
+    # in general: every other API caller keeps getting the old behavior.
+    - if: $CI_PIPELINE_SOURCE == "api" && $SVACE_BUILD_REF
     # Avoid duplicate pipelines: a push to a non-default, non-tag branch that
     # already has an open MR would otherwise create BOTH a branch pipeline and
     # an MR pipeline. The predefined $CI_OPEN_MERGE_REQUESTS is non-empty only
