@@ -49,6 +49,25 @@ lint:go-work:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
+# Both diff-based validations below (no_cyrillic, doc_changes) check only the
+# lines added by the change, so they need the base of that change fetched.
+# That base is the merge request target branch — NOT always main: diffing a
+# release branch against main spans everything backported since the branch
+# point, which reports unrelated files as changed.
+#
+# Outside a merge request pipeline the validations diff the pushed commits,
+# which the GIT_DEPTH: "0" clone already has, and fall back to main when there
+# is no previous commit to diff against — so main is the base to fetch there.
+# ---------------------------------------------------------------------------
+
+.fetch-diff-base:
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
+    - |
+      base="${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}"
+      git fetch --no-tags origin "+${base}:refs/remotes/origin/${base}"
+
+# ---------------------------------------------------------------------------
 # no_cyrillic
 # ---------------------------------------------------------------------------
 
@@ -57,8 +76,7 @@ lint:no-cyrillic:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
-    - git fetch --no-tags origin +main:refs/remotes/origin/main
+    - !reference [.fetch-diff-base, before_script]
   script:
     - task validation:no-cyrillic
   rules:
@@ -78,8 +96,7 @@ lint:doc-changes:
   variables:
     GIT_DEPTH: "0"
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
-    - git fetch --no-tags origin +main:refs/remotes/origin/main
+    - !reference [.fetch-diff-base, before_script]
   script:
     - task validation:doc-changes
   rules:
