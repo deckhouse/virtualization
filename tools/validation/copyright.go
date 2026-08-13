@@ -129,7 +129,7 @@ func readFileHead(fName string, size int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	fi, err := file.Stat()
 	if err != nil {

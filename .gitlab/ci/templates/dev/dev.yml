@@ -1,0 +1,16 @@
+# DEV pipeline context: MR builds.
+#
+# Carries forward the previous root .gitlab-ci.yml `.dev` template. Any job
+# that uses `extends: .dev` runs only on MR pipelines, derives its
+# MODULES_MODULE_TAG from the MR iid, and inherits the DEV registry
+# credentials via .dev_vars.
+
+.dev:
+  variables:
+    MODULES_MODULE_TAG: mr${CI_MERGE_REQUEST_IID}
+  extends:
+    - .dev_vars
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never

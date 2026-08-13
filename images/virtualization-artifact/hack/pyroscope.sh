@@ -65,6 +65,7 @@ function wipe() {
     pkill -f "${PROCESS_NAME}"
 }
 
+# shellcheck source=images/virtualization-artifact/hack/args.sh
 source "${DIR}/args.sh"
 set_flags_args "$@"
 

@@ -1,0 +1,524 @@
+# Validation, lint, scan, and gitlab-ci lint jobs.
+#
+# This file is the direct migration of the GitHub Actions workflow
+# .github/workflows/dev_validation.yaml (paths_filter + no_cyrillic +
+# doc_changes + shellcheck + helm_templates + check_gens_files).
+#
+# The `actionlint` job from the GH workflow is intentionally NOT migrated. In its place we run the new
+# `lint:gitlab-ci` job that validates the GitLab CI configuration itself
+# via the GitLab CI Lint API. The legacy skip-label
+# `validation/skip/actionlint` is therefore obsolete and not honored.
+#
+# Each job:
+# - inherits `tags: [deckhouse]` and `interruptible: true` from
+#   .gitlab/ci/defaults.yml (these short-lived checks are safe to cancel on a
+#   new push);
+# - honors `validation/skip/<name>` labels via `when: never` rules.
+#
+# The job file assumes the upstream template include for
+# `/templates/Setup.gitlab-ci.yml` from deckhouse/3p/deckhouse/modules-gitlab-ci@v13.0
+# is in scope so that the shared `default:` and `stages:` are merged.
+# It also assumes the `lint` stage is declared in .gitlab/ci/stages.yml.
+#
+# Coordination note: the parent .gitlab/ci/includes.yml (owned by the
+# epic owner) is responsible for adding `local:` entries for this file.
+
+# ---------------------------------------------------------------------------
+# Validation jobs
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Both diff-based validations below (no_cyrillic, doc_changes) check only the
+# lines added by the change, so they need the base of that change fetched.
+# That base is the merge request target branch — NOT always main: diffing this
+# release branch against main spans everything that diverged since the branch
+# point, which reports unrelated files as changed.
+#
+# Outside a merge request pipeline the validations diff the pushed commits,
+# which the GIT_DEPTH: "0" clone already has, and fall back to main when there
+# is no previous commit to diff against — so main is the base to fetch there.
+# ---------------------------------------------------------------------------
+
+.fetch-diff-base:
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
+    - |
+      base="${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}"
+      git fetch --no-tags origin "+${base}:refs/remotes/origin/${base}"
+
+# ---------------------------------------------------------------------------
+# no_cyrillic
+# ---------------------------------------------------------------------------
+
+lint:no-cyrillic:
+  stage: lint
+  variables:
+    GIT_DEPTH: "0"
+  before_script:
+    - !reference [.fetch-diff-base, before_script]
+  script:
+    - task validation:no-cyrillic
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/no_cyrillic/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
+
+# ---------------------------------------------------------------------------
+# doc_changes
+# ---------------------------------------------------------------------------
+
+lint:doc-changes:
+  stage: lint
+  variables:
+    GIT_DEPTH: "0"
+  before_script:
+    - !reference [.fetch-diff-base, before_script]
+  script:
+    - task validation:doc-changes
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/doc_changes/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+
+# ---------------------------------------------------------------------------
+# shellcheck
+#
+# Reuses the upstream-equivalent task `lint:shellcheck`. The .github
+# workflow additionally scanned images/virtualization-artifact/hack/*.sh;
+# the Taskfile already does that.
+# ---------------------------------------------------------------------------
+
+lint:shellcheck:
+  stage: lint
+  # The `task lint:shellcheck` target runs shellcheck inside the
+  # koalaman/shellcheck-alpine Docker image, so the runner needs docker —
+  # not a host-installed shellcheck binary.
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task docker
+  script:
+    - task lint:shellcheck
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/shellcheck/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+
+# ---------------------------------------------------------------------------
+# yaml (prettier)
+# ---------------------------------------------------------------------------
+
+lint:yaml:
+  stage: lint
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
+  script:
+    - task lint:prettier:yaml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - "**/*.yaml"
+          - "**/*.yml"
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths:
+          - "**/*.yaml"
+          - "**/*.yml"
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths:
+          - "**/*.yaml"
+          - "**/*.yml"
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
+
+# ---------------------------------------------------------------------------
+# go (golangci-lint across every Go module)
+#
+# Migration of the GitHub Actions `lint_go` job from
+# .github/workflows/dev_module_build.yml. It installs the pinned
+# golangci-lint v${GOLANGCI_LINT_VERSION} (same method/version as the GH job)
+# and runs `golangci-lint run` in every directory that ships a .golangci.yaml,
+# excluding the upstream/vendored modules that GH also skipped:
+#   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
+# NOTE: .github/workflows/dev_module_build.yml also pruned ./test/performance/shatal,
+# but that path never existed (the real module is test/performance/tools/shatal),
+# so shatal was effectively linted there too. The dead prune entry is dropped here
+# and test/performance/tools/shatal is intentionally linted.
+# This supersedes the old single-dir `lint:virtualization-controller` job.
+# ---------------------------------------------------------------------------
+
+lint:go:
+  stage: lint
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go curl git
+    - |
+      set -e
+      # Install the pinned prebuilt golangci-lint v2 binary.
+      curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+        | sh -s -- -b "$(go env GOPATH)/bin" "v${GOLANGCI_LINT_VERSION}"
+      export PATH="$(go env GOPATH)/bin:${PATH}"
+      golangci-lint --version
+  script:
+    - |
+      set -e
+      export PATH="$(go env GOPATH)/bin:${PATH}"
+
+      # Isolate golangci-lint per concurrent job on shared runners.
+      # golangci-lint takes a global lock at $TMPDIR/golangci-lint.lock and, by
+      # default, shares its cache dir, so two lint jobs on the same runner
+      # collide ("parallel golangci-lint is running"). CI_CONCURRENT_ID is unique
+      # per executor slot (stable across sequential jobs, so the cache is still
+      # reused), which scopes both the lock and the cache to this job.
+      #
+      # The cache also holds per-package analysis facts, and a slot-scoped cache
+      # otherwise lives forever: a stale entry makes a linter silently miss an
+      # issue on one runner slot while every other slot reports it (seen with
+      # staticcheck SA1019 vs. nolintlint "directive is unused"). Keying the
+      # cache dir on the linter/Go/dependency versions pins its lifetime to
+      # those inputs, and stale keys from this slot are dropped so the
+      # per-runner disk does not grow without bound.
+      #
+      # The dependency part of the key is read from the tracked module files
+      # rather than from go.work directly: go.work exists only on main, so
+      # `cat go.work go.work.sum` aborted the whole job under `set -e` on this
+      # branch. Hashing whatever `git ls-files` reports keeps the key meaningful
+      # on both layouts (go.work on main, per-module go.mod/go.sum here)
+      # instead of degrading to linter+Go version only.
+      cache_key=$(
+        {
+          echo "${GOLANGCI_LINT_VERSION}"
+          go version
+          git ls-files -z 'go.work' 'go.work.sum' 'go.mod' 'go.sum' '*/go.mod' '*/go.sum' \
+            | sort -z | xargs -0 -r cat
+        } | sha256sum | cut -c1-12
+      )
+      export TMPDIR="${TMPDIR:-/tmp}/golangci-lint-${CI_CONCURRENT_ID}"
+      export GOLANGCI_LINT_CACHE="${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}-${cache_key}"
+      mkdir -p "$TMPDIR" "$GOLANGCI_LINT_CACHE"
+      find "${HOME}/.cache" -maxdepth 1 -type d -name "golangci-lint-${CI_CONCURRENT_ID}-*" \
+        ! -name "*-${cache_key}" -exec rm -rf {} +
+      # Unkeyed cache dir left by the previous revision of this job.
+      rm -rf "${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}"
+
+      # Directories containing a .golangci.yaml, excluding the same upstream /
+      # vendored modules as .github/workflows/dev_module_build.yml (lint_go):
+      #   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
+      # The GH prune of ./test/performance/shatal was a no-op (path never
+      # existed; real module is test/performance/tools/shatal), so shatal is
+      # intentionally linted here, matching actual current behavior.
+      mapfile -t config_dirs < <(
+        find . \
+          -path ./images/cdi-cloner/cloner-startup -prune -o \
+          -path ./images/dvcr-artifact -prune -o \
+          -type f -name '.golangci.yaml' -not -type l -printf '%h\0' | \
+        xargs -0 -n1 | sort -u
+      )
+      count=${#config_dirs[@]}
+      echo "Found ${count} directories with golangci-lint configurations"
+
+      error_count=0
+      for dir in "${config_dirs[@]}"; do
+        echo "------------------------------------------------------------"
+        echo "Linting: ${dir}"
+        pushd "$dir" >/dev/null
+        if ! golangci-lint run; then
+          error_count=$(( error_count + 1 ))
+        fi
+        popd >/dev/null
+      done
+
+      if [ "$error_count" -gt 0 ]; then
+        echo "${error_count} directory/directories failed golangci-lint"
+        exit 1
+      fi
+      echo "All golangci-lint checks passed"
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/go/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
+
+# ---------------------------------------------------------------------------
+# Helm is not guaranteed on the runner host, and two jobs below render the chart
+# with it. The binary goes into a user-writable dir on PATH, so no sudo is needed.
+# ---------------------------------------------------------------------------
+
+.setup-helm:
+  before_script:
+    - |
+      set -e
+      bin_dir="$HOME/.local/bin"
+      mkdir -p "$bin_dir"
+      export PATH="$bin_dir:$PATH"
+      if ! command -v helm >/dev/null 2>&1; then
+        echo "Installing Helm v${HELM_VERSION}..."
+        curl -sSfL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" -o /tmp/helm.tar.gz
+        tar -xzf /tmp/helm.tar.gz -C /tmp linux-amd64/helm
+        install -m 0755 /tmp/linux-amd64/helm "$bin_dir/helm"
+        helm version
+      fi
+
+# ---------------------------------------------------------------------------
+# helm_templates
+#
+# GH used dorny/paths-filter to gate this on changes to helm-related
+# files. GitLab equivalent: rules.changes.
+# ---------------------------------------------------------------------------
+
+lint:helm-templates:
+  stage: lint
+  before_script:
+    # go + task are host tools; docker runs kubeconform; git/curl/python3 are
+    # needed by tools/kubeconform/kubeconform.sh (clone kubeconform.git, fetch
+    # CRD schemas, run openapi2jsonschema.py).
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task docker git curl python3
+    - !reference [.setup-helm, before_script]
+    - |
+      # jq is not guaranteed either; helm has just put $bin_dir on PATH for us.
+      set -e
+      bin_dir="$HOME/.local/bin"
+      export PATH="$bin_dir:$PATH"
+      if ! command -v jq >/dev/null 2>&1; then
+        echo "Installing jq v${JQ_VERSION}..."
+        curl -sSfL -o "$bin_dir/jq" "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-amd64"
+        chmod +x "$bin_dir/jq"
+        jq --version
+      fi
+  script:
+    - task validation:helm-templates
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/helm_templates/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - "crds/**/*"
+          - "charts/**/*"
+          - "tools/kubeconform/**/*"
+          - "templates/**/*"
+          - ".helmignore"
+          - "Chart.yaml"
+          - "Taskfile.yaml"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths:
+          - "crds/**/*"
+          - "charts/**/*"
+          - "tools/kubeconform/**/*"
+          - "templates/**/*"
+          - ".helmignore"
+          - "Chart.yaml"
+          - "Taskfile.yaml"
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths:
+          - "crds/**/*"
+          - "charts/**/*"
+          - "tools/kubeconform/**/*"
+          - "templates/**/*"
+          - ".helmignore"
+          - "Chart.yaml"
+          - "Taskfile.yaml"
+
+# ---------------------------------------------------------------------------
+# alert_rules
+#
+# Deliberately absent on this branch. Upstream `lint:alert-rules` runs
+# `task validation:alert-rules`, which renders the chart and feeds the
+# extracted PrometheusRule resources to promtool, including the rule unit
+# tests in tools/prometheus-rules/tests. Neither the task nor that tools
+# directory exists on release-1.0-cse (the alerting rework that introduced
+# them landed after this branch point), so the job would fail on a missing
+# task rather than on a bad rule. Re-add it together with a backport of
+# tools/prometheus-rules if alert validation is wanted here.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# check_gens_files
+#
+# Matrix over components. Each component regenerates files via
+# `task controller:dev:gogenerate` / `task generate` / `task
+# vm-route-forge:gen` and fails if `git diff --exit-code` reports
+# any drift against origin/main (or the current branch base).
+# ---------------------------------------------------------------------------
+
+# One job per component instead of a single parallel:matrix job. GitLab cannot
+# gate individual matrix legs with rules:changes, so a matrix job would run all
+# three legs on any matching change — pulling the heavy vm-route-forge bpf2go
+# leg (docker) even for an api-only change. Splitting mirrors the GitHub
+# per-component gating: each job runs only when its own paths change (the
+# vm-route-forge docker leg fires only on vm-route-forge changes).
+.gens_check:
+  stage: lint
+  before_script:
+    # git is needed by check_diffs (git diff). go/task are host tools.
+    # docker is checked inside the vm-route-forge branch, which is the only one
+    # that needs it (bpf2go runs in the cilium/ebpf-builder image).
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task git
+    - |
+      # `go install tool` (used by all components) puts binaries in
+      # $(go env GOPATH)/bin, but the shell runner does not add that dir to
+      # PATH. GitHub's setup-go@v5 does this automatically; replicate it here
+      # so //go:generate directives invoking `moq`, `ginkgo`, etc. resolve.
+      # (PATH is re-exported in the script block too, since each top-level
+      # script line is a fresh shell.)
+      export PATH="$(go env GOPATH)/bin:${PATH}"
+      echo "GOPATH/bin added to PATH: $(go env GOPATH)/bin"
+  script:
+    - |
+      set -e
+      # Restore PATH augmented in before_script for this shell too.
+      export PATH="$(go env GOPATH)/bin:${PATH}"
+      function check_diffs() {
+        local folder="$1"
+        if ! git diff --exit-code -- "$folder"; then
+          echo "::error title=Generated files out of date::Run 'go generate' / 'task generate' for $folder and commit the diff."
+          echo "--- git diff ---"
+          git diff origin/main -- "$folder" || true
+          echo "--- end ---"
+          exit 1
+        fi
+        echo "OK: $folder"
+      }
+      case "$COMPONENT" in
+        virtualization-artifact)
+          # go.mod `tool` directives include moq + ginkgo; go install tool
+          # puts them in $GOPATH/bin (already on PATH above). Mirrors GH:
+          # cd images/virtualization-artifact && go install tool, then run
+          # generation from the root Taskfile namespace.
+          (cd images/virtualization-artifact && go install tool)
+          task controller:dev:gogenerate
+          check_diffs images/virtualization-artifact
+          ;;
+        vm-route-forge)
+          bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker
+          # bpf2go (go tool github.com/cilium/ebpf/cmd/bpf2go) needs clang,
+          # llvm-strip and the libbpf/kernel headers. The GitLab shell runner
+          # has no sudo, so instead of apt-get (as the GH workflow did) run
+          # generation inside the public cilium/ebpf-builder image, which ships
+          # clang-14/17/22, llvm-strip-14/17/22, libbpf-dev and linux headers.
+          # go generate runs in the container against the repo bind-mounted at
+          # /src. Use clang-14 to match the toolchain that produced the
+          # committed ebpf_x86_bpfel.{go,o} files (GH ran on ubuntu-22.04 where
+          # apt-get install clang pulls clang-14).
+          #
+          # BPF2GO_CC/STRIP point bpf2go at the versioned binaries (the image
+          # has no bare `clang`). BPF2GO_CFLAGS adds the arch-specific include
+          # dir so <asm/ptrace.h> resolves (the image symlinks /usr/include/asm
+          # to asm-generic, which lacks ptrace.h; the real one lives under
+          # x86_64-linux-gnu on amd64 / aarch64-linux-gnu on arm64).
+          docker run --rm --platform linux/amd64 \
+            -v "${PWD}:/src" \
+            -w /src/images/vm-route-forge \
+            -e BPF2GO_CC=clang-14 \
+            -e BPF2GO_STRIP=llvm-strip-14 \
+            -e BPF2GO_CFLAGS="-I/usr/include/x86_64-linux-gnu" \
+            -e GOTOOLCHAIN=auto \
+            ghcr.io/cilium/ebpf-builder:1777990914 \
+            sh -c 'go generate ./...'
+          check_diffs images/vm-route-forge
+          ;;
+        api)
+          # `task generate` is defined in api/Taskfile.dist.yaml, not the
+          # root Taskfile — it must run from inside api/. Mirrors GH:
+          # cd ./api && go install tool && task generate.
+          (cd api && go install tool && task generate)
+          check_diffs api
+          ;;
+        *)
+          echo "Unknown COMPONENT: $COMPONENT"; exit 1 ;;
+      esac
+
+# virtualization-artifact generation (mocks, deepcopy) can depend on api types,
+# so it also runs on api/** changes.
+check:gens-files:virtualization-artifact:
+  extends: .gens_check
+  variables:
+    COMPONENT: virtualization-artifact
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - "api/**/*"
+          - "images/virtualization-artifact/**/*"
+          - "go.mod"
+          - "go.sum"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+
+check:gens-files:api:
+  extends: .gens_check
+  variables:
+    COMPONENT: api
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - "api/**/*"
+          - "go.mod"
+          - "go.sum"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+
+# The heavy leg: bpf2go regeneration inside docker. Gated on vm-route-forge
+# changes only, so an unrelated change no longer pulls it in.
+check:gens-files:vm-route-forge:
+  extends: .gens_check
+  variables:
+    COMPONENT: vm-route-forge
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - "images/vm-route-forge/**/*"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+
+# ---------------------------------------------------------------------------
+# gitlab-ci-lint
+#
+# Replaces the legacy actionlint job (decision #5). Runs only when the
+# GitLab CI configuration itself changes. Uses the GitLab CI Lint API
+# at ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint.
+#
+# Authentication: PRIVATE-TOKEN via GITLAB_API_TOKEN (project access
+# token, scope api). The script lives in
+# .gitlab/ci/scripts/bash/gitlab-ci-lint.sh (owned by this issue).
+# ---------------------------------------------------------------------------
+
+lint:gitlab-ci:
+  stage: lint
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq
+  script:
+    - bash .gitlab/ci/scripts/bash/gitlab-ci-lint.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths:
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        paths:
+          - ".gitlab-ci.yml"
+          - ".gitlab/**/*"
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'

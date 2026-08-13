@@ -41,6 +41,7 @@ function source::settings {
                               "VirtualImage"
                               "ClusterVirtualImage")
 
+    # shellcheck source=/dev/null
     source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 
@@ -84,7 +85,7 @@ function generate::crds {
         if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
             continue
         fi
-        cp "$file" "${ROOT}/crds/$(echo $file | awk -Fio_ '{print $2}')"
+        cp "$file" "${ROOT}/crds/$(echo "$file" | awk -Fio_ '{print $2}')"
     done
 }
 

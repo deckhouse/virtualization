@@ -1,0 +1,47 @@
+# Cleanup job.
+#
+# Carries forward the cleanup job from the previous root .gitlab-ci.yml and
+# the GitHub .github/workflows/dev_registry-cleanup.yml workflow. Runs only
+# on scheduled pipelines and prunes old module images from the DEV registry
+# using werf cleanup --without-kube=true --config werf_cleanup.yaml.
+#
+# The weekly cadence (GitHub cron "12 0 * * 6") is configured in the
+# GitLab UI under CI/CD -> Schedules, not here. This job only gates on
+# $CI_PIPELINE_SOURCE == "schedule" AND $SCHEDULE_TYPE == "cleanup" so it
+# runs only under the dedicated cleanup schedule and not under any other
+# pipeline schedule defined in the project.
+#
+# Registry path is composed from the DEV Project Variables the rest of the
+# pipeline uses:
+#   MODULES_MODULE_SOURCE  <- DEV_MODULE_SOURCE   (e.g. dev-registry.deckhouse.io/sys/deckhouse-oss/modules), via .dev_vars
+#   MODULES_MODULE_NAME    <- MODULE_NAME         (virtualization), set in .gitlab/ci/variables.yml
+# This matches the GitHub workflow's
+#   --repo ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}
+# exactly. Extending .dev_vars also provides MODULES_REGISTRY +
+# MODULES_REGISTRY_LOGIN/_PASSWORD so the upstream Setup.gitlab-ci.yml
+# before_script `werf cr login` authenticates against the DEV registry
+# before cleanup runs.
+#
+# Retention policies live in werf_cleanup.yaml at the repo root
+# (tag /.*/ -> 72h, branch /.*/ -> 168h, branch /main|release-[0-9]+.*/ ->
+# last 5 with imagesPerReference last 1). --config is mandatory: without
+# it werf cleanup falls back to default git-history policies and
+# over/under-prunes dev images.
+
+cleanup:
+  stage: cleanup
+  # Mutates the registry (werf cleanup); never auto-cancel mid-run.
+  interruptible: false
+  extends:
+    - .dev_vars
+  variables:
+    MODULES_MODULE_TAG: v0.0.0-main
+    # Explicitly disable werf dry-run, mirroring GitHub dev_registry-cleanup.yml
+    # (env WERF_DRY_RUN: "false"). Without this an inherited/global
+    # WERF_DRY_RUN=true would make cleanup silently prune nothing.
+    WERF_DRY_RUN: "false"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "cleanup"
+  script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf
+    - werf cleanup --repo ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} --without-kube=true --config werf_cleanup.yaml

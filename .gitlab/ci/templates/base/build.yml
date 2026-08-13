@@ -1,0 +1,89 @@
+# Base build template (.base_build).
+#
+# `.base_build` is the werf-build job body extended by every build job
+# (build_dev / build_main / build_prod / prod:build:* / precache / svace:build).
+#
+# It no longer carries a verbatim copy of the upstream build script. Instead it
+# consumes the rules-free `.build_base` from the upstream modules-gitlab-ci
+# Build.gitlab-ci.yml (included via .gitlab/ci/includes.yml) with
+# `!reference [.build_base, script]`, and only prepends the local
+# check-runner-tools guard. This keeps a single source of truth for the build
+# script upstream while letting our job-level rules (.dev / .main / .prod_always
+# / ...) drive gating.
+#
+# Why not `extends: .build`: upstream `.build` bakes in `rules:` that fire on
+# ANY branch / tag push and, because GitLab merges `extends:` rules parent-first,
+# would override our strict per-context gating. `.build_base` is the same script
+# WITHOUT those rules (see upstream Build.gitlab-ci.yml). `!reference` is used
+# instead of `extends: .build_base` so the local check-runner-tools line is
+# prepended to the upstream script (extends would replace the whole `script:`).
+#
+# Required variables (documented in variables.yml + upstream Setup):
+#   MODULES_MODULE_SOURCE, MODULES_MODULE_NAME, MODULES_MODULE_TAG,
+#   WERF_REPO, SVACE_ENABLED (optional).
+#
+# SSH access to the 3p package sources
+# ------------------------------------
+# Every images/packages/*/werf.inc.yaml on this branch clones
+# "${SOURCE_REPO_GIT}/<package>.git" over SSH from deckhouse/3p on
+# $DECKHOUSE_PRIVATE_REPO. The GitHub workflows loaded that deploy key with
+# webfactory/ssh-agent (secrets.SOURCE_REPO_SSH_KEY); nothing in the GitLab
+# pipeline did, so the upstream Setup before_script left an agent holding only
+# the svace key and the very first package build failed with:
+#
+#   packages/nftables-src-artifact/install
+#     ssh: git@fox.flant.com: Permission denied (publickey).
+#     fatal: Could not read from remote repository.
+#
+# Newer branches never hit this because their package stages are already in the
+# registry and get reused, so no clone runs at all.
+#
+# The key is added to the same agent the upstream Setup starts (before_script and
+# script share one shell on the shell executor), and werf mounts that agent into
+# the stapel build containers. Absent SOURCE_REPO_SSH_KEY the step is a no-op, so
+# a build that needs no private source still works.
+
+.base_build:
+  stage: build
+  script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf jq crane
+    - |
+      set -e
+      if [ -n "${SOURCE_REPO_SSH_KEY:-}" ]; then
+        if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+          eval "$(ssh-agent -s)" >/dev/null
+        fi
+        # SOURCE_REPO_SSH_KEY is a file-type CI variable, so the variable holds a
+        # PATH to the key, not the key itself; a plain variable-type setup would
+        # hold the key. Accept both.
+        if [ -f "${SOURCE_REPO_SSH_KEY}" ]; then
+          ssh_key="$(cat "${SOURCE_REPO_SSH_KEY}")"
+        else
+          ssh_key="${SOURCE_REPO_SSH_KEY}"
+        fi
+        # The stored key currently has literal \n two-character sequences where
+        # its line breaks should be, which OpenSSH rejects outright ("error in
+        # libcrypto"). Convert them back; a correctly stored key has no literal
+        # \n and passes through untouched. Re-saving the CI variable with real
+        # newlines makes this a no-op.
+        ssh_key="$(printf '%s' "${ssh_key}" | sed 's/\\n/\n/g')"
+        if ! printf '%s' "${ssh_key}" | grep -q 'PRIVATE KEY'; then
+          echo "SOURCE_REPO_SSH_KEY does not look like a PEM private key"
+          exit 1
+        fi
+        # ssh-add reads from stdin, so the key never lands on the shared runner's
+        # disk. The trailing newline matters: OpenSSH rejects a key without it.
+        # ssh-add's stderr is kept — it names the reason on failure and never
+        # echoes key material.
+        printf '%s\n' "${ssh_key}" | tr -d '\r' | ssh-add - \
+          || { echo "Failed to add SOURCE_REPO_SSH_KEY to the ssh-agent"; exit 1; }
+        unset ssh_key
+        echo "Added SOURCE_REPO_SSH_KEY for ${DECKHOUSE_PRIVATE_REPO} to the ssh-agent"
+        mkdir -p ~/.ssh && chmod 700 ~/.ssh
+        if [ -n "${DECKHOUSE_PRIVATE_REPO:-}" ]; then
+          ssh-keyscan -H "${DECKHOUSE_PRIVATE_REPO}" >> ~/.ssh/known_hosts 2>/dev/null || true
+        fi
+      else
+        echo "SOURCE_REPO_SSH_KEY is not set; skipping ssh-agent setup for 3p sources"
+      fi
+    - !reference [.build_base, script]

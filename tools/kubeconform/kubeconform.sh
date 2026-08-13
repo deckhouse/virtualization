@@ -66,25 +66,30 @@ if [[ ! -d schemas ]]; then
   cd  schemas
 
   echo Download Deckhouse CRDs ...
+  # Some CRDs are pinned to a deckhouse commit instead of tracking main: those
+  # paths have since moved upstream, so the main URLs now 404, curl -LOs writes
+  # nothing, and kubeconform reports the affected resources as "no schema" —
+  # which the exit code below counts, failing the check for a reason that has
+  # nothing to do with this repository. The pinned commit is the one main uses.
   echo "  VerticalPodAutoscaler"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/302-vertical-pod-autoscaler/crds/verticalpodautoscaler.yaml
   echo "  ScrapeConfig"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/scrapeconfigs.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/200-operator-prometheus/crds/scrapeconfigs.yaml
   echo "  ServiceMonitor"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/servicemonitors.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/200-operator-prometheus/crds/servicemonitors.yaml
   echo "  PrometheusRule"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/internal/prometheusrules.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/200-operator-prometheus/crds/internal/prometheusrules.yaml
   echo "  NodeGroupConfiguration"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/040-node-manager/crds/nodegroupconfiguration.yaml
   echo "  Certificate"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/cert-manager/cert-manager.io_certificates.yaml
   # curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/crd-certificates.yaml
   echo "  GrafanaDashboardDefinition"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
   echo " ClusterLoggingConfig"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-logging-config.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/460-log-shipper/crds/cluster-logging-config.yaml
   echo " ClusterLogDestination"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-log-destination.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/4a9b5fc21f29c4310e3739508a066dd43a87d681/modules/460-log-shipper/crds/cluster-log-destination.yaml
   echo " Descheduler"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/400-descheduler/crds/deschedulers.yaml
 

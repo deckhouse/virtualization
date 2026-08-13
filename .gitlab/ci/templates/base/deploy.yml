@@ -1,0 +1,25 @@
+# Base deploy template (.base_deploy).
+#
+# `.base_deploy` is the crane-copy deploy job body extended by the prod
+# release-channel deploy jobs (deploy_to_prod_* and prod:deploy:*). There is no
+# DEV deploy — the DEV registry has no release channels, so dev tags are
+# build-only (see build_dev_tags).
+#
+# It no longer carries a verbatim copy of the upstream deploy script. Instead it
+# consumes the rules-free `.deploy_base` from the upstream modules-gitlab-ci
+# Deploy.gitlab-ci.yml (included via .gitlab/ci/includes.yml) with
+# `!reference [.deploy_base, script]`, and only prepends the local
+# check-runner-tools guard.
+#
+# Why not `extends: .deploy`: upstream `.deploy` bakes in `rules:` +
+# `when: manual` that, because GitLab merges `extends:` rules parent-first,
+# would override our own gating (.prod_manual supplies `when: manual`).
+# `.deploy_base` is the same script WITHOUT those rules. `!reference` is used
+# instead of `extends: .deploy_base` so the local check-runner-tools line is
+# prepended to the upstream script (extends would replace the whole `script:`).
+
+.base_deploy:
+  stage: deploy
+  script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh crane
+    - !reference [.deploy_base, script]

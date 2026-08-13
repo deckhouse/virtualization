@@ -16,8 +16,7 @@
 name: Auto Author Assign
 
 on:
-  pull_request:
-    types: [opened, reopened]
+  workflow_dispatch:
 
 permissions:
   pull-requests: write

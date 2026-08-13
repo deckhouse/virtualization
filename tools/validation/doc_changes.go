@@ -102,7 +102,7 @@ Only following file names are allowed in the module '/docs/' directory:
 	}
 
 	// Check if documentation for other language file is also modified.
-	var otherFileName = fName
+	var otherFileName string
 	if strings.HasSuffix(fName, `.ru.md`) {
 		otherFileName = strings.TrimSuffix(fName, ".ru.md") + ".md"
 	} else {
@@ -116,7 +116,7 @@ var notDocRuResourceRe = regexp.MustCompile(`([^/]+\.y[a]?ml)$`)
 
 // Check if resource for other language is also modified.
 func checkResourceFile(fName string, diffInfo *DiffInfo) (msg Message) {
-	otherFileName := fName
+	var otherFileName string
 	if docRuResourceRe.MatchString(fName) {
 		otherFileName = strings.Replace(fName, "doc-ru-", "", 1)
 	} else {
@@ -126,12 +126,10 @@ func checkResourceFile(fName string, diffInfo *DiffInfo) (msg Message) {
 }
 
 func checkRelatedFileExists(origName string, otherName string, diffInfo *DiffInfo) Message {
-	file, err := os.Open(otherName)
-	if err != nil {
+	if _, err := os.Stat(otherName); err != nil {
 		return NewError(origName, "related is absent", fmt.Sprintf(`Documentation or resource file is changed
 while related language file '%s' is absent.`, otherName))
 	}
-	defer file.Close()
 
 	for _, fileInfo := range diffInfo.Files {
 		if fileInfo.NewFileName == otherName {

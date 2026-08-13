@@ -14,12 +14,8 @@
 
 name: Changelog by PR
 on:
-  pull_request_target:
-    types:
-      - "closed"
-      - "edited"
-    branches:
-      - "main"
+  workflow_dispatch:
+
 jobs:
   changelog:
     # Conditions:
