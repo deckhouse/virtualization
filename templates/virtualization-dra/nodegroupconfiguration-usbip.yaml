@@ -25,48 +25,89 @@ spec:
     # See the License for the specific language governing permissions and
     # limitations under the License.
 
-    kernel_release="$(uname -r)"
-    bundle="$(bb-is-bundle)"
-    module_dir="/lib/modules/${kernel_release}/kernel/drivers/usb/usbip"
-    modules=("usbip-core.ko" "usbip-host.ko" "vhci-hcd.ko")
-    packages=()
+    usbip_kernel_release="$(uname -r)"
+    usbip_bundle="$(bb-is-bundle)"
+    usbip_module_dir="/lib/modules/${usbip_kernel_release}/kernel/drivers/usb/usbip"
+    usbip_modules=("usbip-core.ko" "usbip-host.ko" "vhci-hcd.ko")
+    usbip_label_key="virtualization.deckhouse.io/usbip"
 
-    modules_exist=true
-    for module in "${modules[@]}"; do
-      if [[ ! -e "${module_dir}/${module}" && ! -e "${module_dir}/${module}.zst" && ! -e "${module_dir}/${module}.xz" && ! -e "${module_dir}/${module}.gz" ]]; then
-        modules_exist=false
-        break
-      fi
-    done
-
-    if [[ "$modules_exist" == "true" ]]; then
-      bb-log-info "usbip kernel modules already exist for kernel ${kernel_release}."
+    usbip_modules_exist() {
+      local module
+      for module in "${usbip_modules[@]}"; do
+        if [[ ! -e "${usbip_module_dir}/${module}" && ! -e "${usbip_module_dir}/${module}.zst" && ! -e "${usbip_module_dir}/${module}.xz" && ! -e "${usbip_module_dir}/${module}.gz" ]]; then
+          return 1
+        fi
+      done
       return 0
-    fi
+    }
 
-    if bb-is-distro-like? "debian"; then
-      if [[ "$bundle" == "debian" ]]; then
-        packages=("linux-image-${kernel_release}")
-      else
-        packages=("linux-modules-extra-${kernel_release}")
-      fi
-    elif bb-is-distro-like? "rhel" || bb-is-distro-like? "centos" || bb-is-distro-like? "fedora"; then
-      packages=("kernel-modules-extra-${kernel_release}" "kernel-modules-extra")
-    elif [[ "$bundle" == "altlinux" ]]; then
-      packages=("kernel-modules-extra")
-    else
-      bb-log-warn "Unsupported OS for usbip kernel modules: bundle=${bundle}. Skipping."
-      return 0
-    fi
+    # Accepts a kubectl label argument: "key=value" to set the label or "key-" to remove it.
+    usbip_set_node_label() {
+      local label="$1"
 
-    for pkg in "${packages[@]}"; do
-      bb-log-info "Installing package for usbip kernel modules (usbip_core, usbip_host, vhci_hcd): ${pkg}"
-      if bb-pkg install "$pkg"; then
+      local kubeconfig="/etc/kubernetes/kubelet.conf"
+      if [[ ! -f "$kubeconfig" ]]; then
         return 0
       fi
-      bb-log-warn "Failed to install package for usbip kernel modules: ${pkg}"
-    done
 
-    bb-log-warn "Could not install a package with usbip kernel modules for kernel ${kernel_release}."
-    return 0
+      local node
+      node="$(bb-d8-node-name)"
+
+      local attempt=0
+      local max_attempts=3
+      until bb-kubectl --kubeconfig "$kubeconfig" label --overwrite=true node "$node" "$label"; do
+        attempt=$(( attempt + 1 ))
+        if [ "$attempt" -gt "$max_attempts" ]; then
+          bb-log-error "failed to set label $label on node $node after $max_attempts attempts"
+          return 1
+        fi
+        echo "Waiting for setting label $label on node $node (attempt $attempt of $max_attempts)..."
+        sleep 5
+      done
+    }
+
+    usbip_install_modules() {
+      local packages=()
+
+      if bb-is-distro-like? "debian"; then
+        if [[ "$usbip_bundle" == "debian" ]]; then
+          packages=("linux-image-${usbip_kernel_release}")
+        else
+          packages=("linux-modules-extra-${usbip_kernel_release}")
+        fi
+      elif bb-is-distro-like? "rhel" || bb-is-distro-like? "centos" || bb-is-distro-like? "fedora"; then
+        packages=("kernel-modules-extra-${usbip_kernel_release}" "kernel-modules-extra")
+      elif [[ "$usbip_bundle" == "altlinux" ]]; then
+        packages=("kernel-modules-extra")
+      else
+        bb-log-warn "Unsupported OS for usbip kernel modules: bundle=${usbip_bundle}. Skipping."
+        return 1
+      fi
+
+      local pkg
+      for pkg in "${packages[@]}"; do
+        bb-log-info "Installing package for usbip kernel modules (usbip_core, usbip_host, vhci_hcd): ${pkg}"
+        if bb-pkg install "$pkg"; then
+          return 0
+        fi
+        bb-log-warn "Failed to install package for usbip kernel modules: ${pkg}"
+      done
+
+      bb-log-warn "Could not install a package with usbip kernel modules for kernel ${usbip_kernel_release}."
+      return 1
+    }
+
+    if usbip_modules_exist; then
+      bb-log-info "usbip kernel modules already exist for kernel ${usbip_kernel_release}."
+    else
+      usbip_install_modules || true
+
+      if ! usbip_modules_exist; then
+        bb-log-warn "usbip kernel modules are not available for kernel ${usbip_kernel_release}, removing the ${usbip_label_key} label from the node."
+        usbip_set_node_label "${usbip_label_key}-"
+        return 0
+      fi
+    fi
+
+    usbip_set_node_label "${usbip_label_key}=true"
 {{- end }}
