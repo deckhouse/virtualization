@@ -489,6 +489,8 @@ func (ds UploadDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen supp
 		ds.dvcrSettings.RegistryImageForVI(vi),
 	)
 
+	serviceuploader.ApplyUploadSourceSettings(&settings, vi.Spec.DataSource.Upload)
+
 	return settings
 }
 

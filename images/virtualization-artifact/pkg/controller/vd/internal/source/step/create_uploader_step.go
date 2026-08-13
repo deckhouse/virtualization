@@ -147,5 +147,7 @@ func (s CreateUploaderStep) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen supp
 		s.dvcrSettings.RegistryImageForVD(vd),
 	)
 
+	serviceuploader.ApplyUploadSourceSettings(&settings, vd.Spec.DataSource.Upload)
+
 	return settings
 }

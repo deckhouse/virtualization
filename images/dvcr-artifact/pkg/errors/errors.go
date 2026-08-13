@@ -41,6 +41,15 @@ func (e BadImageChecksumError) Reason() string {
 	return "BadImageChecksum"
 }
 
+// Permanent reports that repeating the import cannot fix the mismatch: the
+// source has already been read to the end, and downloading the very same image
+// again can only produce the very same sum. Retrying it would hide the typo in
+// the checksum behind the whole backoff, re-downloading the image on every
+// attempt.
+func (e BadImageChecksumError) Permanent() bool {
+	return true
+}
+
 func (e BadImageChecksumError) Error() string {
 	return fmt.Sprintf("%s sum mismatch: %s != %s", e.algorithm, e.expected, e.actual)
 }

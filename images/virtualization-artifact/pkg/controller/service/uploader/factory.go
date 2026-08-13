@@ -29,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pwgen"
@@ -103,6 +104,7 @@ type PodSettings struct {
 	DestinationEndpoint    string
 	DestinationInsecureTLS string
 	DestinationAuthSecret  string
+	Checksums              map[string]string
 }
 
 // IngressSettings carries everything the Ingress exposure needs, including the
@@ -451,7 +453,7 @@ func (f factory) uploaderContainer() *corev1.Container {
 }
 
 func (f factory) uploaderContainerEnv() []corev1.EnvVar {
-	return []corev1.EnvVar{
+	env := []corev1.EnvVar{
 		{
 			Name:  common.OwnerUID,
 			Value: string(f.ownerReference.UID),
@@ -465,6 +467,16 @@ func (f factory) uploaderContainerEnv() []corev1.EnvVar {
 			Value: f.podSettings.DestinationInsecureTLS,
 		},
 	}
+
+	// Upload source checksum settings.
+	if checksums := datasource.FormatChecksums(f.podSettings.Checksums); checksums != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  common.UploaderChecksums,
+			Value: checksums,
+		})
+	}
+
+	return env
 }
 
 // addVolumes fills Volumes in the Pod spec and VolumeMounts/envs in the container spec.

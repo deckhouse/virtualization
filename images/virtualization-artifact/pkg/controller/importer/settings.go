@@ -42,8 +42,7 @@ const (
 type Settings struct {
 	Verbose                string
 	Endpoint               string
-	MD5                    string
-	SHA256                 string
+	Checksums              map[string]string
 	SecretName             string
 	Source                 string
 	ContentType            string
@@ -79,15 +78,7 @@ func ApplyHTTPSourceSettings(podEnvVars *Settings, http *v1alpha2.DataSourceHTTP
 	podEnvVars.Source = SourceHTTP
 	podEnvVars.Endpoint = http.URL
 
-	if http.Checksum != nil {
-		if http.Checksum.MD5 != "" {
-			podEnvVars.MD5 = http.Checksum.MD5
-		}
-
-		if http.Checksum.SHA256 != "" {
-			podEnvVars.SHA256 = http.Checksum.SHA256
-		}
-	}
+	podEnvVars.Checksums = datasource.Checksums(http.Checksum)
 
 	// Set ConfigMap name if caBundle is specified. ConfigMap will be created later after Pod start.
 	if len(http.CABundle) > 0 {

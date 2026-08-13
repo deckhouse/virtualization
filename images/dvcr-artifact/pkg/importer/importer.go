@@ -49,7 +49,11 @@ const (
 	DockerRegistrySchemePrefix = "docker://"
 	DVCRSource                 = "dvcr"
 	BlockDeviceSource          = "blockDevice"
-	FilesystemSource          = "filesystem"
+	FilesystemSource           = "filesystem"
+
+	// ImporterChecksums is an environment variable with the checksums to verify
+	// the downloaded image against, in the algorithm:sum format, comma separated.
+	ImporterChecksums = "IMPORTER_CHECKSUMS"
 )
 
 func New() *Importer {
@@ -68,8 +72,7 @@ type Importer struct {
 	destPassword   string
 	destInsecure   bool
 	certDir        string
-	sha256Sum      string
-	md5Sum         string
+	checksums      map[string]string
 }
 
 func (i *Importer) Run(ctx context.Context) error {
@@ -96,9 +99,14 @@ func (i *Importer) parseOptions() error {
 	i.srcInsecure, _ = strconv.ParseBool(os.Getenv(common.InsecureTLSVar))
 	i.destImageName, _ = util.ParseEnvVar(common.ImporterDestinationEndpoint, false)
 	i.destInsecure, _ = strconv.ParseBool(os.Getenv(common.DestinationInsecureTLSVar))
-	i.sha256Sum, _ = util.ParseEnvVar(common.ImporterSHA256Sum, false)
-	i.md5Sum, _ = util.ParseEnvVar(common.ImporterMD5Sum, false)
 	i.certDir, _ = util.ParseEnvVar(common.ImporterCertDirVar, false)
+
+	checksums, _ := util.ParseEnvVar(ImporterChecksums, false)
+	var err error
+	i.checksums, err = registry.ParseChecksums(checksums)
+	if err != nil {
+		return err
+	}
 
 	i.srcUsername, _ = util.ParseEnvVar(common.ImporterAccessKeyID, false)
 	i.srcPassword, _ = util.ParseEnvVar(common.ImporterSecretKey, false)
@@ -165,7 +173,7 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 			Username:  i.destUsername,
 			Password:  i.destPassword,
 			Insecure:  i.destInsecure,
-		}, i.sha256Sum, i.md5Sum)
+		}, i.checksums)
 		if err != nil {
 			return err
 		}

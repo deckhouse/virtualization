@@ -313,5 +313,7 @@ func (ds UploadDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup
 		ds.dvcrSettings.RegistryImageForCVI(cvi),
 	)
 
+	serviceuploader.ApplyUploadSourceSettings(&settings, cvi.Spec.DataSource.Upload)
+
 	return settings
 }

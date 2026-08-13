@@ -18,6 +18,7 @@ package retry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -26,6 +27,15 @@ import (
 
 	"k8s.io/klog/v2"
 )
+
+// permanentError is an error a repeated attempt cannot fix, e.g. a checksum
+// the source image never matches. The retry loop returns such an error to the
+// caller at once instead of spending the whole backoff on attempts that are
+// bound to fail the same way.
+type permanentError interface {
+	error
+	Permanent() bool
+}
 
 // Jitter returns a time.Duration between duration and duration + maxFactor *
 // duration.
@@ -104,7 +114,8 @@ func (b *Backoff) Step() (int, time.Duration) {
 // It repeatedly checks the condition and then sleeps, using `backoff.Step()`
 // to determine the delay.
 // Stops and returns as soon as:
-// 1. The condition check returns no or well known error.
+// 1. The condition check returns no error, a well known one, or a permanent
+// one (see [permanentError]).
 // 2. `backoff.Step()` signaling there are no more attempt with zero duration.
 // 3. ctx has been cancelled.
 // In case (1) the returned error is what the condition function returned.
@@ -124,9 +135,13 @@ func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 	for {
 		err = f(ctx)
 
+		var permanent permanentError
+
 		switch {
 		case err == nil:
 			return nil
+		case errors.As(err, &permanent) && permanent.Permanent():
+			return err
 		case strings.Contains(err.Error(), dvcrNoSpaceError):
 			return fmt.Errorf("%s: %w", dvcrNoSpaceErrMessage, err)
 		case strings.Contains(err.Error(), dvcrInternalErrorPattern):

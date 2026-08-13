@@ -101,9 +101,10 @@ const (
 	// ImporterDestinationAuthConfigFile is a path to auth config file in mount directory.
 	ImporterDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
 	// DestinationInsecureTLSVar is an environment variable for Importer Pod that defines whether DVCR is insecure.
-	DestinationInsecureTLSVar   = "DESTINATION_INSECURE_TLS"
-	ImporterSHA256Sum           = "IMPORTER_SHA256SUM"
-	ImporterMD5Sum              = "IMPORTER_MD5SUM"
+	DestinationInsecureTLSVar = "DESTINATION_INSECURE_TLS"
+	// ImporterChecksums is an environment variable with the checksums to verify
+	// the downloaded image against, in the algorithm:sum format, comma separated.
+	ImporterChecksums           = "IMPORTER_CHECKSUMS"
 	ImporterAuthConfigVar       = "IMPORTER_AUTH_CONFIG"
 	ImporterAuthConfigDir       = "/dvcr-src-auth"
 	ImporterAuthConfigFile      = "/dvcr-src-auth/.dockerconfigjson"
@@ -115,6 +116,9 @@ const (
 	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
 	UploaderDestinationAuthConfigDir  = "/dvcr-auth"
 	UploaderDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
+	// UploaderChecksums is an environment variable with the checksums to verify
+	// the uploaded image against, in the algorithm:sum format, comma separated.
+	UploaderChecksums = "UPLOADER_CHECKSUMS"
 
 	DockerRegistrySchemePrefix = "docker://"
 

@@ -68,6 +68,9 @@ type Server struct {
 	// tlsConfig is nil for plain HTTP; when set the server serves HTTPS.
 	tlsConfig   *tls.Config
 	destination Destination
+	// checksums the uploaded data has to match, keyed by algorithm. Empty when
+	// the resource asks for no verification.
+	checksums map[string]string
 
 	mux            *http.ServeMux
 	uploading      bool
@@ -90,7 +93,7 @@ type Server struct {
 // NewServer builds an upload server from a minimal set of already-prepared
 // parameters. TLS is fully described by tlsConfig (nil means plain HTTP), so the
 // server does not deal with certificate files or crypto options itself.
-func NewServer(address string, healthzPort int, tlsConfig *tls.Config, destination Destination) *Server {
+func NewServer(address string, healthzPort int, tlsConfig *tls.Config, destination Destination, checksums map[string]string) *Server {
 	if healthzPort == 0 {
 		healthzPort = defaultHealthzPort
 	}
@@ -100,6 +103,7 @@ func NewServer(address string, healthzPort int, tlsConfig *tls.Config, destinati
 		healthzPort: healthzPort,
 		tlsConfig:   tlsConfig,
 		destination: destination,
+		checksums:   checksums,
 
 		mux:                http.NewServeMux(),
 		stopListeningChan:  make(chan struct{}),
@@ -279,14 +283,22 @@ func (s *Server) upload(stream io.ReadCloser, sourceContentType string, dvConten
 		Password:  s.destination.Password,
 		Insecure:  s.destination.Insecure,
 		CABundle:  s.destination.CABundle,
-	}, "", "")
+	}, s.checksums)
 	if err != nil {
 		return err
 	}
 
 	res, err := processor.Process(context.Background())
 	if err != nil {
-		return monitoring.WriteImportFailureMessage(err)
+		// The controller learns about the failure from the termination message,
+		// but the client has to learn it from the response: answering 200 would
+		// hide a rejected upload - a checksum mismatch, most notably - behind an
+		// apparent success.
+		if writeErr := monitoring.WriteImportFailureMessage(err); writeErr != nil {
+			klog.Errorf("Failed to write the termination message: %s", writeErr)
+		}
+
+		return err
 	}
 
 	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())

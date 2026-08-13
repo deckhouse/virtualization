@@ -28,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 )
@@ -270,17 +271,11 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 		},
 	}...)
 
-	// HTTP source checksum settings: md5 and sha256.
-	if imp.EnvSettings.SHA256 != "" {
+	// HTTP source checksum settings.
+	if checksums := datasource.FormatChecksums(imp.EnvSettings.Checksums); checksums != "" {
 		env = append(env, corev1.EnvVar{
-			Name:  common.ImporterSHA256Sum,
-			Value: imp.EnvSettings.SHA256,
-		})
-	}
-	if imp.EnvSettings.MD5 != "" {
-		env = append(env, corev1.EnvVar{
-			Name:  common.ImporterMD5Sum,
-			Value: imp.EnvSettings.MD5,
+			Name:  common.ImporterChecksums,
+			Value: checksums,
 		})
 	}
 

@@ -117,14 +117,16 @@ type AttachedVirtualMachine struct {
 	Mounted bool `json:"mounted,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.type == 'HTTP' ? has(self.http) && !has(self.containerImage) && !has(self.objectRef) : true",message="HTTP requires http and cannot have ContainerImage or ObjectRef."
-// +kubebuilder:validation:XValidation:rule="self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) : true",message="ContainerImage requires containerImage and cannot have HTTP or ObjectRef."
-// +kubebuilder:validation:XValidation:rule="self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) : true",message="ObjectRef requires objectRef and cannot have HTTP or ContainerImage."
+// +kubebuilder:validation:XValidation:rule="self.type == 'HTTP' ? has(self.http) && !has(self.containerImage) && !has(self.objectRef) && !has(self.upload) : true",message="HTTP requires http and cannot have ContainerImage, ObjectRef or Upload."
+// +kubebuilder:validation:XValidation:rule="self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) && !has(self.upload) : true",message="ContainerImage requires containerImage and cannot have HTTP, ObjectRef or Upload."
+// +kubebuilder:validation:XValidation:rule="self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) && !has(self.upload) : true",message="ObjectRef requires objectRef and cannot have HTTP, ContainerImage or Upload."
+// +kubebuilder:validation:XValidation:rule="self.type == 'Upload' ? !has(self.http) && !has(self.containerImage) && !has(self.objectRef) : true",message="Upload cannot have HTTP, ContainerImage or ObjectRef."
 type VirtualDiskDataSource struct {
 	Type           DataSourceType             `json:"type,omitempty"`
 	HTTP           *DataSourceHTTP            `json:"http,omitempty"`
 	ContainerImage *VirtualDiskContainerImage `json:"containerImage,omitempty"`
 	ObjectRef      *VirtualDiskObjectRef      `json:"objectRef,omitempty"`
+	Upload         *DataSourceUpload          `json:"upload,omitempty"`
 }
 
 // Use an image stored in an external container registry. Only registries with enabled TLS are supported. To provide a custom Certificate Authority (CA) chain, use the `caBundle` field.

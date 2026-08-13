@@ -139,11 +139,41 @@ spec:
                               minLength: 32
                               pattern: ^[0-9a-fA-F]{32}$
                               type: string
+                            sha1:
+                              example: 0a0a9f2a6772942557ab5355d76af442f8f65e01
+                              maxLength: 40
+                              minLength: 40
+                              pattern: ^[0-9a-fA-F]{40}$
+                              type: string
                             sha256:
                               example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
                               maxLength: 64
                               minLength: 64
                               pattern: ^[0-9a-fA-F]{64}$
+                              type: string
+                            sha512:
+                              example: cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
+                              maxLength: 128
+                              minLength: 128
+                              pattern: ^[0-9a-fA-F]{128}$
+                              type: string
+                            streebog256:
+                              description:
+                                Checksum according to GOST R 34.11-2012 (Streebog),
+                                256 bits.
+                              example: 3f539a213e97c802cc229d474c6aa32a825a360b2a933a949fd925208d9ce1bb
+                              maxLength: 64
+                              minLength: 64
+                              pattern: ^[0-9a-fA-F]{64}$
+                              type: string
+                            streebog512:
+                              description:
+                                Checksum according to GOST R 34.11-2012 (Streebog),
+                                512 bits.
+                              example: 8e945da209aa869f0455928529bcae4679e9873ab707b55315f56ceb98bef0a7362f715528356ee83cda5f2aac4c6ad2ba3a715c1bcd81cb8e9f90bf4c1c1a8a
+                              maxLength: 128
+                              minLength: 128
+                              pattern: ^[0-9a-fA-F]{128}$
                               type: string
                           type: object
                         url:
@@ -202,22 +232,88 @@ spec:
                         - ObjectRef
                         - Upload
                       type: string
+                    upload:
+                      description:
+                        Fill the image with data the user uploads through
+                        the upload interface.
+                      properties:
+                        checksum:
+                          description: |-
+                            Checksum to verify integrity and consistency of the uploaded file. The file must match all specified checksums.
+
+                            The checksums are calculated over the bytes the client sends, before any
+                            conversion of the image, so they are the checksums of the very file being
+                            uploaded.
+                          properties:
+                            md5:
+                              example: f3b59bed9f91e32fac1210184fcff6f5
+                              maxLength: 32
+                              minLength: 32
+                              pattern: ^[0-9a-fA-F]{32}$
+                              type: string
+                            sha1:
+                              example: 0a0a9f2a6772942557ab5355d76af442f8f65e01
+                              maxLength: 40
+                              minLength: 40
+                              pattern: ^[0-9a-fA-F]{40}$
+                              type: string
+                            sha256:
+                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
+                              maxLength: 64
+                              minLength: 64
+                              pattern: ^[0-9a-fA-F]{64}$
+                              type: string
+                            sha512:
+                              example: cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
+                              maxLength: 128
+                              minLength: 128
+                              pattern: ^[0-9a-fA-F]{128}$
+                              type: string
+                            streebog256:
+                              description:
+                                Checksum according to GOST R 34.11-2012 (Streebog),
+                                256 bits.
+                              example: 3f539a213e97c802cc229d474c6aa32a825a360b2a933a949fd925208d9ce1bb
+                              maxLength: 64
+                              minLength: 64
+                              pattern: ^[0-9a-fA-F]{64}$
+                              type: string
+                            streebog512:
+                              description:
+                                Checksum according to GOST R 34.11-2012 (Streebog),
+                                512 bits.
+                              example: 8e945da209aa869f0455928529bcae4679e9873ab707b55315f56ceb98bef0a7362f715528356ee83cda5f2aac4c6ad2ba3a715c1bcd81cb8e9f90bf4c1c1a8a
+                              maxLength: 128
+                              minLength: 128
+                              pattern: ^[0-9a-fA-F]{128}$
+                              type: string
+                          type: object
+                      type: object
                   type: object
                   x-kubernetes-validations:
-                    - message: HTTP requires http and cannot have ContainerImage or ObjectRef.
+                    - message:
+                        HTTP requires http and cannot have ContainerImage, ObjectRef
+                        or Upload.
                       rule:
                         "self.type == 'HTTP' ? has(self.http) && !has(self.containerImage)
-                        && !has(self.objectRef) : true"
+                        && !has(self.objectRef) && !has(self.upload) : true"
                     - message:
                         ContainerImage requires containerImage and cannot have
-                        HTTP or ObjectRef.
+                        HTTP, ObjectRef or Upload.
                       rule:
                         "self.type == 'ContainerImage' ? has(self.containerImage)
-                        && !has(self.http) && !has(self.objectRef) : true"
-                    - message: ObjectRef requires objectRef and cannot have HTTP or ContainerImage.
+                        && !has(self.http) && !has(self.objectRef) && !has(self.upload)
+                        : true"
+                    - message:
+                        ObjectRef requires objectRef and cannot have HTTP, ContainerImage
+                        or Upload.
                       rule:
                         "self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http)
-                        && !has(self.containerImage) : true"
+                        && !has(self.containerImage) && !has(self.upload) : true"
+                    - message: Upload cannot have HTTP, ContainerImage or ObjectRef.
+                      rule:
+                        "self.type == 'Upload' ? !has(self.http) && !has(self.containerImage)
+                        && !has(self.objectRef) : true"
                 persistentVolumeClaim:
                   description:
                     Settings for creating PVCs to store an image with the

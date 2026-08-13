@@ -17,8 +17,10 @@ limitations under the License.
 package uploader
 
 import (
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // Settings stores all possible settings for dvcr-uploader binary.
@@ -27,6 +29,18 @@ type Settings struct {
 	DestinationEndpoint    string
 	DestinationInsecureTLS string
 	DestinationAuthSecret  string
+	Checksums              map[string]string
+}
+
+// ApplyUploadSourceSettings updates uploader Pod settings with the checksums the
+// uploaded data has to match. The section is optional: an upload without it is
+// accepted as it arrives, the way it always was.
+func ApplyUploadSourceSettings(podEnvVars *Settings, upload *v1alpha2.DataSourceUpload) {
+	if upload == nil {
+		return
+	}
+
+	podEnvVars.Checksums = datasource.Checksums(upload.Checksum)
 }
 
 func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen supplements.Generator, dvcrImageName string) {

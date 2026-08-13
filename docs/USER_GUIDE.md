@@ -378,6 +378,46 @@ How to create an image from an HTTP server in the web interface:
 - Click the "Create" button.
 - The image status is displayed at the top left, under the image name.
 
+#### Verifying the integrity of a downloaded image
+
+The `checksum` block makes the platform verify what it has downloaded from the HTTP server. The image becomes `Ready` only if the downloaded file matches every checksum specified, otherwise the resource ends up in the `Failed` phase:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: ubuntu-24-04
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+      checksum:
+        sha256: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
+EOF
+```
+
+The following algorithms are supported. Take the checksum from the mirror that publishes the image, and put it into the field of the matching algorithm:
+
+| Field         | Algorithm                              | Verification speed |
+|---------------|----------------------------------------|--------------------|
+| `sha1`        | SHA-1                                  | ~1.6 GB/s          |
+| `sha256`      | SHA-256                                | ~1.5 GB/s          |
+| `md5`         | MD5                                    | ~700 MB/s          |
+| `sha512`      | SHA-512                                | ~570 MB/s          |
+| `streebog256` | GOST R 34.11-2012 (Streebog), 256 bits | ~17 MB/s           |
+| `streebog512` | GOST R 34.11-2012 (Streebog), 512 bits | ~17 MB/s           |
+
+The speeds are an order of magnitude, not a promise: they were measured on an x86-64 processor with the SHA instruction set, and a processor without it computes SHA-1 and SHA-256 several times slower. What holds on any processor is the distance between the rows. SHA-1 and SHA-256 are computed with dedicated instructions, MD5 and SHA-512 with hand-written assembly, and all four hash the data faster than it arrives over the network, so their cost stays unnoticed against the download itself.
+
+The Streebog algorithms have no hardware support anywhere and are about two orders of magnitude slower — for a 10 GiB image, that is around ten minutes of hashing alone. Image creation becomes limited by the processor rather than by the network, so specify them only when a checksum according to GOST is actually required. Both lengths cost the same: GOST R 34.11-2012 uses one compression function for 256 and 512 bits alike, and the shorter variant differs only in its initial value.
+
+Checksums are calculated in a single pass over the downloaded data, so specifying several of them at once costs the sum of their times. Fields left empty cost nothing.
+
+The same block is available for the `Upload` data source, under `dataSource.upload`, and works the same way: the data the user uploads is verified against every checksum specified, and a mismatch leaves the resource in the `Failed` phase. See [Load an image from the command line](#load-an-image-from-the-command-line).
+
 Now let's look at an example of creating an image and storing it in PVC:
 
 ```yaml
@@ -505,6 +545,26 @@ EOF
 ```
 
 Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for image upload. If the upload is not started within 10 minutes, the resource will transition to the `Failed` phase; to try again, recreate the resource.
+
+To have the platform verify what has been uploaded, add the `checksum` block to the data source. It accepts the same algorithms as the HTTP source (see [Verifying the integrity of a downloaded image](#verifying-the-integrity-of-a-downloaded-image)), and the checksums are calculated over the bytes the client sends, so they are the checksums of the very file being uploaded:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: some-image
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: Upload
+    upload:
+      checksum:
+        sha256: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
+EOF
+```
+
+If the uploaded data does not match, the resource transitions to the `Failed` phase, and the upload has to be repeated on a recreated resource.
 
 There are two options available for uploading from a cluster node and from an arbitrary node outside the cluster:
 

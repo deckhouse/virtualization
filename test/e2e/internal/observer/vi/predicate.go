@@ -148,6 +148,69 @@ func BeQuotaExceeded() Predicate {
 	}
 }
 
+// checksumMismatchMessage is the part of the importer error the controller
+// copies into the Ready condition message when the downloaded data does not
+// match a checksum from the spec.
+const checksumMismatchMessage = "sum mismatch"
+
+// BeChecksumMismatch reports the VirtualImage has failed because the data
+// downloaded from the HTTP source did not match the checksum specified for
+// the given algorithm.
+//
+// The predicate is satisfied when the Ready condition is fresh, reports
+// Status=False with Reason=ProvisioningFailed and a message naming both the
+// algorithm and the mismatch, and the phase is Failed.
+//
+// Returned values:
+//   - (true, nil)  - the VirtualImage reports a fresh checksum-mismatch Ready
+//     condition together with the Failed phase;
+//   - (false, nil) - the controller has not yet reported a fresh
+//     checksum-mismatch Ready condition;
+//   - (false, err) - the mismatch is reported without naming the algorithm, or
+//     with an unexpected phase or Status, which is a controller bug.
+//
+// Intended for use with [Observer.WaitFor].
+func BeChecksumMismatch(algorithm string) Predicate {
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		cond := findCondition(i.Status.Conditions, vicondition.ReadyType.String())
+		if cond == nil || !isConditionFresh(cond, i) {
+			return false, nil
+		}
+		if cond.Reason != vicondition.ProvisioningFailed.String() {
+			return false, nil
+		}
+
+		message := strings.ToLower(cond.Message)
+		if !strings.Contains(message, checksumMismatchMessage) {
+			return false, nil
+		}
+		// The message has to name the algorithm that did not match, so that a
+		// user reading the condition learns which checksum to fix. The importer
+		// error reaches the condition wrapped into the failure of the pod that
+		// carried it, so the algorithm is looked up anywhere in the message
+		// rather than at its start.
+		if !strings.Contains(message, strings.ToLower(algorithm)+" "+checksumMismatchMessage) {
+			return false, fmt.Errorf(
+				"ready condition reports a checksum mismatch that does not name the %q algorithm: %s",
+				algorithm, cond.Message,
+			)
+		}
+		if cond.Status != metav1.ConditionFalse {
+			return false, fmt.Errorf(
+				"ready condition reports a checksum mismatch but status is %s, expected %s",
+				cond.Status, metav1.ConditionFalse,
+			)
+		}
+		if i.Status.Phase != v1alpha2.ImageFailed {
+			return false, fmt.Errorf(
+				"ready condition reports a checksum mismatch but phase is %q, expected %q",
+				i.Status.Phase, v1alpha2.ImageFailed,
+			)
+		}
+		return true, nil
+	}
+}
+
 // BeReadyForUserUpload reports the VirtualImage has reached the
 // WaitForUserUpload phase and exposes a usable external upload URL.
 func BeReadyForUserUpload() Predicate {

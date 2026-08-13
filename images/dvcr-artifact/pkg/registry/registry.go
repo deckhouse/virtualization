@@ -19,11 +19,8 @@ package registry
 import (
 	"archive/tar"
 	"context"
-	"crypto/md5"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -43,7 +40,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
-	importerrs "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/errors"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 )
 
@@ -77,8 +73,7 @@ type DataProcessor struct {
 	destUsername  string
 	destPassword  string
 	destImageName string
-	sha256Sum     string
-	md5Sum        string
+	checksums     map[string]string
 	destInsecure  bool
 	destCABundle  string
 }
@@ -93,14 +88,19 @@ type DestinationRegistry struct {
 	CABundle string
 }
 
-func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistry, sha256Sum, md5Sum string) (*DataProcessor, error) {
+func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistry, checksums map[string]string) (*DataProcessor, error) {
+	for algorithm := range checksums {
+		if _, ok := checksumAlgorithms[algorithm]; !ok {
+			return nil, fmt.Errorf("unsupported checksum algorithm %q, supported algorithms are %s", algorithm, SupportedChecksumAlgorithms())
+		}
+	}
+
 	return &DataProcessor{
 		ds:            ds,
 		destUsername:  dest.Username,
 		destPassword:  dest.Password,
 		destImageName: dest.ImageName,
-		sha256Sum:     sha256Sum,
-		md5Sum:        md5Sum,
+		checksums:     checksums,
 		destInsecure:  dest.Insecure,
 		destCABundle:  dest.CABundle,
 	}, nil
@@ -236,35 +236,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 		}
 	}
 
-	var checksumWriters []io.Writer
-	var checksumCheckFuncList []func() error
-	{
-		if p.sha256Sum != "" {
-			hash := sha256.New()
-			checksumWriters = append(checksumWriters, hash)
-			checksumCheckFuncList = append(checksumCheckFuncList, func() error {
-				sum := hex.EncodeToString(hash.Sum(nil))
-				if sum != p.sha256Sum {
-					return importerrs.NewBadImageChecksumError("sha256", p.sha256Sum, sum)
-				}
-
-				return nil
-			})
-		}
-
-		if p.md5Sum != "" {
-			hash := md5.New()
-			checksumWriters = append(checksumWriters, hash)
-			checksumCheckFuncList = append(checksumCheckFuncList, func() error {
-				sum := hex.EncodeToString(hash.Sum(nil))
-				if sum != p.md5Sum {
-					return importerrs.NewBadImageChecksumError("md5", p.md5Sum, sum)
-				}
-
-				return nil
-			})
-		}
-	}
+	checksumWriters, checksumCheckFuncList := newChecksumVerifiers(p.checksums)
 
 	var streamWriter io.Writer
 	{

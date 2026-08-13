@@ -472,6 +472,7 @@ func (u *uploaderService) newFactory(sup supplements.Generator, ownerRef metav1.
 		DestinationEndpoint:    settings.DestinationEndpoint,
 		DestinationInsecureTLS: settings.DestinationInsecureTLS,
 		DestinationAuthSecret:  settings.DestinationAuthSecret,
+		Checksums:              settings.Checksums,
 	}
 
 	return NewFactory(sup, podSettings, u.ingressSettings(sup), u.listenerSetSettings(), ownerRef)

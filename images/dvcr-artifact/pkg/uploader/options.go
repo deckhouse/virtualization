@@ -31,6 +31,7 @@ import (
 	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/registry"
 )
 
 const (
@@ -44,6 +45,7 @@ const (
 	envClientCAFile        = "CLIENT_CA_FILE"
 	envClientName          = "CLIENT_NAME"
 	envDestinationCABundle = "UPLOADER_DESTINATION_CA_BUNDLE"
+	envChecksums           = "UPLOADER_CHECKSUMS"
 
 	defaultListenAddress = "0.0.0.0"
 	defaultListenPort    = 8444
@@ -75,6 +77,10 @@ type Options struct {
 	DestinationAuthConfig string
 	DestinationInsecure   bool
 	DestinationCABundle   string
+
+	// Checksums the uploaded data has to match, in the algorithm:sum format,
+	// comma separated. Empty means the upload is accepted as it arrives.
+	Checksums string
 }
 
 // AddFlags registers the uploader flags, each defaulting to its environment
@@ -97,6 +103,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.DestinationAuthConfig, "destination-auth-config", envStr(common.UploaderDestinationAuthConfig, ""), "Path to a docker auth config used to resolve DVCR registry credentials")
 	fs.BoolVar(&o.DestinationInsecure, "destination-insecure-tls", envBool(common.DestinationInsecureTLSVar, false), "Skip TLS verification of the DVCR registry certificate")
 	fs.StringVar(&o.DestinationCABundle, "destination-ca-bundle", envStr(envDestinationCABundle, ""), "Path to a PEM file or a directory with PEM files used to verify the DVCR registry certificate")
+
+	fs.StringVar(&o.Checksums, "checksums", envStr(envChecksums, ""), "Checksums the uploaded data has to match, in the algorithm:sum format, comma separated")
 }
 
 // Complete validates the options and turns them into a ready-to-run Server.
@@ -115,9 +123,14 @@ func (o *Options) Complete() (*Server, error) {
 		return nil, err
 	}
 
+	checksums, err := registry.ParseChecksums(o.Checksums)
+	if err != nil {
+		return nil, fmt.Errorf("--checksums (%s): %w", envChecksums, err)
+	}
+
 	address := net.JoinHostPort(o.ListenAddress, strconv.Itoa(o.ListenPort))
 
-	return NewServer(address, o.HealthzPort, tlsConfig, destination), nil
+	return NewServer(address, o.HealthzPort, tlsConfig, destination, checksums), nil
 }
 
 // buildTLSConfig assembles the server tls.Config from the TLS options. It returns
