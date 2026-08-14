@@ -231,6 +231,9 @@ spec:
                       type: object
                   type: object
                 sizingPolicies:
+                  description:
+                    Policies for allocating computational resources to VMs.
+                    Up to 16 policies can be defined.
                   items:
                     description: |-
                       SizingPolicy defines a policy for allocating computational resources to VMs.
@@ -356,7 +359,7 @@ spec:
                     required:
                       - cores
                     type: object
-                  maxItems: 64
+                  maxItems: 16
                   type: array
                 tolerations:
                   description: |-
@@ -752,6 +755,9 @@ spec:
                       type: object
                   type: object
                 sizingPolicies:
+                  description:
+                    Policies for allocating computational resources to VMs.
+                    Up to 16 policies can be defined.
                   items:
                     description: |-
                       SizingPolicy defines a policy for allocating computational resources to VMs.
@@ -871,7 +877,7 @@ spec:
                     required:
                       - cores
                     type: object
-                  maxItems: 64
+                  maxItems: 16
                   type: array
                 tolerations:
                   description: |-

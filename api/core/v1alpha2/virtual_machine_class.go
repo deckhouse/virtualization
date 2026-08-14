@@ -73,10 +73,18 @@ type VirtualMachineClassSpec struct {
 	CPU CPU `json:"cpu"`
 
 	// The bound is what keeps the defaultCoreFraction CEL rule within the apiserver's cost
-	// budget: an unbounded array makes the estimator assume as many items as the request
-	// size limit allows. 64 is far above any realistic policy count.
+	// budget: the rule cost is charged once per item, so an unbounded array makes the
+	// estimator assume as many items as the request size limit allows. The limit has to be
+	// this low because of Kubernetes 1.33: there the estimator prices type() on an
+	// int-or-string by the request size limit rather than by maxLength, which alone costs
+	// about a third of the per-rule budget per item. 16 is far above any realistic policy
+	// count — the built-in generic class has 4 — and leaves a 2x margin; 32 already exceeds
+	// the budget. Newer releases price the same rule far lower, so this may be relaxed once
+	// 1.33 is out of support.
 
-	// +kubebuilder:validation:MaxItems=64
+	// Policies for allocating computational resources to VMs. Up to 16 policies can be defined.
+	//
+	// +kubebuilder:validation:MaxItems=16
 	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
 }
 
@@ -127,11 +135,11 @@ type SizingPolicy struct {
 	Memory *SizingPolicyMemory `json:"memory,omitempty"`
 	// Allowed values of the `coreFraction` parameter.
 	CoreFractions []CoreFractionValue `json:"coreFractions,omitempty"`
-	// The CEL rule below needs MaxLength here, and MaxItems on SizingPolicies: without both
-	// the apiserver rejects the whole CRD, because it estimates the rule cost from the
-	// maximum length an unbounded int-or-string could have and the maximum number of items
-	// an unbounded array could hold, which blows the cost budget. Kept out of the doc
-	// comment on purpose — everything in it lands in the CRD description.
+	// The CEL rule below is what MaxItems on SizingPolicies bounds: without it the apiserver
+	// rejects the whole CRD, because it estimates the rule cost from the number of items an
+	// unbounded array could hold. MaxLength here only caps the string itself — `Auto` is the
+	// single accepted one — and does not lower the estimate. Kept out of the doc comment on
+	// purpose — everything in it lands in the CRD description.
 
 	// A default `CoreFraction` value for a `VirtualMachine` if it is not provided:
 	// a percentage from 1 to 100, or the string `Auto` to hand the core fraction over

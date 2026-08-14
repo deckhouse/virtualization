@@ -73,7 +73,9 @@ type VirtualMachineClassSpec struct {
 	// to fit the apiserver cost budget. Without it here, a class created through v1alpha3
 	// could hold more policies than the storage version accepts.
 
-	// +kubebuilder:validation:MaxItems=64
+	// Policies for allocating computational resources to VMs. Up to 16 policies can be defined.
+	//
+	// +kubebuilder:validation:MaxItems=16
 	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
 }
 
