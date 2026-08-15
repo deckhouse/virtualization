@@ -1,5 +1,5 @@
 firmware:
-  qemu: v9.2.0
+  qemu: v10.2.2
   libvirt: v10.9.0
   edk2: stable202411
 core:
