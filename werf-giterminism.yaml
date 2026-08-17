@@ -22,6 +22,8 @@ config:
     allowValueIds:
     - SOURCE_REPO
     - GOPROXY
+    # Job token for cloning the kubevirt fork from fox (images/virt-artifact).
+    - CI_JOB_TOKEN
 helm:
   allowUncommittedFiles:
   - "Chart.lock"
