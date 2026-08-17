@@ -1,6 +1,6 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 git:
   {{- include "image mount points" . }}
 import:
@@ -10,7 +10,7 @@ import:
   after: install
 # GNU utilities
 # deps for 031-hotplug-container-disk.patch
-- image: tools/coreutils
+- from: {{ index $.Images "tools/coreutils" }}
   add: /
   to: /
   after: install
@@ -78,9 +78,9 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: builder/distroless
+from: {{ index $.Images "builder/distroless" }}
 import:
-- image: tools/util-linux
+- from: {{ index $.Images "tools/util-linux" }}
   add: /
   to: /relocate/usr
   after: setup

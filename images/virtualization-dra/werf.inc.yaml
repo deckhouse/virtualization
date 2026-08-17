@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-debian-1.25" "builder/golang-alt-1.25" }}
+from: {{ eq $.SVACE_ENABLED "false" | ternary (index $.Images "builder/golang-debian-1.25") (index $.Images "builder/golang-alt-1.25") }}
 git:
   {{- include "workspace go files" . | nindent 2 }}
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}

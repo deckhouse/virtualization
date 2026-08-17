@@ -5,7 +5,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 # pm installs everything but glibc into /usr/lib, and ld.so.cache lists only
 # /lib64 and /usr/lib64, so qemu-img there fails to load libzstd, libaio and
 # liburing.
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 git:
   {{- include "image mount points" . }}
 import:

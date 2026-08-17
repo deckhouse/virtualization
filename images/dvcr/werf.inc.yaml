@@ -5,7 +5,7 @@
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -19,7 +19,7 @@ shell:
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 git:
   {{- include "image mount points" . }}
 import:
@@ -40,7 +40,7 @@ imageSpec:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: builder/golang-1.25
+from: {{ index $.Images "builder/golang-1.25" }}
 mount:
 {{- include "mount points for golang builds" . }}
 import:

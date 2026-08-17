@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 git:
 {{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
@@ -25,7 +25,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}go-hooks-artifact
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-debian-1.25" "builder/golang-alt-1.25" }}
+from: {{ eq $.SVACE_ENABLED "false" | ternary (index $.Images "builder/golang-debian-1.25") (index $.Images "builder/golang-alt-1.25") }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src

@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 git:
   {{- include "image mount points" . }}
 import:
@@ -53,7 +53,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
-fromImage: builder/distroless
+from: {{ index $.Images "builder/distroless" }}
 git:
   # Add qemu and virtqemud configs
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
@@ -73,7 +73,7 @@ git:
     includePaths:
     - nsswitch.conf
 import:
-- image: tools/tini-v0.19.0
+- from: {{ index $.Images "tools/tini-v0.19.0" }}
   add: /usr/bin/tini
   to: /relocate/usr/bin/tini
   before: setup
@@ -127,7 +127,7 @@ import:
   - node-labeller
   - vlctl
 
-- image: tools/util-linux
+- from: {{ index $.Images "tools/util-linux" }}
   add: /
   to: /relocate/usr
   after: setup
@@ -136,7 +136,7 @@ import:
   - sbin/nologin
 
 # GNU utilities
-- image: tools/coreutils
+- from: {{ index $.Images "tools/coreutils" }}
   add: /
   to: /relocate
   after: setup
@@ -144,7 +144,7 @@ import:
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
-- image: tools/iproute2
+- from: {{ index $.Images "tools/iproute2" }}
   add: /
   to: /relocate/usr
   after: setup
@@ -234,7 +234,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
-fromImage: builder/golang-1.25
+from: {{ index $.Images "builder/golang-1.25" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
@@ -282,7 +282,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: builder/golang-1.25
+from: {{ index $.Images "builder/golang-1.25" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries

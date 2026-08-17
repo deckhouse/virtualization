@@ -29,7 +29,7 @@ altPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src
@@ -105,7 +105,7 @@ shell:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: builder/alt
+from: {{ index $.Images "builder/alt" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src

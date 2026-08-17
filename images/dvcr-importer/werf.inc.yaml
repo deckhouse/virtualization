@@ -1,6 +1,6 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: base/distroless
+from: {{ index $.Images "base/distroless" }}
 git:
   {{- include "image mount points" . }}
 import:

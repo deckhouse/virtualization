@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 git:
 {{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
@@ -20,7 +20,7 @@ git:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-1.25" }}
+from: {{ eq $.SVACE_ENABLED "false" | ternary (index $.Images "builder/golang-alt-1.25") (index $.Images "builder/golang-alt-1.25") }}
 mount:
 {{- include "mount points for golang builds" . }}
 secrets:
@@ -82,7 +82,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: builder/distroless
+from: {{ index $.Images "builder/distroless" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}
   add: /pvc-binaries
@@ -95,7 +95,7 @@ import:
   add: /qemu-img
   to: /relocate
   before: install
-- image: tools/util-linux
+- from: {{ index $.Images "tools/util-linux" }}
   add: /
   to: /relocate/usr
   after: setup

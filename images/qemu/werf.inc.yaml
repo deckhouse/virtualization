@@ -9,7 +9,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: builder/distroless
+from: {{ index $.Images "builder/distroless" }}
 shell:
   install:
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/qemu-img") | nindent 2 }}

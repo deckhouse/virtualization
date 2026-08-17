@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 git:
 {{- include "workspace go files" . }}
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
@@ -39,7 +39,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: builder/golang-1.25
+from: {{ index $.Images "builder/golang-1.25" }}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
@@ -97,7 +97,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: builder/distroless
+from: {{ index $.Images "builder/distroless" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out

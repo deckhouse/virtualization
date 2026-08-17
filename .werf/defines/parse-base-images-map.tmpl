@@ -1,18 +1,8 @@
-{{- define "project_images"}}
-{{-   $globImages := "images/*/werf.inc.yaml" }}
-{{-   $globRootWerf := "werf.yaml" }}
-{{-   $regexp := "(builder|tools|libs|base)/([a-zA-Z0-9._-]+)" }}
-{{-   $globAll := merge (.Files.Glob $globImages) (.Files.Glob $globRootWerf) }}
-{{-   $imagesMap := dict }}
-{{-   range $path, $content := $globAll }}
-{{-     $findImg := regexFindAll $regexp $content -1 }}
-{{-     range $findImg }}
-{{-       $_ := set $imagesMap . "" }}
-{{-     end }}
-{{-   end }}
-{{- $imagesMap | toJson }}
-{{- end }}
-
+{{/*
+  # Builds $.Images: base image name -> fully qualified pinned reference.
+  # Emits no output; reference base images inline as
+  # `from: {{ index $.Images "builder/alt" }}`.
+*/}}
 {{- define "parse_base_images_map" }}
 {{-   $deckhouseImages := .Files.Get "build/base-images/deckhouse_images.yml" | fromYaml }}
 {{-   $containerFactoryImages := .Files.Get "build/base-images/container_factory_images.yml" | fromYaml }}
@@ -20,7 +10,6 @@
   # deckhouse_images has a format
   # <prefix>/<name>: "sha256:abcde12345
 */}}
-{{-   $usedImagesDict := (include "project_images" . | fromJson) }}
 {{-   range $k, $v := $deckhouseImages }}
 {{-     if ne $k "REGISTRY_PATH" }}
 {{-       $baseImagePath := (printf "%s@%s" $deckhouseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
@@ -28,38 +17,25 @@
 {{-     end }}
 {{-   end }}
 {{-   $_ := unset $deckhouseImages "REGISTRY_PATH" }}
-{{-   if $containerFactoryImages }}
-{{-     range $k, $v := $containerFactoryImages }}
-{{-       if ne $k "REGISTRY_PATH" }}
-{{-         $baseImagePath := (printf "%s@%s" $containerFactoryImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-{{-         $_ := set $containerFactoryImages $k $baseImagePath }}
-{{-       end }}
+{{-   range $k, $v := $containerFactoryImages }}
+{{-     if ne $k "REGISTRY_PATH" }}
+{{-       $baseImagePath := (printf "%s@%s" $containerFactoryImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
+{{-       $_ := set $containerFactoryImages $k $baseImagePath }}
 {{-     end }}
-{{-     $_ := unset $containerFactoryImages "REGISTRY_PATH" }}
+{{-   end }}
+{{-   $_ := unset $containerFactoryImages "REGISTRY_PATH" }}
 {{/*
   # Source pins: image names that must be taken from container_factory_images
   # instead of the default deckhouse_images source. Declared in a module-owned
   # data file so the image libraries in build/base-images stay untouched.
 */}}
-{{-     $pins := .Files.Get "build/base-images/base-images-pins.yml" | fromYaml }}
-{{-     $containerFactoryOverrideImages := $pins.fromContainerFactory | default list }}
-{{-     $containerFactoryOverrides := dict }}
-{{-     range $k := $containerFactoryOverrideImages }}
-{{-       if hasKey $containerFactoryImages $k }}
-{{-         $_ := set $containerFactoryOverrides $k (get $containerFactoryImages $k) }}
-{{-       end }}
-{{-     end }}
-{{-     $_ := set . "Images" (mustMerge $containerFactoryOverrides $deckhouseImages $containerFactoryImages) }}
-{{-   else }}
-{{-     $_ := set . "Images" (mustMerge $deckhouseImages) }}
-{{-   end }}
-{{/* # base images artifacts */}}
-{{-   range $k, $v := .Images }}
-{{-     if hasKey $usedImagesDict $k }}
----
-image: {{ $k }}
-from: {{ $v }}
-final: false
+{{-   $pins := .Files.Get "build/base-images/base-images-pins.yml" | fromYaml }}
+{{-   $containerFactoryOverrideImages := $pins.fromContainerFactory | default list }}
+{{-   $containerFactoryOverrides := dict }}
+{{-   range $k := $containerFactoryOverrideImages }}
+{{-     if hasKey $containerFactoryImages $k }}
+{{-       $_ := set $containerFactoryOverrides $k (get $containerFactoryImages $k) }}
 {{-     end }}
 {{-   end }}
+{{-   $_ := set . "Images" (mustMerge $containerFactoryOverrides $deckhouseImages $containerFactoryImages) }}
 {{- end }}

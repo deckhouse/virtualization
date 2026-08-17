@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: builder/scratch
+from: {{ index $.Images "builder/scratch" }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
     add: /relocate
@@ -16,7 +16,7 @@ imageSpec:
     user: 64535
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-artifact
-fromImage: builder/alt
+from: {{ index $.Images "builder/alt" }}
 final: false
 shell:
   beforeInstall:

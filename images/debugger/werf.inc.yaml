@@ -11,7 +11,7 @@ import:
 ---
 image: {{ .ImageName }}-builder
 final: false
-fromImage: builder/alt
+from: {{ index $.Images "builder/alt" }}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}

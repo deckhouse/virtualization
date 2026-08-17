@@ -8,7 +8,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: builder/src
+from: {{ index $.Images "builder/src" }}
 secrets:
 - id: CI_JOB_TOKEN
   value: "{{ env "CI_JOB_TOKEN" }}"
@@ -44,7 +44,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: builder/golang-1.25
+from: {{ index $.Images "builder/golang-1.25" }}
 mount:
 {{- include "mount points for golang builds" . }}
 secrets:

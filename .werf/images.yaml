@@ -32,6 +32,7 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "ModuleNamePrefix" "" }}
 {{-   $_ := set $ctx "ImageBuildData" $content }}
 {{-   $_ := set $ctx "Files" $Root.Files }}
+{{-   $_ := set $ctx "Images" $Root.Images }}
 {{-   $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
 {{-   $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
 {{-   $_ := set $ctx "PACKAGE_CLONE_REPO" $packageCloneRepo }}
