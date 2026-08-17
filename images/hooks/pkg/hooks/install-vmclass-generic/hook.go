@@ -24,8 +24,10 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
@@ -37,8 +39,7 @@ const (
 	moduleStateSecretSnapshot = "module-state-snapshot"
 	moduleStateSecretName     = "module-state"
 
-	vmClassGenericSnapshot = "vmclass-generic-snapshot"
-	vmClassGenericName     = "generic"
+	vmClassGenericName = "generic"
 
 	vmClassInstallationStateSecretKey  = "vmClassGenericInstallation"
 	vmClassInstallationStateValuesPath = "virtualization.internal.moduleState." + vmClassInstallationStateSecretKey
@@ -67,16 +68,6 @@ var config = &pkg.HookConfig{
 			ExecuteHookOnSynchronization: ptr.To(false),
 			ExecuteHookOnEvents:          ptr.To(false),
 		},
-		{
-			Name:     vmClassGenericSnapshot,
-			Kind:     v1alpha2.VirtualMachineClassKind,
-			JqFilter: `{apiVersion, kind, "metadata": ( .metadata | {name, labels, annotations, creationTimestamp} ) }`,
-			NameSelector: &pkg.NameSelector{
-				MatchNames: []string{vmClassGenericName},
-			},
-			ExecuteHookOnSynchronization: ptr.To(false),
-			ExecuteHookOnEvents:          ptr.To(false),
-		},
 	},
 
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
@@ -87,7 +78,7 @@ var config = &pkg.HookConfig{
 // - Install a new one if there is no state in the Secret indicating that the vmclass was installed earlier.
 // - Removes helm related annotations and labels from existing vmclass/generic (one time operation).
 // - No actions performed if user deletes or replaces vmclass/generic.
-func Reconcile(_ context.Context, input *pkg.HookInput) error {
+func Reconcile(ctx context.Context, input *pkg.HookInput) error {
 	moduleState, err := parseVMClassInstallationStateFromSnapshot(input)
 	if err != nil {
 		return err
@@ -110,9 +101,14 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		return nil
 	}
 
-	vmClassGeneric, err := parseVMClassGenericFromSnapshot(input)
+	vmClassGeneric, err := getVMClassGeneric(ctx, input)
 	if err != nil {
-		return err
+		// A failed read is not a reason to stop the module startup: Helm should proceed,
+		// e.g. to create the Service for the conversion webhook that may be missing.
+		// A read error is not an evidence of absence either, so vmclass/generic is neither
+		// created nor patched here, and the state is not set: the next run will retry.
+		input.Logger.Error("Skip reconciliation of VirtualMachineClass/generic, cannot read it", "error", err)
+		return nil
 	}
 
 	// No state in secret, no state in values, no vmclass/generic.
@@ -164,19 +160,42 @@ func parseVMClassInstallationStateFromSnapshot(input *pkg.HookInput) (*vmClassIn
 	return &s, nil
 }
 
-// parseVMClassGenericFromSnapshot unmarshal ModuleConfig from jqFilter result.
-func parseVMClassGenericFromSnapshot(input *pkg.HookInput) (*v1alpha2.VirtualMachineClass, error) {
-	snap := input.Snapshots.Get(vmClassGenericSnapshot)
-	if len(snap) < 1 {
-		return nil, nil
+// getVMClassGeneric reads vmclass/generic using Kubernetes client. Returns nil if the vmclass is not found.
+//
+// Note: getting vmclass with a Kubernetes binding is unreliable when CRD has conversion hooks.
+// If conversion webhook is not started yet, deckhouse-controller machinery will
+// stuck getting context for this hook and ModuleRun task will be in an error state forever.
+// Using Kubernetes client directly fixes this problem.
+func getVMClassGeneric(ctx context.Context, input *pkg.HookInput) (*v1alpha2.VirtualMachineClass, error) {
+	if input.DC == nil {
+		return nil, fmt.Errorf("dependency container is nil")
 	}
 
-	var vmclass v1alpha2.VirtualMachineClass
-	err := snap[0].UnmarshalTo(&vmclass)
+	k8sClient, err := input.DC.GetK8sClient(addVirtualizationScheme())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get kubernetes client: %w", err)
 	}
-	return &vmclass, nil
+
+	vmClass := &v1alpha2.VirtualMachineClass{}
+	err = k8sClient.Get(ctx, client.ObjectKey{Name: vmClassGenericName}, vmClass)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get VirtualMachineClass/%s: %w", vmClassGenericName, err)
+	}
+
+	return vmClass, nil
+}
+
+type virtualizationSchemeOption struct{}
+
+func (virtualizationSchemeOption) Apply(optsApplier pkg.KubernetesOptionApplier) {
+	optsApplier.WithSchemeBuilder(v1alpha2.SchemeBuilder)
+}
+
+func addVirtualizationScheme() pkg.KubernetesOption {
+	return virtualizationSchemeOption{}
 }
 
 // vmClassGenericManifest returns a manifest for 'generic' vmclass
@@ -313,10 +332,12 @@ func addPatchesToCleanupMetadata(input *pkg.HookInput, vmClass *v1alpha2.Virtual
 	}
 
 	input.Logger.Info("Patch VirtualMachineClass/generic: remove Helm labels and annotations")
+	// Patch the storage version explicitly: a typed client leaves TypeMeta empty, and patching
+	// a served version other than the storage one would go through the conversion webhook.
 	input.PatchCollector.PatchWithJSON(
 		patches,
-		vmClass.APIVersion,
-		vmClass.Kind,
+		v1alpha2.SchemeGroupVersion.String(),
+		v1alpha2.VirtualMachineClassKind,
 		vmClass.Namespace,
 		vmClass.Name,
 	)

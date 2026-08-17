@@ -18,13 +18,17 @@ package install_vmclass_generic
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/tidwall/gjson"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
@@ -42,6 +46,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		snapshots      *mock.SnapshotsMock
 		values         *mock.OutputPatchableValuesCollectorMock
 		patchCollector *mock.PatchCollectorMock
+		dc             *mock.DependencyContainerMock
 	)
 
 	newInput := func() *pkg.HookInput {
@@ -49,6 +54,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 			Snapshots:      snapshots,
 			Values:         values,
 			PatchCollector: patchCollector,
+			DC:             dc,
 			Logger:         log.NewNop(),
 		}
 	}
@@ -110,54 +116,55 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		})
 	}
 
-	prepareVMClassSnapshotEmpty := func() {
-		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{})
+	prepareVMClassInCluster := func(vmClass *v1alpha2.VirtualMachineClass) {
+		dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(_ context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+			Expect(key.Name).To(Equal(vmClassGenericName))
+			vmClassToGet, ok := obj.(*v1alpha2.VirtualMachineClass)
+			Expect(ok).To(BeTrue())
+			*vmClassToGet = *vmClass
+			return nil
+		}}, nil)
 	}
 
-	prepareVMClassSnapshotGeneric := func() {
+	prepareVMClassAbsent := func() {
+		dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(_ context.Context, _ ctrlclient.ObjectKey, _ ctrlclient.Object) error {
+			return apierrors.NewNotFound(
+				schema.GroupResource{Group: v1alpha2.SchemeGroupVersion.Group, Resource: "virtualmachineclasses"},
+				vmClassGenericName,
+			)
+		}}, nil)
+	}
+
+	// prepareVMClassReadFailure mimics a failed conversion webhook: the API server cannot
+	// serve VirtualMachineClass while the Service of virtualization-controller is absent.
+	prepareVMClassReadFailure := func() {
+		dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(_ context.Context, _ ctrlclient.ObjectKey, _ ctrlclient.Object) error {
+			return errors.New(`conversion webhook for virtualization.deckhouse.io/v1alpha2, Kind=VirtualMachineClass failed: service "virtualization-controller" not found`)
+		}}, nil)
+	}
+
+	prepareVMClassGeneric := func() {
 		vmClass := vmClassGenericManifest().DeepCopy()
 		vmClass.Annotations = map[string]string{
 			helmKeepResourceAnno: "keep",
 		}
-		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
-			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
-				Expect(ok).To(BeTrue())
-				*vmClassInSnapshot = *vmClass
-				return nil
-			}),
-		})
+		prepareVMClassInCluster(vmClass)
 	}
 
-	prepareVMClassSnapshotGenericWithoutKeepResource := func() {
-		vmClass := vmClassGenericManifest().DeepCopy()
-		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
-			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
-				Expect(ok).To(BeTrue())
-				*vmClassInSnapshot = *vmClass
-				return nil
-			}),
-		})
+	prepareVMClassGenericWithoutKeepResource := func() {
+		prepareVMClassInCluster(vmClassGenericManifest().DeepCopy())
 	}
 
-	prepareVMClassSnapshotCustom := func() {
+	prepareVMClassCustom := func() {
 		vmClass := vmClassGenericManifest().DeepCopy()
 		vmClass.Labels = map[string]string{
 			"created-by": "user",
 		}
 		vmClass.Annotations = nil
-		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
-			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
-				Expect(ok).To(BeTrue())
-				*vmClassInSnapshot = *vmClass
-				return nil
-			}),
-		})
+		prepareVMClassInCluster(vmClass)
 	}
 
-	prepareVMClassSnapshotGenericHelmManaged := func() {
+	prepareVMClassGenericHelmManaged := func() {
 		vmClass := vmClassGenericManifest().DeepCopy()
 		// Keep app, heritage, and module labels.
 		vmClass.Labels[helmManagedByLabel] = "Helm"
@@ -165,17 +172,10 @@ var _ = Describe("Install VMClass Generic hook", func() {
 			helmReleaseNameAnno:      "somename",
 			helmReleaseNamespaceAnno: "some ns",
 		}
-		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
-			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
-				Expect(ok).To(BeTrue())
-				*vmClassInSnapshot = *vmClass
-				return nil
-			}),
-		})
+		prepareVMClassInCluster(vmClass)
 	}
 
-	prepareVMClassSnapshotGenericCustomHelmManaged := func() {
+	prepareVMClassGenericCustomHelmManaged := func() {
 		vmClass := vmClassGenericManifest().DeepCopy()
 		vmClass.Labels = map[string]string{
 			"created-by":       "user",
@@ -185,14 +185,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 			helmReleaseNameAnno:      "somename",
 			helmReleaseNamespaceAnno: "some ns",
 		}
-		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
-			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
-				Expect(ok).To(BeTrue())
-				*vmClassInSnapshot = *vmClass
-				return nil
-			}),
-		})
+		prepareVMClassInCluster(vmClass)
 	}
 
 	expectVMClassGeneric := func(obj interface{}) {
@@ -210,12 +203,14 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
 		patchCollector = mock.NewPatchCollectorMock(GinkgoT())
+		dc = mock.NewDependencyContainerMock(GinkgoT())
 	})
 
 	AfterEach(func() {
 		snapshots = nil
 		values = nil
 		patchCollector = nil
+		dc = nil
 	})
 
 	When("module-state secret has the vmclass state", func() {
@@ -240,7 +235,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 		When("no state in values and no vmclass", func() {
 			It("should create vmclass/generic and set values", func() {
-				prepareVMClassSnapshotEmpty()
+				prepareVMClassAbsent()
 				prepareStateValuesEmpty()
 
 				values.SetMock.Return()
@@ -292,7 +287,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 			When("no vmclass/generic", func() {
 				It("should create vmclass/generic and set values", func() {
-					prepareVMClassSnapshotEmpty()
+					prepareVMClassAbsent()
 
 					values.SetMock.Return()
 					patchCollector.CreateMock.Set(expectVMClassGeneric)
@@ -303,9 +298,24 @@ var _ = Describe("Install VMClass Generic hook", func() {
 				})
 			})
 
+			When("vmclass/generic cannot be read", func() {
+				It("should succeed without touching vmclass/generic and values", func() {
+					prepareVMClassReadFailure()
+
+					values.SetMock.Optional()
+					patchCollector.CreateMock.Optional()
+					patchCollector.PatchWithJSONMock.Optional()
+
+					Expect(Reconcile(context.Background(), newInput())).To(Succeed(), "should not stop the module startup")
+					Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0), "a read failure is not an evidence of absence")
+					Expect(patchCollector.PatchWithJSONMock.Calls()).To(HaveLen(0))
+					Expect(values.SetMock.Calls()).To(HaveLen(0), "state should stay unset to retry on the next run")
+				})
+			})
+
 			When("vmclass/generic is present", func() {
 				It("should not change vmclass/generic and set values", func() {
-					prepareVMClassSnapshotGeneric()
+					prepareVMClassGeneric()
 
 					values.SetMock.Return()
 					patchCollector.CreateMock.Optional()
@@ -320,7 +330,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 			When("vmclass/generic without keep-resource annotation", func() {
 				It("should not change vmclass/generic and set values", func() {
-					prepareVMClassSnapshotGenericWithoutKeepResource()
+					prepareVMClassGenericWithoutKeepResource()
 
 					values.SetMock.Return()
 					patchCollector.CreateMock.Optional()
@@ -335,7 +345,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 			When("vmclass/generic has helm label", func() {
 				It("should set values and remove helm labels", func() {
-					prepareVMClassSnapshotGenericHelmManaged()
+					prepareVMClassGenericHelmManaged()
 
 					patchCollector.CreateMock.Optional()
 					patchCollector.PatchWithJSONMock.Return()
@@ -350,7 +360,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 			When("custom vmclass/generic is present", func() {
 				It("should set values and not patch vmclass/generic", func() {
-					prepareVMClassSnapshotCustom()
+					prepareVMClassCustom()
 
 					patchCollector.CreateMock.Optional()
 					patchCollector.PatchWithJSONMock.Optional()
@@ -365,7 +375,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 			When("custom vmclass/generic has helm label", func() {
 				It("should set values and not remove helm values", func() {
-					prepareVMClassSnapshotGenericCustomHelmManaged()
+					prepareVMClassGenericCustomHelmManaged()
 
 					patchCollector.CreateMock.Optional()
 					patchCollector.PatchWithJSONMock.Optional()
@@ -380,3 +390,12 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		})
 	})
 })
+
+type fakeKubernetesClient struct {
+	pkg.KubernetesClient
+	get func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error
+}
+
+func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, _ ...ctrlclient.GetOption) error {
+	return f.get(ctx, key, obj)
+}
