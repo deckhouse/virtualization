@@ -17,15 +17,12 @@ altPackages:
 - python3-module-pip
 - nasm acpica bison flex
 - dosfstools mtools genisoimage binutils-devel
+- xorriso libuuid-devel
 - qemu-kvm-core
 - iasl
 - python3-modules-sqlite3 python3-module-virt-firmware
 - libdwarf-devel
 - bc perl-PathTools perl-IPC-Cmd perl-JSON
-packages:
-- zlib libisoburn libburn libisofs
-- openssl
-- libcurl util-linux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -120,11 +117,6 @@ import:
   - FIRMWARE
   - Logo.bmp
   - build.sh
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
-- image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
-  to: /qemu-img
-  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -136,14 +128,6 @@ shell:
 
   install:
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
     cd /{{ $gitRepoName }}-{{ $version }}
 
     # Set env edk

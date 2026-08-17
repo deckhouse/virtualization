@@ -40,7 +40,6 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
 {{-   $_ := set $ctx "DEBUG_COMPONENT" $Root.DEBUG_COMPONENT }}
 {{-   $_ := set $ctx "Firmware" $Root.Firmware }}
-{{-   $_ := set $ctx "Package" $Root.Package }}
 {{-   $_ := set $ctx "Core" $Root.Core }}
 {{-   $_ := set $ctx "ProjectName" $ctx.ImageName }}
 {{-   $_ := set $ctx "Commit" $Root.Commit }}

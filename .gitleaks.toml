@@ -41,6 +41,4 @@ paths = [
   '''^images/kube-api-rewriter/local/proxy.yaml$''',
   '''^images/kube-api-proxy/local/proxy\.yaml$''',
   '''^images/virtualization-artifact/config/vm_sysprep\.yaml$''',
-  # false positives in README files
-  '''^images/packages/krb5/README.md$''',
 ]

@@ -22,19 +22,24 @@ git:
     install:
     - "**/*"
 ---
-{{- $nameDeps := print .ImageName "-dependencies" -}}
-{{- define "$nameDeps" -}}
-packages:
-- libnbd
-- libxml2
-- glibc
+{{- $builderName := print .ImageName "-builder-dependencies" -}}
+{{- define "$builderName" -}}
+# libnbd and libxml2: the importer links against them with CGO through
+# pkg-config, so the builder needs the same packages the runtime image gets.
+# git: go.work replaces kubevirt.io/api with the fox fork, and GOPRIVATE
+# routes it past the proxy, so go needs a git client for the direct fetch.
+pmPackages:
+- git
+- pkgconf
+- libnbd libnbd-devel
+- libxml2 libxml2-devel
 {{- end -}}
 
-{{ $builderDeps := include "$nameDeps" . | fromYaml }}
+{{ $goBuilderDependencies := include "$builderName" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.25" "builder/golang-alt-1.25" }}
+fromImage: builder/golang-1.25
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
@@ -44,16 +49,9 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDeps.packages "install") -}}
 shell:
   install:
-  - |
-    # Install packages
-    PKGS="{{ $builderDeps.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
+  {{- include "pm packages install" (list $goBuilderDependencies.pmPackages "/") | nindent 2 }}
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
 {{- include "fox module auth" . | nindent 2 }}
   - cd /src/images/dvcr-artifact
@@ -67,6 +65,11 @@ shell:
     export GOOS=linux
     export CGO_ENABLED=1
     export GOARCH=amd64
+    # wrappers.h in the libnbd Go bindings declares its callbacks the K&R way
+    # (`extern int chunk_callback ();`). Under C23, which this toolchain's gcc
+    # defaults to, an empty parameter list means (void), so those declarations
+    # conflict with the prototypes cgo generates.
+    export CGO_CFLAGS="-std=gnu17"
   - |
     {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-importer" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -tags=dvcr_no_gost_tls -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
@@ -81,61 +84,29 @@ shell:
 ---
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
-binaries:
-- /usr/local/bin/dvcr-importer
-- /usr/sbin/nbd*
-- /usr/lib64/nbdkit/filters/*.so
-- /usr/lib64/nbdkit/plugins/*.so
-- /usr/bin/file
-- /usr/share/misc/magic.mgc
-- /usr/local/bin/dvcr-uploader
-- /usr/local/bin/dvcr-cleaner
-- /usr/bin/qemu-img
-- /usr/bin/qemu-nbd
-- /usr/lib64/libnbd.s*
-packages:
-- bzip2 file nbdkit libnbd xz libxml2
+pmPackages:
+- bzip2 file xz libxml2
 - libseccomp zlib zstd
-- libffi libgmp gnutls nettle libidn2
-- p11-kit libtasn1 libfuse3
-- gcc ubdsrv liburing
-- libaio libaudit libcap-ng numactl
-- linux-pam libunistring glib2
+- libffi gmp gnutls nettle libidn2
+- p11-kit libtasn1 libfuse
+- liburing libaio libaudit libcap-ng numactl
+- libunistring glib2 libnbd gnu-glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
+fromImage: builder/distroless
 import:
-- image: tools/util-linux
-  add: /
-  to: /relocate/usr
-  after: setup
-  includePaths:
-  - bin/mount
-  - bin/umount
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out
-  to: /usr/local/bin
-  before: setup
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+  to: /relocate/usr/local/bin
+  before: install
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
-  to: /qemu-img
+  to: /relocate
   before: install
 shell:
   install:
-  - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
-  setup:
-  - |
-    /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
+  {{- include "pm packages install" (list $builderDependencies.pmPackages "/relocate") | nindent 2 }}

@@ -1,6 +1,11 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-fromImage: {{ .ModuleNamePrefix }}distroless
+# base/distroless keeps a single library directory (/usr/lib64 -> lib), unlike
+# the module's distroless, which has /usr/lib and /usr/lib64 as separate dirs.
+# pm installs everything but glibc into /usr/lib, and ld.so.cache lists only
+# /lib64 and /usr/lib64, so qemu-img there fails to load libzstd, libaio and
+# liburing.
+fromImage: base/distroless
 git:
   {{- include "image mount points" . }}
 import:

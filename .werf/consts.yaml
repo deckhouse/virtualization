@@ -3,7 +3,6 @@
 
 # Component versions
 {{- $_ := set . "Firmware" dict -}}
-{{- $_ := set . "Package" dict -}}
 {{- $_ := set . "Core" dict -}}
 {{- $versions_path := "/build/components/versions.yml" -}}
 
@@ -15,10 +14,6 @@
 
 {{- range $k, $v := $versions_ctx.firmware -}}
 {{-   $_ := set $.Firmware $k $v -}}
-{{- end -}}
-
-{{- range $k, $v := $versions_ctx.package -}}
-{{-   $_ := set $.Package $k $v -}}
 {{- end -}}
 
 {{- range $k, $v := $versions_ctx.core -}}
