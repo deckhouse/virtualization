@@ -67,34 +67,37 @@ spec:
     }
 
     usbip_install_modules() {
+      # The packages this distro needs for the usbip modules. All of them must be installed.
       local packages=()
 
-      if bb-is-distro-like? "debian"; then
-        if [[ "$usbip_bundle" == "debian" ]]; then
-          packages=("linux-image-${usbip_kernel_release}")
-        else
-          packages=("linux-modules-extra-${usbip_kernel_release}")
-        fi
+      if bb-is-distro-like? "ubuntu"; then
+        # Ubuntu is the only debian-like distro that splits the extra modules out of the kernel.
+        packages=("linux-modules-extra-${usbip_kernel_release}")
+      elif bb-is-distro-like? "debian"; then
+        packages=("linux-image-${usbip_kernel_release}")
+      elif [[ "$usbip_bundle" == "altlinux" || "$usbip_bundle" == "redos" ]]; then
+        # Neither has a separate modules package: the usbip modules ship inside the package
+        # of the running kernel, kernel-image on ALT and kernel-lt on RED OS. Missing here
+        # means the kernel was built without them, and no other package can provide them.
+        bb-log-warning "${usbip_bundle} ships the usbip kernel modules inside the kernel package, but this kernel has none. No package can provide them."
+        return 1
       elif bb-is-distro-like? "rhel" || bb-is-distro-like? "centos" || bb-is-distro-like? "fedora"; then
-        packages=("kernel-modules-extra-${usbip_kernel_release}" "kernel-modules-extra")
-      elif [[ "$usbip_bundle" == "altlinux" ]]; then
-        packages=("kernel-modules-extra")
+        packages=("kernel-modules-extra-${usbip_kernel_release}")
       else
-        bb-log-warn "Unsupported OS for usbip kernel modules: bundle=${usbip_bundle}. Skipping."
+        bb-log-warning "No package with usbip kernel modules is known for bundle=${usbip_bundle}. Skipping."
         return 1
       fi
 
       local pkg
       for pkg in "${packages[@]}"; do
         bb-log-info "Installing package for usbip kernel modules (usbip_core, usbip_host, vhci_hcd): ${pkg}"
-        if bb-pkg install "$pkg"; then
-          return 0
+        # Run in a subshell: on failure bb-pkg install calls bb-exit-on-error, which exits
+        # the whole step instead of returning, so a missing package would abort bashible.
+        if ! ( bb-pkg install "$pkg" ); then
+          bb-log-warning "Failed to install package with usbip kernel modules: ${pkg}"
+          return 1
         fi
-        bb-log-warn "Failed to install package for usbip kernel modules: ${pkg}"
       done
-
-      bb-log-warn "Could not install a package with usbip kernel modules for kernel ${usbip_kernel_release}."
-      return 1
     }
 
     if usbip_modules_exist; then
@@ -103,7 +106,7 @@ spec:
       usbip_install_modules || true
 
       if ! usbip_modules_exist; then
-        bb-log-warn "usbip kernel modules are not available for kernel ${usbip_kernel_release}, removing the ${usbip_label_key} label from the node."
+        bb-log-warning "usbip kernel modules are not available for kernel ${usbip_kernel_release}, removing the ${usbip_label_key} label from the node."
         usbip_set_node_label "${usbip_label_key}-"
         return 0
       fi
