@@ -28,6 +28,10 @@ var skipSelfRe = regexp.MustCompile(`no_cyrillic(_test)?.go$`)
 var skipVexRe = regexp.MustCompile(`known_vulnerabilities.vex$`)
 var skipSecurityEventsRe = regexp.MustCompile(`templates/security-events\.yaml$`)
 
+// A fuzz seed corpus is input data, not text: non-ASCII payloads are part of what
+// the target has to survive, and escaping them hides what a seed actually is.
+var skipFuzzTestRe = regexp.MustCompile(`_fuzz_test\.go$`)
+
 func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (exitCode int) {
 	fmt.Printf("Run 'no cyrillic' validation ...\n")
 
@@ -96,6 +100,11 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 
 			if skipSecurityEventsRe.MatchString(fileName) {
 				msgs.Add(NewSkip(fileName, "security events template"))
+				continue
+			}
+
+			if skipFuzzTestRe.MatchString(fileName) {
+				msgs.Add(NewSkip(fileName, "fuzz seed corpus"))
 				continue
 			}
 

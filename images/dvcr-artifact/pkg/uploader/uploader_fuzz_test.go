@@ -17,9 +17,11 @@ limitations under the License.
 package uploader
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/fuzz"
@@ -39,7 +41,32 @@ func FuzzUploader(f *testing.F) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x02, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
 	}
+
+	// The body doubles as the source of the fuzzed request headers, so the seeds
+	// cover both image formats the uploader detects and header-shaped payloads.
 	f.Add(minimalQCow2[:])
+	f.Add([]byte(""))
+	f.Add([]byte("QFI\xfb"))
+	f.Add([]byte("QFI\xfb\x00\x00\x00\x03" + strings.Repeat("\xff", 64)))
+	f.Add([]byte("QFI\xfb\x00\x00\x00\x02" + strings.Repeat("\x00", 504)))
+	f.Add(bytes.Repeat([]byte{0x00}, 1024))
+	f.Add(bytes.Repeat([]byte{0xff}, 1024))
+	f.Add([]byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03"))
+	f.Add([]byte("\xff\x06\x00\x00sNaPpY"))
+	f.Add([]byte("# Disk DescriptorFile\nversion=1\nCID=fffffffe\n"))
+	f.Add([]byte("KDMV\x01\x00\x00\x00"))
+	f.Add([]byte("conectix"))
+	f.Add([]byte("vhdxfile"))
+	f.Add([]byte("CD001"))
+	f.Add([]byte(`{"schemaVersion":2,"layers":[]}`))
+	f.Add([]byte("Content-Length: -1\r\nContent-Type: application/octet-stream\r\n\r\n"))
+	f.Add([]byte("Content-Length: 99999999999999999999\r\n\r\n"))
+	f.Add([]byte("Transfer-Encoding: chunked\r\n\r\n5\r\nabcde\r\n0\r\n\r\n"))
+	f.Add([]byte("a\r\nX-Injected: 1\r\n"))
+	f.Add([]byte("../../etc/passwd"))
+	f.Add([]byte(strings.Repeat("A", 8192)))
+	f.Add([]byte("\xff\xfe\xfd\xfc"))
+	f.Add([]byte("имя-диска"))
 
 	url := fmt.Sprintf("http://%s:%d/upload", addr, uploaderPort)
 	f.Fuzz(func(t *testing.T, data []byte) {
