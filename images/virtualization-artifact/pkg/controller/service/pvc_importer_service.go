@@ -697,6 +697,9 @@ func (s *PVCImporterService) makeImporterPod(podName string, target, dataPVC *co
 		},
 		VolumeMounts: []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}},
 		Ports:        []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8443, Protocol: corev1.ProtocolTCP}},
+		SecurityContext: &corev1.SecurityContext{
+			ReadOnlyRootFilesystem: ptr.To(true),
+		},
 	}
 	if !directTransfer {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: pvcImporterScratchVolName, MountPath: pvcImporterScratchDataDir})
@@ -863,6 +866,9 @@ func (s *PVCImporterService) makeSourceImporterPod(podName string, target, sourc
 				Ports:           []corev1.ContainerPort{{Name: "nbd", ContainerPort: pvcImporterNBDPort, Protocol: corev1.ProtocolTCP}},
 				VolumeMounts:    volumeMounts,
 				VolumeDevices:   volumeDevices,
+				SecurityContext: &corev1.SecurityContext{
+					ReadOnlyRootFilesystem: ptr.To(true),
+				},
 			}},
 			RestartPolicy: corev1.RestartPolicyOnFailure,
 			Volumes: []corev1.Volume{
@@ -922,6 +928,9 @@ func (s *PVCImporterService) makeTargetImporterPod(podName string, target, dataP
 				Ports:         []corev1.ContainerPort{{Name: "metrics", ContainerPort: 8443, Protocol: corev1.ProtocolTCP}},
 				VolumeMounts:  volumeMounts,
 				VolumeDevices: volumeDevices,
+				SecurityContext: &corev1.SecurityContext{
+					ReadOnlyRootFilesystem: ptr.To(true),
+				},
 			}},
 			RestartPolicy: corev1.RestartPolicyOnFailure,
 			Volumes: []corev1.Volume{
