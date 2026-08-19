@@ -25,7 +25,8 @@
 #   CI_API_V4_URL, CI_PROJECT_ID, CI_PIPELINE_ID, CI_PIPELINE_URL,
 #   GITLAB_API_TOKEN, RELEASE_TAG, RELEASE_CHANNEL, EDITION_CE, EDITION_EE,
 #   CHECK_ONLY, RELEASE_TO_GITLAB, SEND_RESULTS_TO_LOOP, LOOP_WEBHOOK_URL,
-#   release.env (GH_RELEASE_STATUS, GH_RELEASE_URL from prod:create-gitlab-release).
+#   GH_RELEASE_STATUS (dotenv report of prod:create-gitlab-release, injected as
+#   an environment variable by GitLab).
 
 # shellcheck disable=SC2154 # CI_* and GITLAB_API_TOKEN are injected by the GitLab Runner at job runtime.
 
@@ -40,8 +41,23 @@ gl_required_env CI_API_V4_URL GITLAB_API_TOKEN CI_PROJECT_ID CI_PIPELINE_ID \
 JOBS_JSON=$(api GET "/projects/${CI_PROJECT_ID}/pipelines/${CI_PIPELINE_ID}/jobs?per_page=100")
 
 job_status() {
-  # $1 = job name. Echo the GitLab status of the first matching job, or "".
-  echo "$JOBS_JSON" | jq -r --arg n "$1" '[.[] | select(.name == $n)][0].status // ""'
+  # $1 = job name. Echo the GitLab status of the matching job, or "" if the
+  # pipeline has no such job.
+  #
+  # A `parallel: matrix` job is reported by the API as one job per leg, named
+  # "<name>: [<value>]" (e.g. "prod:check-version: [registry]"), so a plain
+  # equality match never finds it. Match the exact name plus all of its matrix
+  # legs and collapse them into a single worst-case status: one failed or
+  # canceled leg means the whole thing did not pass.
+  echo "$JOBS_JSON" | jq -r --arg n "$1" '
+    [.[] | select(.name == $n or (.name | startswith($n + ": ["))) | .status] as $s
+    | if   ($s | length) == 0                     then ""
+      elif ($s | any(. == "failed"))              then "failed"
+      elif ($s | any(. == "canceled" or . == "cancelled")) then "canceled"
+      elif ($s | any(. == "running" or . == "pending" or . == "created"
+                     or . == "preparing" or . == "waiting_for_resource")) then "running"
+      elif ($s | any(. == "success"))             then "success"
+      else $s[0] end'
 }
 
 # Map a GitLab job status to a GitHub-style result word for emoji selection.
@@ -76,11 +92,22 @@ EE_RESULT=$(map_result "$(job_status prod:deploy:ee)")
 SE_PLUS_RESULT=$(map_result "$(job_status prod:deploy:se-plus)")
 FE_RESULT=$(map_result "$(job_status prod:deploy:fe)")
 CHECK_RESULT=$(map_result "$(job_status prod:check-version)")
+RELEASE_RESULT=$(map_result "$(job_status prod:create-gitlab-release)")
 
-# Load the release creation dotenv artifact if present.
-GH_RELEASE_STATUS=""
-# shellcheck disable=SC1091
-[ -f release.env ] && . release.env
+# The release job's own API status above is the source of truth for the release
+# column. Its release.env dotenv only refines a successful run: "created" for a
+# freshly created release vs "skipped" when the release already existed.
+#
+# GitLab hands that dotenv to this job as environment variables, NOT as a file:
+# the runner wipes release.env from the shared build directory before this job
+# starts ("Removing release.env" in the job log). So never reset the variable to
+# "" here — that discarded the value GitLab had already injected — and only read
+# the file when it happens to be there.
+GH_RELEASE_STATUS="${GH_RELEASE_STATUS:-}"
+if [ -z "${GH_RELEASE_STATUS}" ] && [ -f release.env ]; then
+  # shellcheck disable=SC1091 # generated at pipeline runtime by prod:create-gitlab-release.
+  . release.env
+fi
 
 HEADER_ROW="| Edition |"
 STATUS_ROW="| Status |"
@@ -96,11 +123,11 @@ HEADER_ROW+=" Check |"
 STATUS_ROW+=" $(status_emoji "${CHECK_RESULT}") |"
 if [ "${RELEASE_TO_GITLAB:-true}" = "true" ] && [ "${CHECK_ONLY:-false}" != "true" ]; then
   HEADER_ROW+=" GitLab Release |"
-  case "${GH_RELEASE_STATUS}" in
-    created) STATUS_ROW+=" :white_check_mark: |" ;;
-    skipped) STATUS_ROW+=" :fast_forward: |" ;;
-    *)       STATUS_ROW+=" :x: |" ;;
-  esac
+  if [ "${RELEASE_RESULT}" = "success" ] && [ "${GH_RELEASE_STATUS}" = "skipped" ]; then
+    STATUS_ROW+=" :fast_forward: |"
+  else
+    STATUS_ROW+=" $(status_emoji "${RELEASE_RESULT}") |"
+  fi
 fi
 
 # Build the markdown separator row matching the header column count.
