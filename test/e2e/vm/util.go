@@ -202,6 +202,32 @@ func expectVDsMigrationFailed(ctx context.Context, f *framework.Framework, obser
 // skipIfVolumeMigrationOutranTheCancel skips the spec when the volume migration
 // completed before the cancel could take effect, leaving nothing to revert.
 //
+// tscFrequencyNodeLabel is set by virt-handler on nodes whose CPU exposes an
+// invariant TSC; it is the source virt-controller derives TSC topology hints
+// from.
+const tscFrequencyNodeLabel = "cpu-timer.node.virtualization.deckhouse.io/tsc-frequency"
+
+// skipWithoutInvariantTSC skips the spec when no schedulable node exposes an
+// invariant TSC frequency. Nested clusters are the common case: their nodes
+// are VMs whose CPU model carries no invtsc, so no node gets the tsc-frequency
+// label. A Windows-osType VM enables HyperV reenlightenment, which makes
+// virt-controller require TSC topology hints before creating the virt-launcher
+// pod — without the label such a VM never starts, so Windows specs cannot work
+// there.
+func skipWithoutInvariantTSC(ctx context.Context, f *framework.Framework) {
+	GinkgoHelper()
+
+	nodes, err := f.KubeClient().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	for _, node := range nodes.Items {
+		if _, ok := node.Labels[tscFrequencyNodeLabel]; ok && !node.Spec.Unschedulable {
+			return
+		}
+	}
+
+	Skip("skip: no node exposes an invariant TSC frequency (nested cluster), Windows-osType VMs cannot start here")
+}
+
 // The revert specs cancel a migration that is already under way, so they need
 // the copy to outlast the round trip between observing "migrating" and deleting
 // the VirtualMachineOperation. How long that copy takes belongs to the storage

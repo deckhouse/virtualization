@@ -50,6 +50,10 @@ var _ = Describe("VMCheckTPM", label.TPM(), Label(label.SIGCompute, precheck.NoP
 	})
 
 	It("checks that TPM exists in the VM", func() {
+		// Nested clusters expose no invariant TSC on their nodes, so this
+		// Windows-osType VM would never start there.
+		skipWithoutInvariantTSC(ctx, f)
+
 		By("Create a VM with the TPM module.")
 		const (
 			expectedTPMVersion = "2.0"

@@ -208,6 +208,10 @@ var _ = Describe("VirtualMachineProvisioningRemoval", Label(label.SIGCompute, pr
 		DeferCleanup(f.After)
 		f.Before()
 
+		// Sysprep requires osType Windows, and nested clusters expose no
+		// invariant TSC on their nodes, so such a VM would never start there.
+		skipWithoutInvariantTSC(ctx, f)
+
 		t := newProvisioningRemovalTest(f)
 
 		By("Environment preparation: VM with SysprepRef provisioning referencing a Secret")
