@@ -1,0 +1,24 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-virtualization-virt-handler-cve-2026-41579",
+  "author": "Deckhouse <contact@deckhouse.io>",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41579"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/opencontainers/runc@v1.2.8"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "В образе virt-handler модуль github.com/opencontainers/runc присутствует только как библиотека управления cgroups: в бинарные файлы /usr/bin/virt-handler и /usr/bin/virt-chroot попадают пакеты libcontainer/cgroups, libcontainer/configs и libcontainer/devices, а код создания контейнера и настройки rootfs, к которому относится CVE-2026-41579, не компилируется и не вызывается.",
+      "timestamp": "2026-08-17T00:00:00Z"
+    }
+  ],
+  "timestamp": "2026-08-17T00:00:00Z",
+  "last_updated": "2026-08-17T00:00:00Z"
+}

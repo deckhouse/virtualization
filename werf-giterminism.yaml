@@ -13,6 +13,10 @@ config:
     - SVACE_ANALYZE_HOST
     - SVACE_ANALYZE_SSH_USER
     - DEBUG_COMPONENT
+    # Read by the "vex mitigation" template to pick the signing flow.
+    - ACTIONS_ID_TOKEN_REQUEST_TOKEN
+    - VAULT_KEY
+    - WERF_SIGN_KEY
   stapel:
     mount:
       allowBuildDir: true
@@ -24,6 +28,20 @@ config:
     - GOPROXY
     # Job token for cloning the kubevirt fork from fox (images/virt-artifact).
     - CI_JOB_TOKEN
+    # Consumed by the vex-artifact images built by the "vex mitigation" template.
+    allowEnvVariables:
+    - REGISTRY_USER
+    - REGISTRY_PASSWORD
+    - VAULT_ADDR
+    - VAULT_KEY
+    - VAULT_ROLE
+    - VAULT_ID_TOKEN
+    - WERF_SIGN_KEY
+    - WERF_VAULT_AUTH_ROLE
+    - WERF_VAULT_AUTH_JWT
+    - TRANSIT_SECRET_ENGINE_PATH
+    - ACTIONS_ID_TOKEN_REQUEST_TOKEN
+    - ACTIONS_ID_TOKEN_REQUEST_URL
 helm:
   allowUncommittedFiles:
   - "Chart.lock"

@@ -25,6 +25,7 @@ import (
 var skipDocRe = regexp.MustCompile(`doc-ru-.+\.y[a]?ml$|\.ru\.md$`)
 var skipI18NRe = regexp.MustCompile(`/i18n/`)
 var skipSelfRe = regexp.MustCompile(`no_cyrillic(_test)?.go$`)
+var skipVexRe = regexp.MustCompile(`known_vulnerabilities.vex$`)
 
 func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (exitCode int) {
 	fmt.Printf("Run 'no cyrillic' validation ...\n")
@@ -84,6 +85,11 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 
 			if skipSelfRe.MatchString(fileName) {
 				msgs.Add(NewSkip(fileName, "self"))
+				continue
+			}
+
+			if skipVexRe.MatchString(fileName) {
+				msgs.Add(NewSkip(fileName, "vex file"))
 				continue
 			}
 

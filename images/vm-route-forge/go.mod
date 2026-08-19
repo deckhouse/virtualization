@@ -1,11 +1,11 @@
 module vm-route-forge
 
-go 1.25.11
+go 1.25.13
 
 tool github.com/cilium/ebpf/cmd/bpf2go
 
 require (
-	github.com/cilium/cilium v1.17.15
+	github.com/cilium/cilium v1.17.16
 	github.com/cilium/ebpf v0.17.1
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/go-logr/logr v1.4.3
@@ -13,7 +13,7 @@ require (
 	github.com/spf13/pflag v1.0.7
 	github.com/vishvananda/netlink v1.3.1-0.20250303224720-0e7078ed04c8
 	go.uber.org/zap v1.27.0
-	golang.org/x/sys v0.40.0
+	golang.org/x/sys v0.46.0
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
 	sigs.k8s.io/controller-runtime v0.21.0
@@ -53,7 +53,7 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gopacket/gopacket v1.3.1 // indirect
+	github.com/gopacket/gopacket v1.6.1 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -88,7 +88,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	go.mongodb.org/mongo-driver v1.14.0 // indirect
+	go.mongodb.org/mongo-driver v1.17.7 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.41.0 // indirect
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
@@ -99,13 +99,13 @@ require (
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
-	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/term v0.38.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/term v0.44.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	golang.org/x/tools v0.39.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -128,7 +128,7 @@ require (
 
 // CVE Replaces
 replace (
-	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
+	golang.org/x/net => golang.org/x/net v0.56.0 // CVE-2025-22870, CVE-2025-22872, CVE-2026-25681, CVE-2026-46600
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )
 

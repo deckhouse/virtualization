@@ -12,6 +12,35 @@ build:
 # Base Images
 {{- include "parse_base_images_map" . }}
 ---
+# Base image for VEX attestations (cosign attest --type openvex).
+# Consumed by the "vex mitigation" template in .werf/defines/vex.tmpl.
+# Defined here (not in .werf/*.yaml) so its tools/* imports are discovered
+# by parse_base_images_map, which scans only werf.yaml and images/*/werf.inc.yaml.
+image: base/vex
+fromImage: tools/coreutils
+final: false
+import:
+- image: builder/alpine
+  add: /etc/ssl/certs/ca-certificates.crt
+  to: /etc/ssl/certs/ca-certificates.crt
+  before: install
+- image: tools/cosign
+  add: /usr/bin/cosign
+  to: /usr/bin/cosign
+  before: install
+- image: tools/jq
+  add: /usr/bin/jq
+  to: /usr/bin/jq
+  before: install
+- image: tools/curl
+  add: /usr/bin/curl-static
+  to: /usr/bin/curl
+  before: install
+- image: tools/bash
+  add: /usr/bin/bash
+  to: /bin/bash
+  before: install
+---
 
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" "https://github.com") }}
@@ -40,12 +69,16 @@ image: images-digests
 fromImage: builder/alpine
 dependencies:
   {{- range $ImageID := $.ImagesIDList }}
+  {{- $ImageName := $ImageID | splitList "/" | last }}
   {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}
+  {{/* # vex-artifact images only carry a cosign attestation, they are not part of the module. */}}
+  {{- if eq $ImageName (trimSuffix "-vex-artifact" $ImageName) }}
 - image: {{ $ImageID }}
   before: setup
   imports:
     - type: ImageDigest
       targetEnv: MODULE_IMAGE_DIGEST_{{ $ImageNameCamel }}
+  {{- end }}
   {{- end }}
 shell:
   beforeInstall:
@@ -115,3 +148,8 @@ fromImage: builder/scratch
 shell:
   install:
     - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json
+
+# VEX attestation for the module (bundle) image. Covers GO-2026-5932
+# (golang.org/x/crypto/openpgp) carried by the hooks/go/virtualization-module-hooks
+# binary. Predicate lives in the repo-root known_vulnerabilities.vex.
+{{- include "vex mitigation" (list . "bundle") }}

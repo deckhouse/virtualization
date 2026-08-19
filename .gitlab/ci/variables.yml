@@ -103,7 +103,7 @@ variables:
   #                       override only if the Vault endpoint differs.
 
   # --- Build/dev tooling (kept from previous root) ---
-  GO_VERSION: "1.25.11"
+  GO_VERSION: "1.25.13"
   GOLANGCI_LINT_VERSION: "2.11.1"
   # Helm v3 + jq are needed by `task validation:helm-templates` (tools/kubeconform).
   # They are not assumed to be on the runner host; lint:helm-templates installs
@@ -116,10 +116,10 @@ variables:
   # (.github/workflows/dev_module_build.yml test_scripts_js env NODE_VERSION).
   NODE_VERSION: "24"
   # Let the host Go toolchain auto-download the version required by go.mod
-  # (currently go 1.25.11). Runner hosts may ship an older Go with
+  # (currently go 1.25.13). Runner hosts may ship an older Go with
   # GOTOOLCHAIN pinned to that older version (e.g. GOTOOLCHAIN=go1.25.9),
   # which otherwise makes `go mod download` / `go install` fail with
-  # "go.mod requires go >= 1.25.11". `auto` overrides the runner env var
+  # "go.mod requires go >= 1.25.13". `auto` overrides the runner env var
   # (GitLab CI variables take precedence over runner environment variables)
   # and matches the behavior of GitHub's actions/setup-go@v5.
   GOTOOLCHAIN: "auto"

@@ -509,7 +509,7 @@ func (h *SyncPowerStateHandler) recordStopEventf(ctx context.Context, obj client
 		obj,
 		corev1.EventTypeNormal,
 		virtv2.ReasonVMStopped,
-		messageFmt,
+		"%s", messageFmt,
 	)
 }
 
@@ -518,6 +518,6 @@ func (h *SyncPowerStateHandler) recordRestartEventf(ctx context.Context, obj cli
 		obj,
 		corev1.EventTypeNormal,
 		virtv2.ReasonVMRestarted,
-		messageFmt,
+		"%s", messageFmt,
 	)
 }

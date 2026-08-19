@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/src/cli
 
-go 1.25.11
+go 1.25.13
 
 require (
 	github.com/deckhouse/virtualization/api v0.15.0
@@ -9,10 +9,10 @@ require (
 	github.com/povsister/scp v0.0.0-20250504051308-e467f71ea63c
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.7
-	golang.org/x/crypto v0.37.0
-	golang.org/x/sys v0.32.0
-	golang.org/x/term v0.31.0
-	golang.org/x/text v0.24.0
+	golang.org/x/crypto v0.53.0
+	golang.org/x/sys v0.46.0
+	golang.org/x/term v0.44.0
+	golang.org/x/text v0.39.0
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
 	k8s.io/component-base v0.33.3
@@ -56,7 +56,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.33.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
-	golang.org/x/net v0.39.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
