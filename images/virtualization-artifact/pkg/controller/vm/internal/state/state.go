@@ -278,15 +278,27 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*v1a
 
 func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*v1alpha2.VirtualMachineMACAddress, error) {
 	var vmmacs []*v1alpha2.VirtualMachineMACAddress
+	// A VirtualMachineMACAddress referenced in the spec is also labeled with the virtual machine UID,
+	// so it may be found by both lookups below: keep track of the added names to avoid counting it twice.
+	added := make(map[string]struct{})
+
 	for _, ns := range s.vm.Current().Spec.Networks {
+		if ns.VirtualMachineMACAddressName == "" {
+			continue
+		}
 		vmmacKey := types.NamespacedName{Name: ns.VirtualMachineMACAddressName, Namespace: s.vm.Current().GetNamespace()}
 		vmmac, err := object.FetchObject(ctx, vmmacKey, s.client, &v1alpha2.VirtualMachineMACAddress{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
 		}
-		if vmmac != nil {
-			vmmacs = append(vmmacs, vmmac)
+		if vmmac == nil {
+			continue
 		}
+		if _, ok := added[vmmac.GetName()]; ok {
+			continue
+		}
+		added[vmmac.GetName()] = struct{}{}
+		vmmacs = append(vmmacs, vmmac)
 	}
 
 	vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
@@ -298,8 +310,13 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*v1alpha2.Vir
 		return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
 	}
 
-	for _, vmmac := range vmmacList.Items {
-		vmmacs = append(vmmacs, &vmmac)
+	for i := range vmmacList.Items {
+		vmmac := &vmmacList.Items[i]
+		if _, ok := added[vmmac.GetName()]; ok {
+			continue
+		}
+		added[vmmac.GetName()] = struct{}{}
+		vmmacs = append(vmmacs, vmmac)
 	}
 
 	return vmmacs, nil
