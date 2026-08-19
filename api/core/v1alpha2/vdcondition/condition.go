@@ -196,6 +196,12 @@ const (
 	MigratingWaitForTargetReadyReason MigratingReason = "WaitForTargetReady"
 	// MigratingInProgressReason indicates that the VirtualDisk is migrating.
 	MigratingInProgressReason MigratingReason = "InProgress"
+	// MigratingWaitForTargetVolumeReleaseReason indicates that the migration cannot be reverted yet:
+	// the target PersistentVolumeClaim is still attached to a node or used by the VirtualMachine.
+	MigratingWaitForTargetVolumeReleaseReason MigratingReason = "WaitForTargetVolumeRelease"
+	// MigratingWaitForSourceVolumeReleaseReason indicates that the migration cannot be completed yet:
+	// the source PersistentVolumeClaim is still attached to a node or used by the VirtualMachine.
+	MigratingWaitForSourceVolumeReleaseReason MigratingReason = "WaitForSourceVolumeRelease"
 
 	ResizingInProgressReason     MigratingReason = "ResizingInProgress"
 	SnapshottingInProgressReason MigratingReason = "SnapshottingInProgress"

@@ -29,6 +29,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
@@ -53,7 +54,17 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-const migrationHandlerName = "MigrationHandler"
+const (
+	migrationHandlerName = "MigrationHandler"
+
+	// finalizeMigrationRequeueAfter is a delay before rechecking whether the PersistentVolumeClaim
+	// to be deleted is released: neither the virt-launcher Pod deletion nor the volume detach
+	// triggers the VirtualDisk reconciliation.
+	finalizeMigrationRequeueAfter = 5 * time.Second
+
+	targetPVCRole = "target"
+	sourcePVCRole = "source"
+)
 
 type storageClassValidator interface {
 	IsStorageClassAllowed(scName string) bool
@@ -110,9 +121,9 @@ func (h MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	case migrateSync:
 		return reconcile.Result{}, h.handleMigrateSync(ctx, vd)
 	case revert:
-		return reconcile.Result{}, h.handleRevert(ctx, vd)
+		return h.handleRevert(ctx, vd)
 	case complete:
-		return reconcile.Result{}, h.handleComplete(ctx, vd)
+		return h.handleComplete(ctx, vd)
 	case delayNewRound:
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
@@ -625,7 +636,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 	}
 
 	if pvc.Status.Phase == corev1.ClaimBound {
-		cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("The target PersistentVolumeClaim is Bound.")
+		cb.Status(metav1.ConditionTrue).Reason(vdcondition.MigratingInProgressReason).Message("The target PersistentVolumeClaim is Bound.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
@@ -654,7 +665,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 
 		isWaitForFistConsumer := sc.VolumeBindingMode == nil || *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 		if isWaitForFistConsumer {
-			cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("The target PersistentVolumeClaim is waiting for the first consumer.")
+			cb.Status(metav1.ConditionTrue).Reason(vdcondition.MigratingInProgressReason).Message("The target PersistentVolumeClaim is waiting for the first consumer.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return nil
 		}
@@ -665,17 +676,38 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 	return nil
 }
 
-func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 	log.Info("Start reverting...")
 
 	if vd.Status.MigrationState.TargetPVC == vd.Status.Target.PersistentVolumeClaim {
-		return errors.New("cannot revert: the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
+		return reconcile.Result{}, errors.New("cannot revert: the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
 	}
 
-	err := h.deleteTargetPersistentVolumeClaim(ctx, vd)
+	canFinalize, reason, err := h.canFinalizeRevert(ctx, vd)
 	if err != nil {
-		return err
+		return reconcile.Result{}, err
+	}
+	if !canFinalize {
+		log.Info("Cannot revert the migration yet, waiting for the target PersistentVolumeClaim to be released", slog.String("reason", reason))
+
+		msg := "Cannot revert the migration."
+		if reason != "" {
+			msg = msg + " " + reason
+		}
+		cb := conditions.NewConditionBuilder(vdcondition.MigratingType).
+			Generation(vd.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.MigratingWaitForTargetVolumeReleaseReason).
+			Message(msg)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
+
+		return reconcile.Result{RequeueAfter: finalizeMigrationRequeueAfter}, nil
+	}
+
+	err = h.deleteTargetPersistentVolumeClaim(ctx, vd)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 	log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 
@@ -684,16 +716,16 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 	vd.Status.MigrationState.Message = "Migration reverted."
 
 	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
-	return nil
+	return reconcile.Result{}, nil
 }
 
-func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 	log.Info("Start completing...")
 
 	targetPVC, err := h.getTargetPersistentVolumeClaim(ctx, vd)
 	if err != nil {
-		return err
+		return reconcile.Result{}, err
 	}
 
 	// If target PVC is not found, it means that the migration was not completed successfully.
@@ -706,7 +738,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 		vdsupplements.SetPVCName(vd, vd.Status.MigrationState.SourcePVC)
 		conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
-		return nil
+		return reconcile.Result{}, nil
 	}
 
 	// If target PVC is not bound, it means that the migration was not completed successfully.
@@ -716,7 +748,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 		err = h.deleteTargetPersistentVolumeClaim(ctx, vd)
 		if err != nil {
-			return err
+			return reconcile.Result{}, err
 		}
 		log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 
@@ -726,20 +758,41 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 		vdsupplements.SetPVCName(vd, vd.Status.MigrationState.SourcePVC)
 		conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
-		return nil
+		return reconcile.Result{}, nil
+	}
+
+	canFinalize, reason, err := h.canFinalizeComplete(ctx, vd)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if !canFinalize {
+		log.Info("Cannot complete the migration yet, waiting for the source PersistentVolumeClaim to be released", slog.String("reason", reason))
+
+		msg := "Cannot complete the migration."
+		if reason != "" {
+			msg = msg + " " + reason
+		}
+		cb := conditions.NewConditionBuilder(vdcondition.MigratingType).
+			Generation(vd.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.MigratingWaitForSourceVolumeReleaseReason).
+			Message(msg)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
+
+		return reconcile.Result{RequeueAfter: finalizeMigrationRequeueAfter}, nil
 	}
 
 	log.Info("Complete migration. Delete source PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
 	err = h.deleteSourcePersistentVolumeClaim(ctx, vd)
 	if err != nil {
-		return err
+		return reconcile.Result{}, err
 	}
 	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
 	// Remove quota override label from target PVC.
 	if err := object.RemoveLabel(ctx, h.client, targetPVC, annotations.QuotaExcludeLabel); err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("remove quota override label from target PVC: %w", err)
+		return reconcile.Result{}, fmt.Errorf("remove quota override label from target PVC: %w", err)
 	}
 
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
@@ -752,7 +805,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	vdsupplements.SetPVCName(vd, vd.Status.MigrationState.TargetPVC)
 
 	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
-	return nil
+	return reconcile.Result{}, nil
 }
 
 func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachineOperation, error) {
@@ -989,4 +1042,125 @@ func isMigrationStarted(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) b
 	state := vm.Status.MigrationState
 
 	return state != nil && state.StartTimestamp != nil && state.StartTimestamp.After(vdStart.Time)
+}
+
+func (h MigrationHandler) canFinalizeRevert(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
+	return h.canDeletePersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.TargetPVC, targetPVCRole)
+}
+
+func (h MigrationHandler) canFinalizeComplete(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {
+	return h.canDeletePersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.SourcePVC, sourcePVCRole)
+}
+
+// canDeletePersistentVolumeClaim reports whether the PersistentVolumeClaim is not used anymore and
+// can be deleted. The returned string is a user-facing reason explaining why it cannot.
+//
+// The claim is considered to be in use when it is referenced by the internal resources or by the pods
+// of the VirtualMachine the VirtualDisk is currently mounted to. When the VirtualDisk is not mounted
+// to any VirtualMachine, nothing can be using the claim.
+func (h MigrationHandler) canDeletePersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, pvcName, role string) (bool, string, error) {
+	pvc, err := object.FetchObject(ctx, types.NamespacedName{Name: pvcName, Namespace: vd.Namespace}, h.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return false, "", err
+	}
+
+	// The claim is already gone, so there is nothing to delete and nothing to hold the migration.
+	if pvc == nil {
+		return true, "", nil
+	}
+
+	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
+	if currentlyMountedVM == "" {
+		return true, "", nil
+	}
+
+	vmKey := types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}
+	vm, kvvm, kvvmi, err := h.getVirtualMachines(ctx, vmKey)
+	if err != nil {
+		return false, "", err
+	}
+
+	if kvvmHasPVC(kvvm, pvcName) || kvvmiHasPVC(kvvmi, pvcName) {
+		return false, fmt.Sprintf("The %s PersistentVolumeClaim %q is still in use by the VirtualMachine %q.", role, pvcName, currentlyMountedVM), nil
+	}
+
+	if vm == nil {
+		return true, "", nil
+	}
+
+	pods, err := h.getActivePods(ctx, vm)
+	if err != nil {
+		return false, "", err
+	}
+
+	for _, pod := range pods {
+		if podHasPVC(pod, pvcName) {
+			logger.FromContext(ctx).Debug("The PersistentVolumeClaim is still in use by a pod",
+				slog.String("pvc.name", pvcName), slog.String("pod.name", pod.Name))
+			return false, fmt.Sprintf("The %s PersistentVolumeClaim %q is still in use by the running VirtualMachine %q.", role, pvcName, currentlyMountedVM), nil
+		}
+	}
+
+	return true, "", nil
+}
+
+func (h MigrationHandler) getVirtualMachines(ctx context.Context, key types.NamespacedName) (*v1alpha2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, error) {
+	vm, err := object.FetchObject(ctx, key, h.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	kvvm, err := object.FetchObject(ctx, key, h.client, &virtv1.VirtualMachine{})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	kvvmi, err := object.FetchObject(ctx, key, h.client, &virtv1.VirtualMachineInstance{})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return vm, kvvm, kvvmi, nil
+}
+
+func podHasPVC(pod *corev1.Pod, pvcName string) bool {
+	return pod != nil && slices.ContainsFunc(pod.Spec.Volumes, func(volume corev1.Volume) bool {
+		return volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == pvcName
+	})
+}
+
+func kvvmHasPVC(kvvm *virtv1.VirtualMachine, pvcName string) bool {
+	return kvvm != nil && kvvmiSpecHasPVC(kvvm.Spec.Template.Spec, pvcName)
+}
+
+func kvvmiHasPVC(kvvmi *virtv1.VirtualMachineInstance, pvcName string) bool {
+	return kvvmi != nil && kvvmiSpecHasPVC(kvvmi.Spec, pvcName)
+}
+
+func kvvmiSpecHasPVC(spec virtv1.VirtualMachineInstanceSpec, pvcName string) bool {
+	return slices.ContainsFunc(spec.Volumes, func(volume virtv1.Volume) bool {
+		return volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == pvcName
+	})
+}
+
+func (h MigrationHandler) getActivePods(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]*corev1.Pod, error) {
+	podList := corev1.PodList{}
+	err := h.client.List(ctx, &podList, &client.ListOptions{
+		Namespace:     vm.GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to list pods for virtual machine %q: %w", vm.GetName(), err)
+	}
+
+	var result []*corev1.Pod
+	for _, pod := range podList.Items {
+		if pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded {
+			continue
+		}
+
+		result = append(result, &pod)
+	}
+
+	return result, nil
 }
