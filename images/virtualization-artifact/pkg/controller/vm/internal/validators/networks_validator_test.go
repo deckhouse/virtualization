@@ -18,6 +18,7 @@ package validators
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -503,6 +504,29 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 			t.Fatalf("expected success with CIDRs for empty spec.networks, got: %v", err)
 		}
 	})
+}
+
+// Regression: without virtualMachineCIDRs, Main is unavailable (see
+// TestNetworksValidatorMainRequiresCIDRs), so the only spec.networks a VM could use
+// is a non-Main list - which itself requires SDN. Without SDN too, the VM has no way
+// to get any network at all, and the error must say so instead of leaving the user to
+// discover it via a stuck "waiting for ClusterNetwork" reconcile message.
+func TestNetworksValidateSDNRequiredWithoutCIDRs(t *testing.T) {
+	v := newNetworksValidator(t, networkValidatorOpts{
+		sdnEnabled: false,
+	})
+
+	vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{networkTest}}}
+	_, err := v.ValidateCreate(t.Context(), vm)
+	if err == nil {
+		t.Fatalf("expected error: a non-Main network requires SDN, which is disabled")
+	}
+	if !strings.Contains(err.Error(), "SDN") {
+		t.Fatalf("expected the error to mention SDN, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "virtualMachineCIDRs") {
+		t.Fatalf("expected the error to explain that Main is unavailable due to missing virtualMachineCIDRs, got: %v", err)
+	}
 }
 
 func TestNetworksValidatesExistence(t *testing.T) {
