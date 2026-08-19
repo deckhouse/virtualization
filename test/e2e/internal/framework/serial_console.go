@@ -44,7 +44,7 @@ const (
 // live domain in the test namespace. When a guest boots but never brings up the
 // guest agent / SSH (agent stays not-ready for minutes on a VM that is Running),
 // the VNC screenshot only shows the final frame — the serial console shows the
-// kernel and init output that pins WHERE boot wedged. The e2e-br image runs a
+// kernel and init output that pins WHERE boot wedged. The custom image runs a
 // getty on ttyS0, so a nudge (newline) yields either the last messages or the
 // login prompt. The virt-launcher pod dies with the namespace, so this must be
 // captured here, before cleanup.

@@ -62,6 +62,19 @@ func FindDefaultStorageClass(scList *storagev1.StorageClassList) *storagev1.Stor
 	return &defaultClasses[0]
 }
 
+// IsStorageClassNameOverridden reports whether StorageClassNameEnv is set to a
+// non-empty name. When it is not, resources are expected to be created without
+// an explicit StorageClass so that the cluster default StorageClass applies.
+func IsStorageClassNameOverridden() bool {
+	return StorageClassNameOverride() != ""
+}
+
+// StorageClassNameOverride returns the StorageClass name from StorageClassNameEnv,
+// or an empty string when the override is not set.
+func StorageClassNameOverride() string {
+	return os.Getenv(StorageClassNameEnv)
+}
+
 // ResolveDefaultStorageClass returns the StorageClass for the suite: an explicit
 // STORAGE_CLASS_NAME override when set, otherwise the cluster default StorageClass.
 func ResolveDefaultStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {

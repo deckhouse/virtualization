@@ -29,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
+	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
@@ -107,25 +108,32 @@ func (r *iperfReport) endTime() time.Time {
 func waitForIPerfServerToStart(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	command := "rc-service iperf3 status --nocolor"
-	Eventually(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+	// EXCEPTION: this polls a guest-side process over SSH, not a Kubernetes
+	// resource, so there is nothing to observe via an Observer and a polling
+	// wait is used deliberately.
+	// BusyBox has no pgrep; pidof is the baked-in equivalent.
+	command := "pidof iperf3"
+	eventually.Until(func() error {
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
-		if strings.Contains(stdout, "status: started") {
-			return nil
+		if strings.TrimSpace(stdout) == "" {
+			return fmt.Errorf("iperf3 server is not started yet")
 		}
-		return fmt.Errorf("iperf3 server is not started yet: %s", stdout)
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+		return nil
+	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
 }
 
 func waitForIPerfClientToStart(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	command := "pgrep -x iperf3"
-	Eventually(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+	// EXCEPTION: this polls a guest-side process over SSH, not a Kubernetes
+	// resource, so a polling wait is used deliberately.
+	// BusyBox has no pgrep; pidof is the baked-in equivalent.
+	command := "pidof iperf3"
+	eventually.Until(func() error {
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
@@ -133,20 +141,23 @@ func waitForIPerfClientToStart(f *framework.Framework, vm *v1alpha2.VirtualMachi
 			return fmt.Errorf("iperf3 client is not running yet")
 		}
 		return nil
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
 }
 
 func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	command := "pkill -INT -x iperf3"
-	Eventually(func() error {
-		_, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+	// EXCEPTION: this retries a guest-side signal delivery over SSH, not a
+	// Kubernetes resource, so a polling wait is used deliberately.
+	// BusyBox has no pkill; signal the PIDs that pidof reports.
+	command := "kill -INT $(pidof iperf3)"
+	eventually.Until(func() error {
+		_, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
 		return nil
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
 }
 
 // getIPerfClientReport reads and parses the long-running iperf3 client report
@@ -156,8 +167,10 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 
 	command := fmt.Sprintf("cat %s", reportPath)
 	var result *iperfReport
-	Eventually(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
+	// EXCEPTION: this polls for the guest-side iperf3 report file to be fully
+	// written, not a Kubernetes resource, so a polling wait is used deliberately.
+	eventually.Until(func() error {
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
@@ -170,7 +183,7 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 		}
 		result = report
 		return nil
-	}).WithTimeout(framework.LongTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+	}, framework.LongTimeout, eventually.WithPolling(framework.PollingInterval))
 
 	Expect(result).NotTo(BeNil())
 

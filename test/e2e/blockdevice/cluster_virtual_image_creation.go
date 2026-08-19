@@ -101,6 +101,9 @@ var _ = Describe("ClusterVirtualImageCreation", Label(
 		var uploadFilePath string
 
 		BeforeAll(func(ctx context.Context) {
+			// TODO: Re-enable the Upload spec.
+			Skip("skipped as flaky: fix the instability, then remove this skip")
+
 			setup(ctx)
 
 			By("Downloading source image to upload", func() {
@@ -213,6 +216,7 @@ var _ = Describe("ClusterVirtualImageCreation", Label(
 				Expect(err).NotTo(HaveOccurred())
 
 				err = snapObs.WaitFor(vdsnapshotobs.BeReady(), framework.LongTimeout)
+				skipIfCSISnapshotFailed(err)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

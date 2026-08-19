@@ -19,7 +19,7 @@ package vm
 import (
 	"context"
 	"fmt"
-	"time"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,8 +31,10 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	e2eutil "github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -40,12 +42,19 @@ type buildOption struct {
 	name         string
 	storageClass *string
 	rwo          bool
+	// size overrides the disk size; empty means the default for the disk kind
+	// (400Mi for a root disk from a VirtualImage, 100Mi for a blank disk).
+	size string
 }
 
 func newRootVD(f *framework.Framework, root buildOption, vi *v1alpha2.VirtualImage) *v1alpha2.VirtualDisk {
+	size := root.size
+	if size == "" {
+		size = "400Mi"
+	}
 	disk := object.NewVDFromVI(root.name, f.Namespace().Name, vi)
 	vdbuilder.ApplyOptions(disk,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+		vdbuilder.WithSize(ptr.To(resource.MustParse(size))),
 		vdbuilder.WithStorageClass(root.storageClass),
 	)
 
@@ -59,7 +68,11 @@ func newRootVD(f *framework.Framework, root buildOption, vi *v1alpha2.VirtualIma
 }
 
 func newBlankVD(f *framework.Framework, additional buildOption) *v1alpha2.VirtualDisk {
-	blank := object.NewBlankVD(additional.name, f.Namespace().Name, additional.storageClass, ptr.To(resource.MustParse("100Mi")))
+	size := additional.size
+	if size == "" {
+		size = "100Mi"
+	}
+	blank := object.NewBlankVD(additional.name, f.Namespace().Name, additional.storageClass, ptr.To(resource.MustParse(size)))
 
 	if additional.rwo {
 		vdbuilder.ApplyOptions(blank,
@@ -78,7 +91,6 @@ func onlyRootBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root build
 				Name: root.name,
 			},
 		),
-		vmbuilder.WithCPU(1, ptr.To("100%")),
 	)
 	vds := []*v1alpha2.VirtualDisk{newRootVD(f, root, vi)}
 	return vm, vds
@@ -96,7 +108,6 @@ func rootAndAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, r
 				Name: additional.name,
 			},
 		),
-		vmbuilder.WithCPU(1, ptr.To("100%")),
 	)
 	vds := []*v1alpha2.VirtualDisk{
 		newRootVD(f, root, vi),
@@ -117,7 +128,6 @@ func rootAndManyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImag
 	}
 	vm := object.NewMinimalVM("volume-migration-many-disks-", f.Namespace().Name,
 		vmbuilder.WithBlockDeviceRefs(refs...),
-		vmbuilder.WithCPU(1, ptr.To("100%")),
 	)
 	return vm, vds
 }
@@ -136,7 +146,6 @@ func onlyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root
 				Name: additional.name,
 			},
 		),
-		vmbuilder.WithCPU(1, ptr.To("100%")),
 	)
 	vds := []*v1alpha2.VirtualDisk{
 		newRootVD(f, root, vi),
@@ -145,73 +154,93 @@ func onlyAdditionalBuild(f *framework.Framework, vi *v1alpha2.VirtualImage, root
 	return vm, vds
 }
 
-func untilVirtualDisksMigrationsSucceeded(f *framework.Framework) {
+// startVDObservers arms a VirtualDisk observer per disk. Call it before
+// triggering a volume migration so the migration transitions (including a
+// migration that finishes quickly) are captured for the expect* waits below.
+func startVDObservers(ctx context.Context, f *framework.Framework, vds ...*v1alpha2.VirtualDisk) []vdobs.Observer {
+	GinkgoHelper()
+	observers := make([]vdobs.Observer, 0, len(vds))
+	for _, vd := range vds {
+		observers = append(observers, vdobs.StartObserver(ctx, f, vd))
+	}
+	return observers
+}
+
+// expectVDsMigrationSucceeded waits, via the pre-armed VirtualDisk observers,
+// until every disk reports a finished, successful volume migration and has
+// settled back on Ready with the target PVC in place.
+func expectVDsMigrationSucceeded(ctx context.Context, f *framework.Framework, observers []vdobs.Observer, vds ...*v1alpha2.VirtualDisk) {
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations succeeded")
-	Eventually(func(g Gomega) {
-		vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
-		for _, vm := range vms.Items {
-			// TODO: remove temporary migration skip logic when both known issues are fixed:
-			// kubevirt "client socket is closed" and Volume(s)UpdateError.
-			e2eutil.SkipIfKnownMigrationFailure(&vm)
+	for i, obs := range observers {
+		err := obs.WaitFor(vdobs.BeMigrationSucceeded(), framework.MaxTimeout)
+		if err != nil {
+			skipIfKnownMigrationFailures(ctx, f)
 		}
-
-		vds, err := f.VirtClient().VirtualDisks(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
-
-		g.Expect(vds.Items).ShouldNot(BeEmpty())
-		for _, vd := range vds.Items {
-			g.Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
-			g.Expect(vd.Status.Target.PersistentVolumeClaim).ShouldNot(BeEmpty())
-
-			if vd.Status.MigrationState.StartTimestamp.IsZero() {
-				// Skip the disks that are not migrated
-				continue
-			}
-
-			g.Expect(vd.Status.MigrationState.EndTimestamp.IsZero()).Should(BeFalse(), "migration is not ended for vd %s", vd.Name)
-			g.Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal(vd.Status.MigrationState.TargetPVC))
-			g.Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
-		}
-	}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+		Expect(err).NotTo(HaveOccurred(), "VirtualDisk %s/%s should finish its volume migration successfully", vds[i].Namespace, vds[i].Name)
+	}
 }
 
-func untilVirtualDisksMigrationsFailed(f *framework.Framework) {
+// expectVDsMigrationFailed waits, via the pre-armed VirtualDisk observers,
+// until every disk reports a finished, failed volume migration and has been
+// reverted to its source PVC.
+func expectVDsMigrationFailed(ctx context.Context, f *framework.Framework, observers []vdobs.Observer, vds ...*v1alpha2.VirtualDisk) {
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations failed")
-	Eventually(func(g Gomega) {
-		vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
-		for _, vm := range vms.Items {
-			// TODO: remove temporary migration skip logic when both known issues are fixed:
-			// kubevirt "client socket is closed" and Volume(s)UpdateError.
-			e2eutil.SkipIfKnownMigrationFailure(&vm)
+	for i, obs := range observers {
+		err := obs.WaitFor(vdobs.BeMigrationFailed(), framework.LongTimeout)
+		if err != nil {
+			skipIfVolumeMigrationOutranTheCancel(err, vds[i])
+			skipIfKnownMigrationFailures(ctx, f)
 		}
-
-		vds, err := f.VirtClient().VirtualDisks(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
-
-		g.Expect(vds.Items).ShouldNot(BeEmpty())
-		for _, vd := range vds.Items {
-			g.Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
-			g.Expect(vd.Status.Target.PersistentVolumeClaim).ShouldNot(BeEmpty())
-
-			if vd.Status.MigrationState.StartTimestamp.IsZero() {
-				// Skip the disks that are not migrated
-				continue
-			}
-
-			g.Expect(vd.Status.MigrationState.EndTimestamp.IsZero()).Should(BeFalse(), "migration is not ended for vd %s", vd.Name)
-			g.Expect(vd.Status.MigrationState.SourcePVC).Should(Equal(vd.Status.Target.PersistentVolumeClaim))
-			g.Expect(vd.Status.MigrationState.TargetPVC).ShouldNot(BeEmpty())
-			g.Expect(vd.Status.MigrationState.Result).Should(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
-		}
-	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+		Expect(err).NotTo(HaveOccurred(), "VirtualDisk %s/%s volume migration should fail and revert", vds[i].Namespace, vds[i].Name)
+	}
 }
 
+// skipIfVolumeMigrationOutranTheCancel skips the spec when the volume migration
+// completed before the cancel could take effect, leaving nothing to revert.
+//
+// The revert specs cancel a migration that is already under way, so they need
+// the copy to outlast the round trip between observing "migrating" and deleting
+// the VirtualMachineOperation. How long that copy takes belongs to the storage
+// class: one that provisions the target volume up front (Immediate binding)
+// finishes a small disk in a blink, while WaitForFirstConsumer spends seconds
+// creating the target PVC first and leaves a comfortable window. Losing that
+// race says nothing about the revert path, so the spec steps aside instead of
+// failing - and a cancel that stopped working altogether would show up as this
+// spec never running at all.
+func skipIfVolumeMigrationOutranTheCancel(err error, vd *v1alpha2.VirtualDisk) {
+	GinkgoHelper()
+
+	if err == nil || !strings.Contains(err.Error(), "migration succeeded, expected it to fail") {
+		return
+	}
+
+	Skip(fmt.Sprintf("skip: volume migration of %s/%s completed before the cancel landed, the revert path was not exercised", vd.Namespace, vd.Name))
+}
+
+// skipIfKnownMigrationFailures skips the spec when any VM in the namespace
+// shows a known infrastructure migration failure.
+//
+// TODO: remove temporary migration skip logic when both known issues are fixed:
+// kubevirt "client socket is closed" and Volume(s)UpdateError.
+func skipIfKnownMigrationFailures(ctx context.Context, f *framework.Framework) {
+	GinkgoHelper()
+
+	vms, err := f.VirtClient().VirtualMachines(f.Namespace().Name).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	for _, vm := range vms.Items {
+		e2eutil.SkipIfKnownMigrationFailureWithContext(ctx, &vm)
+	}
+}
+
+// EXCEPTION: this is an act-on-event loop, not a plain wait, and it operates
+// on VMOPs created asynchronously by the controller with generated names the
+// test cannot know in advance. The observer framework watches a single named
+// object, so a polling wait is used deliberately here: each iteration re-lists
+// the VMOPs and deletes those whose migration just started.
 func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.Framework) {
 	GinkgoHelper()
 
@@ -220,7 +249,7 @@ func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.F
 	someCompleted := false
 
 	By("wait when migrations will be start migrating")
-	Eventually(func() error {
+	eventually.Until(func() error {
 		vmops, err := f.VirtClient().VirtualMachineOperations(namespace).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -270,7 +299,11 @@ func untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f *framework.F
 			}
 		}
 		return fmt.Errorf("retry because not all vmops canceled")
-	}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
+	},
+		// MaxTimeout: the revert specs run in parallel with the other migration
+		// suites and queue behind kubevirt's parallelMigrationsPerCluster limit,
+		// so the migration start alone can take several minutes.
+		framework.MaxTimeout)
 
 	Expect(someCompleted).Should(BeFalse())
 }

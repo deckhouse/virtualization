@@ -29,24 +29,28 @@ var _ = Describe("jsonPatchOpsForMetadataMap", func() {
 	const path = "/metadata/labels"
 
 	DescribeTable("chooses the mutation op based on the current map",
-		func(current, changed map[string]string, expectedOp string) {
+		func(current, changed map[string]string, expectedOp string, expectTest bool) {
 			ops := jsonPatchOpsForMetadataMap(path, current, changed)
 
-			Expect(ops).To(HaveLen(2))
+			if expectTest {
+				Expect(ops).To(HaveLen(2))
+				Expect(ops[0].Op).To(Equal(patch.PatchTestOp))
+				Expect(ops[0].Path).To(Equal(path))
+				ops = ops[1:]
+			} else {
+				Expect(ops).To(HaveLen(1))
+			}
 
-			Expect(ops[0].Op).To(Equal(patch.PatchTestOp))
+			Expect(ops[0].Op).To(Equal(expectedOp))
 			Expect(ops[0].Path).To(Equal(path))
-
-			Expect(ops[1].Op).To(Equal(expectedOp))
-			Expect(ops[1].Path).To(Equal(path))
-			Expect(ops[1].Value).To(Equal(changed))
+			Expect(ops[0].Value).To(Equal(changed))
 		},
-		// Object has no labels at all: replace would be rejected by the API server,
-		// so the patch must use add to create the field.
-		Entry("nil current map uses add", nil, map[string]string{"a": "b"}, patch.PatchAddOp),
-		Entry("empty current map uses add", map[string]string{}, map[string]string{"a": "b"}, patch.PatchAddOp),
+		// Object has no labels at all: both replace and test against the missing path
+		// would be rejected by the API server, so the patch must be a bare add.
+		Entry("nil current map uses bare add", nil, map[string]string{"a": "b"}, patch.PatchAddOp, false),
+		Entry("empty current map uses add with test", map[string]string{}, map[string]string{"a": "b"}, patch.PatchAddOp, true),
 		// Object already has labels: replace updates the existing field.
-		Entry("non-empty current map uses replace", map[string]string{"x": "y"}, map[string]string{"a": "b"}, patch.PatchReplaceOp),
+		Entry("non-empty current map uses replace with test", map[string]string{"x": "y"}, map[string]string{"a": "b"}, patch.PatchReplaceOp, true),
 	)
 })
 

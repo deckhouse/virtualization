@@ -48,6 +48,7 @@ type Kubectl interface {
 	Create(filepath string, opts CreateOptions) *executor.CMDResult
 	CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult
 	Get(resource Resource, opts GetOptions) *executor.CMDResult
+	GetContext(ctx context.Context, resource Resource, opts GetOptions) *executor.CMDResult
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
@@ -57,6 +58,7 @@ type Kubectl interface {
 	Patch(filepath string, opts PatchOptions) *executor.CMDResult
 	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
+	RawCommandContext(ctx context.Context, subCmd string, timeout time.Duration) *executor.CMDResult
 }
 
 type Options interface {
@@ -210,9 +212,13 @@ func (k KubectlCMD) CreateResource(resource Resource, name string, opts CreateOp
 }
 
 func (k KubectlCMD) Get(resource Resource, opts GetOptions) *executor.CMDResult {
+	return k.GetContext(context.Background(), resource, opts)
+}
+
+func (k KubectlCMD) GetContext(ctx context.Context, resource Resource, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
+	ctx, cancel := context.WithTimeout(ctx, MediumTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
@@ -273,8 +279,12 @@ func (k KubectlCMD) WaitResources(resource Resource, opts WaitOptions, names ...
 }
 
 func (k KubectlCMD) RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult {
+	return k.RawCommandContext(context.Background(), subCmd, timeout)
+}
+
+func (k KubectlCMD) RawCommandContext(ctx context.Context, subCmd string, timeout time.Duration) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s %s", k.cmd, subCmd)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }

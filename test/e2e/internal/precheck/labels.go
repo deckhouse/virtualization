@@ -43,6 +43,10 @@ const (
 	// PrecheckVirtualization - test requires virtualization module to be enabled.
 	PrecheckVirtualization = "virtualization-precheck"
 
+	// PrecheckMigrationLimits - test requires the migration limits to be disabled
+	// on the virtualization ModuleConfig.
+	PrecheckMigrationLimits = "migration-limits-precheck"
+
 	// PrecheckUSB - test requires USB device with dummy_hcd to be configured.
 	PrecheckUSB = "usb-precheck"
 
@@ -86,6 +90,7 @@ func KnownPrecheckLabels() []string {
 		PrecheckRWOImmediateStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
+		PrecheckMigrationLimits,
 		PrecheckUSB,
 		PrecheckAffinityToleration,
 		PrecheckTargetMigration,

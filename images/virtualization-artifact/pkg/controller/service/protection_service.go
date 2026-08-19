@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,6 +93,17 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 
 			err = s.client.Patch(ctx, obj, patch)
 			if err != nil {
+				// The deletionTimestamp check above ran on a possibly stale (informer
+				// cache) copy: the object may have started deleting since, and the API
+				// server rejects adding finalizers to a terminating object with a 422
+				// ("no new finalizers can be added if the object is being deleted").
+				// An object that is already going away no longer needs protection, so
+				// treat both this and NotFound as "nothing to protect" instead of
+				// failing the whole reconcile.
+				if apierrors.IsNotFound(err) || strings.Contains(err.Error(), "no new finalizers can be added if the object is being deleted") {
+					controllerutil.RemoveFinalizer(obj, s.finalizer)
+					continue
+				}
 				return fmt.Errorf("failed to add finalizer %q on the %q, %q: %w", s.finalizer, kind, obj.GetName(), err)
 			}
 		}

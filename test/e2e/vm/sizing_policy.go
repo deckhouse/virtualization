@@ -37,12 +37,37 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmclassobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmclass"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
+// startVMClassObserver starts a VirtualMachineClass observer by name. The test
+// builds the class as v1alpha3 while the observer watches through the v1alpha2
+// client; both address the same cluster-scoped resource.
+func startVMClassObserver(ctx context.Context, f *framework.Framework, name string) vmclassobs.Observer {
+	GinkgoHelper()
+	return vmclassobs.StartObserver(ctx, f, &v1alpha2.VirtualMachineClass{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	})
+}
+
+// sizingPolicyMatchedReason reports the SizingPolicyMatched condition carries
+// the given reason.
+func sizingPolicyMatchedReason(reason vmcondition.SizingPolicyMatchedReason) vmobs.Predicate {
+	return func(m *v1alpha2.VirtualMachine) (bool, error) {
+		for _, c := range m.Status.Conditions {
+			if c.Type == vmcondition.TypeSizingPolicyMatched.String() {
+				return c.Reason == reason.String(), nil
+			}
+		}
+		return false, nil
+	}
+}
+
+var _ = Describe("SizingPolicy", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	var (
 		t   *sizingPolicyTest
 		f   *framework.Framework
@@ -63,14 +88,19 @@ var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
 		vmClassName := fmt.Sprintf("%s-vmclass", f.Namespace().Name)
 		t.GenerateSizingPolicyResources(vmClassName, vmClassName)
 
+		classObs := startVMClassObserver(ctx, f, t.VMClass.Name)
 		err := f.CreateWithDeferredDeletion(ctx, t.VMClass)
 		Expect(err).NotTo(HaveOccurred())
-		util.UntilObjectPhase(ctx, string(v1alpha2.ClassPhaseReady), framework.ShortTimeout, t.VMClass)
+		err = classObs.WaitFor(vmclassobs.BeReady(), framework.ShortTimeout)
+		Expect(err).NotTo(HaveOccurred())
 		err = f.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM agent to be ready")
-		util.UntilVMAgentReady(ctx, client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		vmObs := vmobs.StartObserver(ctx, f, t.VM)
+		vmObs.Never(vmobs.BeFailed())
+		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Validating VM by VMClass")
 		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
@@ -83,22 +113,22 @@ var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
 
 		err := f.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
+		vmObs := vmobs.StartObserver(ctx, f, t.VM)
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
-		util.UntilConditionReason(
-			ctx,
-			vmcondition.TypeSizingPolicyMatched.String(),
-			vmcondition.ReasonVirtualMachineClassNotFound.String(),
+		err = vmObs.WaitFor(
+			sizingPolicyMatchedReason(vmcondition.ReasonVirtualMachineClassNotFound),
 			framework.LongTimeout,
-			t.VM,
 		)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating VMClass")
 		err = f.CreateWithDeferredDeletion(ctx, t.VMClass)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
-		util.UntilVMAgentReady(ctx, client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Validating VM by VMClass")
 		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
@@ -112,15 +142,14 @@ var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
 
 		err := f.CreateWithDeferredDeletion(ctx, t.VMClass, t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
+		vmObs := vmobs.StartObserver(ctx, f, t.VM)
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
-		util.UntilConditionReason(
-			ctx,
-			vmcondition.TypeSizingPolicyMatched.String(),
-			vmcondition.ReasonVirtualMachineClassNotFound.String(),
+		err = vmObs.WaitFor(
+			sizingPolicyMatchedReason(vmcondition.ReasonVirtualMachineClassNotFound),
 			framework.LongTimeout,
-			t.VM,
 		)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Changing VMClass")
 		patch, err := json.Marshal([]map[string]interface{}{{
@@ -133,7 +162,8 @@ var _ = Describe("SizingPolicy", Label(precheck.NoPrecheck), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
-		util.UntilVMAgentReady(ctx, client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Validating VM by VMClass")
 		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
@@ -155,10 +185,14 @@ func newSizingPolicyTest(f *framework.Framework) *sizingPolicyTest {
 }
 
 func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNameInVM string) {
-	t.VD = object.NewVDFromCVI("vd", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+	t.VD = object.NewVDFromCVI("vd", t.Framework.Namespace().Name, object.PrecreatedCVICustomBIOS,
+		vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))),
 	)
 
+	// The custom image has no cloud-init; the guest agent is baked in,
+	// so no provisioning is configured. The sizing policy below is written
+	// around the custom-image sizing (its memory minimum is that size), so the
+	// VM validated against it stays as small as every other VM in the suites.
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
@@ -167,10 +201,9 @@ func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNam
 			Name: t.VD.Name,
 		}),
 		vmbuilder.WithVirtualMachineClass(vmClassNameInVM),
-		vmbuilder.WithCPU(1, ptr.To("100%")),
-		vmbuilder.WithMemory(resource.MustParse("1Gi")),
+		vmbuilder.WithCPU(1, ptr.To(object.CustomImageVMCoreFraction)),
+		vmbuilder.WithMemory(resource.MustParse(object.CustomImageVMMemory)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
 	)
 
 	t.VMClass = &v1alpha3.VirtualMachineClass{
@@ -212,10 +245,10 @@ func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNam
 					},
 					Memory: &v1alpha3.SizingPolicyMemory{
 						MemoryMinMax: v1alpha3.MemoryMinMax{
-							Min: ptr.To(resource.MustParse("1Gi")),
-							Max: ptr.To(resource.MustParse("8Gi")),
+							Min: ptr.To(resource.MustParse(object.CustomImageVMMemory)),
+							Max: ptr.To(resource.MustParse("128Mi")),
 						},
-						Step: ptr.To(resource.MustParse("512Mi")),
+						Step: ptr.To(resource.MustParse(object.CustomImageVMMemory)),
 					},
 					CoreFractions: []v1alpha3.CoreFractionValue{
 						"5%",

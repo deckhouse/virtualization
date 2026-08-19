@@ -251,6 +251,12 @@ spec:
  */}}
 {{- define "kubevirt.parallel_migrations_per_cluster" -}}
 {{- $default := 2 -}}
+{{- if eq (.Values.virtualization.internal | dig "virtConfig" "parallelPerClusterMigrationLimit" "") "disabled" -}}
+{{- /* "disabled" lifts the cluster-wide cap; per-node limits still bound it.
+ KubeVirt cannot switch the cap off, so 1000000 (far above any realistic
+ migration count) stands in for "unlimited". */ -}}
+{{- 1000000 -}}
+{{- else -}}
 {{- $phase := .Values.virtualization.internal | dig "virtConfig" "phase" "<missing>" -}}
 {{- if eq $phase "<missing>" -}}
 {{-   $default -}}
@@ -260,6 +266,7 @@ spec:
 {{-   else -}}
 {{-     .Values.virtualization.internal | dig "virtConfig" "parallelMigrationsPerCluster" $default -}}
 {{-   end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 
@@ -273,7 +280,9 @@ spec:
 
 {{- define "kubevirt.parallel_outbound_migrations_per_node" -}}
 {{- if eq (.Values.virtualization.internal | dig "virtConfig" "outboundMigrationLimit" "") "disabled" -}}
-{{- /* "disabled" lifts the per-node outbound cap; cluster total still bounds it. */ -}}
+{{- /* "disabled" lifts the per-node outbound cap; cluster total still bounds it.
+ KubeVirt cannot switch the cap off, so 1000000 (far above any realistic
+ migration count) stands in for "unlimited". */ -}}
 {{- 1000000 -}}
 {{- else -}}
 {{- .Values.virtualization.internal | dig "virtConfig" "parallelOutboundMigrationsPerNode" 2 -}}

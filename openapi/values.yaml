@@ -158,6 +158,8 @@ properties:
             type: string
           syncMigrationLimit:
             type: string
+          parallelPerClusterMigrationLimit:
+            type: string
           progressTimeout:
             type: integer
           disableTLS:

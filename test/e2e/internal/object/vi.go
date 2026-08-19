@@ -19,7 +19,33 @@ package object
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 )
+
+// NewVI builds a VirtualImage and, when it is backed by a PersistentVolumeClaim,
+// pins it to the same StorageClass as the disks: see NewVD.
+func NewVI(opts ...vi.Option) *v1alpha2.VirtualImage {
+	image := vi.New(opts...)
+	OverrideImageStorageClass(image)
+	return image
+}
+
+// OverrideImageStorageClass sets the STORAGE_CLASS_NAME StorageClass on a
+// PVC-backed VirtualImage that has none.
+func OverrideImageStorageClass(image *v1alpha2.VirtualImage) {
+	if image == nil || image.Spec.Storage != v1alpha2.StoragePersistentVolumeClaim {
+		return
+	}
+	if sc := image.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
+		return
+	}
+
+	if !config.IsStorageClassNameOverridden() {
+		return
+	}
+	scName := config.StorageClassNameOverride()
+	image.Spec.PersistentVolumeClaim.StorageClass = &scName
+}
 
 func NewGeneratedHTTPVIAlpineBIOS(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
 	baseOpts := []vi.Option{
@@ -31,11 +57,11 @@ func NewGeneratedHTTPVIAlpineBIOS(prefix, namespace string, opts ...vi.Option) *
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
 	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
+	return NewVI(baseOpts...)
 }
 
 // NewGeneratedHTTPVICustomBIOS builds a VirtualImage sourced over HTTP from the
-// custom e2e-br image. Used by the blockdevice suite; the AlpineBIOS variant is
+// custom image. Used by the blockdevice suite; the AlpineBIOS variant is
 // left for the other suites that rely on it.
 func NewGeneratedHTTPVICustomBIOS(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
 	baseOpts := []vi.Option{
@@ -47,7 +73,7 @@ func NewGeneratedHTTPVICustomBIOS(prefix, namespace string, opts ...vi.Option) *
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
 	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
+	return NewVI(baseOpts...)
 }
 
 func NewGeneratedHTTPVIAlpineBIOSPerf(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
@@ -60,7 +86,7 @@ func NewGeneratedHTTPVIAlpineBIOSPerf(prefix, namespace string, opts ...vi.Optio
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	}
 	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
+	return NewVI(baseOpts...)
 }
 
 func NewGeneratedContainerImageVI(prefix, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
@@ -71,7 +97,7 @@ func NewGeneratedContainerImageVI(prefix, namespace string, opts ...vi.Option) *
 		vi.WithDataSourceContainerImage(ImageURLContainerImage, v1alpha2.ImagePullSecretName{}, nil),
 	}
 	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
+	return NewVI(baseOpts...)
 }
 
 func NewGeneratedVIFromCVI(prefix, namespace, cviName string, opts ...vi.Option) *v1alpha2.VirtualImage {
@@ -82,5 +108,5 @@ func NewGeneratedVIFromCVI(prefix, namespace, cviName string, opts ...vi.Option)
 		vi.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, cviName),
 	}
 	baseOpts = append(baseOpts, opts...)
-	return vi.New(baseOpts...)
+	return NewVI(baseOpts...)
 }

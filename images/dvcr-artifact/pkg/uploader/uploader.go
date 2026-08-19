@@ -80,6 +80,7 @@ type Server struct {
 
 	startListeningChan chan struct{}
 	stopListeningChan  chan struct{}
+	stopOnce           sync.Once
 	errChan            chan error
 
 	healthzServer *http.Server
@@ -163,7 +164,7 @@ func (s *Server) Run() error {
 	select {
 	case err = <-s.errChan:
 	case <-s.stopListeningChan:
-		klog.Info("Shutting down http server after successful upload")
+		klog.Info("Shutting down http server: the upload has reached its verdict")
 	case <-exit:
 		klog.Errorf("Shutting down http server")
 	}
@@ -255,14 +256,43 @@ func (s *Server) processUpload(w http.ResponseWriter, r *http.Request, dvContent
 	if err != nil {
 		klog.Errorf("Saving stream failed: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
+
+		// A permanent error (a checksum mismatch, most notably) is a verdict,
+		// not a breakdown: the termination message already carries it, so exit
+		// with code 0 and let the pod complete. Exiting non-zero would make the
+		// kubelet restart the container under its OnFailure policy, and the
+		// verdict would move to the container's last state, which the
+		// controller never reads - the resource would wait for an upload
+		// forever.
+		if isPermanentError(err) {
+			s.stopListening()
+			return
+		}
+
 		s.errChan <- err
 
 		return
 	}
 
 	if !s.keepAlive {
-		close(s.stopListeningChan)
+		s.stopListening()
 	}
+}
+
+// stopListening asks Run to shut the servers down and return nil, terminating
+// the process with a zero exit code. Safe to call more than once: concurrent
+// uploads may race a successful upload against a permanent failure.
+func (s *Server) stopListening() {
+	s.stopOnce.Do(func() {
+		close(s.stopListeningChan)
+	})
+}
+
+// isPermanentError reports whether the error chain contains an error a repeated
+// upload attempt cannot fix (see the same contract in the retry package).
+func isPermanentError(err error) bool {
+	var permanent interface{ Permanent() bool }
+	return errors.As(err, &permanent) && permanent.Permanent()
 }
 
 func (s *Server) uploadHandler() http.HandlerFunc {

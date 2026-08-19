@@ -29,20 +29,27 @@ import (
 )
 
 // BeFailed reports an invariant violation when the VirtualImage has reached
-// the terminal Failed phase or its Ready condition reports the
-// ProvisioningFailed reason. It is intended to be used with [Observer.Never].
+// the terminal Failed phase or its Ready condition reports a provisioning
+// failure. It is intended to be used with [Observer.Never].
 func BeFailed() Predicate {
 	return func(i *v1alpha2.VirtualImage) (bool, error) {
 		if i.Status.Phase == v1alpha2.ImageFailed {
 			return true, fmt.Errorf("VirtualImage entered Failed phase")
 		}
 		if cond := findCondition(i.Status.Conditions, vicondition.ReadyType.String()); cond != nil {
-			if isConditionFresh(cond, i) && cond.Reason == vicondition.ProvisioningFailed.String() {
-				return true, fmt.Errorf("ready condition reports ProvisioningFailed: %s", cond.Message)
+			if isConditionFresh(cond, i) && isProvisioningFailedReason(cond.Reason) {
+				return true, fmt.Errorf("ready condition reports %s: %s", cond.Reason, cond.Message)
 			}
 		}
 		return false, nil
 	}
+}
+
+// isProvisioningFailedReason reports whether a Ready condition reason means the
+// provisioning has failed, either retryably or terminally.
+func isProvisioningFailedReason(reason string) bool {
+	return reason == vicondition.ProvisioningFailed.String() ||
+		reason == vicondition.ProvisioningFailedTerminally.String()
 }
 
 // HaveFormat reports an invariant violation when a Ready VirtualImage reports a
@@ -158,8 +165,9 @@ const checksumMismatchMessage = "sum mismatch"
 // the given algorithm.
 //
 // The predicate is satisfied when the Ready condition is fresh, reports
-// Status=False with Reason=ProvisioningFailed and a message naming both the
-// algorithm and the mismatch, and the phase is Failed.
+// Status=False with a provisioning-failure reason (ProvisioningFailed for the
+// importer, ProvisioningFailedTerminally for the uploader's verdict) and a
+// message naming both the algorithm and the mismatch, and the phase is Failed.
 //
 // Returned values:
 //   - (true, nil)  - the VirtualImage reports a fresh checksum-mismatch Ready
@@ -176,7 +184,7 @@ func BeChecksumMismatch(algorithm string) Predicate {
 		if cond == nil || !isConditionFresh(cond, i) {
 			return false, nil
 		}
-		if cond.Reason != vicondition.ProvisioningFailed.String() {
+		if !isProvisioningFailedReason(cond.Reason) {
 			return false, nil
 		}
 

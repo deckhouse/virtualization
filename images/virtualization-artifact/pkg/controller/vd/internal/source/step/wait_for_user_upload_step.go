@@ -197,10 +197,17 @@ func handleUploaderPodError(vd *v1alpha2.VirtualDisk, podErr error, cb *conditio
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		return &reconcile.Result{}, nil
 	case errors.Is(podErr, servicestat.ErrProvisioningFailed):
+		// The uploader's terminal verdict (e.g. a checksum mismatch) is
+		// deterministic, so it gets its own condition reason for later
+		// reconciles to recognize without parsing the message.
+		reason := vdcondition.ProvisioningFailed
+		if servicestat.IsTerminationMessageError(podErr) {
+			reason = vdcondition.ProvisioningFailedTerminally
+		}
 		vd.Status.Phase = v1alpha2.DiskFailed
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
+			Reason(reason).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		return &reconcile.Result{}, nil
 	default:

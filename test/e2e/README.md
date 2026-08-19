@@ -43,13 +43,18 @@ $ kubectl get moduleconfigs.deckhouse.io global --output yaml | yq .spec
 ```
 ```yaml
 settings:
-  defaultClusterStorageClass: linstor-thin-r1
+  defaultClusterStorageClass: replicated-storage-class
 ```
 
 Additionally, the storage class in the tests can be defined by the environment variable `STORAGE_CLASS_NAME`:
 ```bash
-STORAGE_CLASS_NAME=linstor-thin-r1 task run
+STORAGE_CLASS_NAME=replicated-storage-class task run
 ```
+
+The override applies to the whole run: every VirtualDisk (and every PVC-backed
+VirtualImage) built through `internal/object` is pinned to `STORAGE_CLASS_NAME` unless the
+test picks a StorageClass itself. Without the variable no StorageClass is written to the
+spec, so the cluster default StorageClass applies.
 
 The StorageClass (`STORAGE_CLASS_NAME` or the cluster default) may use any volume binding
 mode. When the cluster has no default StorageClass, set `STORAGE_CLASS_NAME` explicitly.
@@ -89,11 +94,14 @@ Setup cluster connection in "$HOME/.kube/config" or by [switch](https://github.c
 task run
 ```
 
-To run e2e tests in parallel mode;
+Tests run in parallel by default (`--procs=36`, override with the `PROCS` env variable, timeout 1h).
+To run them sequentially (timeout 3h):
 
 ```bash
-task runp
+SEQUENTIAL=true task run
 ```
+
+`task runp` is deprecated and is just an alias for `task run`.
 
 ### Debugging options
 

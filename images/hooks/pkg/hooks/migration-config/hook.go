@@ -40,7 +40,8 @@ const (
 	parallelInboundMigrationsPerNodeAnnotation  = "virtualization.deckhouse.io/parallel-inbound-migrations-per-node"
 	inboundMigrationLimitAnnotation             = "virtualization.deckhouse.io/inbound-migration-limit"
 	outboundMigrationLimitAnnotation            = "virtualization.deckhouse.io/outbound-migration-limit"
-	syncMigrationLimitAnnotation                = "virtualization.deckhouse.io/sync-migration-limit"
+	syncMigrationLimitAnnotation                = "virtualization.deckhouse.io/parallel-per-node-migration-limit"
+	parallelPerClusterMigrationLimitAnnotation  = "virtualization.deckhouse.io/parallel-per-cluster-migration-limit"
 	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
 	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
 	disableFirmwareUpdateAnnotation             = "virtualization.deckhouse.io/disable-firmware-update"
@@ -53,6 +54,7 @@ const (
 	inboundMigrationLimitValuesPath             = "virtualization.internal.virtConfig.inboundMigrationLimit"
 	outboundMigrationLimitValuesPath            = "virtualization.internal.virtConfig.outboundMigrationLimit"
 	syncMigrationLimitValuesPath                = "virtualization.internal.virtConfig.syncMigrationLimit"
+	parallelPerClusterMigrationLimitValuesPath  = "virtualization.internal.virtConfig.parallelPerClusterMigrationLimit"
 	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
 	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
 	disableFirmwareUpdateValuesPath             = "virtualization.internal.disableFirmwareUpdate"
@@ -65,6 +67,7 @@ const (
 	defaultInboundMigrationLimit             = ""
 	defaultOutboundMigrationLimit            = ""
 	defaultSyncMigrationLimit                = ""
+	defaultParallelPerClusterMigrationLimit  = ""
 	defaultProgressTimeout                   = 150
 	defaultDisableTLS                        = false
 	defaultDisableFirmwareUpdate             = false
@@ -113,6 +116,11 @@ var migrationParams = []migrationParam{
 		annotation:   syncMigrationLimitAnnotation,
 		valuesPath:   syncMigrationLimitValuesPath,
 		defaultValue: defaultSyncMigrationLimit,
+	},
+	{
+		annotation:   parallelPerClusterMigrationLimitAnnotation,
+		valuesPath:   parallelPerClusterMigrationLimitValuesPath,
+		defaultValue: defaultParallelPerClusterMigrationLimit,
 	},
 	{
 		annotation:   progressTimeoutAnnotation,

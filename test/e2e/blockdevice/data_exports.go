@@ -41,6 +41,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
@@ -114,7 +115,7 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 				vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
 				vdbuilder.WithStorageClass(defaultStorageClass()))
 
-			vdData = vdbuilder.New(
+			vdData = object.NewVD(
 				vdbuilder.WithName("vd-data"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
 				vdbuilder.WithPersistentVolumeClaim(defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize))),
@@ -128,8 +129,8 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 			vm = vmbuilder.New(
 				vmbuilder.WithName("vm"),
 				vmbuilder.WithNamespace(f.Namespace().Name),
-				vmbuilder.WithCPU(1, ptr.To("100%")),
-				vmbuilder.WithMemory(resource.MustParse("512Mi")),
+				vmbuilder.WithCPU(1, ptr.To(object.CustomImageVMCoreFraction)),
+				vmbuilder.WithMemory(resource.MustParse(object.CustomImageVMMemory)),
 				vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 				vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 				vmbuilder.WithBlockDeviceRefs(
@@ -147,7 +148,8 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 		vmObs.Never(vmobs.BeFailed())
 
 		By("Waiting for VM agent to be ready", func() {
-			Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
+			err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Writing test data to the data disk", func() {
@@ -168,8 +170,10 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 			Expect(err).NotTo(HaveOccurred())
 
 			vmopObs := vmopobs.StartObserver(ctx, vmopStop)
-			Expect(vmopObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)).To(Succeed())
-			Expect(vmObs.WaitFor(vmobs.BeStopped(), framework.ShortTimeout)).To(Succeed())
+			err = vmopObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
+			err = vmObs.WaitFor(vmobs.BeStopped(), framework.ShortTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Creating snapshot of the data disk", func() {
@@ -233,7 +237,8 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 
 		By("Starting the VM", func() {
 			util.StartVirtualMachine(ctx, f, vm)
-			Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
+			err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Verifying data on disk restored from VirtualDisk export", func() {
@@ -307,7 +312,7 @@ func exportData(ctx context.Context, f *framework.Framework, resourceType, name,
 }
 
 func createUploadDisk(ctx context.Context, f *framework.Framework, name string) *v1alpha2.VirtualDisk {
-	vd := vdbuilder.New(
+	vd := object.NewVD(
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(f.Namespace().Name),
 		// Pin the same StorageClass the test reasons about: without it the disk
@@ -327,7 +332,8 @@ func createUploadDisk(ctx context.Context, f *framework.Framework, name string) 
 
 	obs := vdobs.StartObserver(ctx, f, vd)
 	obs.Never(vdobs.BeFailed())
-	Expect(obs.WaitFor(vdobs.BeReadyForUserUpload(), framework.LongTimeout)).To(Succeed())
+	err = obs.WaitFor(vdobs.BeReadyForUserUpload(), framework.LongTimeout)
+	Expect(err).NotTo(HaveOccurred())
 
 	return vd
 }
@@ -348,17 +354,17 @@ func uploadFile(ctx context.Context, f *framework.Framework, vd *v1alpha2.Virtua
 	uploadURL := vd.Status.ImageUploadURLs.External
 
 	// EXCEPTION: this retries an external HTTP upload endpoint, not a Kubernetes
-	// resource or the guest, so Eventually is used deliberately. The uploader
+	// resource or the guest, so a polling wait is used deliberately. The uploader
 	// Ingress may still return 503 from nginx for a few seconds after
 	// ImageUploadURLs is published (IsUploaderReady probes via the Service
 	// ClusterIP), so retry the upload until it stops returning 503.
-	Eventually(func() error {
+	eventually.Until(func() error {
 		err := doUploadAttempt(httpClient, uploadURL, filePath)
 		if err != nil && !errors.Is(err, errUploadServiceUnavailable) {
 			return StopTrying("upload failed with a non-retryable error").Wrap(err)
 		}
 		return err
-	}, framework.ShortTimeout, 5*time.Second).Should(Succeed(), "Upload failed")
+	}, framework.ShortTimeout, eventually.WithPolling(5*time.Second), eventually.WithExplanation("Upload failed"))
 }
 
 func doUploadAttempt(client *http.Client, url, filePath string) error {

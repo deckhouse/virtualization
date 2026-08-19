@@ -22,9 +22,11 @@ package vm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -64,6 +66,7 @@ func StartObserver(ctx context.Context, f *framework.Framework, vm *v1alpha2.Vir
 		f.VirtClient().VirtualMachines(vm.Namespace),
 		vm.Name,
 		vm.Namespace,
+		observer.WithDescriber(describe),
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start observer for VirtualMachine %s/%s", vm.Namespace, vm.Name)
 
@@ -77,6 +80,26 @@ func StartObserver(ctx context.Context, f *framework.Framework, vm *v1alpha2.Vir
 	})
 
 	return obs
+}
+
+// describe renders the phase together with every condition that is not True.
+// A VirtualMachine that never reaches the awaited state is almost always
+// parked on one of those conditions, so surfacing them turns a WaitFor
+// timeout into a diagnosis instead of a bare deadline.
+func describe(vm *v1alpha2.VirtualMachine) string {
+	blockers := make([]string, 0, len(vm.Status.Conditions))
+	for _, c := range vm.Status.Conditions {
+		if c.Status == metav1.ConditionTrue {
+			continue
+		}
+		blockers = append(blockers, fmt.Sprintf("%s=%s/%s (%s)", c.Type, c.Status, c.Reason, c.Message))
+	}
+
+	phase := fmt.Sprintf("phase %q", vm.Status.Phase)
+	if len(blockers) == 0 {
+		return phase + ", no conditions other than True"
+	}
+	return phase + ", " + strings.Join(blockers, "; ")
 }
 
 // failFastOnInvariant blocks until obs either reports an invariant

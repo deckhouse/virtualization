@@ -25,12 +25,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 )
 
 // UntilObjectPhase waits for an object to reach the specified phase.
@@ -42,123 +44,27 @@ func UntilObjectPhase(ctx context.Context, expectedPhase string, timeout time.Du
 	untilObjectField(ctx, "status.phase", expectedPhase, timeout, objs...)
 }
 
-// UntilConditionReason waits for the specified conditionType in status.conditions to have the given reason value for all provided objects.
-func UntilConditionReason(ctx context.Context, conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
-	UntilConditionState(ctx, conditionType, timeout, struct {
-		Reason       string
-		Status       string
-		Message      string
-		CheckReason  bool
-		CheckStatus  bool
-		CheckMessage bool
-	}{
-		Reason:      expectedReason,
-		CheckReason: true,
-	}, objs...)
-}
-
-// UntilObjectsDeleted waits for objects to be deleted.
+// UntilObjectsDeleted waits for objects to be deleted, watching each object
+// through a dynamic watch (with a polling fallback for deletions that happen
+// before the watch starts).
 func UntilObjectsDeleted(ctx context.Context, timeout time.Duration, objs ...client.Object) {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
-		for _, obj := range objs {
-			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(ctx, client.ObjectKeyFromObject(obj), u)
-			g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("object %s must be removed", extractObjectNamespacedNameString(obj)))
-		}
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
-}
 
-// UntilConditionStatus waits for the specified conditionType in status.conditions to have the given status value for all provided objects.
-func UntilConditionStatus(ctx context.Context, conditionType, expectedStatus string, timeout time.Duration, objs ...client.Object) {
-	UntilConditionState(ctx, conditionType, timeout, struct {
-		Reason       string
-		Status       string
-		Message      string
-		CheckReason  bool
-		CheckStatus  bool
-		CheckMessage bool
-	}{
-		Status:      expectedStatus,
-		CheckStatus: true,
-	}, objs...)
-}
+	for _, obj := range objs {
+		u := getTemplateUnstructured(obj)
+		watcher := dynamicWatcherFor(u.GroupVersionKind(), obj.GetNamespace())
 
-// UntilConditionState generalizes condition field checks ("reason", "status", "message") for the specified conditionType.
-// You can specify which fields to check by setting the corresponding flags to true and providing their expected values.
-func UntilConditionState(
-	ctx context.Context,
-	conditionType string,
-	timeout time.Duration,
-	checkOptions struct {
-		Reason       string
-		Status       string
-		Message      string
-		CheckReason  bool
-		CheckStatus  bool
-		CheckMessage bool
-	},
-	objs ...client.Object,
-) {
-	GinkgoHelper()
-	Eventually(func(g Gomega) {
-		for _, obj := range objs {
-			key := client.ObjectKeyFromObject(obj)
-			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(ctx, key, u)
-			g.Expect(err).ShouldNot(HaveOccurred())
-
-			conditions, found, err := unstructured.NestedSlice(u.Object, "status", "conditions")
-			g.Expect(err).ShouldNot(HaveOccurred(), "failed to access status.conditions of %s/%s", u.GetNamespace(), u.GetName())
-			g.Expect(found).Should(BeTrue(), "no status.conditions found in %s/%s", u.GetNamespace(), u.GetName())
-
-			var actualReason, actualStatus, actualMessage string
-			condFound := false
-
-			for _, c := range conditions {
-				m, ok := c.(map[string]interface{})
-				if !ok {
-					continue
+		err := observer.WaitForDeleted(ctx, watcher, obj.GetName(), obj.GetNamespace(), timeout,
+			func(ctx context.Context) (bool, error) {
+				current := u.DeepCopy()
+				getErr := framework.GetClients().GenericClient().Get(ctx, client.ObjectKeyFromObject(obj), current)
+				if k8serrors.IsNotFound(getErr) {
+					return true, nil
 				}
-				if t, ok := m["type"].(string); ok && t == conditionType {
-					condFound = true
-					if s, ok := m["reason"].(string); ok {
-						actualReason = s
-					} else {
-						actualReason = "Unknown"
-					}
-					if s, ok := m["status"].(string); ok {
-						actualStatus = s
-					} else {
-						actualStatus = "Unknown"
-					}
-					if s, ok := m["message"].(string); ok {
-						actualMessage = s
-					} else {
-						actualMessage = ""
-					}
-					break
-				}
-			}
-			g.Expect(condFound).To(BeTrue(), "object %s/%s: condition %s not found", u.GetNamespace(), u.GetName(), conditionType)
-
-			if checkOptions.CheckReason {
-				g.Expect(actualReason).To(Equal(checkOptions.Reason),
-					"object %s/%s: condition %s reason is %q, expected %q",
-					u.GetNamespace(), u.GetName(), conditionType, actualReason, checkOptions.Reason)
-			}
-			if checkOptions.CheckStatus {
-				g.Expect(actualStatus).To(Equal(checkOptions.Status),
-					"object %s/%s: condition %s status is %q, expected %q",
-					u.GetNamespace(), u.GetName(), conditionType, actualStatus, checkOptions.Status)
-			}
-			if checkOptions.CheckMessage {
-				g.Expect(actualMessage).To(Equal(checkOptions.Message),
-					"object %s/%s: condition %s message is %q, expected %q",
-					u.GetNamespace(), u.GetName(), conditionType, actualMessage, checkOptions.Message)
-			}
-		}
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+				return false, getErr
+			})
+		Expect(err).NotTo(HaveOccurred(), "object %s must be removed", extractObjectNamespacedNameString(obj))
+	}
 }
 
 // extractField extracts a string value from an unstructured object at the provided fieldPath (dot-separated, e.g. "status.phase" or "metadata.name").
@@ -180,22 +86,52 @@ func extractField(obj client.Object, fieldPath string) string {
 // fieldPath (dot-separated path to the field, e.g. "status.phase" or "metadata.name"),
 // expected value string, field name for error messages, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
+// Each object is observed through a dynamic watch.
 func untilObjectField(ctx context.Context, fieldPath, expectedValue string, timeout time.Duration, objs ...client.Object) {
-	Eventually(func(g Gomega) {
-		for _, obj := range objs {
-			key := client.ObjectKeyFromObject(obj)
+	GinkgoHelper()
 
-			// Create a new unstructured object for each Get call
-			u := getTemplateUnstructured(obj).DeepCopy()
-			err := framework.GetClients().GenericClient().Get(ctx, key, u)
-			if err != nil {
-				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s", extractObjectNamespacedNameString(obj))
+	for _, obj := range objs {
+		u := getTemplateUnstructured(obj)
+
+		obs, err := observer.New[*unstructured.Unstructured](
+			ctx,
+			dynamicWatcherFor(u.GroupVersionKind(), obj.GetNamespace()),
+			obj.GetName(), obj.GetNamespace(),
+		)
+		Expect(err).NotTo(HaveOccurred(), "failed to start observer for object %s", extractObjectNamespacedNameString(obj))
+
+		// The watch delivers the current state as its first (synthetic Added)
+		// event, but evaluate it explicitly as well so an object that settled
+		// long ago cannot stall the wait if that event is missed.
+		current := u.DeepCopy()
+		if getErr := framework.GetClients().GenericClient().Get(ctx, client.ObjectKeyFromObject(obj), current); getErr == nil {
+			if ok, _ := fieldEquals(fieldPath, expectedValue)(current); ok {
+				obs.Stop()
+				continue
 			}
-
-			value := extractField(u, fieldPath)
-			g.Expect(value).To(Equal(expectedValue), "object %s %s is %s, expected %s", extractObjectNamespacedNameString(obj), fieldPath, value, expectedValue)
 		}
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+
+		waitErr := obs.WaitFor(fieldEquals(fieldPath, expectedValue), timeout)
+		obs.Stop()
+		Expect(waitErr).NotTo(HaveOccurred(),
+			"object %s %s did not become %s", extractObjectNamespacedNameString(obj), fieldPath, expectedValue)
+	}
+}
+
+// dynamicWatcherFor resolves the GVK to its REST mapping and returns a
+// dynamic-client watcher for the resource, cluster-scoped when the mapping
+// says so.
+func dynamicWatcherFor(gvk schema.GroupVersionKind, namespace string) observer.Watcher {
+	GinkgoHelper()
+
+	mapping, err := framework.GetClients().GenericClient().RESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
+	Expect(err).NotTo(HaveOccurred(), "failed to resolve REST mapping for %s", gvk)
+
+	if mapping.Scope.Name() == meta.RESTScopeNameRoot {
+		namespace = ""
+	}
+
+	return observer.DynamicWatcher(framework.GetClients().DynamicClient(), mapping.Resource, namespace)
 }
 
 func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {
@@ -236,4 +172,12 @@ func extractObjectNamespacedNameString(obj client.Object) string {
 	}
 
 	return fmt.Sprintf("%s%s%s", namespace, divider, name)
+}
+
+// fieldEquals reports the object's dot-separated string field equals the
+// expected value.
+func fieldEquals(fieldPath, expectedValue string) observer.Predicate[*unstructured.Unstructured] {
+	return func(u *unstructured.Unstructured) (bool, error) {
+		return extractField(u, fieldPath) == expectedValue, nil
+	}
 }

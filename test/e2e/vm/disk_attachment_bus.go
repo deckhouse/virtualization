@@ -19,7 +19,6 @@ package vm
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +37,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmbdaobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmbda"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -49,13 +51,15 @@ import (
 // but the hot-plugged disk must never be moved to sata — sata is invalid for a
 // hot-plugged device and the attachment would break. Flipping paravirtualization
 // forces the restart that rebuilds the VM, so the bus must survive both flips.
-var _ = Describe("DiskAttachmentBus", Label(precheck.NoPrecheck), func() {
+var _ = Describe("DiskAttachmentBus", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	var (
 		f       *framework.Framework
-		vdRoot  *v1alpha2.VirtualDisk
 		vdBlank *v1alpha2.VirtualDisk
 		vm      *v1alpha2.VirtualMachine
 		vmbda   *v1alpha2.VirtualMachineBlockDeviceAttachment
+
+		vmObs    vmobs.Observer
+		vmbdaObs vmbdaobs.Observer
 
 		ctx context.Context
 	)
@@ -71,7 +75,8 @@ var _ = Describe("DiskAttachmentBus", Label(precheck.NoPrecheck), func() {
 	// sits on the scsi bus.
 	expectVMBDAScsi := func(stage string) {
 		GinkgoHelper()
-		util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.LongTimeout, vmbda)
+		err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 		bus, ok := util.GetBlockDeviceBus(ctx, vm, v1alpha2.DiskDevice, vdBlank.Name)
 		Expect(ok).To(BeTrue(), fmt.Sprintf("%s: attached VMBDA disk not found on the VMI", stage))
 		Expect(bus).To(Equal(virtv1.DiskBusSCSI), fmt.Sprintf("%s: hot-plugged disk must stay on the scsi bus", stage))
@@ -92,29 +97,43 @@ var _ = Describe("DiskAttachmentBus", Label(precheck.NoPrecheck), func() {
 		vm, err = f.VirtClient().VirtualMachines(vm.Namespace).Patch(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		if util.IsRestartRequired(vm, 10*time.Second) {
-			util.RebootVirtualMachineByVMOP(f, vm)
+		// Restart approval is Automatic here, so the controller reboots the VM
+		// itself; just wait for the reboot to complete.
+		key := crclient.ObjectKeyFromObject(vm)
+		util.SkipIfGuestPowerActionStuck(ctx, key)
+		err = vmObs.WaitFor(vmobs.BeRebootedAfter(previousRunningTime), framework.LongTimeout)
+		if err != nil {
+			util.SkipIfGuestPowerActionStuck(ctx, key)
 		}
-		util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), previousRunningTime, framework.LongTimeout)
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.MiddleTimeout, vm)
+		Expect(err).NotTo(HaveOccurred())
+		err = vmObs.WaitFor(vmobs.BeRunning(), framework.MiddleTimeout)
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	It("keeps a VMBDA disk on the scsi bus across paravirtualization flips", func() {
-		By("Create a VM with paravirtualization disabled and a blank disk to attach", func() {
-			vdRoot = object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-				vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
-			)
+		By("Create a VM with paravirtualization enabled and a blank disk to attach", func() {
+			vdRoot := object.NewVDFromCVI("vd-root", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
+				vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))))
 
-			vdBlank = vdbuilder.New(
+			vdBlank = object.NewVD(
 				vdbuilder.WithName("vd-blank"),
 				vdbuilder.WithNamespace(f.Namespace().Name),
-				vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("100Mi"))),
+				vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse(vdCustomImageSize))),
 			)
 
+			// The VM starts with paravirtualization enabled and only later flips it
+			// off: creating it disabled right away deadlocks on a
+			// WaitForFirstConsumer storage class — sata cannot hotplug, so the
+			// disks are rendered inline and the VMI cannot render its pod until
+			// the PVC exists, while the vd-controller creates the PVC only after
+			// the VM is scheduled. Starting enabled lets the root PVC bind first;
+			// the flips below still cover both modes. TODO: start disabled again
+			// if the controller learns to provision WFFC source disks for
+			// non-paravirtualized VMs (unpinned first-consumer provisioning).
 			vm = object.NewMinimalVM("", f.Namespace().Name,
 				vmbuilder.WithName("vm"),
-				vmbuilder.WithCPU(1, ptr.To("100%")),
-				vmbuilder.WithEnableParavirtualization(ptr.To(false)),
+				// The custom image has no cloud-init; the guest agent is
+				// baked in, so no provisioning is needed.
 				vmbuilder.WithRestartApprovalMode(v1alpha2.Automatic),
 				vmbuilder.WithBlockDeviceRefs(
 					v1alpha2.BlockDeviceSpecRef{
@@ -134,24 +153,28 @@ var _ = Describe("DiskAttachmentBus", Label(precheck.NoPrecheck), func() {
 			err := f.CreateWithDeferredDeletion(ctx, vdRoot, vdBlank, vm)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+			vmObs = vmobs.StartObserver(ctx, f, vm)
+			vmObs.Never(vmobs.BeFailed())
+			err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Attach the disk via VMBDA and verify it is on the scsi bus", func() {
+			vmbdaObs = vmbdaobs.StartObserver(ctx, f, vmbda)
 			err := f.CreateWithDeferredDeletion(ctx, vmbda)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectVMBDAScsi("paravirtualization disabled")
-		})
-
-		By("Enable paravirtualization, restart, and verify the disk is still on scsi", func() {
-			flipParavirtualization(true)
 			expectVMBDAScsi("paravirtualization enabled")
 		})
 
-		By("Disable paravirtualization again, restart, and verify the disk is still on scsi", func() {
+		By("Disable paravirtualization, restart, and verify the disk is still on scsi", func() {
 			flipParavirtualization(false)
-			expectVMBDAScsi("paravirtualization disabled again")
+			expectVMBDAScsi("paravirtualization disabled")
+		})
+
+		By("Enable paravirtualization again, restart, and verify the disk is still on scsi", func() {
+			flipParavirtualization(true)
+			expectVMBDAScsi("paravirtualization enabled again")
 		})
 	})
 })

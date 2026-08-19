@@ -87,10 +87,9 @@ func runVirtualMachineFromClusterImageUntilRunning(ctx context.Context, f *frame
 
 	blankVD := object.NewBlankVD("vd-blank-for-cvi-iso", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 	vm := object.NewMinimalVM("vm-from-cvi-", f.Namespace().Name,
-		vmbuilder.WithBootloader(v1alpha2.EFI),
-		vmbuilder.WithCPU(2, ptr.To("100%")),
-		vmbuilder.WithMemory(resource.MustParse("2Gi")),
-		vmbuilder.WithProvisioning(nil),
+		vmbuilder.WithBootloader(v1alpha2.BIOS),
+		vmbuilder.WithCPU(1, ptr.To(object.CustomImageVMCoreFraction)),
+		vmbuilder.WithMemory(resource.MustParse(object.CustomImageVMMemory)),
 		vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnPolicy),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 			Kind:      v1alpha2.ClusterImageDevice,
@@ -110,7 +109,8 @@ func runVirtualMachineFromClusterImageUntilRunning(ctx context.Context, f *frame
 
 	obs := vmobs.StartObserver(ctx, f, vm)
 	obs.Never(vmobs.BeFailed())
-	// The custom ISO is EFI-bootable, so the firmware must find a boot device;
+	// ImageURLCustomISO publishes the BIOS flavor of the custom ISO, so the VM
+	// boots it under SeaBIOS: the firmware must find a boot device, and
 	// NoBootableDevice would mean the ISO is not bootable.
 	obs.Never(vmobs.HaveNoBootableDevice())
 

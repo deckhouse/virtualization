@@ -267,6 +267,39 @@ var _ = Describe("MigrationHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(migratePrepareTarget))
 			})
+
+			It("should delay the new round while the KVVMI still records migrated volumes", func() {
+				kvvmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{
+					{VolumeName: "vd-test-vd"},
+				}
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(delayNewRound))
+			})
+
+			It("should delay the new round while the KVVMI volumes-change condition is set", func() {
+				kvvmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
+					{
+						Type:   virtv1.VirtualMachineInstanceVolumesChange,
+						Status: corev1.ConditionTrue,
+					},
+				}
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(delayNewRound))
+			})
+
+			It("should return migrate when the KVVMI carries no volume-change leftovers", func() {
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(migratePrepareTarget))
+			})
 		})
 
 		Context("when the disk migration is in progress", func() {
@@ -353,6 +386,95 @@ var _ = Describe("MigrationHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(revert))
 			})
+
+			// The window right after a successful switchover: the VM's Migrating
+			// condition is already gone, no VMOP is in progress, and
+			// vm.Status.MigrationState has not been updated for this round yet — but the
+			// KVVMI already reports the migration succeeded and its volume points at the
+			// target PVC. Reverting here would delete the PVC the guest runs on.
+			It("should complete when the guest already switched to the target PVC", func() {
+				vm.Status.Phase = v1alpha2.MachineRunning
+				vm.Status.Conditions = nil
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+				kvvmi.Spec.Volumes = []virtv1.Volume{
+					{
+						Name: "vd-test-vd",
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "target-pvc",
+								},
+							},
+						},
+					},
+				}
+				kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+					Completed:    true,
+					EndTimestamp: ptr.To(metav1.NewTime(vd.Status.MigrationState.StartTimestamp.Add(2 * time.Second))),
+				}
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(complete))
+			})
+
+			It("should still revert in that window when the guest stayed on the source PVC", func() {
+				vm.Status.Phase = v1alpha2.MachineRunning
+				vm.Status.Conditions = nil
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+				kvvmi.Spec.Volumes = []virtv1.Volume{
+					{
+						Name: "vd-test-vd",
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "test-pvc",
+								},
+							},
+						},
+					},
+				}
+				kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+					Completed:    true,
+					EndTimestamp: ptr.To(metav1.NewTime(vd.Status.MigrationState.StartTimestamp.Add(2 * time.Second))),
+				}
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(revert))
+			})
+
+			It("should not complete off a migration that ended before this round started", func() {
+				vm.Status.Phase = v1alpha2.MachineRunning
+				vm.Status.Conditions = nil
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+				kvvmi.Spec.Volumes = []virtv1.Volume{
+					{
+						Name: "vd-test-vd",
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "target-pvc",
+								},
+							},
+						},
+					},
+				}
+				kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+					Completed:    true,
+					EndTimestamp: ptr.To(metav1.NewTime(vd.Status.MigrationState.StartTimestamp.Add(-time.Minute))),
+				}
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(revert))
+			})
 		})
 
 		Context("when disks should be migrating", func() {
@@ -420,6 +542,19 @@ var _ = Describe("MigrationHandler", func() {
 				action, err := migrationHandler.getAction(ctx, vd, log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(migratePrepareTarget))
+			})
+
+			It("should delay the new round while the KVVMI still records migrated volumes", func() {
+				createMigratingVMOP(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate)
+
+				kvvmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{
+					{VolumeName: "vd-test-vd"},
+				}
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				action, err := migrationHandler.getAction(ctx, vd, log)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(action).To(Equal(delayNewRound))
 			})
 
 			It("should not start a new migration once the operation is past waiting for disks", func() {

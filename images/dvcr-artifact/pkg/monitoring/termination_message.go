@@ -37,24 +37,30 @@ type ImportInfo struct {
 
 var ErrFailedTerminationMessage = errors.New("failed to write termination message")
 
-func WriteImportFailureMessage(err error) error {
+// WriteImportFailureMessage persists the import error to the termination
+// message and returns the original import error, so that callers can
+// `return monitoring.WriteImportFailureMessage(err)` and still fail the
+// process. A failed import must terminate the pod in the Failed phase:
+// a pod that completes successfully makes the controller read the (empty)
+// size stats of the failed import and choke on them.
+func WriteImportFailureMessage(importErr error) error {
 	rawMsg, err := json.Marshal(ImportInfo{
-		ErrMessage: err.Error(),
+		ErrMessage: importErr.Error(),
 	})
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrFailedTerminationMessage, err)
+		return errors.Join(importErr, fmt.Errorf("%w: %w", ErrFailedTerminationMessage, err))
 	}
 
 	message := string(rawMsg)
 
 	err = util.WriteTerminationMessage(message)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrFailedTerminationMessage, err)
+		return errors.Join(importErr, fmt.Errorf("%w: %w", ErrFailedTerminationMessage, err))
 	}
 
 	klog.Infoln("Failed to save image to DVCR: " + message)
 
-	return nil
+	return importErr
 }
 
 func WriteDVCRSourceImportCompleteMessage(duration time.Duration) error {

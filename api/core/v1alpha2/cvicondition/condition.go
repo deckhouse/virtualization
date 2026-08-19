@@ -89,6 +89,8 @@ const (
 	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
+	// ProvisioningFailedTerminally indicates that the provisioning process has failed permanently: retrying reproduces the same failure, so the provisioner is cleaned up and the failure is kept.
+	ProvisioningFailedTerminally ReadyReason = "ProvisioningFailedTerminally"
 	// Ready indicates that the import process is complete and the `ClusterVirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
 	// ImageLost indicates that the image in DVCR has been lost and the `ClusterVirtualImage` can no longer be used.

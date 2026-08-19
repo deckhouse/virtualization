@@ -23,6 +23,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// BeRunning reports the pod has reached the Running phase. Intended for use
+// with [Observer.WaitFor].
+func BeRunning() Predicate {
+	return func(pod *corev1.Pod) (bool, error) {
+		return pod.Status.Phase == corev1.PodRunning, nil
+	}
+}
+
 func BeSucceeded() Predicate {
 	return func(pod *corev1.Pod) (bool, error) {
 		return pod.Status.Phase == corev1.PodSucceeded, nil

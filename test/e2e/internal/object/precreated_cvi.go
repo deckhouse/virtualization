@@ -44,15 +44,21 @@ const (
 	PrecreatedCVITestDataISO    = "v12n-e2e-testdata-iso"
 	PrecreatedCVIMyOS           = "v12n-e2e-myos"
 
-	// Custom e2e-br image, used only by the VirtualDiskCreation test.
+	// Custom image: the default guest image for the e2e suites. It
+	// bakes in the guest agent, root SSH, stress-ng, mkfs.vfat and a BusyBox
+	// httpd serving on :80, and has no cloud-init, so VMs using it run with no
+	// provisioning. Two disk flavors: BIOS (MBR/extlinux, root=/dev/sda1) and
+	// EFI (GPT/GRUB, root=/dev/sda2); the ISO is a BIOS-only kernel-only
+	// ISO-format source image.
 	PrecreatedCVICustomBIOS = "v12n-e2e-custom-bios"
+	PrecreatedCVICustomEFI  = "v12n-e2e-custom-efi"
 	PrecreatedCVICustomISO  = "v12n-e2e-custom-iso"
 
 	// Container image URLs
 	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 	ImageURLLegacyContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest"
 
-	// Custom e2e-br container image (cr.yandex), used by the ContainerImage
+	// Custom container image (cr.yandex), used by the ContainerImage
 	// data-source scenarios of the VirtualImage/VirtualDisk creation tests.
 	ImageURLCustomContainer = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/custom:v0.0.1"
 )
@@ -75,30 +81,30 @@ var (
 	// Minimal fast-boot image used by the VirtualMachinePool suite.
 	ImageURLMyOS = imageURL("/upmeter/myos-latest.qcow2")
 
-	// Custom e2e-br qcow2 on Selectel (public HTTP), used only by the VirtualDiskCreation test.
-	ImageURLCustomBIOS = imageURL("/e2e/custom.qcow2")
+	// Custom qcow2 images on Selectel (public HTTP): the BIOS flavor
+	// (MBR/extlinux) and the EFI flavor (GPT + GRUB on the ESP, boots under
+	// OVMF without NVRAM entries).
+	ImageURLCustomBIOS = imageURL("/e2e/custom-bios.qcow2")
+	ImageURLCustomEFI  = imageURL("/e2e/custom-efi.qcow2")
 
-	// Custom e2e-br EFI-bootable ISO on Selectel (public HTTP), used only by the
-	// blockdevice ISO/format tests.
-	ImageURLCustomISO = imageURL("/e2e/custom.iso")
+	// Custom BIOS-only ISO on Selectel (public HTTP), used as an
+	// ISO-format source image (it boots a kernel, not a full userspace).
+	// An EFI-only variant is also published as /e2e/custom-efi.iso.
+	ImageURLCustomISO = imageURL("/e2e/custom-bios.iso")
 )
 
-// PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by e2e tests.
+// PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by e2e
+// tests. Only images actually referenced by the suites are precreated: the
+// custom flavors (the default guest image), Ubuntu (the SecureBoot
+// migration-cancel entry and the systemd interface-name-persistence subtests)
+// and MyOS/UbuntuISO (the VirtualMachinePool suite).
 func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 	return []*v1alpha2.ClusterVirtualImage{
-		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFI, ImageURLAlpineUEFI),
-		newPrecreatedHTTPCVI(PrecreatedCVIAlpineBIOS, ImageURLAlpineBIOS),
-		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFIPerf, ImageURLAlpineUEFIPerf),
-		newPrecreatedHTTPCVI(PrecreatedCVIAlpineBIOSPerf, ImageURLAlpineBIOSPerf),
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntu, ImageURLUbuntu),
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntuISO, ImageURLUbuntuISO),
-		newPrecreatedContainerImageCVI(PrecreatedCVIContainerImage, ImageURLContainerImage),
-		newPrecreatedHTTPCVI(PrecreatedCVICirros, ImageURLCirros),
-		newPrecreatedHTTPCVI(PrecreatedCVIDebian, ImageURLDebian),
-		newPrecreatedHTTPCVI(PrecreatedCVITestDataQCOW, ImageTestDataQCOW),
-		newPrecreatedHTTPCVI(PrecreatedCVITestDataISO, ImageTestDataISO),
 		newPrecreatedHTTPCVI(PrecreatedCVIMyOS, ImageURLMyOS),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOS, ImageURLCustomBIOS),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomEFI, ImageURLCustomEFI),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomISO, ImageURLCustomISO),
 	}
 }
@@ -107,13 +113,6 @@ func newPrecreatedHTTPCVI(name, imageURL string) *v1alpha2.ClusterVirtualImage {
 	return cvi.New(
 		cvi.WithName(name),
 		cvi.WithDataSourceHTTP(imageURL, nil, nil),
-	)
-}
-
-func newPrecreatedContainerImageCVI(name, imageURL string) *v1alpha2.ClusterVirtualImage {
-	return cvi.New(
-		cvi.WithName(name),
-		cvi.WithDataSourceContainerImage(imageURL, v1alpha2.ImagePullSecret{}, nil),
 	)
 }
 

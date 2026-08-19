@@ -26,15 +26,13 @@ import (
 // `go tool ginkgo --label-filter='sig-storage'`.
 const (
 	// SIGStorage owns VirtualDisks, VirtualImages, snapshots, data exports,
-	// quota and storage profiles (the blockdevice suite).
+	// quota and storage profiles (the blockdevice suite) and volume populators.
 	SIGStorage = "sig-storage"
-	// SIGCompute owns the VirtualMachine lifecycle: run policy, sizing, CPU/memory
-	// hotplug, power state, snapshots, pools and operations.
+	// SIGCompute owns the VirtualMachine suites: lifecycle, configuration,
+	// sizing, CPU/memory hotplug, power state, guest devices (USB, TPM),
+	// scheduling, networking, live migration and evacuation, snapshots, pools
+	// and operations.
 	SIGCompute = "sig-compute"
-	// SIGNetwork owns VM networking: connectivity, IPAM and additional interfaces.
-	SIGNetwork = "sig-network"
-	// SIGMigration owns live migration and evacuation.
-	SIGMigration = "sig-migration"
 )
 
 func Slow() Labels {

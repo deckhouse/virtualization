@@ -140,6 +140,20 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 			Message(serviceuploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
 
 		return CleanUpSupplements(ctx, vi, ds)
+	case condition.Reason == vicondition.ProvisioningFailedTerminally.String():
+		// The uploader delivered a terminal verdict (e.g. a checksum mismatch):
+		// re-uploading replays it, so keep the failure and clean the uploader
+		// up instead of leaving it (or recreating it) to wait for an upload.
+		log.Debug("Upload terminally failed: clean up")
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailedTerminally).
+			Message(condition.Message)
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case object.AnyTerminating(pod, svc, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil || svc == nil || !exposure.Ensured():
@@ -182,7 +196,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 				setUploadProvisioningPhaseCondition(cb, vi)
 				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
-			return reconcile.Result{}, setPhaseConditionFromPodError(cb, vi, err)
+			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, vi, err)
 		}
 
 		if !uploadStarted {
@@ -315,6 +329,20 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 			Message(serviceuploader.WaitForUserUploadTimeoutMessage("VirtualImage"))
 
 		return CleanUpSupplements(ctx, vi, ds)
+	case condition.Reason == vicondition.ProvisioningFailedTerminally.String():
+		// The uploader delivered a terminal verdict (e.g. a checksum mismatch):
+		// re-uploading replays it, so keep the failure and clean the uploader
+		// up instead of leaving it (or recreating it) to wait for an upload.
+		log.Debug("Upload terminally failed: clean up")
+
+		vi.Status.Phase = v1alpha2.ImageFailed
+		vi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailedTerminally).
+			Message(condition.Message)
+
+		return CleanUpSupplements(ctx, vi, ds)
 	case object.AnyTerminating(pod, svc):
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || !exposure.Ensured():
@@ -349,7 +377,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 			case errors.Is(err, servicestat.ErrProvisioningFailed):
 				cb.
 					Status(metav1.ConditionFalse).
-					Reason(vicondition.ProvisioningFailed).
+					Reason(uploadFailureReason(err)).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
@@ -378,7 +406,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 				setUploadProvisioningPhaseCondition(cb, vi)
 				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
-			return reconcile.Result{}, setPhaseConditionFromPodError(cb, vi, err)
+			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, vi, err)
 		}
 
 		cb.
@@ -464,6 +492,31 @@ func setUploadProvisioningPhaseCondition(cb *conditions.ConditionBuilder, vi *v1
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.Provisioning).
 		Message("The image is being imported.")
+}
+
+// uploadFailureReason distinguishes the uploader's terminal verdict (e.g. a
+// checksum mismatch) from other provisioning failures: the verdict is
+// deterministic, so it gets its own condition reason for later reconciles to
+// recognize without parsing the message.
+func uploadFailureReason(err error) vicondition.ReadyReason {
+	if servicestat.IsTerminationMessageError(err) {
+		return vicondition.ProvisioningFailedTerminally
+	}
+	return vicondition.ProvisioningFailed
+}
+
+// setUploadPhaseConditionFromPodError is setPhaseConditionFromPodError for the
+// upload flow: it marks the uploader's terminal verdict with its own reason.
+func setUploadPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *v1alpha2.VirtualImage, err error) error {
+	if errors.Is(err, servicestat.ErrProvisioningFailed) && servicestat.IsTerminationMessageError(err) {
+		vi.Status.Phase = v1alpha2.ImageFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailedTerminally).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return nil
+	}
+	return setPhaseConditionFromPodError(cb, vi, err)
 }
 
 func isTransientPodError(err error) bool {
