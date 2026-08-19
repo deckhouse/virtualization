@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -707,6 +708,138 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
 			"a migrating disk must never pin to the source node, even with a stale Migrating condition")
+	})
+})
+
+var _ = Describe("VirtualMachineMACAddresses", func() {
+	scheme := apiruntime.NewScheme()
+	for _, f := range []func(*apiruntime.Scheme) error{
+		v1alpha2.AddToScheme,
+		virtv1.AddToScheme,
+		corev1.AddToScheme,
+	} {
+		err := f(scheme)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	const (
+		ns    = "test-ns"
+		vmNm  = "test-vm"
+		vmUID = "11111111-2222-3333-4444-555555555555"
+	)
+
+	makeVM := func(networks ...v1alpha2.NetworksSpec) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: vmNm, Namespace: ns, UID: vmUID},
+			Spec:       v1alpha2.VirtualMachineSpec{Networks: networks},
+		}
+	}
+
+	makeVMMAC := func(name string) *v1alpha2.VirtualMachineMACAddress {
+		return &v1alpha2.VirtualMachineMACAddress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+				Labels:    map[string]string{annotations.LabelVirtualMachineUID: vmUID},
+			},
+		}
+	}
+
+	buildState := func(vm *v1alpha2.VirtualMachine, objs ...client.Object) *state {
+		allObjs := append([]client.Object{vm}, objs...)
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(allObjs...).Build()
+		vmResource := reconciler.NewResource(
+			types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace},
+			fakeClient, vmFactoryByVM(vm), vmStatusGetter,
+		)
+		Expect(vmResource.Fetch(logger.ToContext(context.TODO(), slog.Default()))).To(Succeed())
+		return &state{client: fakeClient, vm: vmResource}
+	}
+
+	names := func(vmmacs []*v1alpha2.VirtualMachineMACAddress) []string {
+		out := make([]string, 0, len(vmmacs))
+		for _, vmmac := range vmmacs {
+			out = append(out, vmmac.GetName())
+		}
+		return out
+	}
+
+	It("should not count a VirtualMachineMACAddress twice when it is referenced in the spec", func() {
+		vm := makeVM(
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain},
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-1", VirtualMachineMACAddressName: "mac-1"},
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-2"},
+		)
+
+		s := buildState(vm, makeVMMAC("mac-1"))
+		vmmacs, err := s.VirtualMachineMACAddresses(logger.ToContext(context.TODO(), slog.Default()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(names(vmmacs)).To(ConsistOf("mac-1"),
+			"a MAC address found both by name and by label must be returned once, otherwise a new one is never created")
+	})
+
+	It("should return all MAC addresses belonging to the virtual machine", func() {
+		vm := makeVM(
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain},
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-1", VirtualMachineMACAddressName: "mac-1"},
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-2"},
+		)
+
+		s := buildState(vm, makeVMMAC("mac-1"), makeVMMAC("mac-2"))
+		vmmacs, err := s.VirtualMachineMACAddresses(logger.ToContext(context.TODO(), slog.Default()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(names(vmmacs)).To(ConsistOf("mac-1", "mac-2"))
+	})
+
+	It("should return a MAC address referenced in the spec even without the virtual machine UID label", func() {
+		vm := makeVM(
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-1", VirtualMachineMACAddressName: "mac-1"},
+		)
+
+		vmmac := makeVMMAC("mac-1")
+		vmmac.Labels = nil
+
+		s := buildState(vm, vmmac)
+		vmmacs, err := s.VirtualMachineMACAddresses(logger.ToContext(context.TODO(), slog.Default()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(names(vmmacs)).To(ConsistOf("mac-1"))
+	})
+
+	It("should not count a MAC address twice when several networks reference the same name", func() {
+		vm := makeVM(
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-1", VirtualMachineMACAddressName: "mac-1"},
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-2", VirtualMachineMACAddressName: "mac-1"},
+		)
+
+		s := buildState(vm, makeVMMAC("mac-1"))
+		vmmacs, err := s.VirtualMachineMACAddresses(logger.ToContext(context.TODO(), slog.Default()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(names(vmmacs)).To(ConsistOf("mac-1"))
+	})
+
+	It("should not return a MAC address belonging to another virtual machine", func() {
+		vm := makeVM(
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-1"},
+		)
+
+		alien := makeVMMAC("mac-alien")
+		alien.Labels[annotations.LabelVirtualMachineUID] = "99999999-9999-9999-9999-999999999999"
+
+		s := buildState(vm, alien)
+		vmmacs, err := s.VirtualMachineMACAddresses(logger.ToContext(context.TODO(), slog.Default()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vmmacs).To(BeEmpty())
+	})
+
+	It("should ignore a missing MAC address referenced in the spec", func() {
+		vm := makeVM(
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-1", VirtualMachineMACAddressName: "mac-gone"},
+		)
+
+		s := buildState(vm)
+		vmmacs, err := s.VirtualMachineMACAddresses(logger.ToContext(context.TODO(), slog.Default()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vmmacs).To(BeEmpty())
 	})
 })
 
