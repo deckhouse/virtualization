@@ -94,7 +94,7 @@ Setup cluster connection in "$HOME/.kube/config" or by [switch](https://github.c
 task run
 ```
 
-Tests run in parallel by default (`--procs=36`, override with the `PROCS` env variable, timeout 1h).
+Tests run in parallel by default (`--procs=24`, override with the `PROCS` env variable, timeout 1h).
 To run them sequentially (timeout 3h):
 
 ```bash
@@ -145,54 +145,4 @@ Example:
 logFilter:
   - "failed to sync virtual disk data source objectref" # "err": "failed to sync virtual disk data source objectref: admission webhook \"datavolume-validate.cdi.kubevirt.io\" denied the request:  Destination PVC winwin/vd-win2022-8a136ef9-32d9-4ae3-a27f-e42e15c15f47 already exists"
   - "failed to detach: intvirtvm not found to unplug" # "err": "failed to detach: intvirtvm not found to unplug"
-```
-
-## Run tests in CI
-```bash
-task run:ci
-```
-
-### Example
-Create namespace for service account
-```bash
-kubectl create ns e2e-tests
-```
-Create service account
-```bash
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: e2e-tests
-  namespace: e2e-tests
-EOF
-```
-Create secret with token for service account
-```bash
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: e2e-tests
-  namespace: e2e-tests
-  annotations:
-    kubernetes.io/service-account.name: e2e-tests
-type: kubernetes.io/service-account-token
-EOF
-```
-Create ClusterRoleBinding 
-```bash
-kubectl create clusterrolebinding e2e-tests --clusterrole=cluster-admin --serviceaccount=e2e-tests:e2e-tests
-```
-Export envs and run
-```bash
-kubectl config view -o jsonpath='{"Cluster name\tServer\n"}{range .clusters[*]}{.name}{"\t"}{.cluster.server}{"\n"}{end}'
-export CLUSTER_NAME="some_server_name"
-export E2E_CLUSTERTRANSPORT_ENDPOINT=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER_NAME\")].cluster.server}")
-export E2E_CLUSTERTRANSPORT_TOKEN=$(kubectl get secret e2e-tests -n e2e-tests -ojsonpath='{.data.token}' | base64 -d)
-kubectl get secret e2e-tests -n e2e-tests -ojsonpath='{.data.ca\.crt}' | base64 -d > ca.crt
-export E2E_CLUSTERTRANSPORT_CERTIFICATEAUTHORITY="$PWD/ca.crt"
-export E2E_CLUSTERTRANSPORT_INSECURETLS="false"
-
-task run
 ```

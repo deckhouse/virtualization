@@ -22,14 +22,6 @@ tasks:
           exit 1
         fi
 
-  run:ci:
-    desc: "Run e2e tests in GitHub Actions"
-    deps:
-      - kubectl
-      - d8
-    cmds:
-      - bash ./scripts/e2e-ci.sh
-
   precheck:prepare:
     desc: "Generate JSON report via ginkgo dry-run for precheck preparation"
     cmds:
@@ -60,6 +52,9 @@ tasks:
           {{end -}}
           {{if .LABELS -}}
           --label-filter="{{ .LABELS }}" \
+          {{end -}}
+          {{if .JSON_REPORT -}}
+          --json-report={{ .JSON_REPORT }} \
           {{end -}}
           {{if .TIMEOUT -}}
           --timeout={{ .TIMEOUT }} \

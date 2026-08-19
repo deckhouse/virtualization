@@ -16,7 +16,11 @@
 
 set -Eeuo pipefail
 
-TIMEOUT="${TIMEOUT:-3h}"
+# test/e2e is a separate Go module: "task run" and the report files both
+# resolve relative to it, so run from there.
+echo "[INFO] Changing directory to ./test/e2e/"
+cd ./test/e2e/
+
 FOCUS="${FOCUS:-}"
 LABELS="${LABELS:-}"
 CSI="${CSI:-unknown}"
@@ -57,25 +61,11 @@ fi
 
 rewrite_testdata_image_urls
 
-./scripts/precheck-prepare_ci.sh
-
+# Delegate the actual run to "task run" so CI uses the same ginkgo invocation
+# (parallelism, timeouts, precheck preparation) as local runs; CI only adds
+# the JSON report and captures the output for the report artifacts.
 set +e
-ginkgo_args=(
-  -v
-  --race
-  --timeout="${TIMEOUT}"
-  --json-report="${e2e_report_file}"
-)
-
-if [ -n "${LABELS}" ]; then
-  ginkgo_args+=(--label-filter="${LABELS}")
-fi
-
-if [ -n "${FOCUS}" ]; then
-  ginkgo_args+=(--focus="${FOCUS}")
-fi
-
-go tool ginkgo "${ginkgo_args[@]}" . 2>&1 | tee "${e2e_output_file}"
+JSON_REPORT="${e2e_report_file}" task run 2>&1 | tee "${e2e_output_file}"
 ginkgo_exit_code="${PIPESTATUS[0]}"
 set -e
 

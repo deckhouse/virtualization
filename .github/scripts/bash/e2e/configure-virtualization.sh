@@ -159,6 +159,14 @@ apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
   name: virtualization
+  annotations:
+    # The e2e suite migrates many VMs in parallel: every migration limit must
+    # be disabled, otherwise migrations queue up and the specs time out (the
+    # suite enforces this with the migration limits precheck).
+    virtualization.deckhouse.io/inbound-migration-limit: disabled
+    virtualization.deckhouse.io/outbound-migration-limit: disabled
+    virtualization.deckhouse.io/parallel-per-cluster-migration-limit: disabled
+    virtualization.deckhouse.io/parallel-per-node-migration-limit: disabled
 spec:
   enabled: true
   settings:
