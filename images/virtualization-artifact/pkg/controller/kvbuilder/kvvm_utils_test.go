@@ -259,6 +259,59 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.Hotpluggable).To(BeTrue())
 	})
+
+	DescribeTable("should pin the target PVC depending on the Migrating reason",
+		func(reason, expectedPVC string) {
+			kvvm := newKVVMWithVMBDAVolume(sourcePVC)
+			vm := &v1alpha2.VirtualMachine{
+				Status: v1alpha2.VirtualMachineStatus{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+						{
+							Kind:       v1alpha2.DiskDevice,
+							Name:       diskName,
+							Hotplugged: true,
+						},
+					},
+				},
+			}
+			vd := &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       diskName,
+					Namespace:  vmNamespace,
+					UID:        "vd-uid",
+					Generation: 1,
+				},
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{PersistentVolumeClaim: sourcePVC},
+					Conditions: []metav1.Condition{{
+						Type:               vdcondition.MigratingType.String(),
+						Status:             metav1.ConditionTrue,
+						ObservedGeneration: 1,
+						Reason:             reason,
+					}},
+					MigrationState: v1alpha2.VirtualDiskMigrationState{
+						SourcePVC:      sourcePVC,
+						TargetPVC:      targetPVC,
+						StartTimestamp: metav1.Now(),
+					},
+				},
+			}
+
+			err := ApplyMigrationVolumes(kvvm, vm, map[string]*v1alpha2.VirtualDisk{diskName: vd})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim).NotTo(BeNil())
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(expectedPVC))
+		},
+		// The revert is waiting for the target claim: release it so the volumes can be reverted.
+		Entry("waiting for the target claim to be released",
+			vdcondition.MigratingWaitForTargetVolumeReleaseReason.String(), sourcePVC),
+		// The migration has succeeded and the guest already runs on the target: keep it pinned.
+		Entry("waiting for the source claim to be released",
+			vdcondition.MigratingWaitForSourceVolumeReleaseReason.String(), targetPVC),
+		Entry("migration in progress",
+			vdcondition.MigratingInProgressReason.String(), targetPVC),
+	)
 })
 
 var _ = Describe("cleanupRemovedStaticDisks", func() {

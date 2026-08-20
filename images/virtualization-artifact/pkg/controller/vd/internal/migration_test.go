@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -635,7 +636,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should delete target PVC and set failed state", func() {
-				err := migrationHandler.handleRevert(ctx, vd)
+				_, err := migrationHandler.handleRevert(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
@@ -650,7 +651,7 @@ var _ = Describe("MigrationHandler", func() {
 
 		Context("when target PVC does not exist", func() {
 			It("should set failed state without error", func() {
-				err := migrationHandler.handleRevert(ctx, vd)
+				_, err := migrationHandler.handleRevert(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
@@ -670,7 +671,7 @@ var _ = Describe("MigrationHandler", func() {
 
 		Context("when target PVC is not found", func() {
 			It("should set failed state and revert to source PVC", func() {
-				err := migrationHandler.handleComplete(ctx, vd)
+				_, err := migrationHandler.handleComplete(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
@@ -694,7 +695,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should delete target PVC and set failed state", func() {
-				err := migrationHandler.handleComplete(ctx, vd)
+				_, err := migrationHandler.handleComplete(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
@@ -718,7 +719,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should complete migration successfully", func() {
-				err := migrationHandler.handleComplete(ctx, vd)
+				_, err := migrationHandler.handleComplete(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
@@ -729,6 +730,227 @@ var _ = Describe("MigrationHandler", func() {
 				_, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
 				Expect(found).To(BeFalse())
 			})
+		})
+	})
+
+	Describe("canDeletePersistentVolumeClaim", func() {
+		BeforeEach(func() {
+			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+				SourcePVC: "source-pvc",
+				TargetPVC: "target-pvc",
+			}
+
+			targetPVC := newEmptyPVC("target-pvc", "default")
+			withOwner(targetPVC, vd)
+			targetPVC.Spec.VolumeName = "pv-target"
+			targetPVC.Status.Phase = corev1.ClaimBound
+			Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+		})
+
+		Context("when the disk is not mounted to any VirtualMachine", func() {
+			It("should allow the deletion", func() {
+				canDelete, reason, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeTrue())
+				Expect(reason).To(BeEmpty())
+			})
+
+			It("should not look at the pods and the internal resources", func() {
+				Expect(fakeClient.Create(ctx, newVirtLauncherPod("virt-launcher-test-vm-abcde", "test-vm", corev1.PodRunning, "target-pvc"))).To(Succeed())
+				Expect(fakeClient.Create(ctx, newKVVMWithPVC("test-vm", "target-pvc"))).To(Succeed())
+
+				canDelete, _, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeTrue())
+			})
+
+			It("should allow the deletion of the claim that is not found", func() {
+				canDelete, _, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "unknown-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeTrue())
+			})
+		})
+
+		Context("when the disk is mounted to a VirtualMachine", func() {
+			BeforeEach(func() {
+				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+					{Name: "test-vm", Mounted: true},
+				}
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+			})
+
+			It("should allow the deletion when nothing uses the claim", func() {
+				canDelete, reason, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeTrue())
+				Expect(reason).To(BeEmpty())
+			})
+
+			It("should forbid the deletion when the internal VirtualMachine references the claim", func() {
+				Expect(fakeClient.Create(ctx, newKVVMWithPVC("test-vm", "target-pvc"))).To(Succeed())
+
+				canDelete, reason, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeFalse())
+				Expect(reason).To(Equal(`The target PersistentVolumeClaim "target-pvc" is still in use by the VirtualMachine "test-vm".`))
+			})
+
+			It("should forbid the deletion when the internal VirtualMachineInstance references the claim", func() {
+				kvvmi.Spec.Volumes = []virtv1.Volume{
+					{
+						Name: "vd-test-vd",
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "target-pvc"},
+							},
+						},
+					},
+				}
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
+
+				canDelete, reason, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeFalse())
+				Expect(reason).To(Equal(`The target PersistentVolumeClaim "target-pvc" is still in use by the VirtualMachine "test-vm".`))
+			})
+
+			DescribeTable("should account for the pods of the VirtualMachine",
+				func(phase corev1.PodPhase, expectedCanDelete bool) {
+					Expect(fakeClient.Create(ctx, newVirtLauncherPod("virt-launcher-test-vm-abcde", "test-vm", phase, "target-pvc"))).To(Succeed())
+
+					canDelete, reason, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(canDelete).To(Equal(expectedCanDelete))
+					if !expectedCanDelete {
+						Expect(reason).To(Equal(`The target PersistentVolumeClaim "target-pvc" is still in use by the running VirtualMachine "test-vm".`))
+					}
+				},
+				Entry("running pod holds the claim", corev1.PodRunning, false),
+				Entry("pending pod holds the claim", corev1.PodPending, false),
+				Entry("succeeded pod is ignored", corev1.PodSucceeded, true),
+				Entry("failed pod is ignored", corev1.PodFailed, true),
+			)
+
+			It("should ignore the pods of the other VirtualMachine", func() {
+				Expect(fakeClient.Create(ctx, newVirtLauncherPod("virt-launcher-other-vm-abcde", "other-vm", corev1.PodRunning, "target-pvc"))).To(Succeed())
+
+				canDelete, _, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeTrue())
+			})
+
+			It("should ignore the pods that do not use the claim", func() {
+				Expect(fakeClient.Create(ctx, newVirtLauncherPod("virt-launcher-test-vm-abcde", "test-vm", corev1.PodRunning, "source-pvc"))).To(Succeed())
+
+				canDelete, _, err := migrationHandler.canDeletePersistentVolumeClaim(ctx, vd, "target-pvc", targetPVCRole)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canDelete).To(BeTrue())
+			})
+		})
+
+		Context("when it is called for the source and the target claims", func() {
+			BeforeEach(func() {
+				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+					{Name: "test-vm", Mounted: true},
+				}
+				Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+				sourcePVC := newEmptyPVC("source-pvc", "default")
+				withOwner(sourcePVC, vd)
+				sourcePVC.Spec.VolumeName = "pv-source"
+				sourcePVC.Status.Phase = corev1.ClaimBound
+				Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
+
+				kvvm := newKVVMWithPVC("test-vm", "target-pvc")
+				kvvm.Spec.Template.Spec.Volumes = append(kvvm.Spec.Template.Spec.Volumes, virtv1.Volume{
+					Name: "vd-test-vd-source",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "source-pvc"},
+						},
+					},
+				})
+				Expect(fakeClient.Create(ctx, kvvm)).To(Succeed())
+			})
+
+			It("should name the target claim on revert", func() {
+				canFinalize, reason, err := migrationHandler.canFinalizeRevert(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canFinalize).To(BeFalse())
+				Expect(reason).To(Equal(`The target PersistentVolumeClaim "target-pvc" is still in use by the VirtualMachine "test-vm".`))
+			})
+
+			It("should name the source claim on complete", func() {
+				canFinalize, reason, err := migrationHandler.canFinalizeComplete(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(canFinalize).To(BeFalse())
+				Expect(reason).To(Equal(`The source PersistentVolumeClaim "source-pvc" is still in use by the VirtualMachine "test-vm".`))
+			})
+		})
+	})
+
+	Describe("finalization is blocked by a claim in use", func() {
+		BeforeEach(func() {
+			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+				SourcePVC: "source-pvc",
+				TargetPVC: "target-pvc",
+			}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+				{Name: "test-vm", Mounted: true},
+			}
+			Expect(fakeClient.Create(ctx, vm)).To(Succeed())
+
+			sourcePVC := newEmptyPVC("source-pvc", "default")
+			withOwner(sourcePVC, vd)
+			sourcePVC.Status.Phase = corev1.ClaimBound
+			Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
+
+			targetPVC := newEmptyPVC("target-pvc", "default")
+			withOwner(targetPVC, vd)
+			targetPVC.Status.Phase = corev1.ClaimBound
+			Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+		})
+
+		It("should keep the target claim and requeue on revert", func() {
+			Expect(fakeClient.Create(ctx, newVirtLauncherPod("virt-launcher-test-vm-abcde", "test-vm", corev1.PodRunning, "target-pvc"))).To(Succeed())
+
+			result, err := migrationHandler.handleRevert(ctx, vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(finalizeMigrationRequeueAfter))
+
+			Expect(vd.Status.MigrationState.EndTimestamp).To(BeZero())
+			Expect(vd.Status.MigrationState.Result).To(BeEmpty())
+
+			cond, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()))
+			Expect(cond.Message).To(Equal(`Cannot revert the migration. The target PersistentVolumeClaim "target-pvc" is still in use by the running VirtualMachine "test-vm".`))
+
+			pvc := &corev1.PersistentVolumeClaim{}
+			Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "target-pvc", Namespace: "default"}, pvc)).To(Succeed())
+			Expect(pvc.DeletionTimestamp).To(BeNil())
+		})
+
+		It("should keep the source claim and requeue on complete", func() {
+			Expect(fakeClient.Create(ctx, newVirtLauncherPod("virt-launcher-test-vm-abcde", "test-vm", corev1.PodRunning, "source-pvc"))).To(Succeed())
+
+			result, err := migrationHandler.handleComplete(ctx, vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(finalizeMigrationRequeueAfter))
+
+			Expect(vd.Status.MigrationState.EndTimestamp).To(BeZero())
+			Expect(vd.Status.MigrationState.Result).To(BeEmpty())
+
+			cond, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.MigratingWaitForSourceVolumeReleaseReason.String()))
+			Expect(cond.Message).To(Equal(`Cannot complete the migration. The source PersistentVolumeClaim "source-pvc" is still in use by the running VirtualMachine "test-vm".`))
+
+			pvc := &corev1.PersistentVolumeClaim{}
+			Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "source-pvc", Namespace: "default"}, pvc)).To(Succeed())
+			Expect(pvc.DeletionTimestamp).To(BeNil())
 		})
 	})
 })
@@ -749,4 +971,55 @@ func newEmptyPVC(name, namespace string) *corev1.PersistentVolumeClaim {
 
 func withOwner(pvc *corev1.PersistentVolumeClaim, owner client.Object) {
 	pvc.OwnerReferences = []metav1.OwnerReference{service.MakeControllerOwnerReference(owner)}
+}
+
+func newVirtLauncherPod(name, vmName string, phase corev1.PodPhase, claimNames ...string) *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels: map[string]string{
+				virtv1.VirtualMachineNameLabel: vmName,
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: phase,
+		},
+	}
+
+	for i, claimName := range claimNames {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: fmt.Sprintf("volume-%d", i),
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
+			},
+		})
+	}
+
+	return pod
+}
+
+func newKVVMWithPVC(name, claimName string) *virtv1.VirtualMachine {
+	return &virtv1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: virtv1.VirtualMachineSpec{
+			Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+				Spec: virtv1.VirtualMachineInstanceSpec{
+					Volumes: []virtv1.Volume{
+						{
+							Name: "vd-test-vd",
+							VolumeSource: virtv1.VolumeSource{
+								PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }

@@ -34,8 +34,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -566,8 +568,21 @@ func removeDisk(kvvm *KVVM, name string) {
 	)
 }
 
+// isVolumeMigrating reports whether the KVVM must keep pointing at the target PersistentVolumeClaim
+// of the disk migration.
+//
+// A migration waiting for its target claim to be released is being reverted, and the claim cannot be
+// released while the KVVM pins it: the volumes have to be reverted to the source first. Waiting for
+// the source claim is the opposite case — the migration has succeeded and the guest already runs on
+// the target, so the target must stay pinned.
 func isVolumeMigrating(vd *v1alpha2.VirtualDisk) bool {
-	return !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
+	if vd.Status.MigrationState.StartTimestamp.IsZero() || !vd.Status.MigrationState.EndTimestamp.IsZero() {
+		return false
+	}
+
+	cond, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+
+	return cond.Reason != vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()
 }
 
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
