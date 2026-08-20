@@ -464,6 +464,138 @@ var _ = Describe("StatisticHandler", func() {
 	})
 })
 
+var _ = Describe("StatisticHandler syncStats", func() {
+	var h *StatisticHandler
+
+	// The phase is set by LifeCycleHandler, which runs after StatisticHandler, so both the current
+	// and the changed VM carry the phase set on the previous reconciliation.
+	newVMWithStats := func(phase v1alpha2.MachinePhase, pts ...v1alpha2.VirtualMachinePhaseTransitionTimestamp) (current, changed *v1alpha2.VirtualMachine) {
+		current = &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				Phase: phase,
+				Stats: &v1alpha2.VirtualMachineStats{PhasesTransitions: pts},
+			},
+		}
+		return current, current.DeepCopy()
+	}
+
+	BeforeEach(func() {
+		h = NewStatisticHandler(nil)
+	})
+
+	It("records the phase transition when the phase is already set in the status", func() {
+		current, changed := newVMWithStats(v1alpha2.MachineStarting)
+
+		h.syncStats(current, changed, nil)
+
+		Expect(changed.Status.Stats.PhasesTransitions).To(HaveLen(1))
+		Expect(changed.Status.Stats.PhasesTransitions[0].Phase).To(Equal(v1alpha2.MachineStarting))
+	})
+
+	It("does not record the phase transition twice", func() {
+		current, changed := newVMWithStats(v1alpha2.MachineStarting, v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+			Phase:     v1alpha2.MachineStarting,
+			Timestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
+		})
+
+		h.syncStats(current, changed, nil)
+
+		Expect(changed.Status.Stats.PhasesTransitions).To(HaveLen(1))
+	})
+
+	It("calculates waitingForDependencies on the pending -> starting transition", func() {
+		current, changed := newVMWithStats(v1alpha2.MachineStarting, v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+			Phase:     v1alpha2.MachinePending,
+			Timestamp: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+		})
+
+		h.syncStats(current, changed, nil)
+
+		Expect(changed.Status.Stats.LaunchTimeDuration.WaitingForDependencies).NotTo(BeNil())
+		Expect(changed.Status.Stats.LaunchTimeDuration.WaitingForDependencies.Duration).To(BeNumerically("~", 30*time.Second, 5*time.Second))
+	})
+
+	It("calculates virtualMachineStarting on the starting -> running transition", func() {
+		current, changed := newVMWithStats(v1alpha2.MachineRunning,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachinePending,
+				Timestamp: metav1.NewTime(time.Now().Add(-70 * time.Second)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineStarting,
+				Timestamp: metav1.NewTime(time.Now().Add(-40 * time.Second)),
+			},
+		)
+
+		h.syncStats(current, changed, nil)
+
+		Expect(changed.Status.Stats.LaunchTimeDuration.VirtualMachineStarting).NotTo(BeNil())
+		Expect(changed.Status.Stats.LaunchTimeDuration.VirtualMachineStarting.Duration).To(BeNumerically("~", 40*time.Second, 5*time.Second))
+	})
+
+	It("keeps the calculated durations on the following reconciliations", func() {
+		current, changed := newVMWithStats(v1alpha2.MachineRunning,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineStarting,
+				Timestamp: metav1.NewTime(time.Now().Add(-40 * time.Second)),
+			},
+		)
+
+		h.syncStats(current, changed, nil)
+		firstStarting := *changed.Status.Stats.LaunchTimeDuration.VirtualMachineStarting
+
+		current = changed.DeepCopy()
+		h.syncStats(current, changed, nil)
+
+		Expect(changed.Status.Stats.PhasesTransitions).To(HaveLen(2))
+		Expect(*changed.Status.Stats.LaunchTimeDuration.VirtualMachineStarting).To(Equal(firstStarting))
+	})
+
+	It("keeps the durations of the previous launch after a migration", func() {
+		current, _ := newVMWithStats(v1alpha2.MachineRunning,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineStarting,
+				Timestamp: metav1.NewTime(time.Now().Add(-5 * time.Minute)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineRunning,
+				Timestamp: metav1.NewTime(time.Now().Add(-4 * time.Minute)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineMigrating,
+				Timestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
+			},
+		)
+		launched := metav1.Duration{Duration: time.Minute}
+		current.Status.Stats.LaunchTimeDuration.VirtualMachineStarting = &launched
+		current.Status.Stats.LaunchTimeDuration.WaitingForDependencies = &launched
+		changed := current.DeepCopy()
+
+		h.syncStats(current, changed, nil)
+
+		Expect(changed.Status.Stats.PhasesTransitions).To(HaveLen(4))
+		Expect(*changed.Status.Stats.LaunchTimeDuration.VirtualMachineStarting).To(Equal(launched))
+		Expect(*changed.Status.Stats.LaunchTimeDuration.WaitingForDependencies).To(Equal(launched))
+	})
+
+	DescribeTable("resets the durations", func(phase v1alpha2.MachinePhase) {
+		current, _ := newVMWithStats(phase)
+		current.Status.Stats.LaunchTimeDuration = v1alpha2.VirtualMachineLaunchTimeDuration{
+			WaitingForDependencies: &metav1.Duration{Duration: time.Second},
+			VirtualMachineStarting: &metav1.Duration{Duration: time.Second},
+			GuestOSAgentStarting:   &metav1.Duration{Duration: time.Second},
+		}
+		changed := current.DeepCopy()
+
+		h.syncStats(current, changed, nil)
+
+		Expect(changed.Status.Stats.LaunchTimeDuration).To(Equal(v1alpha2.VirtualMachineLaunchTimeDuration{}))
+	},
+		Entry("in the Pending phase", v1alpha2.MachinePending),
+		Entry("in the Stopped phase", v1alpha2.MachineStopped),
+	)
+})
+
 func newVMWithRunningCondition(transitionTime metav1.Time) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
 		Status: v1alpha2.VirtualMachineStatus{

@@ -318,14 +318,21 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 	if current == nil || changed == nil {
 		return
 	}
-	phaseChanged := current.Status.Phase != changed.Status.Phase
-
 	var stats v1alpha2.VirtualMachineStats
 
 	if current.Status.Stats != nil {
 		stats = *current.Status.Stats.DeepCopy()
 	}
-	pts := NewPhaseTransitions(stats.PhasesTransitions, current.Status.Phase, changed.Status.Phase)
+
+	// The phase is set by LifeCycleHandler, which runs later in the same reconciliation, so the
+	// phase change is not observable here by comparing current and changed. Compare the phase with
+	// the last recorded transition instead: it does not depend on the handler order and recovers
+	// on the next reconciliation if the status update was lost.
+	var lastRecordedPhase v1alpha2.MachinePhase
+	if len(stats.PhasesTransitions) > 0 {
+		lastRecordedPhase = stats.PhasesTransitions[len(stats.PhasesTransitions)-1].Phase
+	}
+	pts := NewPhaseTransitions(stats.PhasesTransitions, lastRecordedPhase, changed.Status.Phase)
 
 	stats.PhasesTransitions = pts
 
@@ -340,7 +347,9 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 		launchTimeDuration.VirtualMachineStarting = nil
 		launchTimeDuration.GuestOSAgentStarting = nil
 
-		if phaseChanged {
+		// The duration is derived from the recorded transitions, so it is calculated once and stays
+		// the same on every following reconciliation in this phase.
+		if launchTimeDuration.WaitingForDependencies == nil {
 			for i := len(pts) - 1; i > 0; i-- {
 				pt := pts[i]
 				ptPrev := pts[i-1]
@@ -360,7 +369,7 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 			ptPrev := pts[i-1]
 
 			if pt.Phase == v1alpha2.MachineRunning {
-				if phaseChanged && ptPrev.Phase == v1alpha2.MachineStarting {
+				if launchTimeDuration.VirtualMachineStarting == nil && ptPrev.Phase == v1alpha2.MachineStarting {
 					launchTimeDuration.VirtualMachineStarting = &metav1.Duration{Duration: pt.Timestamp.Sub(pts[i-1].Timestamp.Time)}
 				}
 				if kvvmi != nil && osInfoIsEmpty(current.Status.GuestOSInfo) && !osInfoIsEmpty(kvvmi.Status.GuestOSInfo) && !pt.Timestamp.IsZero() {
