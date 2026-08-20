@@ -1,0 +1,64 @@
+{{- /*
+Files dropped from the libvirt install tree before it is handed to
+virt-launcher. Included by images/libvirt/werf.inc.yaml, where OUTDIR points at
+the staged install root.
+
+These are the parts of a full libvirt install this module has no use for:
+drivers and daemons for hypervisors we do not run, the storage backends other
+than plain files, the command line tools, the host integration (systemd units,
+logrotate, firewalld, augeas, bash completion, sysusers and sysctl drop-ins)
+that a container never reads, and the documentation and schemas.
+
+The list is what the pre-!151 build pruned, carried over unchanged.
+*/ -}}
+rm -rf $OUTDIR/var
+rm -rf $OUTDIR/usr/share/systemtap/tapset/libvirt_probes.stp
+rm -rf $OUTDIR/usr/share/systemtap/tapset/libvirt_qemu_probes.stp
+rm -rf $OUTDIR/usr/lib64/libvirt/lock-driver/sanlock.so
+find $OUTDIR/usr/lib64/libvirt/storage-backend/ -type f -not -name 'libvirt_storage_backend_fs.so' -delete
+rm -rf $OUTDIR/usr/lib64/libvirt/storage-file/libvirt_storage_file_gluster.so
+rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_lxc.so
+rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_ch.so
+rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_vbox.so
+rm -rf $OUTDIR/usr/sbin/virtlxcd
+rm -rf $OUTDIR/usr/sbin/virtchd
+rm -rf $OUTDIR/usr/sbin/virtvboxd
+rm -rf $OUTDIR/usr/libexec/libvirt_sanlock_helper
+rm -rf $OUTDIR/usr/libexec/libvirt_parthelper
+rm -rf $OUTDIR/usr/libexec/libvirt_lxc
+rm -rf $OUTDIR/usr/share/augeas/lenses/tests/
+rm -rf $OUTDIR/usr/bin/virt-login-shell
+rm -rf $OUTDIR/usr/libexec/virt-login-shell-helper
+rm -rf $OUTDIR/usr/bin/virsh
+rm -rf $OUTDIR/usr/bin/virt-admin
+rm -rf $OUTDIR/usr/lib64/wireshark/plugins/4.4/epan/libvirt.so
+rm -rf $OUTDIR/usr/share/libvirt/cpu_map/arm_*
+rm -rf $OUTDIR/usr/share/libvirt/cpu_map/ppc64_*
+rm -rf $OUTDIR/usr/share/libvirt/schemas/
+rm -rf $OUTDIR/etc/logrotate.d/
+rm -rf $OUTDIR/usr/lib/firewalld/
+rm -rf $OUTDIR/etc/libvirt/nwfilter/
+rm -rf $OUTDIR/usr/lib/sysusers.d/libvirt-qemu.sysusers.conf
+rm -rf $OUTDIR/usr/lib/sysctl.d/postcopy-migration.sysctl
+rm -rf $OUTDIR/usr/share/libvirt/test-screenshot.png
+rm -rf $OUTDIR/etc/libvirt/libvirt-admin.conf
+rm -rf $OUTDIR/etc/libvirt/qemu-lockd.conf
+rm -rf $OUTDIR/etc/libvirt/qemu-sanlock.conf
+rm -rf $OUTDIR/etc/libvirt/virtlockd.conf
+rm -rf $OUTDIR/etc/libvirt/lxc.conf
+rm -rf $OUTDIR/etc/libvirt/qemu.conf
+rm -rf $OUTDIR/usr/share/augeas/
+rm -rf $OUTDIR/etc/libvirt/virtnetworkd.conf
+rm -rf $OUTDIR/etc/libvirt/virtsecretd.conf
+rm -rf $OUTDIR/etc/libvirt/virtstoraged.conf
+rm -rf $OUTDIR/etc/libvirt/virtlxcd.conf
+rm -rf $OUTDIR/etc/libvirt/virtchd.conf
+rm -rf $OUTDIR/etc/libvirt/virtqemud.conf
+rm -rf $OUTDIR/etc/libvirt/virtvboxd.conf
+rm -rf $OUTDIR/usr/sbin/virt-sanlock-cleanup
+rm -rf $OUTDIR/usr/lib/systemd/
+rm -rf $OUTDIR/usr/bin/virt-qemu-qmp-proxy
+rm -rf $OUTDIR/usr/share/bash-completion/
+rm -rf $OUTDIR/etc/ssh/
+rm -rf $OUTDIR/usr/share/doc
+rm -rf $OUTDIR/usr/local/share/locale/

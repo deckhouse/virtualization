@@ -71,7 +71,7 @@ pmPackages:
 - libaio libaudit libcap-ng numactl
 - linux-pam libunistring gmp gnutls nettle libidn2 p11-kit libtasn1
 - libffi zlib zstd liburing glib2 libfuse libburn readline libisofs ncurses
-- libxml2 libvirt json-c libssh libssh2 libtirpc
+- libxml2 json-c libssh libssh2 libtirpc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

@@ -1,0 +1,135 @@
+{{- /*
+Meson options for the libvirt build. Included by images/libvirt/werf.inc.yaml.
+
+libvirt enumerates every warning gcc knows and, for builds from a git checkout,
+adds -Werror on its own:
+
+  if (git_werror.enabled() or git_werror.auto()) and git and not get_option('werror')
+    cc_flags += [ '-Werror' ]
+
+so meson's built-in -Dwerror=false does not disable it — it is one of the
+conditions that turn it on. git_werror is the option that does.
+
+This matters now because glib2 headers come from pm instead of our own source
+build: gcc declines to inline g_autoptr_cleanup_generic_gfree, and -Winline —
+which only libvirt's exhaustive warning list enables — fails the build on a
+header we do not own, inside libvirt's own test files. We build a pinned
+release rather than develop libvirt, so warnings must not be fatal here.
+
+The layout was implicit while we built on ALT, whose meson defaults to
+prefix=/usr, libdir=lib64 and sysconfdir=/etc. This builder uses meson's own
+defaults (prefix=/usr/local, libdir=lib), which would move every installed
+file and break both the cleanup in werf.inc.yaml and virt-launcher, which
+expects the libraries in /usr/lib64 and the configs in /etc/libvirt. Pin them,
+the way container-factory pins them for the same reason.
+
+nls is off because container-factory's gettext ships a msgfmt that cannot
+start — it links a libgettextsrc.so the package does not contain — and the
+package arrives transitively, so its absence cannot be relied on. Note that
+this option alone is not enough: po/ is entered unconditionally and meson's
+i18n module finds msgfmt on its own, so the build dependencies must also not
+drag gettext in. container-factory builds libvirt without the GNU gettext
+tools too, so translations were not built there either.
+
+json_c is pinned because virJSON is how libvirt speaks QMP to qemu: built
+without json-c, src/util/virjson.c compiles to stubs that report "No JSON
+parser implementation is available". driver_qemu=enabled below already turns
+a missing json-c into a configure error, but naming the dependency directly
+points the error at the package that went away instead of at the driver.
+
+Every other option libvirt leaves on auto is pinned to the state this build
+already produces, read off its own configuration summary, so the feature set
+stops depending on what pm happens to drag into the builder.
+
+attr and libnl are pinned disabled, not enabled: neither libattr nor
+libnl-devel is in the builder, and meson turns enabled-without-dependency
+into a hard error. container-factory's libvirt package builds without both
+as well, so this is the state the module has shipped since the move to pm.
+Without libnl libvirt loses its netlink paths — SR-IOV VF address
+save/restore, macvtap, its own bridges and IP setup, 802.1Qbg/bh — none of
+which this module uses, because virt-launcher hands libvirt a ready tap
+device. Enabling them means adding the packages first, as a separate
+decision.
+*/ -}}
+--prefix=/usr \
+-Dlibdir=/usr/lib64 \
+-Dsysconfdir=/etc \
+-Dgit_werror=disabled \
+-Dnls=disabled \
+-Dinit_script=systemd \
+-Dsystem=true \
+-Dremote_default_mode=direct \
+-Djson_c=enabled \
+-Dpciaccess=enabled \
+-Dsasl=enabled \
+-Dpolkit=enabled \
+-Dlibssh=enabled \
+-Dlibssh2=enabled \
+-Dnumactl=enabled \
+-Dcapng=enabled \
+-Dudev=enabled \
+-Ddriver_network=enabled \
+-Ddriver_interface=enabled \
+-Ddriver_libvirtd=enabled \
+-Ddriver_qemu=enabled \
+-Ddriver_remote=enabled \
+-Dselinux=enabled \
+-Dselinux_mount=enabled \
+-Dblkid=enabled \
+-Ddriver_secrets=enabled \
+-Dhost_validate=enabled \
+-Dnss=enabled \
+-Dsecdriver_selinux=enabled \
+-Dssh_proxy=enabled \
+-Dstorage_dir=enabled \
+-Dstorage_scsi=enabled \
+-Dsysctl_config=enabled \
+-Dtests=enabled \
+-Duserfaultfd_sysctl=enabled \
+-Dapparmor=disabled \
+-Dapparmor_profiles=disabled \
+-Dattr=disabled \
+-Daudit=disabled \
+-Dbash_completion=disabled \
+-Ddriver_libxl=disabled \
+-Ddtrace=disabled \
+-Dexpensive_tests=disabled \
+-Dfuse=disabled \
+-Dlibnl=disabled \
+-Dlibpcap=disabled \
+-Dnbdkit=disabled \
+-Dnbdkit_config_default=disabled \
+-Dnetcf=disabled \
+-Dnumad=disabled \
+-Dpm_utils=disabled \
+-Dreadline=disabled \
+-Drpath=disabled \
+-Dsanlock=disabled \
+-Dsecdriver_apparmor=disabled \
+-Dstorage_disk=disabled \
+-Ddriver_esx=disabled -Dcurl=disabled \
+-Dfirewalld=disabled \
+-Dfirewalld_zone=disabled \
+-Ddocs=disabled \
+-Ddriver_ch=disabled \
+-Ddriver_lxc=disabled -Dlogin_shell=disabled \
+-Ddriver_openvz=disabled \
+-Ddriver_test=disabled \
+-Ddriver_vbox=disabled \
+-Ddriver_vmware=disabled \
+-Ddriver_hyperv=disabled -Dopenwsman=disabled \
+-Ddriver_vz=disabled \
+-Ddriver_bhyve=disabled \
+-Dvbox_xpcomc_dir=disabled \
+-Dwireshark_dissector=disabled \
+-Dwireshark_plugindir=disabled \
+-Dstorage_gluster=disabled -Dglusterfs=disabled \
+-Dstorage_fs=disabled \
+-Dstorage_lvm=disabled \
+-Dstorage_zfs=disabled \
+-Dstorage_vstorage=disabled \
+-Dstorage_rbd=disabled \
+-Dstorage_mpath=disabled \
+-Dstorage_iscsi=disabled \
+-Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
+-Dlibiscsi=disabled

@@ -1,15 +1,182 @@
 ---
+{{- $gitRepoName := .ImageName }}
+{{- $version := get .Firmware $gitRepoName }}
+{{- $gitRepoUrl := "qemu/qemu.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+from: {{ index $.Images "builder/src" }}
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /
+  includePaths:
+  - install-qemu.sh
+  - patches
+  excludePaths:
+    - patches/README.md
+  stageDependencies:
+    install:
+      - '**/*'
+- add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
+  to: /relocate_binaries.sh
+  stageDependencies:
+    install:
+    - '**/*'
+secrets:
+- id: SOURCE_REPO
+  value: {{ .PACKAGE_CLONE_REPO }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2}}
+  - apt-get install -y meson
+  {{- include "alt packages clean" . | nindent 2}}
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
+
+    cd /src/{{ $gitRepoName }}-{{ $version }}
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      # mbed-tls rewrite is needed for edk2 submodule.
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios.git".insteadOf=https://gitlab.com/qemu-project/seabios.git/ \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/mbed-tls/".insteadOf=https://github.com/ARMmbed/ \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+
+      echo "Download meson subprojects with URL rewrites."
+      # Configure script options require only 3 subprojects.
+      for subproj in berkeley-softfloat-3 berkeley-testfloat-3 keycodemapdb ; do
+        echo "Rewrite url for ${subproj} subproject."
+        wrapfile="subprojects/${subproj}.wrap"
+        # Rewrite https://HOSTNAME/ to SOURCE_REPO secret in the wrap file.
+        sed -i '/^#/n ; /^url/ s|\(url\ \?=\ \?\)\(.*:\/\/[^\/]*\/\)|\1'$(cat /run/secrets/SOURCE_REPO)'\/|' ${wrapfile}
+        meson subprojects download ${subproj}
+      done
+
+    fi
+
+    echo "Apply SeaBIOS patches"
+    for p in /patches/seabios/*.patch ; do
+      [ -f "$p" ] || continue
+      git -C roms/seabios apply --check --ignore-space-change --ignore-whitespace "$p" >/dev/null 2>&1 || (echo "FAIL" ; exit 1)
+      echo -n "Apply ${p} to roms/seabios ... "
+      git -C roms/seabios apply --ignore-space-change --ignore-whitespace "$p" && echo OK || (echo FAIL ; exit 1)
+    done
+
+---
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
+# Build dependencies and tools, all from pm. This is container-factory's own list
+# for this qemu version plus the toolchain bits its builder image does not carry,
+# which is sound because our configure flags match theirs apart from werror and
+# --enable-debug-info, neither of which needs a library.
 pmPackages:
-- qemu
+- xkeyboard-config glib2 glib2-devel util-linux util-linux-devel libffi-devel
+- pcre2-devel zlib-devel curl-devel brotli-devel c-ares-devel libidn2-devel
+- zstd-devel nghttp2-devel openssl-devel libpsl-devel udev udev-devel
+- libfdt-devel gnutls gnutls-devel nettle nettle-devel libtasn1
+- libtasn1-devel p11-kit p11-kit-devel gmp gmp-devel numactl
+- numactl-devel libblkio libblkio-devel libcapstone libcapstone-devel lzo
+- lzo-devel libcap-ng libcap-ng-devel libaio libaio-devel multipath-tools
+- multipath-tools-devel lvm2 lvm2-devel userspace-rcu userspace-rcu-devel libseccomp
+- libseccomp-devel rdma-core rdma-core-devel libnl-devel liburing liburing-devel
+- libselinux libselinux-devel libsepol libsepol-devel libxkbcommon libxkbcommon-devel
+- libpng libpng-devel pixman pixman-devel cyrus-sasl-devel snappy
+- snappy-devel libusbredirparser libusbredirparser-devel libusb libusb-devel spice-protocol
+- pulseaudio pulseaudio-devel libsndfile libsndfile-devel libepoxy libepoxy-devel
+- mesa mesa-devel libdrm libdrm-devel libslirp libslirp-devel
+- librbd ceph-devel boost boost-devel lz4 lz4-devel
+- meson ninja-build make pkgconf perl binutils
+- python python-devel python-wheel git
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-from: {{ index $.Images "builder/distroless" }}
+from: {{ index $.Images "builder/golang-1.25" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/{{ $gitRepoName }}-{{ $version }}
+  to: /{{ $gitRepoName }}-{{ $version }}
+  before: install
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /patches
+  to: /patches
+  before: install
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /
+  to: /
+  before: install
+  includePaths:
+  - install-qemu.sh
+  - relocate_binaries.sh
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   install:
-  {{- include "pm packages install" (list $builderDependencies.pmPackages "/qemu-img") | nindent 2 }}
+  {{- include "pm packages install" (list $builderDependencies.pmPackages "/") | nindent 2 }}
+  - |
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
+
+    # qemu's configure builds itself a virtualenv and needs distlib to do it. The
+    # python-wheel package above unpacks the vendored wheel set into /wheels, so
+    # install it from there with no network, exactly as container-factory does for
+    # this same qemu version.
+    pip3 install -f file:///wheels --no-index distlib==0.4.3
+
+    # Both library directories are in play on this builder: pm installs into
+    # /usr/lib while the base image keeps /usr/lib64. Same settings
+    # container-factory uses to build this version.
+    export PKG_CONFIG_LIBDIR="/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    export LIBRARY_PATH="/usr/lib:/usr/lib64"
+
+    # relocate_binaries.sh resolves each binary's shared libraries with ldd, which
+    # the base system provided on ALT. No container-factory package ships it —
+    # gnu-glibc carries only ldconfig — so stand it up over the dynamic loader,
+    # which is what ldd itself is a wrapper around and prints the same format.
+    if ! command -v ldd >/dev/null; then
+      printf '#!/bin/sh\nexec /lib64/ld-linux-x86-64.so.2 --list "$@"\n' > /usr/bin/ldd
+      chmod +x /usr/bin/ldd
+    fi
+
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    echo "Building patched SeaBIOS..."
+    make -C roms bios V=1 PYTHON=python3 HOSTCC=gcc -j$(nproc)
+
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+
+    # The flag list lives in flags.tmpl next to this file, with the reasoning
+    # behind it.
+    ./configure \
+      {{- tpl (.Files.Get (printf "images/%s/flags.tmpl" .ImageName)) . | trim | nindent 6 }}
+
+    {{- $_ := set $ "ProjectName" (list .ImageName "qemu" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
+  setup:
+  - |
+    /install-qemu.sh --version-num "{{ $version }}" \
+                        -s /{{ $gitRepoName }}-{{ $version }} \
+                        -d /BINS \
+                        -b build
+    # qemu-img
+    mkdir -p /qemu-img/usr/bin
+    cp -an /BINS/usr/bin/qemu{-nbd,-img} /qemu-img/usr/bin
+
+    LIST="/BINS/usr/bin/qemu-img /BINS/usr/bin/qemu-nbd"
+
+    ./relocate_binaries.sh -i "$LIST" -o /qemu-img

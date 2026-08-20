@@ -1,0 +1,29 @@
+diff --git a/src/util/virusb.c b/src/util/virusb.c
+index cf3461f80a..5a92098452 100644
+--- a/src/util/virusb.c
++++ b/src/util/virusb.c
+@@ -169,6 +169,24 @@ virUSBDeviceSearch(unsigned int vendor,
+         if (!usb)
+             goto cleanup;
+ 
++        /* In containerized environments sysfs may expose USB devices
++         * from the host kernel while the corresponding device node
++         * under /dev/bus/usb/ is not present in the container's mount
++         * namespace.  Skip such devices so that callers relying on
++         * startupPolicy='optional' see an empty result and can handle
++         * the missing device gracefully. */
++        if (virUSBDeviceGetPath(usb) &&
++            !virFileExists(virUSBDeviceGetPath(usb))) {
++            VIR_DEBUG("USB device %03u:%03u found in sysfs but "
++                      "device node '%s' is not accessible, skipping",
++                      found_bus, found_devno,
++                      virUSBDeviceGetPath(usb));
++            g_clear_pointer(&usb, virUSBDeviceFree);
++            if (found)
++                break;
++            continue;
++        }
++
+         if (virUSBDeviceListAdd(list, &usb) < 0)
+             goto cleanup;
+ 

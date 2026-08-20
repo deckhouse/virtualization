@@ -1,0 +1,38 @@
+diff --git a/src/boot.c b/src/boot.c
+index 1effd80..ec5992f 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -21,6 +21,7 @@
+ #include "string.h" // memset
+ #include "util.h" // irqtimer_calc
+ #include "tcgbios.h" // tpm_*
++#include "x86.h" // outb
+ 
+ /****************************************************************
+  * Helper search functions
+@@ -960,12 +961,23 @@ boot_rom(u32 vector)
+ }
+ 
+ // Unable to find bootable device - warn user and eventually retry.
++static void
++write_port_403(const char *s)
++{
++    if (!CONFIG_DEBUG_IO || !runningOnQEMU())
++        return;
++
++    for (; *s; s++)
++        outb(*s, 0x403);
++}
++
+ static void
+ boot_fail(void)
+ {
+-    if (BootRetryTime == (u32)-1)
++    if (BootRetryTime == (u32)-1) {
+         printf("No bootable device.\n");
+-    else
++        write_port_403("No bootable device.\n");
++    } else
+         printf("No bootable device.  Retrying in %d seconds.\n"
+                , BootRetryTime/1000);
+     // Wait for 'BootRetryTime' milliseconds and then reboot.

@@ -17,7 +17,6 @@ imageSpec:
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 pmPackages:
-- libvirt
 - swtpm libtpms numactl dmidecode
 - xorriso libburn attr libaudit
 - gnutls acl libbsd libgcrypt libmd
@@ -47,6 +46,7 @@ pmPackages:
 - libffi
 - brotli libstdc++ libcap libgpg-error lz4
 - userspace-rcu lzo dtc
+- udev libfdt libblkio libusb pulseaudio libepoxy librbd libatomic libquadmath gnu-gcc-lib  # runtime dependencies of the in-repo qemu build
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -77,10 +77,18 @@ import:
   add: /usr/bin/tini
   to: /relocate/usr/bin/tini
   before: setup
-# QEMU libraries and binaries
+# QEMU libraries and binaries. /BINS is the full install; /qemu-img holds only
+# qemu-img and qemu-nbd and is what the images that just need those two import.
+# This is the one image that runs virtual machines, so it needs qemu-system-x86_64,
+# the firmware blobs and the loadable modules as well.
 - image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
+  add: /BINS
   to: /qemu-bins
+  before: install
+# libvirt, built from source in this repo with the module's patches
+- image: {{ .ModuleNamePrefix }}libvirt
+  add: /libvirt
+  to: /libvirt-bins
   before: install
 # EDK2 (uefi firmware)
 - image: {{ .ModuleNamePrefix }}edk2
@@ -164,6 +172,10 @@ shell:
     echo "Copy qemu binaries into /relocate"
     cp -a /qemu-bins/. /relocate/
     rm -rf /qemu-bins
+
+    echo "Copy libvirt binaries into /relocate"
+    cp -a /libvirt-bins/. /relocate/
+    rm -rf /libvirt-bins
 
     echo "Create runtime folder hierarchy"
     mkdir -p /relocate/{etc,root}

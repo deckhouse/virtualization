@@ -1,0 +1,113 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+final: false
+from: {{ index $.Images "builder/scratch" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+
+---
+{{- $gitRepoName := .ImageName }}
+{{- $version := get .Firmware $gitRepoName }}
+{{- $gitRepoUrl := "libvirt/libvirt.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+from: {{ index $.Images "builder/src" }}
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  excludePaths:
+    - patches/README.md
+  stageDependencies:
+    install:
+      - '**/*'
+secrets:
+- id: SOURCE_REPO
+  value: {{ .PACKAGE_CLONE_REPO }}
+shell:
+  install:
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
+
+    cd /src/{{ $gitRepoName }}-{{ $version }}
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+    fi
+
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+
+---
+{{- $name := print .ImageName "-dependencies" -}}
+{{- define "$name" -}}
+pmPackages:
+- libxml2 libxml2-devel libunistring krb5 libxslt libtirpc
+- libtirpc-devel libcap-ng libcap-ng-devel glib2 glib2-devel pcre2
+- pcre2-devel libffi libffi-devel zlib zlib-devel xz
+- xz-devel json-c json-c-devel libselinux libselinux-devel libsepol
+- libsepol-devel gnutls gnutls-devel p11-kit p11-kit-devel nettle
+- nettle-devel libtasn1 libtasn1-devel libssh libssh-devel libssh2
+- libssh2-devel openssl openssl-devel util-linux util-linux-devel numactl
+- numactl-devel libpciaccess-devel udev-devel udev cyrus-sasl cyrus-sasl-devel
+- meson ninja-build make pkgconf perl binutils
+- python python-devel git
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+final: false
+from: {{ index $.Images "builder/golang-1.25" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/{{ $gitRepoName }}-{{ $version }}
+  to: /{{ $gitRepoName }}-{{ $version }}
+  before: install
+shell:
+  install:
+  {{- include "pm packages install" (list $builderDependencies.pmPackages "/") | nindent 2 }}
+  - |
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
+
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    # The option list lives in flags.tmpl next to this file, with the reasoning
+    # behind it.
+    CFLAGS="-Wframe-larger-than=262144" meson setup build \
+      {{- tpl (.Files.Get (printf "images/%s/flags.tmpl" .ImageName)) . | trim | nindent 6 }}
+
+
+      {{- $_ := set $ "ProjectName" (list .ImageName "libvirt" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | nindent 6 }}
+
+  setup:
+  - |
+    OUTDIR=/out
+    cd /{{ $gitRepoName }}-{{ $version }}
+    DESTDIR=$OUTDIR ninja -C build install
+
+    # The prune list lives in rm.tmpl next to this file.
+    {{- tpl (.Files.Get (printf "images/%s/rm.tmpl" .ImageName)) . | trim | nindent 4 }}
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+    tree -hp $OUTDIR
