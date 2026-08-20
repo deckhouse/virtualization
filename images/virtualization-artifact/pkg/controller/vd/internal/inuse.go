@@ -126,7 +126,7 @@ func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *v1alpha2.Vir
 		return false, nil
 	}
 
-	return pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true", nil
+	return annotations.IsDataExportRequested(pvc), nil
 }
 
 func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {

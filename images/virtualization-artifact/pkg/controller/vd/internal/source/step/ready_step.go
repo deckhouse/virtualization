@@ -78,7 +78,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconci
 
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:
-		if s.pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
+		if annotations.IsDataExportRequested(s.pvc) {
 			vd.Status.Phase = v1alpha2.DiskExporting
 			s.cb.
 				Status(metav1.ConditionFalse).
