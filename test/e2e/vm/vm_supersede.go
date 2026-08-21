@@ -184,7 +184,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 			vmopbuilder.WithVMOPMigrateNodeSelector(nonExistentNodeSelector),
 		)
 		migrateVMOPObs := vmopobs.StartObserver(ctx, migrateVMOP)
-		err = f.CreateWithDeferredDeletion(ctx, migrateVMOP)
+		err = util.CreateVMOPRetryingStaleActiveDenial(ctx, f, migrateVMOP)
 		Expect(err).NotTo(HaveOccurred())
 		// Migration slot contention in parallel e2e runs can keep the VMOP
 		// Pending for a while before the migration actually starts.
@@ -279,7 +279,7 @@ var _ = Describe("VirtualMachineSupersede", Label(label.SIGCompute, precheck.NoP
 			vmopbuilder.WithVirtualMachine(vm.Name),
 		)
 		restartVMOPObs := vmopobs.StartObserver(ctx, restartVMOP)
-		err = f.CreateWithDeferredDeletion(ctx, restartVMOP)
+		err = util.CreateVMOPRetryingStaleActiveDenial(ctx, f, restartVMOP)
 		Expect(err).NotTo(HaveOccurred())
 		err = restartVMOPObs.WaitFor(supersedeVMOPInProgress(), framework.MiddleTimeout)
 		Expect(err).NotTo(HaveOccurred())

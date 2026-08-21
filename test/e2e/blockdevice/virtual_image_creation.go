@@ -434,11 +434,6 @@ func uploadVirtualImageAndWait(ctx context.Context, f *framework.Framework, vi *
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	By("Allowing ingress-nginx and the controller to reach the uploader pod (workaround)", func() {
-		err := allowIngressToUploaderNetworkPolicy(ctx, f, vi.Namespace, vi.UID)
-		Expect(err).NotTo(HaveOccurred(), "failed to patch uploader NetworkPolicy")
-	})
-
 	By("Uploading data to the VirtualImage", func() {
 		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vi), vi)
 		Expect(err).NotTo(HaveOccurred())

@@ -118,7 +118,7 @@ jobs:
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
       cluster_config_workers_memory: "9Gi"
-      cluster_config_additional_disk_size: "50Gi"
+      cluster_config_additional_disk_size: "60Gi"
       cluster_config_k8s_version: "1.35"
       apt_mirror_enabled: true
     secrets:

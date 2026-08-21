@@ -388,7 +388,12 @@ func createTargetStorageClassCopy(ctx context.Context, f *framework.Framework, k
 		return f.Delete(ctx, target)
 	})
 
-	_, err := observer.WaitForFirst(ctx, f.KubeClient().StorageV1().StorageClasses(), framework.ShortTimeout,
+	// The sds-elastic controller turns clones into StorageClasses strictly
+	// serially at ~9s per clone (measured on an idle nightly nested ceph
+	// cluster: the 8th of 8 concurrent clones appears after ~70s), and the
+	// parallel suite creates all clones at once on an apiserver under peak
+	// start-up load, so the wait must cover the whole queue with margin.
+	_, err := observer.WaitForFirst(ctx, f.KubeClient().StorageV1().StorageClasses(), framework.LongTimeout,
 		func(sc *storagev1.StorageClass) bool { return sc.Name == target.GetName() },
 	)
 	if err != nil {

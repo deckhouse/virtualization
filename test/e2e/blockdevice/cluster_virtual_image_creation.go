@@ -287,13 +287,6 @@ func uploadClusterVirtualImageAndWait(ctx context.Context, f *framework.Framewor
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	// The uploader supplements of a cluster-scoped image live in the
-	// virtualization-controller namespace, not in the test project.
-	By("Allowing ingress-nginx and the controller to reach the uploader pod (workaround)", func() {
-		err := allowIngressToUploaderNetworkPolicy(ctx, f, controllerNamespaceLabelValue, cvi.UID)
-		Expect(err).NotTo(HaveOccurred(), "failed to patch uploader NetworkPolicy")
-	})
-
 	By("Uploading data to the ClusterVirtualImage", func() {
 		err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(cvi), cvi)
 		Expect(err).NotTo(HaveOccurred())

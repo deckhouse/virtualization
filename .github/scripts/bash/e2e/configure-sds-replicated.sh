@@ -39,7 +39,7 @@ echo "[INFO] Wait pods and webhooks sds-replicated pods"
 sds_pods_ready
 
 chmod +x ../sds-node-configurator/lvg-gen.sh
-../sds-node-configurator/lvg-gen.sh
+LVMVG_SIZE_PERCENT="${LVMVG_SIZE_PERCENT:-90}" ../sds-node-configurator/lvg-gen.sh
 
 chmod +x rsc-gen.sh
 ./rsc-gen.sh

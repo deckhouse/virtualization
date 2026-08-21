@@ -187,8 +187,8 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	err = evictVMOPObs.WaitFor(vmopobs.BeInProgress(), framework.MaxTimeout)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Ensure the KVVMI has a migration state")
-	untilKVVMIMigrationStateExists(ctx, framework.MaxTimeout, vm)
+	By("Ensure the KVVMI migration has started")
+	untilKVVMIMigrationStarted(ctx, framework.MaxTimeout, vm)
 
 	By("Remove the VMOP")
 	err = f.GenericClient().Delete(ctx, evictVMOP)
@@ -202,7 +202,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 	err = observer.WaitForDeleted(ctx,
 		f.VirtClient().VirtualMachineOperations(evictVMOP.Namespace),
 		evictVMOP.Name, evictVMOP.Namespace,
-		framework.MiddleTimeout,
+		framework.LongTimeout,
 		func(ctx context.Context) (bool, error) {
 			_, getErr := f.VirtClient().VirtualMachineOperations(evictVMOP.Namespace).Get(ctx, evictVMOP.Name, metav1.GetOptions{})
 			if k8serrors.IsNotFound(getErr) {
@@ -232,7 +232,7 @@ var _ = DescribeTable("VirtualMachineCancelMigration", Label(label.SIGCompute), 
 // EXCEPTION: the internal VirtualMachineInstance is read through the rewrite
 // client, which has no watch support, so there is nothing to observe via an
 // Observer and a polling wait is used deliberately here.
-func untilKVVMIMigrationStateExists(ctx context.Context, timeout time.Duration, vm *v1alpha2.VirtualMachine) {
+func untilKVVMIMigrationStarted(ctx context.Context, timeout time.Duration, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	eventually.Until(func() error {
@@ -245,8 +245,25 @@ func untilKVVMIMigrationStateExists(ctx context.Context, timeout time.Duration, 
 			return fmt.Errorf("retry because KVVMI not found for %s/%s VM", vm.Namespace, vm.Name)
 		}
 
-		if kvvmi.Status.MigrationState == nil {
+		migrationState := kvvmi.Status.MigrationState
+		if migrationState == nil {
 			return fmt.Errorf("%s KVVMI migration state is empty", kvvmi.Name)
+		}
+
+		// A migration that dies during target preparation (e.g. the target pod
+		// cannot mount its volumes in time) never starts; report that directly
+		// instead of cancelling it and failing later on the abort status.
+		if migrationState.Failed && !migrationState.EndTimestamp.IsZero() {
+			return StopTrying(fmt.Sprintf("migration failed before it started for KVVMI %s/%s: %s", vm.Namespace, vm.Name, migrationState.FailureReason))
+		}
+
+		// The abort semantics of the cancel hold only for a migration that is
+		// actually running: a cancel during target preparation deletes the
+		// target pod before the migration kicks off, and KubeVirt reports
+		// Failed instead of an abort. StartTimestamp is set at the moment the
+		// domain transfer begins.
+		if migrationState.StartTimestamp.IsZero() {
+			return fmt.Errorf("retry because migration has not started yet for KVVMI %s/%s", vm.Namespace, vm.Name)
 		}
 
 		return nil

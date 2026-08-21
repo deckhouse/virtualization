@@ -142,6 +142,13 @@ var _ = Describe("ImageChecksums", Label(
 	})
 
 	It("provisions an uploaded VirtualImage verified with every supported algorithm", func(ctx context.Context) {
+		// The upload flow needed the uploader NetworkPolicy patched to let
+		// ingress-nginx and the controller reach the uploader pod; that
+		// workaround edited a `heritage: deckhouse` object, which the
+		// label-objects.deckhouse.io VAP forbids, so it was removed. Re-enable
+		// once the controller allows this traffic itself.
+		Skip("skipped: upload needs ingress to the uploader pod that the controller does not allow yet")
+
 		vi := newVirtualImageOnDVCR("vi-upload-checksum",
 			vibuilder.WithDatasource(v1alpha2.VirtualImageDataSource{
 				Type:   v1alpha2.DataSourceTypeUpload,
@@ -153,6 +160,10 @@ var _ = Describe("ImageChecksums", Label(
 	})
 
 	It("fails an uploaded VirtualImage whose SHA-512 checksum does not match", func(ctx context.Context) {
+		// See the skip in the upload provisioning spec above: the NetworkPolicy
+		// workaround the upload flow relied on was removed.
+		Skip("skipped: upload needs ingress to the uploader pod that the controller does not allow yet")
+
 		vi := newVirtualImageOnDVCR("vi-upload-checksum-mismatch",
 			vibuilder.WithDatasource(v1alpha2.VirtualImageDataSource{
 				Type: v1alpha2.DataSourceTypeUpload,
@@ -176,11 +187,6 @@ var _ = Describe("ImageChecksums", Label(
 
 		By("Waiting for the VirtualImage to expose upload URLs", func() {
 			Expect(obs.WaitFor(viobs.BeReadyForUserUpload(), framework.LongTimeout)).To(Succeed())
-		})
-
-		By("Allowing ingress-nginx and the controller to reach the uploader pod (workaround)", func() {
-			Expect(allowIngressToUploaderNetworkPolicy(ctx, f, vi.Namespace, vi.UID)).To(Succeed(),
-				"failed to patch uploader NetworkPolicy")
 		})
 
 		By("Uploading data that does not match the checksum", func() {

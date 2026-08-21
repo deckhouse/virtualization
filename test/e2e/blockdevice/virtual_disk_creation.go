@@ -33,7 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,11 +148,6 @@ var _ = Describe("VirtualDiskCreation", Label(
 		By("Waiting for the VirtualDisk to expose upload URLs", func() {
 			err := obs.WaitFor(vdobs.BeReadyForUserUpload(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		By("Allowing ingress-nginx and the controller to reach the uploader pod (workaround)", func() {
-			err := allowIngressToUploaderNetworkPolicy(ctx, f, vd.Namespace, vd.UID)
-			Expect(err).NotTo(HaveOccurred(), "failed to patch uploader NetworkPolicy")
 		})
 
 		By("Uploading data to the VirtualDisk", func() {
@@ -551,7 +545,11 @@ func setupProject(ctx context.Context, f *framework.Framework, prefix string) {
 		Expect(err).NotTo(HaveOccurred())
 
 		projObs := projobs.StartObserver(ctx, f, project.Name)
-		err = projObs.WaitFor(projobs.BeDeployed(), framework.ShortTimeout)
+		// Every blockdevice suite creates its own Project, so a parallel run
+		// piles a dozen of them onto multitenancy-manager at once and it
+		// deploys them one by one; the queue tail does not fit into the short
+		// timeout at the start-of-run load peak.
+		err = projObs.WaitFor(projobs.BeDeployed(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -881,81 +879,6 @@ func downloadImageToTempFile(url string) (string, error) {
 	return tmpFile.Name(), nil
 }
 
-// uploaderIngressNginxNamespaceLabel is the namespace label used to match the
-// Deckhouse ingress-nginx controller namespace.
-const uploaderIngressNginxNamespaceLabel = "module"
-
-// uploaderIngressNginxNamespaceLabelValue is the value of the namespace label
-// for the Deckhouse ingress-nginx controller namespace (d8-ingress-nginx).
-const uploaderIngressNginxNamespaceLabelValue = "ingress-nginx"
-
-// controllerNamespaceLabel / controllerNamespaceLabelValue match the namespace
-// where the virtualization-controller runs (d8-virtualization).
-const (
-	controllerNamespaceLabel      = "kubernetes.io/metadata.name"
-	controllerNamespaceLabelValue = "d8-virtualization"
-)
-
-// allowIngressToUploaderNetworkPolicy patches the NetworkPolicy created by the
-// virtualization-controller for the uploader pod owned by vd, so that traffic
-// from the namespaces the upload flow depends on is allowed to reach the
-// uploader pod:
-//
-//   - d8-ingress-nginx (label "module=ingress-nginx"): without it external
-//     uploads via the Ingress URL fail with a 504 Gateway Time-out.
-//   - d8-virtualization (the virtualization-controller namespace): the
-//     controller scrapes the uploader's progress metrics over the pod IP. As
-//     soon as any ingress rule is present on the pod, Cilium starts enforcing
-//     ingress and would otherwise drop the controller's scrape, which makes the
-//     reported upload progress stay stuck at 0% and jump straight to 50% only
-//     when the uploader pod completes. Allowing d8-virtualization keeps the
-//     live progress flowing (0% -> 50%).
-func allowIngressToUploaderNetworkPolicy(ctx context.Context, f *framework.Framework, namespace string, ownerUID types.UID) error {
-	var policies netv1.NetworkPolicyList
-	if err := f.Clients.GenericClient().List(ctx, &policies, crclient.InNamespace(namespace)); err != nil {
-		return fmt.Errorf("list network policies in %q: %w", namespace, err)
-	}
-
-	requiredPeers := []map[string]string{
-		{uploaderIngressNginxNamespaceLabel: uploaderIngressNginxNamespaceLabelValue},
-		{controllerNamespaceLabel: controllerNamespaceLabelValue},
-	}
-
-	var patched int
-	for i := range policies.Items {
-		np := &policies.Items[i]
-		if !isOwnedByUID(np.OwnerReferences, ownerUID) {
-			continue
-		}
-
-		var changed bool
-		for _, labels := range requiredPeers {
-			if hasNamespaceSelectorPeer(np.Spec.Ingress, labels) {
-				continue
-			}
-			if len(np.Spec.Ingress) == 0 {
-				np.Spec.Ingress = []netv1.NetworkPolicyIngressRule{{}}
-			}
-			np.Spec.Ingress[0].From = append(np.Spec.Ingress[0].From, netv1.NetworkPolicyPeer{
-				NamespaceSelector: &metav1.LabelSelector{MatchLabels: labels},
-			})
-			changed = true
-		}
-
-		if changed {
-			if err := f.Clients.GenericClient().Update(ctx, np); err != nil {
-				return fmt.Errorf("update network policy %q: %w", np.Name, err)
-			}
-		}
-		patched++
-	}
-
-	if patched == 0 {
-		return fmt.Errorf("no NetworkPolicy owned by UID %q found in %q", ownerUID, namespace)
-	}
-	return nil
-}
-
 // expectVirtualDiskStorageMode verifies that a Ready VirtualDisk target PVC
 // matches the volume mode resolved for the disk's StorageClass.
 func expectVirtualDiskStorageMode(ctx context.Context, f *framework.Framework, vd *v1alpha2.VirtualDisk) {
@@ -973,37 +896,3 @@ func expectVirtualDiskStorageMode(ctx context.Context, f *framework.Framework, v
 	Expect(*pvc.Spec.VolumeMode).To(Equal(storageClassVolumeMode(ctx, f, vd.Status.StorageClassName)))
 }
 
-func isOwnedByUID(refs []metav1.OwnerReference, uid types.UID) bool {
-	for _, ref := range refs {
-		if ref.UID == uid {
-			return true
-		}
-	}
-	return false
-}
-
-func hasNamespaceSelectorPeer(rules []netv1.NetworkPolicyIngressRule, labels map[string]string) bool {
-	for _, rule := range rules {
-		for _, from := range rule.From {
-			if from.NamespaceSelector == nil {
-				continue
-			}
-			if equalLabels(from.NamespaceSelector.MatchLabels, labels) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func equalLabels(a, b map[string]string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if b[k] != v {
-			return false
-		}
-	}
-	return true
-}

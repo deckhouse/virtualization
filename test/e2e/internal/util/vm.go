@@ -29,6 +29,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -292,10 +294,23 @@ func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 	opts = append(opts, options...)
 	vmop := vmopbuilder.New(opts...)
 
-	err := f.CreateWithDeferredDeletion(context.Background(), vmop)
+	err := CreateVMOPRetryingStaleActiveDenial(context.Background(), f, vmop)
 	Expect(err).NotTo(HaveOccurred())
 
 	return vmop
+}
+
+// CreateVMOPRetryingStaleActiveDenial creates the VMOP, retrying with a short
+// backoff while the webhook still denies it over the previous, just-finished
+// operation. The denial itself is correct fail-safe behavior; the webhook
+// lists VMOPs through a cached client, which can briefly lag behind the watch
+// the spec observed the previous operation's completion on.
+func CreateVMOPRetryingStaleActiveDenial(ctx context.Context, f *framework.Framework, vmop *v1alpha2.VirtualMachineOperation) error {
+	backoff := wait.Backoff{Duration: 500 * time.Millisecond, Factor: 2, Jitter: 0.1, Steps: 5}
+	return retry.OnError(backoff,
+		func(err error) bool { return strings.Contains(err.Error(), "should finish first") },
+		func() error { return f.CreateWithDeferredDeletion(ctx, vmop) },
+	)
 }
 
 func StartVirtualMachine(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
@@ -310,7 +325,7 @@ func StartVirtualMachine(ctx context.Context, f *framework.Framework, vm *v1alph
 	opts = append(opts, options...)
 	vmop := vmopbuilder.New(opts...)
 
-	err := f.CreateWithDeferredDeletion(ctx, vmop)
+	err := CreateVMOPRetryingStaleActiveDenial(ctx, f, vmop)
 	Expect(err).NotTo(HaveOccurred())
 
 	return vmop
