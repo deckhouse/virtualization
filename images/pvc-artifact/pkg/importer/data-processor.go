@@ -123,7 +123,7 @@ type DataProcessor struct {
 }
 
 // NewDataProcessor create a new instance of a data processor using the passed in data provider.
-func NewDataProcessor(dataSource DataSourceInterface, dataFile, dataDir, scratchDataDir, requestImageSize string, filesystemOverhead float64, preallocation bool, cacheMode string, qemuConvertThreads int) *DataProcessor {
+func NewDataProcessor(dataSource DataSourceInterface, dataFile, dataDir, scratchDataDir, requestImageSize string, filesystemOverhead float64, preallocation bool, cacheMode string, qemuConvertThreads int) (*DataProcessor, error) {
 	dp := &DataProcessor{
 		currentPhase:       ProcessingPhaseInfo,
 		source:             dataSource,
@@ -137,9 +137,23 @@ func NewDataProcessor(dataSource DataSourceInterface, dataFile, dataDir, scratch
 		qemuConvertThreads: qemuConvertThreads,
 	}
 	// Calculate available space before doing anything.
-	dp.availableSpace = dp.calculateTargetSize()
+	availableSpace, err := dp.calculateTargetSize()
+	if err != nil {
+		return nil, err
+	}
+	dp.availableSpace = availableSpace
 	dp.initDefaultPhases()
-	return dp
+	return dp, nil
+}
+
+// parseImageSize parses an externally supplied image size. The value comes from an environment
+// variable, so a malformed one must be reported as an error instead of panicking.
+func parseImageSize(imageSize string) (resource.Quantity, error) {
+	quantity, err := resource.ParseQuantity(imageSize)
+	if err != nil {
+		return resource.Quantity{}, errors.Wrapf(err, "invalid image size %q", imageSize)
+	}
+	return quantity, nil
 }
 
 // RegisterPhaseExecutor registers an execution function for the given phase.
@@ -332,35 +346,38 @@ func (dp *DataProcessor) resize() (ProcessingPhase, error) {
 // is not the same as the requested space. For those situations we compare the available space to the requested space and
 // use the smallest of the two values.
 func ResizeImage(dataFile, imageSize string, totalTargetSpace int64, preallocation bool) error {
+	if imageSize == "" {
+		return errors.New("Image resize called with blank resize")
+	}
+	newImageSizeQuantity, err := parseImageSize(imageSize)
+	if err != nil {
+		return err
+	}
 	dataFileURL, _ := url.Parse(dataFile)
 	info, err := qemuOperations.Info(dataFileURL)
 	if err != nil {
 		return err
 	}
-	if imageSize != "" {
-		currentImageSizeQuantity := resource.NewScaledQuantity(info.VirtualSize, 0)
-		newImageSizeQuantity := resource.MustParse(imageSize)
-		minSizeQuantity := util.MinQuantity(resource.NewScaledQuantity(totalTargetSpace, 0), &newImageSizeQuantity)
-		if minSizeQuantity.Cmp(newImageSizeQuantity) != 0 {
-			// Available destination space is smaller than the size we want to resize to
-			klog.Warningf("Available space less than requested size, resizing image to available space %s.\n", minSizeQuantity.String())
-		}
-		if currentImageSizeQuantity.Cmp(minSizeQuantity) == 0 {
-			klog.V(1).Infof("No need to resize image. Requested size: %s, Image size: %d.\n", imageSize, info.VirtualSize)
-			return nil
-		}
-		// Check if calculated size is < imageSize, and return error if so.
-		if currentImageSizeQuantity.Cmp(minSizeQuantity) == 1 {
-			klog.V(1).Infof("Calculated new size is < than current size, not resizing: requested size %s, virtual size: %d.\n", minSizeQuantity.String(), info.VirtualSize)
-			return nil
-		}
-		klog.V(1).Infof("Expanding image size to: %s\n", minSizeQuantity.String())
-		return qemuOperations.Resize(dataFile, minSizeQuantity, preallocation)
+	currentImageSizeQuantity := resource.NewScaledQuantity(info.VirtualSize, 0)
+	minSizeQuantity := util.MinQuantity(resource.NewScaledQuantity(totalTargetSpace, 0), &newImageSizeQuantity)
+	if minSizeQuantity.Cmp(newImageSizeQuantity) != 0 {
+		// Available destination space is smaller than the size we want to resize to
+		klog.Warningf("Available space less than requested size, resizing image to available space %s.\n", minSizeQuantity.String())
 	}
-	return errors.New("Image resize called with blank resize")
+	if currentImageSizeQuantity.Cmp(minSizeQuantity) == 0 {
+		klog.V(1).Infof("No need to resize image. Requested size: %s, Image size: %d.\n", imageSize, info.VirtualSize)
+		return nil
+	}
+	// Check if calculated size is < imageSize, and return error if so.
+	if currentImageSizeQuantity.Cmp(minSizeQuantity) == 1 {
+		klog.V(1).Infof("Calculated new size is < than current size, not resizing: requested size %s, virtual size: %d.\n", minSizeQuantity.String(), info.VirtualSize)
+		return nil
+	}
+	klog.V(1).Infof("Expanding image size to: %s\n", minSizeQuantity.String())
+	return qemuOperations.Resize(dataFile, minSizeQuantity, preallocation)
 }
 
-func (dp *DataProcessor) calculateTargetSize() int64 {
+func (dp *DataProcessor) calculateTargetSize() (int64, error) {
 	klog.V(1).Infof("Calculating available size\n")
 	var targetQuantity *resource.Quantity
 	size, err := getAvailableSpaceBlockFunc(dp.dataFile)
@@ -382,13 +399,16 @@ func (dp *DataProcessor) calculateTargetSize() int64 {
 	}
 	if dp.requestImageSize != "" {
 		klog.V(1).Infof("Request image size not empty.\n")
-		newImageSizeQuantity := resource.MustParse(dp.requestImageSize)
+		newImageSizeQuantity, err := parseImageSize(dp.requestImageSize)
+		if err != nil {
+			return 0, err
+		}
 		minQuantity := util.MinQuantity(targetQuantity, &newImageSizeQuantity)
 		targetQuantity = &minQuantity
 	}
 	klog.V(1).Infof("Target size %s.\n", targetQuantity.String())
 	targetSize := targetQuantity.Value()
-	return targetSize
+	return targetSize, nil
 }
 
 // PreallocationApplied returns true if data processing path included preallocation step
