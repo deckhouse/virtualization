@@ -269,7 +269,13 @@ func (s *Server) processUpload(w http.ResponseWriter, r *http.Request, dvContent
 			return
 		}
 
-		s.errChan <- err
+		// keepAlive means the server outlives the verdict of a single upload,
+		// which has to hold for failures too: reporting the error would make Run
+		// shut the server down, and a caller that keeps uploading - the fuzz
+		// target - would talk to a closed listener from there on.
+		if !s.keepAlive {
+			s.errChan <- err
+		}
 
 		return
 	}

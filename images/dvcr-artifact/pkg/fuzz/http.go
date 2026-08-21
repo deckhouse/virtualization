@@ -97,8 +97,6 @@ func fuzzHTTPRequest(tb testing.TB, fuzzReq *http.Request) *http.Response {
 		return nil
 	}
 
-	tb.Logf("fuzzing request, %s, %s", fuzzReq.Method, fuzzReq.URL)
-
 	resp, err := client.Do(fuzzReq)
 	if err != nil && !strings.Contains(err.Error(), "checkRedirect disabled for test") {
 		tb.Logf("err: %s", err)
@@ -127,16 +125,16 @@ func (s *fuzzRequest) Fuzz(tb testing.TB, data []byte, method, addr string) *htt
 	// This will allow for the testing of requests that require CORS, without using a browser.
 	hostURLRegexp := regexp.MustCompile("http[s]?://.+:[0-9]+")
 
+	// The consumer shares its bytes with the request body, which is the primary fuzz
+	// surface, so the headers are best-effort: most inputs leave it with too little
+	// data to fill a map, and skipping the iteration would drop the body as well.
 	fuzzConsumer := fuzz.NewConsumer(data)
 	var headersMap map[string]string
-	err = fuzzConsumer.FuzzMap(&headersMap)
-	if err != nil {
-		tb.Skipf("Skipping test: not enough data for fuzzing: %s", err.Error())
-	}
-
-	for k, v := range headersMap {
-		for range len(v) {
-			req.Header.Add(k, v)
+	if err = fuzzConsumer.FuzzMap(&headersMap); err == nil {
+		for k, v := range headersMap {
+			for range len(v) {
+				req.Header.Add(k, v)
+			}
 		}
 	}
 

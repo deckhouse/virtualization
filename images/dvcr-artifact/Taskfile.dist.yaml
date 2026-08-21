@@ -2,6 +2,8 @@ version: "3"
 silent: true
 
 env:
+  FUZZ_DOCKER_IMAGE: dvcr-artifact-fuzz:local
+  FUZZ_DOCKER_GOCACHE_VOLUME: dvcr-artifact-fuzz-gocache
   IMPORTER_IMAGE_NAME: virtualization-importer:latest
   IMPORTER_BUILDER_IMAGE_NAME: virtualization-importer-builder:latest
   UPLOADER_IMAGE_NAME: virtualization-uploader:latest
@@ -68,6 +70,97 @@ tasks:
           --platform linux/amd64 \
           -t $IMAGE
         docker push $IMAGE
+
+  fuzz:list:
+    desc: "List the fuzz targets of this image. FUZZ_PACKAGES scopes the list to one component (default: every package)."
+    cmds:
+      - go test ${FUZZ_PACKAGES:-./...} -list '^Fuzz'
+
+  fuzz:run:
+    desc: "Fuzz one target. FUZZ_PKG, FUZZ_TARGET, FUZZ_WORKERS come from the platform; when to stop is the platform's call, so no fuzz time is passed."
+    cmds:
+      - |
+        go test "${FUZZ_PKG:?FUZZ_PKG is required, for example ./pkg/registry}" \
+          -run '^$' \
+          -fuzz "^${FUZZ_TARGET:?FUZZ_TARGET is required, for example FuzzChecksums}$" \
+          -parallel="${FUZZ_WORKERS:-1}" \
+          -count=1 \
+          -v
+
+  fuzz:coverage:
+    desc: "Write the coverage profile of a target's corpus to FUZZ_COVERAGE_FILE. Used for the C0/C1 bookends only."
+    cmds:
+      - |
+        go test "${FUZZ_PKG:-./...}" \
+          -run "^${FUZZ_TARGET:-Fuzz.*}$" \
+          -count=1 \
+          -covermode=atomic \
+          -coverpkg=./... \
+          -coverprofile="${FUZZ_COVERAGE_FILE:-coverage.out}"
+
+  fuzz:replay:
+    desc: "Replay the seed corpus and the saved crashers of a target as ordinary tests, without mutation."
+    cmds:
+      - |
+        go test "${FUZZ_PKG:-./...}" \
+          -run "^${FUZZ_TARGET:-Fuzz.*}$" \
+          -count=1 \
+          -v
+
+  docker:fuzz:build:
+    desc: "Build the linux/amd64 fuzz image (cgo, libnbd, qemu-img, file). On an arm64 host it runs under emulation."
+    cmds:
+      - |
+        docker build . \
+          -f fuzz.Dockerfile \
+          --platform linux/amd64 \
+          -t "${FUZZ_DOCKER_IMAGE}"
+
+  docker:fuzz:list:
+    desc: "Run 'task fuzz:list' in the linux/amd64 fuzz image."
+    cmds:
+      - task: _docker:fuzz:exec
+        vars:
+          FUZZ_DOCKER_CMD: task fuzz:list
+
+  docker:fuzz:seeds:
+    desc: "Replay the seed corpus in the linux/amd64 fuzz image. FUZZ_PKG and FUZZ_TARGET narrow it down; the default is every target."
+    cmds:
+      - task: _docker:fuzz:exec
+        vars:
+          FUZZ_DOCKER_CMD: task fuzz:replay
+
+  docker:fuzz:run:
+    desc: "Fuzz one target in the linux/amd64 fuzz image, bounded by FUZZ_DOCKER_TIME (default 60s) since fuzz:run itself never stops. Needs FUZZ_PKG and FUZZ_TARGET."
+    cmds:
+      - task: _docker:fuzz:exec
+        vars:
+          # The bound goes in through GOFLAGS rather than a SIGTERM from timeout(1):
+          # go test then stops on its own and prints its summary. Killing it
+          # instead loses the whole progress log, because go-task drops the output
+          # of a command it had to terminate.
+          FUZZ_DOCKER_ENV: >-
+            -e GOFLAGS="-mod=readonly -fuzztime=${FUZZ_DOCKER_TIME:-60s}"
+          FUZZ_DOCKER_CMD: task fuzz:run
+
+  _docker:fuzz:exec:
+    internal: true
+    desc: "Run a command in the fuzz image with the repository, the host module cache and a persistent build cache mounted."
+    preconditions:
+      - sh: docker image inspect "${FUZZ_DOCKER_IMAGE}" >/dev/null 2>&1
+        msg: "The fuzz image is missing: run 'task docker:fuzz:build' first."
+    cmds:
+      - |
+        docker run --rm --init \
+          --platform linux/amd64 \
+          -v "$(git rev-parse --show-toplevel)":/src \
+          -v "$(go env GOMODCACHE)":/go/pkg/mod \
+          -v "${FUZZ_DOCKER_GOCACHE_VOLUME}":/root/.cache/go-build \
+          -e FUZZ_PKG -e FUZZ_TARGET -e FUZZ_WORKERS -e FUZZ_PACKAGES \
+          -e FUZZ_COVERAGE_FILE \
+          {{.FUZZ_DOCKER_ENV}} \
+          "${FUZZ_DOCKER_IMAGE}" \
+          {{.FUZZ_DOCKER_CMD}}
 
   lint:
     desc: "Run linters locally"
