@@ -102,7 +102,20 @@ tasks:
       start_time:
         sh: date +%s
     cmds:
-      - kubectl apply -f {{ .TMP_DIR }}/infra.yaml
+      # Client-side validation pulls the whole OpenAPI schema of the parent cluster
+      # (tens of megabytes) and gets a TCP reset when all pipelines start at once.
+      # The manifests are rendered from our own chart, and the API server still
+      # rejects invalid fields, so the download is not worth it. Retries cover a
+      # reset on the apply requests themselves.
+      - |
+        for i in 1 2 3 4 5; do
+          if kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml; then
+            exit 0
+          fi
+          echo "[WARN] apply attempt ${i}/5 failed, retrying in 10s" >&2
+          sleep 10
+        done
+        exit 1
       - kubectl -n {{ .NAMESPACE }} get vm,vd,vi,svc,pod,deploy
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
       - kubectl -n {{ .NAMESPACE }} get vi -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout=600s
