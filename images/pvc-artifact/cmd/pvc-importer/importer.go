@@ -134,8 +134,16 @@ func handleImport(
 	ds := newDataSource(source)
 	defer func() { _ = ds.Close() }()
 
-	processor := newDataProcessor(contentType, volumeMode, ds, imageSize, filesystemOverhead, preallocation)
-	err := processor.ProcessData()
+	processor, err := newDataProcessor(contentType, volumeMode, ds, imageSize, filesystemOverhead, preallocation)
+	if err != nil {
+		klog.Errorf("%+v", err)
+		if err := util.WriteTerminationMessage(fmt.Sprintf("Unable to start import: %v", err.Error())); err != nil {
+			klog.Errorf("%+v", err)
+		}
+		return 1
+	}
+
+	err = processor.ProcessData()
 
 	scratchSpaceRequired := errors.Is(err, importer.ErrRequiresScratchSpace)
 	if err != nil && !scratchSpaceRequired {
@@ -179,10 +187,9 @@ func writeTerminationMessage(termMsg *common.TerminationMessage) error {
 	return nil
 }
 
-func newDataProcessor(contentType string, volumeMode corev1.PersistentVolumeMode, ds importer.DataSourceInterface, imageSize string, filesystemOverhead float64, preallocation bool) *importer.DataProcessor {
+func newDataProcessor(contentType string, volumeMode corev1.PersistentVolumeMode, ds importer.DataSourceInterface, imageSize string, filesystemOverhead float64, preallocation bool) (*importer.DataProcessor, error) {
 	dest := getImporterDestPath(contentType, volumeMode)
-	processor := importer.NewDataProcessor(ds, dest, common.ImporterDataDir, common.ScratchDataDir, imageSize, filesystemOverhead, preallocation, os.Getenv(common.CacheMode))
-	return processor
+	return importer.NewDataProcessor(ds, dest, common.ImporterDataDir, common.ScratchDataDir, imageSize, filesystemOverhead, preallocation, os.Getenv(common.CacheMode))
 }
 
 func getImporterDestPath(contentType string, volumeMode corev1.PersistentVolumeMode) string {
