@@ -114,6 +114,8 @@ jobs:
       default_user: cloud
       go_version: "1.25.12"
       e2e_timeout: "1h"
+      # TEMPORARY: run only the TPM spec to check the TSC frequency labels. Revert this commit.
+      e2e_focus_tests: "VMCheckTPM"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
@@ -149,6 +151,8 @@ jobs:
       default_user: cloud
       go_version: "1.25.12"
       e2e_timeout: "1h"
+      # TEMPORARY: run only the TPM spec to check the TSC frequency labels. Revert this commit.
+      e2e_focus_tests: "VMCheckTPM"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
@@ -184,7 +188,8 @@ jobs:
       default_user: cloud
       go_version: "1.25.12"
       e2e_timeout: "1h"
-      e2e_focus_tests: "VirtualDiskProvisioning|VirtualDiskSnapshots|VirtualImageCreation|VirtualDiskResizing|DiskAttachment|BlockDeviceHotplug|Migration|StorageClassMigration|RWOVirtualDiskMigration|VMSOP|Restore|DataExports"
+      # TEMPORARY: run only the TPM spec to check the TSC frequency labels. Revert this commit.
+      e2e_focus_tests: "VMCheckTPM"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
