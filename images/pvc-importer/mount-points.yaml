@@ -14,3 +14,4 @@ dirs:
   - /proxycerts
   - /scratch
   - /shared
+  - /source
