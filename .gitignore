@@ -78,6 +78,7 @@ images/vm-route-forge/vm-route-forge
 tools/addlicense/addlicense
 tools/validation/validation
 tools/moduleversions/moduleversions
+tools/changelog/changelog
 src/cli/d8v
 
 # dlv debug build artifacts

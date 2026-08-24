@@ -16,8 +16,10 @@
 #
 # Migration of .github/workflows/check-changelog-entry.yml which used
 # deckhouse/changelog-action@v2.6.0 with validate_only=true.
-# The validation is implemented in Python and uses
-# .gitlab/ci/changelog-sections.txt as the source of truth.
+# The validation lives in tools/changelog, which reads the blocks with a
+# Markdown and a YAML parser and uses .gitlab/ci/changelog-sections.txt as the
+# source of truth. changelog:milestone runs the same tool over the same parser,
+# so a block this job accepts is the block the changelog gets.
 # Required CI/CD variable: GITLAB_API_TOKEN (Project Access Token, scope api).
 
 check:changelog:
@@ -25,7 +27,7 @@ check:changelog:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash curl jq python3
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash go
   script:
     - bash .gitlab/ci/scripts/bash/check-changelog-entry.sh
   rules:

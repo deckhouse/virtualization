@@ -1,0 +1,27 @@
+ci:
+  fixes:
+    - summary: The nightly pipeline runs the suite in parallel.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/106
+cli:
+  features:
+    - summary: The inventory carries host variables.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/108
+      impact: |-
+        Re-generate the inventory:
+        d8 v ansible-inventory > hosts.yaml
+core:
+  features:
+    - summary: The image registry runs on containerd v2.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/102
+      impact: Every node restarts once during the update.
+vd:
+  fixes:
+    - summary: "A disk of 253 characters can be created: the name is no longer cut."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/104
+    - summary: Deleting a disk no longer leaves its volume claim behind.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/103
+vm:
+  features:
+    - summary: Virtual machines can be migrated to a chosen node.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/101
+

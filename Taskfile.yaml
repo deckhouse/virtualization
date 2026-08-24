@@ -33,6 +33,7 @@ vars:
   TRIVY_VERSION: 0.55.0
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
+  CHANGELOG_TOOL: "tools/changelog"
 
   DLV_IMAGE:
     sh: if [ -z $DLV_IMAGE ]; then echo "ttl.sh/$(uuidgen | awk '{print tolower($0)}'):10m" ; else echo $DLV_IMAGE ; fi
@@ -175,6 +176,7 @@ tasks:
           "test/e2e"
           "test/performance/tools/shatal"
           "tools/addlicense"
+          "tools/changelog"
           "tools/moduleversions"
         )
         for target in "${TARGETS[@]}"; do
@@ -196,8 +198,8 @@ tasks:
     cmds:
       - |
         set -e
-        # The .gitlab/ci/scripts tree is split into bash/ and python/ folders,
-        # so lint:shellcheck points directly at the bash folder (no find scan).
+        # The scripts of the pipeline live under .gitlab/ci/scripts/bash, so
+        # lint:shellcheck points directly at that folder (no find scan).
         EXPLICIT=".github/scripts/bash/e2e/*.sh
         .gitlab/ci/scripts/bash/*.sh
         .gitlab/ci/scripts/bash/lib/*.sh
@@ -258,6 +260,14 @@ tasks:
     desc: "Doc-changes"
     cmds:
       - go run {{ .VALIDATION_FILES }} --type doc-changes
+
+  validation:changelog:
+    desc: "Run the unit tests of tools/changelog, the tool that reads ```changes blocks"
+    # GOWORK=off, like the CI jobs that run the tool: it needs goldmark and
+    # yaml.v3 and nothing else, while workspace mode resolves every module of
+    # the repository, including the private kubevirt fork.
+    cmds:
+      - GOWORK=off go -C {{ .CHANGELOG_TOOL }} test ./...
 
   validation:go-work:
     desc: "Check go.work sync freshness and replace consistency across modules"

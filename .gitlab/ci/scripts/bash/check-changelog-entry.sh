@@ -13,25 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Thin bash wrapper around check_changelog_entry.py.
-#
-# Allows the job yml to call a single bash script while keeping the
-# actual validation logic in Python.
-#
-# Picks the first available interpreter: python3, python.
-# Required environment is documented in check_changelog_entry.py.
+# Thin wrapper around tools/changelog, so the job yml calls one script and the
+# logic stays in one place. The environment it needs is documented in
+# tools/changelog/main.go.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
-if command -v python3 >/dev/null 2>&1; then
-  PYTHON_BIN=python3
-elif command -v python >/dev/null 2>&1; then
-  PYTHON_BIN=python
-else
-  echo "ERROR: neither python3 nor python is installed on the runner." >&2
-  exit 1
-fi
+# shellcheck source=.gitlab/ci/scripts/bash/lib/changelog-tool.sh
+source "${SCRIPT_DIR}/lib/changelog-tool.sh"
 
-exec "${PYTHON_BIN}" "${SCRIPT_DIR}/../python/check_changelog_entry.py"
+run_changelog_tool "${REPO_DIR}" -type check

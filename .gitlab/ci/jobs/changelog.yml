@@ -40,7 +40,7 @@ changelog:milestone:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git curl jq ssh-agent ssh-add python3
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git go
   script:
     - bash .gitlab/ci/scripts/bash/changelog-milestone.sh
   variables:
@@ -78,7 +78,7 @@ changelog:all-active-milestones:
   tags:
     - deckhouse
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git curl jq ssh-agent ssh-add python3
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh bash git go
   script:
     - bash .gitlab/ci/scripts/bash/changelog-milestone.sh
   variables:

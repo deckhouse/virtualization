@@ -80,7 +80,7 @@ include:
   - local: ".gitlab/ci/jobs/info.yml"
   - local: ".gitlab/ci/jobs/test.yml"
   - local: ".gitlab/ci/jobs/test-scripts-js.yml"
-  - local: ".gitlab/ci/jobs/test-scripts-python.yml"
+  - local: ".gitlab/ci/jobs/test-changelog.yml"
   - local: ".gitlab/ci/jobs/test-d8v-cli.yml"
   - local: ".gitlab/ci/jobs/build-dev.yml"
   - local: ".gitlab/ci/jobs/build-prod.yml"

@@ -19,6 +19,7 @@ use (
 	./test/performance/tools/shatal
 	./test/performance/tools/statistic
 	./tools/addlicense
+	./tools/changelog
 	./tools/moduleversions
 	./tools/validation
 )
