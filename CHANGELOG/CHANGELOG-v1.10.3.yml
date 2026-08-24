@@ -1,0 +1,39 @@
+core:
+  fixes:
+    - summary: The disk import pod no longer crash-loops without a message when it gets an unparsable image size.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/260
+    - summary: Fixed disk hotplug, migration, and status update failures caused by `virt-handler` crashing with a fatal error several times a day.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/236
+module:
+  fixes:
+    - summary: Fixed an issue where the Deckhouse queue could be blocked if the `usbip` kernel modules could not be installed on a node, including nodes running Astra Linux, ALT Linux, and RED OS.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/220
+    - summary: USB devices are now provided only from nodes where the `usbip` kernel modules are known to be available.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/206
+vd:
+  fixes:
+    - summary: Fixed an issue where virtual disk import failed in clusters with containerd image integrity checks enabled. Also fixed an issue where disks could be unintentionally preempted from the virtual machine node. The priority class of the VM service components is now set according to `.spec.priorityClass` of the VM.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/255
+    - summary: "Fixed empty launch statistics for virtual machines: `.status.stats.phasesTransitions` and `.status.stats.launchTimeDuration` are reported again. The time a virtual disk spends in the `Provisioning` phase is no longer counted in `.status.stats.creationDuration.waitingForFirstConsumer`."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/247
+    - summary: Fixed a virtual disk export hanging in the `Pending` phase.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/246
+    - summary: Fixed potential data loss during a virtual disk migration.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/244
+    - summary: Fixed the import of virtual disks failing on nodes that require containers to run with a read-only root filesystem.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/232
+    - summary: Fixed an issue where a virtual disk storage class migration was canceled if another virtual machine in the same namespace was migrating.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/203
+    - summary: Time a virtual disk spends waiting for the first consumer is no longer counted as provisioning time.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/177
+    - summary: Exporting a VirtualDisk no longer hangs and the disk can be downloaded again.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/152
+vm:
+  fixes:
+    - summary: Fixed an issue where an additional network of a virtual machine was not configured if another network of the same VM had an explicitly specified MAC address.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/233
+    - summary: Fixed an issue where virtual machines with USB devices could be scheduled on nodes without a USB gateway and then failed to start or started without their USB devices.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/205
+    - summary: remove unused proxy certificate merge from pvc-importer
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/160
+

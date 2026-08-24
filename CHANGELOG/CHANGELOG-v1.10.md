@@ -1,5 +1,57 @@
 # Changelog v1.10
 
+## v1.10.4
+
+_No changelog entries._
+
+## v1.10.3
+
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-54332
+- CVE-2026-54345
+- GHSA-gcjh-h69q-9w9g ([!207](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/207))
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-33818
+- CVE-2026-39821
+- CVE-2026-56853
+- CVE-2026-56858
+- CVE-2026-56859
+- CVE-2026-56860
+- CVE-2026-56862
+- CVE-2026-56864
+- CVE-2026-56865 ([!226](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/226))
+- **fix** (default): Fixed disk hotplug, migration, and status update failures caused by `virt-handler` crashing with a fatal error several times a day. ([!236](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/236))
+- **fix** (low): The disk import pod no longer crash-loops without a message when it gets an unparsable image size. ([!260](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/260))
+
+### docs
+
+- **docs** (low): Update documentation due v1.10.0. ([!154](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/154))
+- **docs** (low): Fix release notes v1.10.0. ([!168](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/168))
+
+### module
+
+- **fix** (default): USB devices are now provided only from nodes where the `usbip` kernel modules are known to be available. ([!206](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/206))
+- **fix** (default): Fixed an issue where the Deckhouse queue could be blocked if the `usbip` kernel modules could not be installed on a node, including nodes running Astra Linux, ALT Linux, and RED OS. ([!220](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/220))
+
+### vd
+
+- **fix** (default): Exporting a VirtualDisk no longer hangs and the disk can be downloaded again. ([!152](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/152))
+- **fix** (default): Time a virtual disk spends waiting for the first consumer is no longer counted as provisioning time. ([!177](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/177))
+- **fix** (default): Fixed an issue where a virtual disk storage class migration was canceled if another virtual machine in the same namespace was migrating. ([!203](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/203))
+- **fix** (default): Fixed the import of virtual disks failing on nodes that require containers to run with a read-only root filesystem. ([!232](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/232))
+- **fix** (default): Fixed potential data loss during a virtual disk migration. ([!244](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/244))
+- **fix** (default): Fixed a virtual disk export hanging in the `Pending` phase. ([!246](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/246))
+- **fix** (default): Fixed empty launch statistics for virtual machines: `.status.stats.phasesTransitions` and `.status.stats.launchTimeDuration` are reported again. The time a virtual disk spends in the `Provisioning` phase is no longer counted in `.status.stats.creationDuration.waitingForFirstConsumer`. ([!247](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/247))
+- **fix** (default): Fixed an issue where virtual disk import failed in clusters with containerd image integrity checks enabled. Also fixed an issue where disks could be unintentionally preempted from the virtual machine node. The priority class of the VM service components is now set according to `.spec.priorityClass` of the VM. ([!255](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/255))
+
+### vm
+
+- **fix** (default): remove unused proxy certificate merge from pvc-importer ([!160](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/160))
+- **fix** (default): Fixed an issue where virtual machines with USB devices could be scheduled on nodes without a USB gateway and then failed to start or started without their USB devices. ([!205](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/205))
+- **fix** (default): Fixed an issue where an additional network of a virtual machine was not configured if another network of the same VM had an explicitly specified MAC address. ([!233](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/233))
+
 ## v1.10.2
 
 ### module
