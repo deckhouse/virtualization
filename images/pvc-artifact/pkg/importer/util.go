@@ -43,10 +43,51 @@ const (
 )
 
 // writerOnly hides the io.ReaderFrom implementation of the underlying writer
-// (e.g. *os.File), forcing io.CopyBuffer to use the provided buffer instead of
-// falling back to os.File.ReadFrom (which ignores the buffer and uses a 32 KiB copy).
+// (e.g. *os.File). copyBuffered calls Write directly and cannot hit
+// os.File.ReadFrom today, so this is a safety net against future refactoring
+// that reintroduces io.Copy/bufio-style streaming helpers, not an active guard.
 type writerOnly struct {
 	io.Writer
+}
+
+// copyBuffered streams r to w accumulating full copyBufferSize chunks before each
+// write. Network readers deliver short reads (tens of KiB), and passing them
+// through to the block device produces small unaligned bios that trigger
+// read-modify-write on every write, which is disastrous for remote volumes
+// (e.g. diskless DRBD). Filling the buffer makes each write exactly
+// copyBufferSize bytes except the last one, unconditionally: unlike
+// bufio.Writer + io.Copy, this does not depend on disabling io.WriterTo of the
+// source or io.ReaderFrom of the destination.
+//
+// Only io.EOF ends the copy. io.ReadFull is deliberately not used here: it
+// reports io.ErrUnexpectedEOF both for a legitimate tail shorter than the
+// buffer and for a source cut off mid-stream (gzip, tar and net/http all
+// report a truncated stream that way), so the two cannot be told apart and a
+// broken transfer would look like a complete one.
+func copyBuffered(w io.Writer, r io.Reader) error {
+	buf := make([]byte, copyBufferSize)
+	filled := 0
+	for {
+		n, err := r.Read(buf[filled:])
+		filled += n
+		if filled == len(buf) {
+			if _, ew := w.Write(buf); ew != nil {
+				return ew
+			}
+			filled = 0
+		}
+		if err != nil {
+			if filled > 0 {
+				if _, ew := w.Write(buf[:filled]); ew != nil {
+					return ew
+				}
+			}
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 // ParseEndpoint parses the required endpoint and return the url struct.
@@ -121,8 +162,7 @@ func streamDataToFile(r io.Reader, fileName string) error {
 	klog.V(1).Infof("Writing data...\n")
 	start := time.Now()
 	klog.V(1).Infof("Copy to %s started at %s (block size %d bytes)", fileName, start.Format(time.RFC3339Nano), copyBufferSize)
-	buf := make([]byte, copyBufferSize)
-	if _, err = io.CopyBuffer(writerOnly{outFile}, r, buf); err != nil {
+	if err = copyBuffered(writerOnly{outFile}, r); err != nil {
 		klog.Errorf("Unable to write file from dataReader: %v\n", err)
 		_ = os.Remove(outFile.Name())
 		if strings.Contains(err.Error(), "no space left on device") {
@@ -133,5 +173,6 @@ func streamDataToFile(r io.Reader, fileName string) error {
 	end := time.Now()
 	klog.V(1).Infof("Copy to %s finished at %s (duration %s)", fileName, end.Format(time.RFC3339Nano), end.Sub(start))
 	err = outFile.Sync()
+	klog.V(1).Infof("Sync of %s took %s", fileName, time.Since(end))
 	return err
 }

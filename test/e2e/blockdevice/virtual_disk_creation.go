@@ -895,4 +895,3 @@ func expectVirtualDiskStorageMode(ctx context.Context, f *framework.Framework, v
 	Expect(pvc.Spec.VolumeMode).NotTo(BeNil())
 	Expect(*pvc.Spec.VolumeMode).To(Equal(storageClassVolumeMode(ctx, f, vd.Status.StorageClassName)))
 }
-
