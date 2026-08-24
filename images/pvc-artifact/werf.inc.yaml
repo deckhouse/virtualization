@@ -106,3 +106,11 @@ import:
 shell:
   install:
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/relocate") | nindent 2 }}
+
+# Fuzz image for the pure-Go pvc importer and image parsing targets. The
+# pvc-artifact build stage already contains the full workspace and downloaded
+# dependencies; its fuzz targets stub external qemu execution.
+---
+{{- $_ := set . "FuzzEngine" "go" }}
+{{- $_ := set . "FuzzWorkDir" "/src/images/pvc-artifact" }}
+{{- include "fuzz image" . }}

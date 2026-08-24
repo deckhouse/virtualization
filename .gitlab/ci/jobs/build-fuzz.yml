@@ -1,0 +1,51 @@
+# Build only images whose names end in -fuzz. The shared upstream template
+# performs S3 corpus restore/replay for MR builds and publishes the images plus
+# build report from main. These jobs use the build stage and run in parallel
+# with build_dev and build_main after set_vars.
+
+.fuzz_source_auth:
+  script:
+    - |
+      if [[ -n "${SOURCE_REPO_SSH_KEY}" ]]; then
+        if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+          eval "$(ssh-agent -s)" >/dev/null
+          trap 'kill -3 ${SSH_AGENT_PID}' ERR EXIT HUP INT QUIT TERM
+        fi
+        source_repo_key="${SOURCE_REPO_SSH_KEY}"
+        if [[ -f "${source_repo_key}" ]]; then
+          source_repo_key="$(cat "${source_repo_key}")"
+        fi
+        printf '%b\n' "${source_repo_key}" | ssh-add -
+      else
+        echo "SOURCE_REPO_SSH_KEY is not set: private mirror dependencies may fail."
+      fi
+
+build_fuzz_dev:
+  extends:
+    - .build_fuzz_dev
+    - .dev
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_BUILD_FUZZ_IMAGES: "true"
+    WERF_VIRTUAL_MERGE: "0"
+    VAULT_AUTH_ROLE: ${MODULES_MODULE_NAME}
+  script:
+    - !reference [.fuzz_source_auth, script]
+    - !reference [.build_fuzz_dev, script]
+
+build_fuzz_main:
+  extends:
+    - .build_fuzz_main
+    - .main
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_BUILD_FUZZ_IMAGES: "true"
+    WERF_VIRTUAL_MERGE: "0"
+    VAULT_AUTH_ROLE: ${MODULES_MODULE_NAME}
+  script:
+    - !reference [.fuzz_source_auth, script]
+    - !reference [.build_fuzz_main, script]

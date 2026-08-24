@@ -16,6 +16,12 @@ config:
     - ACTIONS_ID_TOKEN_REQUEST_TOKEN
     - VAULT_KEY
     - WERF_SIGN_KEY
+    - WERF_BUILD_FUZZ_IMAGES
+    - FUZZ_S3_ENDPOINT
+    - FUZZ_S3_ACCESS_KEY
+    - FUZZ_S3_SECRET_KEY
+    - FUZZ_S3_REPOSITORY
+    - FUZZ_S3_BRANCH_SLUG
   stapel:
     mount:
       allowBuildDir: true
@@ -38,6 +44,11 @@ config:
       - TRANSIT_SECRET_ENGINE_PATH
       - ACTIONS_ID_TOKEN_REQUEST_TOKEN
       - ACTIONS_ID_TOKEN_REQUEST_URL
+      - FUZZ_S3_ENDPOINT
+      - FUZZ_S3_ACCESS_KEY
+      - FUZZ_S3_SECRET_KEY
+      - FUZZ_S3_REPOSITORY
+      - FUZZ_S3_BRANCH_SLUG
 helm:
   allowUncommittedFiles:
   - "Chart.lock"

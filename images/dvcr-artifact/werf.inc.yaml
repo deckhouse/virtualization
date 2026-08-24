@@ -110,3 +110,12 @@ import:
 shell:
   install:
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/relocate") | nindent 2 }}
+
+# Fuzz image for the dvcr importer, uploader and registry targets. The builder
+# already contains the complete workspace and the native libnbd toolchain.
+# Registry fuzz targets execute qemu-img and file(1), so import the relocated
+# qemu tools and keep CGO in the same mode as the production binaries.
+---
+{{- $_ := set . "FuzzEngine" "go" }}
+{{- $_ := set . "FuzzWorkDir" "/src/images/dvcr-artifact" }}
+{{- include "fuzz image" . }}
