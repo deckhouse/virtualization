@@ -3,6 +3,45 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.10.3
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: August 24, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### Fixes
+
+- [vm] Fixed an issue where an additional network of a virtual machine was not configured if another network of the same VM had an explicitly specified MAC address.
+- [vd] Fixed potential data loss during a virtual disk migration.
+- [vd] Fixed an issue where a virtual disk storage class migration was canceled if another virtual machine in the same namespace was migrating.
+- [vd] Fixed a virtual disk export hanging in the `Pending` phase.
+- [vd] Fixed an issue where virtual disk import failed in clusters with containerd image integrity checks enabled.
+- [vd] Fixed an issue where disks could be unintentionally preempted from the virtual machine node. The priority class of the VM service components is now set according to `.spec.priorityClass` of the VM.
+- [vd] The time a virtual disk spends in the `Provisioning` phase is no longer counted in `.status.stats.creationDuration.waitingForFirstConsumer`.
+- [vm] Fixed empty launch statistics for virtual machines: `.status.stats.phasesTransitions` and `.status.stats.launchTimeDuration` are reported again.
+- [vm] Fixed an issue where virtual machines with USB devices could be scheduled on nodes without a USB gateway and then failed to start or started without their USB devices.
+- [module] USB devices are now provided only from nodes where the `usbip` kernel modules are known to be available.
+- [module] Fixed an issue where the Deckhouse queue could be blocked if the `usbip` kernel modules could not be installed on a node, including nodes running Astra Linux, ALT Linux, and RED OS.
+- [core] Fixed disk hotplug, migration, and status update failures caused by `virt-handler` crashing with a fatal error several times a day.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-33818
+  - CVE-2026-39821
+  - CVE-2026-54332
+  - CVE-2026-54345
+  - CVE-2026-56853
+  - CVE-2026-56858
+  - CVE-2026-56859
+  - CVE-2026-56860
+  - CVE-2026-56862
+  - CVE-2026-56864
+  - CVE-2026-56865
+  - GHSA-gcjh-h69q-9w9g
+
 ## v1.10.2
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
