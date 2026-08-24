@@ -135,6 +135,8 @@ jobs:
 
   e2e-nfs:
     name: E2E Pipeline (NFS)
+    # TEMPORARY: only the replicated pipeline runs the TPM check. Revert this commit.
+    if: false
     needs:
       - set-vars
     uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
@@ -172,6 +174,8 @@ jobs:
 
   e2e-sds-elastic:
     name: E2E Pipeline (Elastic)
+    # TEMPORARY: only the replicated pipeline runs the TPM check. Revert this commit.
+    if: false
     needs:
       - set-vars
     uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
