@@ -17,6 +17,17 @@ image:
   url: ${VIRTUALIZATION_IMAGE_URL}
   defaultUser: ${DEFAULT_USER}
   bootloader: BIOS
+# Nodes of the nested cluster are virtual machines, and their virtual CPU carries
+# no invariant TSC, so virt-handler never labels them with a TSC frequency.
+# Without that label virt-controller refuses to create a virt-launcher pod for a
+# VM that needs TSC topology hints - a Windows-osType VM turns on HyperV
+# reenlightenment and needs them - so such a VM never starts. Advertise the TSC
+# frequency of the underlying hardware on every node of the nested cluster to
+# make those VMs runnable.
+nodeCPUTimerLabels:
+  # Frequency from /proc/cpuinfo of the e2e hardware, in Hz.
+  cpu-timer.node.virtualization.deckhouse.io/tsc-frequency: "1999996000"
+  cpu-timer.node.virtualization.deckhouse.io/tsc-scalable: "true"
 ingressHosts:
   - api
   - grafana
