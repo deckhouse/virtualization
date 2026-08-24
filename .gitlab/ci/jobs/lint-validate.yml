@@ -467,6 +467,15 @@ lint:alert-rules:
           # dir so <asm/ptrace.h> resolves (the image symlinks /usr/include/asm
           # to asm-generic, which lacks ptrace.h; the real one lives under
           # x86_64-linux-gnu on amd64 / aarch64-linux-gnu on arm64).
+          #
+          # The container runs as root while /src is the shell runner's
+          # persistent build directory, so everything go writes there (the
+          # regenerated ebpf_x86_bpfel.{go,o}, go.work.sum) ends up owned by
+          # root. The runner has no sudo and cannot chmod those files on the
+          # next checkout, which fails every later job landing in the same build
+          # slot with "Operation not permitted" before its script even starts.
+          # Hand ownership back from inside the container, preserving the
+          # go generate exit code.
           docker run --rm --platform linux/amd64 \
             -v "${PWD}:/src" \
             -w /src/images/vm-route-forge \
@@ -474,9 +483,10 @@ lint:alert-rules:
             -e BPF2GO_STRIP=llvm-strip-14 \
             -e BPF2GO_CFLAGS="-I/usr/include/x86_64-linux-gnu" \
             -e GOTOOLCHAIN=auto \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
             -e GOPRIVATE -e GIT_CONFIG_COUNT -e GIT_CONFIG_KEY_0 -e GIT_CONFIG_VALUE_0 \
             ghcr.io/cilium/ebpf-builder:1777990914 \
-            sh -c 'go generate ./...'
+            sh -c 'go generate ./...; rc=$?; chown -R "$HOST_UID:$HOST_GID" /src; exit $rc'
           check_diffs images/vm-route-forge
           ;;
         api)
