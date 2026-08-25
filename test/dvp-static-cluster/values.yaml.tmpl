@@ -24,9 +24,15 @@ image:
 # reenlightenment and needs them - so such a VM never starts. Advertise the TSC
 # frequency of the underlying hardware on every node of the nested cluster to
 # make those VMs runnable.
+#
+# The frequency has to be the one the nodes really run at, in Hz - read it from
+# "cpu MHz" in /proc/cpuinfo, or from the "tsc: Detected ... MHz processor" line
+# of dmesg. KVM cannot scale the frequency here: it accepts a request above the
+# real one and compensates in software, but rejects a request below it and the
+# VM then fails to start. Nodes differ by a few dozen kHz, so take the highest
+# of them.
 nodeCPUTimerLabels:
-  # Frequency from /proc/cpuinfo of the e2e hardware, in Hz.
-  cpu-timer.node.virtualization.deckhouse.io/tsc-frequency: "1999996000"
+  cpu-timer.node.virtualization.deckhouse.io/tsc-frequency: "4192216000"
   cpu-timer.node.virtualization.deckhouse.io/tsc-scalable: "true"
 ingressHosts:
   - api
