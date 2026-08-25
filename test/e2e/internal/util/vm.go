@@ -37,6 +37,7 @@ import (
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework/failfast"
 	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 	vmobserver "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
@@ -129,6 +130,29 @@ func SkipIfKnownMigrationFailureWithContext(ctx context.Context, vm *v1alpha2.Vi
 
 	SkipIfKnownKubeVirtClientSocketClosedMigrationFailureWithContext(ctx, vm)
 	skipIfKnownKubeVirtTargetPodShutdownMigrationFailure(ctx, vm)
+	skipIfKnownDRBDDualPrimaryDeniedMigrationFailure(ctx, vm)
+}
+
+// TODO: remove temporary migration skip logic when linstor-csi manages the DRBD
+// allow-two-primaries property race-free (see failfast.IsKnownDRBDDualPrimaryDeniedFailureReason):
+func skipIfKnownDRBDDualPrimaryDeniedMigrationFailure(ctx context.Context, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	if vm == nil {
+		return
+	}
+
+	intvirtvmi, err := GetInternalVirtualMachineInstance(ctx, vm)
+	Expect(err).NotTo(HaveOccurred())
+	if intvirtvmi == nil || intvirtvmi.Status.MigrationState == nil {
+		return
+	}
+
+	failureReason := intvirtvmi.Status.MigrationState.FailureReason
+	if failfast.IsKnownDRBDDualPrimaryDeniedFailureReason(failureReason) {
+		Skip(fmt.Sprintf("skip due to known linstor-csi allow-two-primaries race for vm %s/%s: %s",
+			vm.Namespace, vm.Name, failureReason))
+	}
 }
 
 // TODO: remove temporary migration skip logic when the kubevirt "target pod shutdown

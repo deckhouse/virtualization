@@ -18,6 +18,7 @@ package failfast
 
 import (
 	"context"
+	"regexp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -59,11 +60,29 @@ func KVVMIMigrationFailed(dyn dynamic.Interface, namespace string) FailFast {
 			return nil
 		}
 		reason, _, _ := unstructured.NestedString(kvvmi.Object, "status", "migrationState", "failureReason")
+		if IsKnownDRBDDualPrimaryDeniedFailureReason(reason) {
+			return &Finding{
+				Message: "hit the known linstor-csi allow-two-primaries race (migration target got EROFS on a hotplugged DRBD disk): " + reason,
+				Grace:   defaultGrace,
+				Skip:    true,
+			}
+		}
 		return &Finding{
 			Message: "reports a terminally failed live migration: " + reason,
 			Grace:   defaultGrace,
 		}
 	})
+}
+
+// knownDRBDDualPrimaryDeniedRe matches the known linstor-csi race: a stale
+// attachment's ControllerUnpublish drops the DRBD allow-two-primaries property
+// mid-migration, so the target qemu cannot auto-promote the volume and dies
+// with EROFS on the hotplug disk path.
+// TODO: remove after the migration to the new sds-replicated.
+var knownDRBDDualPrimaryDeniedRe = regexp.MustCompile(`(?i)/hotplug-disks/[^']*':\s*read-only file system`)
+
+func IsKnownDRBDDualPrimaryDeniedFailureReason(reason string) bool {
+	return knownDRBDDualPrimaryDeniedRe.MatchString(reason)
 }
 
 // VirtualDiskMigrationReverted fails the spec when a volume migration of a

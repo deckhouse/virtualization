@@ -56,10 +56,13 @@ type FailFast interface {
 
 // Finding is a diagnosed dead-end state of an observed object. A finding with
 // a non-zero Grace is re-checked once after the grace elapses and only fails
-// the spec if the object is still wedged.
+// the spec if the object is still wedged. A finding with Skip set ends the
+// spec as skipped instead of failed: the rule recognized a known environment
+// or platform issue the spec cannot meaningfully verify against.
 type Finding struct {
 	Message string
 	Grace   time.Duration
+	Skip    bool
 }
 
 // Match diagnoses an observed object: nil means the object makes progress, a
@@ -148,6 +151,10 @@ func (ff *failFast[T]) run(ctx context.Context) {
 			if finding == nil || ff.exempt.IsExempted(current) {
 				continue
 			}
+		}
+		if finding.Skip {
+			Skip(fmt.Sprintf("fail-fast: %s%s %s", ff.subject, obj.GetName(), finding.Message))
+			return
 		}
 		Fail(fmt.Sprintf("fail-fast: %s%s %s", ff.subject, obj.GetName(), finding.Message))
 		return

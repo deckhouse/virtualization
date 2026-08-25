@@ -2,9 +2,9 @@ name: Install deckhouse-cli
 description: Install deckhouse-cli
 inputs:
   version:
-    description: version of deckhouse-cli (like v0.29.24)
+    description: version of deckhouse-cli (like v0.33.11)
     required: false
-    default: v0.29.24
+    default: v0.33.11
   max-attempts:
     description: maximum number of install attempts on transient failures
     required: false

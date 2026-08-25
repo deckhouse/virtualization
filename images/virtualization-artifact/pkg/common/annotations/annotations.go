@@ -175,6 +175,10 @@ const (
 	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
 	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
 
+	// AnnAllowDelete is the break-glass annotation of the state-snapshotter module's
+	// delete guard: without it the guard denies deleting VolumeSnapshots we manage.
+	AnnAllowDelete = "deckhouse.io/allow-delete"
+
 	// AnnDataExportRequest is the annotation for indicating that export requested.
 	AnnDataExportRequest = "storage-foundation.deckhouse.io/data-export-request"
 	// AnnDataExportRequestLegacy is the same annotation as it was named before the storage module

@@ -346,9 +346,18 @@ func (r *Reconciler) cleanup(ctx context.Context, pvc *corev1.PersistentVolumeCl
 	if strategy == service.PopulationStrategySnapshot {
 		snapshotName := snapshotNameFromPVC(pvc)
 		if snapshotName != "" {
-			err := r.client.Delete(ctx, &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: snapshotName, Namespace: pvc.Namespace}})
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return err
+			vs, err := object.FetchObject(ctx, types.NamespacedName{Name: snapshotName, Namespace: pvc.Namespace}, r.client, &vsv1.VolumeSnapshot{})
+			if err != nil {
+				return fmt.Errorf("fetch population snapshot: %w", err)
+			}
+			if vs != nil {
+				if err := service.EnsureVolumeSnapshotDeletable(ctx, r.client, vs); err != nil {
+					return err
+				}
+				err = r.client.Delete(ctx, vs)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return err
+				}
 			}
 		}
 	}
@@ -388,6 +397,7 @@ func (r *Reconciler) ensureSnapshot(ctx context.Context, pvc *corev1.PersistentV
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            snapshotName,
 			Namespace:       pvc.Namespace,
+			Annotations:     map[string]string{annotations.AnnAllowDelete: "true"},
 			OwnerReferences: []metav1.OwnerReference{service.MakeOwnerReference(sourcePVC)},
 		},
 		Spec: vsv1.VolumeSnapshotSpec{

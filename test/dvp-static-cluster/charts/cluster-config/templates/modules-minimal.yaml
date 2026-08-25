@@ -9,6 +9,7 @@ spec:
   settings:
     bundle: {{ .Values.deckhouse.bundle }}
     releaseChannel: {{ .Values.deckhouse.channel | title }}
+    allowExperimentalModules: true
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig

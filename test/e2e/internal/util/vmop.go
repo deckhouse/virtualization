@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework/failfast"
 	vmopobserver "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmop"
 )
 
@@ -80,7 +81,8 @@ func failVMOPMigration(vmop *v1alpha2.VirtualMachineOperation, err error) {
 	// kubevirt flakes against the VMOP failure message itself.
 	if err != nil && (IsKnownKubeVirtTargetPodShutdownFailureReason(err.Error()) ||
 		IsKnownKubeVirtClientSocketClosedFailureReason(err.Error()) ||
-		IsKnownKubeVirtHotplugDiskNotPermittedFailureReason(err.Error())) {
+		IsKnownKubeVirtHotplugDiskNotPermittedFailureReason(err.Error()) ||
+		failfast.IsKnownDRBDDualPrimaryDeniedFailureReason(err.Error())) {
 		Skip(fmt.Sprintf("skip due to known kubevirt migration issue for vmop %s/%s: %s",
 			vmop.Namespace, vmop.Name, err))
 	}

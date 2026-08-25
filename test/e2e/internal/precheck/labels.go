@@ -27,7 +27,8 @@ const (
 	// PrecheckVMC - test requires VMC module to be enabled.
 	PrecheckVMC = "vmclass-precheck"
 
-	// PrecheckSVDM - test requires SVDM module to be enabled.
+	// PrecheckSVDM - test requires the data-export machinery: storage-foundation enabled,
+	// the deprecated storage-volume-data-manager disabled.
 	PrecheckSVDM = "svdm-precheck"
 
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
@@ -37,7 +38,8 @@ const (
 	// This is a common precheck that runs for all tests automatically.
 	PrecheckRWOImmediateStorageClass = "rwo-immediate-sc-precheck"
 
-	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
+	// PrecheckSnapshot - test requires the CSI snapshot machinery: state-snapshotter and
+	// storage-foundation enabled, the deprecated snapshot-controller disabled.
 	PrecheckSnapshot = "snapshot-precheck"
 
 	// PrecheckVirtualization - test requires virtualization module to be enabled.

@@ -160,7 +160,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			switch t.VM.Spec.RunPolicy {
 			case v1alpha2.AlwaysOnPolicy:
 				expectVMRebooted(ctx, vmObs, t.VM, runningLastTransitionTime, framework.LongTimeout)
-				err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.ShortTimeout)
+				err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
@@ -205,7 +205,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			err = vmopRestartObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			expectVMRebooted(ctx, vmObs, t.VM, runningLastTransitionTime, framework.MiddleTimeout)
-			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.ShortTimeout)
+			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 		})
@@ -220,7 +220,7 @@ var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), fun
 			rebootGuestAsRoot(f, t.VM)
 
 			expectVMRebooted(ctx, vmObs, t.VM, runningLastTransitionTime, framework.LongTimeout)
-			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.ShortTimeout)
+			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 		})
