@@ -11,6 +11,9 @@ spec:
   nodeTemplate:
     labels:
       node-role.deckhouse.io/{{ $v.name }}: ""
+      {{- with $.Values.nodeLabels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     {{- if ne $v.name "worker" }}
     taints:
       - effect: NoExecute

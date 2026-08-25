@@ -33,6 +33,9 @@ spec:
     labels:
       node-role.kubernetes.io/control-plane: ""
       node-role.kubernetes.io/master: ""
+      {{- with $.Values.nodeLabels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
   nodeType: Static
   staticInstances:
     count: {{ $staticCount }}

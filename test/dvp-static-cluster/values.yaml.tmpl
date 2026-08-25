@@ -17,6 +17,26 @@ image:
   url: ${VIRTUALIZATION_IMAGE_URL}
   defaultUser: ${DEFAULT_USER}
   bootloader: BIOS
+# Labels put on every node of the nested cluster, through the nodeTemplate of its
+# node groups.
+#
+# Nodes of the nested cluster are virtual machines, and their virtual CPU carries
+# no invariant TSC, so virt-handler never labels them with a TSC frequency.
+# Without that label virt-controller refuses to create a virt-launcher pod for a
+# VM that needs TSC topology hints - a Windows-osType VM turns on HyperV
+# reenlightenment and needs them - so such a VM never starts. Advertise the TSC
+# frequency of the underlying hardware on every node of the nested cluster to
+# make those VMs runnable.
+#
+# The frequency has to be the one the nodes really run at, in Hz - read it from
+# "cpu MHz" in /proc/cpuinfo, or from the "tsc: Detected ... MHz processor" line
+# of dmesg. KVM cannot scale the frequency here: it accepts a request above the
+# real one and compensates in software, but rejects a request below it and the
+# VM then fails to start. Nodes differ by a few dozen kHz, so take the highest
+# of them.
+nodeLabels:
+  cpu-timer.node.virtualization.deckhouse.io/tsc-frequency: "4192216000"
+  cpu-timer.node.virtualization.deckhouse.io/tsc-scalable: "true"
 ingressHosts:
   - api
   - grafana
