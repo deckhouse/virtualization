@@ -192,6 +192,21 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		vm.Status.Node = kvvmi.Status.NodeName
 
 		if vm.Status.Phase == v1alpha2.MachineRunning {
+			// The node stopped reporting readiness: the virtual machine may still be running
+			// there, but nothing can confirm it. Unknown, not False: the platform does not know,
+			// and the instance stays where it is until the node returns or someone fences it.
+			nodeUnresponsive, nodeMessage, err := isNodeUnresponsive(ctx, h.client, kvvmi.Status.NodeName)
+			if err != nil {
+				return err
+			}
+			if nodeUnresponsive {
+				cb.Status(metav1.ConditionUnknown).
+					Reason(vmcondition.ReasonNodeUnresponsive).
+					Message(nodeMessage)
+				conditions.SetCondition(cb, &vm.Status.Conditions)
+				return nil
+			}
+
 			cb.Reason(vmcondition.ReasonVirtualMachineRunning).Status(metav1.ConditionTrue)
 
 			for _, c := range kvvmi.Status.Conditions {

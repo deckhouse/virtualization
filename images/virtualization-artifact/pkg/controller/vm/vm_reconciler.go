@@ -79,6 +79,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVMMACWatcher(),
 		watcher.NewSecretWatcher(mgr.GetClient()),
 		watcher.NewNetworkWatcher(mgr.GetClient(), featuregates.Default()),
+		watcher.NewNodeWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

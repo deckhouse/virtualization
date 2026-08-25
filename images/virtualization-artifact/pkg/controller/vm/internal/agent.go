@@ -52,7 +52,16 @@ func (h *AgentHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	h.syncAgentReady(changed, kvvmi)
+	var nodeName string
+	if kvvmi != nil {
+		nodeName = kvvmi.Status.NodeName
+	}
+	nodeUnresponsive, nodeMessage, err := isNodeUnresponsive(ctx, s.Client(), nodeName)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	h.syncAgentReady(changed, kvvmi, nodeUnresponsive, nodeMessage)
 	h.syncAgentVersionNotSupport(changed, kvvmi)
 	if kvvmi != nil {
 		changed.Status.GuestOSInfo = kvvmi.Status.GuestOSInfo
@@ -64,7 +73,7 @@ func (h *AgentHandler) Name() string {
 	return nameAgentHandler
 }
 
-func (h *AgentHandler) syncAgentReady(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+func (h *AgentHandler) syncAgentReady(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, nodeUnresponsive bool, nodeMessage string) {
 	if vm == nil {
 		return
 	}
@@ -79,6 +88,15 @@ func (h *AgentHandler) syncAgentReady(vm *v1alpha2.VirtualMachine, kvvmi *virtv1
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 		}
 	}()
+
+	// The agent is polled by virt-handler on the node; with the node gone there is nothing to
+	// poll, and the value from the last successful poll would be a lie.
+	if nodeUnresponsive {
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonAgentNodeUnresponsive).
+			Message(nodeMessage)
+		return
+	}
 
 	if kvvmi == nil {
 		cb.Status(metav1.ConditionFalse).

@@ -68,6 +68,9 @@ func (r AgentReadyReason) String() string {
 const (
 	ReasonAgentReady    AgentReadyReason = "AgentReady"
 	ReasonAgentNotReady AgentReadyReason = "AgentNotReady"
+	// ReasonAgentNodeUnresponsive indicates that the node hosting the virtual machine stopped
+	// reporting readiness, so the agent state is unknown rather than known to be bad.
+	ReasonAgentNodeUnresponsive AgentReadyReason = "NodeUnresponsive"
 )
 
 type AgentVersionNotSupportedReason string
@@ -186,6 +189,9 @@ const (
 	ReasonPodNotFound                 RunningReason = "PodNotFound"
 	ReasonPodConditionMissing         RunningReason = "PodConditionMissing"
 	ReasonGuestNotRunning             RunningReason = "GuestNotRunning"
+	// ReasonNodeUnresponsive indicates that the node hosting the virtual machine stopped reporting
+	// readiness: the virtual machine may still be running, but the platform cannot confirm it.
+	ReasonNodeUnresponsive RunningReason = "NodeUnresponsive"
 )
 
 type FilesystemFrozenReason string
