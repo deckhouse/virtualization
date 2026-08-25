@@ -114,8 +114,6 @@ jobs:
       default_user: cloud
       go_version: "1.25.12"
       e2e_timeout: "1h"
-      # TEMPORARY: run only the TPM spec to check the TSC frequency labels. Revert this commit.
-      e2e_focus_tests: "VMCheckTPM"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
@@ -135,8 +133,6 @@ jobs:
 
   e2e-nfs:
     name: E2E Pipeline (NFS)
-    # TEMPORARY: only the replicated pipeline runs the TPM check. Revert this commit.
-    if: false
     needs:
       - set-vars
     uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
@@ -153,8 +149,6 @@ jobs:
       default_user: cloud
       go_version: "1.25.12"
       e2e_timeout: "1h"
-      # TEMPORARY: run only the TPM spec to check the TSC frequency labels. Revert this commit.
-      e2e_focus_tests: "VMCheckTPM"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
@@ -174,8 +168,6 @@ jobs:
 
   e2e-sds-elastic:
     name: E2E Pipeline (Elastic)
-    # TEMPORARY: only the replicated pipeline runs the TPM check. Revert this commit.
-    if: false
     needs:
       - set-vars
     uses: ./.github/workflows/e2e-nightly-reusable-pipeline.yml
@@ -192,8 +184,7 @@ jobs:
       default_user: cloud
       go_version: "1.25.12"
       e2e_timeout: "1h"
-      # TEMPORARY: run only the TPM spec to check the TSC frequency labels. Revert this commit.
-      e2e_focus_tests: "VMCheckTPM"
+      e2e_focus_tests: "VirtualDiskProvisioning|VirtualDiskSnapshots|VirtualImageCreation|VirtualDiskResizing|DiskAttachment|BlockDeviceHotplug|Migration|StorageClassMigration|RWOVirtualDiskMigration|VMSOP|Restore|DataExports"
       e2e_image_base_url: ${{ needs.set-vars.outputs.e2e_image_base_url }}
       date_start: ${{ needs.set-vars.outputs.date_start }}
       randuuid4c: ${{ needs.set-vars.outputs.randuuid4c }}
