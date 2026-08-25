@@ -17,6 +17,9 @@ image:
   url: ${VIRTUALIZATION_IMAGE_URL}
   defaultUser: ${DEFAULT_USER}
   bootloader: BIOS
+# Labels put on every node of the nested cluster, through the nodeTemplate of its
+# node groups.
+#
 # Nodes of the nested cluster are virtual machines, and their virtual CPU carries
 # no invariant TSC, so virt-handler never labels them with a TSC frequency.
 # Without that label virt-controller refuses to create a virt-launcher pod for a
