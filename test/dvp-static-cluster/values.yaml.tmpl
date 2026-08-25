@@ -31,7 +31,7 @@ image:
 # real one and compensates in software, but rejects a request below it and the
 # VM then fails to start. Nodes differ by a few dozen kHz, so take the highest
 # of them.
-nodeCPUTimerLabels:
+nodeLabels:
   cpu-timer.node.virtualization.deckhouse.io/tsc-frequency: "4192216000"
   cpu-timer.node.virtualization.deckhouse.io/tsc-scalable: "true"
 ingressHosts:
