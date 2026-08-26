@@ -58,6 +58,10 @@ const (
 	// PrecheckTargetMigration - test requires target migration feature to be available.
 	PrecheckTargetMigration = "target-migration-precheck"
 
+	// PrecheckMigratable - test requires enough ready KVM-enabled nodes to tell a machine that
+	// has a node to migrate to from a machine that has none.
+	PrecheckMigratable = "migratable-precheck"
+
 	// PrecheckPostCleanup - test requires postcleanup to be configured.
 	PrecheckPostCleanup = "post-cleanup-precheck"
 
@@ -96,6 +100,7 @@ func KnownPrecheckLabels() []string {
 		PrecheckUSB,
 		PrecheckAffinityToleration,
 		PrecheckTargetMigration,
+		PrecheckMigratable,
 		PrecheckPostCleanup,
 		PrecheckPrecreatedCVI,
 		NoPrecheck,

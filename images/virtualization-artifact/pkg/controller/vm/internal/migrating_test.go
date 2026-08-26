@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -276,6 +277,105 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingInProgress.String()))
+		})
+	})
+	Describe("Migratable condition", func() {
+		newKVVMWithConditions := func(conds ...virtv1.VirtualMachineCondition) *virtv1.VirtualMachine {
+			kvvm := newEmptyKVVM(name, namespace)
+			kvvm.Status.Conditions = conds
+			return kvvm
+		}
+
+		migratableOf := func(vm *v1alpha2.VirtualMachine) (metav1.Condition, bool) {
+			GinkgoHelper()
+			updated := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updated)).To(Succeed())
+			return conditions.GetCondition(vmcondition.TypeMigratable, updated.Status.Conditions)
+		}
+
+		It("removes the condition while the virtual machine is not running", func() {
+			vm := newVM()
+			vm.Status.Conditions = []metav1.Condition{{
+				Type:   vmcondition.TypeMigratable.String(),
+				Status: metav1.ConditionTrue,
+				Reason: vmcondition.ReasonMigratable.String(),
+			}}
+			kvvm := newKVVMWithConditions(virtv1.VirtualMachineCondition{
+				Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceIsMigratable),
+				Status: corev1.ConditionTrue,
+			})
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
+			reconcile()
+
+			_, exists := migratableOf(vm)
+			Expect(exists).To(BeFalse())
+		})
+
+		It("reports that there is no node to migrate to", func() {
+			vm := newVM()
+			kvvm := newKVVMWithConditions(
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceIsMigratable),
+					Status: corev1.ConditionTrue,
+				},
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(conditions.MigrationTargetAvailable),
+					Status: corev1.ConditionFalse,
+				},
+			)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+			reconcile()
+
+			cond, exists := migratableOf(vm)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonNoMigrationTarget.String()))
+			Expect(cond.Message).ToNot(BeEmpty())
+		})
+
+		It("stays migratable while a target node is available", func() {
+			vm := newVM()
+			kvvm := newKVVMWithConditions(
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceIsMigratable),
+					Status: corev1.ConditionTrue,
+				},
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(conditions.MigrationTargetAvailable),
+					Status: corev1.ConditionTrue,
+				},
+			)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+			reconcile()
+
+			cond, exists := migratableOf(vm)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratable.String()))
+		})
+		// The disks are a property of the machine itself, so that reason is more specific and wins
+		// over the missing target. With volume migration enabled the disk branch reports the machine
+		// as migratable, and then the missing target takes over — that path is covered in a cluster.
+		It("prefers the disk reason over the missing migration target", func() {
+			vm := newVM()
+			kvvm := newKVVMWithConditions(
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceIsMigratable),
+					Status: corev1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonDisksNotMigratable,
+				},
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(conditions.MigrationTargetAvailable),
+					Status: corev1.ConditionFalse,
+				},
+			)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+			reconcile()
+
+			cond, exists := migratableOf(vm)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonDisksNotMigratable.String()))
 		})
 	})
 })

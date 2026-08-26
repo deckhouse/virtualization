@@ -301,6 +301,9 @@ const (
 	ReasonDisksNotMigratable       MigratableReason = "VirtualMachineDisksNotMigratable"
 	ReasonDisksShouldBeMigrating   MigratableReason = "VirtualMachineDisksShouldBeMigrating"
 	ReasonHostDevicesNotMigratable MigratableReason = "VirtualMachineHostDevicesNotMigratable"
+	// ReasonNoMigrationTarget indicates that the virtual machine itself can be migrated, but no
+	// other node in the cluster matches its placement rules.
+	ReasonNoMigrationTarget MigratableReason = "VirtualMachineNoMigrationTarget"
 )
 
 type MigratingReason string

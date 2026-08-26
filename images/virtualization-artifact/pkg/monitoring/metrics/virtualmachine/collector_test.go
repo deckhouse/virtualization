@@ -119,15 +119,13 @@ d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node
 			migratable(metav1.ConditionFalse, vmcondition.ReasonNonMigratable), "0"),
 	)
 
-	It("reports a machine whose migratable condition is not set yet as non-migratable", func() {
+	// A machine that is not running carries no migratable condition: migratability is not evaluated
+	// then. Exporting a zero would report "cannot be migrated" for every stopped machine, so the
+	// series is omitted until there is an answer to report.
+	It("exports no series for a machine whose migratable condition is not set", func() {
 		c := collectorOf(newVM())
 
-		expected := `
-# HELP d8_virtualization_virtualmachine_migratable Whether the virtualmachine can be live migrated.
-# TYPE d8_virtualization_virtualmachine_migratable gauge
-d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 0
-`
-		Expect(testutil.CollectAndCompare(c, strings.NewReader(expected),
+		Expect(testutil.CollectAndCompare(c, strings.NewReader(""),
 			"d8_virtualization_virtualmachine_migratable")).To(Succeed())
 	})
 })

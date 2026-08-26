@@ -1348,3 +1348,36 @@ var _ = Describe("isTargetPreparationStalled", func() {
 		Expect(isTargetPreparationStalled(vmopcondition.ReasonTargetPreparing, metav1.Condition{}, now)).To(BeFalse())
 	})
 })
+
+var _ = Describe("canExecute", func() {
+	vmWithMigratable := func(status metav1.ConditionStatus, reason vmcondition.MigratableReason) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				Conditions: []metav1.Condition{{
+					Type:   vmcondition.TypeMigratable.String(),
+					Status: status,
+					Reason: reason.String(),
+				}},
+			},
+		}
+	}
+
+	// The machine is fine, the cluster just has no node for it right now — and the placement rules
+	// may have been changed a moment ago. Failing here would kill a migration that is about to
+	// become possible, which is exactly what the node placement update does.
+	It("does not fail the operation when the cluster has no migration target yet", func() {
+		vmop := &v1alpha2.VirtualMachineOperation{}
+		h := LifecycleHandler{}
+
+		Expect(h.canExecute(vmop, vmWithMigratable(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget))).To(BeFalse())
+		Expect(vmop.Status.Phase).ToNot(Equal(v1alpha2.VMOPPhaseFailed))
+	})
+
+	It("fails the operation when the machine itself cannot be migrated", func() {
+		vmop := &v1alpha2.VirtualMachineOperation{}
+		h := LifecycleHandler{}
+
+		Expect(h.canExecute(vmop, vmWithMigratable(metav1.ConditionFalse, vmcondition.ReasonDisksNotMigratable))).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+	})
+})

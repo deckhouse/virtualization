@@ -82,7 +82,7 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	// the VM.
 	vm.Status.MigrationState = h.wrapMigrationState(kvvmi)
 
-	err = h.syncMigratable(ctx, s, vm, kvvm)
+	err = h.syncMigratable(ctx, s, vm, kvvm, kvvmi)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to sync migratable condition: %w", err)
 	}
@@ -284,18 +284,69 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 	return nil, nil
 }
 
-func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
 
-	if kvvm != nil {
-		liveMigratable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
-		switch {
-		case liveMigratable == nil:
-		case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable:
+	// Migratability describes a running virtual machine and is calculated from the state of its
+	// instance. There is no instance while the machine is stopped, and the conditions of the
+	// internal virtual machine keep the values of the last run, so reporting them would present
+	// yesterday's answer as the current one: the disks may have been moved to a shared storage
+	// class and the device may have been detached since then.
+	if kvvm == nil || kvvmi == nil {
+		conditions.RemoveCondition(vmcondition.TypeMigratable, &vm.Status.Conditions)
+		return nil
+	}
+
+	// A machine that has nowhere to go is not migratable, no matter how well it is fit for the
+	// migration itself and no matter how its disks would travel along. Every positive answer goes
+	// through this check; the reasons that describe the machine itself are more specific and are
+	// reported instead of it.
+	reportMigratable := func(reason vmcondition.MigratableReason) {
+		if hasNoMigrationTarget(kvvm) {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonNoMigrationTarget).
+				Message(messageNoMigrationTarget)
+			return
+		}
+		cb.Status(metav1.ConditionTrue).Reason(reason).Message("")
+	}
+
+	liveMigratable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
+	switch {
+	case liveMigratable == nil:
+	case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable:
+		if featuregates.Default().Enabled(featuregates.VolumeMigration) {
+			reportMigratable(vmcondition.ReasonDisksShouldBeMigrating)
+		} else {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonDisksNotMigratable).
+				Message("Live migration requires all disks to use ReadWriteMany (shared) storage. Make sure the StorageClass supports the ReadWriteMany access mode.")
+		}
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
+	case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonHostDeviceNotMigratable:
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonHostDevicesNotMigratable).
+			Message("Live migration is blocked because the VirtualMachine has a device that cannot be migrated. Remove it to enable live migration.")
+
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
+	case liveMigratable.Status == corev1.ConditionFalse:
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonNonMigratable).
+			Message(liveMigratable.Message)
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
+	}
+
+	if kvvm.Spec.UpdateVolumesStrategy != nil && *kvvm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration {
+		readWriteOnceVirtualDisks, err := s.ReadWriteOnceVirtualDisks(ctx)
+		if err != nil {
+			return err
+		}
+		if len(readWriteOnceVirtualDisks) > 0 {
 			if featuregates.Default().Enabled(featuregates.VolumeMigration) {
-				cb.Status(metav1.ConditionTrue).
-					Reason(vmcondition.ReasonDisksShouldBeMigrating).
-					Message("")
+				reportMigratable(vmcondition.ReasonDisksShouldBeMigrating)
 			} else {
 				cb.Status(metav1.ConditionFalse).
 					Reason(vmcondition.ReasonDisksNotMigratable).
@@ -303,50 +354,26 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 			}
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
-		case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonHostDeviceNotMigratable:
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonHostDevicesNotMigratable).
-				Message("Live migration is blocked because the VirtualMachine has a device that cannot be migrated. Remove it to enable live migration.")
-
-			conditions.SetCondition(cb, &vm.Status.Conditions)
-			return nil
-		case liveMigratable.Status == corev1.ConditionFalse:
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonNonMigratable).
-				Message(liveMigratable.Message)
-			conditions.SetCondition(cb, &vm.Status.Conditions)
-			return nil
 		}
-
-		if kvvm.Spec.UpdateVolumesStrategy != nil && *kvvm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration {
-			readWriteOnceVirtualDisks, err := s.ReadWriteOnceVirtualDisks(ctx)
-			if err != nil {
-				return err
-			}
-			if len(readWriteOnceVirtualDisks) > 0 {
-				if featuregates.Default().Enabled(featuregates.VolumeMigration) {
-					cb.Status(metav1.ConditionTrue).
-						Reason(vmcondition.ReasonDisksShouldBeMigrating).
-						Message("")
-				} else {
-					cb.Status(metav1.ConditionFalse).
-						Reason(vmcondition.ReasonDisksNotMigratable).
-						Message("Live migration requires all disks to use ReadWriteMany (shared) storage. Make sure the StorageClass supports the ReadWriteMany access mode.")
-				}
-				conditions.SetCondition(cb, &vm.Status.Conditions)
-				return nil
-			}
-		}
-
-		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratable)
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return nil
 	}
 
-	cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNonMigratable).Message("")
+	reportMigratable(vmcondition.ReasonMigratable)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 
 	return nil
+}
+
+// The fork tells two cases apart — no node matches the placement rules at all, and the matching
+// nodes are rejected by the affinity rules — but reports both under one reason, so the message
+// has to hold for either of them. Naming only the placement rules would be wrong for the second.
+const messageNoMigrationTarget = "Live migration is not possible: no other node in the cluster can accept this VirtualMachine. Check its placement and affinity rules and those of its VirtualMachineClass."
+
+// hasNoMigrationTarget reports whether the cluster has no node the virtual machine can be migrated
+// to. It is evaluated by virt-controller, which is the only component watching every node of the
+// cluster, and reaches the internal virtual machine along with the rest of the instance conditions.
+func hasNoMigrationTarget(kvvm *virtv1.VirtualMachine) bool {
+	targetAvailable := service.GetKVVMCondition(string(conditions.MigrationTargetAvailable), kvvm.Status.Conditions)
+	return targetAvailable != nil && targetAvailable.Status == corev1.ConditionFalse
 }
 
 func liveMigrationInProgress(migrationState *v1alpha2.VirtualMachineMigrationState) bool {

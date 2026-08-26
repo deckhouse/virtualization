@@ -54,6 +54,9 @@ type dataMetric struct {
 	// It may differ from spec.virtualMachineClassName if the spec was changed but the VM wasn't restarted.
 	AppliedVirtualMachineClassName string
 	Migratable                     bool
+	// MigratableKnown is false while the virtual machine is not running: migratability is not
+	// evaluated then, and the metric is not exported instead of reporting a stale value.
+	MigratableKnown bool
 }
 
 // DO NOT mutate VirtualMachine!
@@ -93,7 +96,7 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 
 	// A machine with local disks is migratable in EE — its volumes travel along with it — and the
 	// condition says so, which is why the condition is the source here rather than the disks.
-	migratableCondition, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
+	migratableCondition, hasMigratableCondition := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
 	pods := make([]v1alpha2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {
@@ -126,6 +129,7 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 		}),
 		firmwareUpToDate: firmwareUpToDate,
 		Migratable:       migratableCondition.Status == metav1.ConditionTrue,
+		MigratableKnown:  hasMigratableCondition,
 	}
 }
 

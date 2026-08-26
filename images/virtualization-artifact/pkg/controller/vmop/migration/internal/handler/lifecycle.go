@@ -500,7 +500,14 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
-	if migratable.Status == metav1.ConditionTrue {
+	// Having no node to migrate to describes the cluster at this moment, not the machine: the
+	// placement rules may have just been changed, and the condition still reports the rules the
+	// instance was started with. Failing the operation on that would kill a migration that is
+	// about to become possible, so the operation proceeds and the scheduler has the last word.
+	hasNoTarget := migratable.Status == metav1.ConditionFalse &&
+		migratable.Reason == vmcondition.ReasonNoMigrationTarget.String()
+
+	if migratable.Status == metav1.ConditionTrue || hasNoTarget {
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		waitingForReady := completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()
 		if waitingForReady && !completed.LastTransitionTime.IsZero() &&

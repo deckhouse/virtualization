@@ -171,6 +171,9 @@ func (s *scraper) updateMetricVirtualMachineInfo(m *dataMetric) {
 }
 
 func (s *scraper) updateMetricVirtualMachineMigratable(m *dataMetric) {
+	if !m.MigratableKnown {
+		return
+	}
 	s.defaultUpdate(MetricVirtualMachineMigratable, common.BoolFloat64(m.Migratable), m)
 }
 

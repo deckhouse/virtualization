@@ -1397,6 +1397,46 @@
                 "value": 263
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #Migratable"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "red",
+                        "index": 0,
+                        "text": "No"
+                      },
+                      "1": {
+                        "color": "green",
+                        "index": 1,
+                        "text": "Yes"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 104
+              },
+              {
+                "id": "displayName",
+                "value": "Migratable"
+              },
+              {
+                "id": "noValue",
+                "value": "—"
+              }
+            ]
           }
         ]
       },
@@ -1686,6 +1726,21 @@
           "legendFormat": "VMInfo",
           "range": false,
           "refId": "VMInfo"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "expr": "max by (namespace, name) (d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\"})",
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Migratable"
         }
       ],
       "title": "Virtual machines",
@@ -1717,7 +1772,8 @@
                 "Value #NetworkBandwidthRX",
                 "Value #NetworkBandwidthTX",
                 "Value #SnapshotCount",
-                "Value #DisksAttached"
+                "Value #DisksAttached",
+                "Value #Migratable"
               ]
             }
           }
@@ -1729,22 +1785,23 @@
             "includeByName": {},
             "indexByName": {
               "Value #Agent": 2,
-              "Value #BlockDeviceReadIOPS": 11,
-              "Value #BlockDeviceWriteIOPS": 12,
-              "Value #CPUCurrentCores": 6,
-              "Value #CPUGuaranteedCores": 7,
-              "Value #CPUOSUsage": 5,
-              "Value #DisksAttached": 15,
-              "Value #MemoryConfigured": 9,
-              "Value #MemoryCurrent": 8,
-              "Value #MemoryOSUsage": 10,
-              "Value #NetworkBandwidthRX": 13,
-              "Value #NetworkBandwidthTX": 14,
-              "Value #SnapshotCount": 16,
-              "virtualmachineclass": 4,
+              "Value #BlockDeviceReadIOPS": 12,
+              "Value #BlockDeviceWriteIOPS": 13,
+              "Value #CPUCurrentCores": 7,
+              "Value #CPUGuaranteedCores": 8,
+              "Value #CPUOSUsage": 6,
+              "Value #DisksAttached": 16,
+              "Value #MemoryConfigured": 10,
+              "Value #MemoryCurrent": 9,
+              "Value #MemoryOSUsage": 11,
+              "Value #NetworkBandwidthRX": 14,
+              "Value #NetworkBandwidthTX": 15,
+              "Value #SnapshotCount": 17,
+              "virtualmachineclass": 5,
               "name": 0,
-              "node": 3,
-              "phase": 1
+              "node": 4,
+              "phase": 1,
+              "Value #Migratable": 3
             },
             "renameByName": {}
           }

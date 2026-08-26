@@ -1229,10 +1229,14 @@ A virtual machine (VM) goes through several phases in its existence, from creati
 
   The VM is migrated to another node in the cluster (live migration).
   - Features:
-    - The `type: Migratable` condition indicates whether the VM can be migrated.
+    - The `type: Migratable` condition indicates whether the VM can be migrated. It is evaluated
+      for a running VM only: while the VM is stopped, the condition is absent.
+    - If the VM itself is fit for migration but no other node in the cluster matches its placement
+      rules, the condition is `False` with the reason `VirtualMachineNoMigrationTarget`.
   - Possible issues:
     - Incompatibility of processor instructions (when using host or host-passthrough processor types).
     - Difference in kernel versions on hypervisor nodes.
+    - No other node matches the placement rules of the VM or of its VirtualMachineClass.
     - Not enough CPU or memory on eligible nodes.
     - Neumspace or project quotas have been exceeded.
   - Diagnostics:
@@ -2921,6 +2925,52 @@ For successful live migration, certain requirements must be met. Failure to meet
 - CPU compatibility: CPU compatibility depends on the CPU type specified in the virtual machine class. When using the `Host` type, migration is only possible between nodes with similar CPU types: migration between nodes with Intel and AMD processors does not work, and it also does not work between different CPU generations due to differences in instruction sets. When using the `HostPassthrough` type, the VM can only migrate to a node with exactly the same processor as on the source node. To ensure migration compatibility between nodes with different processors, use the `Discovery`, `Model`, or `Features` types in the virtual machine class.
 
 - Migration execution time: A completion timeout is set for live migration, which is calculated using the formula: `Completion timeout = 800 seconds × (Memory size in GiB + Disk size in GiB (if Block Migration is used))`. If migration does not complete within this time, the operation is considered failed and is canceled automatically. For example, for a virtual machine with 4 GiB of memory and 20 GiB of disk, the timeout will be `800 seconds × (4 GiB + 20 GiB) = 19200 seconds (320 minutes or ~5.3 hours)`. With low network speed or high load on the VM, migration may not complete within the allotted time.
+
+#### How to tell whether a VM can be migrated
+
+The `type: Migratable` condition of a VM answers a single question: can this machine be moved by a live migration right now. It accounts both for the machine itself (disks, attached devices, CPU type) and for the state of the cluster — whether there is a node to move it to.
+
+An overview of every machine:
+
+```bash
+d8 k get vm -o wide
+```
+
+The `MIGRATABLE` column shows the answer, and the condition holds the reason:
+
+```bash
+d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Migratable")'
+```
+
+The most common reasons:
+
+| Reason | What it means | What to do |
+| --- | --- | --- |
+| `VirtualMachineMigratable` | The machine can be moved by a live migration | — |
+| `VirtualMachineNoMigrationTarget` | The machine itself is fit for a migration, but there is nowhere to move it: no other node of the cluster matches its placement rules | Check `spec.nodeSelector`, `spec.affinity` and `spec.tolerations` of the machine and the same parameters of its `VirtualMachineClass`. A node may also be unavailable: excluded from scheduling, or virtualization is not running on it |
+| `VirtualMachineDisksNotMigratable` | The disks of the machine live in a storage available on a single node only | Move the disks to a storage with the `ReadWriteMany` access mode |
+| `VirtualMachineHostDevicesNotMigratable` | The machine has a device attached that cannot be moved to another node | Detach the device and restart the machine |
+| `VirtualMachineDisksShouldBeMigrating` | The machine can be moved: its local disks travel along with it | — |
+
+#### Checking before draining a node
+
+The machines that will not be able to leave a node are better found in advance — before the node is excluded from scheduling and the maintenance has already started:
+
+```bash
+d8 k get vm -o wide | grep <node-name>
+```
+
+The machines with `False` in the `MIGRATABLE` column will have to be stopped: a live migration is not possible for them, and the evacuation will fail.
+
+#### What to know about the `Migratable` condition
+
+- **The condition can change on its own, with no change to the VM.** It describes the cluster as well as the machine: if the only suitable node is excluded from scheduling or loses the required label, the condition turns `False` although nobody touched the machine. Once a suitable node appears again, the condition returns to `True`.
+
+- **A stopped VM has no such condition.** Migratability is evaluated for a running machine, so a stopped one carries no condition rather than the answer of its previous run. That matters: while the machine was down, its disks could have been moved to another storage and a device could have been detached, and the old answer would be wrong.
+
+- **Placement changes are taken into account after the VM restarts.** While the machine is running, it uses the parameters it was started with, and the condition describes exactly those. If you change `nodeSelector`, `affinity` or the VM class, the condition is recalculated against the new rules after the machine restarts.
+
+- **Local disks do not prevent a migration, but a node is still needed.** A machine with local disks is moved together with them, so the condition stays `True` with the `VirtualMachineDisksShouldBeMigrating` reason. But if there is no suitable node in the cluster, the condition is `False` — there is nowhere to move the disks along with the machine.
 
 #### How to perform a live VM migration
 

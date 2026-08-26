@@ -197,6 +197,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 				sourceNode,
 				nodeA,
 				migrationTargetMustDiffer,
+				migratableConditionTrue(),
 				framework.MaxTimeout,
 			)
 		})
@@ -228,6 +229,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 				migratedNodeC,
 				nodeA,
 				migrationTargetMustMatch,
+				migratableConditionTrue(),
 				framework.MaxTimeout,
 			)
 		})
@@ -301,6 +303,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 				sourceNode,
 				targetNode,
 				migrationTargetMustMatch,
+				migratableConditionReason(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget),
 				framework.MaxTimeout,
 			)
 		})
@@ -383,6 +386,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 				sourceNode,
 				targetNode,
 				migrationTargetMustMatch,
+				migratableConditionReason(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget),
 				framework.MaxTimeout,
 			)
 		})
@@ -484,6 +488,21 @@ func vmAffinityTerm(vmName string) v1alpha2.VirtualMachineAndPodAffinityTerm {
 	}
 }
 
+// migratableConditionReason reports the Migratable condition settling on the given status and
+// reason. A machine pinned to the single node that suits it stays a perfectly fine candidate for
+// a live migration and still has nowhere to go, so the expected answer after a placement change
+// depends on what the placement rules leave in the cluster.
+func migratableConditionReason(status metav1.ConditionStatus, reason vmcondition.MigratableReason) vmobs.Predicate {
+	return func(m *v1alpha2.VirtualMachine) (bool, error) {
+		for _, c := range m.Status.Conditions {
+			if c.Type == vmcondition.TypeMigratable.String() {
+				return c.Status == status && c.Reason == reason.String(), nil
+			}
+		}
+		return false, nil
+	}
+}
+
 // migratableConditionTrue reports the Migratable condition is True.
 func migratableConditionTrue() vmobs.Predicate {
 	return func(m *v1alpha2.VirtualMachine) (bool, error) {
@@ -528,6 +547,7 @@ func waitForStabilizedVMMigration(
 	sourceNode string,
 	targetNode string,
 	targetExpectation migrationTargetExpectation,
+	migratableAfter vmobs.Predicate,
 	timeout time.Duration,
 ) {
 	GinkgoHelper()
@@ -552,7 +572,7 @@ func waitForStabilizedVMMigration(
 		Fail(fmt.Sprintf("unknown migration target expectation: %d", targetExpectation))
 	}
 
-	err = obs.WaitFor(migratableConditionTrue(), framework.LongTimeout)
+	err = obs.WaitFor(migratableAfter, framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 }
 
