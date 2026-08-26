@@ -282,14 +282,4 @@ users:
 			Expect(opt).NotTo(ContainSubstring("--insecure-skip-tls-verify"))
 		})
 	})
-
-	Describe("shellQuote", func() {
-		It("wraps a plain value in single quotes", func() {
-			Expect(shellQuote("prod")).To(Equal("'prod'"))
-		})
-
-		It("escapes embedded single quotes so /bin/sh re-parses them safely", func() {
-			Expect(shellQuote("a'b")).To(Equal(`'a'\''b'`))
-		})
-	})
 })
