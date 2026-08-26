@@ -3,6 +3,112 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.11.0
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: August 25, 2026.
+</span>
+
+### New features
+
+- [vm] Added the ability to attach physical GPUs to virtual machines. The functionality is experimental and available in the EE/SE+ commercial editions. To enable it, add `GPU` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module; the cluster must run Kubernetes `1.34` or newer.
+- [vm] Added the `Legacy` value for `.spec.osType` to support guest operating systems without built-in `AHCI` and `virtio` drivers, such as Windows XP and Windows Server 2003.
+- [vm] Added the `Auto` value for `.spec.cpu.coreFraction`. The functionality is available in the EE commercial edition. To enable it, add `VerticalVirtualMachineAutoscaler` and `HotplugCPUAndMemoryWithInPlaceResize` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+- [vm] The cloud-init configuration can now be detached from a virtual machine without restarting the machine.
+- [vm] Malformed cloud-init data is now reported as a warning when the resource is created, and in the `ProvisioningReady` condition of an existing resource.
+- [vm] Added the ability to find out who is connected to the serial console or VNC session of a virtual machine and to disconnect them.
+- [vd,vi,cvi] Images and disks from an HTTP source can now be verified with SHA-1, SHA-512, and GOST R 34.11-2012 (Streebog) checksums.
+- [vd,vi,cvi] Image upload can now be published through the Gateway API instead of an Ingress. This requires the `alb` module; to enable it, add `UploadViaAPIGateway` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+- [vd,vi,cvi,vmbda] Added the `Deleting` condition that reports why a resource is being deleted.
+- [vd] Disk and image import is faster.
+- [module] The module's runtime images have been migrated to a distroless base, which reduces the size of the virtualization image by about 91 MB.
+- [vmop] A live migration queued behind concurrency limits now reports which limit is blocking it.
+- [observability] Added metrics export for VirtualMachineClass.
+- [observability] Added a metric that reports whether a virtual machine can be live migrated.
+- [observability] Added alerts for unavailable USB passthrough and for required module components missing on some nodes.
+
+### Fixes
+
+- [vm] A virtual machine with an attached USB device can now be live migrated and evacuated during a node drain.
+- [vm] Detaching a network interface from `.spec.networks` no longer leaves a stale interface in the virtual machine's pod.
+- [vm] The live migration of a virtual machine with additional networks no longer hangs waiting for the network on the target node.
+- [vm] Fixed a crash loop of a virtual machine with an additional network interface.
+- [vm] The service components of a virtual machine with Secure Boot no longer hang during its migration.
+- [vm] Fixed a not-ready image blocking the attachment and detachment of a virtual machine's disks.
+- [vm] Fixed image mounts leaking on the target node after a live migration of a virtual machine.
+- [vm] A virtual machine no longer starts booting before its boot disk is attached.
+- [vm] Fixed the loss of access to disks when a USB device is attached to a running virtual machine.
+- [vm] The virtual machine migration queue is no longer blocked when one of the migrations ends abnormally.
+- [vd,vi] Not-ready images and disks no longer hang when deleted while their data is being imported.
+- [vd,vi,cvi] The creation of an image or a disk with a long name no longer hangs.
+- [vd,vi,cvi] A resource with the `Upload` type that receives no data within 10 minutes moves to the `Failed` phase with the `WaitForUserUploadTimeout` reason. To upload the image, recreate the resource.
+- [vd] Creating a virtual disk from a raw image in the registry onto a block device no longer makes an extra copy of the data.
+- [vd] The creation of a virtual disk no longer hangs when the target virtual machine runs on dedicated nodes with taints.
+- [vd] Fixed the restore of a virtual disk from a snapshot on storage that rounds volume sizes up (`ceph-rbd`, `sds-elastic`).
+- [cvi] During an image upload, the phase of a ClusterVirtualImage no longer flips back to `Pending`.
+- [module] Fixed device handling for virtual machines on cgroup v2 nodes.
+- [module] The Deckhouse queue is no longer blocked when the `virtualization` module is enabled while its controllers are not ready.
+- [module] Fixed the renewal of TLS certificates in the virtualization components while the cluster is degraded.
+- [vmop] Fixed the force stop of a virtual machine when a regular stop was already in progress.
+- [observability] Fixed the module's alerts suppressing the platform alert about unavailable components.
+- [observability] Alerts now point to the component that failed; a stuck controller queue and a missing leader are tracked separately.
+- [observability] Removed the metric that reported virtual machines with local disks as impossible to migrate: such machines can be migrated.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2025-27144
+  - CVE-2026-10722
+  - CVE-2026-34986
+  - CVE-2026-46600
+  - CVE-2026-54332
+  - CVE-2026-54345
+  - CVE-2026-56852
+  - CVE-2026-56864
+  - CVE-2026-56865
+  - GHSA-gcjh-h69q-9w9g
+  - GHSA-hrxh-6v49-42gf
+  - GO-2026-5932
+
+## v1.10.3
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: August 24, 2026.
+</span>
+
+**Note:** During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+
+### Fixes
+
+- [vm] Fixed an issue where an additional network of a virtual machine was not configured if another network of the same VM had an explicitly specified MAC address.
+- [vd] Fixed potential data loss during a virtual disk migration.
+- [vd] Fixed an issue where a virtual disk storage class migration was canceled if another virtual machine in the same namespace was migrating.
+- [vd] Fixed a virtual disk export hanging in the `Pending` phase.
+- [vd] Fixed an issue where virtual disk import failed in clusters with containerd image integrity checks enabled.
+- [vd] Fixed an issue where disks could be unintentionally preempted from the virtual machine node. The priority class of the VM service components is now set according to `.spec.priorityClass` of the VM.
+- [vd] The time a virtual disk spends in the `Provisioning` phase is no longer counted in `.status.stats.creationDuration.waitingForFirstConsumer`.
+- [vm] Fixed empty launch statistics for virtual machines: `.status.stats.phasesTransitions` and `.status.stats.launchTimeDuration` are reported again.
+- [vm] Fixed an issue where virtual machines with USB devices could be scheduled on nodes without a USB gateway and then failed to start or started without their USB devices.
+- [module] USB devices are now provided only from nodes where the `usbip` kernel modules are known to be available.
+- [module] Fixed an issue where the Deckhouse queue could be blocked if the `usbip` kernel modules could not be installed on a node, including nodes running Astra Linux, ALT Linux, and RED OS.
+- [core] Fixed disk hotplug, migration, and status update failures caused by `virt-handler` crashing with a fatal error several times a day.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-33818
+  - CVE-2026-39821
+  - CVE-2026-54332
+  - CVE-2026-54345
+  - CVE-2026-56853
+  - CVE-2026-56858
+  - CVE-2026-56859
+  - CVE-2026-56860
+  - CVE-2026-56862
+  - CVE-2026-56864
+  - CVE-2026-56865
+  - GHSA-gcjh-h69q-9w9g
+
 ## v1.10.2
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
