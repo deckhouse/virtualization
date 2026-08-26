@@ -1,0 +1,1561 @@
+- version: v1.11.0
+  date: "2026-08-25"
+  highlights:
+    - en: Physical GPUs can now be attached to virtual machines (EE/SE+, experimental).
+      ru: Физические GPU теперь можно подключать к виртуальным машинам (EE/SE+, экспериментальная функциональность).
+    - en: The `Legacy` type of `.spec.osType` runs guest operating systems without built-in `AHCI` and `virtio` drivers, such as Windows XP and Windows Server 2003.
+      ru: Тип `Legacy` в `.spec.osType` позволяет запускать гостевые системы без встроенных драйверов `AHCI` и `virtio`, например Windows XP и Windows Server 2003.
+    - en: Image upload can now be published through the Gateway API instead of an Ingress.
+      ru: Загрузку образов теперь можно публиковать через Gateway API вместо Ingress.
+    - en: A virtual machine with an attached USB device can now be live migrated and evacuated during a node drain.
+      ru: Виртуальную машину с подключённым USB-устройством теперь можно мигрировать и вытеснять при drain'е узла.
+  features:
+    virtual-machines:
+      - en: Added the ability to attach physical GPUs to virtual machines. The functionality is experimental and available in the EE/SE+ commercial editions. To enable it, add `GPU` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module; the cluster must run Kubernetes `1.34` or newer.
+        ru: Добавлена возможность подключать физические GPU к виртуальным машинам. Функциональность доступна в коммерческих редакциях EE/SE+ и является экспериментальной. Для использования необходимо иметь версию Kubernetes не ниже `1.34` и добавить `GPU` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+      - en: Added the `Legacy` value for `.spec.osType` to support guest operating systems without built-in `AHCI` and `virtio` drivers, such as Windows XP and Windows Server 2003.
+        ru: Добавлен тип `Legacy` в `.spec.osType` для гостевых систем без встроенных драйверов `AHCI` и `virtio` (например, Windows XP и Windows Server 2003).
+      - en: Added the `Auto` value for `.spec.cpu.coreFraction`. The functionality is available in the EE commercial edition. To enable it, add `VerticalVirtualMachineAutoscaler` and `HotplugCPUAndMemoryWithInPlaceResize` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+        ru: Добавлено значение `Auto` для `.spec.cpu.coreFraction`. Функциональность доступна в коммерческой редакции EE. Для использования необходимо добавить `VerticalVirtualMachineAutoscaler` и `HotplugCPUAndMemoryWithInPlaceResize` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+      - en: The cloud-init configuration can now be detached from a virtual machine without restarting the machine.
+        ru: Конфигурацию cloud-init теперь можно отключать от ВМ без её перезапуска.
+      - en: Malformed cloud-init data is now reported as a warning when the resource is created, and in the `ProvisioningReady` condition of an existing resource.
+        ru: Добавлены оповещения о некорректных данных в cloud-init как при создании ресурса, так и в уже созданном ресурсе в условии `ProvisioningReady`.
+      - en: Added the ability to find out who is connected to the serial console or VNC session of a virtual machine and to disconnect them.
+        ru: Добавлена возможность определить, кто подключён к serial-консоли или VNC виртуальной машины, и отключить его.
+      - en: A live migration queued behind concurrency limits now reports which limit is blocking it.
+        ru: Живая миграция, стоящая в очереди из-за лимитов параллельности, теперь сообщает, какой лимит её блокирует.
+    disks-and-images:
+      - en: Images and disks from an HTTP source can now be verified with SHA-1, SHA-512, and GOST R 34.11-2012 (Streebog) checksums.
+        ru: Образы и диски из HTTP-источника теперь можно проверять контрольными суммами SHA-1, SHA-512 и ГОСТ Р 34.11-2012 («Стрибог»).
+      - en: Image upload can now be published through the Gateway API instead of an Ingress. This requires the `alb` module; to enable it, add `UploadViaAPIGateway` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+        ru: Загрузку образов теперь можно публиковать через Gateway API вместо Ingress. Для использования необходимо включить модуль `alb` и добавить `UploadViaAPIGateway` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+      - en: Added the `Deleting` condition that reports why a resource is being deleted.
+        ru: Добавлено состояние `Deleting`, сообщающее причину удаления ресурса.
+      - en: Disk and image import is faster.
+        ru: Ускорен импорт дисков и образов.
+    module:
+      - en: The module's runtime images have been migrated to a distroless base, which reduces the size of the virtualization image by about 91 MB.
+        ru: Рантайм-образы модуля переведены на distroless-базу. Размер образа виртуализации уменьшен на ~91 MB.
+    observability:
+      - en: Added metrics export for [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass).
+        ru: Добавлен экспорт метрик для [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass).
+      - en: Added a metric that reports whether a virtual machine can be live migrated.
+        ru: Добавлена метрика, сообщающая о возможности живой миграции для ВМ.
+      - en: Added alerts for unavailable USB passthrough and for required module components missing on some nodes.
+        ru: Добавлены алерты о недоступном пробросе USB-устройств и об отсутствии требуемых компонентов модуля на части узлов.
+  fixes:
+    virtual-machines:
+      - en: A virtual machine with an attached USB device can now be live migrated and evacuated during a node drain.
+        ru: Исправлена невозможность живой миграции и вытеснения ВМ с подключённым USB-устройством при drain'е узла.
+      - en: Detaching a network interface from `.spec.networks` no longer leaves a stale interface in the virtual machine's pod.
+        ru: Отключение сетевого интерфейса `.spec.networks` больше не оставляет в соответствующем поде ВМ зависшего интерфейса.
+      - en: The live migration of a virtual machine with additional networks no longer hangs waiting for the network on the target node.
+        ru: Исправлено зависание живой миграции ВМ с дополнительными сетями в ожидании сети на целевом узле.
+      - en: Fixed a crash loop of a virtual machine with an additional network interface.
+        ru: Исправлен циклический перезапуск ВМ с дополнительным сетевым интерфейсом.
+      - en: The service components of a virtual machine with Secure Boot no longer hang during its migration.
+        ru: Исправлено зависание служебных компонентов при миграции ВМ с Secure Boot.
+      - en: Fixed a not-ready image blocking the attachment and detachment of a virtual machine's disks.
+        ru: Исправлена блокировка подключения и отключения дисков ВМ из-за неготового образа.
+      - en: Fixed image mounts leaking on the target node after a live migration of a virtual machine.
+        ru: Исправлена утечка монтирований образов на целевом узле после живой миграции ВМ.
+      - en: A virtual machine no longer starts booting before its boot disk is attached.
+        ru: ВМ не начинает запускаться, пока не будет подключён загрузочный диск.
+      - en: Fixed the loss of access to disks when a USB device is attached to a running virtual machine.
+        ru: Исправлена потеря доступа к дискам при подключении USB-устройства к работающей ВМ.
+      - en: The virtual machine migration queue is no longer blocked when one of the migrations ends abnormally.
+        ru: Исправлена блокировка очереди миграций ВМ при аварийном завершении одной из них.
+      - en: Fixed the force stop of a virtual machine when a regular stop was already in progress.
+        ru: Исправлена принудительная остановка ВМ, если уже шла обычная остановка.
+    disks-and-images:
+      - en: Not-ready images and disks no longer hang when deleted while their data is being imported.
+        ru: Неготовые образы и диски больше не зависают при их удалении в процессе импорта данных.
+      - en: The creation of an image or a disk with a long name no longer hangs.
+        ru: Исправлено бесконечное создание образа или диска с длинным именем.
+      - en: A resource with the `Upload` type that receives no data within 10 minutes moves to the `Failed` phase with the `WaitForUserUploadTimeout` reason. To upload the image, recreate the resource.
+        ru: Ресурс с типом `Upload`, в который за 10 минут не начали загружать данные, переходит в фазу `Failed` с причиной `WaitForUserUploadTimeout`. Чтобы загрузить образ, пересоздайте ресурс.
+      - en: Creating a virtual disk from a raw image in the registry onto a block device no longer makes an extra copy of the data.
+        ru: Создание виртуального диска из raw-образа в registry на блочное устройство больше не делает лишнюю копию данных.
+      - en: The creation of a virtual disk no longer hangs when the target virtual machine runs on dedicated nodes with taints.
+        ru: Исправлено зависание создания виртуального диска, если целевая ВМ работает на выделенных узлах с taint'ами.
+      - en: Fixed the restore of a virtual disk from a snapshot on storage that rounds volume sizes up (`ceph-rbd`, `sds-elastic`).
+        ru: Исправлено восстановление виртуального диска из снапшота на хранилищах, округляющих размер тома вверх (`ceph-rbd`, `sds-elastic`).
+      - en: During an image upload, the phase of a [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) no longer flips back to `Pending`.
+        ru: При загрузке образа фаза [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) больше не возвращается в `Pending`.
+    module:
+      - en: Fixed device handling for virtual machines on cgroup v2 nodes.
+        ru: Исправлена работа с устройствами ВМ на узлах с cgroup v2.
+      - en: The Deckhouse queue is no longer blocked when the `virtualization` module is enabled while its controllers are not ready.
+        ru: Исправлено блокирование очереди Deckhouse при включении модуля `virtualization` в случае неготовности контроллеров виртуализации.
+      - en: Fixed the renewal of TLS certificates in the virtualization components while the cluster is degraded.
+        ru: Исправлено обновление TLS-сертификатов в компонентах виртуализации при проблемах в кластере.
+    observability:
+      - en: Fixed the module's alerts suppressing the platform alert about unavailable components.
+        ru: Исправлено подавление алертами модуля платформенного алерта о недоступности его компонентов.
+      - en: Alerts now point to the component that failed; a stuck controller queue and a missing leader are tracked separately.
+        ru: Алерты теперь указывают на проблемный компонент, а зависшая очередь контроллера и отсутствие лидера отслеживаются отдельно.
+      - en: "Removed the metric that reported virtual machines with local disks as impossible to migrate: such machines can be migrated."
+        ru: "Удалена метрика, сообщавшая о невозможности миграции ВМ с локальными дисками: такие ВМ мигрируют."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2025-27144
+            - CVE-2026-10722
+            - CVE-2026-34986
+            - CVE-2026-46600
+            - CVE-2026-54332
+            - CVE-2026-54345
+            - CVE-2026-56852
+            - CVE-2026-56864
+            - CVE-2026-56865
+            - GHSA-gcjh-h69q-9w9g
+            - GHSA-hrxh-6v49-42gf
+            - GO-2026-5932
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2025-27144
+            - CVE-2026-10722
+            - CVE-2026-34986
+            - CVE-2026-46600
+            - CVE-2026-54332
+            - CVE-2026-54345
+            - CVE-2026-56852
+            - CVE-2026-56864
+            - CVE-2026-56865
+            - GHSA-gcjh-h69q-9w9g
+            - GHSA-hrxh-6v49-42gf
+            - GO-2026-5932
+- version: v1.10.3
+  date: "2026-08-24"
+  highlights:
+    - en: Fixed potential data loss during a virtual disk migration.
+      ru: Исправлена возможная потеря данных при миграции виртуального диска.
+    - en: Disk hotplug, migrations, and status updates of virtual machines are no longer interrupted by periodic crashes of a service component on the nodes.
+      ru: Подключение дисков, миграции и обновление статусов виртуальных машин (ВМ) больше не прерываются периодическими сбоями служебного компонента на узлах.
+    - en: Virtual machines with USB devices are now scheduled only on nodes where USB passthrough is available.
+      ru: ВМ с USB-устройствами теперь размещаются только на узлах, где доступен проброс USB-устройств.
+  fixes:
+    virtual-machines:
+      - en: Fixed an issue where an additional network of a virtual machine was not configured if another network of the same VM had an explicitly specified MAC address.
+        ru: Исправлено добавление дополнительной сети в ВМ, если у другой сети в той же ВМ был явно указан MAC-адрес.
+      - en: "Fixed empty launch statistics for virtual machines: `.status.stats.phasesTransitions` and `.status.stats.launchTimeDuration` are reported again."
+        ru: "Исправлена пустая статистика запуска виртуальных машин: параметры `.status.stats.phasesTransitions` и `.status.stats.launchTimeDuration` снова заполняются."
+      - en: Fixed an issue where virtual machines with USB devices could be scheduled on nodes without a USB gateway and then failed to start or started without their USB devices.
+        ru: Исправлено размещение ВМ с USB-устройствами на узлах без USB-шлюза, где такие ВМ не запускались или запускались без USB-устройств.
+    disks-and-images:
+      - en: Fixed potential data loss during a virtual disk migration.
+        ru: Исправлена возможная потеря данных при миграции диска.
+      - en: Fixed an issue where a virtual disk storage class migration was canceled if another virtual machine in the same namespace was migrating.
+        ru: Исправлена непреднамеренная отмена миграции класса хранения диска при наличии другой мигрирующей ВМ в неймспейсе.
+      - en: Fixed a virtual disk export hanging in the `Pending` phase.
+        ru: Исправлено зависание экспорта виртуального диска в фазе `Pending`.
+      - en: Fixed an issue where virtual disk import failed in clusters with containerd image integrity checks enabled.
+        ru: Исправлена ошибка импорта виртуальных дисков в кластерах с проверкой целостности образов в containerd.
+      - en: Fixed an issue where disks could be unintentionally preempted from the virtual machine node. The priority class of the VM service components is now set according to `.spec.priorityClass` of the VM.
+        ru: Исправлено непреднамеренное вытеснение дисков с узла ВМ. Класс приоритета для служебных компонентов ВМ теперь выставляется в соответствии с конфигурацией `.spec.priorityClass` в ВМ.
+      - en: The time a virtual disk spends in the `Provisioning` phase is no longer counted in `.status.stats.creationDuration.waitingForFirstConsumer`.
+        ru: В `.status.stats.creationDuration.waitingForFirstConsumer` больше не учитывается время нахождения диска в состоянии `Provisioning`.
+    module:
+      - en: USB devices are now provided only from nodes where the `usbip` kernel modules are known to be available.
+        ru: USB-устройства теперь предоставляются только с узлов, на которых подтверждено наличие модулей ядра `usbip`.
+      - en: Fixed an issue where the Deckhouse queue could be blocked if the `usbip` kernel modules could not be installed on a node, including nodes running Astra Linux, ALT Linux, and RED OS.
+        ru: Исправлено блокирование очереди Deckhouse, если на узле невозможно было установить модули ядра `usbip` (в том числе для Astra Linux, ALT Linux и RED OS).
+      - en: Fixed disk hotplug, migration, and status update failures caused by `virt-handler` crashing with a fatal error several times a day.
+        ru: Исправлены проблемы подключения дисков, миграций и обновления статусов, вызванные фатальными ошибками `virt-handler`, возникающими по несколько раз в день.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-33818
+            - CVE-2026-39821
+            - CVE-2026-54332
+            - CVE-2026-54345
+            - CVE-2026-56853
+            - CVE-2026-56858
+            - CVE-2026-56859
+            - CVE-2026-56860
+            - CVE-2026-56862
+            - CVE-2026-56864
+            - CVE-2026-56865
+            - GHSA-gcjh-h69q-9w9g
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-33818
+            - CVE-2026-39821
+            - CVE-2026-54332
+            - CVE-2026-54345
+            - CVE-2026-56853
+            - CVE-2026-56858
+            - CVE-2026-56859
+            - CVE-2026-56860
+            - CVE-2026-56862
+            - CVE-2026-56864
+            - CVE-2026-56865
+            - GHSA-gcjh-h69q-9w9g
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: в процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.10.2
+  date: "2026-08-03"
+  highlights:
+    - en: USB device passthrough works again on hosts running more than one usbip host controller.
+      ru: Проброс USB-устройств снова работает на узлах, где запущено более одного виртуального хост-контроллера usbip.
+    - en: Enabling the module or changing its version no longer blocks the Deckhouse queue in clusters without the `vertical-pod-autoscaler` module.
+      ru: Включение модуля и смена его версии больше не блокируют очередь Deckhouse в кластерах без модуля `vertical-pod-autoscaler`.
+  fixes:
+    module:
+      - en: Fixed an issue where the task queue would block when enabling a module or changing its version in a cluster without the `vertical-pod-autoscaler` module enabled. The cause was an infinite loop of attempts to delete VPA objects. Instead of `PatchCollector`, a separate request is now used that ignores the absence of VPA objects and prevents the queue from being blocked.
+        ru: Исправлена проблема с блокировкой очереди задач при включении модуля или смене его версии в кластере без включённого модуля `vertical-pod-autoscaler`. Причиной был бесконечный цикл попыток удаления VPA-объектов. Вместо `PatchCollector` теперь используется отдельный запрос, который игнорирует отсутствие VPA-объектов и предотвращает блокировку очереди.
+      - en: Fixed an issue where USB device passthrough to virtual machines was unavailable on hosts where the usbip driver was running more than one virtual host controller.
+        ru: Исправлена проблема с недоступностью проброса USB-устройств в виртуальные машины на узлах, где драйвером usbip запущено более одного виртуального хост-контроллера.
+      - en: Fixed a `CrashLoopBackOff` error in the `virtualization-dra` pod on hosts with USB devices, caused by starting controller worker processes before the initial connection information had been collected. Initialization now occurs before the workers start, which prevents the error caused by accessing data that has not yet been populated.
+        ru: Исправлена ошибка `CrashLoopBackOff` в поде `virtualization-dra` на узлах с USB-устройствами, вызванная запуском рабочих процессов контроллера до завершения сбора начальной информации о подключениях. Теперь инициализация выполняется перед стартом воркеров, что исключает ошибку при обращении к ещё не заполненным данным.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.10.1
+  date: "2026-07-29"
+  highlights:
+    - en: The module now requires `sdn` 0.6.2 or later when the `sdn` module is enabled.
+      ru: Модуль требует версию `sdn` не ниже 0.6.2, если модуль `sdn` включён.
+    - en: Fixed vulnerabilities in the module's components.
+      ru: Устранены уязвимости в компонентах модуля.
+  fixes:
+    module:
+      - en: An optional dependency has been added for the virtualization module, requiring that the `sdn` module be version 0.6.2 or later. This prevents launching virtualization from running with earlier versions of `sdn`. The dependency applies only when the `sdn` module is enabled.
+        ru: Для модуля виртуализации добавлена опциональная зависимость, требующая версию модуля `sdn` не ниже 0.6.2. Это предотвращает запуск виртуализации с более ранними версиями `sdn`. Зависимость применяется только при включенном модуле `sdn`.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-46600
+            - CVE-2026-56852
+            - GHSA-hrxh-6v49-42gf
+            - CVE-2026-34986
+            - CVE-2025-27144
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-46600
+            - CVE-2026-56852
+            - GHSA-hrxh-6v49-42gf
+            - CVE-2026-34986
+            - CVE-2025-27144
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.10.0
+  date: "2026-07-23"
+  highlights:
+    - en: "[VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) (EE/SE+) manages a group of identical virtual machines (VMs) declaratively and scales through the standard `scale` subresource and HPA."
+      ru: "[VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) (EE/SE+) декларативно управляет группой одинаковых виртуальных машин (ВМ) и масштабируется через стандартный субресурс `scale` и HPA."
+    - en: CPU and memory of a running virtual machine can be changed without live migration (in-place resize, behind a feature gate).
+      ru: CPU и память работающей виртуальной машины можно менять без живой миграции (in-place resize, под фичагейтом).
+    - en: Virtual machine networks moved to eBPF, so additional networks connect more reliably and with lower overhead.
+      ru: Сети виртуальных машин переведены на eBPF, поэтому дополнительные сети подключаются стабильнее и с меньшими накладными расходами.
+    - en: Live migration became more predictable — a target that never becomes ready no longer holds migration slots, and migration traffic can be routed over a dedicated SystemNetwork.
+      ru: Живая миграция стала предсказуемее — зависшая цель больше не удерживает слоты миграции, а трафик миграции можно направить в выделенную SystemNetwork.
+    - en: Names of virtual disks and images are no longer capped below the Kubernetes limit.
+      ru: Длина имён виртуальных дисков и образов больше не ограничена сильнее, чем в Kubernetes.
+  features:
+    virtual-machines:
+      - en: Added the [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) resource (EE/SE+) for declarative group management of identical virtual machines. The pool supports scaling via the standard `scale` subresource and HPA.
+        ru: Добавлен ресурс [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) (EE/SE+) для декларативного управления группами одинаковых виртуальных машин. Пул поддерживает масштабирование через стандартный субресурс `scale` и HPA.
+      - en: Added the ability to change CPU and memory of a running VM without live migration (in-place resize). To enable this functionality, add `HotplugCPUAndMemoryWithInPlaceResize` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+        ru: Добавлена возможность изменять CPU и память работающей ВМ без живой миграции (in-place resize). Чтобы включить функциональность, добавьте `HotplugCPUAndMemoryWithInPlaceResize` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+      - en: Switched VM networks to eBPF, providing more stable connectivity for additional networks with lower overhead.
+        ru: "Сети ВМ переведены на eBPF: более стабильное подключение дополнительных сетей при меньших накладных расходах."
+      - en: "[VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources can now supersede other active operations on the same VM."
+        ru: Операции [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) теперь могут вытеснять другие активные операции над той же ВМ.
+    disks-and-images:
+      - en: Added automatic recovery of [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) from the `ImageLost` phase when the image reappears in DVCR, without re-importing the data.
+        ru: Добавлено автоматическое восстановление [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) из фазы `ImageLost`, когда образ снова появляется в DVCR, без повторного импорта данных.
+      - en: The [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) name length limit has been raised from 60 to 253 characters.
+        ru: Ограничение на длину имени [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) увеличено с 60 до 253 символов.
+      - en: The name length limit has been raised from 49 to 253 characters for [VirtualImage](/modules/virtualization/cr.html#virtualimage) and from 48 to 253 for [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage).
+        ru: Ограничение на длину имени увеличено с 49 до 253 символов для [VirtualImage](/modules/virtualization/cr.html#virtualimage) и с 48 до 253 для [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage).
+      - en: "Added per-namespace authorization for DVCR: image access is isolated between namespaces."
+        ru: "Добавлена авторизация в DVCR на уровне неймспейса: доступ к образам изолирован между неймспейсами."
+    network:
+      - en: Added the ability to route live migration traffic over a dedicated SystemNetwork via `liveMigration.network` in the ModuleConfig of the `virtualization` module.
+        ru: Добавлена возможность направлять трафик живой миграции через выделенный SystemNetwork с помощью параметра `liveMigration.network` в ModuleConfig модуля `virtualization`.
+    module:
+      - en: Virtual disks and virtual images in `WaitForFirstConsumer` mode are created 22% faster.
+        ru: Виртуальные диски и виртуальные образы в режиме `WaitForFirstConsumer` создаются на 22% быстрее.
+      - en: Added a limit on concurrent inbound live migrations per target node.
+        ru: Добавлено ограничение числа одновременных входящих живых миграций на целевой узел.
+      - en: Added the ability to use the module without specifying subnets for the `Main` network. For this, the `sdn` module must be enabled.
+        ru: Добавлена возможность использовать модуль без указания подсетей для сети `Main`. Для этого модуль `sdn` должен быть включен.
+  fixes:
+    virtual-machines:
+      - en: "Fixed VM update failures while an image is being attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): VM changes could previously be interrupted at the moment of attachment."
+        ru: "Исправлены сбои обновления ВМ во время подключения образа через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): ранее изменения ВМ могли прерываться в момент подключения."
+      - en: "Fixed flapping of the `VirtualMachineIPAddressReady` condition: guest-agent data now augments rather than clears the VM's already-known IP address."
+        ru: "Исправлено периодическое переключение (flapping) условия `VirtualMachineIPAddressReady`: данные от гостевого агента теперь дополняют, а не затирают уже известный IP-адрес ВМ."
+      - en: Fixed disks and CD-ROMs remaining on the SATA bus after enabling paravirtualization, which prevented unplugging ISO drives from a running VM.
+        ru: Исправлено сохранение дисков и CD-ROM на шине SATA после включения паравиртуализации, из-за которого нельзя было отключить ISO с работающей ВМ.
+      - en: "Fixed a live migration hanging when its target never became ready (`OOMKilled`, unschedulable, a disk that never attaches): it now fails by timeout and the migration slots it held are released."
+        ru: "Исправлено зависание живой миграции, целевой под которой так и не становился готовым (`OOMKilled`, unschedulable, неподключившийся диск): теперь она завершается по таймауту, а удерживаемые слоты миграции освобождаются."
+      - en: Fixed virtual machines with local disks getting stuck and unable to migrate while a restart was pending; they can now be evacuated, updated, and re-migrated.
+        ru: Исправлено зависание ВМ с локальными дисками, которые не могли мигрировать при ожидающем перезапуске; теперь их можно эвакуировать, обновлять и повторно мигрировать.
+      - en: Fixed a false reboot requirement for VMs with only the `Main` network caused by implicit default network template synchronization.
+        ru: Исправлено ложное требование перезагрузки у ВМ только с сетью `Main` из-за синхронизации неявного шаблона сети по умолчанию.
+      - en: Fixed CPU and memory hotplug updates failing when project quota cannot fit migration-time resources. Such changes now fall back to a restart.
+        ru: "Исправлена ошибка изменения CPU и памяти на лету (hotplug), когда для миграции не хватает квоты проекта: такие изменения теперь выполняются через перезапуск ВМ."
+    disks-and-images:
+      - en: Fixed Upload-type disks and images getting stuck in `Pending` when the upload host certificate becomes invalid, and restored automatic recovery when the upload host changes (for example, after `publicDomainTemplate` is updated).
+        ru: Исправлено зависание дисков и образов с типом Upload в фазе `Pending` при недействительном сертификате хоста загрузки. Также снова работает автоматическое восстановление при смене хоста загрузки (например, после обновления `publicDomainTemplate`).
+      - en: Fixed PVC storage-type virtual images being attached to virtual machines in read-write mode; they are now attached read-only, like ContainerRegistry storage-type images.
+        ru: Исправлено подключение образов с типом хранилища PVC к виртуальным машинам в режиме чтения-записи; теперь они подключаются только для чтения, как и образы с типом хранилища ContainerRegistry.
+    module:
+      - en: Closed unauthorized access to the virtualization USB/IP gateway port.
+        ru: Закрыт неавторизованный доступ к порту USB/IP-шлюза виртуализации.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-2303
+            - CVE-2026-25680
+            - CVE-2026-25681
+            - CVE-2026-27136
+            - CVE-2026-33814
+            - CVE-2026-39821
+            - CVE-2026-39822
+            - CVE-2026-39824
+            - CVE-2026-39827
+            - CVE-2026-39828
+            - CVE-2026-39829
+            - CVE-2026-39830
+            - CVE-2026-39831
+            - CVE-2026-39832
+            - CVE-2026-39833
+            - CVE-2026-39834
+            - CVE-2026-39835
+            - CVE-2026-41579
+            - CVE-2026-42502
+            - CVE-2026-42505
+            - CVE-2026-42506
+            - CVE-2026-42508
+            - CVE-2026-46595
+            - CVE-2026-46597
+            - CVE-2026-46598
+            - GO-2026-5932
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-2303
+            - CVE-2026-25680
+            - CVE-2026-25681
+            - CVE-2026-27136
+            - CVE-2026-33814
+            - CVE-2026-39821
+            - CVE-2026-39822
+            - CVE-2026-39824
+            - CVE-2026-39827
+            - CVE-2026-39828
+            - CVE-2026-39829
+            - CVE-2026-39830
+            - CVE-2026-39831
+            - CVE-2026-39832
+            - CVE-2026-39833
+            - CVE-2026-39834
+            - CVE-2026-39835
+            - CVE-2026-41579
+            - CVE-2026-42502
+            - CVE-2026-42505
+            - CVE-2026-42506
+            - CVE-2026-42508
+            - CVE-2026-46595
+            - CVE-2026-46597
+            - CVE-2026-46598
+            - GO-2026-5932
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.9.6
+  date: "2026-08-03"
+  highlights:
+    - en: USB device passthrough works on hosts with xz- or gzip-compressed usbip kernel modules and with more than one usbip host controller.
+      ru: Проброс USB-устройств работает на узлах со сжатыми (xz, gzip) модулями ядра usbip и с несколькими хост-контроллерами usbip.
+  fixes:
+    module:
+      - en: Fixed an issue where USB device passthrough to virtual machines was unavailable on hosts where the preinstalled usbip kernel modules were compressed (using xz or gzip). USB device passthrough is now available if kernel modules are compressed using xz or gzip, not just zstd. Also, for Debian, the `linux-modules-extra-${kernel_release}` package is now used instead of attempting to install the Ubuntu-specific `linux-modules-extra`.
+        ru: Исправлена проблема с недоступностью проброса USB-устройств в виртуальные машины на узлах, где предустановленные модули ядра usbip поставляются в сжатом виде (сжаты с помощью xz или gzip). Теперь проброс USB-устройств доступен, если модули ядра сжаты с использованием xz, gzip, а не только с использованием zstd. Также для Debian теперь используется пакет `linux-modules-extra-${kernel_release}` вместо попыток установки Ubuntu-специфичного `linux-modules-extra`.
+      - en: Fixed an issue where USB device passthrough to virtual machines was unavailable on hosts where the usbip driver was running more than one virtual host controller.
+        ru: Исправлена проблема с недоступностью проброса USB-устройств в виртуальные машины на узлах, где драйвером usbip запущено более одного виртуального хост-контроллера.
+      - en: Fixed a `CrashLoopBackOff` error in the `virtualization-dra` pod on hosts with USB devices, caused by starting controller worker processes before the initial connection information had been collected. Initialization now occurs before the workers start, which prevents the error caused by accessing data that has not yet been populated.
+        ru: Исправлена ошибка `CrashLoopBackOff` в поде `virtualization-dra` на узлах с USB-устройствами, вызванная запуском рабочих процессов контроллера до завершения сбора начальной информации о подключениях. Теперь инициализация выполняется перед стартом воркеров, что исключает ошибку при обращении к ещё не заполненным данным.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.9.5
+  date: "2026-07-29"
+  highlights:
+    - en: An interrupted delivery of audit logs is now reported instead of failing silently.
+      ru: Прерывание доставки журналов аудита теперь сообщается пользователю, а не остаётся незамеченным.
+    - en: Fixed vulnerabilities in the module's components.
+      ru: Устранены уязвимости в компонентах модуля.
+  fixes:
+    observability:
+      - en: "Fixed an issue where no notification was displayed when the transmission of audit logs was interrupted due to the use of outdated certificate authority data or because the audit resources lacked a certificate and key: when the transmission of audit logs is interrupted, a warning now appears prompting the user to take action."
+        ru: "Исправлено отсутствие уведомления о прерывании передачи журналов аудита из-за использования устаревших данных центра сертификации или из-за отсутствия у ресурсов аудита сертификата и ключа: при прерывании передачи журналов аудита появляется предупреждение, требующее принятия мер."
+    module:
+      - en: An optional dependency has been added for the virtualization module, requiring that the `sdn` module be version 0.6.2 or later. This prevents launching virtualization from running with earlier versions of `sdn`. The dependency applies only when the `sdn` module is enabled.
+        ru: Для модуля виртуализации добавлена опциональная зависимость, требующая версию модуля `sdn` не ниже 0.6.2. Это предотвращает запуск виртуализации с более ранними версиями `sdn`. Зависимость применяется только при включенном модуле `sdn`.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-46600
+            - CVE-2026-56852
+            - GHSA-hrxh-6v49-42gf
+            - CVE-2026-34986
+            - CVE-2025-27144
+            - CVE-2026-39822
+            - CVE-2026-42505
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-46600
+            - CVE-2026-56852
+            - GHSA-hrxh-6v49-42gf
+            - CVE-2026-34986
+            - CVE-2025-27144
+            - CVE-2026-39822
+            - CVE-2026-42505
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.9.4
+  date: "2026-07-13"
+  highlights:
+    - en: The audit server starts even when TLS certificate paths are not passed explicitly.
+      ru: Сервер аудита запускается, даже если пути к TLS-сертификатам не переданы явно.
+  fixes:
+    observability:
+      - en: Fixed an issue that prevented the audit server from starting when TLS certificate paths were not passed explicitly.
+        ru: Исправлен сбой запуска сервера аудита, когда пути к TLS-сертификатам не передаются явно.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.9.3
+  date: "2026-07-07"
+  highlights:
+    - en: Images attach to virtual machines (VMs) faster, downloading them from DVCR to the node is no longer slow.
+      ru: Образы подключаются к виртуальным машинам (ВМ) быстрее, их загрузка из DVCR на узел больше не тормозит.
+    - en: Deleting a virtual machine with hotplugged images no longer leaves it stuck in the Terminating state.
+      ru: Удаление виртуальной машины с подключёнными образами больше не оставляет её в состоянии Terminating.
+  fixes:
+    virtual-machines:
+      - en: Fixed a volume mount leak that could leave a VM with hotplugged images stuck in the Terminating state during deletion.
+        ru: Исправлена утечка монтирований томов, из-за которой ВМ при наличии подключённых на лету образов (hotplug) могла зависнуть при удалении в состоянии Terminating.
+    module:
+      - en: Fixed slow downloading of images from DVCR to the node when attaching them to a virtual machine.
+        ru: Исправлено медленное скачивание образов из DVCR на узел для подключения к виртуальной машине.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.9.2
+  date: "2026-07-01"
+  highlights:
+    - en: Restored live migration throughput and the speed of importing images into DVCR.
+      ru: Восстановлены скорость живой миграции и скорость импорта образов в DVCR.
+    - en: Audit events are no longer lost while the certificate of the `virtualization-audit` pod is rotated.
+      ru: События аудита больше не теряются при ротации сертификата пода `virtualization-audit`.
+  fixes:
+    virtual-machines:
+      - en: Fixed reduced throughput during live migration of running virtual machines (VMs) compared to v1.8.3.
+        ru: Исправлено снижение скорости живой миграции работающих виртуальных машин по сравнению с v1.8.3.
+    disks-and-images:
+      - en: Fixed slow import and upload of images to DVCR when network bandwidth was not the bottleneck.
+        ru: Исправлена низкая скорость импорта и загрузки образов в DVCR в случаях, когда пропускная способность сети не была узким местом.
+    observability:
+      - en: Fixed loss of audit events and false `D8LogShipperDestinationErrors` alerts during certificate rotation of the `virtualization-audit` pod.
+        ru: Исправлена потеря событий аудита и ложные срабатывания алерта `D8LogShipperDestinationErrors` при ротации сертификатов пода `virtualization-audit`.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.9.1
+  date: "2026-06-24"
+  highlights:
+    - en: Live migration of virtual machines (VMs) with disks on local storage works again, including after a failed migration.
+      ru: Живая миграция виртуальных машин (ВМ) с дисками на локальном хранилище снова работает, в том числе после неудачной миграции.
+    - en: Virtual machines with only the Main network no longer request a restart they do not need.
+      ru: Виртуальные машины только с сетью Main больше не требуют перезапуска без необходимости.
+  fixes:
+    virtual-machines:
+      - en: Fixed live migration of VMs with disks on local storage attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug). The target node no longer matches the source node.
+        ru: Исправлена живая миграция ВМ с дисками на локальном хранилище, подключёнными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug). Целевой узел больше не совпадает с исходным.
+      - en: Fixed an issue that prevented a VM from starting after a failed migration of a disk on local storage.
+        ru: Исправлена невозможность запуска ВМ после неудачной миграции диска на локальном хранилище.
+      - en: Fixed a false reboot requirement for VMs with only the `Main` network after upgrading to v1.9.1. Such VMs now do not receive the `RestartRequired` status if their configuration has not actually changed.
+        ru: Исправлено ложное требование перезагрузки у ВМ только с сетью `Main` после обновления до v1.9.1. Теперь такие ВМ не получают статус `RestartRequired`, если конфигурация на самом деле не менялась.
+    disks-and-images:
+      - en: Fixed cancellation of virtual disk storage class changes and cancellation of local disk migration.
+        ru: Исправлена отмена изменения класса хранения виртуальных дисков и отмена миграции локальных дисков.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-42504
+            - CVE-2026-27145
+            - CVE-2026-42507
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-42504
+            - CVE-2026-27145
+            - CVE-2026-42507
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.9.0
+  date: "2026-06-10"
+  highlights:
+    - en: Virtual disks, images and additional network interfaces attach and detach without restarting the virtual machine (VM).
+      ru: Виртуальные диски, образы и дополнительные сетевые интерфейсы подключаются и отключаются без перезапуска виртуальной машины (ВМ).
+    - en: The `coreFraction` of a running virtual machine changes without a restart, through live migration.
+      ru: Параметр `coreFraction` работающей виртуальной машины меняется без перезапуска, через живую миграцию.
+    - en: System virtual machine pods run as the `deckhouse` user, without root privileges.
+      ru: Системные поды виртуальных машин работают от пользователя `deckhouse`, без прав root.
+    - en: The deprecated VirtualMachineRestore resource has been removed in favour of [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+      ru: Устаревший ресурс VirtualMachineRestore удалён, вместо него используется [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+  features:
+    virtual-machines:
+      - en: |-
+          A restart is no longer required to attach and detach virtual disks and images via the virtual machine's `.spec.blockDeviceRefs`.
+            - Works for new virtual machines starting from v1.9.0.
+            - For previously created virtual machines, a restart is required to enable this behavior.
+        ru: |-
+          Для подключения и отключения виртуальных дисков и образов через спецификацию виртуальной машины `.spec.blockDeviceRefs` перезагрузка ВМ больше не требуется.
+            - Работает для новых виртуальных машин, начиная с версии v1.9.0.
+            - Для работы на созданных ранее виртуальных машинах нужно выполнить перезагрузку.
+      - en: Added the ability to attach additional network interfaces without a restart via the virtual machine's `.spec.networks`.
+        ru: Добавлена возможность подключения дополнительных сетевых интерфейсов без перезагрузки через спецификацию виртуальной машины `.spec.networks`.
+      - en: Added the ability to change `coreFraction` on a running VM without a restart. The new value is applied via live migration.
+        ru: Добавлена возможность изменять `coreFraction` у работающей ВМ без перезагрузки. Новое значение применяется через живую миграцию.
+      - en: The VM status now includes a "No bootable device" message when the VM cannot find a bootable disk to start.
+        ru: В статус ВМ добавлено сообщение «No bootable device», если ВМ не может найти загрузочный диск для запуска.
+      - en: Added the `Uptime` column to [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resources, showing the time since the VM started.
+        ru: Для ресурсов [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) добавлена колонка `Uptime`, показывающая время с момента запуска ВМ.
+      - en: Compatible [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources can now supersede another active operation on the same VM.
+        ru: Совместимые ресурсы [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) теперь могут заменять другую активную операцию над ВМ.
+      - en: Added the `Attached` condition and `ATTACHED` column to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource, reflecting the USB device's connection state in the namespace.
+        ru: Для ресурса [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) добавлены условие `Attached` и колонка `ATTACHED`, отражающие состояние подключения USB-устройства в неймспейсе.
+  improvements:
+    cli:
+      - en: Added the `domain jobs` and `block-jobs` subcommands to the `vlctl` utility.
+        ru: Для утилиты `vlctl` добавлены подкоманды `domain jobs` и `block-jobs`.
+  fixes:
+    virtual-machines:
+      - en: Fixed VM hanging in the `Starting` phase when the StorageClass of a disk with `WaitForFirstConsumer` mode is updated while the VM is stopped.
+        ru: Исправлено зависание ВМ в фазе `Starting`, если обновить класс хранения у диска с режимом `WaitForFirstConsumer`, пока ВМ была остановлена.
+      - en: Fixed scheduling issues for a VM after changing the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) in the VM spec from the `Discovery` type to another.
+        ru: Исправлены проблемы с планированием (scheduling) ВМ после смены [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) в спецификации ВМ с типа `Discovery` на другой.
+      - en: Fixed an issue with VM migration cancellation that prevented new migrations from starting.
+        ru: Исправлена отмена миграции ВМ, из-за которой новые миграции могли не запускаться.
+      - en: Improved Windows guest OS handling in clusters with frequent CPU frequency changes.
+        ru: Улучшена работа гостевых ОС Windows в кластерах с частыми изменениями частоты CPU.
+    disks-and-images:
+      - en: Time spent in the `WaitForFirstConsumer` phase is no longer included in `.status.stats.creationDuration.totalProvisioning` of virtual disks.
+        ru: Время в фазе `WaitForFirstConsumer` больше не включается в статусе `.status.stats.creationDuration.totalProvisioning` виртуальных дисков.
+    observability:
+      - en: Fixed duplicate series on the `Virtualization / Overview` dashboard.
+        ru: Исправлено дублирование серий на дашборде `Virtualization / Overview`.
+    module:
+      - en: Fixed an issue where invalid `virtualization` module ModuleConfig settings could block the Deckhouse queue.
+        ru: Исправлена проблема, из-за которой некорректные настройки ModuleConfig модуля `virtualization` могли блокировать очередь Deckhouse.
+  security:
+    virtual-machines:
+      - en: System virtual machine resources (pods with `d8v-hp-` and `d8v-vm-` prefixes) now run as the `deckhouse` user, without root privileges.
+        ru: Системные ресурсы виртуальной машины (поды с префиксами `d8v-hp-` и `d8v-vm-`) теперь работают от пользователя `deckhouse`, без root-прав.
+  breaking:
+    virtual-machines:
+      - en: Removed the deprecated [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore) resource. Use [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` or `Restore` type, or [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) instead.
+        ru: Удалён устаревший ресурс [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore). Вместо него используйте ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` или `Restore`, а также ресурс [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation).
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.8.4
+  date: "2026-07-13"
+  highlights:
+    - en: "A security update: vulnerabilities in the module's components are fixed, with no functional changes."
+      ru: "Обновление безопасности: устранены уязвимости в компонентах модуля, функциональность не изменилась."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-25680
+            - CVE-2026-25681
+            - CVE-2026-27136
+            - CVE-2026-27145
+            - CVE-2026-33814
+            - CVE-2026-39821
+            - CVE-2026-39827
+            - CVE-2026-39828
+            - CVE-2026-39829
+            - CVE-2026-39830
+            - CVE-2026-39832
+            - CVE-2026-39835
+            - CVE-2026-41579
+            - CVE-2026-42502
+            - CVE-2026-42504
+            - CVE-2026-42506
+            - CVE-2026-42507
+            - CVE-2026-42508
+            - CVE-2026-46595
+            - CVE-2026-46597
+            - CVE-2026-53935
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-25680
+            - CVE-2026-25681
+            - CVE-2026-27136
+            - CVE-2026-27145
+            - CVE-2026-33814
+            - CVE-2026-39821
+            - CVE-2026-39827
+            - CVE-2026-39828
+            - CVE-2026-39829
+            - CVE-2026-39830
+            - CVE-2026-39832
+            - CVE-2026-39835
+            - CVE-2026-41579
+            - CVE-2026-42502
+            - CVE-2026-42504
+            - CVE-2026-42506
+            - CVE-2026-42507
+            - CVE-2026-42508
+            - CVE-2026-46595
+            - CVE-2026-46597
+            - CVE-2026-53935
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.8.3
+  date: "2026-06-03"
+  highlights:
+    - en: Virtual machines (VMs) with additional network interfaces migrate again.
+      ru: Виртуальные машины (ВМ) с дополнительными сетевыми интерфейсами снова мигрируют.
+    - en: Hot-unplugging a disk no longer leaves duplicate service pods behind.
+      ru: Отключение диска на лету больше не оставляет дублирующиеся служебные поды.
+  fixes:
+    virtual-machines:
+      - en: Fixed an issue that blocked virtual machine migration for VMs with additional network interfaces.
+        ru: Исправлена проблема блокировки миграции ВМ с дополнительными интерфейсами.
+      - en: Fixed duplicate service pods (`d8v-hp-*`) when hot-unplugging disks from VMs.
+        ru: Исправлена проблема с дублированием служебных подов (`d8v-hp-*`) при отключении (hot unplug) дисков ВМ.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.8.2
+  date: "2026-05-20"
+  highlights:
+    - en: "A security update: vulnerabilities in the module's components are fixed, with no functional changes."
+      ru: "Обновление безопасности: устранены уязвимости в компонентах модуля, функциональность не изменилась."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-29181
+            - CVE-2026-33811
+            - CVE-2026-33814
+            - CVE-2026-39820
+            - CVE-2026-39823
+            - CVE-2026-39825
+            - CVE-2026-39826
+            - CVE-2026-39836
+            - CVE-2026-41520
+            - CVE-2026-42499
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-29181
+            - CVE-2026-33811
+            - CVE-2026-33814
+            - CVE-2026-39820
+            - CVE-2026-39823
+            - CVE-2026-39825
+            - CVE-2026-39826
+            - CVE-2026-39836
+            - CVE-2026-41520
+            - CVE-2026-42499
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.8.1
+  date: "2026-04-28"
+  highlights:
+    - en: Virtual disks no longer get stuck in the Provisioning state with a StorageClass in WaitForFirstConsumer mode.
+      ru: Виртуальные диски больше не зависают в состоянии Provisioning при использовании StorageClass в режиме WaitForFirstConsumer.
+    - en: Virtualization dashboards show correct values during virtual machine migration and in HA clusters.
+      ru: Дашборды виртуализации показывают корректные значения во время миграции виртуальных машин и в HA-кластерах.
+  fixes:
+    disks-and-images:
+      - en: Fixed a potential issue where a virtual disk could get stuck in the `Provisioning` state when using a StorageClass with `WaitForFirstConsumer` mode.
+        ru: Исправлено возможное зависание виртуального диска в состоянии `Provisioning` при использовании StorageClass с режимом `WaitForFirstConsumer`.
+      - en: CDI metrics now use `d8_internal_virtualization_kubevirt_cdi_*` names, matching other internal virtualization metrics.
+        ru: Метрики CDI теперь используют имена `d8_internal_virtualization_kubevirt_cdi_*`, как и другие внутренние метрики виртуализации.
+    observability:
+      - en: Fixed CPU usage calculation on the virtual machine dashboard in HA clusters, where duplicated controller metrics could affect the displayed value.
+        ru: "Исправлен расчет загрузки CPU на дашборде виртуальной машины в HA-кластерах: дублирующиеся метрики контроллера больше не влияют на отображаемое значение."
+    module:
+      - en: Fixed incorrect resource calculations on the `Virtualization / Overview` dashboard that could occur during virtual machine migration.
+        ru: Исправлен некорректный расчет ресурсов на дашборде `Virtualization / Overview`, который мог возникать во время миграции виртуальной машины.
+      - en: Added missing RBAC permissions for virtualization resources, including virtual machine MAC addresses, snapshot operations, and node USB devices.
+        ru: Добавлены недостающие права RBAC для ресурсов виртуализации, включая MAC-адреса виртуальных машин, операции со снимками и USB-устройства на узлах.
+- version: v1.8.0
+  date: "2026-04-22"
+  highlights:
+    - en: The number of CPUs and the amount of memory of a virtual machine can be changed without stopping it manually, the new value is applied through live migration.
+      ru: Количество процессоров и объём памяти виртуальной машины (ВМ) можно менять без ручной остановки, новое значение применяется через живую миграцию.
+    - en: Virtual machine migration uses the host MTU, which speeds up the transfer of the machine's memory.
+      ru: Миграция виртуальных машин использует MTU узла, что ускоряет передачу памяти машины.
+    - en: Snapshots are created correctly for a virtual machine without the Main network and while the machine is being migrated.
+      ru: Снимки корректно создаются для виртуальной машины без сети Main и во время её миграции.
+  features:
+    virtual-machines:
+      - en: Added the `progress` field to the status of [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources with the `Evict` and `Migrate` types to show operation progress. The corresponding `PROGRESS` column is displayed when running `d8 k get vmop`.
+        ru: Для операций [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типами `Evict` и `Migrate` в статус ресурса добавлено поле `progress`, отображающее прогресс выполнения операции. Соответствующая колонка `PROGRESS` выводится при вызове `d8 k get vmop`.
+      - en: Added the ability to change the number of CPUs in a virtual machine without manually stopping it. The new value is applied via live migration. To enable this functionality, add `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` in the `ModuleConfig` of the `virtualization` module.
+        ru: Добавлена возможность изменять количество CPU виртуальной машины без её ручной остановки — новое значение применяется через живую миграцию. Для включения функциональности добавьте `HotplugCPUWithLiveMigration` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+      - en: Added initial support for changing virtual machine memory without manually stopping the virtual machine. The new `.spec.memory` value is applied via live migration. To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` in the `ModuleConfig` of the `virtualization` module.
+        ru: Добавлена начальная поддержка изменения памяти виртуальной машины без её ручной остановки — изменение `.spec.memory` применяется через живую миграцию. Для включения функциональности добавьте `HotplugMemoryWithLiveMigration` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+  fixes:
+    virtual-machines:
+      - en: "Optimized virtual machine migration: it now uses `hostNetwork`, allowing the host MTU to be used instead of the pod MTU."
+        ru: "Оптимизирована миграция ВМ: теперь используется `hostNetwork`, что позволяет использовать MTU хоста вместо MTU пода."
+      - en: Fixed an issue with an unfrozen filesystem during virtual machine snapshot creation if the freeze occurred during migration.
+        ru: Исправлена проблема с незамороженной файловой системой при создании снимка виртуальной машины, если заморозка произошла во время миграции.
+      - en: "Fixed removal of the `Main` network from a virtual machine: the virtual machine no longer uses an IP address from the virtualization CIDR after the network is removed."
+        ru: "Исправлено удаление сети `Main` из виртуальной машины: ВМ больше не использует IP-адрес из CIDR виртуализации после её удаления."
+      - en: Added automatic cleanup of [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources that are absent on the node and are not assigned to a namespace or project.
+        ru: Реализовано автоматическое удаление ресурсов [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), отсутствующих на узле и не назначенных на неймспейс или проект.
+      - en: Fixed snapshot creation for a virtual machine without the `Main` network.
+        ru: Исправлено создание снимка виртуальной машины без сети `Main`.
+    module:
+      - en: When uploading disks and images with the `Upload` type, the `WaitForUserUpload` phase no longer occurs prematurely while the resource is not yet ready for upload.
+        ru: При загрузке дисков и образов с типом `Upload` фаза `WaitForUserUpload` больше не наступает преждевременно, пока ресурс ещё не готов к загрузке.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-39883
+            - CVE-2026-32280
+            - CVE-2026-32281
+            - CVE-2026-32282
+            - CVE-2026-32283
+            - CVE-2026-32288
+            - CVE-2026-32289
+            - CVE-2026-34986
+            - CVE-2026-25679
+            - CVE-2026-27142
+            - CVE-2026-27139
+            - CVE-2026-33186
+            - CVE-2026-34040
+            - CVE-2026-33997
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-39883
+            - CVE-2026-32280
+            - CVE-2026-32281
+            - CVE-2026-32282
+            - CVE-2026-32283
+            - CVE-2026-32288
+            - CVE-2026-32289
+            - CVE-2026-34986
+            - CVE-2026-25679
+            - CVE-2026-27142
+            - CVE-2026-27139
+            - CVE-2026-33186
+            - CVE-2026-34040
+            - CVE-2026-33997
+- version: v1.7.2
+  date: "2026-05-20"
+  highlights:
+    - en: "A security update: vulnerabilities in the module's components are fixed, with no functional changes."
+      ru: "Обновление безопасности: устранены уязвимости в компонентах модуля, функциональность не изменилась."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-29181
+            - CVE-2026-33811
+            - CVE-2026-33814
+            - CVE-2026-39820
+            - CVE-2026-39823
+            - CVE-2026-39825
+            - CVE-2026-39826
+            - CVE-2026-39836
+            - CVE-2026-41520
+            - CVE-2026-42499
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-29181
+            - CVE-2026-33811
+            - CVE-2026-33814
+            - CVE-2026-39820
+            - CVE-2026-39823
+            - CVE-2026-39825
+            - CVE-2026-39826
+            - CVE-2026-39836
+            - CVE-2026-41520
+            - CVE-2026-42499
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.7.1
+  date: "2026-04-21"
+  highlights:
+    - en: A virtual machine with a connected USB device now reports what to do for its firmware to be updated, instead of silently staying unavailable for migration.
+      ru: Виртуальная машина с подключённым USB-устройством теперь сообщает, что нужно сделать для обновления прошивки, вместо того чтобы молча оставаться недоступной для миграции.
+    - en: Fixed vulnerabilities in the module's components.
+      ru: Устранены уязвимости в компонентах модуля.
+  fixes:
+    virtual-machines:
+      - en: |-
+          To update the firmware on virtual machines with a connected USB device, one of the following actions is required. A corresponding message will appear in the virtual machine status:
+
+            - Disconnect the USB device and migrate the virtual machine.
+            - Restart the virtual machine.
+
+            Until then, the virtual machine will continue running, but it will not be available for migration.
+            After either action is completed, the virtual machine will be updated to the current firmware version and will be available for migration again.
+        ru: |-
+          Для обновления ПО виртуальных машин с подключенным USB-устройством требуется выполнить одно из следующих действий. Соответствующее сообщение появится в статусе виртуальной машины:
+
+            - отключить USB-устройство и мигрировать виртуальную машину;
+            - перезапустить виртуальную машину.
+
+            До этого виртуальная машина будет продолжать работать, но станет недоступной для миграции.
+            После выполнения любого из этих действий виртуальная машина будет обновлена до актуальной версии ПО и снова станет доступной для миграции.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-32283
+            - CVE-2026-27139
+            - CVE-2026-32289
+            - CVE-2026-32288
+            - CVE-2026-32281
+            - CVE-2026-27142
+            - CVE-2026-33997
+            - CVE-2026-33726
+            - CVE-2026-32282
+            - CVE-2026-32280
+            - CVE-2026-25679
+            - CVE-2026-34040
+            - CVE-2026-34986
+            - CVE-2026-39883
+            - CVE-2026-33186
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-32283
+            - CVE-2026-27139
+            - CVE-2026-32289
+            - CVE-2026-32288
+            - CVE-2026-32281
+            - CVE-2026-27142
+            - CVE-2026-33997
+            - CVE-2026-33726
+            - CVE-2026-32282
+            - CVE-2026-32280
+            - CVE-2026-25679
+            - CVE-2026-34040
+            - CVE-2026-34986
+            - CVE-2026-39883
+            - CVE-2026-33186
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.7.0
+  date: "2026-03-31"
+  highlights:
+    - en: TCP connections survive live migration of a virtual machine.
+      ru: TCP-соединения переживают живую миграцию виртуальной машины.
+    - en: The order of additional network interfaces stays the same across virtual machine restarts.
+      ru: Порядок дополнительных сетевых интерфейсов не меняется при перезапусках виртуальной машины.
+    - en: USB devices are taken into account when scheduling virtual machines, and their downtime during migration is shorter.
+      ru: USB-устройства учитываются при планировании виртуальных машин, а их простой во время миграции сократился.
+    - en: Block devices can be attached and detached on a cordoned node, and a virtual machine is no longer evicted before its block device pods.
+      ru: Блочные устройства можно подключать и отключать на узле, для которого выполнен cordon, а виртуальная машина больше не вытесняется раньше своих подов блочных устройств.
+  features:
+    virtual-machines:
+      - en: The order of additional network interfaces is now deterministic and does not change after virtual machine restarts. For this to work for virtual machines created on earlier versions, they must be restarted.
+        ru: Порядок дополнительных сетевых интерфейсов теперь детерминирован и не меняется при рестартах виртуальных машин. Чтобы это работало на виртуальных машинах, созданных на ранних версиях, их необходимо перезапустить.
+      - en: Added a mechanism to prevent TCP connection drops during live migration of a virtual machine.
+        ru: Добавлен механизм, предотвращающий разрыв TCP-соединений при живой миграции виртуальной машины.
+      - en: Reduced USB device downtime during virtual machine migration.
+        ru: Сокращено время недоступности USB-устройств во время миграции виртуальной машины.
+      - en: |-
+          Added a garbage collector for completed and failed virtual machine pods:
+            - Pods older than 24 hours are deleted.
+            - No more than 2 completed pods are retained.
+        ru: |-
+          Добавлен сборщик завершившихся и неуспешных подов виртуальных машин:
+            - поды старше 24 часов удаляются;
+            - хранится не более 2 завершённых подов.
+      - en: When scheduling virtual machines on nodes, the system now takes into account whether a USB device uses USB 2.0 (High-Speed) or USB 3.0 (SuperSpeed).
+        ru: При планировании размещения виртуальных машин на узлах теперь учитывается, использует ли USB-устройство USB 2.0 (High-Speed) или USB 3.0 (SuperSpeed).
+  fixes:
+    virtual-machines:
+      - en: Fixed double storage quota consumption during migration of a virtual machine with local storage.
+        ru: Исправлено двойное потребление квоты на хранилище при миграции виртуальной машины с локальным хранилищем.
+      - en: When using [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` or `Restore` type, disks now also restore their association with the virtual machine (owner reference).
+        ru: При использовании [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` или `Restore` диски теперь также восстанавливают свою принадлежность к виртуальной машине (owner reference).
+      - en: "Fixed virtual machine eviction during node drain: pods responsible for block device attachments are no longer removed from a cordoned node before virtual machine migration is complete."
+        ru: "Исправлено вытеснение виртуальных машин при выполнении drain узла: поды, отвечающие за подключение блочных устройств, больше не удаляются с узла, для которого выполнен cordon, до окончания миграции виртуальной машины."
+      - en: Block devices can now be attached and detached even if the virtual machine is running on a cordoned node.
+        ru: Блочные устройства можно подключать и отключать, даже если виртуальная машина работает на узле, для которого выполнен cordon.
+      - en: "Fixed validation for the `AlwaysForced` virtual machine migration policy: [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources with the `Evict` or `Migrate` type without explicit `force=true` are now rejected for this policy."
+        ru: "Исправлена валидация для политики миграции виртуальной машины `AlwaysForced`: операции [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типами `Evict` или `Migrate` без явного `force=true` теперь отклоняются для этой политики."
+      - en: Fixed an issue where a virtual machine could get stuck in the `Maintenance` state during restore from a snapshot.
+        ru: Исправлена проблема, из-за которой виртуальная машина могла зависнуть в состоянии `Maintenance` во время восстановления из снимка.
+      - en: Added storage-side error messages (from the CSI driver) to the virtual machine status for block device attachment failures.
+        ru: В статус виртуальной машины добавлено отображение сообщений об ошибках, произошедших на стороне хранилища (CSI-драйвера) при подключении блочных устройств.
+      - en: Stabilized USB device support for virtualization on Deckhouse Kubernetes Platform version `>=1.76` and Kubernetes version `>=1.33`.
+        ru: Стабилизирована работа USB-устройств для виртуализации на Deckhouse Kubernetes Platform версии `>=1.76` и Kubernetes версии `>=1.33`.
+      - en: "Fixed USB device detection on the host: duplicate USB devices could previously appear."
+        ru: "Исправлено обнаружение USB-устройств на хосте: ранее могли появляться дубликаты USB-устройств."
+    disks-and-images:
+      - en: Fixed the creation of block devices from VMDK files (especially for VMDKs in the `streamOptimized` format used in exports from VMware).
+        ru: Исправлено создание блочных устройств из файлов VMDK (в особенности для VMDK в формате `streamOptimized`, используемых в экспортах из VMware).
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.6.3
+  date: "2026-04-21"
+  highlights:
+    - en: "A security update: vulnerabilities in the module's components are fixed, with no functional changes."
+      ru: "Обновление безопасности: устранены уязвимости в компонентах модуля, функциональность не изменилась."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-32283
+            - CVE-2026-27139
+            - CVE-2026-32289
+            - CVE-2026-32288
+            - CVE-2026-32281
+            - CVE-2026-27142
+            - CVE-2026-33997
+            - CVE-2026-33726
+            - CVE-2026-32282
+            - CVE-2026-32280
+            - CVE-2026-25679
+            - CVE-2026-34040
+            - CVE-2026-34986
+            - CVE-2026-39883
+            - CVE-2026-33186
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-32283
+            - CVE-2026-27139
+            - CVE-2026-32289
+            - CVE-2026-32288
+            - CVE-2026-32281
+            - CVE-2026-27142
+            - CVE-2026-33997
+            - CVE-2026-33726
+            - CVE-2026-32282
+            - CVE-2026-32280
+            - CVE-2026-25679
+            - CVE-2026-34040
+            - CVE-2026-34986
+            - CVE-2026-39883
+            - CVE-2026-33186
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.6.2
+  date: "2026-03-23"
+  highlights:
+    - en: The module requires Deckhouse Kubernetes Platform 1.74.2 or later, which fixes quota validation when creating a virtual machine.
+      ru: Модуль требует Deckhouse Kubernetes Platform версии не ниже 1.74.2, где исправлена проверка квот при создании виртуальной машины.
+  fixes:
+    module:
+      - en: The `virtualization` module requires Deckhouse Kubernetes Platform version 1.74.2 or later. This version includes a fix for quota validation when creating disks.
+        ru: Для работы модуля `virtualization` требуется Deckhouse Kubernetes Platform версии не ниже 1.74.2. В этой версии исправлена валидация квот при создании дисков.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.6.1
+  date: "2026-03-10"
+  highlights:
+    - en: USB devices are discovered on nodes reliably, and a virtual machine with connected USB devices can be cloned.
+      ru: USB-устройства стабильно обнаруживаются на узлах, а виртуальную машину с подключёнными USB-устройствами можно клонировать.
+    - en: Restored the previous placement of virtual machine dashboards, which could block the Deckhouse queue.
+      ru: Возвращено прежнее расположение дашбордов виртуальных машин, которое могло блокировать очередь Deckhouse.
+  fixes:
+    virtual-machines:
+      - en: "Fixed USB device discovery on nodes: corresponding [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources might not have been created."
+        ru: "Исправлено обнаружение USB-устройств на узлах: соответствующие ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) могли не создаваться."
+      - en: Fixed cloning of a virtual machine with connected USB devices when using [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with the `Clone` type in `BestEffort` mode.
+        ru: Исправлено клонирование виртуальной машины с подключенными USB-устройствами при использовании [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` в режиме `BestEffort`.
+    observability:
+      - en: Restored the previous placement of virtual machine dashboards due to a validation issue that could block the Deckhouse queue.
+        ru: Восстановлено прежнее расположение дашбордов виртуальных машин из-за проблемы с их валидацией, которая могла приводить к блокировке очереди Deckhouse.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-24051
+            - CVE-2025-15558
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-24051
+            - CVE-2025-15558
+- version: v1.6.0
+  date: "2026-03-02"
+  highlights:
+    - en: USB devices can be attached to virtual machines through `.spec.usbDevices`, with the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) and [USBDevice](/modules/virtualization/cr.html#usbdevice) resources to manage them.
+      ru: USB-устройства можно подключать к виртуальным машинам через `.spec.usbDevices`, для управления ими добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и [USBDevice](/modules/virtualization/cr.html#usbdevice).
+    - en: The `Virtualization / Overview` dashboard shows the state of the virtualization platform as a whole.
+      ru: Дашборд `Virtualization / Overview` показывает состояние платформы виртуализации целиком.
+    - en: DVCR is cleaned up daily by default, on a schedule that can be changed in the module configuration.
+      ru: Очистка DVCR по умолчанию выполняется ежедневно, расписание можно изменить в настройках модуля.
+  features:
+    virtual-machines:
+      - en: Added support for attaching USB devices to virtual machines via `.spec.usbDevices`.
+        ru: Добавлена поддержка подключения USB-устройств к виртуальным машинам через `.spec.usbDevices`.
+      - en: |-
+          Added [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) and [USBDevice](/modules/virtualization/cr.html#usbdevice) resources to manage USB devices in the cluster:
+            - [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped): Represents a USB device discovered on a specific node. Allows assigning a USB device for use in a specific namespace.
+            - [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped): Represents a USB device available for attachment to virtual machines in a given namespace.
+        ru: |-
+          Добавлены ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и [USBDevice](/modules/virtualization/cr.html#usbdevice), позволяющие управлять USB-устройствами в кластере:
+            - [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-scoped) — представляет USB-устройство, обнаруженное на конкретном узле. Позволяет назначить USB-устройство для использования в конкретном неймспейсе.
+            - [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespace-scoped) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
+    disks-and-images:
+      - en: "Enabled DVCR cleanup in clusters by default: daily at 02:00. You can override the schedule via `dvcr.gc.schedule` in the `virtualization` module ModuleConfig."
+        ru: "Включена очистка DVCR в кластерах по умолчанию: ежедневно в 02:00. Расписание можно переопределить через `dvcr.gc.schedule` в ModuleConfig модуля `virtualization`."
+    observability:
+      - en: Added the `Virtualization / Overview` dashboard with an overview of the virtualization platform status.
+        ru: Добавлен дашборд `Virtualization / Overview` с обзором состояния платформы виртуализации.
+      - en: Added information about virtual machine pods to the virtual machine dashboard.
+        ru: На дашборд виртуальной машины добавлена информация о подах виртуальных машин.
+  improvements:
+    cli:
+      - en: Added the `--from-file` flag to the `vlctl` utility for viewing domain information from a local libvirt XML file.
+        ru: Для утилиты `vlctl` добавлен флаг `--from-file` для просмотра информации о домене из локального libvirt XML-файла.
+  fixes:
+    virtual-machines:
+      - en: If only the `Main` network is specified in `.spec.networks`, the `sdn` module is no longer required.
+        ru: Если в `.spec.networks` указана только сеть `Main`, то больше не требуется включенный модуль `sdn`.
+      - en: "Fixed virtual machine migration with disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): the target pod could exceed memory limits (`OOMKilled`)."
+        ru: "Исправлена миграция виртуальной машины с дисками, подключенными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug): целевой под мог превысить лимиты по памяти (`OOMKilled`)."
+      - en: Fixed an incorrect `Pending` phase for the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource during virtual machine migration.
+        ru: Исправлена некорректная фаза `Pending` ресурса [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) во время миграции виртуальной машины.
+      - en: To remove disks and images attached to a virtual machine via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), you must first detach them from the virtual machine by deleting the corresponding `vmbda`. This information has been added to the `vmbda` status.
+        ru: Чтобы удалить диски и образы, подключенные к виртуальной машине через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), сначала нужно отсоединить их от виртуальной машины, удалив соответствующий `vmbda`. Эта информация добавлена в статус `vmbda`.
+    disks-and-images:
+      - en: Fixed virtual disks hanging during creation in `WaitForFirstConsumer` mode on nodes with taints.
+        ru: Исправлено зависание при создании виртуальных дисков в режиме `WaitForFirstConsumer` на узлах с taints.
+- version: v1.5.2
+  date: "2026-03-05"
+  highlights:
+    - en: Creating a virtual disk on NFS no longer risks an OOMKill.
+      ru: Создание виртуального диска на NFS больше не грозит OOMKill.
+  fixes:
+    disks-and-images:
+      - en: Fixed a potential `OOMKill` during the virtual disk creation on NFS.
+        ru: Исправлен возможный `OOMKill` при создании виртуального диска на NFS.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.5.1
+  date: "2026-02-16"
+  highlights:
+    - en: A virtual disk can again be created from a virtual image stored on a PersistentVolumeClaim.
+      ru: Виртуальный диск снова можно создать из виртуального образа, хранящегося на PersistentVolumeClaim.
+  fixes:
+    disks-and-images:
+      - en: Fixed an issue with creating a virtual disk from a virtual image stored on a `PersistentVolumeClaim` (with `.spec.storage` set to `PersistentVolumeClaim`).
+        ru: Исправлена проблема при создании виртуального диска из виртуального образа, хранящегося на `PersistentVolumeClaim` (при значении `.spec.storage=PersistentVolumeClaim`).
+- version: v1.5.0
+  date: "2026-02-09"
+  highlights:
+    - en: A virtual machine (VM) can be migrated to a chosen node through a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+      ru: Виртуальную машину (ВМ) можно мигрировать на выбранный узел через ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+    - en: Resources of system components and the temporary double consumption during migration are no longer counted in project quotas.
+      ru: Ресурсы системных компонентов и временное двойное потребление при миграции больше не учитываются в квотах проекта.
+    - en: Fixed several cases where a virtual machine could hang during migration or cloning when the StorageClass changed.
+      ru: Исправлено несколько случаев зависания виртуальной машины при миграции и клонировании со сменой StorageClass.
+  features:
+    virtual-machines:
+      - en: Added the ability to migrate a VM to a chosen node. To do this, create a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource with the `Migrate` type and specify the node in `.spec.migrate.nodeSelector`.
+        ru: Добавлена возможность миграции ВМ на выбранный узел. Для этого нужно создать ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Migrate` и указать узел в `.spec.migrate.nodeSelector`.
+    observability:
+      - en: Added a table with virtual machine operations to the `Namespace / Virtual Machine` dashboard.
+        ru: На дашборд `Namespace / Virtual Machine` добавлена таблица с операциями по виртуальной машине.
+  improvements:
+    disks-and-images:
+      - en: When viewing disks, the name of the virtual machine they are attached to is now displayed (`d8 k get vd`).
+        ru: При просмотре дисков теперь отображается имя виртуальной машины, к которой они подключены (`d8 k get vd`).
+  fixes:
+    virtual-machines:
+      - en: Fixed an issue with cloning a virtual machine whose disks use storage in `WaitForFirstConsumer` mode.
+        ru: Исправлена проблема клонирования виртуальной машины, диски которой используют хранилище в режиме `WaitForFirstConsumer`.
+      - en: Fixed a possible virtual machine hang in the `Pending` state during migration when changing the StorageClass.
+        ru: Исправлено зависание виртуальной машины в `Pending` в процессе миграции при смене StorageClass.
+    disks-and-images:
+      - en: Fixed an issue with live migration of a virtual machine between StorageClass with the `Filesystem` type.
+        ru: Исправлена проблема живой миграции виртуальной машины между StorageClass с типом `Filesystem`.
+    module:
+      - en: Fixed an issue with starting virtual machines using the `EFIWithSecureBoot` bootloader when configured with more than 12 vCPUs.
+        ru: Исправлен запуск виртуальных машин с загрузчиком `EFIWithSecureBoot` при конфигурации с более чем 12 vCPU.
+      - en: System component resources required for starting and running virtual machines are no longer counted in project quotas.
+        ru: Ресурсы системных компонентов, обеспечивающие запуск и работу виртуальных машин, не учитываются в квотах проекта.
+      - en: During virtual machine migration, temporary double consumption of resources is no longer counted in project quotas.
+        ru: При миграции виртуальной машины временное двойное потребление ресурсов больше не учитывается в квотах проекта.
+      - en: Platform system components in user projects are protected from deletion by users.
+        ru: Системные компоненты платформы в пользовательских проектах защищены от удаления пользователями.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2025-61726
+            - CVE-2025-61728
+            - CVE-2025-61730
+            - CVE-2025-68121
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2025-61726
+            - CVE-2025-61728
+            - CVE-2025-61730
+            - CVE-2025-68121
+- version: v1.4.1
+  date: "2026-02-16"
+  highlights:
+    - en: "A security update: vulnerabilities in the module's components are fixed, with no functional changes."
+      ru: "Обновление безопасности: устранены уязвимости в компонентах модуля, функциональность не изменилась."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2025-61726
+            - CVE-2025-61728
+            - CVE-2025-61730
+            - CVE-2025-68121
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2025-61726
+            - CVE-2025-61728
+            - CVE-2025-61730
+            - CVE-2025-68121
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.4.0
+  date: "2026-01-23"
+  highlights:
+    - en: Virtual machines with local disks attached through [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) can be migrated, and the StorageClass of such disks can be changed.
+      ru: Виртуальные машины с локальными дисками, подключёнными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment), можно мигрировать, а StorageClass таких дисков — менять.
+    - en: A virtual machine can be started without the Main network.
+      ru: Виртуальную машину можно запустить без сети Main.
+    - en: An image that disappears from DVCR is now reported in the status of the corresponding resource.
+      ru: Об исчезновении образа из DVCR теперь сообщается в статусе соответствующего ресурса.
+  features:
+    virtual-machines:
+      - en: Virtual machines can now be started without a `Main` network.
+        ru: Теперь виртуальную машину можно запускать без сети `Main`.
+    disks-and-images:
+      - en: Added support for changing the StorageClass of disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
+        ru: Добавлена поддержка изменения StorageClass для дисков, подключённых через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
+      - en: Added support for migrating virtual machines with local disks attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
+        ru: Добавлена поддержка миграции виртуальных машин с локальными дисками, подключёнными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug).
+  fixes:
+    virtual-machines:
+      - en: Fixed IP address attachment when the corresponding [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) resource was created manually in advance.
+        ru: Исправлено присоединение IP-адреса, если ресурс [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) был создан пользователем заранее вручную.
+      - en: Added support for cloning virtual machines in the `Running` phase via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) of type `Clone`.
+        ru: Добавлена поддержка клонирования виртуальных машин в состоянии `Running` через [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone`.
+    disks-and-images:
+      - en: Added tracking of image availability in DVCR. If an image disappears from DVCR, the corresponding [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) resources enter the `Lost` phase and report an error.
+        ru: "Добавлено отслеживание наличия образов в DVCR: если образ пропадает из DVCR, соответствующие ресурсы [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) переходят в фазу `Lost` и получают ошибку в статусе."
+    module:
+      - en: Fixed project quota accounting for resources used by system components required to create disks/images and operate virtual machines.
+        ru: Исправлен учёт ресурсов системных компонентов в квотах проекта (для создания дисков/образов и их подключения к виртуальной машине через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug)).
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.3.0
+  date: "2025-12-16"
+  highlights:
+    - en: The default `coreFraction` for a class of virtual machines can be set in [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass).
+      ru: Значение `coreFraction` по умолчанию для класса виртуальных машин задаётся в [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass).
+    - en: Attaching a disk in WaitForFirstConsumer mode to a virtual machine became faster.
+      ru: Подключение диска в режиме WaitForFirstConsumer к виртуальной машине стало быстрее.
+  features:
+    virtual-machines:
+      - en: Added the `.spec.sizingPolicies.defaultCoreFraction` field to the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) resource, allowing you to set the default `coreFraction` for virtual machines that use this class.
+        ru: В ресурсе [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) добавлено поле `.spec.sizingPolicies.defaultCoreFraction`, позволяющее задать значение `coreFraction` по умолчанию для виртуальных машин, использующих этот класс.
+  fixes:
+    disks-and-images:
+      - en: Accelerated disk attachment in `WaitForFirstConsumer` mode for virtual machines.
+        ru: Ускорено подключение дисков в режиме `WaitForFirstConsumer` к виртуальной машине.
+      - en: Fixed an issue with restoring labels and annotations on a disk created from a snapshot.
+        ru: Исправлена проблема с восстановлением меток и аннотаций на диске, созданном из снимка.
+    observability:
+      - en: Fixed the display of virtual machine charts in clusters running in HA mode.
+        ru: В кластерах, работающих в HA режиме, исправлено отображение графиков по виртуальным машинам.
+    module:
+      - en: Added the ability to use system nodes to create project and cluster images.
+        ru: Добавлена возможность использования системных узлов для создания проектных и кластерных образов.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.2.2
+  date: "2025-12-05"
+  highlights:
+    - en: The `d8:use:role:user` role can manage [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resources again.
+      ru: Роль `d8:use:role:user` снова может управлять ресурсами [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+  fixes:
+    module:
+      - en: Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+        ru: Для роли `d8:use:role:user` исправлены права доступа RBAC, которые не позволяли управлять ресурсом [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.2.1
+  date: "2025-12-04"
+  highlights:
+    - en: Removed a deprecated part of the configuration that could prevent the module from upgrading.
+      ru: Удалена устаревшая часть конфигурации, которая могла помешать обновлению модуля.
+  fixes:
+    module:
+      - en: The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
+        ru: Удалена устаревшая часть конфигурации, из-за которой обновление модуля виртуализации могло не выполняться в кластерах с Kubernetes версии 1.34 и выше.
+- version: v1.2.0
+  date: "2025-11-28"
+  highlights:
+    - en: "[VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) creates a virtual machine from a snapshot, and the VirtualMachineRestore resource is deprecated."
+      ru: Ресурс [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) создаёт виртуальную машину из снимка, а ресурс VirtualMachineRestore объявлен устаревшим.
+    - en: Version `v1alpha2` of [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) is deprecated, use `v1alpha3`.
+      ru: Версия `v1alpha2` ресурса [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) объявлена устаревшей, используйте `v1alpha3`.
+    - en: DVCR can be cleaned up of images that no longer exist, and its storage can no longer be shrunk by mistake.
+      ru: DVCR можно очищать от несуществующих образов, а его хранилище больше нельзя уменьшить по ошибке.
+    - en: Audit events name the virtual machine and the user who acted on it.
+      ru: События аудита называют виртуальную машину и пользователя, который выполнил действие.
+  features:
+    virtual-machines:
+      - en: |-
+          The [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore) resource is deprecated. Use the following resources instead:
+            - [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with type `Clone`: For cloning an existing virtual machine.
+            - [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) with type `Restore`: For restoring an existing virtual machine to a state from a snapshot.
+            - [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation): For creating a new virtual machine based on a snapshot.
+        ru: |-
+          Ресурс [VirtualMachineRestore](/modules/virtualization/cr.html#virtualmachinerestore) помечен как устаревший (deprecated). Вместо него используйте следующие ресурсы:
+            - [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Clone` - для клонирования существующей виртуальной машины;
+            - [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Restore` - для восстановления существующей виртуальной машины до состояния из снимка;
+            - [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) - для создания новой виртуальной машины на основе снимка.
+      - en: Added the [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) resource for creating a virtual machine based on a [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot).
+        ru: Добавлен ресурс [VirtualMachineSnapshotOperation](/modules/virtualization/cr.html#virtualmachinesnapshotoperation) для создания виртуальной машины на основе снимка [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot).
+      - en: |-
+          For the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) resource, version `v1alpha2` is deprecated. Use version `v1alpha3` instead:
+            - In version `v1alpha3`, the `.spec.sizingPolicies.coreFraction` field is now a string with a percentage (for example, "50%"), similar to the field in a virtual machine.
+        ru: |-
+          Для ресурса [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) версия `v1alpha2` помечена как устаревшая (deprecated). Вместо неё рекомендуется использовать версию `v1alpha3`:
+            - в версии `v1alpha3` поле `.spec.sizingPolicies.coreFraction` теперь задаётся строкой с указанием процента (например, "50%"), аналогично полю в виртуальной машине.
+      - en: Added detailed error output in the `Attached` condition of the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource when a block device is unavailable on the virtual machine node.
+        ru: В условие `Attached` ресурса [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) добавлен подробный вывод ошибки, возникающей при недоступности блочного устройства на узле виртуальной машины.
+    module:
+      - en: Added validation for the virtualization ModuleConfig that prevents decreasing the DVCR storage size and changing its StorageClass.
+        ru: Для ModuleConfig виртуализации добавлена валидация, запрещающая уменьшать размер и изменять выбранный StorageClass для DVCR.
+      - en: Improved audit events by using more informative messages that include virtual machine names and user information.
+        ru: "Улучшены события аудита: сообщения стали более информативными и теперь включают имена виртуальных машин и информацию о пользователях."
+      - en: |-
+          Added the ability to clean up DVCR from non-existent project and cluster images:
+            - By default, this feature is disabled.
+            - To enable cleanup, set a schedule in the module settings: `.spec.settings.dvcr.gc.schedule`.
+        ru: |-
+          Добавлена возможность очищать DVCR от несуществующих проектных и кластерных образов:
+            - по умолчанию эта функция отключена;
+            - чтобы включить очистку, задайте расписание в настройках модуля: `.spec.settings.dvcr.gc.schedule`.
+      - en: |-
+          Added new metrics for disks:
+            - `d8_virtualization_virtualdisk_capacity_bytes`: Metric showing the disk size.
+            - `d8_virtualization_virtualdisk_info`: Metric with information about the disk configuration.
+            - `d8_virtualization_virtualdisk_status_inuse`: Metric showing the current use of the disk by a virtual machine or for creating other block devices.
+        ru: |-
+          Добавлены новые метрики для дисков:
+            - `d8_virtualization_virtualdisk_capacity_bytes` - метрика, показывающая размер диска;
+            - `d8_virtualization_virtualdisk_info` - метрика с информацией о конфигурации диска;
+            - `d8_virtualization_virtualdisk_status_inuse` - метрика, показывающая текущее использование диска виртуальной машиной или для создания других блочных устройств.
+  fixes:
+    virtual-machines:
+      - en: Added the ability to modify or delete the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) resource named "generic". The virtualization module will no longer restore it to its original state.
+        ru: Добавлена возможность изменять или удалять ресурс [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) с именем generic. Теперь модуль виртуализации не будет восстанавливать его в исходное состояние.
+      - en: Fixed the `MethodNotAllowed` error for `patch` and `watch` operations when querying the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) resource via command-line utilities (`d8 k`, `kubectl`).
+        ru: Исправлена ошибка `MethodNotAllowed` для операций `patch` и `watch` при запросах к ресурсу [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) через утилиты командной строки (`d8 k`, `kubectl`).
+    disks-and-images:
+      - en: Fixed an issue that prevented deleting [VirtualImage](/modules/virtualization/cr.html#virtualimage) and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) resources for a stopped virtual machine.
+        ru: Исправлена проблема, из-за которой было невозможно удалить ресурсы [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) для остановленной виртуальной машины.
+      - en: Fixed an error that could lead to inconsistencies between [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot) and [VirtualDiskSnapshot](/modules/virtualization/cr.html#virtualdisksnapshot) resources when creating a snapshot of a virtual machine with multiple disks.
+        ru: Исправлена ошибка, которая могла приводить к неконсистентности ресурсов [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot) и [VirtualDiskSnapshot](/modules/virtualization/cr.html#virtualdisksnapshot) при создании снимка виртуальной машины с несколькими дисками.
+    module:
+      - en: Fixed RBAC for the `user` and `editor` cluster roles.
+        ru: Исправлена конфигурация RBAC для кластерных ролей `user` и `editor`.
+      - en: Fixed the `D8VirtualizationVirtualMachineFirmwareOutOfDate` alert, which could be duplicated when virtualization runs in HA mode.
+        ru: Исправлен алерт `D8VirtualizationVirtualMachineFirmwareOutOfDate`, который мог дублироваться при работе виртуализации в HA режиме.
+  security:
+    module:
+      - en: Fixed vulnerability CVE-2025-64324.
+        ru: Исправлена уязвимость CVE-2025-64324.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.1.3
+  date: "2025-11-21"
+  highlights:
+    - en: Fixed vulnerabilities in the module's components.
+      ru: Устранены уязвимости в компонентах модуля.
+    - en: The virtual machine dashboards show more detail about the machines and their pods.
+      ru: Дашборды виртуальных машин показывают больше подробностей о машинах и их подах.
+  improvements:
+    observability:
+      - en: "The virtual machine overview dashboards (`Namespace / Virtual Machine` and `Namespace / Virtual Machines`) have been improved: in addition to the cluster level, they are now also available at the project level."
+        ru: "Доработаны дашборды обзора виртуальных машин (`Namespace / Virtual Machine` и `Namespace / Virtual Machines`): помимо уровня кластера, они теперь доступны и на уровне проекта."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2025-64324
+            - CVE-2025-64435
+            - CVE-2025-64436
+            - CVE-2025-58183
+            - CVE-2025-58186
+            - CVE-2025-58187
+            - CVE-2025-58188
+            - CVE-2025-52565
+            - CVE-2025-52881
+            - CVE-2025-31133
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2025-64324
+            - CVE-2025-64435
+            - CVE-2025-64436
+            - CVE-2025-58183
+            - CVE-2025-58186
+            - CVE-2025-58187
+            - CVE-2025-58188
+            - CVE-2025-52565
+            - CVE-2025-52881
+            - CVE-2025-31133
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.1.2
+  date: "2025-11-05"
+  highlights:
+    - en: Live disk migration works between StorageClasses that use different drivers.
+      ru: Живая миграция дисков работает между StorageClass с разными драйверами.
+    - en: A failed live migration now explains in the machine status what went wrong.
+      ru: Неудачная живая миграция теперь объясняет причину в статусе машины.
+  fixes:
+    virtual-machines:
+      - en: In the `Migrating` state, detailed error information is now displayed when a live migration of a virtual machine fails.
+        ru: В состоянии `Migrating` при неуспешной живой миграции виртуальной машины добавлено отображение подробной информации об ошибке.
+    disks-and-images:
+      - en: |-
+          Fixed live disk migration between StorageClasses that use different drivers. Restrictions:
+            - Migration between `Block` and `Filesystem` is not supported. Only migrations between the same volume mode are allowed: `Block` → `Block` and `Filesystem` → `Filesystem`.
+        ru: |-
+          Исправлена живая миграция дисков между StorageClass, использующими разные драйверы. Ограничения:
+            - Не поддерживается миграция с `Block` на `Filesystem` и наоборот. Миграция возможна только между одинаковыми режимами томов (volume mode): `Block` → `Block` и `Filesystem` → `Filesystem`.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.1.1
+  date: "2025-10-16"
+  highlights:
+    - en: Disks and images report in their status when the data source is unavailable.
+      ru: Диски и образы сообщают в статусе о недоступности источника данных.
+    - en: Fixed several validation gaps in virtual machine networks and IP addresses.
+      ru: Исправлено несколько пробелов в валидации сетей и IP-адресов виртуальных машин.
+    - en: Fixed vulnerabilities in the module's components.
+      ru: Устранены уязвимости в компонентах модуля.
+  features:
+    observability:
+      - en: Added Prometheus metrics for virtual machine snapshots (`d8_virtualization_virtualmachinesnapshot_info`) and virtual disk snapshots (`d8_virtualization_virtualdisksnapshot_info`), showing which objects they are associated with.
+        ru: Добавлены метрики Prometheus для снимков виртуальных машин (`d8_virtualization_virtualmachinesnapshot_info`) и дисков (`d8_virtualization_virtualdisksnapshot_info`), показывающие, к каким объектам они относятся.
+  fixes:
+    virtual-machines:
+      - en: "Fixed the `NetworkReady` condition output: it no longer shows the `Unknown` state and appears only when needed."
+        ru: "Исправлен вывод условия `NetworkReady`: он больше не отображается в состоянии `Unknown` и показывается только при необходимости."
+      - en: Prohibited duplicate networks in the virtual machine `.spec.network` specification.
+        ru: Добавлена валидация, предотвращающая указание одной и той же сети в спецификации виртуальной машины `.spec.network` более одного раза.
+      - en: Added validation for static IP addresses to avoid creating a [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) resource with an IP already in use in the cluster.
+        ru: Добавлена валидация для статических IP-адресов, предотвращающая создание ресурсов [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) с уже используемым в кластере адресом.
+      - en: Fixed a bug where, when detaching a virtual image through [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment), the resource could get stuck in the `Terminating` state.
+        ru: Исправлена ошибка, из-за которой при отключении виртуального образа через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) ресурс мог зависать в состоянии `Terminating`.
+    disks-and-images:
+      - en: When creating virtual images from virtual disk snapshots, the `.spec.persistentVolumeClaim.storageClassName` parameter is now respected. Previously, it could be ignored.
+        ru: Теперь при создании виртуальных образов из снимков виртуальных дисков учитывается параметр `.spec.persistentVolumeClaim.storageClassName`. Ранее он мог игнорироваться.
+    module:
+      - en: Fixed an issue in the containerd v2 where storage providing a PVC with the `Filesystem` type was incorrectly attached via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment).
+        ru: Исправлена проблема в containerd v2, из-за которой хранилище, предоставляющее PVC с типом `FileSystem`, некорректно подключалось через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment).
+      - en: Added error reporting in the status of disks and images when the data source (URL) is unavailable.
+        ru: Добавлено отображение ошибок в статусе дисков и образов при недоступности источника данных (URL).
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2025-58058
+            - CVE-2025-54410
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2025-58058
+            - CVE-2025-54410
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.1.0
+  date: "2025-10-06"
+  highlights:
+    - en: Virtual machines (VMs) with disks on local storage can be migrated, and the StorageClass of virtual machine disks can be changed (not available in CE).
+      ru: Виртуальные машины (ВМ) с дисками на локальном хранилище можно мигрировать, а StorageClass дисков виртуальных машин — менять (недоступно в редакции CE).
+    - en: A virtual machine can be cloned from an existing one through a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+      ru: Виртуальную машину можно клонировать из существующей через ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+    - en: New alerts warn about virtual machines on a node that is about to shut down and about DVCR running out of space.
+      ru: Новые алерты предупреждают о виртуальных машинах на выключаемом узле и о нехватке места в DVCR.
+  features:
+    virtual-machines:
+      - en: |-
+          Added the ability to migrate VMs using disks on local storage. Restrictions:
+            - The feature is not available in the CE edition.
+            - Migration is only possible for running VMs (`phase: Running`).
+            - Migration of VMs with local disks connected via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug) is not supported yet.
+        ru: |-
+          Добавлена возможность миграции ВМ, использующих диски на локальных хранилищах. Ограничения:
+            - Функция недоступна в CE-редакции.
+            - Миграция возможна только для запущенной ВМ (`phase: Running`)
+            - Миграция ВМ с локальными дисками, подключенными через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), пока недоступна.
+      - en: "Added an operation with the `Clone` type to create a clone of a VM from an existing VM ([VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) `.spec.type: Clone`)."
+        ru: "Добавлена операция с типом `Clone` для создания клона ВМ из существующей ВМ ([VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) `.spec.type: Clone`)."
+    disks-and-images:
+      - en: |-
+          Added the ability to migrate storage for VM disks (change StorageClass). Restrictions:
+            - The feature is not available in the CE edition.
+            - Migration is only possible for running VMs (`phase: Running`).
+            - Storage migration for disks connected via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug) is not supported yet.
+        ru: |-
+          Добавлена возможность миграции хранилища для дисков ВМ (изменение StorageClass). Ограничения:
+            - Функция недоступна в CE-редакции.
+            - Миграция возможна только для запущенной ВМ (`phase: Running`)
+            - Миграция хранилища для дисков, подключенных через [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (hotplug), пока недоступна.
+    observability:
+      - en: Added the `KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown` alert, which is triggered when the node hosting the virtual machines is about to shut down but VM evacuation is not yet complete.
+        ru: Добавлен алерт `KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown`, срабатывающий при получении узлом, на котором размещены виртуальные машины, команды на завершение работы — до завершения эвакуации ВМ.
+      - en: Added the `D8VirtualizationDVCRInsufficientCapacityRisk` alert, which warns of the risk of insufficient free space in the virtual machine image storage (DVCR).
+        ru: Добавлен алерт `D8VirtualizationDVCRInsufficientCapacityRisk`, предупреждающий о риске нехватки свободного места в хранилище образов виртуальных машин (DVCR).
+  fixes:
+    virtual-machines:
+      - en: Fixed an issue in [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) types `Features` and `Discovery` that caused nested virtualization not to work on nodes with AMD processors.
+        ru: Исправлена ошибка в [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) типах `Features` и `Discovery`, из-за которой на узлах с процессорами AMD не работала вложенная виртуализация.
+      - en: "Fixed behavior when creating a VM snapshot with uncommitted changes: the snapshot now instantly captures the current state of the virtual machine, including all current changes."
+        ru: "Исправлено поведение при создании снимка ВМ при наличии неприменённых изменений: снимок теперь мгновенно фиксирует актуальное состояние виртуальной машины, включая все текущие изменения."
+      - en: "Fixed garbage collector behavior: previously, all VMOP objects were deleted after restarting the virtualization controller, ignoring cleanup rules."
+        ru: "Исправлена работа сборщика мусора: ранее при перезапуске virtualization-controller все объекты VMOP удалялись без учёта правил очистки."
+    observability:
+      - en: The virtual machine dashboard now displays statistics for all networks (including additional ones) connected to the VM.
+        ru: Дашборд виртуальной машины теперь отображает статистику по всем сетям (в том числе и дополнительным), подключённым к ВМ.
+      - en: Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration.
+        ru: На дашборде виртуальной машины исправлен график, отображающий статистику копирования памяти во время миграции ВМ.
+    module:
+      - en: Fixed an issue with installing the module on RedOS 8.X OS.
+        ru: Исправлена проблема установки модуля на RedOS 8.X ОС.
+      - en: Improved validation to prevent adding empty values for parameters that define StorageClass for disks and images.
+        ru: Улучшена валидация, предотвращающая добавление пустых значений для параметров, определяющих StorageClass для дисков и образов.
+      - en: Fixed the controller sometimes starting a restored VM before its disks were fully restored, so the machine started with old, unrestored disks.
+        ru: Исправлено, что контроллер иногда запускал восстановленную ВМ до завершения восстановления её дисков, и машина стартовала со старыми, невосстановленными дисками.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.0.0
+  date: "2025-09-11"
+  highlights:
+    - en: A virtual machine (VM) can be restored from a snapshot through the Restore operation, with the annotations and labels it had at the time of the snapshot.
+      ru: Виртуальную машину (ВМ) можно восстановить из снимка операцией Restore вместе с аннотациями и метками, которые были на момент снимка.
+    - en: A cloud image in use is protected from being deleted.
+      ru: Используемый облачный образ защищён от удаления.
+  features:
+    virtual-machines:
+      - en: Added protection to prevent a cloud image ([VirtualImage](/modules/virtualization/cr.html#virtualimage) / [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage)) from being connected as the first disk. Previously, this caused the VM to fail to start with the "No bootable device" error.
+        ru: Добавлена защита от подключения cloud-образа ([VirtualImage](/modules/virtualization/cr.html#virtualimage) / [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage)) в качестве первого диска. Ранее это приводило к невозможности запуска ВМ с ошибкой "No bootable device".
+      - en: Added `Restore` operation to restore a VM from a previously created snapshot.
+        ru: Добавлена операция с типом `Restore` для восстановления ВМ из ранее созданного снимка.
+  fixes:
+    virtual-machines:
+      - en: When restoring a virtual machine from a snapshot, all annotations and labels that were present on the resources at the time of the snapshot are now restored correctly.
+        ru: Теперь при восстановлении виртуальной машины из снимка корректно восстанавливаются все аннотации и метки, которые были у ресурсов в момент снимка.
+      - en: Fixed `core`/`coreFraction` validation in the [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) resource.
+        ru: Исправлена валидация `core`/`coreFraction` в ресурсе [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass).
+    module:
+      - en: Fixed an issue with queue blocking when the `settings.modules.publicClusterDomain` parameter was empty in the global ModuleConfig resource.
+        ru: Исправлена проблема с блокировкой очереди, когда параметр `settings.modules.publicClusterDomain` был пустым в глобальном ресурсе ModuleConfig.
+      - en: Optimized hook performance during module installation.
+        ru: Оптимизирована производительность хука во время установки модуля.
+      - en: When the `sdn` module is disabled, the configuration of additional networks in the VM is not available.
+        ru: При выключенном модуле `sdn` конфигурация дополнительных сетей в ВМ недоступна.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2025-47907
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2025-47907
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v0.25.0
+  date: "2025-08-29"
+  highlights:
+    - en: Additional network interfaces of a virtual machine (VM) can be connected to networks provided by the `sdn` module, with MAC address management through [VirtualMachineMACAddress](/modules/virtualization/cr.html#virtualmachinemacaddress).
+      ru: Дополнительные сетевые интерфейсы виртуальной машины (ВМ) можно подключать к сетям модуля `sdn`, MAC-адресами управляет ресурс [VirtualMachineMACAddress](/modules/virtualization/cr.html#virtualmachinemacaddress).
+    - en: A [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) can be marked as the default one, so a virtual machine no longer has to name its class.
+      ru: "[VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) можно пометить как класс по умолчанию, тогда виртуальной машине не нужно называть свой класс."
+    - en: New Prometheus metrics track the phase of snapshots and images.
+      ru: Новые метрики Prometheus отслеживают фазу снимков и образов.
+  features:
+    virtual-machines:
+      - en: MAC address management for additional network interfaces has been added using the [VirtualMachineMACAddress](/modules/virtualization/cr.html#virtualmachinemacaddress) and [VirtualMachineMACAddressLease](/modules/virtualization/cr.html#virtualmachinemacaddresslease) resources.
+        ru: Для дополнительных сетевых интерфейсов добавлено управление MAC-адресами с использованием ресурсов [VirtualMachineMACAddress](/modules/virtualization/cr.html#virtualmachinemacaddress) и [VirtualMachineMACAddressLease](/modules/virtualization/cr.html#virtualmachinemacaddresslease).
+      - en: Added the ability to attach additional network interfaces to a virtual machine for networks provided by the `sdn` module. For this, the `sdn` module must be enabled in the cluster.
+        ru: Добавлена возможность подключения к виртуальной машине дополнительных сетевых интерфейсов к сетям, предоставляемым модулем `sdn`. Для этого модуль `sdn` должен быть включен в кластере.
+      - en: An annotation has been added to set the default `VirtualMachineClass`. You can designate a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) as the default by adding the annotation `virtualmachineclass.virtualization.deckhouse.io/is-default-class=true`. This allows creating VMs with an empty `spec.virtualMachineClassName` field, which will be automatically filled with the default class.
+        ru: Добавлена аннотация для установки класса виртуальной машины по умолчанию. Чтобы назначить [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) по умолчанию, необходимо добавить на него аннотацию `virtualmachineclass.virtualization.deckhouse.io/is-default-class=true`. Это позволяет создавать ВМ с пустым полем `spec.virtualMachineClassName`, автоматически заполняя его классом по умолчанию.
+    observability:
+      - en: New Prometheus metrics have been added to track the phase of resources such as [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot), [VirtualDiskSnapshot](/modules/virtualization/cr.html#virtualdisksnapshot), [VirtualImage](/modules/virtualization/cr.html#virtualimage), and [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage).
+        ru: Добавлены новые метрики Prometheus для отслеживания фазы ресурсов, таких как [VirtualMachineSnapshot](/modules/virtualization/cr.html#virtualmachinesnapshot), [VirtualDiskSnapshot](/modules/virtualization/cr.html#virtualdisksnapshot), [VirtualImage](/modules/virtualization/cr.html#virtualimage) и [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage).
+  improvements:
+    virtual-machines:
+      - en: |-
+          Improved the garbage collector (GC) for completed virtual machine operations:
+            - Runs daily at 00:00.
+            - Removes successfully completed operations (`Completed` / `Failed`) after their TTL (24 hours) expires.
+            - Retains only the last 10 completed operations.
+        ru: |-
+          Улучшен сборщик мусора (GC) для завершённых операций виртуальной машины:
+            - GC запускается каждый день в 00:00;
+            - GC будет удалять успешно завершённые операции (`Completed` / `Failed`), если истёк их TTL (24 часа);
+            - GC подчищает все завершённые операции (`Completed` / `Failed`), оставляя только 10 последних.
+  fixes:
+    virtual-machines:
+      - en: Fixed an issue where changing the operating system type caused the machine to enter a reboot loop.
+        ru: "Исправлена проблема: при изменении типа операционной системы машина уходила в циклическую перезагрузку."
+      - en: Fixed an issue where a virtual machine would hang in the `Starting` phase when project quotas were insufficient. A quota shortage message will now be displayed in the virtual machine's status. To allow the machine to continue starting, the project quotas need to be increased.
+        ru: Исправлено зависание виртуальной машины в фазе `Starting` при нехватке квот проекта. Сообщение о нехватке квот будет отображаться в статусе виртуальной машины. Чтобы машина продолжила запуск, необходимо будет увеличить квоты проекта.
+    disks-and-images:
+      - en: To create a virtual image on a `PersistentVolumeClaim`, the storage must support the `RWX` and `Block` modes; otherwise, a warning will be displayed.
+        ru: Для создания виртуального образа на `PersistentVolumeClaim` должно быть использовано хранилище в режиме `RWX` и `Block`, в противном случае будет отображено предупреждение об ошибке.
+    module:
+      - en: Added validation to ensure that virtual machine subnets do not overlap with system subnets (`podSubnetCIDR` and `serviceSubnetCIDR`).
+        ru: Добавлена валидация, проверяющая, что подсети виртуальных машин не пересекаются с системными подсетями (`podSubnetCIDR` и `serviceSubnetCIDR`).
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+    - en: |-
+        In version v0.25.0, support for the module's operation with CRI containerd v2 has been added.
+          After upgrading CRI from containerd v1 to containerd v2, it is necessary to recreate the images that were created using the virtualization module version v0.24.0 or earlier.
+      ru: |-
+        В версии v0.25.0 добавлена поддержка работы модуля с CRI containerd v2.
+          После обновления CRI с containerd v1 до containerd v2 необходимо пересоздать образы, которые были созданы с использованием версии модуля виртуализации v0.24.0 и ранее.

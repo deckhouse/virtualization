@@ -7,8 +7,8 @@ images/**/mount-points.yaml
 .werf/**
 **/templates
 **/ISSUE_TEMPLATE
-CHANGELOG/*.yml
-CHANGELOG/*.yaml
+CHANGELOG/CHANGELOG-*.yml
+CHANGELOG/CHANGELOG-*.yaml
 # Golden files of tools/changelog: they are compared to the output of the
 # generator byte for byte, so reformatting them would break the tests.
 tools/changelog/testdata

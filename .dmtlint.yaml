@@ -55,6 +55,11 @@ linters-settings:
     exclude-rules:
       files:
         - templates/security-events.yaml # Ru information for docs
+        - CHANGELOG/release-notes.yaml # Bilingual release notes source
+      directories:
+        # Renders the release notes: holds the Russian section headings, the month
+        # names and the bilingual fixtures of its tests.
+        - tools/releasenotes
   templates:
     exclude-rules:
       # These mount-points.yaml directories pre-create mount points for containerd strict mode.

@@ -1,0 +1,21 @@
+Highlights:
+  - One statement about the release.
+New features:
+  Virtual machines:
+    - Added the [VirtualMachinePool](https://deckhouse.io/modules/virtualization/cr.html#virtualmachinepool) resource (EE/SE+).
+  Module:
+    - |-
+      Fixed vulnerabilities:
+        - CVE-2026-1
+        - CVE-2026-2
+Fixes:
+  - |-
+    A note that needs a second paragraph:
+
+      - the first action;
+      - the second action.
+
+      Until then nothing happens.
+Upgrade notes:
+  - Virtual machines will be migrated during the upgrade.
+  - Recreate the images built by an earlier version.

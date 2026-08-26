@@ -1,0 +1,47 @@
+- version: v1.2.0
+  date: "2026-08-20"
+  highlights:
+    - en: One statement about the release.
+      ru: Одно утверждение о релизе.
+  features:
+    virtual-machines:
+      - en: Added the [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) resource (EE/SE+).
+        ru: Добавлен ресурс [VirtualMachinePool](/modules/virtualization/cr.html#virtualmachinepool) (EE/SE+).
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-1
+            - CVE-2026-2
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-1
+            - CVE-2026-2
+  fixes:
+    - en: |-
+        A note that needs a second paragraph:
+
+          - the first action;
+          - the second action.
+
+          Until then nothing happens.
+      ru: |-
+        Заметка, которой нужен второй абзац:
+
+          - первое действие;
+          - второе действие.
+
+          До этого ничего не происходит.
+  upgrade:
+    - en: Virtual machines will be migrated during the upgrade.
+      ru: Виртуальные машины будут мигрированы в процессе обновления.
+    # `|` keeps a trailing newline; the renderers must not turn it into an empty
+    # list item or a trailing break in the Console.
+    - en: |
+        Recreate the images built by an earlier version.
+      ru: |
+        Пересоздайте образы, собранные более ранней версией.
+- version: v1.1.0
+  date: "2026-01-05"
+  highlights:
+    - en: Nothing but dependency updates.
+      ru: Только обновление зависимостей.

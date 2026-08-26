@@ -21,6 +21,7 @@ use (
 	./tools/addlicense
 	./tools/changelog
 	./tools/moduleversions
+	./tools/releasenotes
 	./tools/validation
 )
 

@@ -49,6 +49,42 @@ lint:go-work:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
+# release-notes
+#
+# CHANGELOG/release-notes.yaml is the only release notes file in the repository:
+# the documentation pages and the changelog the Console shows are rendered from it
+# during the werf build. The job validates that source and runs the unit tests of
+# the renderer, so a broken source — or a renderer that would publish the wrong
+# thing — fails here, on the merge request, and not in the release build.
+#
+# It needs no diff base: the checks read the source as a whole, not the lines a
+# change touched. On merge requests the job runs only when its inputs — the
+# source, the per-release changelogs it cross-checks, the renderer — change; on
+# main and the release branches it runs on every push: a `changes:` gate there
+# compares with the previous push, so one unrelated commit on top of a failed
+# pipeline would show the branch green while the source is broken.
+# ---------------------------------------------------------------------------
+
+lint:release-notes:
+  stage: lint
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go task
+  script:
+    - task validation:release-notes
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/release_notes/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - "CHANGELOG/**/*"
+          - "tools/releasenotes/**/*"
+          - "Taskfile.yaml"
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
+
+# ---------------------------------------------------------------------------
 # Both diff-based validations below (no_cyrillic, doc_changes) check only the
 # lines added by the change, so they need the base of that change fetched.
 # That base is the merge request target branch — NOT always main: diffing a

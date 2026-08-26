@@ -32,6 +32,11 @@ var skipSecurityEventsRe = regexp.MustCompile(`templates/security-events\.yaml$`
 // the target has to survive, and escaping them hides what a seed actually is.
 var skipFuzzTestRe = regexp.MustCompile(`_fuzz_test\.go$`)
 
+// The release notes source keeps the English and the Russian text of every note in
+// the same node, and the renderer holds the Russian section headings and month
+// names, so Cyrillic in these files is the point, not a slip.
+var skipReleaseNotesRe = regexp.MustCompile(`CHANGELOG/release-notes\.ya?ml$|tools/releasenotes/`)
+
 func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (exitCode int) {
 	fmt.Printf("Run 'no cyrillic' validation ...\n")
 
@@ -105,6 +110,11 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 
 			if skipFuzzTestRe.MatchString(fileName) {
 				msgs.Add(NewSkip(fileName, "fuzz seed corpus"))
+				continue
+			}
+
+			if skipReleaseNotesRe.MatchString(fileName) {
+				msgs.Add(NewSkip(fileName, "bilingual release notes source"))
 				continue
 			}
 

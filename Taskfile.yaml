@@ -34,6 +34,7 @@ vars:
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
   CHANGELOG_TOOL: "tools/changelog"
+  RELEASE_NOTES_TOOL: "tools/releasenotes"
 
   DLV_IMAGE:
     sh: if [ -z $DLV_IMAGE ]; then echo "ttl.sh/$(uuidgen | awk '{print tolower($0)}'):10m" ; else echo $DLV_IMAGE ; fi
@@ -58,6 +59,18 @@ tasks:
     cmds:
       - which jq >/dev/null || (echo "jq not found."; exit 1)
     silent: true
+
+  release-notes:render:
+    desc: "Write docs/RELEASE_NOTES*.md and changelog.yaml into the working tree (git-ignored); LINKS=1 renders absolute links for pasting outside the documentation"
+    cmds:
+      - GOWORK=off go -C {{ .RELEASE_NOTES_TOOL }} run . --type render --out "{{ .ROOT_DIR }}" --source "{{ .ROOT_DIR }}/CHANGELOG/release-notes.yaml"{{ if .LINKS }} --links{{ end }}
+
+  release-notes:show:
+    desc: "Print one release to the terminal for an announcement (RN_VERSION=vX.Y.Z, default the newest; RN_LANG=en|ru, default ru; links are absolute)"
+    silent: true
+    cmds:
+      - GOWORK=off go -C {{ .RELEASE_NOTES_TOOL }} run . --type print --source "{{ .ROOT_DIR }}/CHANGELOG/release-notes.yaml" --links{{ if .RN_VERSION }} --version {{ .RN_VERSION }}{{ end }}{{ if .RN_LANG }} --lang {{ .RN_LANG }}{{ end }}
+      - 'echo "rendered: docs/RELEASE_NOTES.md, docs/RELEASE_NOTES.ru.md, changelog.yaml (git-ignored, the build renders its own copy)"'
 
   report:render:slowest:
     desc: "Render slowest-specs chart for one Describe (DESCRIBE=..., JSON=...)"
@@ -178,6 +191,7 @@ tasks:
           "tools/addlicense"
           "tools/changelog"
           "tools/moduleversions"
+          "tools/releasenotes"
         )
         for target in "${TARGETS[@]}"; do
           cp "$ROOT_CONFIG" "$target/.golangci.yaml"
@@ -268,6 +282,15 @@ tasks:
     # the repository, including the private kubevirt fork.
     cmds:
       - GOWORK=off go -C {{ .CHANGELOG_TOOL }} test ./...
+
+  validation:release-notes:
+    desc: "Check the release notes source and the renderer: schema, translations, highlights, links"
+    # GOWORK=off, like the werf build: the tool needs yaml.v3 and nothing else, while
+    # workspace mode resolves every module of the repository, including the private
+    # kubevirt fork — a machine without fox credentials for Go cannot run it.
+    cmds:
+      - GOWORK=off go -C {{ .RELEASE_NOTES_TOOL }} test ./...
+      - GOWORK=off go -C {{ .RELEASE_NOTES_TOOL }} run . --type check --source "{{ .ROOT_DIR }}/CHANGELOG/release-notes.yaml"
 
   validation:go-work:
     desc: "Check go.work sync freshness and replace consistency across modules"

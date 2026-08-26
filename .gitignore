@@ -79,6 +79,7 @@ tools/addlicense/addlicense
 tools/validation/validation
 tools/moduleversions/moduleversions
 tools/changelog/changelog
+tools/releasenotes/releasenotes
 src/cli/d8v
 
 # dlv debug build artifacts
@@ -87,3 +88,13 @@ images/virtualization-dra-usb/debug/out/
 
 # fuzzing corpus cache and logs
 images/dvcr-artifact/fuzzartifact/
+
+# Release notes: the source is CHANGELOG/release-notes.yaml, and the werf build
+# renders these into the module image. `task release-notes:render` writes them
+# here too, to look at the page locally; they are never committed.
+/changelog.yaml
+/docs/RELEASE_NOTES.md
+/docs/RELEASE_NOTES.ru.md
+
+# The binary `go build ./tools/releasenotes` leaves in the repository root.
+/releasenotes

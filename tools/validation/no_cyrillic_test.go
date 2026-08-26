@@ -94,3 +94,28 @@ func Test_found_msg(t *testing.T) {
 	}
 
 }
+
+func Test_skip_release_notes_source(t *testing.T) {
+	// The bilingual release notes source, and the renderer that holds the Russian
+	// section headings and month names, are expected to contain Russian text.
+	for _, name := range []string{
+		"CHANGELOG/release-notes.yaml",
+		"CHANGELOG/release-notes.yml",
+		"tools/releasenotes/types.go",
+		"tools/releasenotes/testdata/release-notes.yaml",
+	} {
+		if !skipReleaseNotesRe.MatchString(name) {
+			t.Errorf("Should skip '%s'", name)
+		}
+	}
+
+	for _, name := range []string{
+		"docs/RELEASE_NOTES.md",
+		"CHANGELOG/CHANGELOG-v1.10.2.yml",
+		"templates/release-notes.yaml",
+	} {
+		if skipReleaseNotesRe.MatchString(name) {
+			t.Errorf("Should not skip '%s'", name)
+		}
+	}
+}
