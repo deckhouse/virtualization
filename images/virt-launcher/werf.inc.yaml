@@ -38,14 +38,14 @@ pmPackages:
 - libaio
 - liburing libunistring
 - libslirp ncurses libpng libseccomp
-- systemd multipath-tools bzip2 libnl
+- multipath-tools bzip2 libnl
 - pcre2
 - gnu-glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 gmp
 - openldap openssl
 - e2fsprogs libxcrypt lvm2 json-glib
 - libffi
 - brotli libstdc++ libcap libgpg-error lz4
-- userspace-rcu lzo dtc
+- userspace-rcu lzo
 - udev libfdt libblkio libusb pulseaudio libepoxy librbd libatomic libquadmath gnu-gcc-lib  # runtime dependencies of the in-repo qemu build
 {{- end -}}
 
