@@ -551,7 +551,7 @@ Golden image — это предварительно настроенный об
 
 ### Подключение к виртуальной машине
 
-К ВМ можно подключиться через серийную консоль ([`d8 v console`](https://deckhouse.ru/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) или по VNC ([`d8 v vnc`](https://deckhouse.ru/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
+К ВМ можно подключиться через серийную консоль ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) или по VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
 Способы используют разные каналы связи с гостевой ОС и зависят от её настройки.
 Подробнее о подключении описано в разделе [Подключение к виртуальной машине](user_guide.html#подключение-к-виртуальной-машине).
 

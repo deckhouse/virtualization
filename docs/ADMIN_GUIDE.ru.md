@@ -1319,6 +1319,46 @@ d8 k uncordon <nodename>
 - Из списка выберите нужный узел и нажмите кнопку «Сделать Cordon + Drain».
 - Чтобы вывести его из режима обслуживания, нажмите кнопку «Uncordon».
 
+#### Выключение и перезагрузка узла с виртуальными машинами
+
+Работающие виртуальные машины откладывают выключение и перезагрузку своего узла. Модуль автоматически добавляет подам виртуальных машин лейбл `pod.deckhouse.io/inhibit-node-shutdown`, по которому DKP задерживает выключение узла (механизм доступен в редакции EE и описан в [документации модуля `node-manager`](/modules/node-manager/)). Включать его отдельно не требуется.
+
+Если на узле запрошено выключение или перезагрузка, а на нём ещё работают виртуальные машины:
+
+- выключение узла откладывается на срок до трёх суток;
+- в консоль узла периодически выводится сообщение о подах, удерживающих выключение.
+
+На узлах, где работает механизм задержки, состояние `GracefulShutdownPostpone` присутствует постоянно и всегда имеет статус `True` — в том числе когда виртуальных машин на узле нет и выключение никто не запрашивал. Что именно происходит с узлом, показывает причина (`reason`) этого состояния:
+
+- `WaitingForShutdownSignal` — механизм активен и ожидает запроса на выключение узла;
+- `PodsWithLabelAreRunningOnNode` — выключение узла запрошено и отложено, поскольку на узле ещё работают виртуальные машины;
+- `NoRunningPodsWithLabel` — виртуальных машин на узле не осталось, выключение продолжается (статус состояния меняется на `False`).
+
+Чтобы узнать причину, выполните следующую команду:
+
+```bash
+d8 k get node <nodename> -o jsonpath='{range .status.conditions[?(@.type=="GracefulShutdownPostpone")]}{.reason}{"\n"}{end}'
+```
+
+Задержка выключения не переносит виртуальные машины на другие узлы, она лишь не даёт узлу выключиться. Поэтому перед работами, требующими выключения или перезагрузки узла, освободите его от виртуальных машин:
+
+- если машины можно мигрировать (состояние `Migratable` со статусом `True`), переведите узел в режим обслуживания командой `d8 k drain`, как описано выше;
+- если машину мигрировать нельзя (состояние `Migratable` со статусом `False` — например, из-за локальных дисков или проброшенных устройств узла), остановите её командой `d8 v stop <vmname>`, а после завершения работ запустите командой `d8 v start <vmname>`.
+
+  Остановка доступна только для политик запуска `Manual` и `AlwaysOnUnlessStoppedManually`. Проверьте политику машины:
+
+  ```bash
+  d8 k -n <namespace> get vm <vmname> -o jsonpath='{.spec.runPolicy}'
+  ```
+
+  При политике `AlwaysOn` команда остановки будет отклонена с причиной `NotApplicableForVirtualMachineRunPolicy`. В этом случае сначала измените политику, а после завершения работ верните прежнее значение:
+
+  ```bash
+  d8 k -n <namespace> patch vm <vmname> --type merge -p '{"spec":{"runPolicy":"AlwaysOnUnlessStoppedManually"}}'
+  ```
+
+Если этого не сделать, узел не выключится, а через час на нём сработает алерт `D8VirtualizationNodeEvacuationStuck`.
+
 ### Перебалансировка ВМ
 
 Платформа позволяет автоматически управлять размещением работающих виртуальных машин в кластере. Чтобы включить эту функцию, активируйте модуль `descheduler`.
@@ -1338,6 +1378,8 @@ ColdStandby обеспечивает механизм восстановлени
 
 - для политики запуска виртуальной машины (`.spec.runPolicy`) должно быть установлено одно из следующих значений: `AlwaysOnUnlessStoppedManually`, `AlwaysOn`;
 - на узлах, где запущены виртуальные машины, должен быть включён механизм [Fencing](https://deckhouse.ru/products/kubernetes-platform/documentation/v1/modules/040-node-manager/cr.html#nodegroup-v1-spec-fencing-mode).
+
+Если механизм Fencing не включён, ColdStandby не работает: при недоступности узла виртуальная машина не запускается на другом узле, а остаётся на текущем и возобновляет работу вместе с ним.
 
 Рассмотрим как это работает на примере:
 
@@ -1383,3 +1425,158 @@ d8 k -n d8-virtualization get pods -l app=virtualization-dra -o wide
 ```
 
 Если узел отсутствует в выводе команды, значит обеспечить наличие необходимых модулей ядра на нем не удалось, и USB-устройства, подключенные к этому узлу, не обнаруживаются. В этом случае предоставьте модули ядра на узле самостоятельно: установите их из пакета вашей операционной системы или соберите для используемого ядра. Модули ядра будут обнаружены автоматически, и в течение нескольких минут узлу будет назначен лейбл.
+
+### Принцип работы
+
+Проброс USB-устройства проходит через последовательный жизненный цикл — от обнаружения устройства на узле до предоставления его в проектном неймспейсе:
+
+1. DRA-драйвер обнаруживает USB-устройства на узлах и публикует сведения о них в API Kubernetes как ResourceSlice. Контроллер модуля создаёт ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) по этим данным.
+
+1. Администратор назначает неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр `.spec.assignedNamespace`. Это делает устройство доступным в этом неймспейсе.
+
+1. После назначения неймспейса контроллер модуля создаёт в нём ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
+
+1. Пользователь подключает устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) к виртуальной машине, добавив его в параметр `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine). Подробности — в [руководстве пользователя](./user_guide.html#usb-устройства).
+
+### Быстрый старт
+
+Следующие шаги описывают минимальный сценарий предоставления USB-устройства в неймспейсе:
+
+1. Подключите USB-устройство к узлу кластера, готовому к пробросу USB-устройств (см. выше).
+
+1. Убедитесь, что создан ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice):
+
+   ```bash
+   d8 k get nodeusbdevice
+   ```
+
+1. Назначьте неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр `.spec.assignedNamespace`:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: NodeUSBDevice
+   metadata:
+     name: logitech-webcam
+   spec:
+     assignedNamespace: my-project
+   EOF
+   ```
+
+1. Убедитесь, что в целевом неймспейсе создан соответствующий ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice):
+
+   ```bash
+   d8 k get usbdevice -n my-project
+   ```
+
+После этого пользователь может подключить устройство к виртуальной машине. См. [Подключение USB-устройства к ВМ](./user_guide.html#подключение-usb-устройства-к-вм) в руководстве пользователя.
+
+### NodeUSBDevice
+
+Ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) отражает состояние физического USB-устройства, обнаруженного на узле кластера. Это cluster-wide-ресурс, представляющий физическое USB-устройство на узле.
+
+Пример просмотра всех обнаруженных USB-устройств:
+
+```bash
+d8 k get nodeusbdevice
+```
+
+Пример вывода:
+
+```console
+NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
+usb-flash-drive      node-1         True    False                  10m
+logitech-webcam      node-2         True    True       my-project  15m
+```
+
+#### Условия NodeUSBDevice
+
+Состояние ресурса [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) описывается набором условий, которые отражают готовность устройства и факт назначения неймспейса. Эти условия доступны в `.status.conditions`:
+
+- **Ready** — готовность устройства к использованию:
+  - `Ready` — устройство готово к использованию;
+  - `NotReady` — устройство существует, но не готово;
+  - `NotFound` — устройство отсутствует на хосте.
+
+- **Assigned** — назначен ли неймспейс устройству:
+  - `Assigned` — неймспейс назначен и ресурс USBDevice создан;
+  - `Available` — неймспейс устройству не назначен;
+  - `InProgress` — подключение устройства к неймспейсу выполняется.
+
+#### Назначение неймспейса USB-устройству
+
+Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого задайте параметр `.spec.assignedNamespace`:
+
+```bash
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: NodeUSBDevice
+metadata:
+  name: logitech-webcam
+spec:
+  assignedNamespace: my-project
+EOF
+```
+
+После назначения неймспейса в нём автоматически появляется ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
+
+### Просмотр информации об USB-устройстве
+
+Для просмотра подробной информации об USB-устройстве:
+
+```bash
+d8 k describe nodeusbdevice <device-name>
+```
+
+Пример вывода:
+
+```console
+Name:         logitech-webcam
+Namespace:
+Labels:       <none>
+Annotations:  <none>
+API Version:  virtualization.deckhouse.io/v1alpha2
+Kind:         NodeUSBDevice
+Metadata:
+  Creation Timestamp:  2024-01-15T10:30:00Z
+  Generation:          1
+  UID:                 abc123-def456-ghi789
+Spec:
+  Assigned Namespace:  my-project
+Status:
+  Node Name:           node-2
+  Attributes:
+    Bus:               1
+    Device Number:     2
+    Manufacturer:      Logitech
+    Name:              Webcam C920
+    Product:           Webcam C920
+    Product ID:        082d
+    Serial:            ABC123456
+    Vendor ID:         046d
+  Conditions:
+    Type:              Ready
+    Status:            True
+    Reason:            Ready
+    Message:           Device is ready to use
+    Type:              Assigned
+    Status:            True
+    Reason:            Assigned
+    Message:           Namespace is assigned for the device
+  Observed Generation: 1
+```
+
+{{< alert level="info" >}}
+Если USB-устройство физически отключено от узла, условие `Attached` принимает значение `False`.
+Статусы ресурсов [USBDevice](/modules/virtualization/cr.html#usbdevice) и [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) обновляются и указывают на отсутствие устройства на хосте.
+{{< /alert >}}
+
+### Требования и ограничения
+
+При использовании проброса USB-устройств необходимо учитывать следующие требования и ограничения:
+
+- Драйвер DRA должен быть установлен на узлах, где требуется обнаружение USB-устройств (см. модули ядра и DaemonSet `virtualization-dra` выше).
+- USB-устройства пробрасываются на узел ВМ по сети с использованием USBIP. Виртуальная машина не обязательно должна работать на том же узле, где физически подключено устройство. При подключении по сети действуют следующие ограничения по количеству устройств и выбору концентратора:
+  - Узел может подключить не более 16 USB-устройств: до 8 на концентратор USB 2.0 и до 8 на концентратор USB 3.0.
+  - Концентратор определяется скоростью устройства и не может быть выбран вручную. Устройство, работающее на USB 2.0, не может быть подключено к концентратору USB 3.0, и наоборот.
+- USB-устройства поддерживают hot-plug — их можно подключать и отключать от работающей ВМ без её остановки.

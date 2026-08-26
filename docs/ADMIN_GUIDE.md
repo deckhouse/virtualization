@@ -1309,6 +1309,46 @@ How to perform the operation in the web interface:
 - Select the desired node from the list and click the "Cordon + Drain" button.
 - To remove it from maintenance mode, click the "Uncordon" button.
 
+#### Shutting down and rebooting a node with virtual machines
+
+Running virtual machines postpone the shutdown and reboot of their node. The module automatically adds the `pod.deckhouse.io/inhibit-node-shutdown` label to virtual machine pods, and DKP delays the node shutdown based on this label (the mechanism is available in the EE edition and is described in the [`node-manager` module documentation](/modules/node-manager/)). No extra steps are required to enable it.
+
+If a shutdown or reboot has been requested for a node that still runs virtual machines:
+
+- The node shutdown is postponed for up to three days.
+- A message listing the pods that hold the shutdown back is periodically printed to the node console.
+
+On nodes running the shutdown delay mechanism, the `GracefulShutdownPostpone` condition is always present and always has the `True` status, including when there are no virtual machines on the node and no shutdown has been requested. What is actually happening with the node is shown by the condition reason:
+
+- `WaitingForShutdownSignal`: The mechanism is active and waiting for a node shutdown request.
+- `PodsWithLabelAreRunningOnNode`: A node shutdown has been requested and postponed because virtual machines are still running on the node.
+- `NoRunningPodsWithLabel`: No virtual machines are left on the node, and the shutdown proceeds (the condition status changes to `False`).
+
+To find out the reason, run the following command:
+
+```bash
+d8 k get node <nodename> -o jsonpath='{range .status.conditions[?(@.type=="GracefulShutdownPostpone")]}{.reason}{"\n"}{end}'
+```
+
+The shutdown delay does not move virtual machines to other nodes, it only keeps the node from powering off. Therefore, before any work that requires shutting down or rebooting a node, free it from virtual machines:
+
+- If the machines can be migrated (the `Migratable` condition has the `True` status), put the node into maintenance mode with the `d8 k drain` command as described above.
+- If a machine cannot be migrated (the `Migratable` condition has the `False` status, for example, because of local disks or host devices passed through), stop it with the `d8 v stop <vmname>` command and start it with `d8 v start <vmname>` once the work is complete.
+
+  Stopping is only accepted for the `Manual` and `AlwaysOnUnlessStoppedManually` run policies. Check the policy of the machine:
+
+  ```bash
+  d8 k -n <namespace> get vm <vmname> -o jsonpath='{.spec.runPolicy}'
+  ```
+
+  With the `AlwaysOn` policy the request is refused with the `NotApplicableForVirtualMachineRunPolicy` reason. Switch the policy first, and restore the original value once the work is complete:
+
+  ```bash
+  d8 k -n <namespace> patch vm <vmname> --type merge -p '{"spec":{"runPolicy":"AlwaysOnUnlessStoppedManually"}}'
+  ```
+
+Otherwise, the node will not shut down, and the `D8VirtualizationNodeEvacuationStuck` alert will fire for it in an hour.
+
 ### VM Rebalancing
 
 The platform allows you to automatically manage the placement of running virtual machines in the cluster. To enable this feature, activate the `descheduler` module.
@@ -1328,6 +1368,8 @@ The following requirements must be met for this mechanism to work:
 
 - The virtual machine startup policy (`.spec.runPolicy`) must be set to one of the following values: `AlwaysOnUnlessStoppedManually`, `AlwaysOn`.
 - The [Fencing mechanism](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/040-node-manager/cr.html#nodegroup-v1-spec-fencing-mode) must be enabled on nodes running the virtual machines.
+
+If the Fencing mechanism is not enabled, ColdStandby does not work: when a node becomes unavailable, the virtual machine is not started on another node. It stays on the current one and resumes operation together with it.
 
 Let's see how it works on the example:
 
@@ -1371,3 +1413,158 @@ d8 k -n d8-virtualization get pods -l app=virtualization-dra -o wide
 ```
 
 If a node is missing from the output, the required kernel modules could not be made available on it, so USB devices connected to that node are not discovered. In this case, provide the kernel modules on the node yourself: install them from a package of your operating system, or build them for the running kernel. The kernel modules are picked up automatically, and the node is labeled within a few minutes.
+
+### How it works
+
+USB device passthrough follows a defined lifecycle — from device discovery on a node to making the device available in a project namespace:
+
+1. The DRA driver discovers USB devices on cluster nodes and publishes them to the Kubernetes API as ResourceSlices. The module controller creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources from that data.
+
+1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` field. This makes the device available in that namespace.
+
+1. After the namespace is assigned, the module controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
+
+1. A user attaches the [USBDevice](/modules/virtualization/cr.html#usbdevice) to a virtual machine by adding it to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource. For details, see the [User guide](./user_guide.html#usb-devices).
+
+### Quick start
+
+The following steps describe the minimal workflow for making a USB device available in a namespace:
+
+1. Connect the USB device to a cluster node that is ready for USB device passthrough (see above).
+
+1. Verify that a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource has been created:
+
+   ```bash
+   d8 k get nodeusbdevice
+   ```
+
+1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting the `.spec.assignedNamespace` field:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: NodeUSBDevice
+   metadata:
+     name: logitech-webcam
+   spec:
+     assignedNamespace: my-project
+   EOF
+   ```
+
+1. Verify that a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource has been created in the target namespace:
+
+   ```bash
+   d8 k get usbdevice -n my-project
+   ```
+
+After that, a user can attach the device to a virtual machine. See [Attaching USB Device to VM](./user_guide.html#attaching-usb-device-to-vm) in the User guide.
+
+### NodeUSBDevice
+
+[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) reflects the state of a physical USB device detected on a cluster node. It is a cluster-wide resource that represents a physical USB device on a node.
+
+Example of viewing all discovered USB devices:
+
+```bash
+d8 k get nodeusbdevice
+```
+
+Example output:
+
+```console
+NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
+usb-flash-drive      node-1         True    False                  10m
+logitech-webcam      node-2         True    True       my-project  15m
+```
+
+#### NodeUSBDevice conditions
+
+The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state. These conditions are available in `.status.conditions`:
+
+- **Ready**: Indicates whether the device is ready to use.
+  - `Ready`: Device is ready to use.
+  - `NotReady`: Device exists but is not ready.
+  - `NotFound`: Device is absent on the host.
+
+- **Assigned**: Indicates whether a namespace is assigned to the device.
+  - `Assigned`: Namespace is assigned and USBDevice resource is created.
+  - `Available`: No namespace is assigned for the device.
+  - `InProgress`: Device connection to namespace is in progress.
+
+#### Assigning a namespace
+
+Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` parameter of the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource:
+
+```bash
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: NodeUSBDevice
+metadata:
+  name: logitech-webcam
+spec:
+  assignedNamespace: my-project
+EOF
+```
+
+After assigning the namespace, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is automatically created in the specified namespace.
+
+### Viewing USB device details
+
+To view detailed information about a USB device:
+
+```bash
+d8 k describe nodeusbdevice <device-name>
+```
+
+Example output:
+
+```console
+Name:         logitech-webcam
+Namespace:
+Labels:       <none>
+Annotations:  <none>
+API Version:  virtualization.deckhouse.io/v1alpha2
+Kind:         NodeUSBDevice
+Metadata:
+  Creation Timestamp:  2024-01-15T10:30:00Z
+  Generation:          1
+  UID:                 abc123-def456-ghi789
+Spec:
+  Assigned Namespace:  my-project
+Status:
+  Node Name:           node-2
+  Attributes:
+    Bus:               1
+    Device Number:     2
+    Manufacturer:      Logitech
+    Name:              Webcam C920
+    Product:           Webcam C920
+    Product ID:        082d
+    Serial:            ABC123456
+    Vendor ID:         046d
+  Conditions:
+    Type:              Ready
+    Status:            True
+    Reason:            Ready
+    Message:           Device is ready to use
+    Type:              Assigned
+    Status:            True
+    Reason:            Assigned
+    Message:           Namespace is assigned for the device
+  Observed Generation: 1
+```
+
+{{< alert level="info" >}}
+If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.
+Both [USBDevice](/modules/virtualization/cr.html#usbdevice) and [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources update their status conditions to indicate that the device is no longer present on the host.
+{{< /alert >}}
+
+### Requirements and limitations
+
+USB device passthrough has several operational requirements and limitations that must be considered before use:
+
+- The DRA driver must be installed on nodes where USB devices are to be discovered (see kernel modules and the `virtualization-dra` DaemonSet above).
+- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected. When connecting over the network, the following limitations on the number of devices and hub selection apply:
+  - Node can attach at most 16 USB devices: up to 8 on the USB 2.0 hub and up to 8 on the USB 3.0 hub.
+  - Hub is determined by the device speed and cannot be changed. A device that operates at USB 2.0 speed cannot be attached to the USB 3.0 hub, and vice versa.
+- USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
