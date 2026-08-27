@@ -37,12 +37,14 @@ const (
 	annotationPrefix        = "ansible.deckhouse.io/"
 	groupsAnnotationKey     = annotationPrefix + "groups"
 	varsAnnotationPrefix    = "vars.ansible.deckhouse.io/"
-	ansibleSSHCommonArgs    = `-o ProxyCommand='d8 v port-forward --stdio=true %h %p'`
 	ansibleSSHCommonArgsKey = "ansible_ssh_common_args"
+	portForwardProxyCommand = "d8 v port-forward --stdio=true %h %p"
 )
 
 type AnsibleInventory struct {
 	options Options
+	// sshCommonArgs is built per run: it carries the cluster-selection flags of this invocation.
+	sshCommonArgs string
 }
 
 type inventoryData struct {
@@ -98,7 +100,8 @@ VM annotations:
 Network access:
   - For VM access, the Default network interface is used
   - The 'ansible_ssh_common_args' variable is automatically set for port-forwarding
-    through kubectl using 'd8 v port-forward' command
+    through kubectl using 'd8 v port-forward' command; the --context, --server and
+    --kubeconfig flags of this command are carried over into it
   - Additional network interfaces are not currently supported`,
 		Example: usage(),
 		Args:    cobra.NoArgs,
@@ -122,6 +125,8 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *Options) {
 }
 
 func (a *AnsibleInventory) Run(cmd *cobra.Command, args []string) error {
+	a.sshCommonArgs = sshCommonArgs(cmd)
+
 	if a.options.List && a.options.Host != "" {
 		return fmt.Errorf("--list and --host are mutually exclusive")
 	}
@@ -212,7 +217,7 @@ func (a *AnsibleInventory) generateInventoryINI(vms []v1alpha2.VirtualMachine) s
 	}
 
 	builder.WriteString("\n[all:vars]\n")
-	fmt.Fprintf(&builder, "%s=\"%s\"\n", ansibleSSHCommonArgsKey, ansibleSSHCommonArgs)
+	fmt.Fprintf(&builder, "%s=\"%s\"\n", ansibleSSHCommonArgsKey, a.sshCommonArgs)
 
 	for group, hosts := range data.groups {
 		fmt.Fprintf(&builder, "\n[%s]\n", group)
@@ -246,6 +251,16 @@ func (a *AnsibleInventory) generateInventoryJSON(vms []v1alpha2.VirtualMachine) 
 	}
 
 	return string(output)
+}
+
+// sshCommonArgs builds the ansible_ssh_common_args value. Ansible hands it to ssh, which runs the
+// ProxyCommand through /bin/sh, so the cluster-selection flags of this invocation are appended:
+// without them the inventory always reaches the current kubeconfig context and not the cluster the
+// user asked for. Single quotes are taken by the ProxyCommand value itself, hence the backslash
+// escaping inside it.
+func sshCommonArgs(cmd *cobra.Command) string {
+	proxyCommand := append([]string{portForwardProxyCommand}, clientconfig.ForwardedFlags(cmd, clientconfig.ShellEscape)...)
+	return fmt.Sprintf("-o ProxyCommand='%s'", strings.Join(proxyCommand, " "))
 }
 
 // ============================================================================
@@ -298,7 +313,7 @@ func (a *AnsibleInventory) buildYAMLInventory(data inventoryData) map[string]int
 		"all": map[string]interface{}{
 			"hosts": allHosts,
 			"vars": map[string]interface{}{
-				ansibleSSHCommonArgsKey: ansibleSSHCommonArgs,
+				ansibleSSHCommonArgsKey: a.sshCommonArgs,
 			},
 		},
 	}
@@ -325,7 +340,7 @@ func (a *AnsibleInventory) buildJSONInventory(data inventoryData) map[string]int
 		"all": map[string]interface{}{
 			"hosts": allHosts,
 			"vars": map[string]interface{}{
-				ansibleSSHCommonArgsKey: ansibleSSHCommonArgs,
+				ansibleSSHCommonArgsKey: a.sshCommonArgs,
 			},
 		},
 	}
