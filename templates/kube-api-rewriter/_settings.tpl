@@ -11,7 +11,7 @@
 
 {{- define "kube_api_rewriter.env" -}}
 - name: LOG_LEVEL
-  value: {{ include "moduleLogLevel" . }}
+  value: {{ include "moduleLogLevel" . | quote }}
 {{- end -}}
 
 {{- define "kube_api_rewriter.resources" -}}

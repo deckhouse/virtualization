@@ -1,15 +1,15 @@
 {{- $priorityClassName := include "priorityClassName" . }}
 {{- define "kubevirt_images" -}}
 - name: VIRT_OPERATOR_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtOperator") }}
+  value: {{ include "helm_lib_module_image" (list . "virtOperator") | quote }}
 - name: VIRT_API_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtApi") }}
+  value: {{ include "helm_lib_module_image" (list . "virtApi") | quote }}
 - name: VIRT_CONTROLLER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtController") }}
+  value: {{ include "helm_lib_module_image" (list . "virtController") | quote }}
 - name: VIRT_HANDLER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtHandler") }}
+  value: {{ include "helm_lib_module_image" (list . "virtHandler") | quote }}
 - name: VIRT_LAUNCHER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
+  value: {{ include "helm_lib_module_image" (list . "virtLauncher") | quote }}
 {{- end }}
 {{- define "virt_operator_resources" }}
 cpu: 10m
@@ -118,7 +118,7 @@ spec:
           value: {{ include "kubevirt_images" . | sha256sum | trunc 7 | quote }}
         - name: WATCH_NAMESPACE
           value: d8-{{ .Chart.Name }}
-        image: {{ include "helm_lib_module_image" (list . "virtOperator") }}
+        image: {{ include "helm_lib_module_image" (list . "virtOperator") | quote }}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8444

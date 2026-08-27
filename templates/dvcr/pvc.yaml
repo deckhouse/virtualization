@@ -14,7 +14,7 @@ spec:
     requests:
       storage: {{ .Values.virtualization.internal.moduleConfig.dvcr.storage.persistentVolumeClaim.size | quote }}
   {{- if ne $storageClassName "" }}
-  storageClassName: {{ $storageClassName }}
+  storageClassName: {{ $storageClassName | quote }}
   {{- end }}
 {{- end }}
 {{- end }}

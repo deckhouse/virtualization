@@ -16,8 +16,8 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ $secret_name }}
-  namespace: {{ $namespace }}
+  name: {{ $secret_name | quote }}
+  namespace: {{ $namespace | quote }}
   {{- include "helm_lib_module_labels" (list $context) | nindent 2 }}
 type: kubernetes.io/tls
 data:

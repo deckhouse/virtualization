@@ -24,8 +24,8 @@ spec:
   parentRef:
     group: gateway.networking.k8s.io
     kind: Gateway
-    name: {{ $gateway.name }}
-    namespace: {{ $gateway.namespace }}
+    name: {{ $gateway.name | quote }}
+    namespace: {{ $gateway.namespace | quote }}
   listeners:
     - name: {{ include "virtualization.uploaderListenerName" . }}
       protocol: HTTPS
@@ -35,7 +35,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - kind: Secret
-            name: {{ include "virtualization.uploaderGatewayTLSSecretName" . }}
+            name: {{ include "virtualization.uploaderGatewayTLSSecretName" . | quote }}
       allowedRoutes:
         namespaces:
           from: All

@@ -91,7 +91,7 @@ spec:
             - --proxy-client-key-file=/etc/virtualization-api-proxy/certificates/tls.key
             - --service-account-name=virtualization-api
             - --service-account-namespace=d8-{{ .Chart.Name }}
-          image: {{ include "helm_lib_module_image" (list . "virtualizationApi") }}
+          image: {{ include "helm_lib_module_image" (list . "virtualizationApi") | quote }}
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - mountPath: /etc/virtualization-api/certificates

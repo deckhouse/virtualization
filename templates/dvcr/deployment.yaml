@@ -79,7 +79,7 @@ spec:
       containers:
         - name: dvcr
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 10 }}
-          image: {{ include "helm_lib_module_image" (list . "dvcr") }}
+          image: {{ include "helm_lib_module_image" (list . "dvcr") | quote }}
           imagePullPolicy: IfNotPresent
           command:
           - /usr/bin/registry
@@ -119,7 +119,7 @@ spec:
         {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 8 }}
 
         - name: dvcr-garbage-collection
-          image: {{ include "helm_lib_module_image" (list . "dvcr") }}
+          image: {{ include "helm_lib_module_image" (list . "dvcr") | quote }}
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 10 }}
           imagePullPolicy: IfNotPresent
           command:

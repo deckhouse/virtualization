@@ -7,13 +7,13 @@ true
 {{- define "virtualization-controller.envs" -}}
 {{- $registry := include "dvcr.get_registry" (list .) }}
 - name: LOG_LEVEL
-  value: {{ include "moduleLogLevel" . }}
+  value: {{ include "moduleLogLevel" . | quote }}
 {{- if eq (include "moduleLogLevel" .) "debug" }}
 - name: LOG_DEBUG_VERBOSITY
   value: "9"
 {{- end }}
 - name: LOG_FORMAT
-  value: {{ include "moduleLogFormat" . }}
+  value: {{ include "moduleLogFormat" . | quote }}
 - name: FORCE_BRIDGE_NETWORK_BINDING
   value: "1"
 - name: DISABLE_HYPERV_SYNIC
@@ -23,13 +23,13 @@ true
     fieldRef:
       fieldPath: metadata.namespace
 - name: IMPORTER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
+  value: {{ include "helm_lib_module_image" (list . "dvcrImporter") | quote }}
 - name: DISK_IMPORTER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "pvcImporter") }}
+  value: {{ include "helm_lib_module_image" (list . "pvcImporter") | quote }}
 - name: UPLOADER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
+  value: {{ include "helm_lib_module_image" (list . "dvcrUploader") | quote }}
 - name: BOUNDER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "bounder") }}
+  value: {{ include "helm_lib_module_image" (list . "bounder") | quote }}
 - name: DVCR_AUTH_SECRET
   value: dvcr-dockercfg-rw
 - name: DVCR_CERTS_SECRET
@@ -51,9 +51,9 @@ true
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualImages") }}
 - name: VIRTUAL_IMAGE_STORAGE_CLASS
-  value: {{ .Values.virtualization.internal.moduleConfig.virtualImages.storageClassName }}
+  value: {{ .Values.virtualization.internal.moduleConfig.virtualImages.storageClassName | quote }}
 - name: VIRTUAL_IMAGE_DEFAULT_STORAGE_CLASS
-  value: {{ .Values.virtualization.internal.moduleConfig.virtualImages.defaultStorageClassName }}
+  value: {{ .Values.virtualization.internal.moduleConfig.virtualImages.defaultStorageClassName | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig.virtualImages "allowedStorageClassSelector") }}
 - name: VIRTUAL_IMAGE_ALLOWED_STORAGE_CLASSES
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualImages.allowedStorageClassSelector.matchNames | quote }}
@@ -61,7 +61,7 @@ true
 {{- end }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualDisks") }}
 - name: VIRTUAL_DISK_DEFAULT_STORAGE_CLASS
-  value: {{ .Values.virtualization.internal.moduleConfig.virtualDisks.defaultStorageClassName }}
+  value: {{ .Values.virtualization.internal.moduleConfig.virtualDisks.defaultStorageClassName | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig.virtualDisks "allowedStorageClassSelector") }}
 - name: VIRTUAL_DISK_ALLOWED_STORAGE_CLASSES
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualDisks.allowedStorageClassSelector.matchNames | quote }}
@@ -83,7 +83,7 @@ true
 {{- end }}
 {{- if (include "helm_lib_module_https_ingress_tls_enabled" .) }}
 - name: UPLOADER_INGRESS_TLS_SECRET
-  value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}
+  value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") | quote }}
 {{- end }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
@@ -143,17 +143,17 @@ true
   value: ":8081"
 {{- end }}
 - name: FIRMWARE_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
+  value: {{ include "helm_lib_module_image" (list . "virtLauncher") | quote }}
 - name: DISABLE_FIRMWARE_UPDATE
   value: {{ .Values.virtualization.internal.disableFirmwareUpdate | default false | quote }}
 - name: CLUSTER_UUID
-  value: {{ .Values.global.discovery.clusterUUID }}
+  value: {{ .Values.global.discovery.clusterUUID | quote }}
 - name: KUBERNETES_VERSION
   value: {{ .Values.global.discovery.kubernetesVersion | quote }}
 - name: CLUSTER_POD_SUBNET_CIDR
-  value: {{ .Values.global.clusterConfiguration.podSubnetCIDR }}
+  value: {{ .Values.global.clusterConfiguration.podSubnetCIDR | quote }}
 - name: CLUSTER_SERVICE_SUBNET_CIDR
-  value: {{ .Values.global.clusterConfiguration.serviceSubnetCIDR }}
+  value: {{ .Values.global.clusterConfiguration.serviceSubnetCIDR | quote }}
 - name: KUBE_APISERVER_FEATURE_GATES
   value: {{ .Values.virtualization.internal.kubeAPIServerFeatureGates | toJson | quote }}
 # Vertical VirtualMachine autoscaling runs on the recommender of the
@@ -176,6 +176,6 @@ true
 {{- $gates = append $gates (printf "%s=true" $feat)}}
 {{- end }}
 {{- if gt (len $gates) 0 }}
-- --feature-gates={{$gates | join ","}}
+- "--feature-gates={{ $gates | join "," }}"
 {{- end }}
 {{- end }}

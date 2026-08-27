@@ -298,7 +298,7 @@ spec:
 {{- end -}}
 
 {{- define "kubevirt.migrations" -}}
-bandwidthPerMigration: {{ include "kubevirt.bandwidth_per_migration" . }}
+bandwidthPerMigration: {{ include "kubevirt.bandwidth_per_migration" . | quote }}
 completionTimeoutPerGiB: {{ include "kubevirt.completion_timeout_per_gib" . }}
 disableTLS: {{ include "kubevirt.disable_tls" . }}
 parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}

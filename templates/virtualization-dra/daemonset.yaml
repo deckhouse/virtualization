@@ -187,7 +187,7 @@ spec:
         virtualization.deckhouse.io/usbip: "true" # required for usbip kernel modules (usbip_core, usbip_host, vhci_hcd). Label is added by nodegroupconfiguration-usbip.sh
       initContainers:
         - name: init-load
-          image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
+          image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") | quote }}
           args:
             - init
           {{- include "helm_lib_module_container_security_context_pss_restricted_flexible" (dict "ro" true "caps" (list "SYS_MODULE") "uid" 0 "runAsNonRoot" false) | nindent 10 }}
@@ -223,7 +223,7 @@ spec:
             runAsUser: 0
             seccompProfile:
               type: Unconfined
-          image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
+          image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") | quote }}
           imagePullPolicy: "IfNotPresent"
           args:
             - {{ include "virtualization-dra.featureGates" . }}

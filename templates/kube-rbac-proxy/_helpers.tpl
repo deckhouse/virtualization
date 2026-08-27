@@ -8,7 +8,7 @@
     runAsUser: 65534
     runAsGroup: 65534
   {{- end }}
-  image: {{ include "helm_lib_module_common_image" (list $ctx "kubeRbacProxy") }}
+  image: {{ include "helm_lib_module_common_image" (list $ctx "kubeRbacProxy") | quote }}
   imagePullPolicy: IfNotPresent
   terminationMessagePath: /dev/termination-log
   terminationMessagePolicy: File

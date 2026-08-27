@@ -273,9 +273,9 @@ spec:
 env:
 # Firmware component versions.
 - name: QEMU_VERSION
-  value: {{$.Firmware.qemu}}
+  value: {{ $.Firmware.qemu | quote }}
 - name: LIBVIRT_VERSION
-  value: {{$.Firmware.libvirt}}
+  value: {{ $.Firmware.libvirt | quote }}
 {{ end }}
     - resourceType: Deployment
       resourceName: virt-controller
