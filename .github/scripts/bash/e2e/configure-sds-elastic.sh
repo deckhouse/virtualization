@@ -115,14 +115,28 @@ kubectl apply -f ./elastic-storage-class.yaml
 
 for sc in "${ELASTIC_STORAGE_CLASSES[@]}"; do
   echo "[INFO] Wait for StorageClass ${sc} to appear"
+  sc_present=false
   for i in $(seq 1 30); do
     if kubectl get storageclass "${sc}" >/dev/null 2>&1; then
       echo "[SUCCESS] StorageClass ${sc} is present"
+      sc_present=true
       break
     fi
     echo "[INFO] Wait 10s for StorageClass ${sc} (attempt ${i}/30)"
     sleep 10
   done
+  # The wait is intentionally non-fatal, so say out loud that the class is missing:
+  # otherwise the run goes on to set it as the default and the failure only surfaces
+  # much later, as unrelated provisioning errors in the e2e tests.
+  if [[ "${sc_present}" != true ]]; then
+    echo "[ERROR] StorageClass ${sc} did not appear in time"
+    echo "::group::ElasticStorageClasses"
+    kubectl get elasticstorageclass -o yaml 2>/dev/null || true
+    echo "::endgroup::"
+    echo "::group::StorageClasses"
+    kubectl get storageclass || true
+    echo "::endgroup::"
+  fi
 done
 
 echo "[INFO] Set default cluster storage class to ${ELASTIC_STORAGE_CLASS}"
