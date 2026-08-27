@@ -12,7 +12,7 @@ imageSpec:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-from: {{ eq $.SVACE_ENABLED "false" | ternary (index $.Images "builder/golang-alt-1.24") (index $.Images "builder/golang-alt-1.25") }}
+from: {{ index $.Images "builder/golang-alt-1.25" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries

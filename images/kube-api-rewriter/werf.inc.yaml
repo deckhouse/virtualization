@@ -22,7 +22,7 @@ git:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-from: {{ eq $.SVACE_ENABLED "false" | ternary (index $.Images "builder/golang-debian-1.25") (index $.Images "builder/golang-alt-1.25") }}
+from: {{ index $.Images "builder/golang-alt-1.25" }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /src

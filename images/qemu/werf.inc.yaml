@@ -123,6 +123,7 @@ secrets:
   value: {{ $.PACKAGE_CLONE_REPO }}
 shell:
   install:
+  - pm install ssh-static -d /
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/") | nindent 2 }}
   - |
     export MAKE="/usr/bin/make"
@@ -166,7 +167,9 @@ shell:
       {{- tpl (.Files.Get (printf "images/%s/flags.tmpl" .ImageName)) . | trim | nindent 6 }}
 
     {{- $_ := set $ "ProjectName" (list .ImageName "qemu" | join "/") }}
+    {{- $_ := set $ "SvaceBuildOptions" "--enable-ptrace-all" }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
+    {{- $_ := unset $ "SvaceBuildOptions" }}
   setup:
   - |
     /install-qemu.sh --version-num "{{ $version }}" \

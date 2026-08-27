@@ -79,6 +79,7 @@ import:
   before: install
 shell:
   install:
+  - pm install ssh-static -d /
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/") | nindent 2 }}
   - |
     export MAKE="/usr/bin/make"
@@ -94,7 +95,9 @@ shell:
 
 
       {{- $_ := set $ "ProjectName" (list .ImageName "libvirt" | join "/") }}
+      {{- $_ := set $ "SvaceBuildOptions" "--enable-ptrace-all" }}
       {{- include "image-build.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | nindent 6 }}
+      {{- $_ := unset $ "SvaceBuildOptions" }}
 
   setup:
   - |

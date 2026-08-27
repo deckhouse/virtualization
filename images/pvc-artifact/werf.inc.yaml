@@ -20,7 +20,7 @@ git:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-from: {{ eq $.SVACE_ENABLED "false" | ternary (index $.Images "builder/golang-alt-1.25") (index $.Images "builder/golang-alt-1.25") }}
+from: {{ index $.Images "builder/golang-alt-1.25" }}
 mount:
 {{- include "mount points for golang builds" . }}
 secrets:

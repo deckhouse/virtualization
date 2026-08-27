@@ -72,6 +72,7 @@ secrets:
   value: {{ .GOPROXY }}
 shell:
   install:
+  - pm install ssh-static -d /
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
     export GOOS=linux

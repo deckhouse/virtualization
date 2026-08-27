@@ -269,6 +269,7 @@ secrets:
 {{- include "fox module auth secret" . }}
 shell:
   install:
+  - pm install ssh-static -d /
   {{- include "pm packages install" (list $gobuilderDependencies.pmPackages "/") | nindent 2 }}
   - mkdir -p /binaries
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
@@ -303,13 +304,16 @@ git:
         - '*.c'
 shell:
   install:
+  - pm install ssh-static -d /
   - |
     cd /static_binaries
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
 
     {{- $_ := set $ "ProjectName" (list .ImageName "temp_pod" | join "/") }}
+    {{- $_ := set $ "SvaceBuildOptions" "--enable-ptrace-all" }}
     {{- include "image-build.build" (set $ "BuildCommand" `gcc -static -Os -o /bins/temp_pod temp_pod.c`) | nindent 6 }}
+    {{- $_ := unset $ "SvaceBuildOptions" }}
     strip /bins/temp_pod
 
 

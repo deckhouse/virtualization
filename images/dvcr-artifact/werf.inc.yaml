@@ -51,6 +51,7 @@ import:
   before: install
 shell:
   install:
+  - pm install ssh-static -d /
   {{- include "pm packages install" (list $goBuilderDependencies.pmPackages "/") | nindent 2 }}
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
 {{- include "fox module auth" . | nindent 2 }}

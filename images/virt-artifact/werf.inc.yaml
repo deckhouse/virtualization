@@ -59,6 +59,7 @@ import:
   before: install
 shell:
   install:
+  - pm install ssh-static -d /
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/") | nindent 2 }}
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
@@ -98,8 +99,10 @@ shell:
 
     - echo ============== Build container-disk ===================
     {{- $_ := set $ "ProjectName" (list .ImageName "container-disk" | join "/") }}
+    {{- $_ := set $ "SvaceBuildOptions" "--enable-ptrace-all" }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk`) | nindent 6 }}
+    {{- $_ := unset $ "SvaceBuildOptions" }}
 
     - echo ============== Build virt-launcher ====================
     - export CGO_ENABLED=1
