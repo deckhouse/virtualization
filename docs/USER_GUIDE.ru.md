@@ -3310,9 +3310,9 @@ spec:
   virtualMachineTemplate:
     spec:
       blockDeviceRefs:
-        - kind: VirtualDisk           # записываемый корневой диск на реплику, грузится первым
+        - kind: VirtualDisk           # Записываемый корневой диск на реплику, грузится первым.
           name: root
-        - kind: ClusterVirtualImage   # общий read-only CD-ROM, подключается ко всем репликам
+        - kind: ClusterVirtualImage   # Общий read-only CD-ROM, подключается ко всем репликам.
           name: tools-iso
   virtualDiskTemplates:
     - name: root
@@ -3377,14 +3377,14 @@ spec:
 Чтобы убрать именно заданные реплики (и сжать пул на это число), используйте сабресурс `scaleDownWith`:
 
 ```bash
-kubectl create --raw \
+d8 k create --raw \
   /apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/ci/virtualmachinepools/runners/scaledownwith \
   -f - <<'EOF'
 {"targets": ["runners-1b2e84", "runners-9c0d11"]}
 EOF
 ```
 
-Обычный `kubectl delete vm` пул не сжимает: контроллер воспринимает это как утрату реплики и создаёт замену.
+Обычный `d8 k delete vm` пул не сжимает: контроллер воспринимает это как утрату реплики и создаёт замену.
 
 ### Переиспользуемые диски (`reclaim`)
 
@@ -3734,7 +3734,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      # ipAddressName не указан → используется автоматический режим (DHCP).
+      # ipAddressName не указан → используется автоматический режим (DHCP)
 ```
 
 Пример конфигурации ВМ со статическим IP-адресом для дополнительной сети:
@@ -3745,7 +3745,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      ipAddressName: my-static-ip # Имя ресурса IPAddress (SDN).
+      ipAddressName: my-static-ip # Имя ресурса IPAddress (SDN)
 ```
 
 Пример конфигурации статического ресурса IPAddress:
@@ -3769,7 +3769,7 @@ spec:
 
 ```yaml
 status:
-  ipAddress: 10.66.10.2                     # IP-адрес основной сети (как прежде).
+  ipAddress: 10.66.10.2                     # IP-адрес основной сети.
   virtualMachineIPAddressName: vm-01-main-ip # Имя IPAddress основной сети.
   networks:
     - type: Main
@@ -4358,7 +4358,7 @@ spec:
 Проброс USB-устройств доступен только в Deckhouse Virtualization Platform  **Enterprise Edition (EE)**.
 {{< /alert >}}
 
-Модуль виртуализации поддерживает проброс USB-устройств в виртуальные машины с использованием DRA (Dynamic Resource Allocation). В этом разделе описано, как использовать USB-устройства с виртуальными машинами.
+Модуль виртуализации поддерживает проброс USB-устройств в виртуальные машины с использованием DRA (Dynamic Resource Allocation). В этом разделе описано, как использовать USB-устройства, которые администратор сделал доступными в вашем неймспейсе.
 
 Для проброса USB требуются:
 
@@ -4368,48 +4368,15 @@ spec:
 
 ### Обзор
 
-Модуль предоставляет два кастомных ресурса для управления USB-устройствами:
+После того как администратор назначит физическое USB-устройство неймспейсу, в нём появляется ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice). Этот ресурс можно подключить к виртуальной машине.
 
-- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-wide-ресурс) — представляет USB-устройство, обнаруженное на конкретном узле.
-- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespaced-ресурс) — представляет USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе.
-
-### Принцип работы
-
-Проброс USB-устройства проходит через последовательный жизненный цикл — от обнаружения устройства на узле до подключения к виртуальной машине:
-
-1. DRA-драйвер обнаруживает USB-устройства на узлах и публикует сведения о них в API Kubernetes как ResourceSlice. Контроллер модуля создаёт ресурсы [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) по этим данным.
-
-1. Администратор назначает неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр ресурса `.spec.assignedNamespace`. Это делает устройство доступным в этом неймспейсе.
-
-1. После назначения неймспейса контроллер модуля создаёт в нём ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
-
-1. Устройство [USBDevice](/modules/virtualization/cr.html#usbdevice) подключается к виртуальной машине путём добавления в параметр `.spec.usbDevices` ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine).
+Обнаружение устройств на узлах, cluster-wide-ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) и назначение неймспейса описаны в [руководстве администратора](./admin_guide.html#usb-устройства).
 
 ### Быстрый старт
 
 Следующие шаги описывают минимальный сценарий подключения USB-устройства к виртуальной машине:
 
-1. Подключите USB-устройство к узлу кластера.
-1. Убедитесь, что создан ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice):
-
-   ```bash
-   d8 k get nodeusbdevice
-   ```
-
-1. Назначьте неймспейс ресурсу [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice), задав параметр ресурса `.spec.assignedNamespace`:
-
-   ```bash
-   d8 k apply -f - <<EOF
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: NodeUSBDevice
-   metadata:
-     name: logitech-webcam
-   spec:
-     assignedNamespace: my-project
-   EOF
-   ```
-
-1. Убедитесь, что в целевом неймспейсе создан соответствующий ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice):
+1. Убедитесь, что в вашем неймспейсе доступен ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice). Если его нет — обратитесь к администратору: он должен сначала назначить устройство неймспейсу (см. [руководство администратора](./admin_guide.html#usb-устройства)):
 
    ```bash
    d8 k get usbdevice -n my-project
@@ -4430,58 +4397,9 @@ spec:
    EOF
    ```
 
-### NodeUSBDevice
-
-Ресурс [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) отражает состояние физического USB-устройства, обнаруженного на узле кластера. Это cluster-wide-ресурс, представляющий физическое USB-устройство на узле.
-
-Пример просмотра всех обнаруженных USB-устройств:
-
-```bash
-d8 k get nodeusbdevice
-```
-
-Пример вывода:
-
-```console
-NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
-usb-flash-drive      node-1         True    False                  10m
-logitech-webcam      node-2         True    True       my-project  15m
-```
-
-#### Условия NodeUSBDevice
-
-Состояние ресурса [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) описывается набором условий, которые отражают готовность устройства и факт назначения неймспейса. Эти условия доступны в `.status.conditions`:
-
-- **Ready**: Указывает, готово ли устройство к использованию.
-  - `Ready` — устройство готово к использованию;
-  - `NotReady` — устройство существует, но не готово;
-  - `NotFound` — устройство отсутствует на хосте.
-
-- **Assigned**: Указывает, назначен ли неймспейс устройству.
-  - `Assigned` — неймспейс назначен и ресурс USBDevice создан;
-  - `Available` — для устройства не назначен неймспейс;
-  - `InProgress` — подключение устройства к неймспейсу выполняется.
-
-#### Назначение неймспейса USB-устройству
-
-Перед подключением USB-устройства к виртуальной машине его необходимо сделать доступным в конкретном неймспейсе. Для этого задайте параметр `.spec.assignedNamespace`:
-
-```bash
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: NodeUSBDevice
-metadata:
-  name: logitech-webcam
-spec:
-  assignedNamespace: my-project
-EOF
-```
-
-После назначения неймспейса в нём автоматически появляется ресурс [USBDevice](/modules/virtualization/cr.html#usbdevice).
-
 ### USBDevice
 
-[USBDevice](/modules/virtualization/cr.html#usbdevice) — это namespaced-ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Появляется автоматически, когда у связанного [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) задан неймспейс в параметре `.spec.assignedNamespace`.
+[USBDevice](/modules/virtualization/cr.html#usbdevice) — namespaced-ресурс, представляющий USB-устройство, доступное для подключения к виртуальным машинам в заданном неймспейсе. Появляется автоматически после того, как администратор назначит устройство неймспейсу.
 
 Пример просмотра USB-устройств в неймспейсе:
 
@@ -4550,67 +4468,9 @@ USB-устройство автоматически пробрасывается
 Во время миграции ВМ USB-устройство ненадолго отключится и подключится на новом узле в момент переключения ВМ. При сбое миграции устройство останется на старом узле.
 {{< /alert >}}
 
-### Просмотр информации об USB-устройстве
+USB-устройства поддерживают hot-plug — их можно подключать и отключать от работающей ВМ без её остановки.
 
-Для просмотра подробной информации об USB-устройстве:
-
-```bash
-d8 k describe nodeusbdevice <device-name>
-```
-
-Пример вывода:
-
-```console
-Name:         logitech-webcam
-Namespace:
-Labels:       <none>
-Annotations:  <none>
-API Version:  virtualization.deckhouse.io/v1alpha2
-Kind:         NodeUSBDevice
-Metadata:
-  Creation Timestamp:  2024-01-15T10:30:00Z
-  Generation:          1
-  UID:                 abc123-def456-ghi789
-Spec:
-  Assigned Namespace:  my-project
-Status:
-  Node Name:           node-2
-  Attributes:
-    Bus:               1
-    Device Number:     2
-    Manufacturer:      Logitech
-    Name:              Webcam C920
-    Product:           Webcam C920
-    Product ID:        082d
-    Serial:            ABC123456
-    Vendor ID:         046d
-  Conditions:
-    Type:              Ready
-    Status:            True
-    Reason:            Ready
-    Message:           Device is ready to use
-    Type:              Assigned
-    Status:            True
-    Reason:            Assigned
-    Message:           Namespace is assigned for the device
-  Observed Generation: 1
-```
-
-{{< alert level="info" >}}
-Если USB-устройство физически отключено от узла, условие `Attached` принимает значение `False`.
-Статусы ресурсов [USBDevice](/modules/virtualization/cr.html#usbdevice) и [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) обновляются и указывают на отсутствие устройства на хосте.
-{{< /alert >}}
-
-### Требования и ограничения
-
-При использовании проброса USB-устройств необходимо учитывать следующие требования и ограничения:
-
-- Драйвер DRA должен быть установлен на узлах, где требуется обнаружение USB-устройств.
-- USB-устройства пробрасываются на узел ВМ по сети с использованием USBIP. Виртуальная машина не обязательно должна работать на том же узле, где физически подключено устройство. При подключении по сети действуют следующие ограничения по количеству устройств и выбору концентратора:
-  - Узел может подключить не более 16 USB-устройств: до 8 на концентратор USB 2.0 и до 8 на концентратор USB 3.0.
-  - Концентратор определяется скоростью устройства и не может быть выбран вручную. Устройство, работающее на USB 2.0, не может быть подключено к концентратору USB 3.0, и наоборот.
-- USB-устройства поддерживают hot-plug — их можно подключать и отключать от работающей ВМ без её остановки.
-- Для проброса USB-устройств требуются соответствующие модули ядра на узле.
+Инфраструктурные требования, лимиты USBIP-портов и обнаружение устройств на узлах описаны в [руководстве администратора](./admin_guide.html#usb-устройства).
 
 ## Экспорт данных
 

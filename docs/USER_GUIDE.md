@@ -3279,9 +3279,9 @@ spec:
   virtualMachineTemplate:
     spec:
       blockDeviceRefs:
-        - kind: VirtualDisk           # per-replica writable root, boots first
+        - kind: VirtualDisk           # Per-replica writable root, boots first.
           name: root
-        - kind: ClusterVirtualImage   # shared read-only CD-ROM, attached to every replica
+        - kind: ClusterVirtualImage   # Shared read-only CD-ROM, attached to every replica.
           name: tools-iso
   virtualDiskTemplates:
     - name: root
@@ -3346,14 +3346,14 @@ By default, when the pool shrinks the controller chooses which replica to remove
 To remove particular replicas (and shrink the pool by that count), use the `scaleDownWith` subresource:
 
 ```bash
-kubectl create --raw \
+d8 k create --raw \
   /apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/ci/virtualmachinepools/runners/scaledownwith \
   -f - <<'EOF'
 {"targets": ["runners-1b2e84", "runners-9c0d11"]}
 EOF
 ```
 
-A plain `kubectl delete vm` does not shrink the pool: the controller treats it as a lost replica and creates a replacement.
+A plain `d8 k delete vm` does not shrink the pool: the controller treats it as a lost replica and creates a replacement.
 
 ### Reusable disks (`reclaim`)
 
@@ -3703,7 +3703,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      # ipAddressName is not specified → automatic mode (DHCP) is used.
+      # ipAddressName is not specified → automatic mode (DHCP) is used
 ```
 
 Configuration example of a VM with a static IP on an additional network:
@@ -3714,7 +3714,7 @@ spec:
     - type: Main
     - type: ClusterNetwork
       name: corp-net
-      ipAddressName: my-static-ip # Name of the IPAddress resource (SDN).
+      ipAddressName: my-static-ip # Name of the IPAddress resource (SDN)
 ```
 
 Configuration example of a static IPAddress resource:
@@ -3738,7 +3738,7 @@ The allocated IP address is displayed in the VM status:
 
 ```yaml
 status:
-  ipAddress: 10.66.10.2                     # Main network IP (as before).
+  ipAddress: 10.66.10.2                     # Main network IP.
   virtualMachineIPAddressName: vm-01-main-ip # Main network IPAddress name.
   networks:
     - type: Main
@@ -4325,7 +4325,7 @@ Changing `.spec.gpus` requires restarting the virtual machine to apply the new c
 USB device passthrough is available only in the Deckhouse Virtualization Platform **Enterprise Edition (EE)**.
 {{< /alert >}}
 
-The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). This section describes how to use USB devices with virtual machines.
+The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). This section describes how to use USB devices that an administrator has made available in your namespace.
 
 USB device passthrough requires:
 
@@ -4335,54 +4335,21 @@ USB device passthrough requires:
 
 ### Overview
 
-The module provides two custom resources for managing USB devices:
+After an administrator assigns a physical USB device to a namespace, a [USBDevice](/modules/virtualization/cr.html#usbdevice) resource appears in that namespace. You can attach this resource to a virtual machine.
 
-- [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) (cluster-wide resource) — represents a USB device discovered on a specific node.
-- [USBDevice](/modules/virtualization/cr.html#usbdevice) (namespaced resource) — represents a USB device available for attachment to virtual machines in a given namespace.
-
-### How It Works
-
-USB device passthrough follows a defined lifecycle — from device discovery on a node to attachment to a virtual machine:
-
-1. The DRA driver discovers USB devices on cluster nodes and publishes them to the Kubernetes API as ResourceSlices. The module controller creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources from that data.
-
-1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` resource field. This makes the device available in that namespace.
-
-1. After the namespace is assigned, the module controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
-
-1. The [USBDevice](/modules/virtualization/cr.html#usbdevice) is attached to a virtual machine by adding it to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+Discovery of devices on nodes, the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) cluster resource, and namespace assignment are described in the [Admin guide](./admin_guide.html#usb-devices).
 
 ### Quick Start
 
 The following steps describe the minimal workflow for attaching a USB device to a virtual machine:
 
-1. Connect the USB device to a cluster node.
-1. Verify that a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource has been created:
-
-   ```bash
-   d8 k get nodeusbdevice
-   ```
-
-1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting the `.spec.assignedNamespace` resource field.
-
-   ```bash
-   d8 k apply -f - <<EOF
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: NodeUSBDevice
-   metadata:
-     name: logitech-webcam
-   spec:
-     assignedNamespace: my-project
-   EOF
-   ```
-
-1. Verify that a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource has been created in the target namespace:
+1. Verify that a [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in your namespace. If it is not, contact the administrator — they must assign the device to the namespace first (see the [Admin guide](./admin_guide.html#usb-devices)):
 
    ```bash
    d8 k get usbdevice -n my-project
    ```
 
-1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource:
 
    ```bash
    d8 k apply -f - <<EOF
@@ -4397,58 +4364,9 @@ The following steps describe the minimal workflow for attaching a USB device to 
    EOF
    ```
 
-### NodeUSBDevice
-
-[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource reflects the state of a physical USB device detected on a cluster node. It is a cluster-wide resource that represents a physical USB device on a node.
-
-Example of viewing all discovered USB devices:
-
-```bash
-d8 k get nodeusbdevice
-```
-
-Example output:
-
-```console
-NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
-usb-flash-drive      node-1         True    False                  10m
-logitech-webcam      node-2         True    True       my-project  15m
-```
-
-#### NodeUSBDevice Conditions
-
-The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state. These conditions are available in `.status.conditions`:
-
-- **Ready**: Indicates whether the device is ready to use.
-  - `Ready`: Device is ready to use.
-  - `NotReady`: Device exists but is not ready.
-  - `NotFound`: Device is absent on the host.
-
-- **Assigned**: Indicates whether a namespace is assigned to the device.
-  - `Assigned`: Namespace is assigned and USBDevice resource is created.
-  - `Available`: No namespace is assigned for the device.
-  - `InProgress`: Device connection to namespace is in progress.
-
-#### Assigning a Namespace
-
-Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` parameter of the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource:
-
-```bash
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: NodeUSBDevice
-metadata:
-  name: logitech-webcam
-spec:
-  assignedNamespace: my-project
-EOF
-```
-
-After assigning the namespace, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is automatically created in the specified namespace.
-
 ### USBDevice
 
-When the related [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) has the `.spec.assignedNamespace` field set, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is created in that namespace. It is a namespaced resource that represents a USB device available for attachment to virtual machines within a given namespace.
+[USBDevice](/modules/virtualization/cr.html#usbdevice) is a namespaced resource that represents a USB device available for attachment to virtual machines within a given namespace. It appears automatically after the administrator assigns the device to the namespace.
 
 Example of viewing USB devices in a namespace:
 
@@ -4517,67 +4435,9 @@ The USB device is automatically forwarded to the node where the virtual machine 
 During VM migration, the USB device briefly disconnects and reconnects on the new node when the VM switches to it. If migration fails, the device will remain on the original node.
 {{< /alert >}}
 
-### Viewing USB Device Details
+USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
 
-To view detailed information about a USB device:
-
-```bash
-d8 k describe nodeusbdevice <device-name>
-```
-
-Example output:
-
-```console
-Name:         logitech-webcam
-Namespace:
-Labels:       <none>
-Annotations:  <none>
-API Version:  virtualization.deckhouse.io/v1alpha2
-Kind:         NodeUSBDevice
-Metadata:
-  Creation Timestamp:  2024-01-15T10:30:00Z
-  Generation:          1
-  UID:                 abc123-def456-ghi789
-Spec:
-  Assigned Namespace:  my-project
-Status:
-  Node Name:           node-2
-  Attributes:
-    Bus:               1
-    Device Number:     2
-    Manufacturer:      Logitech
-    Name:              Webcam C920
-    Product:           Webcam C920
-    Product ID:        082d
-    Serial:            ABC123456
-    Vendor ID:         046d
-  Conditions:
-    Type:              Ready
-    Status:            True
-    Reason:            Ready
-    Message:           Device is ready to use
-    Type:              Assigned
-    Status:            True
-    Reason:            Assigned
-    Message:           Namespace is assigned for the device
-  Observed Generation: 1
-```
-
-{{< alert level="info" >}}
-If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.
-Both [USBDevice](/modules/virtualization/cr.html#usbdevice) and [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources update their status conditions to indicate that the device is no longer present on the host.
-{{< /alert >}}
-
-### Requirements and Limitations
-
-USB device passthrough has several operational requirements and limitations that must be considered before use:
-
-- The DRA driver must be installed on nodes where USB devices are to be discovered.
-- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected. When connecting over the network, the following limitations on the number of devices and hub selection apply:
-  - Node can attach at most 16 USB devices: up to 8 on the USB 2.0 hub and up to 8 on the USB 3.0 hub.
-  - Hub is determined by the device speed and cannot be changed. A device that operates at USB 2.0 speed cannot be attached to the USB 3.0 hub, and vice versa.
-- USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
-- USB device passthrough requires proper kernel modules on the node.
+For infrastructure requirements, USBIP port limits, and device discovery on nodes, see the [Admin guide](./admin_guide.html#usb-devices).
 
 ## Data export
 

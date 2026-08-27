@@ -551,7 +551,7 @@ After completing these steps, you will have a golden image that can be used to q
 
 ### Connecting to a virtual machine
 
-You can connect to a VM via the serial console ([`d8 v console`](https://deckhouse.io/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) or VNC ([`d8 v vnc`](https://deckhouse.io/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
+You can connect to a VM via the serial console ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) or VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
 These methods use different communication channels with the guest OS and depend on its configuration.
 For more details on connecting, see the [Connecting to a virtual machine](user_guide.html#connecting-to-a-virtual-machine) section.
 
