@@ -36,6 +36,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 
@@ -126,6 +127,17 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 		return ImportRes{}, fmt.Errorf("error getting source image reader: %w", err)
 	}
 
+	// Decide from the image header, before anything is streamed, whether the
+	// layer is worth compressing: a raw image is mostly zeroes and shrinks
+	// several times, while qcow2 and the archive formats already pack their
+	// data. The authoritative format still comes from the informer below; this
+	// look at the header only picks the layer type, which has to be known
+	// before the upload starts.
+	isRaw, sourceImageReader, err := peekRawImage(sourceImageReader)
+	if err != nil {
+		return ImportRes{}, fmt.Errorf("error reading source image header: %w", err)
+	}
+
 	// Wrap data source reader with progress and speed metrics.
 	progressMeter := monitoring.NewProgressMeter(sourceImageReader, uint64(sourceImageSize))
 	progressMeter.Start()
@@ -162,7 +174,7 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 		defer pipeReader.Close()
 
 		err := p.uploadLayersAndImage(
-			ctx, pipeReader, sourceImageSize, informer,
+			ctx, pipeReader, sourceImageSize, informer, isRaw,
 		)
 		if err != nil {
 			cancel()
@@ -303,6 +315,7 @@ func (p DataProcessor) uploadLayersAndImage(
 	pipeReader io.ReadCloser,
 	sourceImageSize int,
 	informer *ImageInformer,
+	compress bool,
 ) error {
 	nameOpts := destNameOptions(p.destInsecure)
 	remoteOpts, err := destRemoteOptions(ctx, p.destUsername, p.destPassword, p.destCABundle, p.destInsecure)
@@ -321,12 +334,24 @@ func (p DataProcessor) uploadLayersAndImage(
 		return fmt.Errorf("error constructing new repository: %w", err)
 	}
 
-	// Upload the tar stream as an uncompressed layer. gzip compression
-	// (the default of stream.NewLayer) is single-threaded and CPU-bound, and
-	// caps the import speed of large disk images in the CPU-limited
-	// provisioning pod. Disk images barely compress, so skipping gzip removes
-	// the bottleneck without meaningfully growing the stored layer.
-	layer := newUncompressedLayer(pipeReader)
+	// A raw image goes up zstd-compressed: it is mostly zeroes, so the stored
+	// blob and every later transfer of it shrink several times. Everything else
+	// goes up uncompressed, as before — qcow2 and the archive formats already
+	// pack their data, and compressing them again only burns CPU in a pod that
+	// has little of it. gzip, which used to be the default here, is what made
+	// compression unaffordable in the first place; zstd level 1 is roughly five
+	// times faster on the same data.
+	var layer v1.Layer = newUncompressedLayer(pipeReader)
+	if compress {
+		layer = newZstdLayer(pipeReader)
+		// A zstd layer is only legal inside an OCI manifest: the docker v2s2
+		// schema knows no zstd media type, and a reader that gets one there
+		// refuses the image before it reads a single byte of the blob
+		// (containers/image: manifest.SupportedSchema2MediaType). Uncompressed
+		// layers stay on the docker manifest they have always used.
+		image = mutate.ConfigMediaType(mutate.MediaType(image, types.OCIManifestSchema1), types.OCIConfigJSON)
+	}
+	klog.Infof("Uploading layer (compressed: %t)", compress)
 
 	klog.Infoln("Uploading layer to registry")
 	if err := remote.WriteLayer(repo, layer, remoteOpts...); err != nil {

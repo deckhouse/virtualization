@@ -18,6 +18,7 @@ limitations under the License.
 package importer
 
 import (
+	"bytes"
 	"io"
 	"net/url"
 	"os"
@@ -42,12 +43,25 @@ const (
 	copyBufferSize = 1024 * 1024
 )
 
-// writerOnly hides the io.ReaderFrom implementation of the underlying writer
-// (e.g. *os.File). copyBuffered calls Write directly and cannot hit
-// os.File.ReadFrom today, so this is a safety net against future refactoring
-// that reintroduces io.Copy/bufio-style streaming helpers, not an active guard.
-type writerOnly struct {
-	io.Writer
+// zeroRanger is implemented by a destination that can zero a range without
+// receiving the zeroes. copyBuffered uses it for all-zero blocks and falls back
+// to a plain write when the destination does not implement it or the backend
+// refuses the operation.
+type zeroRanger interface {
+	ZeroRange(start, length int64) error
+}
+
+// zeroAwareFile adapts *os.File to zeroRanger. Exposing only Write also keeps
+// io.ReaderFrom of the underlying file hidden, so a future switch back to
+// io.Copy cannot silently bypass the buffering below.
+type zeroAwareFile struct {
+	f *os.File
+}
+
+func (z zeroAwareFile) Write(p []byte) (int, error) { return z.f.Write(p) }
+
+func (z zeroAwareFile) ZeroRange(start, length int64) error {
+	return util.ZeroRange(z.f, start, length)
 }
 
 // copyBuffered streams r to w accumulating full copyBufferSize chunks before each
@@ -66,19 +80,46 @@ type writerOnly struct {
 // broken transfer would look like a complete one.
 func copyBuffered(w io.Writer, r io.Reader) error {
 	buf := make([]byte, copyBufferSize)
+	zeroes := make([]byte, copyBufferSize)
+	zr, zeroRangeSupported := w.(zeroRanger)
+	var offset int64
 	filled := 0
+
+	// flush hands one full or trailing block to the destination: zeroing it
+	// through the kernel when the block is all zeroes and the backend supports
+	// that, writing it out otherwise.
+	flush := func(block []byte) error {
+		if zeroRangeSupported && bytes.Equal(block, zeroes[:len(block)]) {
+			err := zr.ZeroRange(offset, int64(len(block)))
+			if err == nil {
+				offset += int64(len(block))
+				return nil
+			}
+			// Backends differ in which error they raise for an unsupported
+			// operation, so stop trying after the first refusal instead of
+			// paying for a failing syscall per block.
+			klog.V(1).Infof("Zeroing ranges not available on this target (%v), writing zeroes instead", err)
+			zeroRangeSupported = false
+		}
+		if _, err := w.Write(block); err != nil {
+			return err
+		}
+		offset += int64(len(block))
+		return nil
+	}
+
 	for {
 		n, err := r.Read(buf[filled:])
 		filled += n
 		if filled == len(buf) {
-			if _, ew := w.Write(buf); ew != nil {
+			if ew := flush(buf); ew != nil {
 				return ew
 			}
 			filled = 0
 		}
 		if err != nil {
 			if filled > 0 {
-				if _, ew := w.Write(buf[:filled]); ew != nil {
+				if ew := flush(buf[:filled]); ew != nil {
 					return ew
 				}
 			}
@@ -162,7 +203,7 @@ func streamDataToFile(r io.Reader, fileName string) error {
 	klog.V(1).Infof("Writing data...\n")
 	start := time.Now()
 	klog.V(1).Infof("Copy to %s started at %s (block size %d bytes)", fileName, start.Format(time.RFC3339Nano), copyBufferSize)
-	if err = copyBuffered(writerOnly{outFile}, r); err != nil {
+	if err = copyBuffered(zeroAwareFile{outFile}, r); err != nil {
 		klog.Errorf("Unable to write file from dataReader: %v\n", err)
 		_ = os.Remove(outFile.Name())
 		if strings.Contains(err.Error(), "no space left on device") {

@@ -99,12 +99,15 @@ true
 - name: UPLOADER_LISTENER_TLS_SECRET
   value: {{ include "virtualization.uploaderGatewayTLSSecretName" . | quote }}
 {{- end }}
-# Keep parity with the podResourceRequirements of the removed CDI config:
-# cpu 1000m so image decompression and qemu-img convert are not throttled,
+# cpu 4 so the zstd compressor on image upload is not the ceiling: one core
+# does ~416 MB/s, which caps a raw upload at about 3.3 Gbit. This is a limit,
+# not a request (requests stay at 100m below), so scheduling is unaffected and
+# the cores are only taken while an image is actually being uploaded. The disk
+# importer overrides this limit anyway, sizing it to the consuming VM.
 # memory 3600M to avoid OOMKill during importing huge images ~2.9GiB on
 # linux kernels 6.12+ (page cache is charged to the pod cgroup).
 - name: PROVISIONING_POD_LIMITS
-  value: '{"cpu":"1000m","memory":"3600M"}'
+  value: '{"cpu":"4","memory":"3600M"}'
 - name: PROVISIONING_POD_REQUESTS
   value: '{"cpu":"100m","memory":"60M"}'
 - name: GC_VMOP_TTL

@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
@@ -161,6 +162,50 @@ func IsDevice(deviceName string) (bool, error) {
 }
 
 // Three functions for zeroing a range in the destination file:
+
+// ZeroRange asks the kernel to zero [start, start+length) instead of writing the
+// zeroes byte by byte, and leaves the file position right after the range so a
+// following write continues where the caller expects.
+//
+// On a block device this is BLKZEROOUT, which the driver may turn into a single
+// WRITE_ZEROES command instead of moving the data: on DRBD (write_zeroes_max_bytes
+// 128 MiB) zeroing 4 GiB takes 3 s against 49 s for a direct write of the same
+// range. On a regular file it is fallocate(ZERO_RANGE), which extends the file when
+// the range goes past its end.
+//
+// Unlike skipping the write, this really zeroes the range, so it stays correct on a
+// thick or a reused volume whose blocks do not already read as zero. It does not
+// keep the volume thin: whether the range stays unallocated is up to the backend.
+//
+// Returns the syscall error unchanged, so the caller can fall back to writing
+// zeroes when the backend does not implement the operation (ENOTTY, EOPNOTSUPP,
+// EINVAL are all seen in the wild).
+func ZeroRange(outFile *os.File, start, length int64) error {
+	klog.V(4).Infof("Zeroing %d bytes at offset %d", length, start)
+
+	isDevice, err := IsDevice(outFile.Name())
+	if err != nil {
+		return err
+	}
+
+	if isDevice {
+		rng := [2]uint64{uint64(start), uint64(length)}
+		if _, _, errno := unix.Syscall(
+			unix.SYS_IOCTL,
+			outFile.Fd(),
+			uintptr(unix.BLKZEROOUT),
+			uintptr(unsafe.Pointer(&rng[0])),
+		); errno != 0 {
+			return errno
+		}
+	} else if err := syscall.Fallocate(int(outFile.Fd()), unix.FALLOC_FL_ZERO_RANGE, start, length); err != nil {
+		return err
+	}
+
+	// Neither ioctl nor fallocate moves the file position.
+	_, err = outFile.Seek(start+length, io.SeekStart)
+	return err
+}
 
 // PunchHole attempts to zero a range in a file with fallocate, for block devices and pre-allocated files.
 func PunchHole(outFile *os.File, start, length int64) error {

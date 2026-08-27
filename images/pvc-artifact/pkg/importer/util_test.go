@@ -108,6 +108,95 @@ func TestCopyBufferedTruncatedSource(t *testing.T) {
 	}
 }
 
+func TestCopyBufferedZeroBlocks(t *testing.T) {
+	// Zero blocks must reach the destination as zeroing requests, everything
+	// else as writes, and the offsets must account for both.
+	data := bytes.Repeat([]byte{0x05}, copyBufferSize)                 // written
+	data = append(data, make([]byte, copyBufferSize*2)...)             // zeroed
+	data = append(data, bytes.Repeat([]byte{0x06}, copyBufferSize)...) // written
+	data = append(data, make([]byte, 4096)...)                         // zeroed tail
+
+	w := &recordingZeroWriter{}
+	if err := copyBuffered(w, bytes.NewReader(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantZeroed := []zeroCall{
+		{copyBufferSize, copyBufferSize},
+		{copyBufferSize * 2, copyBufferSize},
+		{copyBufferSize * 4, 4096},
+	}
+	if len(w.zeroed) != len(wantZeroed) {
+		t.Fatalf("got %d zeroing calls, want %d: %v", len(w.zeroed), len(wantZeroed), w.zeroed)
+	}
+	for i, want := range wantZeroed {
+		if w.zeroed[i] != want {
+			t.Fatalf("zeroing call %d = %v, want %v", i, w.zeroed[i], want)
+		}
+	}
+	if w.written != copyBufferSize*2 {
+		t.Fatalf("wrote %d bytes, want %d", w.written, copyBufferSize*2)
+	}
+}
+
+func TestCopyBufferedZeroRangeFallback(t *testing.T) {
+	// A backend that refuses to zero ranges must not break the copy: the zeroes
+	// get written instead, and the refusal is not retried for every block.
+	data := make([]byte, copyBufferSize*3)
+
+	w := &recordingZeroWriter{zeroErr: errors.New("operation not supported")}
+	if err := copyBuffered(w, bytes.NewReader(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(w.zeroed) != 1 {
+		t.Fatalf("zeroing attempted %d times, want 1 (then fall back for good)", len(w.zeroed))
+	}
+	if w.written != copyBufferSize*3 {
+		t.Fatalf("wrote %d bytes, want %d", w.written, copyBufferSize*3)
+	}
+}
+
+func TestStreamDataToFileZeroesOnDisk(t *testing.T) {
+	// End-to-end through the real fallocate path: a file with a zero gap in the
+	// middle must read back byte-identical to the source.
+	data := bytes.Repeat([]byte{0x07}, copyBufferSize)
+	data = append(data, make([]byte, copyBufferSize)...)
+	data = append(data, bytes.Repeat([]byte{0x08}, 3000)...)
+
+	f := filepath.Join(t.TempDir(), "zeroes.img")
+	if err := streamDataToFile(bytes.NewReader(data), f); err != nil {
+		t.Fatalf("streamDataToFile: %v", err)
+	}
+	got, err := os.ReadFile(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("file content mismatch: len %d, want %d", len(got), len(data))
+	}
+}
+
+type zeroCall struct {
+	start  int64
+	length int64
+}
+
+type recordingZeroWriter struct {
+	zeroed  []zeroCall
+	written int
+	zeroErr error
+}
+
+func (w *recordingZeroWriter) Write(p []byte) (int, error) {
+	w.written += len(p)
+	return len(p), nil
+}
+
+func (w *recordingZeroWriter) ZeroRange(start, length int64) error {
+	w.zeroed = append(w.zeroed, zeroCall{start, length})
+	return w.zeroErr
+}
+
 func TestStreamDataToFileTailIntact(t *testing.T) {
 	// End-to-end through streamDataToFile: the file on disk must match the
 	// source byte-for-byte, including the sub-buffer tail.
