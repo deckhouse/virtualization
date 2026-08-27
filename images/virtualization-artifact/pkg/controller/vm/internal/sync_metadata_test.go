@@ -221,3 +221,23 @@ var _ = Describe("SyncMetadataHandler", func() {
 		})
 	})
 })
+
+var _ = Describe("SyncMetadataHandler.updateKVVMSpecTemplateMetadataAnnotations", func() {
+	h := &SyncMetadataHandler{}
+
+	It("keeps kvbuilder-owned template annotations while propagating VM annotations", func() {
+		curr := map[string]string{
+			annotations.AnnSchedulerExtraPVCs: "pvc-a,pvc-b",
+			"user.example.com/old":            "gone",
+		}
+		newAnno := map[string]string{
+			"user.example.com/new": "propagated",
+		}
+
+		res := h.updateKVVMSpecTemplateMetadataAnnotations(curr, newAnno)
+
+		Expect(res).To(HaveKeyWithValue(annotations.AnnSchedulerExtraPVCs, "pvc-a,pvc-b"))
+		Expect(res).To(HaveKeyWithValue("user.example.com/new", "propagated"))
+		Expect(res).NotTo(HaveKey("user.example.com/old"))
+	})
+})
