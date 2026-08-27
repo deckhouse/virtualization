@@ -250,6 +250,8 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	setExtraPVCsAnnotation(kvvm)
+
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err
 	}
@@ -350,6 +352,29 @@ func applyBlockDeviceRefs(
 	}
 
 	return nil
+}
+
+// setExtraPVCsAnnotation publishes the PVC names of all hotpluggable volumes on the
+// VMI template. KubeVirt keeps hotplug volumes out of the virt-launcher Pod's
+// spec.volumes (a separate attachment Pod pinned to the launcher's node carries them),
+// so the launcher would otherwise be scheduled blind to their storage requirements.
+// The annotation propagates KVVM template -> VMI -> launcher Pod, where the
+// sds-common-scheduler-extender reads it as a best-effort hint and filters out nodes
+// that cannot fit the hotplug volumes. Names are sorted to keep the value deterministic
+// across reconciles.
+func setExtraPVCsAnnotation(kvvm *KVVM) {
+	var names []string
+	for _, v := range kvvm.Resource.Spec.Template.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.Hotpluggable {
+			names = append(names, v.PersistentVolumeClaim.ClaimName)
+		}
+	}
+	if len(names) == 0 {
+		kvvm.RemoveKVVMIAnnotation(annotations.AnnSchedulerExtraPVCs)
+		return
+	}
+	slices.Sort(names)
+	kvvm.SetKVVMIAnnotation(annotations.AnnSchedulerExtraPVCs, strings.Join(slices.Compact(names), ","))
 }
 
 // detectDiskNameCollisions returns an error if two distinct block devices of this

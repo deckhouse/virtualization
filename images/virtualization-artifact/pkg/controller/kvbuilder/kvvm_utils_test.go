@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -520,6 +521,85 @@ var _ = Describe("setBlockDeviceDisk", func() {
 		Expect(pvc).NotTo(BeNil())
 		Expect(pvc.ClaimName).To(Equal(vdPVC))
 		Expect(pvc.ReadOnly).To(BeFalse())
+	})
+})
+
+var _ = Describe("setExtraPVCsAnnotation", func() {
+	newKVVM := func(volumes ...virtv1.Volume) *KVVM {
+		kvvm := NewEmptyKVVM(namespacedName("vm", "vm-ns"), KVVMOptions{})
+		kvvm.Resource.Spec.Template.Spec.Volumes = volumes
+		return kvvm
+	}
+
+	pvcVolume := func(name, claimName string, hotpluggable bool) virtv1.Volume {
+		return virtv1.Volume{
+			Name: name,
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: claimName,
+					},
+					Hotpluggable: hotpluggable,
+				},
+			},
+		}
+	}
+
+	annotationOf := func(kvvm *KVVM) (string, bool) {
+		value, ok := kvvm.Resource.Spec.Template.ObjectMeta.GetAnnotations()[annotations.AnnSchedulerExtraPVCs]
+		return value, ok
+	}
+
+	It("lists hotpluggable PVC volumes sorted, skipping static and non-PVC ones", func() {
+		kvvm := newKVVM(
+			pvcVolume("vd-b", "pvc-b", true),
+			pvcVolume("vd-root", "pvc-root", false),
+			pvcVolume("vd-a", "pvc-a", true),
+			virtv1.Volume{
+				Name: "cvi-image",
+				VolumeSource: virtv1.VolumeSource{
+					ContainerDisk: &virtv1.ContainerDiskSource{Image: "img", Hotpluggable: true},
+				},
+			},
+		)
+
+		setExtraPVCsAnnotation(kvvm)
+
+		value, ok := annotationOf(kvvm)
+		Expect(ok).To(BeTrue())
+		Expect(value).To(Equal("pvc-a,pvc-b"))
+	})
+
+	It("removes a stale annotation when no hotpluggable PVC volumes are left", func() {
+		kvvm := newKVVM(pvcVolume("vd-root", "pvc-root", false))
+		kvvm.SetKVVMIAnnotation(annotations.AnnSchedulerExtraPVCs, "pvc-gone")
+
+		setExtraPVCsAnnotation(kvvm)
+
+		_, ok := annotationOf(kvvm)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("does not set the annotation on a VM without hotpluggable volumes", func() {
+		kvvm := newKVVM(pvcVolume("vd-root", "pvc-root", false))
+
+		setExtraPVCsAnnotation(kvvm)
+
+		_, ok := annotationOf(kvvm)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("deduplicates volumes referencing the same claim", func() {
+		kvvm := newKVVM(
+			pvcVolume("vd-a", "pvc-shared", true),
+			pvcVolume("vd-b", "pvc-shared", true),
+		)
+
+		setExtraPVCsAnnotation(kvvm)
+
+		value, ok := annotationOf(kvvm)
+		Expect(ok).To(BeTrue())
+		Expect(value).To(Equal("pvc-shared"))
 	})
 })
 
