@@ -196,6 +196,7 @@ var annotationsToKeep = []string{
 	virtv1.USBMigrationStrategyAnn,
 	kvbuilder.CPUResourcesRequestsFractionAnnotation,
 	kvbuilder.VCPUTopologyDynamicCoresAnnotation,
+	annotations.AnnSchedulerExtraPVCs,
 }
 
 // updateKVVMSpecTemplateMetadataAnnotations ensures that the special network annotation is present if it exists.

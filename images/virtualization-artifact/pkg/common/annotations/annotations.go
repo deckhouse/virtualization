@@ -69,6 +69,15 @@ const (
 	// AnnDefaultStorageClass is the annotation indicating that a storage class is the default one.
 	AnnDefaultStorageClass = "storageclass.kubernetes.io/is-default-class"
 
+	// AnnSchedulerExtraPVCs lists, as a comma-separated value, the names of PVCs a Pod
+	// needs taken into account when scheduling but does not mount itself. KubeVirt keeps
+	// hotplug volumes out of the virt-launcher Pod's spec.volumes, so this annotation is
+	// the only way the sds-common-scheduler-extender learns about them and places the
+	// launcher on a node where the hotplug volumes can actually be provisioned. It is a
+	// best-effort scheduling hint: the extender ignores unknown or foreign-provisioner
+	// names, and every PVC named here must already exist by the time the Pod is created.
+	AnnSchedulerExtraPVCs = "scheduler.deckhouse.io/extra-pvcs"
+
 	AnnAPIGroupV              = "virtualization.deckhouse.io"
 	AnnVirtualDisk            = "virtualdisk." + AnnAPIGroupV
 	AnnVirtualDiskVolumeMode  = AnnVirtualDisk + "/volume-mode"
