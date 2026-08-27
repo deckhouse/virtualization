@@ -129,10 +129,11 @@ func shouldSkipNodePlacementMigration(kvvmi *virtv1.VirtualMachineInstance) (rec
 }
 
 func isLiveMigratable(kvvmi *virtv1.VirtualMachineInstance) bool {
-	// The placement rules have just been changed, and no node matches them any more: the migration
-	// would only create a target pod that no node can accept, so it must not be triggered. The
-	// condition turns back to true once such a node appears, and the migration fires then.
-	targetCond, _ := conditions.GetKVVMICondition(conditions.MigrationTargetAvailable, kvvmi.Status.Conditions)
+	// There is no node to migrate to right now — either no node matches the placement rules, or the
+	// matching ones cannot take the machine at the moment: the migration would only create a target
+	// pod that no node can accept, so it must not be triggered. The condition turns back to true
+	// once such a node appears, and the migration fires then.
+	targetCond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceMigrationTargetAvailable, kvvmi.Status.Conditions)
 	if targetCond.Status == corev1.ConditionFalse {
 		return false
 	}

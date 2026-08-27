@@ -1233,12 +1233,15 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       for a running VM only: while the VM is stopped, the condition is absent.
     - If the VM itself is fit for migration but no other node in the cluster matches its placement
       rules, the condition is `False` with the reason `VirtualMachineNoMigrationTarget`.
+    - If the matching nodes exist but none of them can take the VM at the moment (excluded from
+      scheduling, not ready, running no virtualization), the condition stays `True` with the reason
+      `VirtualMachineWaitingForMigrationTarget`: such a state clears up on its own.
   - Possible issues:
     - Incompatibility of processor instructions (when using host or host-passthrough processor types).
     - Difference in kernel versions on hypervisor nodes.
     - No other node matches the placement rules of the VM or of its VirtualMachineClass.
     - Not enough CPU or memory on eligible nodes.
-    - Neumspace or project quotas have been exceeded.
+    - Namespace or project quotas have been exceeded.
   - Diagnostics:
     - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
 
@@ -2879,36 +2882,26 @@ Live virtual machine (VM) migration is the process of moving a running VM from o
 
 #### How live migration works
 
-The live migration process involves several steps:
+The live migration process consists of several steps:
 
-1. **Creation of a new VM instance**
+1. A new VM is created on the target node in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
 
-   A new VM is created on the target node in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
+1. The entire RAM of the VM is copied to the target node over the network. This is called primary transfer.
 
-1. **Primary memory transfer**
+1. While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages, and the hypervisor marks them.
 
-   The entire RAM of the VM is copied to the target node over the network. This is called primary transfer.
-
-1. **Change tracking (Dirty Pages)**
-
-   While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages, and the hypervisor marks them.
-
-1. **Iterative synchronization**
-
-   After the initial transfer, only the modified pages are sent again. This process is repeated over several cycles:
+1. After the initial transfer, only the modified pages are sent again. This process is repeated over several cycles:
 
    - The higher the load on the VM, the more "dirty" pages appear, and the longer the migration takes.
    - With good network bandwidth, the amount of unsynchronized data gradually decreases.
 
-1. **Final synchronization and switching**
-
-   When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
+1. When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
 
    - The remaining memory changes are transferred to the target node.
    - The state of the CPU, devices, and open connections are synchronized.
    - The VM is started on the new node, and the source copy is deleted.
 
-Until the VM switches to the new node (Phase 5), the VM on the source node continues to operate normally and provide services to users.
+Until the VM switches to the new node (step 5), the VM on the source node continues to operate normally and provide services to users.
 
 ![Migration](./images/migration.png)
 
@@ -2928,9 +2921,9 @@ For successful live migration, certain requirements must be met. Failure to meet
 
 #### How to tell whether a VM can be migrated
 
-The `type: Migratable` condition of a VM answers a single question: can this machine be moved by a live migration right now. It accounts both for the machine itself (disks, attached devices, CPU type) and for the state of the cluster — whether there is a node to move it to.
+The `type: Migratable` condition of a VM shows whether the VM can be moved by live migration. It accounts both for the VM itself (disks, attached devices, CPU type) and for the state of the cluster (whether there is a node to move it to). The `True` value answers whether the move is possible, not whether the VM would move at this very moment, so read the reason along with the value.
 
-An overview of every machine:
+An overview of all VMs:
 
 ```bash
 d8 k get vm -o wide
@@ -2946,31 +2939,49 @@ The most common reasons:
 
 | Reason | What it means | What to do |
 | --- | --- | --- |
-| `VirtualMachineMigratable` | The machine can be moved by a live migration | — |
-| `VirtualMachineNoMigrationTarget` | The machine itself is fit for a migration, but there is nowhere to move it: no other node of the cluster matches its placement rules | Check `spec.nodeSelector`, `spec.affinity` and `spec.tolerations` of the machine and the same parameters of its `VirtualMachineClass`. A node may also be unavailable: excluded from scheduling, or virtualization is not running on it |
-| `VirtualMachineDisksNotMigratable` | The disks of the machine live in a storage available on a single node only | Move the disks to a storage with the `ReadWriteMany` access mode |
-| `VirtualMachineHostDevicesNotMigratable` | The machine has a device attached that cannot be moved to another node | Detach the device and restart the machine |
-| `VirtualMachineDisksShouldBeMigrating` | The machine can be moved: its local disks travel along with it | — |
+| `VirtualMachineMigratable` | The VM can be moved by live migration | — |
+| `VirtualMachineNoMigrationTarget` | The VM is able to migrate, but no other node in the cluster can host it | Check `spec.nodeSelector`, `spec.affinity`, and `spec.tolerations` of the VM and the same parameters of its `VirtualMachineClass` |
+| `VirtualMachineWaitingForMigrationTarget` | The VM is able to migrate and the cluster has nodes matching its placement rules, but none of them can take it right now: the nodes are excluded from scheduling, are not ready, or are not running virtualization | If maintenance is under way, migration becomes possible as soon as such a node is back. Otherwise, check why the nodes are excluded from scheduling and whether virtualization is running on them |
+| `VirtualMachineDisksNotMigratable` | The disks of the VM are in storage that is available on only one node | Move the disks to storage with the `ReadWriteMany` access mode |
+| `VirtualMachineHostDevicesNotMigratable` | The VM has a device attached that cannot be moved to another node | Detach the device and restart the VM |
+| `VirtualMachineNonMigratable` | The VM cannot be moved by live migration; the cause is given in the `message` field of the condition | Read the `message` field of the condition. If the CPU is the cause, use the `Discovery`, `Model`, or `Features` type in the VM class |
+| `VirtualMachineDisksShouldBeMigrating` | The VM can be moved, and its local disks are moved along with it | — |
+
+Moving the disks along with the VM is available in the EE edition only, so the `VirtualMachineDisksShouldBeMigrating` reason appears only there. In the CE edition, a VM whose disks are in storage available on only one node gets the `VirtualMachineDisksNotMigratable` reason.
 
 #### Checking before draining a node
 
-The machines that will not be able to leave a node are better found in advance — before the node is excluded from scheduling and the maintenance has already started:
+The VMs that will not be able to migrate off a node are better found before maintenance starts, while the node is still open for scheduling:
 
 ```bash
 d8 k get vm -o wide | grep <node-name>
 ```
 
-The machines with `False` in the `MIGRATABLE` column will have to be stopped: a live migration is not possible for them, and the evacuation will fail.
+The VMs with `False` in the `MIGRATABLE` column will have to be stopped when the node is drained. Live migration is not possible for them, and the evacuation will fail.
 
-#### What to know about the `Migratable` condition
+The value of the column alone is not enough. A VM with `True` and the `VirtualMachineWaitingForMigrationTarget` reason will not move either until a suitable node returns to scheduling, so check the reason for every VM on the node before maintenance:
 
-- **The condition can change on its own, with no change to the VM.** It describes the cluster as well as the machine: if the only suitable node is excluded from scheduling or loses the required label, the condition turns `False` although nobody touched the machine. Once a suitable node appears again, the condition returns to `True`.
+```bash
+d8 k get vm -o json | jq -r '.items[] | [.metadata.name, (.status.conditions[] | select(.type=="Migratable") | .reason)] | @tsv'
+```
 
-- **A stopped VM has no such condition.** Migratability is evaluated for a running machine, so a stopped one carries no condition rather than the answer of its previous run. That matters: while the machine was down, its disks could have been moved to another storage and a device could have been detached, and the old answer would be wrong.
+#### What to know about the Migratable condition
 
-- **Placement changes are taken into account after the VM restarts.** While the machine is running, it uses the parameters it was started with, and the condition describes exactly those. If you change `nodeSelector`, `affinity` or the VM class, the condition is recalculated against the new rules after the machine restarts.
+A few properties of the condition that matter when planning maintenance and when reading the status:
 
-- **Local disks do not prevent a migration, but a node is still needed.** A machine with local disks is moved together with them, so the condition stays `True` with the `VirtualMachineDisksShouldBeMigrating` reason. But if there is no suitable node in the cluster, the condition is `False` — there is nowhere to move the disks along with the machine.
+- The `Migratable` condition describes the cluster as well as the VM. If the only suitable node loses the required label, the condition turns `False` even though the parameters of the VM did not change. Once a suitable node appears, the condition returns to `True`.
+
+- When a node is excluded from scheduling, the VM is still able to migrate. Cordoning, reboots, and node maintenance resolve on their own, so the condition stays `True` and only its reason changes to `VirtualMachineWaitingForMigrationTarget`. Otherwise, planned maintenance of a neighboring node would turn a CPU or memory change into a VM restart. In the CE edition, such changes require a restart in any case.
+
+- The `True` value means that the VM is able to migrate, not that it is ready to migrate right now. Check the reason before a migration: `VirtualMachineMigratable` means there is a node to migrate to, `VirtualMachineWaitingForMigrationTarget` means there is no suitable node at the moment. The `d8_virtualization_virtualmachine_migratable` metric carries the same answer in its `reason` label, so a dashboard that filters VMs by the value alone counts the waiting VMs among the ones ready to migrate.
+
+- A migration started with the `VirtualMachineWaitingForMigrationTarget` reason does not wait for a node forever. If the target pod cannot be scheduled within five minutes, the operation fails and the `Completed` condition of the `VirtualMachineOperation` resource gets the `TargetUnschedulable` reason. If maintenance takes longer, start the migration again.
+
+- A stopped VM has no such condition, because the ability of a VM to migrate is evaluated only for a running VM. While the VM was down, its disks could have been moved to different storage, and a device could have been detached.
+
+- In the CE edition, placement changes are taken into account after the VM restarts. While the VM is running, it uses the parameters it was started with, and the condition describes exactly those. A new `nodeSelector`, `affinity`, or VM class is taken into account only after a restart. In the EE edition, such changes are applied without a restart and are taken into account right away.
+
+- Local disks do not prevent migration, but a node is still needed. In the EE edition, a VM with local disks is moved together with them, so the condition stays `True` with the `VirtualMachineDisksShouldBeMigrating` reason. But if no node in the cluster matches its placement rules, the condition is `False`, because there is nowhere to move the disks along with the VM.
 
 #### How to perform a live VM migration
 

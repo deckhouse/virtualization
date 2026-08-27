@@ -301,14 +301,26 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 	// migration itself and no matter how its disks would travel along. Every positive answer goes
 	// through this check; the reasons that describe the machine itself are more specific and are
 	// reported instead of it.
+	//
+	// A cluster that has fitting nodes which cannot take the machine right now is a different
+	// answer: the machine stays migratable, because the state of a cordoned or a rebooting node
+	// clears up on its own, while the change of a machine which is reported as non-migratable does
+	// not — hot-plugging its CPU and memory would turn into a restart it does not need.
 	reportMigratable := func(reason vmcondition.MigratableReason) {
-		if hasNoMigrationTarget(kvvm) {
+		switch migrationTargetReason(kvvm) {
+		case "":
+			cb.Status(metav1.ConditionTrue).Reason(reason).Message("")
+		case virtv1.VirtualMachineInstanceReasonMigrationTargetUnavailable:
+			cb.Status(metav1.ConditionTrue).
+				Reason(vmcondition.ReasonWaitingForMigrationTarget).
+				Message(messageMigrationTargetUnavailable)
+		default:
+			// Any other reason of a missing target is reported as a machine that cannot be
+			// migrated: an unknown answer must not read as a temporary one.
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonNoMigrationTarget).
 				Message(messageNoMigrationTarget)
-			return
 		}
-		cb.Status(metav1.ConditionTrue).Reason(reason).Message("")
 	}
 
 	liveMigratable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
@@ -368,12 +380,19 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 // has to hold for either of them. Naming only the placement rules would be wrong for the second.
 const messageNoMigrationTarget = "Live migration is not possible: no other node in the cluster can accept this VirtualMachine. Check its placement and affinity rules and those of its VirtualMachineClass."
 
-// hasNoMigrationTarget reports whether the cluster has no node the virtual machine can be migrated
-// to. It is evaluated by virt-controller, which is the only component watching every node of the
-// cluster, and reaches the internal virtual machine along with the rest of the instance conditions.
-func hasNoMigrationTarget(kvvm *virtv1.VirtualMachine) bool {
-	targetAvailable := service.GetKVVMCondition(string(conditions.MigrationTargetAvailable), kvvm.Status.Conditions)
-	return targetAvailable != nil && targetAvailable.Status == corev1.ConditionFalse
+const messageMigrationTargetUnavailable = "Live migration is possible, but there is no node to migrate to at the moment: the nodes matching the placement rules of this VirtualMachine are excluded from scheduling or do not run the virtualization."
+
+// migrationTargetReason returns the reason of the MigrationTargetAvailable condition of the
+// internal virtual machine while the cluster has no node to migrate to, and an empty string while
+// it has one. The condition is evaluated by virt-controller, which is the only component watching
+// every node of the cluster, and reaches the internal virtual machine along with the rest of the
+// instance conditions.
+func migrationTargetReason(kvvm *virtv1.VirtualMachine) string {
+	targetAvailable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceMigrationTargetAvailable), kvvm.Status.Conditions)
+	if targetAvailable == nil || targetAvailable.Status != corev1.ConditionFalse {
+		return ""
+	}
+	return targetAvailable.Reason
 }
 
 func liveMigrationInProgress(migrationState *v1alpha2.VirtualMachineMigrationState) bool {

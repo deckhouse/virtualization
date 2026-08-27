@@ -1615,6 +1615,8 @@ fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io
 fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.69/go.mod h1:XQhHhLd8fMzXnR1ZnIH53iT7rBJ3bE5/BUnFmMuH4ig=
 fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.76 h1:UAdiQnl6VPzD+tmea2GkzEIU0SpKHPJMSj/twCRyJpY=
 fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.76/go.mod h1:XQhHhLd8fMzXnR1ZnIH53iT7rBJ3bE5/BUnFmMuH4ig=
+fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.95 h1:WkPYkN0PocRuVE56oIDU6E2S/YAZ13ysgZfyhUAxeT0=
+fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.95/go.mod h1:z6laInaFjrZnOBSgjb5VusPLdxmMH7zkG10GWbCOoIM=
 gioui.org v0.0.0-20210308172011-57750fc8a0a6/go.mod h1:RSH6KIUZ0p2xy5zHDxgAM4zumjgTw83q2ge/PI+yyw8=
 git.sr.ht/~sbinet/gg v0.3.1/go.mod h1:KGYtlADtqsqANL9ueOFkWymvzUvLMQllU5Ixo+8v3pc=
 git.sr.ht/~sbinet/gg v0.6.0 h1:RIzgkizAk+9r7uPzf/VfbJHBMKUr0F5hRFxTUGMnt38=

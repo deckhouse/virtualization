@@ -304,6 +304,9 @@ const (
 	// ReasonNoMigrationTarget indicates that the virtual machine itself can be migrated, but no
 	// other node in the cluster matches its placement rules.
 	ReasonNoMigrationTarget MigratableReason = "VirtualMachineNoMigrationTarget"
+	// ReasonWaitingForMigrationTarget indicates that the virtual machine can be migrated and the
+	// cluster has nodes matching its placement rules, but none of them can take it at the moment.
+	ReasonWaitingForMigrationTarget MigratableReason = "VirtualMachineWaitingForMigrationTarget"
 )
 
 type MigratingReason string

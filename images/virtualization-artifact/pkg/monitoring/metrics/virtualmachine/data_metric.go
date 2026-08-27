@@ -57,6 +57,9 @@ type dataMetric struct {
 	// MigratableKnown is false while the virtual machine is not running: migratability is not
 	// evaluated then, and the metric is not exported instead of reporting a stale value.
 	MigratableKnown bool
+	// MigratableReason tells the answers of the same value apart: a machine whose disks travel
+	// along with it and a machine with no node to take it right now are both migratable.
+	MigratableReason string
 }
 
 // DO NOT mutate VirtualMachine!
@@ -130,6 +133,7 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 		firmwareUpToDate: firmwareUpToDate,
 		Migratable:       migratableCondition.Status == metav1.ConditionTrue,
 		MigratableKnown:  hasMigratableCondition,
+		MigratableReason: migratableCondition.Reason,
 	}
 }
 

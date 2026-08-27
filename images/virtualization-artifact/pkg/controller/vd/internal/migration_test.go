@@ -568,6 +568,42 @@ var _ = Describe("MigrationHandler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(none))
 			})
+
+			// The reason of the Migratable condition answers two questions at once: whether
+			// the disks travel along with the machine, and whether the cluster has a node to
+			// take it. Once there is no target, the answer of the target check is reported
+			// instead, so the disks-should-be-migrating reason is gone and the target volumes
+			// are not prepared for a migration that cannot start anyway. That holds for either
+			// answer of the target check, and both of them must keep the preparation off: the
+			// nodes matching the placement rules may be missing altogether, or they may be
+			// unable to take the machine at the moment.
+			DescribeTable("should not prepare the target while the cluster has no node to migrate to",
+				func(status metav1.ConditionStatus, reason vmcondition.MigratableReason) {
+					createMigratingVMOP(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate)
+
+					vm.Status.Conditions = []metav1.Condition{
+						{
+							Type:   vmcondition.TypeMigrating.String(),
+							Status: metav1.ConditionTrue,
+							Reason: vmcondition.ReasonMigratingPending.String(),
+						},
+						{
+							Type:   vmcondition.TypeMigratable.String(),
+							Status: status,
+							Reason: reason.String(),
+						},
+					}
+					Expect(fakeClient.Update(ctx, vm)).To(Succeed())
+
+					action, err := migrationHandler.getAction(ctx, vd, log)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(action).To(Equal(none))
+				},
+				Entry("no node of the cluster matches the placement rules",
+					metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget),
+				Entry("the matching nodes cannot take the machine at the moment",
+					metav1.ConditionTrue, vmcondition.ReasonWaitingForMigrationTarget),
+			)
 		})
 	})
 

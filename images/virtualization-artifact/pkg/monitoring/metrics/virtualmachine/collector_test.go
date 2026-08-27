@@ -98,9 +98,9 @@ var _ = Describe("Collector", func() {
 			c := collectorOf(newVM(condition))
 
 			expected := `
-# HELP d8_virtualization_virtualmachine_migratable Whether the virtualmachine can be live migrated.
+# HELP d8_virtualization_virtualmachine_migratable Whether the virtualmachine can be live migrated. The reason label carries the reason of the Migratable condition.
 # TYPE d8_virtualization_virtualmachine_migratable gauge
-d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} ` + value + `
+d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node="node-1",reason="` + condition.Reason + `",uid="uid-vm-01"} ` + value + `
 `
 			Expect(testutil.CollectAndCompare(c, strings.NewReader(expected),
 				"d8_virtualization_virtualmachine_migratable")).To(Succeed())
@@ -117,6 +117,12 @@ d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node
 			migratable(metav1.ConditionFalse, vmcondition.ReasonHostDevicesNotMigratable), "0"),
 		Entry("anything else blocks it",
 			migratable(metav1.ConditionFalse, vmcondition.ReasonNonMigratable), "0"),
+		// The machine is migratable, it just has nowhere to go at this moment — the value stays 1
+		// and only the reason tells this apart from a machine that can move right now.
+		Entry("the suitable nodes cannot take it right now",
+			migratable(metav1.ConditionTrue, vmcondition.ReasonWaitingForMigrationTarget), "1"),
+		Entry("no node matches its placement rules",
+			migratable(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget), "0"),
 	)
 
 	// A machine that is not running carries no migratable condition: migratability is not evaluated
@@ -181,9 +187,9 @@ d8_virtualization_virtualmachine_info{name="vm-01",namespace="team-a",node="node
 # HELP d8_virtualization_virtualmachine_labels Kubernetes labels converted to Prometheus labels.
 # TYPE d8_virtualization_virtualmachine_labels gauge
 d8_virtualization_virtualmachine_labels{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1
-# HELP d8_virtualization_virtualmachine_migratable Whether the virtualmachine can be live migrated.
+# HELP d8_virtualization_virtualmachine_migratable Whether the virtualmachine can be live migrated. The reason label carries the reason of the Migratable condition.
 # TYPE d8_virtualization_virtualmachine_migratable gauge
-d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1
+d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node="node-1",reason="VirtualMachineMigratable",uid="uid-vm-01"} 1
 # HELP d8_virtualization_virtualmachine_status_phase The virtualmachine current phase.
 # TYPE d8_virtualization_virtualmachine_status_phase gauge
 d8_virtualization_virtualmachine_status_phase{name="vm-01",namespace="team-a",node="node-1",phase="Degraded",uid="uid-vm-01"} 0

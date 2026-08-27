@@ -319,8 +319,9 @@ var _ = Describe("MigratingHandler", func() {
 					Status: corev1.ConditionTrue,
 				},
 				virtv1.VirtualMachineCondition{
-					Type:   virtv1.VirtualMachineConditionType(conditions.MigrationTargetAvailable),
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable),
 					Status: corev1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonNoMigrationTarget,
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
@@ -333,6 +334,32 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(cond.Message).ToNot(BeEmpty())
 		})
 
+		// The nodes are there, they just cannot take the machine right now: a cordon, a reboot or a
+		// maintenance clears up on its own, while a machine reported as non-migratable stops taking
+		// its CPU and memory changes on the fly.
+		It("stays migratable while the fitting nodes are unavailable", func() {
+			vm := newVM()
+			kvvm := newKVVMWithConditions(
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceIsMigratable),
+					Status: corev1.ConditionTrue,
+				},
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable),
+					Status: corev1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonMigrationTargetUnavailable,
+				},
+			)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+			reconcile()
+
+			cond, exists := migratableOf(vm)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonWaitingForMigrationTarget.String()))
+			Expect(cond.Message).ToNot(BeEmpty())
+		})
+
 		It("stays migratable while a target node is available", func() {
 			vm := newVM()
 			kvvm := newKVVMWithConditions(
@@ -341,7 +368,7 @@ var _ = Describe("MigratingHandler", func() {
 					Status: corev1.ConditionTrue,
 				},
 				virtv1.VirtualMachineCondition{
-					Type:   virtv1.VirtualMachineConditionType(conditions.MigrationTargetAvailable),
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable),
 					Status: corev1.ConditionTrue,
 				},
 			)
@@ -365,8 +392,9 @@ var _ = Describe("MigratingHandler", func() {
 					Reason: virtv1.VirtualMachineInstanceReasonDisksNotMigratable,
 				},
 				virtv1.VirtualMachineCondition{
-					Type:   virtv1.VirtualMachineConditionType(conditions.MigrationTargetAvailable),
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable),
 					Status: corev1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonNoMigrationTarget,
 				},
 			)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))

@@ -21,11 +21,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-// MigrationTargetAvailable tells whether the cluster has a node the virtual machine instance can be
-// migrated to. It is reported by the fork of KubeVirt and is absent from the upstream
-// kubevirt.io/api the controller builds against, so it is declared here by name.
-const MigrationTargetAvailable virtv1.VirtualMachineInstanceConditionType = "MigrationTargetAvailable"
-
 func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {
 	for _, cond := range conds {
 		if cond.Type == condType {

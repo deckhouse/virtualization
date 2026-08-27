@@ -60,7 +60,7 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 					// Whether the cluster still has a node to migrate to changes without the machine
 					// itself changing at all — a node is cordoned, a label is removed. Without this,
 					// the Migratable condition would keep the answer of the last reconcile.
-					migrationTarget := virtv1.VirtualMachineConditionType(conditions.MigrationTargetAvailable)
+					migrationTarget := virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable)
 					oldTargetCondition, _ := conditions.GetKVVMCondition(migrationTarget, oldVM.Status.Conditions)
 					newTargetCondition, _ := conditions.GetKVVMCondition(migrationTarget, newVM.Status.Conditions)
 
@@ -68,6 +68,7 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 						oldSynchronizedCondition.Status != newSynchronizedCondition.Status ||
 						oldSynchronizedCondition.Reason != newSynchronizedCondition.Reason ||
 						oldTargetCondition.Status != newTargetCondition.Status ||
+						oldTargetCondition.Reason != newTargetCondition.Reason ||
 						oldVM.Status.Ready != newVM.Status.Ready ||
 						oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
 						oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested] ||

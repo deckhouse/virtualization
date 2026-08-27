@@ -183,9 +183,9 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 	),
 
 	MetricVirtualMachineMigratable: metrics.NewMetricInfo(MetricVirtualMachineMigratable,
-		"Whether the virtualmachine can be live migrated.",
+		"Whether the virtualmachine can be live migrated. The reason label carries the reason of the Migratable condition.",
 		prometheus.GaugeValue,
-		WithBaseLabels(),
+		WithBaseLabels("reason"),
 		nil,
 	),
 }
