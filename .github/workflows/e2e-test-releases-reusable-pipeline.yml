@@ -233,7 +233,17 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         env:
           BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+          STORAGE_TYPE: ${{ inputs.storage_type }}
+          DEFAULT_USER: ${{ env.DEFAULT_USER }}
         run: |
+          # Started before the proxy exports on purpose: the watcher talks to the parent
+          # cluster API and must not inherit the bootstrap proxy.
+          bash "${E2E_SCRIPT_DIR}/nudge-stuck-static-instances.sh" \
+            "${NAMESPACE}" "${STORAGE_TYPE}" "${DEFAULT_USER}" &
+          nudger_pid=$!
+          trap 'kill "${nudger_pid}" 2>/dev/null || true' EXIT
+
           if [[ $(yq eval '.deckhouse.proxyEnabled' values.yaml) == true ]]; then
             export HTTP_PROXY="$BOOTSTRAP_DEV_PROXY"
             export HTTPS_PROXY="$BOOTSTRAP_DEV_PROXY"
