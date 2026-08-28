@@ -1,0 +1,9 @@
+disks:
+  fixes:
+    - summary: Fixed a VM with paravirtualization disabled hanging at startup on a `WaitForFirstConsumer` storage class.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/315
+vm:
+  fixes:
+    - summary: A VM with disks on SDS storage is now placed on a node with enough space for them.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/309
+
