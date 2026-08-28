@@ -2,7 +2,22 @@
 
 ## v1.10.4
 
-_No changelog entries._
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-10722 ([!279](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/279))
+
+### disks
+
+- **fix** (default): Fixed a VM with paravirtualization disabled hanging at startup on a `WaitForFirstConsumer` storage class. ([!315](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/315))
+
+### docs
+
+- **docs** (low): Added release notes v1.10.4. ([!318](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/318))
+
+### vm
+
+- **fix** (default): A VM with disks on SDS storage is now placed on a node with enough space for them. ([!309](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/309))
 
 ## v1.10.3
 
