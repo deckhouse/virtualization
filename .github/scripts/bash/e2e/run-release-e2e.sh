@@ -71,6 +71,11 @@ echo "[INFO] Changing directory to ./test/e2e/"
 cd ./test/e2e/
 ginkgo_result="$(mktemp -p "${runner_temp}")"
 ginkgo_exit_code=0
+# Serial on purpose (no -p, unlike the nightly run): the release specs share the VMs
+# that have to survive the rollover, so they must run one after another. That also
+# makes the migration limits precheck moot - it guards the parallel run, where many
+# VMs migrate at once - so skip it and leave the limits at their defaults.
+export MIGRATION_LIMITS_PRECHECK=no
 go tool ginkgo \
   -v --race --timeout=45m \
   ./release | tee "${ginkgo_result}" || ginkgo_exit_code=$?
