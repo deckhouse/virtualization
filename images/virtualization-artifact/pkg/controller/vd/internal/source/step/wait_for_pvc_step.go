@@ -24,6 +24,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -69,7 +70,7 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*re
 		return nil, nil
 	}
 
-	wffc, err := s.isWFFC(ctx)
+	wffc, err := isStorageClassWFFC(ctx, s.client, ptr.Deref(s.pvc.Spec.StorageClassName, ""))
 	if err != nil {
 		return nil, fmt.Errorf("is wffc: %w", err)
 	}
@@ -91,20 +92,17 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*re
 	return &reconcile.Result{}, nil
 }
 
-func (s WaitForPVCStep) isWFFC(ctx context.Context) (bool, error) {
-	if s.pvc.Spec.StorageClassName == nil || *s.pvc.Spec.StorageClassName == "" {
+// isStorageClassWFFC reports whether the named storage class uses the
+// WaitForFirstConsumer volume binding mode.
+func isStorageClassWFFC(ctx context.Context, c client.Client, storageClassName string) (bool, error) {
+	if storageClassName == "" {
 		return false, nil
 	}
 
-	scKey := types.NamespacedName{Name: *s.pvc.Spec.StorageClassName}
-	sc, err := object.FetchObject(ctx, scKey, s.client, &storagev1.StorageClass{})
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, c, &storagev1.StorageClass{})
 	if err != nil {
 		return false, fmt.Errorf("fetch storage class: %w", err)
 	}
 
-	if sc == nil || sc.VolumeBindingMode == nil || *sc.VolumeBindingMode != storagev1.VolumeBindingWaitForFirstConsumer {
-		return false, nil
-	}
-
-	return true, nil
+	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer, nil
 }

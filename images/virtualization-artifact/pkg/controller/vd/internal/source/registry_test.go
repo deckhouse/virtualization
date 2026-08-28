@@ -301,11 +301,26 @@ var _ = Describe("RegistryDataSource", func() {
 			importerSvc.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) { return pod, nil }
 		})
 
-		// With the prime/rebind import flow the importer fills a separate prime PVC
-		// and the target PVC only becomes Bound at the very end (via rebind), so a
-		// Pending target means the import is in progress, regardless of binding mode.
-		It("reports Provisioning for WFFC storage class", func() {
+		// Until a consumer schedules onto the WFFC target (the scheduler stamps its
+		// selected-node annotation) the populator defers the import, so the disk
+		// keeps reporting WaitForFirstConsumer: the VirtualMachine controller only
+		// starts the consuming VM while the disk is in this phase.
+		It("reports WaitForFirstConsumer for WFFC storage class until a consumer is scheduled", func() {
 			pvc.Status.Phase = corev1.ClaimPending
+			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+			res, err := newSyncer(cl).Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
+		})
+
+		It("reports Provisioning for WFFC storage class once the consumer node is selected", func() {
+			pvc.Status.Phase = corev1.ClaimPending
+			pvc.Annotations = map[string]string{service.SelectedNodeAnnotation: "node-a"}
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 
 			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()

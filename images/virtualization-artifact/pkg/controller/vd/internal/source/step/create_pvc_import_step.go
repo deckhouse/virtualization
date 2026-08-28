@@ -121,19 +121,16 @@ func (s PVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*rec
 		return nil, fmt.Errorf("failed to get importer tolerations: %w", err)
 	}
 
-	// On a WaitForFirstConsumer storage class the imported volume must be
-	// provisioned on the VirtualMachine's node so it can be attached to the VM.
-	// Wait until the VM is scheduled (its node is known) before creating the
-	// target/prime PVCs; otherwise the prime would be provisioned on the
-	// importer pod's arbitrary node and the VM could never attach it.
-	if isWFFC && (nodePlacement == nil || nodePlacement.Node == "") {
-		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
-		s.cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.WaitingForFirstConsumer).
-			Message("Awaiting the scheduling of the VirtualMachine with the attached VirtualDisk.")
-		return &reconcile.Result{}, nil
-	}
+	// On a WaitForFirstConsumer storage class the target PVC is created as soon
+	// as a VirtualMachine consumes the disk, before the VM is scheduled. This is
+	// safe: the foreign dataSourceRef defers CSI provisioning, and the populator
+	// starts the import only once the scheduler has stamped the selected-node
+	// annotation — set for whatever pod consumes the PVC first (the VM's
+	// launcher, KubeVirt's temporary first-consumer pod, or a hotplug attachment
+	// pod) — pinning the prime PVC to that node. Waiting for the VM's node here
+	// instead would deadlock paravirtualization-disabled VMs: their disks are
+	// static volumes, and KubeVirt refuses to create the VM pod until the PVC
+	// exists.
 
 	key := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
 	if err := s.createTarget(ctx, key, sc.Name, vd, nodePlacement); err != nil {

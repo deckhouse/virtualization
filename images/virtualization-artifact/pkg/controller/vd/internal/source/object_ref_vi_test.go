@@ -182,12 +182,29 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 	})
 
 	Context("VirtualDisk is provisioning while its PVC is not yet Bound", func() {
-		// With the prime/rebind import flow the importer fills a separate prime PVC
-		// and the target PVC only becomes Bound at the very end (via rebind), so a
-		// Pending target means the import is in progress, regardless of the storage
-		// class binding mode.
-		It("reports Provisioning for WFFC storage class", func() {
+		// Until a consumer schedules onto the WFFC target (the scheduler stamps its
+		// selected-node annotation) the populator defers the import, so the disk
+		// keeps reporting WaitForFirstConsumer: the VirtualMachine controller only
+		// starts the consuming VM while the disk is in this phase.
+		It("reports WaitForFirstConsumer for WFFC storage class until a consumer is scheduled", func() {
 			pvc.Status.Phase = corev1.ClaimPending
+			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+
+			syncer := NewObjectRefVirtualImage(svc, pvcSvc, stat, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
+		})
+
+		It("reports Provisioning for WFFC storage class once the consumer node is selected", func() {
+			pvc.Status.Phase = corev1.ClaimPending
+			pvc.Annotations = map[string]string{service.SelectedNodeAnnotation: "node-a"}
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
