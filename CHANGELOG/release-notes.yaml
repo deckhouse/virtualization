@@ -127,6 +127,25 @@
             - GHSA-gcjh-h69q-9w9g
             - GHSA-hrxh-6v49-42gf
             - GO-2026-5932
+- version: v1.10.4
+  date: "2026-08-28"
+  highlights:
+    - en: "The release fixes the cases where a virtual machine (VM) could fail to start because of its own disks. It also patches a vulnerability in the module."
+      ru: "Релиз устраняет случаи, когда виртуальная машина (ВМ) не запускалась из-за своих дисков. Также исправлена уязвимость в модуле."
+  fixes:
+    virtual-machines:
+      - en: A VM with disks on SDS storage is now placed on a node with enough space for them.
+        ru: ВМ с дисками на SDS-хранилище теперь размещается на узле, где для них хватает места.
+      - en: Fixed a VM with paravirtualization disabled hanging at startup on a `WaitForFirstConsumer` storage class.
+        ru: Исправлено зависание ВМ с отключённой паравиртуализацией при запуске на классе хранения `WaitForFirstConsumer`.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-10722
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-10722
 - version: v1.10.3
   date: "2026-08-24"
   highlights:
