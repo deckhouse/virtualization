@@ -3,6 +3,26 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.10.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: August 28, 2026.
+</span>
+
+### Highlights
+
+- The release fixes the cases where a virtual machine (VM) could fail to start because of its own disks. It also patches a vulnerability in the module.
+
+### Fixes
+
+- [vm] A VM with disks on SDS storage is now placed on a node with enough space for them.
+- [vd] Fixed a VM with paravirtualization disabled hanging at startup on a `WaitForFirstConsumer` storage class.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-10722
+
 ## v1.10.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
