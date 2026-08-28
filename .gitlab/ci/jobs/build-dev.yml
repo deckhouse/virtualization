@@ -39,7 +39,9 @@
 #
 # - interruptible: true is inherited from the global default
 #   (.gitlab/ci/defaults.yml), so a new push to the same MR/branch cancels the
-#   older in-flight build.
+#   older in-flight build. That is correct for the four context jobs below,
+#   whose ref IS their concurrency group; build_dev_manual is the exception and
+#   overrides it (see there).
 .dev_build:
   stage: build
   needs:
@@ -91,6 +93,10 @@ build_main:
 build_dev_manual:
   stage: build
   needs: []
+  # The concurrency group here is the tag, not the ref: web dispatches are
+  # exempt from GitLab's ref-keyed auto-cancel (see .gitlab/ci/workflow.yml),
+  # and cancel-redundant-pipelines.sh (first line of script:) cancels older
+  # pipelines building the same BUILD_TAG.
   variables:
     WERF_VIRTUAL_MERGE: "0"
     GIT_STRATEGY: clone
@@ -105,6 +111,8 @@ build_dev_manual:
       when: always
     - when: never
   script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh curl jq
+    - bash .gitlab/ci/scripts/bash/cancel-redundant-pipelines.sh
     - git fetch --tags --force
     - git checkout "tags/${BUILD_TAG}"
     - !reference [.base_build, script]

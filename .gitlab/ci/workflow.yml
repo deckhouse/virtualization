@@ -13,10 +13,26 @@
 #
 # Jobs default to `interruptible: true` (see .gitlab/ci/defaults.yml) so a
 # new commit cancels the redundant in-flight pipeline once "Auto-cancel
-# redundant pipelines" is enabled at the project level.
+# redundant pipelines" is enabled at the project level. Web dispatches opt out
+# of that wholesale via `auto_cancel` on the first rule below.
 
 workflow:
   rules:
+    # A web dispatch is never redundant with respect to pushes: it carries its
+    # own input (BUILD_TAG for a tag rebuild, SCAN_TAG for a scan) and runs on
+    # a branch only because the CI config has to come from somewhere. Without
+    # this, a push to main auto-cancels it — including while it still sits in
+    # the runner queue, which per-job `interruptible: false` cannot prevent
+    # (that one only takes effect once the job has started).
+    #
+    # MUST stay ahead of the main/tag rules below: a web dispatch sets
+    # $CI_COMMIT_BRANCH, so `$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH` matches it
+    # first and rules are first-match. The plain `$CI_PIPELINE_SOURCE == "web"`
+    # rule further down stays as the pipeline-creation rule for web dispatches
+    # on refs that no earlier rule matches.
+    - if: $CI_PIPELINE_SOURCE == "web"
+      auto_cancel:
+        on_new_commit: none
     # MR pipelines always run.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     # Default-branch (main) pushes always create a pipeline. Listed before the
