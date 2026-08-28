@@ -123,6 +123,11 @@ func validateVirtualDiskSnapshot(ctx context.Context, vi *v1alpha2.VirtualImage,
 		return NewVirtualDiskSnapshotNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
+	if vdSnapshot.Status.Data != nil {
+		return NewVirtualDiskSnapshotNotSupportedError(vdSnapshot.Name,
+			"it was captured by the unified snapshotter, and importing an image from such a snapshot is not supported yet")
+	}
+
 	vs, err := object.FetchObject(ctx, types.NamespacedName{Name: vdSnapshot.Status.VolumeSnapshotName, Namespace: vdSnapshot.Namespace}, client, &vsv1.VolumeSnapshot{})
 	if err != nil {
 		return fmt.Errorf("fetch volume snapshot: %w", err)

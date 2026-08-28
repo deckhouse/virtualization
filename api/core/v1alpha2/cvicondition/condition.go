@@ -78,6 +78,8 @@ const (
 	VirtualDiskAttachedToVirtualMachine DatasourceReadyReason = "VirtualDiskAttachedToVirtualMachine"
 	// VirtualDiskSnapshotNotReady indicates that the `VirtualDiskSnapshot` datasource is not ready, which prevents the import process from starting.
 	VirtualDiskSnapshotNotReady DatasourceReadyReason = "VirtualDiskSnapshotNotReady"
+	// VirtualDiskSnapshotNotSupported indicates that the `VirtualDiskSnapshot` datasource cannot be imported from, no matter how long one waits.
+	VirtualDiskSnapshotNotSupported DatasourceReadyReason = "VirtualDiskSnapshotNotSupported"
 
 	// WaitForUserUpload indicates that the `ClusterVirtualImage` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"

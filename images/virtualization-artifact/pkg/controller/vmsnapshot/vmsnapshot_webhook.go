@@ -23,20 +23,26 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Validator struct{}
-
-func NewValidator() *Validator {
-	return &Validator{}
+type Validator struct {
+	unifiedSnapshotterPresent bool
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	logger.FromContext(ctx).Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
+func NewValidator(unifiedSnapshotterPresent bool) *Validator {
+	return &Validator{unifiedSnapshotterPresent: unifiedSnapshotterPresent}
+}
+
+func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	vmSnapshot, ok := obj.(*v1alpha2.VirtualMachineSnapshot)
+	if !ok {
+		return nil, fmt.Errorf("expected a VirtualMachineSnapshot but got a %T", obj)
+	}
+
+	return nil, validate.UnifiedSnapshotterAnnotationAvailable(vmSnapshot, v.unifiedSnapshotterPresent)
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
@@ -54,6 +60,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	if oldVMSnapshot.Generation != newVMSnapshot.Generation {
 		return nil, fmt.Errorf("VirtualMachineSnapshot is an idempotent resource: specification changes are not available")
+	}
+
+	if err := validate.UnifiedSnapshotterAnnotationImmutable(oldVMSnapshot, newVMSnapshot); err != nil {
+		return nil, err
 	}
 
 	return nil, nil

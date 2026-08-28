@@ -106,3 +106,19 @@ func NewVirtualDiskSnapshotNotReadyError(name string) error {
 		name: name,
 	}
 }
+
+type VirtualDiskSnapshotNotSupportedError struct {
+	name   string
+	reason string
+}
+
+func (e VirtualDiskSnapshotNotSupportedError) Error() string {
+	return fmt.Sprintf("VirtualDiskSnapshot %s cannot be used as a data source: %s", e.name, e.reason)
+}
+
+func NewVirtualDiskSnapshotNotSupportedError(name, reason string) error {
+	return VirtualDiskSnapshotNotSupportedError{
+		name:   name,
+		reason: reason,
+	}
+}

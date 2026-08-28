@@ -193,6 +193,55 @@ rules:
   - list
   - delete
 - apiGroups:
+  - storage-foundation.deckhouse.io
+  resources:
+  - volumerestorerequests
+  verbs:
+  - get
+  - watch
+  - create
+  - patch
+  - update
+  - list
+  - delete
+# unified-snapshotter SDK controllers (pkg/controller/unified-snapshotter/...): capture-request lifecycle
+# for VirtualMachineSnapshot/VirtualDiskSnapshot objects annotated with use-unified-snapshotter. Used to
+# be a separate ClusterRole for the now-folded-in virtualization-snapshotter Deployment/SA.
+- apiGroups:
+  - state-snapshotter.deckhouse.io
+  resources:
+  - manifestcapturerequests
+  verbs:
+  - create
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - state-snapshotter.deckhouse.io
+  resources:
+  - snapshotcontents
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - storage-foundation.deckhouse.io
+  resources:
+  - volumecapturerequests
+  verbs:
+  - create
+  - patch
+  - get
+  - list
+  - watch
+- apiGroups:
+  - subresources.state-snapshotter.deckhouse.io
+  resources:
+  - snapshotcontents/manifests-download
+  verbs:
+  - get
+- apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationkubevirts

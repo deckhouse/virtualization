@@ -69,6 +69,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *v1alpha2.Vi
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
+		step.NewEnsurePVCOwnershipStep(pvc, ds.client),
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.diskService, ds.pvcService, ds.recorder, ds.client, cb),
@@ -91,6 +92,16 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *v1alpha
 
 	if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
 		return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+	}
+
+	// A snapshot captured through the unified-snapshotter SDK never gets a bound CSI VolumeSnapshot — its readiness signal is
+	// status.data instead. Mirrors the branch in CreatePVCFromVDSnapshotStep.Take: this check and
+	// that step's must agree, or DatasourceReadyHandler blocks LifeCycleHandler from ever calling Sync.
+	if _, ok := vdSnapshot.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; ok {
+		if vdSnapshot.Status.Data == nil {
+			return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+		}
+		return nil
 	}
 
 	vs, err := object.FetchObject(ctx, types.NamespacedName{

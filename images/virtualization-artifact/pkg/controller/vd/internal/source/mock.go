@@ -5,6 +5,7 @@ package source
 
 import (
 	"context"
+	"github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
@@ -477,6 +478,9 @@ var _ DataSourcePVCService = &DataSourcePVCServiceMock{}
 //			CreateTargetFromVSFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the CreateTargetFromVS method")
 //			},
+//			EnsureVolumeRestoreRequestFunc: func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, sourceRef v1alpha1.ObjectReference, modeGetter service.VolumeAndAccessModesGetter) error {
+//				panic("mock out the EnsureVolumeRestoreRequest method")
+//			},
 //			FinalizersFunc: func() []string {
 //				panic("mock out the Finalizers method")
 //			},
@@ -504,6 +508,9 @@ type DataSourcePVCServiceMock struct {
 
 	// CreateTargetFromVSFunc mocks the CreateTargetFromVS method.
 	CreateTargetFromVSFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+
+	// EnsureVolumeRestoreRequestFunc mocks the EnsureVolumeRestoreRequest method.
+	EnsureVolumeRestoreRequestFunc func(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, sourceRef v1alpha1.ObjectReference, modeGetter service.VolumeAndAccessModesGetter) error
 
 	// FinalizersFunc mocks the Finalizers method.
 	FinalizersFunc func() []string
@@ -590,6 +597,23 @@ type DataSourcePVCServiceMock struct {
 			// NodePlacement is the nodePlacement argument value.
 			NodePlacement *provisioner.NodePlacement
 		}
+		// EnsureVolumeRestoreRequest holds details about calls to the EnsureVolumeRestoreRequest method.
+		EnsureVolumeRestoreRequest []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key types.NamespacedName
+			// StorageClassName is the storageClassName argument value.
+			StorageClassName string
+			// Size is the size argument value.
+			Size *resource.Quantity
+			// Owner is the owner argument value.
+			Owner client.Object
+			// SourceRef is the sourceRef argument value.
+			SourceRef v1alpha1.ObjectReference
+			// ModeGetter is the modeGetter argument value.
+			ModeGetter service.VolumeAndAccessModesGetter
+		}
 		// Finalizers holds details about calls to the Finalizers method.
 		Finalizers []struct {
 		}
@@ -624,13 +648,14 @@ type DataSourcePVCServiceMock struct {
 			NodePlacement *provisioner.NodePlacement
 		}
 	}
-	lockCreateBlankTarget    sync.RWMutex
-	lockCreateTargetFromDVCR sync.RWMutex
-	lockCreateTargetFromPVC  sync.RWMutex
-	lockCreateTargetFromVS   sync.RWMutex
-	lockFinalizers           sync.RWMutex
-	lockImport               sync.RWMutex
-	lockWaitForImport        sync.RWMutex
+	lockCreateBlankTarget          sync.RWMutex
+	lockCreateTargetFromDVCR       sync.RWMutex
+	lockCreateTargetFromPVC        sync.RWMutex
+	lockCreateTargetFromVS         sync.RWMutex
+	lockEnsureVolumeRestoreRequest sync.RWMutex
+	lockFinalizers                 sync.RWMutex
+	lockImport                     sync.RWMutex
+	lockWaitForImport              sync.RWMutex
 }
 
 // CreateBlankTarget calls CreateBlankTargetFunc.
@@ -866,6 +891,62 @@ func (mock *DataSourcePVCServiceMock) CreateTargetFromVSCalls() []struct {
 	mock.lockCreateTargetFromVS.RLock()
 	calls = mock.calls.CreateTargetFromVS
 	mock.lockCreateTargetFromVS.RUnlock()
+	return calls
+}
+
+// EnsureVolumeRestoreRequest calls EnsureVolumeRestoreRequestFunc.
+func (mock *DataSourcePVCServiceMock) EnsureVolumeRestoreRequest(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, sourceRef v1alpha1.ObjectReference, modeGetter service.VolumeAndAccessModesGetter) error {
+	if mock.EnsureVolumeRestoreRequestFunc == nil {
+		panic("DataSourcePVCServiceMock.EnsureVolumeRestoreRequestFunc: method is nil but DataSourcePVCService.EnsureVolumeRestoreRequest was just called")
+	}
+	callInfo := struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		SourceRef        v1alpha1.ObjectReference
+		ModeGetter       service.VolumeAndAccessModesGetter
+	}{
+		Ctx:              ctx,
+		Key:              key,
+		StorageClassName: storageClassName,
+		Size:             size,
+		Owner:            owner,
+		SourceRef:        sourceRef,
+		ModeGetter:       modeGetter,
+	}
+	mock.lockEnsureVolumeRestoreRequest.Lock()
+	mock.calls.EnsureVolumeRestoreRequest = append(mock.calls.EnsureVolumeRestoreRequest, callInfo)
+	mock.lockEnsureVolumeRestoreRequest.Unlock()
+	return mock.EnsureVolumeRestoreRequestFunc(ctx, key, storageClassName, size, owner, sourceRef, modeGetter)
+}
+
+// EnsureVolumeRestoreRequestCalls gets all the calls that were made to EnsureVolumeRestoreRequest.
+// Check the length with:
+//
+//	len(mockedDataSourcePVCService.EnsureVolumeRestoreRequestCalls())
+func (mock *DataSourcePVCServiceMock) EnsureVolumeRestoreRequestCalls() []struct {
+	Ctx              context.Context
+	Key              types.NamespacedName
+	StorageClassName string
+	Size             *resource.Quantity
+	Owner            client.Object
+	SourceRef        v1alpha1.ObjectReference
+	ModeGetter       service.VolumeAndAccessModesGetter
+} {
+	var calls []struct {
+		Ctx              context.Context
+		Key              types.NamespacedName
+		StorageClassName string
+		Size             *resource.Quantity
+		Owner            client.Object
+		SourceRef        v1alpha1.ObjectReference
+		ModeGetter       service.VolumeAndAccessModesGetter
+	}
+	mock.lockEnsureVolumeRestoreRequest.RLock()
+	calls = mock.calls.EnsureVolumeRestoreRequest
+	mock.lockEnsureVolumeRestoreRequest.RUnlock()
 	return calls
 }
 

@@ -40,6 +40,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	ssstoragev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
+	ssv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
+	storagefoundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
@@ -53,7 +56,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/populator"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/storageprofile"
+	unifiedvdsnapshot "github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/vdsnapshot"
+	unifiedvmsnapshot "github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/vmsnapshot"
+	unifiedvmsop "github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
@@ -105,6 +112,8 @@ const (
 	clusterUUIDEnv = "CLUSTER_UUID"
 
 	migrationSystemNetworkNameEnv = "MIGRATION_SYSTEM_NETWORK_NAME"
+
+	unifiedSnapshotterPresentEnv = "UNIFIED_SNAPSHOTTER_PRESENT"
 )
 
 func main() {
@@ -160,6 +169,15 @@ func main() {
 		}
 	}
 	pflag.BoolVar(&disableFirmwareUpdate, "disable-firmware-update", disableFirmwareUpdate, "disable automatic firmware update migrations")
+
+	var unifiedSnapshotterPresent bool
+	if raw := os.Getenv(unifiedSnapshotterPresentEnv); raw != "" {
+		unifiedSnapshotterPresent, err = strconv.ParseBool(raw)
+		if err != nil {
+			slog.Default().Error(err.Error())
+			os.Exit(1)
+		}
+	}
 
 	leaderElection := true
 	if raw := os.Getenv(LeaderElectionEnv); raw != "" {
@@ -268,7 +286,10 @@ func main() {
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
 		vpav1.AddToScheme,
+		storagefoundationv1alpha1.AddToScheme,
 		mcapi.AddToScheme,
+		ssv1alpha1.AddToScheme,
+		ssstoragev1alpha1.AddToScheme,
 	} {
 		err = f(scheme)
 		if err != nil {
@@ -386,7 +407,7 @@ func main() {
 	}
 
 	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.DiskImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings, unifiedSnapshotterPresent); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -472,13 +493,13 @@ func main() {
 	}
 
 	vdsnapshotLogger := logger.NewControllerLogger(vdsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vdsnapshot.NewController(ctx, mgr, vdsnapshotLogger, virtClient); err != nil {
+	if _, err = vdsnapshot.NewController(ctx, mgr, vdsnapshotLogger, virtClient, unifiedSnapshotterPresent); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	vmsnapshotLogger := logger.NewControllerLogger(vmsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient); err != nil {
+	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient, unifiedSnapshotterPresent); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -501,6 +522,49 @@ func main() {
 	if err = vmsop.SetupGC(mgr, vmsopLogger, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
+	}
+
+	// unified-snapshotter SDK controllers: drive VirtualMachineSnapshot/VirtualDiskSnapshot/
+	// VirtualMachineSnapshotOperation objects annotated with v1alpha2.AnnUseUnifiedSnapshotter through the
+	// state-snapshotter SDK (github.com/deckhouse/state-snapshotter/pkg/snapshotsdk)
+	// Work in parallel with custom Secret-based snapshot controllers registered above.
+	//
+	// Gated on UNIFIED_SNAPSHOTTER_PRESENT flag: unified snapshotter controllers require
+	// state-snapshotter core installed and their CRDs to be present in cluster. These controllers
+	// must stay off rather than crash-loop on a missing CRD.
+	if unifiedSnapshotterPresent {
+		unifiedVMSnapshotLogger := logger.NewControllerLogger(unifiedvmsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+		if err = (&unifiedvmsnapshot.Reconciler{
+			Client:    mgr.GetClient(),
+			APIReader: mgr.GetAPIReader(),
+			Freezer:   service.NewSnapshotService(virtClient, mgr.GetClient(), nil),
+			Log:       unifiedVMSnapshotLogger,
+		}).SetupWithManager(mgr); err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
+
+		unifiedVDSnapshotLogger := logger.NewControllerLogger(unifiedvdsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+		if err = (&unifiedvdsnapshot.Reconciler{
+			Client:    mgr.GetClient(),
+			APIReader: mgr.GetAPIReader(),
+			Freezer:   service.NewSnapshotService(virtClient, mgr.GetClient(), nil),
+			Log:       unifiedVDSnapshotLogger,
+		}).SetupWithManager(mgr); err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
+
+		unifiedVMSOPLogger := logger.NewControllerLogger(unifiedvmsop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+		unifiedVMSOPReconciler, err := unifiedvmsop.NewReconciler(cfg, mgr.GetClient(), unifiedVMSOPLogger)
+		if err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
+		if err = unifiedVMSOPReconciler.SetupWithManager(mgr); err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
 	}
 
 	liveMigrationLogger := logger.NewControllerLogger(livemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)

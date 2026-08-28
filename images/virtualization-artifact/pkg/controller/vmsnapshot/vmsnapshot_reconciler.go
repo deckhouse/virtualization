@@ -63,6 +63,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
+	if _, ok := vmSnapshot.Changed().Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; ok {
+		// Routed to the unified-snapshotter SDK-based controller.
+		return reconcile.Result{}, nil
+	}
+
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
 		return h.Handle(ctx, vmSnapshot.Changed())

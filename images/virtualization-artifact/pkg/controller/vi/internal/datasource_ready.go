@@ -95,6 +95,12 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtual
 			Reason(vicondition.VirtualDiskSnapshotNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
+	case errors.As(err, &source.VirtualDiskSnapshotNotSupportedError{}):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.VirtualDiskSnapshotNotSupported).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskNotReadyForUseError{}):
 		cb.
 			Status(metav1.ConditionFalse).

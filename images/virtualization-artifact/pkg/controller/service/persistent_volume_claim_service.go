@@ -31,6 +31,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagefoundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -164,6 +165,70 @@ func (s *PersistentVolumeClaimService) CreateTargetFromVS(ctx context.Context, k
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("create volume snapshot target pvc: %w", err)
 	}
 	return target, nil
+}
+
+// EnsureVolumeRestoreRequest requests a target PVC be materialized by storage-foundation from a
+// captured volume artifact (a storage-foundation VolumeRestoreRequest), instead of creating the PVC
+// directly and letting the CSI driver clone it from a VolumeSnapshot. The VRR's own controller/sidecar
+// creates the destination PVC (named key.Name, in key.Namespace) out of band; this method only ensures
+// the VRR object exists and returns once it does — WaitForPVCStep already polls for the resulting PVC by
+// name, agnostic of what created it, so no further waiting is needed here.
+func (s *PersistentVolumeClaimService) EnsureVolumeRestoreRequest(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, sourceRef storagefoundationv1alpha1.ObjectReference, modeGetter VolumeAndAccessModesGetter) error {
+	existing, err := object.FetchObject(ctx, key, s.client, &storagefoundationv1alpha1.VolumeRestoreRequest{})
+	if err != nil {
+		return fmt.Errorf("fetch volume restore request: %w", err)
+	}
+	if existing != nil {
+		return nil
+	}
+
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, s.client, &storagev1.StorageClass{})
+	if err != nil {
+		return fmt.Errorf("fetch storage class: %w", err)
+	}
+	if sc == nil {
+		return fmt.Errorf("storage class %q not found", storageClassName)
+	}
+
+	volumeMode, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, owner, sc)
+	if err != nil {
+		return err
+	}
+
+	requested := resource.Quantity{}
+	if size != nil {
+		requested = size.DeepCopy()
+	}
+
+	vrr := &storagefoundationv1alpha1.VolumeRestoreRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            key.Name,
+			Namespace:       key.Namespace,
+			OwnerReferences: []metav1.OwnerReference{MakeControllerOwnerReference(owner)},
+		},
+		Spec: storagefoundationv1alpha1.VolumeRestoreRequestSpec{
+			SourceRef: sourceRef,
+			PvcTemplate: storagefoundationv1alpha1.PersistentVolumeClaimTemplateSpec{
+				PersistentVolumeClaimTemplateMetadata: storagefoundationv1alpha1.PersistentVolumeClaimTemplateMetadata{
+					Name: key.Name,
+				},
+				PersistentVolumeClaimSpec: storagefoundationv1alpha1.PersistentVolumeClaimSpec{
+					AccessModes:      []storagefoundationv1alpha1.PersistentVolumeAccessMode{storagefoundationv1alpha1.PersistentVolumeAccessMode(accessMode)},
+					StorageClassName: &sc.Name,
+					VolumeMode:       ptr.To(storagefoundationv1alpha1.PersistentVolumeMode(volumeMode)),
+					Resources: storagefoundationv1alpha1.VolumeResourceRequirements{
+						Requests: storagefoundationv1alpha1.ResourceList{
+							storagefoundationv1alpha1.ResourceStorage: requested,
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := s.client.Create(ctx, vrr); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create volume restore request: %w", err)
+	}
+	return nil
 }
 
 func (s *PersistentVolumeClaimService) CreateTargetFromPVC(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *corev1.PersistentVolumeClaim, modeGetter VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error) {

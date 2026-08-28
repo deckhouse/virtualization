@@ -24,23 +24,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Validator struct {
-	logger *log.Logger
+	logger                    *log.Logger
+	unifiedSnapshotterPresent bool
 }
 
-func NewValidator(logger *log.Logger) *Validator {
+func NewValidator(logger *log.Logger, unifiedSnapshotterPresent bool) *Validator {
 	return &Validator{
-		logger: logger.With("webhook", "validator"),
+		logger:                    logger.With("webhook", "validator"),
+		unifiedSnapshotterPresent: unifiedSnapshotterPresent,
 	}
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
+func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	vds, ok := obj.(*v1alpha2.VirtualDiskSnapshot)
+	if !ok {
+		return nil, fmt.Errorf("expected a VirtualDiskSnapshot but got a %T", obj)
+	}
+
+	return nil, validate.UnifiedSnapshotterAnnotationAvailable(vds, v.unifiedSnapshotterPresent)
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
@@ -58,6 +64,10 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	if oldVDS.Generation != newVDS.Generation {
 		return nil, fmt.Errorf("VirtualDiskSnapshot is an idempotent resource: specification changes are not available")
+	}
+
+	if err := validate.UnifiedSnapshotterAnnotationImmutable(oldVDS, newVDS); err != nil {
+		return nil, err
 	}
 
 	return nil, nil

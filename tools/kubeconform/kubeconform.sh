@@ -88,6 +88,8 @@ if [[ ! -d schemas ]]; then
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/400-descheduler/crds/deschedulers.yaml
   echo " CiliumClusterwideNetworkPolicy"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/refs/heads/main/modules/021-cni-cilium/crds/cilium/ciliumclusterwidenetworkpolicies.yaml
+  echo " CustomSnapshotDefinition"
+  curl -LOs https://raw.githubusercontent.com/deckhouse/state-snapshotter/refs/heads/main/crds/state-snapshotter.deckhouse.io_customsnapshotdefinitions.yaml
 
   # Transform CRDs to JSON schemas.
   export FILENAME_FORMAT='{kind}-{group}-{version}'

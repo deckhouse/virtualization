@@ -131,6 +131,301 @@ spec:
                   type: integer
                   description: |
                     Resource generation last processed by the controller.
+                boundSnapshotContentName:
+                  description: |-
+                    BoundSnapshotContentName is the name of the cluster-scoped SnapshotContent bound to this node.
+                    Written by the state-snapshotter core binder; read-only from the domain controller's perspective.
+                  type: string
+                captureState:
+                  description: |-
+                    CaptureState is the SDK capture state machine for this node (barrier 1/2 phase, capture request
+                    names, core-owned success latches).
+                  properties:
+                    commonController:
+                      description:
+                        "CommonController holds the core-written capture-leg
+                        success latches. Single writer: core."
+                      properties:
+                        childrenSettled:
+                          description: |-
+                            ChildrenSettled is the core-computed "every direct child has gone terminal (captured-OK or
+                            failed)" latch. It is NOT a capture leg and does not participate in this node's own
+                            AllLegsCaptured/CoreCaptureOutcome — it is the completeness signal a domain controller reads to
+                            time a barrier-2 consistency action (e.g. fs unfreeze) that must fire even when a child capture
+                            failed. Nil means no direct children (leaf) or not computed yet; true once every direct child is
+                            terminal.
+                          type: boolean
+                        dataCaptured:
+                          description: |-
+                            DataCaptured is the core-owned success latch for the data leg, with the same nil/false/true
+                            semantics as ManifestCaptured. Always nil on VirtualMachineSnapshot.
+                          type: boolean
+                        manifestCaptured:
+                          description: |-
+                            ManifestCaptured is the core-owned success latch for the manifest leg. Nil means the leg was not
+                            declared yet; false means declared but not yet captured; true means durably captured.
+                          type: boolean
+                        childSubtreesManifestsPersisted:
+                          description: |-
+                            ChildSubtreesManifestsPersisted is the core-computed "the subtrees of ALL declared direct
+                            children archived their manifests" latch. Not a capture leg: it covers the children only, so
+                            "the whole node is persisted" decomposes as ManifestCaptured &&
+                            ChildSubtreesManifestsPersisted.
+                          type: boolean
+                        subtreePlanned:
+                          description: |-
+                            SubtreePlanned is a core-computed monotonic recursive latch: true once this node and its whole
+                            subtree finished planning (barrier 1). Not a capture leg.
+                          type: boolean
+                      type: object
+                    domainSpecificController:
+                      description: |-
+                        DomainSpecificController holds the domain-written planning refs and lifecycle. Single writer: the
+                        domain controller, via the SDK.
+                      properties:
+                        excludedRefs:
+                          description: |-
+                            ExcludedRefs are this node's direct exclusion vetoes (state-snapshotter.deckhouse.io/exclude label
+                            on a child source object). This PoC controller does not implement the veto label, so it always
+                            publishes an empty list here (required by the SDK contract to be present, not omitted).
+                          items:
+                            description: |-
+                              UnifiedSnapshotterChildRef mirrors state-snapshotter's storage/v1alpha1.SnapshotChildRef /
+                              ExcludedObjectRef: a reference within the namespace-local snapshot run tree. Namespace is implicit
+                              (always the parent snapshot's own namespace) — unlike UnifiedSnapshotterSourceRef, it carries no
+                              namespace or UID.
+                            properties:
+                              apiVersion:
+                                description: API version of the referenced object.
+                                type: string
+                              kind:
+                                description: Kind of the referenced object.
+                                type: string
+                              name:
+                                description: Name of the referenced object.
+                                type: string
+                            required:
+                              - apiVersion
+                              - kind
+                              - name
+                            type: object
+                          type: array
+                        manifestCaptureRequestName:
+                          description:
+                            ManifestCaptureRequestName is the name of the
+                            ManifestCaptureRequest created for this node.
+                          type: string
+                        message:
+                          description:
+                            Message is a human-readable progress or failure
+                            message.
+                          type: string
+                        phase:
+                          description:
+                            Phase is the domain capture phase (SDK barrier
+                            1/2 state machine).
+                          enum:
+                            - Planning
+                            - Planned
+                            - Finished
+                            - Failed
+                          type: string
+                        reason:
+                          description:
+                            Reason is the machine-readable failure reason,
+                            set only when Phase is Failed.
+                          type: string
+                        volumeCaptureRequestName:
+                          description: |-
+                            VolumeCaptureRequestName is the name of the VolumeCaptureRequest created for this node's single
+                            data leg. Populated only on VirtualDiskSnapshot; always empty on VirtualMachineSnapshot, which
+                            carries no data leg of its own.
+                          type: string
+                      required:
+                        - excludedRefs
+                      type: object
+                  type: object
+                childrenSnapshotRefs:
+                  description: |-
+                    ChildrenSnapshotRefs is always empty on this data-bearing leaf; kept for uniformity across
+                    snapshot kinds (mirrors state-snapshotter's own reference domain implementation).
+                  items:
+                    description: |-
+                      UnifiedSnapshotterChildRef mirrors state-snapshotter's storage/v1alpha1.SnapshotChildRef /
+                      ExcludedObjectRef: a reference within the namespace-local snapshot run tree. Namespace is implicit
+                      (always the parent snapshot's own namespace) — unlike UnifiedSnapshotterSourceRef, it carries no
+                      namespace or UID.
+                    properties:
+                      apiVersion:
+                        description: API version of the referenced object.
+                        type: string
+                      kind:
+                        description: Kind of the referenced object.
+                        type: string
+                      name:
+                        description: Name of the referenced object.
+                        type: string
+                    required:
+                      - apiVersion
+                      - kind
+                      - name
+                    type: object
+                  type: array
+                excludedRefs:
+                  description: |-
+                    ExcludedRefs is the top-level mirror of the bound SnapshotContent's durable excludedRefs aggregate.
+                    Written only by the core; a data-bearing leaf has no children, so this is normally empty.
+                  items:
+                    description: |-
+                      UnifiedSnapshotterChildRef mirrors state-snapshotter's storage/v1alpha1.SnapshotChildRef /
+                      ExcludedObjectRef: a reference within the namespace-local snapshot run tree. Namespace is implicit
+                      (always the parent snapshot's own namespace) — unlike UnifiedSnapshotterSourceRef, it carries no
+                      namespace or UID.
+                    properties:
+                      apiVersion:
+                        description: API version of the referenced object.
+                        type: string
+                      kind:
+                        description: Kind of the referenced object.
+                        type: string
+                      name:
+                        description: Name of the referenced object.
+                        type: string
+                    required:
+                      - apiVersion
+                      - kind
+                      - name
+                    type: object
+                  type: array
+                sourceRef:
+                  description: |-
+                    SourceRef is the full identity of the live source object this node captured (Capture mode only),
+                    published via the SDK's PublishSnapshotSource for later use by import/restore tooling.
+                  properties:
+                    apiVersion:
+                      description: API version of the referenced object.
+                      type: string
+                    kind:
+                      description: Kind of the referenced object.
+                      type: string
+                    name:
+                      description: Name of the referenced object.
+                      type: string
+                    namespace:
+                      description: Namespace of the referenced object, if namespaced.
+                      type: string
+                    uid:
+                      description:
+                        UID of the referenced object at the time this reference
+                        was published.
+                      type: string
+                  required:
+                    - apiVersion
+                    - kind
+                    - name
+                  type: object
+                data:
+                  description:
+                    "Data is the captured volume's durable data binding, mirrored verbatim from the bound
+                    SnapshotContent
+
+                    by the state-snapshotter core once the data leg is captured. VirtualDisk provisioning restores from
+
+                    Data.ArtifactRef (via a storage-foundation VolumeRestoreRequest) instead of cloning the plain
+
+                    namespaced CSI VolumeSnapshot referenced by VolumeSnapshotName: the SDK-captured artifact is a
+
+                    VolumeSnapshotContent that external-snapshotter refuses to bind a new VolumeSnapshot to."
+                  properties:
+                    accessModes:
+                      description: AccessModes records the source PersistentVolumeClaim access modes.
+                      items:
+                        type: string
+                      type: array
+                    artifactRef:
+                      description:
+                        ArtifactRef references the cluster-scoped durable data artifact backing the captured
+                        data.
+                      properties:
+                        apiVersion:
+                          description: API version of the referenced artifact.
+                          type: string
+                        kind:
+                          description: Kind of the referenced artifact.
+                          type: string
+                        name:
+                          description: Name of the referenced artifact.
+                          type: string
+                        uid:
+                          description: "UID is filled best-effort: the artifact may be referenced before its UID is known."
+                          type: string
+                      required:
+                        - apiVersion
+                        - kind
+                        - name
+                      type: object
+                    fsType:
+                      description: FsType records the source filesystem type (Filesystem volumes only).
+                      type: string
+                    size:
+                      description:
+                        'Size records the real allocated size of the captured volume, taken from the data artifact''s
+
+                        restoreSize. Stored as a resource.Quantity string (e.g. "10Gi").'
+                      type: string
+                    sourceRef:
+                      description:
+                        "SourceRef identifies the captured PersistentVolumeClaim backing this node's data.
+                        Distinct from the
+
+                        top-level status.sourceRef, which references the captured live domain object."
+                      properties:
+                        apiVersion:
+                          description: API version of the referenced object.
+                          type: string
+                        kind:
+                          description: Kind of the referenced object.
+                          type: string
+                        name:
+                          description: Name of the referenced object.
+                          type: string
+                        namespace:
+                          description: Namespace of the referenced object, if namespaced.
+                          type: string
+                        uid:
+                          description: UID of the referenced object at the time this reference was published.
+                          type: string
+                      required:
+                        - apiVersion
+                        - kind
+                        - name
+                      type: object
+                    storageClassName:
+                      description: StorageClassName records the source StorageClass of the captured volume.
+                      type: string
+                    volumeMode:
+                      description:
+                        "VolumeMode records the source volume mode (Block or Filesystem). CSI snapshots are
+                        mode-agnostic,
+
+                        so it is persisted here to recreate the PersistentVolumeClaim on restore."
+                      type: string
+                  required:
+                    - artifactRef
+                    - sourceRef
+                  type: object
+                storageClassName:
+                  description: |-
+                    StorageClassName mirrors the captured disk's storage class at capture time. Used as the
+                    default target storage class when cloning a new VirtualDisk from this snapshot and the
+                    caller doesn't specify one.
+                  type: string
+                persistentVolumeClaimSize:
+                  description: |-
+                    PersistentVolumeClaimSize mirrors the captured disk's requested PVC size (a resource.Quantity
+                    string) at capture time. Used as the default target size when cloning a new VirtualDisk from
+                    this snapshot and the caller doesn't specify one.
+                  type: string
       additionalPrinterColumns:
         - name: Phase
           type: string

@@ -1,0 +1,49 @@
+# Grant read only access to our GVKs for the unified snapshotter controller.
+#
+# Snapshot taking is relying on external component that will
+# read manifests and store them in a unified manner.
+# Currently unified snapshotter has no knowledge about required
+# grants and has no ability to create ClusterRole with our GVKs.
+# This RBAC is a neat workaround for this situation, because
+# we know which GVKs we put in snapshot requests.
+{{- if eq (include "unified-snapshotter.customSnapshotDefinitionIsPresent" .) "true" -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: d8:{{ .Chart.Name }}:capture-snapshots
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+rules:
+  - apiGroups:
+      - virtualization.deckhouse.io
+    resources:
+      - virtualdisks
+      - virtualimages
+      - virtualmachines
+      - virtualmachineipaddressleases
+      - virtualmachineipaddresses
+      - virtualmachinemacaddressleases
+      - virtualmachinemacaddresses
+      - virtualmachineblockdeviceattachments
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: d8:{{ .Chart.Name }}:state-snapshotter
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: d8:{{ .Chart.Name }}:capture-snapshots
+subjects:
+  - kind: ServiceAccount
+    name: webhooks
+    namespace: d8-state-snapshotter
+  - kind: ServiceAccount
+    name: controller
+    namespace: d8-state-snapshotter
+{{- end }}

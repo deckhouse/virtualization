@@ -9,6 +9,7 @@ tool (
 
 require (
 	github.com/deckhouse/deckhouse/pkg/log v0.2.0
+	github.com/deckhouse/storage-foundation/api v0.0.0-20260729153345-4bb99ebea0bd
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.2.0+incompatible
@@ -58,6 +59,8 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/deckhouse/state-snapshotter/api v0.0.0-20260807143948-623ed4d35ecc
+	github.com/deckhouse/state-snapshotter/pkg/snapshotsdk v0.0.0-20260807143948-623ed4d35ecc
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect

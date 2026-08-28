@@ -1,0 +1,38 @@
+# Registers VirtualMachineSnapshot with the state-snapshotter core as a manifest-only aggregator kind. Lower
+# weight than the disk CSD below: the generic namespace-child planner must expand the VM node (and
+# thus declare its VirtualDiskSnapshot children) before the disk kind's own traversal wave runs,
+# otherwise a disk could be double-covered.
+#
+# Gated on the CustomSnapshotDefinition CRD actually being present:
+# without the external state-snapshotter core installed, this CRD doesn't exist and applying these
+# objects would fail.
+{{- if eq (include "unified-snapshotter.customSnapshotDefinitionIsPresent" .) "true" }}
+---
+apiVersion: state-snapshotter.deckhouse.io/v1alpha1
+kind: CustomSnapshotDefinition
+metadata:
+  name: virtualization-virtual-machine-snapshot
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+spec:
+  weight: 10
+  apiVersion: virtualization.deckhouse.io/v1alpha2
+  kind: VirtualMachineSnapshot
+  requiresDataArtifact: false
+  source:
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualMachine
+---
+apiVersion: state-snapshotter.deckhouse.io/v1alpha1
+kind: CustomSnapshotDefinition
+metadata:
+  name: virtualization-virtual-disk-snapshot
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+spec:
+  weight: 100
+  apiVersion: virtualization.deckhouse.io/v1alpha2
+  kind: VirtualDiskSnapshot
+  requiresDataArtifact: true
+  source:
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualDisk
+{{- end }}

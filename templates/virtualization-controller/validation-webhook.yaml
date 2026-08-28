@@ -164,7 +164,7 @@ webhooks:
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
-        operations:  ["UPDATE"]
+        operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualdisksnapshots"]
         scope:       "Namespaced"
     clientConfig:
@@ -181,7 +181,7 @@ webhooks:
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
-        operations:  ["UPDATE"]
+        operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachinesnapshots"]
         scope:       "Namespaced"
     clientConfig:

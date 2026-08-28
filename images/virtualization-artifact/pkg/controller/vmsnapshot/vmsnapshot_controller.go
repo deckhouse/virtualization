@@ -44,6 +44,7 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 	virtClient kubeclient.Client,
+	unifiedSnapshotterPresent bool,
 ) error {
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVMSnapshotProtection)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
@@ -74,7 +75,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineSnapshot{}).
-		WithValidator(NewValidator()).
+		WithValidator(NewValidator(unifiedSnapshotterPresent)).
 		Complete(); err != nil {
 		return err
 	}

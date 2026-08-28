@@ -42,6 +42,7 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 	virtClient kubeclient.Client,
+	unifiedSnapshotterPresent bool,
 ) (controller.Controller, error) {
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDSnapshotProtection)
 	freezer := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
@@ -71,7 +72,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualDiskSnapshot{}).
-		WithValidator(NewValidator(log)).
+		WithValidator(NewValidator(log, unifiedSnapshotterPresent)).
 		Complete(); err != nil {
 		return nil, err
 	}

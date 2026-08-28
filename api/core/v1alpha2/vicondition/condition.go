@@ -82,6 +82,8 @@ const (
 	VirtualDiskNotReady DatasourceReadyReason = "VirtualDiskNotReady"
 	// VirtualDiskSnapshotNotReady indicates that the `VirtualDiskSnapshot` datasource is not ready, which prevents the import process from starting.
 	VirtualDiskSnapshotNotReady DatasourceReadyReason = "VirtualDiskSnapshotNotReady"
+	// VirtualDiskSnapshotNotSupported indicates that the `VirtualDiskSnapshot` datasource cannot be imported from, no matter how long one waits.
+	VirtualDiskSnapshotNotSupported DatasourceReadyReason = "VirtualDiskSnapshotNotSupported"
 	// VirtualDiskNotReadyForUse indicates that the `VirtualDisk` not ready for use, which prevents the import process from starting.
 	VirtualDiskNotReadyForUse DatasourceReadyReason = "VirtualDiskNotReadyForUse"
 	// VirtualDiskAttachedToVirtualMachine indicates that the `VirtualDisk` attached to `VirtualMachine`.

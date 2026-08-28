@@ -65,6 +65,7 @@ func NewController(
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualDiskStorageClassSettings,
+	unifiedSnapshotterPresent bool,
 ) (controller.Controller, error) {
 	stat := servicestat.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDProtection)
@@ -118,7 +119,7 @@ func NewController(
 		return nil, err
 	}
 
-	err = reconciler.SetupController(ctx, mgr, vdController, log)
+	err = reconciler.SetupController(ctx, mgr, vdController, log, unifiedSnapshotterPresent)
 	if err != nil {
 		return nil, err
 	}

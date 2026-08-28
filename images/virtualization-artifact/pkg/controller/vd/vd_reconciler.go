@@ -86,7 +86,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller, logger *log.Logger) error {
+func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller, logger *log.Logger, unifiedSnapshotterPresent bool) error {
 	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.VirtualDiskObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
@@ -100,7 +100,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 
 	mgrClient := mgr.GetClient()
-	for _, w := range []Watcher{
+	vdWatchers := []Watcher{
 		watcher.NewVirtualDiskWatcher(),
 		watcher.NewPersistentVolumeClaimWatcher(mgrClient),
 		watcher.NewPodWatcher(mgrClient),
@@ -109,7 +109,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualMachineWatcher(),
 		watcher.NewResourceQuotaWatcher(mgrClient),
 		postponeimporter.NewWatcher[*v1alpha2.VirtualDisk](mgrClient, logger),
-	} {
+	}
+	if unifiedSnapshotterPresent {
+		vdWatchers = append(vdWatchers, watcher.NewVolumeRestoreRequestWatcher())
+	}
+	for _, w := range vdWatchers {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
 			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)

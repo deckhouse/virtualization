@@ -95,6 +95,29 @@ type VirtualMachineSnapshotStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// The following fields carry state-snapshotter SDK bookkeeping (normative SnapshotAdapter contract,
+	// see github.com/deckhouse/state-snapshotter/pkg/snapshotsdk). Populated only when the resource is
+	// annotated with AnnUseUnifiedSnapshotter and driven by the unified-snapshotter SDK controller;
+	// The previous custom Secret-based snapshot controller neither reads nor writes it.
+
+	// BoundSnapshotContentName is the name of the cluster-scoped SnapshotContent bound to this node.
+	// Written by the state-snapshotter core binder; read-only from the domain controller's perspective.
+	BoundSnapshotContentName string `json:"boundSnapshotContentName,omitempty"`
+	// SourceRef is the full identity of the live source object this node captured (Capture mode only),
+	// published via the SDK's PublishSnapshotSource for later use by import/restore tooling.
+	SourceRef *UnifiedSnapshotterSourceRef `json:"sourceRef,omitempty"`
+	// CaptureState is the SDK capture state machine for this node (barrier 1/2 phase, capture request
+	// names, core-owned success latches).
+	CaptureState *UnifiedSnapshotterCaptureState `json:"captureState,omitempty"`
+	// ChildrenSnapshotRefs is the set of child snapshot nodes declared via the SDK's EnsureChildren
+	// (this VirtualMachineSnapshot's VirtualDiskSnapshot children). Frozen once CaptureState reaches
+	// the Planned phase.
+	ChildrenSnapshotRefs []UnifiedSnapshotterChildRef `json:"childrenSnapshotRefs,omitempty"`
+	// ExcludedRefs is the top-level mirror of the bound SnapshotContent's durable excludedRefs aggregate
+	// (source objects vetoed out of this node's subtree). Written only by the core; this PoC controller
+	// does not implement the veto label, so it is normally empty.
+	ExcludedRefs []UnifiedSnapshotterChildRef `json:"excludedRefs,omitempty"`
 }
 
 // KeepIPAddress defines whether to keep the IP address of a virtual machine or not:

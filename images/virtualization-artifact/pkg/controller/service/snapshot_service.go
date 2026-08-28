@@ -24,12 +24,14 @@ import (
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
@@ -118,7 +120,21 @@ func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachi
 	return nil
 }
 
-func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+// unfreezeScope narrows which in-flight snapshots still count as holders of the guest filesystem
+// freeze.
+type unfreezeScope struct {
+	// skipVDSnapshotName and skipVMSnapshotName exclude the snapshot the caller is reconciling: its own
+	// freeze is the one being released.
+	skipVDSnapshotName string
+	skipVMSnapshotName string
+	// skipChildrenOfUID excludes snapshots owned by the given VirtualMachineSnapshot.
+	skipChildrenOfUID types.UID
+	// skipAbandonedChildren excludes VirtualDiskSnapshots whose owning VirtualMachineSnapshot is gone or
+	// already terminal.
+	skipAbandonedChildren bool
+}
+
+func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, scope unfreezeScope) (bool, error) {
 	if vm == nil {
 		return false, nil
 	}
@@ -132,42 +148,64 @@ func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context
 		return false, nil
 	}
 
-	vdByName := make(map[string]struct{})
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind == v1alpha2.DiskDevice {
-			vdByName[bdr.Name] = struct{}{}
-		}
-	}
-
-	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
-	err = s.client.List(ctx, &vdSnapshots, &client.ListOptions{
-		Namespace: vm.Namespace,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	for _, vdSnapshot := range vdSnapshots.Items {
-		if vdSnapshot.Name == vdSnapshotName {
+		if bdr.Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
-		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok && vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress {
+		var vdSnapshots v1alpha2.VirtualDiskSnapshotList
+		err = s.client.List(ctx, &vdSnapshots,
+			client.InNamespace(vm.Namespace),
+			client.MatchingFields{indexer.IndexFieldVDSnapshotByVD: bdr.Name},
+		)
+		if err != nil {
+			return false, err
+		}
+
+		for i := range vdSnapshots.Items {
+			vdSnapshot := &vdSnapshots.Items[i]
+			if scope.skipVDSnapshotName != "" && vdSnapshot.Name == scope.skipVDSnapshotName {
+				continue
+			}
+
+			if isOwnedBy(vdSnapshot, scope.skipChildrenOfUID) {
+				continue
+			}
+
+			if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseInProgress {
+				continue
+			}
+
+			if scope.skipAbandonedChildren {
+				abandoned, err := s.isAbandonedChild(ctx, vdSnapshot)
+				if err != nil {
+					return false, err
+				}
+				if abandoned {
+					continue
+				}
+			}
+
 			return false, nil
 		}
 	}
 
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
-	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
-		Namespace: vm.Namespace,
-	})
+	err = s.client.List(ctx, &vmSnapshots,
+		client.InNamespace(vm.Namespace),
+		client.MatchingFields{indexer.IndexFieldVMSnapshotByVM: vm.Name},
+	)
 	if err != nil {
 		return false, err
 	}
 
-	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress {
+	for i := range vmSnapshots.Items {
+		vmSnapshot := &vmSnapshots.Items[i]
+		if scope.skipVMSnapshotName != "" && vmSnapshot.Name == scope.skipVMSnapshotName {
+			continue
+		}
+
+		if vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
@@ -175,60 +213,63 @@ func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context
 	return true, nil
 }
 
-func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	if vm == nil {
-		return false, nil
-	}
-
-	isFrozen, err := s.IsFrozen(kvvmi)
-	if err != nil {
-		return false, err
-	}
-	if !isFrozen {
-		return false, nil
-	}
-
-	vdByName := make(map[string]struct{})
-	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind == v1alpha2.DiskDevice {
-			vdByName[bdr.Name] = struct{}{}
-		}
-	}
-
-	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
-	err = s.client.List(ctx, &vdSnapshots, &client.ListOptions{
-		Namespace: vm.Namespace,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	for _, vdSnapshot := range vdSnapshots.Items {
-		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok && vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress {
-			return false, nil
-		}
-	}
-
-	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
-	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
-		Namespace: vm.Namespace,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Name == vmSnapshotName {
+// isAbandonedChild reports whether vdSnapshot is a child of a VirtualMachineSnapshot that has stopped
+// driving it: deleted, or settled into a terminal phase.
+func (s *SnapshotService) isAbandonedChild(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (bool, error) {
+	for _, ref := range vdSnapshot.GetOwnerReferences() {
+		if ref.Kind != v1alpha2.VirtualMachineSnapshotKind {
 			continue
 		}
 
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress {
-			return false, nil
+		parent := &v1alpha2.VirtualMachineSnapshot{}
+		err := s.client.Get(ctx, types.NamespacedName{Namespace: vdSnapshot.Namespace, Name: ref.Name}, parent)
+		switch {
+		case k8serrors.IsNotFound(err):
+			return true, nil
+		case err != nil:
+			return false, err
+		}
+
+		switch parent.Status.Phase {
+		case v1alpha2.VirtualMachineSnapshotPhaseFailed, v1alpha2.VirtualMachineSnapshotPhaseReady:
+			return true, nil
 		}
 	}
 
-	return true, nil
+	return false, nil
+}
+
+func isOwnedBy(obj metav1.Object, ownerUID types.UID) bool {
+	if ownerUID == "" {
+		return false
+	}
+
+	for _, ref := range obj.GetOwnerReferences() {
+		if ref.UID == ownerUID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	return s.canUnfreeze(ctx, vm, kvvmi, unfreezeScope{skipVDSnapshotName: vdSnapshotName})
+}
+
+func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	return s.canUnfreeze(ctx, vm, kvvmi, unfreezeScope{skipVMSnapshotName: vmSnapshotName})
+}
+
+// CanUnfreezeWithVirtualMachineSnapshotTree is CanUnfreezeWithVirtualMachineSnapshot widened to the
+// snapshot's own run tree: neither the snapshot nor its child VirtualDiskSnapshots count as holders,
+// since theirs is the freeze the caller is releasing.
+func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshotTree(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	return s.canUnfreeze(ctx, vm, kvvmi, unfreezeScope{
+		skipVMSnapshotName:    vmSnapshot.Name,
+		skipChildrenOfUID:     vmSnapshot.UID,
+		skipAbandonedChildren: true,
+	})
 }
 
 // TODO: The Unfreeze method should be atomic because there is a chance of encountering

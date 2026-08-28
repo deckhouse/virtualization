@@ -14,6 +14,7 @@ global:
   deckhouseVersion: dev
   discovery:
     apiVersions:
+      - state-snapshotter.deckhouse.io/v1alpha1/CustomSnapshotDefinition
       - deckhouse.io/v1alpha1/OperationPolicy
       - cilium.io/v2/CiliumEndpoint
       - cilium.io/v2/CiliumClusterwideNetworkPolicy

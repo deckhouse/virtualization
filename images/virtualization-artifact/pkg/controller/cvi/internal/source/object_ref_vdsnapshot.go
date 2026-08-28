@@ -364,6 +364,11 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, cvi *v1alph
 		return NewVirtualDiskSnapshotNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	}
 
+	if vdSnapshot.Status.Data != nil {
+		return NewVirtualDiskSnapshotNotSupportedError(vdSnapshot.Name,
+			"it was captured by the unified snapshotter, and importing an image from such a snapshot is not supported yet")
+	}
+
 	volumeSnapshot, err := ds.diskService.GetVolumeSnapshot(ctx, vdSnapshot.Status.VolumeSnapshotName, vdSnapshot.Namespace)
 	if err != nil {
 		return err

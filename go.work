@@ -54,4 +54,7 @@ replace (
 )
 
 // Version pins.
-replace github.com/deckhouse/kube-api-rewriter => github.com/deckhouse/kube-api-rewriter v0.2.1
+replace (
+	github.com/deckhouse/deckhouse/pkg/log => github.com/deckhouse/deckhouse/pkg/log v0.2.0
+	github.com/deckhouse/kube-api-rewriter => github.com/deckhouse/kube-api-rewriter v0.2.1
+)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -76,6 +77,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if !watcher.IsCreateVirtualMachineType(vmsop.Changed()) {
+		return reconcile.Result{}, nil
+	}
+
+	vms := &v1alpha2.VirtualMachineSnapshot{}
+	vmsKey := types.NamespacedName{Namespace: vmsop.Changed().Namespace, Name: vmsop.Changed().Spec.VirtualMachineSnapshotName}
+	if err := r.client.Get(ctx, vmsKey, vms); err == nil && vms.Status.CaptureState != nil {
+		// Routed to the unified-snapshotter SDK-based controller.
 		return reconcile.Result{}, nil
 	}
 

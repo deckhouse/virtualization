@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	storagefoundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
@@ -55,6 +57,7 @@ type CreatePVCFromVDSnapshotStep struct {
 
 type CreatePVCFromVDSnapshotStepPVCService interface {
 	CreateTargetFromVS(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, source *vsv1.VolumeSnapshot, modeGetter service.VolumeAndAccessModesGetter, nodePlacement *provisioner.NodePlacement) (corev1.PersistentVolumeClaim, error)
+	EnsureVolumeRestoreRequest(ctx context.Context, key types.NamespacedName, storageClassName string, size *resource.Quantity, owner client.Object, sourceRef storagefoundationv1alpha1.ObjectReference, modeGetter service.VolumeAndAccessModesGetter) error
 }
 
 func NewCreatePVCFromVDSnapshotStep(
@@ -100,6 +103,10 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q not found.", vd.Spec.DataSource.ObjectRef.Name))
 		return &reconcile.Result{}, nil
+	}
+
+	if _, ok := vdSnapshot.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; ok {
+		return s.takeFromUnifiedSnapshot(ctx, vd, vdSnapshot)
 	}
 
 	vs, err := object.FetchObject(ctx, types.NamespacedName{Name: vdSnapshot.Status.VolumeSnapshotName, Namespace: vdSnapshot.Namespace}, s.client, &vsv1.VolumeSnapshot{})
@@ -173,6 +180,177 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	vdsupplements.SetPVCName(vd, pvc.Name)
 
 	return nil, nil
+}
+
+// takeFromUnifiedSnapshot clones a VirtualDisk from a VirtualDiskSnapshot captured through the unified
+// state-snapshotter SDK. Unlike the CSI VolumeSnapshot path above, the destination PVC is materialized by
+// storage-foundation from the snapshot's captured artifact (status.dataArtifact) via a VolumeRestoreRequest,
+// rather than cloned from a namespaced CSI VolumeSnapshot: the SDK-captured artifact is a
+// VolumeSnapshotContent built in a shape (spec.source.volumeHandle, no bound VolumeSnapshot) that
+// external-snapshotter refuses to statically (re)bind a new VolumeSnapshot to.
+func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*reconcile.Result, error) {
+	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vdSnapshot.Status.Data == nil {
+		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Progress = ""
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningNotStarted).
+			Message(fmt.Sprintf("VirtualDiskSnapshot %q is not ready to use (phase %s).", vdSnapshot.Name, vdSnapshot.Status.Phase))
+		return &reconcile.Result{}, nil
+	}
+
+	if err := s.validateUnifiedStorageClassCompatibility(ctx, vd, vdSnapshot); err != nil {
+		vd.Status.Phase = v1alpha2.DiskFailed
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningFailed).
+			Message(err.Error())
+		s.recorder.Event(
+			vd,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonDataSourceSyncFailed,
+			err.Error(),
+		)
+		return &reconcile.Result{}, nil
+	}
+
+	storageClassName := vdSnapshot.Status.StorageClassName
+	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
+		storageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
+	}
+
+	size, err := s.getUnifiedPVCSize(vd, vdSnapshot)
+	if err != nil {
+		vd.Status.Phase = v1alpha2.DiskFailed
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningFailed).
+			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+		s.recorder.Event(
+			vd,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonDataSourceSyncFailed,
+			err.Error(),
+		)
+		return &reconcile.Result{}, nil
+	}
+
+	if storageClassName != "" {
+		vd.Status.StorageClassName = storageClassName
+	}
+
+	key := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
+	sourceRef := storagefoundationv1alpha1.ObjectReference{
+		APIVersion: vdSnapshot.Status.Data.ArtifactRef.APIVersion,
+		Kind:       vdSnapshot.Status.Data.ArtifactRef.Kind,
+		Name:       vdSnapshot.Status.Data.ArtifactRef.Name,
+	}
+	if err := s.pvcSvc.EnsureVolumeRestoreRequest(ctx, key, storageClassName, size, vd, sourceRef, s.disk); err != nil {
+		return nil, fmt.Errorf("ensure volume restore request: %w", err)
+	}
+
+	// storage-foundation reports a restore it has given up on through the VolumeRestoreRequest and nowhere
+	// else. Without this the disk would sit in Provisioning "0%" indefinitely, waiting for a PVC nobody is
+	// going to create any more.
+	if failure, err := s.unifiedRestoreFailure(ctx, key); err != nil {
+		return nil, err
+	} else if failure != "" {
+		vd.Status.Phase = v1alpha2.DiskFailed
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningFailed).
+			Message(failure)
+		s.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceSyncFailed, failure)
+		return &reconcile.Result{}, nil
+	}
+
+	vd.Status.Phase = v1alpha2.DiskProvisioning
+	s.cb.
+		Status(metav1.ConditionFalse).
+		Reason(vdcondition.Provisioning).
+		Message("The PersistentVolumeClaim restore has been requested; waiting for it to be Bound.")
+
+	vd.Status.Progress = "0%"
+	vd.Status.SourceUID = ptr.To(vdSnapshot.UID)
+	vdsupplements.SetPVCName(vd, key.Name)
+
+	return nil, nil
+}
+
+// unifiedRestoreFailure returns a human-readable reason when the VolumeRestoreRequest for key has failed
+// terminally, or "" while it is still in flight.
+//
+// storage-foundation declares its contract in conditions.go: "Only Ready condition is used - it is set to
+// True on success or False on final failure". ConditionReasonTargetsPending is the documented exception —
+// the non-terminal state a retrying CSI driver parks in — so it is the one Ready=False that is not a verdict.
+func (s CreatePVCFromVDSnapshotStep) unifiedRestoreFailure(ctx context.Context, key types.NamespacedName) (string, error) {
+	vrr, err := object.FetchObject(ctx, key, s.client, &storagefoundationv1alpha1.VolumeRestoreRequest{})
+	if err != nil {
+		return "", fmt.Errorf("fetch volume restore request: %w", err)
+	}
+	if vrr == nil {
+		return "", nil
+	}
+
+	ready := meta.FindStatusCondition(vrr.Status.Conditions, storagefoundationv1alpha1.ConditionTypeReady)
+	if ready == nil || ready.Status != metav1.ConditionFalse || ready.Reason == storagefoundationv1alpha1.ConditionReasonTargetsPending {
+		return "", nil
+	}
+
+	return fmt.Sprintf("Restoring the PersistentVolumeClaim failed: %s: %s.", ready.Reason, ready.Message), nil
+}
+
+func (s CreatePVCFromVDSnapshotStep) getUnifiedPVCSize(vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*resource.Quantity, error) {
+	if vd.Spec.PersistentVolumeClaim.Size != nil {
+		return vd.Spec.PersistentVolumeClaim.Size, nil
+	}
+	if vdSnapshot.Status.PersistentVolumeClaimSize == "" {
+		return nil, nil
+	}
+	size, err := resource.ParseQuantity(vdSnapshot.Status.PersistentVolumeClaimSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the captured PVC size %q: %w", vdSnapshot.Status.PersistentVolumeClaimSize, err)
+	}
+	return &size, nil
+}
+
+func (s CreatePVCFromVDSnapshotStep) validateUnifiedStorageClassCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot) error {
+	if vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == "" {
+		return nil
+	}
+
+	targetSCName := *vd.Spec.PersistentVolumeClaim.StorageClass
+	capturedSCName := vdSnapshot.Status.StorageClassName
+	if capturedSCName == "" || capturedSCName == targetSCName {
+		return nil
+	}
+
+	log, _ := logger.GetDataSourceContext(ctx, "objectref")
+
+	var targetSC storagev1.StorageClass
+	if err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC); err != nil {
+		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
+	}
+
+	var capturedSC storagev1.StorageClass
+	if err := s.client.Get(ctx, types.NamespacedName{Name: capturedSCName}, &capturedSC); err != nil {
+		if k8serrors.IsNotFound(err) {
+			log.With("storageClass.name", capturedSCName).Debug("Captured storage class does not exist, skipping storage class compatibility validation")
+			return nil
+		}
+		return fmt.Errorf("cannot fetch captured storage class %q: %w", capturedSCName, err)
+	}
+
+	if targetSC.Provisioner != capturedSC.Provisioner {
+		return fmt.Errorf(
+			"cannot restore snapshot to storage class %q: incompatible storage providers. "+
+				"Original snapshot was created by %q, target storage class uses %q. "+
+				"Cross-provider snapshot restore is not supported",
+			targetSCName, capturedSC.Provisioner, targetSC.Provisioner,
+		)
+	}
+
+	return nil
 }
 
 func (s CreatePVCFromVDSnapshotStep) storageClassName(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) string {
