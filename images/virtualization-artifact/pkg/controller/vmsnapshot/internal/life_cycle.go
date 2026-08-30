@@ -21,14 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -76,81 +73,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	var frozen bool
-	if vm != nil {
-		frozenCondition, ok := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
-		if ok && frozenCondition.Status == metav1.ConditionTrue {
-			frozen = true
-		}
-	}
-
-	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
-	if err != nil {
-		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
-		return reconcile.Result{}, err
-	}
-
-	err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
-	switch {
-	case err == nil:
-		// OK.
-	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
-		log.Debug(err.Error())
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-		return reconcile.Result{}, nil
-	case k8serrors.IsConflict(err):
-		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-	default:
-		err = fmt.Errorf("failed to sync filesystem status: %w", err)
-		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
-		return reconcile.Result{}, err
-	}
-
 	if vmSnapshot.DeletionTimestamp != nil {
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseTerminating
 		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).
 			Message("")
-
-		if !frozen {
-			return reconcile.Result{}, nil
-		}
-
-		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
-		if err != nil {
-			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-				log.Debug(err.Error())
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vmscondition.Snapshotting).
-					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-				return reconcile.Result{}, nil
-			}
-			if k8serrors.IsConflict(err) {
-				log.Debug(fmt.Sprintf("failed to freeze filesystem; resource update conflict error: %s", err))
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vmscondition.Snapshotting).
-					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
-			return reconcile.Result{}, err
-		}
-
-		if !canUnfreeze {
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-
 		return reconcile.Result{}, nil
 	}
 
@@ -163,27 +91,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Status(readyCondition.Status).
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
-
-		if !frozen {
-			return reconcile.Result{}, nil
-		}
-
-		canUnfreeze, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
-		if err != nil {
-			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-				log.Debug(err.Error())
-				return reconcile.Result{}, nil
-			}
-			if k8serrors.IsConflict(err) {
-				log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
-			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
-		}
-		if !canUnfreeze {
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		}
 		return reconcile.Result{}, nil
 	case v1alpha2.VirtualMachineSnapshotPhaseReady:
 		// Ensure vd snapshots aren't lost.
@@ -291,45 +198,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	needToFreeze, err := h.needToFreeze(vm, kvvmi, vmSnapshot)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	canFreeze, err := h.snapshotter.CanFreeze(ctx, kvvmi)
-	if err != nil {
-		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
-		return reconcile.Result{}, err
-	}
-	isAwaitingConsistency := needToFreeze && !canFreeze && vmSnapshot.Spec.RequiredConsistency
-	if isAwaitingConsistency {
-		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
-		msg := fmt.Sprintf(
-			"Cannot take a consistent snapshot of virtual machine %q.",
-			vm.Name,
-		)
-
-		agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
-		if agentReadyCondition.Status != metav1.ConditionTrue {
-			msg = fmt.Sprintf(
-				"Cannot take a consistent snapshot of virtual machine %q: virtual machine agent is not ready and the virtual machine cannot be frozen.",
-				vm.Name,
-			)
-		}
-
-		h.recorder.Event(
-			vmSnapshot,
-			corev1.EventTypeWarning,
-			v1alpha2.ReasonVMSnapshottingFailed,
-			msg,
-		)
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.PotentiallyInconsistent).
-			Message(msg)
-		return reconcile.Result{}, nil
-	}
-
 	if vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhasePending {
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 		h.recorder.Event(
@@ -340,37 +208,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		)
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vmscondition.FileSystemFreezing).
+			Reason(vmscondition.Snapshotting).
 			Message("The snapshotting process has started.")
 		return reconcile.Result{Requeue: true}, nil
-	}
-
-	var hasFrozen bool
-
-	// 2. Ensure the virtual machine is consistent for snapshotting.
-	if needToFreeze {
-		hasFrozen, err = h.freezeVirtualMachine(ctx, kvvmi, vmSnapshot)
-		if err != nil {
-			if k8serrors.IsConflict(err) {
-				log.Debug(fmt.Sprintf("failed to freeze filesystem; resource update conflict error: %s", err))
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vmscondition.Snapshotting).
-					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
-			return reconcile.Result{}, err
-		}
-	}
-
-	if hasFrozen {
-		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.FileSystemFreezing).
-			Message(fmt.Sprintf("The virtual machine %q is in the process of being frozen for taking a snapshot.", vm.Name))
-		return reconcile.Result{}, nil
 	}
 
 	// 3. Create secret.
@@ -446,59 +286,15 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		vmSnapshot.Status.Consistent = nil
 	}
 
-	// 7. Unfreeze VirtualMachine if can.
-	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
-	if err != nil {
-		if k8serrors.IsConflict(err) {
-			log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmscondition.Snapshotting).
-				Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.FileSystemUnfreezing).
-			Message(service.CapitalizeFirstLetter(err.Error() + "."))
-		return reconcile.Result{}, err
-	}
-
-	// 8. Fill status resources.
+	// 7. Fill status resources.
 	err = h.fillStatusResources(ctx, vmSnapshot, vm)
 	if err != nil {
 		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
-	// 9. Synchronize FSFreezeRequest with KVVMI status.
-	err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
-	switch {
-	case err == nil:
-		// OK.
-	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
-		log.Debug(err.Error())
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-		return reconcile.Result{}, nil
-	case k8serrors.IsConflict(err):
-		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-	default:
-		err = fmt.Errorf("failed to sync filesystem status: %w", err)
-		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
-		return reconcile.Result{}, err
-	}
-
-	// 10. Move to Ready phase.
-	log.Debug("The virtual disk snapshots are taken: the virtual machine snapshot is Ready now", "unfrozen", unfrozen)
+	// 8. Move to Ready phase.
+	log.Debug("The virtual disk snapshots are taken: the virtual machine snapshot is Ready now")
 
 	vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
 	h.recorder.Event(
@@ -639,87 +435,6 @@ func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*v1alp
 	}
 
 	return true
-}
-
-func (h LifeCycleHandler) needToFreeze(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, vmsnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
-	if vmsnapshot.Status.Consistent != nil && *vmsnapshot.Status.Consistent {
-		return false, nil
-	}
-
-	if !vmsnapshot.Spec.RequiredConsistency {
-		return false, nil
-	}
-
-	if vm.Status.Phase == v1alpha2.MachineStopped {
-		return false, nil
-	}
-
-	isFrozen, err := h.snapshotter.IsFrozen(kvvmi)
-	if err != nil {
-		return false, err
-	}
-	if isFrozen {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
-	if kvvmi.Status.Phase != virtv1.Running {
-		return false, fmt.Errorf("cannot freeze not Running %s/%s virtual machine", kvvmi.Namespace, kvvmi.Name)
-	}
-
-	err := h.snapshotter.Freeze(ctx, kvvmi)
-	if err != nil {
-		return false, fmt.Errorf("freeze the virtual machine %s/%s: %w", kvvmi.Namespace, kvvmi.Name, err)
-	}
-
-	h.recorder.Event(
-		vmSnapshot,
-		corev1.EventTypeNormal,
-		v1alpha2.ReasonVMSnapshottingFrozen,
-		fmt.Sprintf("The file system of the virtual machine %q is frozen.", kvvmi.Name),
-	)
-
-	return true, nil
-}
-
-func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning {
-		return false, nil
-	}
-
-	isFrozen, err := h.snapshotter.IsFrozen(kvvmi)
-	if err != nil {
-		return false, err
-	}
-	if !isFrozen {
-		return false, nil
-	}
-
-	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualMachineSnapshot(ctx, vmSnapshot.Name, vm, kvvmi)
-	if err != nil {
-		return false, err
-	}
-
-	if !canUnfreeze {
-		return false, nil
-	}
-
-	err = h.snapshotter.Unfreeze(ctx, kvvmi)
-	if err != nil {
-		return false, fmt.Errorf("unfreeze the virtual machine %q: %w", vm.Name, err)
-	}
-
-	h.recorder.Event(
-		vmSnapshot,
-		corev1.EventTypeNormal,
-		v1alpha2.ReasonVMSnapshottingThawed,
-		fmt.Sprintf("The file system of the virtual machine %q is thawed.", vm.Name),
-	)
-
-	return true, nil
 }
 
 var (
