@@ -121,15 +121,10 @@ var _ = Describe("DiskAttachmentBus", Label(label.SIGCompute, precheck.NoPrechec
 				vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse(vdCustomImageSize))),
 			)
 
-			// The VM starts with paravirtualization enabled and only later flips it
-			// off: creating it disabled right away deadlocks on a
-			// WaitForFirstConsumer storage class — sata cannot hotplug, so the
-			// disks are rendered inline and the VMI cannot render its pod until
-			// the PVC exists, while the vd-controller creates the PVC only after
-			// the VM is scheduled. Starting enabled lets the root PVC bind first;
-			// the flips below still cover both modes. TODO: start disabled again
-			// if the controller learns to provision WFFC source disks for
-			// non-paravirtualized VMs (unpinned first-consumer provisioning).
+			// The VM starts with paravirtualization enabled, the default mode, and
+			// the flips below cover the other one. A VM created with
+			// paravirtualization disabled from the start is a scenario of its own
+			// and is covered by VirtualMachineParavirtualizationDisabled.
 			vm = object.NewMinimalVM("", f.Namespace().Name,
 				vmbuilder.WithName("vm"),
 				// The custom image has no cloud-init; the guest agent is
