@@ -28,6 +28,13 @@ spec:
             qps: 5000
             burst: 6000
     selinuxLauncherType: container_kvm_t
+    # Without this, KubeVirt leaves the VM pod without a seccomp profile at all.
+    # Upstream does not default to RuntimeDefault because post-copy migration needs
+    # userfaultfd, which the runtime profile denies; post-copy is disabled in this module.
+    seccompConfiguration:
+      virtualMachineInstanceProfile:
+        customProfile:
+          runtimeDefaultProfile: true
     # The default allowlist is q35 only. The i440fx machine type is required by
     # virtual machines with the Legacy osType: "pc" is the alias the controller sets,
     # "pc-i440fx*" covers the versioned names it resolves to.
