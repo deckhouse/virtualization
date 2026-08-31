@@ -560,6 +560,37 @@ func TestSetNetworkMarksRemovedAsAbsent(t *testing.T) {
 	}
 }
 
+func TestSetNetworkDropsInterfaceWhoseACPIIndexIsReused(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_cnaaaaaaaa", "aa:bb:cc:dd:ee:ff", 2)
+
+	// The same network comes back under a new name after its MAC address was
+	// re-assigned, claiming the ACPI index of the old entry.
+	setNetwork(b, network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+		{InterfaceName: "veth_cnbbbbbbbb", MAC: "5a:40:3f:80:50:bc", ID: 2},
+	})
+
+	indexes := map[int]int{}
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if iface.Name == "veth_cnaaaaaaaa" {
+			t.Errorf("the interface whose ACPI index is reused must be dropped, got State %q", iface.State)
+		}
+		indexes[iface.ACPIIndex]++
+	}
+	for index, count := range indexes {
+		if count > 1 {
+			t.Errorf("ACPI index %d is carried by %d interfaces, QEMU accepts only one", index, count)
+		}
+	}
+	for _, n := range b.Resource.Spec.Template.Spec.Networks {
+		if n.Name == "veth_cnaaaaaaaa" {
+			t.Error("the network entry must be dropped alongside the interface")
+		}
+	}
+}
+
 func TestSetNetworkRemovesDefaultEntirely(t *testing.T) {
 	b := newTestKVVM()
 	b.SetNetworkInterface("default", "", 1)

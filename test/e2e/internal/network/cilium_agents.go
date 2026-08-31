@@ -24,9 +24,12 @@ import (
 	"os"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
@@ -35,6 +38,26 @@ const (
 	ciliumNamespace = "d8-cni-cilium"
 	innaddrAny      = "0.0.0.0"
 )
+
+// ErrIPCacheUnreachable marks the ipcache of an agent as unreadable, as opposed to read
+// and missing the entry. Waiting helps with the latter only: the former means the agent
+// cannot be queried at all - a broken pod exec, for one - and no amount of retrying will
+// change that.
+var ErrIPCacheUnreachable = errors.New("the Cilium agent's ipcache cannot be read")
+
+// EnsureCiliumAgents waits until every Cilium agent carries the VM's IP in its
+// ipcache. The entry is published by vm-route-forge after the fact, so right after a
+// migration the agents can legitimately not have it yet.
+func EnsureCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamespace string) {
+	GinkgoHelper()
+	eventually.Until(func() error {
+		err := CheckCiliumAgents(ctx, kubectl, vmName, vmNamespace)
+		if errors.Is(err, ErrIPCacheUnreachable) {
+			return StopTrying("the Cilium agents cannot be queried at all, so waiting for the ipcache entry is pointless").Wrap(err)
+		}
+		return err
+	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
+}
 
 func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamespace string) error {
 	// Get VM information using kubectl
@@ -65,7 +88,7 @@ func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamesp
 
 		ipCache, err := getCiliumIPCache(kubectl, pod)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get Cilium Agent's IPCache `%s` on the node `%s`: %w", pod.Name, nodeName, err))
+			errs = append(errs, fmt.Errorf("%w: agent `%s` on the node `%s`: %w", ErrIPCacheUnreachable, pod.Name, nodeName, err))
 			continue
 		}
 

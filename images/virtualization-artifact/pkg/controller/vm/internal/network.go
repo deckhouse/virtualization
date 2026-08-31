@@ -129,7 +129,7 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	if err != nil {
 		return err
 	}
-	errMsg, err := extractNetworkStatusFromPods(pods, desired)
+	errMsg, err := extractNetworkStatusFromPods(pods, desired, additionalNetworkKeys(vm))
 	if err != nil {
 		return err
 	}
@@ -156,6 +156,23 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {
 	nets := vm.Spec.Networks
 	return len(nets) == 0 || (len(nets) == 1 && nets[0].Type == v1alpha2.NetworksTypeMain)
+}
+
+// additionalNetworkKeys returns the additional networks the virtual machine spec asks
+// for, keyed the way a network is identified: by type and name, since the same name can
+// belong to both a Network and a ClusterNetwork. SDN keeps reporting an interface whose
+// veth is deliberately kept until its device leaves the domain, and such an interface is
+// no longer in the spec: its status must neither block the detach nor surface in
+// NetworkReady.
+func additionalNetworkKeys(vm *v1alpha2.VirtualMachine) map[string]struct{} {
+	keys := make(map[string]struct{}, len(vm.Spec.Networks))
+	for _, netSpec := range vm.Spec.Networks {
+		if netSpec.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		keys[network.SpecKey(netSpec)] = struct{}{}
+	}
+	return keys
 }
 
 // collectIPAMErrors returns per-network IPAM configuration errors to aggregate
@@ -279,16 +296,21 @@ func (h *NetworkInterfaceHandler) Name() string {
 
 func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	if hasOnlyDefaultNetwork(vm) {
-		if len(h.virtualMachineCIDRs) == 0 {
-			vm.Status.Networks = make([]v1alpha2.NetworksStatus, 0)
-		} else {
-			vm.Status.Networks = []v1alpha2.NetworksStatus{
-				{
-					ID:   network.ReservedMainID,
-					Type: v1alpha2.NetworksTypeMain,
-				},
-			}
+		networksStatus := make([]v1alpha2.NetworksStatus, 0)
+		if len(h.virtualMachineCIDRs) != 0 {
+			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
+				ID:   network.ReservedMainID,
+				Type: v1alpha2.NetworksTypeMain,
+			})
 		}
+		// The last additional network may still be leaving the domain: retain its entry
+		// here as well, otherwise removing the only additional network releases the MAC
+		// address while the guest still holds the interface.
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		vm.Status.Networks = retainDetachingNetworks(networksStatus, vm.Status.Networks, kvvmi)
 		return reconcile.Result{}, nil
 	}
 
@@ -348,31 +370,43 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		})
 	}
 
-	// Network hot-unplug: retain a status entry the user removed from spec until
-	// KubeVirt fully detaches and drops the iface from KVVMI. The next reconcile
-	// then drops the entry, vmmac becomes unattached, deletion handler releases the MAC.
-	for _, prev := range vm.Status.Networks {
-		if prev.Type == v1alpha2.NetworksTypeMain || prev.MAC == "" {
+	vm.Status.Networks = retainDetachingNetworks(networksStatus, vm.Status.Networks, kvvmi)
+	return reconcile.Result{}, nil
+}
+
+// retainDetachingNetworks keeps in next the status entries of prev that the spec no
+// longer asks for while their interface is still in the internal virtual machine
+// instance, that is while the hot-unplug has not completed. Once the entry is dropped the
+// VirtualMachineMACAddress becomes unattached and its address is released, so dropping it
+// early hands the address away while the guest still holds the interface.
+func retainDetachingNetworks(
+	next, prev []v1alpha2.NetworksStatus,
+	kvvmi *virtv1.VirtualMachineInstance,
+) []v1alpha2.NetworksStatus {
+	for _, prevStatus := range prev {
+		if prevStatus.Type == v1alpha2.NetworksTypeMain || prevStatus.MAC == "" {
 			continue
 		}
-		if slices.ContainsFunc(networksStatus, func(networkStatus v1alpha2.NetworksStatus) bool {
-			return networkStatus.Type == prev.Type && networkStatus.Name == prev.Name
+		if slices.ContainsFunc(next, func(networkStatus v1alpha2.NetworksStatus) bool {
+			return networkStatus.Type == prevStatus.Type && networkStatus.Name == prevStatus.Name
 		}) {
 			continue
 		}
 		if kvvmi == nil || !slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
-			return strings.EqualFold(i.MacAddress, prev.MAC)
+			return strings.EqualFold(i.MacAddress, prevStatus.MAC)
 		}) {
 			continue
 		}
-		networksStatus = append(networksStatus, prev)
+		next = append(next, prevStatus)
 	}
-
-	vm.Status.Networks = networksStatus
-	return reconcile.Result{}, nil
+	return next
 }
 
-func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string) (string, error) {
+// extractNetworkStatusFromPods returns the aggregated SDN error message of the launcher
+// pods. desired names the interfaces SDN has to report at all; inSpec keys the interfaces
+// whose reported conditions are relevant, that is the additional networks the virtual
+// machine spec still asks for.
+func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string, inSpec map[string]struct{}) (string, error) {
 	var errorMessages []string
 
 	if len(pods.Items) == 0 {
@@ -399,7 +433,7 @@ func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string) (strin
 			return "", err
 		}
 
-		podErrorMessages := collectInterfaceErrors(interfacesStatus)
+		podErrorMessages := collectInterfaceErrors(interfacesStatus, inSpec)
 
 		if len(desired) > 0 {
 			present := make(map[string]struct{}, len(interfacesStatus))
@@ -421,9 +455,13 @@ func extractNetworkStatusFromPods(pods *corev1.PodList, desired []string) (strin
 	return strings.Join(errorMessages, ". "), nil
 }
 
-func collectInterfaceErrors(interfacesStatus []network.InterfaceStatus) []string {
+func collectInterfaceErrors(interfacesStatus []network.InterfaceStatus, inSpec map[string]struct{}) []string {
 	var podErrorMessages []string
 	for _, ifaceStatus := range interfacesStatus {
+		key := network.SpecKey(v1alpha2.NetworksSpec{Type: ifaceStatus.Type, Name: ifaceStatus.Name})
+		if _, wanted := inSpec[key]; !wanted {
+			continue
+		}
 		ifaceErrMsgs := collectConditionErrors(ifaceStatus.Conditions)
 		if len(ifaceErrMsgs) > 0 {
 			podErrorMessages = append(podErrorMessages, fmt.Sprintf("(%s): %s", ifaceStatus.Name, strings.Join(ifaceErrMsgs, "; ")))

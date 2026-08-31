@@ -87,10 +87,8 @@ var _ = Describe("VirtualMachineConnectivity", Label(label.SIGCompute, precheck.
 
 		// There is a known issue with the Cilium agent check.
 		By("Check Cilium agents are properly configured for the VMs", func() {
-			err := network.CheckCiliumAgents(ctx, f.Kubectl(), t.VMa.Name, f.Namespace().Name)
-			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMa.Name)
-			err = network.CheckCiliumAgents(ctx, f.Kubectl(), t.VMb.Name, f.Namespace().Name)
-			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMb.Name)
+			network.EnsureCiliumAgents(ctx, f.Kubectl(), t.VMa.Name, f.Namespace().Name)
+			network.EnsureCiliumAgents(ctx, f.Kubectl(), t.VMb.Name, f.Namespace().Name)
 		})
 
 		By("Check VMs can reach external network", func() {

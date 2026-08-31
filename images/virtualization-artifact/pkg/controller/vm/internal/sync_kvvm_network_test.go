@@ -58,25 +58,6 @@ var _ = Describe("SyncKvvmHandler network sync across migration pods", func() {
 		desiredSpec string
 	)
 
-	newReadyClusterNetwork := func(name string) *unstructured.Unstructured {
-		u := &unstructured.Unstructured{}
-		u.SetGroupVersionKind(commonnetwork.ClusterNetworkGVK)
-		u.SetName(name)
-		Expect(unstructured.SetNestedSlice(u.Object, []any{
-			map[string]any{"type": "Ready", "status": "True"},
-		}, "status", "conditions")).To(Succeed())
-		return u
-	}
-
-	newNodeWithTapSupport := func(name string) *corev1.Node {
-		return &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name,
-				Annotations: map[string]string{annotations.AnnTapProvisionByDVPSupported: "true"},
-			},
-		}
-	}
-
 	newLauncherPod := func(podName string, uid types.UID, node, networksSpec string) *corev1.Pod {
 		return &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -214,16 +195,6 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 		desiredSpec string
 		setup       func(objs ...client.Object)
 	)
-
-	newReadyClusterNetwork := func(name string) *unstructured.Unstructured {
-		u := &unstructured.Unstructured{}
-		u.SetGroupVersionKind(commonnetwork.ClusterNetworkGVK)
-		u.SetName(name)
-		Expect(unstructured.SetNestedSlice(u.Object, []any{
-			map[string]any{"type": "Ready", "status": "True"},
-		}, "status", "conditions")).To(Succeed())
-		return u
-	}
 
 	BeforeEach(func() {
 		vm := &v1alpha2.VirtualMachine{
@@ -454,5 +425,171 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 		got := &corev1.Pod{}
 		Expect(fakeClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: namespace}, got)).To(Succeed())
 		Expect(got.Annotations[annotations.AnnTapProvisionByDVPSupported]).To(Equal("true"))
+	})
+})
+
+var _ = Describe("SyncKvvmHandler network detach ordering", func() {
+	const (
+		vmName             = "vm-detach"
+		namespace          = "default"
+		clusterNetworkName = "cnet-detach"
+		macName            = "vmmac-detach"
+		macAddr            = "aa:bb:cc:dd:ee:01"
+		podName            = "d8v-detach"
+		nodeName           = "node-detach"
+		podUID             = types.UID("detach-uid")
+	)
+
+	var (
+		ctx           = testutil.ContextBackgroundWithNoOpLogger()
+		fakeClient    client.WithWatch
+		vmState       state.VirtualMachineState
+		kvvm          *virtv1.VirtualMachine
+		attachedSpec  string
+		ifaceName     string
+		buildWithKVVM func(ifaces []virtv1.Interface)
+	)
+
+	newReadyCN := func(name string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(commonnetwork.ClusterNetworkGVK)
+		u.SetName(name)
+		Expect(unstructured.SetNestedSlice(u.Object, []any{
+			map[string]any{"type": "Ready", "status": "True"},
+		}, "status", "conditions")).To(Succeed())
+		return u
+	}
+
+	newTapNode := func(name string) *corev1.Node {
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Annotations: map[string]string{annotations.AnnTapProvisionByDVPSupported: "true"},
+			},
+		}
+	}
+
+	newPod := func(networksSpec string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace,
+				UID:       podUID,
+				Labels:    map[string]string{virtv1.VirtualMachineNameLabel: vmName},
+				Annotations: map[string]string{
+					annotations.AnnNetworksSpec:               networksSpec,
+					annotations.AnnTapProvisionByDVPSupported: "true",
+				},
+			},
+			Spec:   corev1.PodSpec{NodeName: nodeName},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning},
+		}
+	}
+
+	BeforeEach(func() {
+		// The additional network is already gone from the VM spec: the hot-unplug has
+		// been requested and the interface waits to leave the domain.
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace, UID: "vm-uid"},
+			Spec: v1alpha2.VirtualMachineSpec{
+				Networks: []v1alpha2.NetworksSpec{
+					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.ReservedMainID)},
+				},
+			},
+		}
+
+		attachedVM := vm.DeepCopy()
+		attachedVM.Spec.Networks = append(attachedVM.Spec.Networks, v1alpha2.NetworksSpec{
+			Type: v1alpha2.NetworksTypeClusterNetwork, Name: clusterNetworkName, ID: ptr.To(2), VirtualMachineMACAddressName: macName,
+		})
+
+		mac := &v1alpha2.VirtualMachineMACAddress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      macName,
+				Namespace: namespace,
+				Labels:    map[string]string{annotations.LabelVirtualMachineUID: string(vm.UID)},
+			},
+			Status: v1alpha2.VirtualMachineMACAddressStatus{
+				Address: macAddr,
+				Phase:   v1alpha2.VirtualMachineMACAddressPhaseAttached,
+			},
+		}
+
+		attachedSpecList := commonnetwork.CreateNetworkSpec(attachedVM, []*v1alpha2.VirtualMachineMACAddress{mac})
+		var err error
+		attachedSpec, err = attachedSpecList.ToString()
+		Expect(err).NotTo(HaveOccurred())
+		for _, spec := range attachedSpecList {
+			if spec.Type != string(v1alpha2.NetworksTypeMain) {
+				ifaceName = spec.InterfaceName
+			}
+		}
+		Expect(ifaceName).NotTo(BeEmpty())
+
+		kvvmi := newEmptyKVVMI(vmName, namespace)
+		kvvmi.Status.Phase = virtv1.Running
+		kvvmi.Status.NodeName = nodeName
+		kvvmi.Status.ActivePods = map[types.UID]string{podUID: nodeName}
+
+		buildWithKVVM = func(ifaces []virtv1.Interface) {
+			kvvm = newEmptyKVVM(vmName, namespace)
+			kvvm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{}
+			kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
+			fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, mac,
+				newReadyCN(clusterNetworkName), newPod(attachedSpec), newTapNode(nodeName))
+		}
+	})
+
+	whileDetaching := func() {
+		buildWithKVVM([]virtv1.Interface{
+			{Name: commonnetwork.NameDefaultInterface},
+			{Name: ifaceName, State: virtv1.InterfaceStateAbsent},
+		})
+	}
+
+	afterDetached := func() {
+		buildWithKVVM([]virtv1.Interface{{Name: commonnetwork.NameDefaultInterface}})
+	}
+
+	It("keeps the interface in the pod annotation while it is still being detached", func() {
+		whileDetaching()
+		h := &SyncKvvmHandler{client: fakeClient}
+
+		_, err := h.patchPodNetworkAnnotation(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		pod := &corev1.Pod{}
+		Expect(fakeClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: namespace}, pod)).To(Succeed())
+		Expect(pod.Annotations[annotations.AnnNetworksSpec]).To(Equal(attachedSpec))
+	})
+
+	It("reports in sync while the interface is still being detached", func() {
+		whileDetaching()
+		h := &SyncKvvmHandler{client: fakeClient}
+
+		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(outOfSync).To(BeFalse())
+	})
+
+	It("reports out of sync once the interface has left the internal virtual machine", func() {
+		afterDetached()
+		h := &SyncKvvmHandler{client: fakeClient}
+
+		outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(outOfSync).To(BeTrue())
+	})
+
+	It("empties the pod annotation once the interface has left the internal virtual machine", func() {
+		afterDetached()
+		h := &SyncKvvmHandler{client: fakeClient}
+
+		_, err := h.patchPodNetworkAnnotation(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		pod := &corev1.Pod{}
+		Expect(fakeClient.Get(ctx, types.NamespacedName{Name: podName, Namespace: namespace}, pod)).To(Succeed())
+		Expect(pod.Annotations[annotations.AnnNetworksSpec]).To(Equal("[]"))
 	})
 })

@@ -27,6 +27,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -71,6 +72,17 @@ func newEmptyKVVM(name, namespace string) *virtv1.VirtualMachine {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+	}
+}
+
+// newNodeWithTapSupport builds a node whose SDN agent advertises that the virt-handler
+// has to create the TAP device, which is what gates the pod annotation of the same name.
+func newNodeWithTapSupport(name string) *corev1.Node {
+	return &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Annotations: map[string]string{annotations.AnnTapProvisionByDVPSupported: "true"},
 		},
 	}
 }

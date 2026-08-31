@@ -67,9 +67,6 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 	)
 
 	BeforeEach(func() {
-		// TODO: Re-enable the suite.
-		Skip("skipped as flaky: fix the instability, then remove this skip")
-
 		ctx = context.Background()
 		f = framework.NewFramework("vm-ipam-for-additional-networks")
 		DeferCleanup(f.After)
@@ -244,8 +241,10 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 			})
 
 			By("Verify cn-4006 has IP in status (works) and cn-4007 is skipped in networks-spec", func() {
-				updated := refreshVM(ctx, f, testVM)
-				Expect(getVMNetworkIPAddress(updated)).NotTo(BeEmpty(),
+				// NetworkReady mentioning cn-4007 says nothing about cn-4006: its address
+				// is allocated independently and can still be on its way.
+				err := testVMObs.WaitFor(haveIPAMNetworkIP(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred(),
 					"cn-4006 should have an allocated IP despite cn-4007 being problematic")
 
 				spec := getPodNetworksSpec(ctx, f, testVM.Name, testVM.Namespace)
@@ -321,17 +320,6 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 		)
 
 		It("should switch from static to auto without restart (hotplug)", func() {
-			// The switch never completes on the running VM: the controller creates
-			// the Auto IPAddress and the SDN allocates a fresh address for it, but
-			// the VM's interface and status.networks keep the old static IP
-			// indefinitely (reproduced manually: the Auto IPAddress reaches
-			// Allocated while status.networks still reports the static IP after
-			// 5+ minutes). The data-plane hotplug re-lease is an SDN-side gap the
-			// test cannot work around without a restart, which would defeat the
-			// spec's purpose. TODO: unskip when the SDN applies the auto-allocated
-			// IP to a running VM without a restart.
-			Skip("static-to-auto IP switch does not reach the running VM without a restart (SDN-side gap)")
-
 			By("Create IPAddress (Static) and VM with static ipAddressName", func() {
 				ns := f.Namespace().Name
 				Expect(util.CreateSDNIPAddress(ctx, f, "hotplug-static", ns,
@@ -369,9 +357,11 @@ var _ = Describe("VirtualMachineIPAMForAdditionalNetworks", Label(label.SIGCompu
 				// on every VM status update from here to the end of the spec.
 				testVMObs.Never(neverAwaitRestart("VM must not require restart for network change"))
 
-				updated := refreshVM(ctx, f, testVM)
-				updated.Spec.Networks[1].IPAddressName = ""
-				Expect(f.Clients.GenericClient().Update(ctx, updated)).To(Succeed())
+				// The field carries a minLength, so switching to auto means removing it
+				// rather than blanking it - which is what the typed client used to do,
+				// omitempty dropping the empty value from the payload altogether.
+				patch := `[{"op":"remove","path":"/spec/networks/1/ipAddressName"}]`
+				Expect(f.Clients.GenericClient().Patch(ctx, testVM, crclient.RawPatch(types.JSONPatchType, []byte(patch)))).To(Succeed())
 
 				By("Verify NetworkReady=True with new auto IP and pod not recreated")
 				err := testVMObs.WaitFor(haveNetworkReadyWithAutoIPOtherThan(staticIPForHotplugStatic), framework.LongTimeout)
@@ -616,6 +606,13 @@ func haveNetworkNotReadyMentioning(name string) vmobs.Predicate {
 			cond.Status == metav1.ConditionFalse &&
 			cond.Reason == vmcondition.ReasonNetworkNotReady.String() &&
 			strings.Contains(cond.Message, name), nil
+	}
+}
+
+// haveIPAMNetworkIP reports the additional network carries an allocated address.
+func haveIPAMNetworkIP() vmobs.Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		return getVMNetworkIPAddress(vm) != "", nil
 	}
 }
 

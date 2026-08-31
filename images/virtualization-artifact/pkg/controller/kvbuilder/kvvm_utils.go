@@ -666,8 +666,10 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	desiredByName := make(map[string]struct{}, len(networkSpec))
+	desiredACPIIndexes := make(map[int]struct{}, len(networkSpec))
 	for _, n := range networkSpec {
 		desiredByName[n.InterfaceName] = struct{}{}
+		desiredACPIIndexes[n.ID] = struct{}{}
 	}
 
 	for _, iface := range slices.Clone(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces) {
@@ -675,6 +677,19 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 			continue
 		}
 		if iface.Name == network.NameDefaultInterface {
+			kvvm.RemoveNetworkInterface(iface.Name)
+			continue
+		}
+		// An interface whose ACPI index a desired one claims cannot be kept, not even as
+		// absent: QEMU refuses the whole machine when two devices share an index ("a PCI
+		// device with acpi-index = N already exist"), so the virtual machine would not
+		// start at all instead of losing one interface. A re-assigned MAC address leaves
+		// exactly such a pair behind - the interface name is derived from the address
+		// while the index belongs to the network, so the very same network comes back
+		// under a new name and the old entry is a stale duplicate of it. Should the
+		// device still be attached to a running domain, virt-launcher unplugs a domain
+		// interface the VMI spec no longer has.
+		if _, reused := desiredACPIIndexes[iface.ACPIIndex]; reused {
 			kvvm.RemoveNetworkInterface(iface.Name)
 			continue
 		}

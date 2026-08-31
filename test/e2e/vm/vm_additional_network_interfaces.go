@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -80,9 +81,6 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 	)
 
 	BeforeEach(func() {
-		// TODO: Re-enable the suite.
-		Skip("skipped as flaky: fix the instability, then remove this skip")
-
 		ctx = context.Background()
 		f = framework.NewFramework("vm-additional-network-interfaces")
 		DeferCleanup(f.After)
@@ -167,12 +165,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			})
 
 			By("Check Cilium agents after migration", func() {
-				err := network.CheckCiliumAgents(ctx, f.Kubectl(), vmFoo.Name, f.Namespace().Name)
-				Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmFoo.Name)
+				network.EnsureCiliumAgents(ctx, f.Kubectl(), vmFoo.Name, f.Namespace().Name)
 
 				if tc.vmBarHasMainNetwork {
-					err = network.CheckCiliumAgents(ctx, f.Kubectl(), vmBar.Name, f.Namespace().Name)
-					Expect(err).NotTo(HaveOccurred(), "Cilium agents check for VM %s", vmBar.Name)
+					network.EnsureCiliumAgents(ctx, f.Kubectl(), vmBar.Name, f.Namespace().Name)
 				}
 			})
 
@@ -213,13 +209,15 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			vmObs  vmobs.Observer
 		)
 
+		// The interfaces the guest names after the ACPI index of each network: the
+		// middle ClusterNetwork is the one being removed, and the last one has to keep
+		// its name across the removal and the reboot instead of taking the freed one.
 		const (
-			expectedLastInterfaceName = "eno3"
+			middleInterfaceName = "eno2"
+			lastInterfaceName   = "eno3"
 		)
 
 		It("should preserve interface name after removing middle ClusterNetwork and rebooting", func() {
-			// TODO(e2e-flaky-parallel): flaky under parallel load on the 3-node cluster (interface rename after reboot). Re-enable once stabilized.
-			Skip("flaky under parallel load: interface name persistence after reboot")
 			By("Create VM with Main network and two additional ClusterNetworks", func() {
 				ns := f.Namespace().Name
 
@@ -247,17 +245,16 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			By("Get last interface name via SSH", func() {
+			By("Get interface names via SSH", func() {
 				eventually.SSHReady(f, vm, framework.LongTimeout)
-				checkLastInterfaceName(f, vm.Name, vm.Namespace, expectedLastInterfaceName)
+				checkGuestInterfaceNames(f, vm.Name, vm.Namespace,
+					[]string{middleInterfaceName, lastInterfaceName}, nil)
 			})
 
 			By("Remove middle ClusterNetwork from VM spec", func() {
-				err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
-				Expect(err).NotTo(HaveOccurred())
-				vm.Spec.Networks = []v1alpha2.NetworksSpec{vm.Spec.Networks[0], vm.Spec.Networks[2]}
-				err = f.Clients.GenericClient().Update(ctx, vm)
-				Expect(err).NotTo(HaveOccurred())
+				setVMNetworks(ctx, f, vm, func(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+					return []v1alpha2.NetworksSpec{networks[0], networks[2]}
+				})
 			})
 
 			By("Reboot VM via VMOP", func() {
@@ -282,9 +279,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			By("Verify last interface name has not changed", func() {
+			By("Verify the remaining interface kept its name", func() {
 				eventually.SSHReady(f, vm, framework.LongTimeout)
-				checkLastInterfaceName(f, vm.Name, vm.Namespace, expectedLastInterfaceName)
+				checkGuestInterfaceNames(f, vm.Name, vm.Namespace,
+					[]string{lastInterfaceName}, []string{middleInterfaceName})
 			})
 		})
 	})
@@ -298,12 +296,20 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			testVMObs vmobs.Observer
 		)
 
+		// getIfaceCount counts the non-loopback interfaces of the guest, or returns -1 when
+		// the guest cannot be reached. Every caller polls it, and reaching the guest over
+		// SSH fails on its own from time to time - a refused connection, a closed
+		// websocket, a timeout during the banner exchange - so asserting in here would let
+		// a single hiccup decide the outcome instead of being retried.
 		getIfaceCount := func() int {
-			GinkgoHelper()
 			output, err := f.SSHCommand(testVM.Name, testVM.Namespace, countNonLoopbackInterfacesCmd)
-			Expect(err).NotTo(HaveOccurred())
+			if err != nil {
+				return -1
+			}
 			count, err := strconv.Atoi(strings.TrimSpace(output))
-			Expect(err).NotTo(HaveOccurred())
+			if err != nil {
+				return -1
+			}
 			return count
 		}
 
@@ -353,20 +359,23 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 					return false, nil
 				})
 
+				// EXCEPTION: guest-side wait (interface count over SSH), not a
+				// Kubernetes resource - nothing to observe via an Observer.
+				eventually.UntilMatch(getIfaceCount, BeNumerically(">=", 1), framework.LongTimeout,
+					eventually.WithPolling(3*time.Second),
+					eventually.WithExplanation("the guest should report at least one non-loopback interface"))
 				initialIfaceCount = getIfaceCount()
 				Expect(initialIfaceCount).To(BeNumerically(">=", 1),
 					"VM should have at least one non-loopback interface")
 			})
 
 			By("Hotplug: add a ClusterNetwork to spec.networks", func() {
-				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
-				Expect(err).NotTo(HaveOccurred())
-				testVM.Spec.Networks = append(testVM.Spec.Networks, v1alpha2.NetworksSpec{
-					Type: v1alpha2.NetworksTypeClusterNetwork,
-					Name: util.ClusterNetworkName(L2OnlyNetworkVLANID),
+				setVMNetworks(ctx, f, testVM, func(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+					return append(networks, v1alpha2.NetworksSpec{
+						Type: v1alpha2.NetworksTypeClusterNetwork,
+						Name: util.ClusterNetworkName(L2OnlyNetworkVLANID),
+					})
 				})
-				err = f.Clients.GenericClient().Update(context.Background(), testVM)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("Verify new interface appears in the guest OS", func() {
@@ -380,24 +389,12 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 			})
 
 			By("Hotunplug: remove the ClusterNetwork from spec.networks", func() {
-				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(testVM), testVM)
-				Expect(err).NotTo(HaveOccurred())
-				testVM.Spec.Networks = []v1alpha2.NetworksSpec{testVM.Spec.Networks[0]}
-				err = f.Clients.GenericClient().Update(context.Background(), testVM)
-				Expect(err).NotTo(HaveOccurred())
+				setVMNetworks(ctx, f, testVM, func(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+					return []v1alpha2.NetworksSpec{networks[0]}
+				})
 			})
 
 			By("Verify interface disappears from the guest OS", func() {
-				// TODO: unskip when the kubevirt fork detaches bpfbridge interfaces on
-				// hotunplug. The interface is dropped from the KVVM/KVVMI spec (the
-				// admitter allows state=absent for the bpfbridge binding), but
-				// virt-launcher's interfacesToHotUnplug selects only domain devices
-				// with the hashed-tap naming scheme (hasDeviceWithHashedTapName),
-				// which a bpfbridge veth never matches — the device is never detached
-				// from the live domain and the guest keeps the NIC until a migration
-				// or restart.
-				Skip("skip: kubevirt fork does not hot-unplug bpfbridge interfaces from the live domain, the guest keeps the NIC")
-
 				// EXCEPTION: guest-side wait (interface count over SSH), not a
 				// Kubernetes resource — nothing to observe via an Observer.
 				eventually.UntilMatch(getIfaceCount, Equal(initialIfaceCount), framework.LongTimeout,
@@ -459,23 +456,33 @@ func buildVMWithNetworks(name, ns, vdRootName, additionalIP string, hasMain bool
 	return vm.New(opts...)
 }
 
-// cloudInitAdditionalNetwork returns cloud-init that configures the additional network interface with the given static IP.
-// When hasMain is true, the additional interface is eth1; when false, it's eth0.
 // cloudInitAdditionalNetwork returns provisioning that assigns the static
-// address to the additional interface at boot. The custom image
-// executes the runcmd subset via its NoCloud handler (S04cloudinit), which
-// runs before the extra-NIC DHCP step (S41extranics) — an interface that
-// already carries an address is left alone by it.
+// address to the additional interface at boot. The custom image executes the
+// runcmd subset via its NoCloud handler (S04cloudinit), which runs before both
+// networking steps.
+//
+// With a Main network the additional interface is eth1, and plain `ip addr add`
+// is enough: the extra-NIC DHCP step (S41extranics) leaves an interface that
+// already carries an address alone.
+//
+// Without a Main network the additional interface is eth0, and `ip addr add`
+// does not survive: the image ships a fixed `iface eth0 inet dhcp` stanza, and
+// udhcpc always starts with a `deconfig` that flushes the interface. Since the
+// L2-only network has no DHCP server, the address would be wiped and never
+// replaced, so the stanza is rewritten to a static one instead and ifup
+// configures the address itself.
 func cloudInitAdditionalNetwork(additionalIP string, hasMain bool) string {
-	ifaceName := "eth0"
-	if hasMain {
-		ifaceName = "eth1"
+	if !hasMain {
+		return fmt.Sprintf(`#cloud-config
+runcmd:
+  - printf 'auto lo\niface lo inet loopback\n\nauto eth0\niface eth0 inet static\n  address %s\n  netmask 255.255.255.0\n' > /etc/network/interfaces
+`, additionalIP)
 	}
 	return fmt.Sprintf(`#cloud-config
 runcmd:
-  - ip link set %s up
-  - ip addr add %s/24 dev %s
-`, ifaceName, additionalIP, ifaceName)
+  - ip link set eth1 up
+  - ip addr add %s/24 dev eth1
+`, additionalIP)
 }
 
 func checkConnectivityBetweenVMs(f *framework.Framework, vmFoo, vmBar *v1alpha2.VirtualMachine, vmBarHasMainNetwork bool, vmBarAdditionalIP, vmFooAdditionalIP string) {
@@ -501,6 +508,25 @@ const (
 	SSHCommandTimeout = 15 * time.Second
 )
 
+// setVMNetworks rewrites spec.networks of the virtual machine, retrying the write when a
+// concurrent status update wins the race - the controller writes to the machine on every
+// reconcile, so a plain read-modify-write loses often enough to matter.
+func setVMNetworks(
+	ctx context.Context,
+	f *framework.Framework,
+	vm *v1alpha2.VirtualMachine,
+	rewrite func([]v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec,
+) {
+	GinkgoHelper()
+	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm); err != nil {
+			return err
+		}
+		vm.Spec.Networks = rewrite(vm.Spec.Networks)
+		return f.Clients.GenericClient().Update(ctx, vm)
+	})).To(Succeed())
+}
+
 func checkPingPacketLoss(f *framework.Framework, vmName, vmNamespace, cmd, expectedPacketLoss string) {
 	GinkgoHelper()
 	packetLossRE := regexp.MustCompile(`([0-9]+)%\s*packet loss`)
@@ -521,28 +547,38 @@ func checkPingPacketLoss(f *framework.Framework, vmName, vmNamespace, cmd, expec
 	}, Equal(expectedPacketLoss), Timeout, eventually.WithPolling(Interval))
 }
 
-func checkLastInterfaceName(f *framework.Framework, vmName, vmNamespace, expected string) {
+// checkGuestInterfaceNames waits until the guest reports every name in present and none
+// of the names in absent. The names are the invariant, not their order: the guest indexes
+// interfaces by PCI slot while it names them after the ACPI index, so the order of the
+// internal spec - which a re-assigned MAC address rewrites - decides which one comes last
+// even when every name is what it should be.
+func checkGuestInterfaceNames(f *framework.Framework, vmName, vmNamespace string, present, absent []string) {
 	GinkgoHelper()
 	// EXCEPTION: guest-side wait (interface list over SSH), not a Kubernetes
 	// resource — nothing to observe via an Observer.
-	eventually.UntilMatch(func() (string, error) {
+	eventually.UntilAssertion(func(g Gomega) {
 		cmd := "ip -j link show"
 		result, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHTimeout(SSHCommandTimeout))
-		if err != nil {
-			return "", fmt.Errorf("failed to execute command: %w: %s", err, result)
-		}
+		g.Expect(err).NotTo(HaveOccurred(), "failed to execute command: %s", result)
 
 		var links IPLinks
-		err = json.Unmarshal([]byte(result), &links)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse ip JSON output: %w", err)
-		}
-		if len(links) == 0 {
-			return "", fmt.Errorf("no network interfaces found")
+		g.Expect(json.Unmarshal([]byte(result), &links)).To(Succeed(), "failed to parse ip JSON output: %s", result)
+
+		var names []string
+		for _, link := range links {
+			if link.IFName == "lo" {
+				continue
+			}
+			names = append(names, link.IFName)
 		}
 
-		return links[len(links)-1].IFName, nil
-	}, Equal(expected), Timeout, eventually.WithPolling(Interval))
+		for _, name := range present {
+			g.Expect(names).To(ContainElement(name), "the guest should carry interface %s", name)
+		}
+		for _, name := range absent {
+			g.Expect(names).NotTo(ContainElement(name), "the guest should have let interface %s go", name)
+		}
+	}, Timeout, eventually.WithPolling(Interval))
 }
 
 // IPLinks represents the JSON output of ip -j link show command.
