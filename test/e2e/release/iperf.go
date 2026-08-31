@@ -238,10 +238,16 @@ func parseIPerfReport(raw string) (*iperfReport, error) {
 	return &report, nil
 }
 
+// isExpectedIPerfReportError reports whether errMsg reflects the client's own
+// SIGINT-triggered shutdown (stopIPerfClient), rather than a real transport
+// failure. The exact wording of iperf3's message for this case is not
+// matched verbatim: iperf3 in the guest image comes from Buildroot's package
+// tree, which can carry a different iperf3 release than the one used to
+// derive this string, so only the stable "interrupt" keyword is checked.
 func isExpectedIPerfReportError(errMsg string) bool {
 	if errMsg == "" {
 		return true
 	}
 
-	return strings.Contains(errMsg, "interrupt - the client has terminated by signal Interrupt(2)")
+	return strings.Contains(strings.ToLower(errMsg), "interrupt")
 }
