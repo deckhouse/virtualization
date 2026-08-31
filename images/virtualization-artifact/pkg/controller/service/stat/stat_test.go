@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
@@ -180,5 +181,45 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ready).To(BeTrue())
+	})
+})
+
+var _ = Describe("StatService.CheckPod", func() {
+	newPod := func(state, last corev1.ContainerState) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "d8v-vi-importer", Namespace: "ns"},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				ContainerStatuses: []corev1.ContainerStatus{
+					{State: state, LastTerminationState: last},
+				},
+			},
+		}
+	}
+
+	It("ignores the report of an attempt that is already being retried", func() {
+		// Provisioner pods run with RestartPolicy: OnFailure, and the provisioners that report
+		// here cannot tell a transient failure from a permanent one. Acting on a report from
+		// LastTerminationState would fail the image on a registry that blinked once, and on the
+		// upload path that verdict is terminal: the image never comes back.
+		pod := newPod(
+			corev1.ContainerState{Running: &corev1.ContainerStateRunning{}},
+			corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+				Message: `{"error-message":"failed to pull image: connection refused"}`,
+			}},
+		)
+		Expect(StatService{}.CheckPod(pod)).To(Succeed())
+	})
+
+	It("reports the failure of the attempt the container is terminated on", func() {
+		pod := newPod(
+			corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+				Message: `{"error-message":"failed to pull image: connection refused"}`,
+			}},
+			corev1.ContainerState{},
+		)
+		err := StatService{}.CheckPod(pod)
+		Expect(err).To(MatchError(ErrProvisioningFailed))
+		Expect(IsTerminationMessageError(err)).To(BeTrue())
 	})
 })

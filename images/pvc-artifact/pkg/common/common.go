@@ -55,6 +55,7 @@ const (
 	PreallocationApplied = "Preallocation applied"
 	ScratchSpaceRequired = "scratch space required and none found"
 	ImagePullFailureText = "failed to pull image"
+	WriteFailureText     = "failed to write the image to the target volume"
 )
 
 // TerminationMessage contains data to be serialized and used as the termination message of the importer.
@@ -64,6 +65,15 @@ type TerminationMessage struct {
 	DeadlinePassed       *bool             `json:"deadlinePassed,omitempty"`
 	Labels               map[string]string `json:"labels,omitempty"`
 	Message              *string           `json:"message,omitempty"`
+	// ErrMessage carries the failure reason to the controller. The field name matches the
+	// one the controller already reads from every other provisioner, so a failed import is
+	// reported the same way regardless of which pod produced it.
+	ErrMessage *string `json:"error-message,omitempty"`
+	// Permanent tells the controller that retrying the pod cannot help (the image does not
+	// fit, the target refused the write). A transient failure leaves it unset: the pod is
+	// restarted by the kubelet anyway, and the disk should not be painted Failed for a
+	// connection that will be back in a second.
+	Permanent *bool `json:"permanent,omitempty"`
 }
 
 func (it *TerminationMessage) String() (string, error) {

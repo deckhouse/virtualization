@@ -134,7 +134,7 @@ var _ = Describe("QuotaExhausted", Label(label.SIGStorage, precheck.PrecheckDefa
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("VirtualImage on PVC reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckDefaultStorageClass), func() {
+	It("VirtualImage on PVC reports a quota-exceeded Ready condition", Label(precheck.PrecheckDefaultStorageClass), func() {
 		vi := object.NewVI(
 			vibuilder.WithName("vi-pvc-quota"),
 			vibuilder.WithNamespace(f.Namespace().Name),

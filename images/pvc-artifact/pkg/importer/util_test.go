@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestCopyBufferedWriteSizes(t *testing.T) {
@@ -201,6 +203,95 @@ func TestStreamDataToFileOverwritesLeftover(t *testing.T) {
 	}
 }
 
+func TestCopyBufferedDropsPageCache(t *testing.T) {
+	// Written data must be pushed out and evicted window by window, one window
+	// behind the one being filled, so the pod cgroup never holds more than two.
+	data := bytes.Repeat([]byte{0x09}, cacheWindowSize*3)
+
+	w := &recordingCacheWriter{}
+	if err := copyBuffered(w, bytes.NewReader(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []zeroCall{{0, cacheWindowSize}, {cacheWindowSize, cacheWindowSize}, {cacheWindowSize * 2, cacheWindowSize}}
+	if len(w.flushed) != len(want) {
+		t.Fatalf("got %d writeback calls, want %d: %v", len(w.flushed), len(want), w.flushed)
+	}
+	for i, c := range want {
+		if w.flushed[i] != c {
+			t.Fatalf("writeback call %d = %v, want %v", i, w.flushed[i], c)
+		}
+	}
+	// The last window is still being written back when the copy ends; the final
+	// fsync of the file covers it.
+	if len(w.dropped) != len(want)-1 {
+		t.Fatalf("got %d drop calls, want %d: %v", len(w.dropped), len(want)-1, w.dropped)
+	}
+	for i, c := range want[:len(want)-1] {
+		if w.dropped[i] != c {
+			t.Fatalf("drop call %d = %v, want %v", i, w.dropped[i], c)
+		}
+	}
+}
+
+func TestCopyBufferedCacheDropUnsupported(t *testing.T) {
+	// A target that does not implement the syscalls must not break the copy,
+	// and must not be asked again for every window.
+	data := bytes.Repeat([]byte{0x0A}, cacheWindowSize*3)
+
+	w := &recordingCacheWriter{flushErr: unix.EOPNOTSUPP}
+	if err := copyBuffered(w, bytes.NewReader(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(w.flushed) != 1 {
+		t.Fatalf("writeback attempted %d times, want 1 (then give up for good): %v", len(w.flushed), w.flushed)
+	}
+	if w.written != cacheWindowSize*3 {
+		t.Fatalf("wrote %d bytes, want %d", w.written, cacheWindowSize*3)
+	}
+}
+
+func TestCopyBufferedCacheDropIOError(t *testing.T) {
+	// An IO error is not a missing implementation: the kernel reports a
+	// writeback failure once, so swallowing it here would let the final fsync
+	// report success over data that never reached the storage. Neither is
+	// EINVAL, which sync_file_range raises for arguments this code built
+	// wrong: taking it for a missing implementation would disable the flush
+	// for the whole import and bring the OOM back.
+	data := bytes.Repeat([]byte{0x0B}, cacheWindowSize*3)
+
+	for name, tc := range map[string]struct {
+		w    *recordingCacheWriter
+		want error
+	}{
+		"writeback fails":                 {&recordingCacheWriter{flushErr: unix.EIO}, unix.EIO},
+		"drop fails":                      {&recordingCacheWriter{dropErr: unix.EIO}, unix.EIO},
+		"writeback rejects the arguments": {&recordingCacheWriter{flushErr: unix.EINVAL}, unix.EINVAL},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := copyBuffered(tc.w, bytes.NewReader(data)); !errors.Is(err, tc.want) {
+				t.Fatalf("want %v, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+type recordingCacheWriter struct {
+	recordingZeroWriter
+	flushed, dropped  []zeroCall
+	flushErr, dropErr error
+}
+
+func (w *recordingCacheWriter) StartWriteback(start, length int64) error {
+	w.flushed = append(w.flushed, zeroCall{start, length})
+	return w.flushErr
+}
+
+func (w *recordingCacheWriter) DropRangeCache(start, length int64) error {
+	w.dropped = append(w.dropped, zeroCall{start, length})
+	return w.dropErr
+}
+
 type zeroCall struct {
 	start  int64
 	length int64
@@ -274,4 +365,46 @@ func (r *shortReadReader) Read(p []byte) (int, error) {
 		p = p[:r.max]
 	}
 	return r.r.Read(p)
+}
+
+func TestFailureClassification(t *testing.T) {
+	// A storage failure must not be reported as a failed download: the message text
+	// cannot tell them apart, and the page cache flush adds a new class of them.
+	// Three windows: the cache drop only happens once the window after it filled up.
+	data := bytes.Repeat([]byte{0x0C}, cacheWindowSize*3)
+
+	writeFailures := map[string]io.Writer{
+		"write fails":      failWriter{unix.EIO},
+		"writeback fails":  &recordingCacheWriter{flushErr: unix.ENOSPC},
+		"cache drop fails": &recordingCacheWriter{dropErr: unix.EIO},
+	}
+	for name, w := range writeFailures {
+		t.Run(name, func(t *testing.T) {
+			err := copyBuffered(w, bytes.NewReader(data))
+			var writeErr *WriteFailedError
+			if !errors.As(err, &writeErr) {
+				t.Fatalf("got %T (%v), want *WriteFailedError", err, err)
+			}
+		})
+	}
+
+	t.Run("read failure stays a pull error", func(t *testing.T) {
+		errBoom := errors.New("connection reset")
+		dest := filepath.Join(t.TempDir(), "dest.img")
+		err := streamDataToFile(errReader{errBoom}, dest)
+		var pullErr *ImagePullFailedError
+		if !errors.As(err, &pullErr) {
+			t.Fatalf("got %T (%v), want *ImagePullFailedError", err, err)
+		}
+	})
+
+	t.Run("write failure survives streamDataToFile", func(t *testing.T) {
+		// The whole point: what reaches the caller (and the termination message)
+		// says the image could not be stored, not that it could not be pulled.
+		var writeErr *WriteFailedError
+		err := copyBuffered(failWriter{unix.ENOSPC}, bytes.NewReader(data))
+		if !errors.As(err, &writeErr) || !errors.Is(err, unix.ENOSPC) {
+			t.Fatalf("got %v, want a WriteFailedError wrapping ENOSPC", err)
+		}
+	})
 }

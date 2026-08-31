@@ -118,6 +118,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualDiskSnapshotWatcher(mgrClient),
 		watcher.NewPersistentVolumeClaimWatcher(),
 		watcher.NewVirtualDiskWatcher(mgrClient),
+		watcher.NewResourceQuotaWatcher(mgrClient),
 		postponeimporter.NewWatcher[*v1alpha2.VirtualImage](mgrClient, logger),
 	} {
 		err := w.Watch(mgr, ctr)

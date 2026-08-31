@@ -19,6 +19,7 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -260,6 +261,40 @@ var _ = Describe("Sources helpers", func() {
 			Expect(cb.Condition().Reason).To(Equal(vicondition.Provisioning.String()))
 		})
 
+		It("fails the image with the reason and keeps checking on the retrying importer", func() {
+			// The importer pod belongs to the PersistentVolumeClaim, and the image only watches
+			// pods it owns: dropping the requeue here would leave the image failed even after a
+			// later attempt succeeds.
+			ctx := context.Background()
+			vi := newVI()
+			vi.Status.StorageClassName = "sc"
+			pvc := newBoundImportPVC("target", vi.Namespace)
+			supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: supgen.PVCImporterPod().Name, Namespace: vi.Namespace},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						LastTerminationState: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+							Message: `{"error-message":"Unable to process data: no space left on device","permanent":true}`,
+						}},
+					}},
+				},
+			}
+			client := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(pvc, pod).Build()
+			disk := service.NewDiskService(client, nil, nil, "vi-controller", service.DiskImporterConfig{Image: "pvc-importer", Verbose: "1"})
+			source := service.NewPVCRegistryImportSource("docker://registry.example/image", "", "")
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+
+			result, err := reconcilePVCImportFromDVCR(ctx, vi, &corev1.Pod{}, pvc, source, cb, supgen, nil, disk)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.RequeueAfter).ToNot(BeZero())
+
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageFailed))
+			Expect(cb.Condition().Reason).To(Equal(vicondition.ProvisioningFailed.String()))
+			Expect(cb.Condition().Message).To(Equal("Unable to process data: no space left on device."))
+		})
+
 		It("fails provisioning when the source PVC lives on a different CSI driver", func() {
 			ctx := context.Background()
 			vi := newVI()
@@ -372,7 +407,7 @@ var _ = Describe("Sources helpers", func() {
 			vi := newVI()
 			cb := conditions.NewConditionBuilder(vicondition.ReadyType)
 
-			handled, err := setPhaseConditionFromStorageError(inputErr, vi, cb)
+			_, handled, err := setPhaseConditionFromStorageError(inputErr, vi, cb)
 			Expect(handled).To(Equal(expectedHandled))
 			if expectedErr == nil {
 				Expect(err).ToNot(HaveOccurred())
@@ -393,11 +428,27 @@ var _ = Describe("Sources helpers", func() {
 			true,
 			nil,
 			v1alpha2.ImageFailed,
-			vicondition.ProvisioningFailed.String(),
+			vicondition.QuotaExceeded.String(),
 			"Quota exceeded: create dvcr target pvc: exceeded quota: persistentvolumeclaims; Retry in 1 minute.",
 		),
 		Entry("unexpected error", errors.New("boom"), false, errors.New("boom"), v1alpha2.ImagePhase(""), conditions.ReasonUnknown.String(), ""),
 	)
+
+	It("propagates the quota retry instead of dropping it", func() {
+		// The retry the quota branch asks for used to be discarded by the caller, so the image
+		// waited for a reconcile that never came: nothing else wakes it while a quota blocks
+		// the target claim.
+		vi := newVI()
+		vi.CreationTimestamp = metav1.NewTime(time.Now().Add(-31 * time.Minute))
+		cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+
+		res, handled, err := setPhaseConditionFromStorageError(
+			fmt.Errorf("create dvcr target pvc: %w", errors.New("exceeded quota: persistentvolumeclaims")), vi, cb)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(handled).To(BeTrue())
+		Expect(res.RequeueAfter).To(Equal(time.Minute))
+	})
 
 	DescribeTable(
 		"setQuotaExceededPhaseCondition",
@@ -412,11 +463,114 @@ var _ = Describe("Sources helpers", func() {
 			result := setQuotaExceededPhaseCondition(cb, &phase, errors.New("exceeded quota: test"), creationTimestamp)
 			Expect(phase).To(Equal(v1alpha2.ImageFailed))
 			Expect(cb.Condition().Status).To(Equal(metav1.ConditionFalse))
-			Expect(cb.Condition().Reason).To(Equal(vicondition.ProvisioningFailed.String()))
+			Expect(cb.Condition().Reason).To(Equal(vicondition.QuotaExceeded.String()))
 			Expect(cb.Condition().Message).To(Equal(expectedMessage))
 			Expect(result.RequeueAfter).To(Equal(expectedRequeueAfter))
 		},
 		Entry("keeps failed state for fresh object", metav1.NewTime(time.Now()), "Quota exceeded: exceeded quota: test; Please configure quotas or try recreating the resource later.", time.Duration(0)),
 		Entry("requeues old object", metav1.NewTime(time.Now().Add(-31*time.Minute)), "Quota exceeded: exceeded quota: test; Retry in 1 minute.", time.Minute),
 	)
+})
+
+var _ = Describe("pvcImportFailed", func() {
+	newPod := func(state, last corev1.ContainerState, phase corev1.PodPhase) *corev1.Pod {
+		return &corev1.Pod{
+			Status: corev1.PodStatus{
+				Phase:             phase,
+				ContainerStatuses: []corev1.ContainerStatus{{State: state, LastTerminationState: last}},
+			},
+		}
+	}
+
+	permanentReport := corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+		Message: `{"error-message":"Unable to process data: no space left on device","permanent":true}`,
+	}}
+
+	take := func(pod *corev1.Pod) (*v1alpha2.VirtualImage, bool) {
+		vi := &v1alpha2.VirtualImage{Status: v1alpha2.VirtualImageStatus{Phase: v1alpha2.ImageProvisioning}}
+		cb := conditions.NewConditionBuilder(vicondition.ReadyType)
+		failed := pvcImportFailed(vi, cb, pod)
+		conditions.SetCondition(cb, &vi.Status.Conditions)
+		return vi, failed
+	}
+
+	It("keeps provisioning when the importer pod is not there", func() {
+		_, failed := take(nil)
+		Expect(failed).To(BeFalse())
+	})
+
+	It("keeps provisioning while a new attempt is running", func() {
+		_, failed := take(newPod(corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}, permanentReport, corev1.PodRunning))
+		Expect(failed).To(BeFalse())
+	})
+
+	It("fails the image with the reason the importer reported", func() {
+		// The pvc-importer pod runs with RestartPolicy: OnFailure and never reaches PodFailed,
+		// so without the report the image would report "importing" forever.
+		vi, failed := take(newPod(corev1.ContainerState{}, permanentReport, corev1.PodRunning))
+		Expect(failed).To(BeTrue())
+		Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageFailed))
+		ready, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+		Expect(ready.Message).To(Equal("Unable to process data: no space left on device."))
+	})
+
+	It("keeps provisioning while the failure may still go away", func() {
+		transient := corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+			Message: `{"error-message":"failed to pull image: connection refused"}`,
+		}}
+		_, failed := take(newPod(corev1.ContainerState{}, transient, corev1.PodRunning))
+		Expect(failed).To(BeFalse())
+	})
+
+	It("keeps a finished import alive when an earlier attempt had failed", func() {
+		// The successful attempt terminates the container with "Import Complete"; the failed
+		// one before it stays in LastTerminationState and must not outweigh it.
+		succeeded := corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+			Message: `{"source-image-size":1,"message":"Import Complete"}`,
+		}}
+		_, failed := take(newPod(succeeded, permanentReport, corev1.PodSucceeded))
+		Expect(failed).To(BeFalse())
+	})
+
+	It("fails the image when the pod itself failed", func() {
+		vi, failed := take(newPod(corev1.ContainerState{}, corev1.ContainerState{}, corev1.PodFailed))
+		Expect(failed).To(BeTrue())
+		Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageFailed))
+		ready, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+		Expect(ready.Message).To(Equal("VirtualImage importer Pod failed."))
+	})
+})
+
+var _ = Describe("refreshPVCImportProgress", func() {
+	It("republishes the progress of the pod it was given", func() {
+		// The pod is fetched once per reconcile and handed around; the progress must still be
+		// taken from that same pod.
+		var seen string
+		statSvc := &StatMock{
+			GetProgressFunc: func(_ types.UID, pod *corev1.Pod, _ string, _ ...servicestat.GetProgressOption) string {
+				seen = pod.Name
+				return "42%"
+			},
+		}
+		vi := &v1alpha2.VirtualImage{}
+
+		refreshPVCImportProgress(vi, statSvc, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "importer"}}, nil)
+
+		Expect(seen).To(Equal("importer"))
+		Expect(vi.Status.Progress).To(Equal("42%"))
+	})
+
+	It("keeps the previous progress when there is no pod", func() {
+		statSvc := &StatMock{
+			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, _ string, _ ...servicestat.GetProgressOption) string {
+				Fail("the stat service must not be asked about a pod that is not there")
+				return ""
+			},
+		}
+		vi := &v1alpha2.VirtualImage{Status: v1alpha2.VirtualImageStatus{Progress: "17%"}}
+
+		refreshPVCImportProgress(vi, statSvc, nil, nil)
+
+		Expect(vi.Status.Progress).To(Equal("17%"))
+	})
 })

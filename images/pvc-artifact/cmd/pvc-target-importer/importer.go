@@ -22,6 +22,7 @@ package main
 //    ImporterNBDEndpoint    NBD endpoint URL of the source to copy from.
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -55,47 +56,54 @@ func run() int {
 
 	certsDirectory, err := os.MkdirTemp("", "certsdir")
 	if err != nil {
-		panic(err)
+		return reportFailure(fmt.Errorf("create the certs directory: %w", err))
 	}
 	defer func() { _ = os.RemoveAll(certsDirectory) }()
 	prometheusutil.StartPrometheusEndpoint(certsDirectory)
 
 	nbdEndpoint, err := util.ParseEnvVar(common.ImporterNBDEndpoint, false)
 	if err != nil {
-		klog.Error(err)
-		return 1
+		return reportFailure(err)
 	}
 	if nbdEndpoint == "" {
-		klog.Error("IMPORTER_NBD_ENDPOINT is required")
-		return 1
+		return reportFailure(errors.New("IMPORTER_NBD_ENDPOINT is required"))
 	}
 
 	dest := importerDestPath()
 	if err := importer.WaitForNBDEndpoint(nbdEndpoint, nbdConnectTimeout); err != nil {
-		klog.Errorf("%+v", err)
-		if writeErr := util.WriteTerminationMessage(fmt.Sprintf("Unable to connect to NBD source: %v", err.Error())); writeErr != nil {
-			klog.Errorf("%+v", writeErr)
-		}
-		return 1
+		return reportFailure(fmt.Errorf("unable to connect to NBD source: %w", err))
 	}
 
+	// nbdcopy is a separate process copying between two ends, and its exit code says nothing
+	// about which one gave up: a source that went away is transient, a target that refuses the
+	// write is not. Guessing from the message text is what mislabeled storage failures as
+	// failed downloads before, so the copy stays unclassified and the pod keeps retrying.
 	if err := importer.CopyNBDToDevice(nbdEndpoint, dest); err != nil {
-		klog.Errorf("%+v", err)
-		if writeErr := util.WriteTerminationMessage(fmt.Sprintf("Unable to copy NBD image: %v", err.Error())); writeErr != nil {
-			klog.Errorf("%+v", writeErr)
-		}
-		return 1
+		return reportFailure(fmt.Errorf("unable to copy NBD image: %w", err))
 	}
 
+	// A failed fsync is unambiguous: the data never reached the storage, and the next attempt
+	// writes to the same target. It is reported as permanent so the disk fails with the reason
+	// instead of provisioning forever.
 	if err := fsyncDataFile(dest); err != nil {
-		klog.Errorf("%+v", err)
-		return 1
+		return reportFailure(importer.NewWriteFailedError(err))
 	}
 	if err := writeTerminationMessage(completeMessage); err != nil {
 		klog.Errorf("%+v", err)
 		return 1
 	}
 	return 0
+}
+
+// reportFailure hands the reason to the controller through the termination message and returns
+// the exit code. The pod runs with RestartPolicy: OnFailure and never reaches PodFailed, so a
+// silent exit leaves the disk provisioning forever with the reason nowhere to be found.
+func reportFailure(err error) int {
+	klog.Errorf("%+v", err)
+	if writeErr := importer.WriteFailureMessage(err); writeErr != nil {
+		klog.Errorf("%+v", writeErr)
+	}
+	return 1
 }
 
 func importerDestPath() string {

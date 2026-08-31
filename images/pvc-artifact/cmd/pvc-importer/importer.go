@@ -50,11 +50,6 @@ const (
 	contentTypeArchive  = "archive"
 )
 
-func init() {
-	klog.InitFlags(nil)
-	flag.Parse()
-}
-
 func touchDoneFile() {
 	doneFile, _ := util.ParseEnvVar(common.ImporterDoneFile, false)
 	if doneFile == "" {
@@ -72,11 +67,15 @@ func main() {
 }
 
 func run() int {
+	// The flags are parsed here rather than in an init function so that the package stays
+	// importable by a test binary, whose own flags are not registered yet at init time.
+	klog.InitFlags(nil)
+	flag.Parse()
 	defer klog.Flush()
 
 	certsDirectory, err := os.MkdirTemp("", "certsdir")
 	if err != nil {
-		panic(err)
+		return reportFailure(fmt.Errorf("create the certs directory: %w", err))
 	}
 	defer func() { _ = os.RemoveAll(certsDirectory) }()
 	prometheusutil.StartPrometheusEndpoint(certsDirectory)
@@ -99,13 +98,11 @@ func run() int {
 
 	// Registry import currently support kubevirt content type only
 	if contentType != contentTypeKubeVirt && source == sourceRegistry {
-		klog.Errorf("Unsupported content type %s when importing from %s", contentType, source)
-		return 1
+		return reportFailure(fmt.Errorf("unsupported content type %s when importing from %s", contentType, source))
 	}
 
 	if _, err := util.GetAvailableSpaceByVolumeMode(volumeMode); err != nil {
-		klog.Errorf("%+v", err)
-		return 1
+		return reportFailure(err)
 	}
 
 	exitCode := handleImport(source, contentType, volumeMode, imageSize, filesystemOverhead, preallocation)
@@ -116,8 +113,26 @@ func run() int {
 		return exitCode
 	}
 
-	fsyncDataFile(contentType, volumeMode)
+	if err := fsyncDataFile(contentType, volumeMode); err != nil {
+		// The data did not reach the storage, so the file that is there is not the image:
+		// drop it instead of leaving something that looks like an imported disk on the volume.
+		if cleanErr := importer.CleanAll(getImporterDestPath(contentType, volumeMode)); cleanErr != nil {
+			klog.Errorf("Unable to remove the target after a failed fsync: %+v", cleanErr)
+		}
+		return reportFailure(err)
+	}
 	return 0
+}
+
+// reportFailure logs the error, hands it to the controller through the termination message and
+// returns the exit code. Every failing exit path goes through it: a silent exit leaves the disk
+// provisioning forever with the reason nowhere to be found.
+func reportFailure(err error) int {
+	klog.Errorf("%+v", err)
+	if writeErr := importer.WriteFailureMessage(err); writeErr != nil {
+		klog.Errorf("%+v", writeErr)
+	}
+	return 1
 }
 
 const scratchExitCode = 2
@@ -132,27 +147,33 @@ func handleImport(
 ) int {
 	klog.V(1).Infoln("begin import process")
 
-	ds := newDataSource(source)
-	defer func() { _ = ds.Close() }()
+	ds, err := newDataSource(source)
+	if err != nil {
+		return reportFailure(err)
+	}
+	defer func() {
+		if ds != nil {
+			_ = ds.Close()
+		}
+	}()
 
 	processor, err := newDataProcessor(contentType, volumeMode, ds, imageSize, filesystemOverhead, preallocation)
 	if err != nil {
-		klog.Errorf("%+v", err)
-		if err := util.WriteTerminationMessage(fmt.Sprintf("Unable to start import: %v", err.Error())); err != nil {
-			klog.Errorf("%+v", err)
-		}
-		return 1
+		return reportFailure(fmt.Errorf("unable to start import: %w", err))
 	}
 
 	err = processor.ProcessData()
 
 	scratchSpaceRequired := errors.Is(err, importer.ErrRequiresScratchSpace)
 	if err != nil && !scratchSpaceRequired {
-		klog.Errorf("%+v", err)
-		if err := util.WriteTerminationMessage(fmt.Sprintf("Unable to process data: %v", err.Error())); err != nil {
-			klog.Errorf("%+v", err)
+		// A failure past the copy (a size validation, a resize) leaves the target file
+		// behind: drop it so the volume does not keep the leftover of an attempt that
+		// produced no image. The retry truncates whatever is left anyway, this only keeps
+		// the volume from holding it in between. A block device is left alone by CleanAll.
+		if cleanErr := importer.CleanAll(getImporterDestPath(contentType, volumeMode)); cleanErr != nil {
+			klog.Errorf("Unable to remove the incomplete target: %+v", cleanErr)
 		}
-		return 1
+		return reportFailure(fmt.Errorf("unable to process data: %w", err))
 	}
 
 	termMsg := ds.GetTerminationMessage()
@@ -207,7 +228,7 @@ func getImporterDestPath(contentType string, volumeMode corev1.PersistentVolumeM
 	return dest
 }
 
-func newDataSource(source string) importer.DataSourceInterface {
+func newDataSource(source string) (importer.DataSourceInterface, error) {
 	ep, _ := util.ParseEnvVar(common.ImporterEndpoint, false)
 	acc, _ := util.ParseEnvVar(common.ImporterAccessKeyID, false)
 	sec, _ := util.ParseEnvVar(common.ImporterSecretKey, false)
@@ -215,33 +236,24 @@ func newDataSource(source string) importer.DataSourceInterface {
 	insecureTLS, _ := strconv.ParseBool(os.Getenv(common.InsecureTLSVar))
 	directTransfer, _ := strconv.ParseBool(os.Getenv(common.ImporterDirectTransfer))
 
-	switch source {
-	case sourceRegistry:
-		ds := importer.NewRegistryDataSource(ep, acc, sec, certDir, insecureTLS, directTransfer)
-		return ds
-	default:
-		klog.Errorf("Unknown source type %s\n", source)
-		err := util.WriteTerminationMessage(fmt.Sprintf("Unknown data source: %s", source))
-		if err != nil {
-			klog.Errorf("%+v", err)
-		}
-		os.Exit(1)
+	if source != sourceRegistry {
+		return nil, fmt.Errorf("unknown data source: %s", source)
 	}
-
-	return nil
+	return importer.NewRegistryDataSource(ep, acc, sec, certDir, insecureTLS, directTransfer), nil
 }
 
-func fsyncDataFile(contentType string, volumeMode corev1.PersistentVolumeMode) {
+// fsyncDataFile commits the written image to storage. Its failure means the data never got
+// there, so it must reach the user like any other import failure instead of exiting silently.
+func fsyncDataFile(contentType string, volumeMode corev1.PersistentVolumeMode) error {
 	dataFile := getImporterDestPath(contentType, volumeMode)
 	file, err := os.Open(dataFile)
 	if err != nil {
-		klog.Errorf("could not get file descriptor for fsync call: %+v", err)
-		os.Exit(1)
+		return fmt.Errorf("could not get file descriptor for fsync call: %w", err)
 	}
+	defer file.Close()
 	if err := file.Sync(); err != nil {
-		klog.Errorf("could not fsync following qemu-img writing: %+v", err)
-		os.Exit(1)
+		return fmt.Errorf("could not fsync following qemu-img writing: %w", err)
 	}
 	klog.V(3).Infof("Successfully completed fsync(%s) syscall, committed to disk\n", dataFile)
-	file.Close()
+	return nil
 }

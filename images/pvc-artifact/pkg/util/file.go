@@ -211,6 +211,57 @@ func ZeroRange(outFile *os.File, start, length int64) error {
 	return err
 }
 
+// Keeping the page cache from filling the cgroup as the copy goes:
+
+// StartWriteback asks the kernel to begin writing [start, start+length) back to
+// storage without waiting for it to finish.
+//
+// Data written into the page cache and left there is charged to the pod cgroup
+// on kernels 6.12+. On a Filesystem target the client can sit on the dirty
+// pages for a long time (measured on NFS: dirty grows to the whole limit while
+// writeback stays at zero), and reclaim cannot drop a dirty page, so the
+// importer is OOM-killed well before the image ends.
+func StartWriteback(outFile *os.File, start, length int64) error {
+	return unix.SyncFileRange(int(outFile.Fd()), start, length, unix.SYNC_FILE_RANGE_WRITE)
+}
+
+// DropRangeCache waits for the writeback of [start, start+length) to finish and
+// drops the range from the page cache afterwards. The wait is what makes the
+// drop work at all: only clean pages can be evicted. It is cheap when
+// StartWriteback has already been issued for the same range, which is why the
+// caller flushes one window ahead of the one it drops.
+func DropRangeCache(outFile *os.File, start, length int64) error {
+	fd := int(outFile.Fd())
+	flags := unix.SYNC_FILE_RANGE_WAIT_BEFORE | unix.SYNC_FILE_RANGE_WRITE | unix.SYNC_FILE_RANGE_WAIT_AFTER
+	if err := unix.SyncFileRange(fd, start, length, flags); err != nil {
+		return err
+	}
+	return unix.Fadvise(fd, start, length, unix.FADV_DONTNEED)
+}
+
+// IsUnsupportedZeroRange reports whether err means the backend cannot zero a
+// range rather than that the zeroing failed. Backends disagree on the errno
+// they raise for that: NFS answers EOPNOTSUPP, and fallocate raises EINVAL for
+// a mode it cannot apply to this file at all.
+func IsUnsupportedZeroRange(err error) bool {
+	return errors.Is(err, unix.ENOSYS) || errors.Is(err, unix.EOPNOTSUPP) || errors.Is(err, unix.EINVAL)
+}
+
+// IsUnsupportedFlush reports the same for the page cache flush, and
+// deliberately does not accept EINVAL: sync_file_range has no errno for an
+// unsupported call, and the only EINVAL it documents is a bad flag bit or a
+// bad offset/length, meaning a bug in the arguments built here. Taking it for
+// "the backend cannot do this" would disable the flush for the whole import
+// and bring back the OOM it prevents.
+//
+// The distinction matters in the other direction too: the kernel reports a
+// writeback error once, to whoever asks first, so swallowing an EIO from
+// sync_file_range would leave the final fsync reporting success over data that
+// never reached the storage.
+func IsUnsupportedFlush(err error) bool {
+	return errors.Is(err, unix.ENOSYS) || errors.Is(err, unix.EOPNOTSUPP)
+}
+
 // PunchHole attempts to zero a range in a file with fallocate, for block devices and pre-allocated files.
 func PunchHole(outFile *os.File, start, length int64) error {
 	klog.V(4).Infof("Punching %d-byte hole at offset %d", length, start)

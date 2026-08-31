@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
@@ -175,23 +176,13 @@ const pvcImportProgressRequeue = 2 * time.Second
 // DVCR phase). The previous progress is kept untouched when the statSvc service,
 // the pod, or the metric is not yet available.
 func refreshPVCImportProgress(
-	ctx context.Context,
 	vi *v1alpha2.VirtualImage,
-	disk *service.DiskService,
 	statSvc Stat,
-	supgen supplements.Generator,
+	pod *corev1.Pod,
 	scale *servicestat.ScaleOption,
-) error {
-	if statSvc == nil {
-		return nil
-	}
-
-	pod, err := disk.GetPVCImporterPod(ctx, supgen)
-	if err != nil {
-		return fmt.Errorf("fetch pvc-importer pod: %w", err)
-	}
-	if pod == nil {
-		return nil
+) {
+	if statSvc == nil || pod == nil {
+		return
 	}
 
 	var opts []servicestat.GetProgressOption
@@ -199,18 +190,36 @@ func refreshPVCImportProgress(
 		opts = append(opts, scale)
 	}
 	vi.Status.Progress = servicestat.CapProgressBelow(statSvc.GetProgress(vi.GetUID(), pod, vi.Status.Progress, opts...), 100)
-	return nil
 }
 
-func pvcImporterPodPhase(ctx context.Context, disk *service.DiskService, supgen supplements.Generator) (corev1.PodPhase, error) {
-	pod, err := disk.GetPVCImporterPod(ctx, supgen)
-	if err != nil {
-		return "", fmt.Errorf("fetch pvc-importer pod: %w", err)
-	}
+func pvcImporterPodPhase(pod *corev1.Pod) corev1.PodPhase {
 	if pod == nil || pod.Status.Phase == "" {
-		return corev1.PodPending, nil
+		return corev1.PodPending
 	}
-	return pod.Status.Phase, nil
+	return pod.Status.Phase
+}
+
+// pvcImportFailed sets the failed phase and condition when the pvc-importer cannot finish, and
+// reports whether it did. The pod runs with RestartPolicy: OnFailure and practically never
+// reaches PodFailed, so a permanently broken import is recognized by the reason the importer
+// leaves in its termination message; without that the image reports "importing" forever.
+//
+// The caller must keep requeueing afterwards. The importer pod belongs to the PersistentVolumeClaim,
+// not to the image, and the image only watches pods it owns: nothing else brings the reconcile back
+// while the pod keeps retrying, and the failure is not always final - the condition behind it can be
+// fixed from the outside.
+func pvcImportFailed(vi *v1alpha2.VirtualImage, cb *conditions.ConditionBuilder, pod *corev1.Pod) bool {
+	failure := monitoring.PermanentFailureFromPod(pod)
+	if failure == "" {
+		if pvcImporterPodPhase(pod) != corev1.PodFailed {
+			return false
+		}
+		failure = "VirtualImage importer Pod failed"
+	}
+
+	vi.Status.Phase = v1alpha2.ImageFailed
+	cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message(service.CapitalizeFirstLetter(failure) + ".")
+	return true
 }
 
 func setPhaseConditionForFinishedImage(
@@ -264,17 +273,17 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *v1alpha2
 	}
 }
 
-func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb *conditions.ConditionBuilder) (bool, error) {
+func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb *conditions.ConditionBuilder) (reconcile.Result, bool, error) {
 	switch {
 	case err == nil:
-		return false, nil
+		return reconcile.Result{}, false, nil
 	case errors.Is(err, volumemode.ErrStorageProfileNotFound):
 		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("The StorageClass is not fully configured in the cluster. Check the StorageClass name or set a default StorageClass.")
-		return true, nil
+		return reconcile.Result{}, true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = v1alpha2.ImagePending
 		vi.Status.Progress = ""
@@ -282,12 +291,13 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.")
-		return true, nil
+		return reconcile.Result{}, true, nil
 	case common.ErrQuotaExceeded(err):
-		_ = setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp)
-		return true, nil
+		// The result carries the retry the quota branch asks for: dropping it here left that
+		// retry dead and the image waiting for a reconcile that never came.
+		return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), true, nil
 	default:
-		return false, err
+		return reconcile.Result{}, false, err
 	}
 }
 
@@ -330,8 +340,8 @@ func reconcilePVCImportFromDVCR(
 		}
 
 		err = createPVCImportTarget(ctx, vi, supgen, diskSize, source, disk)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
-			return reconcile.Result{}, err
+		if res, updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
+			return res, err
 		}
 
 		target, err := disk.GetPersistentVolumeClaim(ctx, supgen)
@@ -361,14 +371,14 @@ func reconcilePVCImportFromDVCR(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	importPhase, err := pvcImporterPodPhase(ctx, disk, supgen)
+	// The pod is read once per reconcile: the phase, the failure report and the progress
+	// metric must all describe the same attempt.
+	importPod, err := disk.GetPVCImporterPod(ctx, supgen)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("fetch pvc-importer pod: %w", err)
 	}
-	if importPhase == corev1.PodFailed {
-		vi.Status.Phase = v1alpha2.ImageFailed
-		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
-		return reconcile.Result{}, nil
+	if pvcImportFailed(vi, cb, importPod) {
+		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 
 	vi.Status.Phase = v1alpha2.ImageProvisioning
@@ -376,14 +386,12 @@ func reconcilePVCImportFromDVCR(
 	if vi.Status.Progress == "" {
 		vi.Status.Progress = "50.0%"
 	}
-	if importPhase == corev1.PodSucceeded {
+	if pvcImporterPodPhase(importPod) == corev1.PodSucceeded {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 	// The DVCR phase fills the first half of the overall progress, so the
 	// pvc-importer metric (0..100) is projected into the 50..100 slice.
-	if err := refreshPVCImportProgress(ctx, vi, disk, statSvc, supgen, servicestat.NewScaleOption(50, 100)); err != nil {
-		return reconcile.Result{}, err
-	}
+	refreshPVCImportProgress(vi, statSvc, importPod, servicestat.NewScaleOption(50, 100))
 	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 }
 
@@ -428,8 +436,8 @@ func reconcilePVCImportFromReadySource(
 		}
 
 		err := createPVCImportTarget(ctx, vi, supgen, size, source, disk)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
-			return reconcile.Result{}, err
+		if res, updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
+			return res, err
 		}
 
 		target, err := disk.GetPersistentVolumeClaim(ctx, supgen)
@@ -454,14 +462,12 @@ func reconcilePVCImportFromReadySource(
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	importPhase, err := pvcImporterPodPhase(ctx, disk, supgen)
+	importPod, err := disk.GetPVCImporterPod(ctx, supgen)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("fetch pvc-importer pod: %w", err)
 	}
-	if importPhase == corev1.PodFailed {
-		vi.Status.Phase = v1alpha2.ImageFailed
-		cb.Status(metav1.ConditionFalse).Reason(vicondition.ProvisioningFailed).Message("VirtualImage importer Pod failed.")
-		return reconcile.Result{}, nil
+	if pvcImportFailed(vi, cb, importPod) {
+		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
 
 	vi.Status.Phase = v1alpha2.ImageProvisioning
@@ -469,12 +475,10 @@ func reconcilePVCImportFromReadySource(
 		vi.Status.Progress = "0%"
 	}
 	cb.Status(metav1.ConditionFalse).Reason(vicondition.Provisioning).Message("Importing data into the PersistentVolumeClaim.")
-	if importPhase == corev1.PodSucceeded {
+	if pvcImporterPodPhase(importPod) == corev1.PodSucceeded {
 		return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
-	if err := refreshPVCImportProgress(ctx, vi, disk, statSvc, supgen, nil); err != nil {
-		return reconcile.Result{}, err
-	}
+	refreshPVCImportProgress(vi, statSvc, importPod, nil)
 	return reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 }
 
@@ -550,7 +554,9 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	*phase = v1alpha2.ImageFailed
 	cb.
 		Status(metav1.ConditionFalse).
-		Reason(vicondition.ProvisioningFailed)
+		// The API declares this reason for exactly this case; the code used to report a
+		// generic failure instead, so nothing could tell a quota apart from any other one.
+		Reason(vicondition.QuotaExceeded)
 
 	if creationTimestamp.Add(30 * time.Minute).After(time.Now()) {
 		cb.Message(fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err))

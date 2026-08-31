@@ -49,7 +49,8 @@ func BeFailed() Predicate {
 // provisioning has failed, either retryably or terminally.
 func isProvisioningFailedReason(reason string) bool {
 	return reason == vicondition.ProvisioningFailed.String() ||
-		reason == vicondition.ProvisioningFailedTerminally.String()
+		reason == vicondition.ProvisioningFailedTerminally.String() ||
+		reason == vicondition.QuotaExceeded.String()
 }
 
 // HaveFormat reports an invariant violation when a Ready VirtualImage reports a
@@ -133,7 +134,7 @@ func BeQuotaExceeded() Predicate {
 		if cond == nil || !isConditionFresh(cond, i) {
 			return false, nil
 		}
-		if cond.Reason != vicondition.ProvisioningFailed.String() {
+		if cond.Reason != vicondition.QuotaExceeded.String() {
 			return false, nil
 		}
 		if !strings.HasPrefix(cond.Message, quotaExceededMessagePrefix) {
@@ -141,13 +142,13 @@ func BeQuotaExceeded() Predicate {
 		}
 		if cond.Status != metav1.ConditionFalse {
 			return false, fmt.Errorf(
-				"ready condition reports a quota-exceeded ProvisioningFailed but status is %s, expected %s",
+				"ready condition reports QuotaExceeded but status is %s, expected %s",
 				cond.Status, metav1.ConditionFalse,
 			)
 		}
 		if i.Status.Phase != v1alpha2.ImageFailed {
 			return false, fmt.Errorf(
-				"ready condition reports a quota-exceeded ProvisioningFailed but phase is %q, expected %q",
+				"ready condition reports QuotaExceeded but phase is %q, expected %q",
 				i.Status.Phase, v1alpha2.ImageFailed,
 			)
 		}

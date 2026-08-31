@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -129,25 +130,35 @@ func (s WaitForPVCImportStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 		return &reconcile.Result{}, nil
 	}
 
-	phase, err := s.pvcImportPodPhase(ctx, vd)
+	// The pod is read once per reconcile: the phase, the failure report and the progress
+	// metric must all describe the same attempt.
+	pod, err := s.fetchPVCImportPod(ctx, vd)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch pvc-importer pod: %w", err)
 	}
 
-	switch phase {
+	switch s.pvcImportPodPhase(pod) {
 	case corev1.PodSucceeded:
 		return &reconcile.Result{RequeueAfter: time.Second}, nil
 	case corev1.PodFailed:
 		vd.Status.Phase = v1alpha2.DiskFailed
-		s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.ProvisioningFailed).Message("VirtualDisk importer Pod failed.")
+		s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.ProvisioningFailed).Message(podFailureMessage(pod))
 		return &reconcile.Result{}, nil
 	default:
+		// The importer pod runs with RestartPolicy: OnFailure, so it never reaches PodFailed:
+		// a permanently broken import (the image does not fit, the target refuses the write)
+		// would otherwise report "provisioning" forever, with the reason visible only in the
+		// log of an attempt that the restarts push out within seconds.
+		if failure := monitoring.PermanentFailureFromPod(pod); failure != "" {
+			vd.Status.Phase = v1alpha2.DiskFailed
+			s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.ProvisioningFailed).Message(service.CapitalizeFirstLetter(failure))
+			return &reconcile.Result{}, nil
+		}
+
 		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.Status(metav1.ConditionFalse).Reason(vdcondition.Provisioning).Message("Import is in the process of provisioning to the PersistentVolumeClaim.")
 
-		if err := s.refreshProgressFromPod(ctx, vd); err != nil {
-			return nil, err
-		}
+		s.refreshProgressFromPod(pod, vd)
 
 		return &reconcile.Result{RequeueAfter: pvcImportProgressRequeue}, nil
 	}
@@ -184,34 +195,33 @@ func (s WaitForPVCImportStep) awaitingFirstConsumer(ctx context.Context, vd *v1a
 	return nodePlacement == nil || nodePlacement.Node == "", nil
 }
 
-func (s WaitForPVCImportStep) pvcImportPodPhase(ctx context.Context, vd *v1alpha2.VirtualDisk) (corev1.PodPhase, error) {
+func (s WaitForPVCImportStep) pvcImportPodPhase(pod *corev1.Pod) corev1.PodPhase {
 	if s.pvc.Annotations[annotations.AnnPVCPopulationDone] == "true" {
-		return corev1.PodSucceeded, nil
-	}
-	pod, err := s.fetchPVCImportPod(ctx, vd)
-	if err != nil {
-		return "", fmt.Errorf("fetch pvc-importer pod: %w", err)
+		return corev1.PodSucceeded
 	}
 	if pod == nil || pod.Status.Phase == "" {
-		return corev1.PodPending, nil
+		return corev1.PodPending
 	}
-	return pod.Status.Phase, nil
+	return pod.Status.Phase
 }
 
-// refreshProgressFromPod queries the pvc-importer pod (named after the target
-// PVC) for its progress metric and updates vd.Status.Progress. Silently keeps
-// the previous value when stat/pod is missing or metrics are not yet readable.
-func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
-	if s.stat == nil {
-		return nil
+// podFailureMessage is what the user is told about a pod that reached PodFailed. The importer
+// reports the reason through the termination message, and a failed pod is done restarting, so
+// its report describes the attempt that actually failed.
+func podFailureMessage(pod *corev1.Pod) string {
+	report, err := monitoring.GetFinalReportFromPod(pod)
+	if err == nil && report != nil && report.ErrMessage != "" {
+		return service.CapitalizeFirstLetter(report.ErrMessage)
 	}
+	return "VirtualDisk importer Pod failed."
+}
 
-	pod, err := s.fetchPVCImportPod(ctx, vd)
-	if err != nil {
-		return fmt.Errorf("fetch pvc-importer pod: %w", err)
-	}
-	if pod == nil {
-		return nil
+// refreshProgressFromPod reads the pvc-importer pod's progress metric and updates
+// vd.Status.Progress. Silently keeps the previous value when stat/pod is missing or metrics
+// are not yet readable.
+func (s WaitForPVCImportStep) refreshProgressFromPod(pod *corev1.Pod, vd *v1alpha2.VirtualDisk) {
+	if s.stat == nil || pod == nil {
+		return
 	}
 
 	var opts []servicestat.GetProgressOption
@@ -220,7 +230,6 @@ func (s WaitForPVCImportStep) refreshProgressFromPod(ctx context.Context, vd *v1
 	}
 	vd.Status.Progress = s.stat.GetProgress(vd.GetUID(), pod, vd.Status.Progress, opts...)
 	vd.Status.Progress = servicestat.CapProgressBelow(vd.Status.Progress, 100)
-	return nil
 }
 
 func (s WaitForPVCImportStep) fetchPVCImportPod(ctx context.Context, vd *v1alpha2.VirtualDisk) (*corev1.Pod, error) {
