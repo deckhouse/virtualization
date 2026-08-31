@@ -20,6 +20,7 @@ package importer
 import (
 	"archive/tar"
 	"context"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
@@ -252,6 +253,17 @@ func safeJoinPaths(dir, path string) (v string, err error) {
 	return "", fmt.Errorf("%s: %s", "content filepath is tainted", path)
 }
 
+// noDiskImageError explains why no disk image was taken from the container image.
+// A layer that failed to process is reported with its own error: writing to the
+// target volume and finding the image in the registry fail for entirely different
+// reasons, and reporting the latter for both sends diagnostics to the wrong place.
+func noDiskImageError(layerErrs error) error {
+	if layerErrs != nil {
+		return errors.Wrap(layerErrs, "Failed to process the container image layers")
+	}
+	return errors.New("Failed to find VM disk image file in the container image")
+}
+
 func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir string, insecureRegistry, stopAtFirst bool) (*types.ImageInspectInfo, error) {
 	klog.Infof("Downloading image from '%v', copying file from '%v' to '%v'", url, pathPrefix, destDir)
 
@@ -274,6 +286,7 @@ func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir stri
 
 	cache := blobinfocache.DefaultCache(srcCtx)
 	found := false
+	var layerErrs error
 	layers := imgCloser.LayerInfos()
 
 	for _, layer := range layers {
@@ -286,13 +299,13 @@ func copyRegistryImage(url, destDir, pathPrefix, accessKey, secKey, certDir stri
 		if err != nil {
 			// Skipping layer and trying the next one.
 			// Error already logged in processLayer
+			layerErrs = stderrors.Join(layerErrs, err)
 			continue
 		}
 	}
 
 	if !found {
-		klog.Errorf("Failed to find VM disk image file in the container image")
-		return nil, errors.New("Failed to find VM disk image file in the container image")
+		return nil, noDiskImageError(layerErrs)
 	}
 
 	info, err := imgCloser.Inspect(ctx)
@@ -343,6 +356,7 @@ func CopyRegistryImageToFile(url, destFile, pathPrefix, accessKey, secKey, certD
 
 	cache := blobinfocache.DefaultCache(srcCtx)
 	found := false
+	var layerErrs error
 	for _, layer := range imgCloser.LayerInfos() {
 		klog.Infof("Processing layer %+v", layer)
 		found, err = processLayerToFile(ctx, src, layer, destFile, pathPrefix, cache)
@@ -351,13 +365,13 @@ func CopyRegistryImageToFile(url, destFile, pathPrefix, accessKey, secKey, certD
 		}
 		if err != nil {
 			// Skipping layer and trying the next one. Error already logged.
+			layerErrs = stderrors.Join(layerErrs, err)
 			continue
 		}
 	}
 
 	if !found {
-		klog.Errorf("Failed to find VM disk image file in the container image")
-		return nil, errors.New("Failed to find VM disk image file in the container image")
+		return nil, noDiskImageError(layerErrs)
 	}
 
 	info, err := imgCloser.Inspect(ctx)

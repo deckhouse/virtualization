@@ -176,6 +176,31 @@ func TestStreamDataToFileZeroesOnDisk(t *testing.T) {
 	}
 }
 
+func TestStreamDataToFileOverwritesLeftover(t *testing.T) {
+	// An interrupted attempt leaves the target file on the volume; the importer pod
+	// restarts on the same volume, so the retry must overwrite that leftover instead
+	// of failing on it. The leftover is longer than the new image on purpose: none of
+	// its tail may survive into the imported disk.
+	data := bytes.Repeat([]byte{0x42}, copyBufferSize+1000)
+	leftover := bytes.Repeat([]byte{0xAA}, len(data)*2)
+
+	f := filepath.Join(t.TempDir(), "disk.img")
+	if err := os.WriteFile(f, leftover, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := streamDataToFile(bytes.NewReader(data), f); err != nil {
+		t.Fatalf("retry over a leftover file: %v", err)
+	}
+	got, err := os.ReadFile(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("file content mismatch: len %d, want %d", len(got), len(data))
+	}
+}
+
 type zeroCall struct {
 	start  int64
 	length int64

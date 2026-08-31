@@ -45,8 +45,12 @@ func OpenFileOrBlockDevice(fileName string) (*os.File, error) {
 		// Block device found and size determined.
 		outFile, err = os.OpenFile(fileName, os.O_EXCL|os.O_WRONLY, os.ModePerm)
 	} else {
-		// Attempt to create the file with name filePath.  If it exists, fail.
-		outFile, err = os.OpenFile(fileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
+		// Truncate the leftover of an interrupted attempt instead of failing on it: the
+		// importer pod restarts on the same volume (RestartPolicy=OnFailure), so a
+		// half-written file must not turn every retry into an endless CrashLoop.
+		// Truncating also keeps the tail of a longer previous image out of the new one and
+		// leaves the file zero-length, as the zero-appending writers below expect.
+		outFile, err = os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not open file %q", fileName)
