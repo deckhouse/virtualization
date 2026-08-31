@@ -2,7 +2,7 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://openvex.dev/docs/public/vex-virtualization-dvcr-go-2026-5932",
   "author": "Deckhouse <contact@deckhouse.io>",
-  "version": 1,
+  "version": 2,
   "statements": [
     {
       "vulnerability": {
@@ -10,7 +10,7 @@
       },
       "products": [
         {
-          "@id": "pkg:golang/golang.org/x/crypto@v0.53.0"
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
         }
       ],
       "status": "not_affected",
@@ -20,5 +20,5 @@
     }
   ],
   "timestamp": "2026-07-13T00:00:00Z",
-  "last_updated": "2026-07-23T00:00:00Z"
+  "last_updated": "2026-08-31T00:00:00Z"
 }
