@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
@@ -98,7 +99,19 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 	// Propagate user specified labels and annotations from the d8 VM to the kubevirt virtual machine Pods.
 	if pods != nil {
+		activePod := kvvmutil.GetVMPod(kvvmi, pods)
+
 		for _, pod := range pods.Items {
+			// A pod left behind by a migration no longer runs the virtual machine: it gets
+			// no metadata of its own any more, and it must stop holding its node from
+			// shutting down whatever phase it is stuck in.
+			if podStale(&pod, activePod, kvvmi) {
+				if err = h.releaseNode(ctx, &pod); err != nil {
+					return reconcile.Result{}, err
+				}
+				continue
+			}
+
 			// Update only Running pods.
 			if pod.Status.Phase != corev1.PodRunning {
 				continue
@@ -110,7 +123,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 			}
 
 			if metaUpdated {
-				if err = h.patchLabelsAndAnnotations(ctx, &pod, podNewMetadata); err != nil {
+				if err = h.patchLabelsAndAnnotations(ctx, &pod, podNewMetadata); err != nil && !k8serrors.IsNotFound(err) {
 					return reconcile.Result{}, fmt.Errorf("failed to patch KubeVirt Pod %q: %w", pod.GetName(), err)
 				}
 			}
@@ -138,6 +151,23 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 func (h *SyncMetadataHandler) Name() string {
 	return nameSyncMetadataHandler
+}
+
+// releaseNode drops the label that keeps the node of the pod from shutting down.
+func (h *SyncMetadataHandler) releaseNode(ctx context.Context, pod *corev1.Pod) error {
+	if _, ok := pod.GetLabels()[annotations.InhibitNodeShutdownLabel]; !ok {
+		return nil
+	}
+
+	newLabels := maps.Clone(pod.GetLabels())
+	delete(newLabels, annotations.InhibitNodeShutdownLabel)
+
+	err := h.patchLabelsAndAnnotations(ctx, pod, &metav1.ObjectMeta{Labels: newLabels})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to patch KubeVirt Pod %q: %w", pod.GetName(), err)
+	}
+
+	return nil
 }
 
 func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj client.Object, metadata *metav1.ObjectMeta) error {

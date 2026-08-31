@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -218,6 +219,64 @@ var _ = Describe("SyncMetadataHandler", func() {
 				validateObjMetadata(pod)
 				validateObjResourceStatusLabels(pod, vm)
 			})
+		})
+
+		// A hung source pod keeps the Running phase, so it goes on being patched with the
+		// propagated labels: the inhibit label has to be stripped from it explicitly.
+		It("strips the inhibit-node-shutdown label from a pod left behind by a migration", func() {
+			const (
+				sourceNode = "node-a"
+				targetNode = "node-b"
+			)
+
+			vm := newVM()
+			kvvm := newKVVM(vm)
+
+			kvvmi := newEmptyKVVMI(name, namespace)
+			kvvmi.Status.NodeName = targetNode
+			kvvmi.Status.ActivePods = map[types.UID]string{
+				"source-uid": sourceNode,
+				"target-uid": targetNode,
+			}
+			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				SourcePod: name + "-source",
+				TargetPod: name + "-target",
+				Completed: true,
+			}
+
+			newRunningPod := func(podName, node string, uid types.UID) *corev1.Pod {
+				pod := newEmptyPOD(podName, namespace, vm.Name)
+				pod.UID = uid
+				pod.Spec.NodeName = node
+				pod.Status.Phase = corev1.PodRunning
+				pod.Labels[annotations.InhibitNodeShutdownLabel] = ""
+				return pod
+			}
+
+			sourcePod := newRunningPod(name+"-source", sourceNode, "source-uid")
+			targetPod := newRunningPod(name+"-target", targetNode, "target-uid")
+
+			// A pod of a node that stopped reporting may sit in Unknown instead of Running.
+			hungPod := newRunningPod(name+"-hung", sourceNode, "hung-uid")
+			hungPod.Status.Phase = corev1.PodUnknown
+
+			fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, sourcePod, targetPod, hungPod)
+			h := NewSyncMetadataHandler(fakeClient)
+			_, err := h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(sourcePod), sourcePod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sourcePod.GetLabels()).NotTo(HaveKey(annotations.InhibitNodeShutdownLabel))
+			Expect(sourcePod.GetLabels()).To(HaveKeyWithValue(virtv1.VirtualMachineNameLabel, vm.Name))
+
+			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(hungPod), hungPod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hungPod.GetLabels()).NotTo(HaveKey(annotations.InhibitNodeShutdownLabel))
+
+			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(targetPod), targetPod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(targetPod.GetLabels()).To(HaveKeyWithValue(annotations.InhibitNodeShutdownLabel, ""))
 		})
 	})
 })

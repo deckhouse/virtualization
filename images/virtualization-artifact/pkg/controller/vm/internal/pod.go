@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -71,8 +72,10 @@ func (h *PodHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		})
 	}
 
+	activePod := kvvmutil.GetVMPod(kvvmi, pods)
+
 	for _, p := range pods.Items {
-		if podFinal(p) {
+		if podFinal(p) || podStale(&p, activePod, kvvmi) {
 			if err := h.protection.RemoveProtection(ctx, &p); err != nil {
 				return reconcile.Result{}, err
 			}

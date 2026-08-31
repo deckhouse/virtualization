@@ -317,6 +317,34 @@ func podFinal(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
 
+// podStale reports whether the virt-launcher pod no longer backs the virtual machine
+// instance and can be released: a pod the migration left behind on the source node, or
+// the target pod of a migration that never took over.
+//
+// Such a pod may hang forever in the Running or Unknown phase when its kubelet is
+// unreachable, so the terminal phase alone is not enough to tell it is disposable.
+func podStale(pod, activePod *corev1.Pod, kvvmi *virtv1.VirtualMachineInstance) bool {
+	if pod == nil || activePod == nil || kvvmi == nil {
+		return false
+	}
+
+	if pod.GetUID() == activePod.GetUID() {
+		return false
+	}
+
+	if ms := kvvmi.Status.MigrationState; ms != nil {
+		if pod.GetName() == ms.TargetPod || pod.GetName() == ms.SourcePod {
+			// Both pods back the instance while the migration is in flight; once it is
+			// over, the one that did not win is disposable.
+			return ms.Completed || ms.Failed
+		}
+	}
+
+	// KubeVirt records the migration only after the target pod is created, so a pod
+	// younger than the active one is an incoming target rather than a leftover.
+	return !pod.GetCreationTimestamp().After(activePod.GetCreationTimestamp().Time)
+}
+
 // virtualMachineDependenciesAreReady returns whether VM
 func virtualMachineDependenciesAreReady(vm *v1alpha2.VirtualMachine) bool {
 	for _, c := range vm.Status.Conditions {
