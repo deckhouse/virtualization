@@ -8,16 +8,28 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"structs"
 
 	"github.com/cilium/ebpf"
 )
 
 type ebpfRouteEvent struct {
+	_      structs.HostLayout
 	Action uint32
 	Table  uint32
 	Dst    uint32
 	Src    uint32
 }
+
+// Names of all BPF objects in the ELF.
+//
+// Used for safe lookups in a Collection or CollectionSpec.
+const (
+	ebpfMapRouteEventsMap  = "route_events_map"
+	ebpfProgFibTableDelete = "fib_table_delete"
+	ebpfProgFibTableInsert = "fib_table_insert"
+	ebpfVarUnused          = "unused"
+)
 
 // loadEbpf returns the embedded CollectionSpec for ebpf.
 func loadEbpf() (*ebpf.CollectionSpec, error) {
@@ -39,7 +51,7 @@ func loadEbpf() (*ebpf.CollectionSpec, error) {
 //	*ebpfMaps
 //
 // See ebpf.CollectionSpec.LoadAndAssign documentation for details.
-func loadEbpfObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
+func loadEbpfObjects(obj any, opts *ebpf.CollectionOptions) error {
 	spec, err := loadEbpf()
 	if err != nil {
 		return err
