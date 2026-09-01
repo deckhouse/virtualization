@@ -98,8 +98,12 @@ kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-elastic --timeou
 echo "[INFO] Wait for raw block devices to be discovered"
 elastic_blockdevices_ready
 
-echo "[INFO] Label consumable block devices as OSDs (app=elastic-osd)"
-for bd in $(kubectl get blockdevices.storage.deckhouse.io -o json | jq -r '.items[] | select(.status.consumable == true) | .metadata.name'); do
+# Label the OSD candidates so the ElasticCluster blockDeviceSelector (app=elastic-osd)
+# picks them up. On a rerun some devices are already consumed into OSD LVGs and are no
+# longer consumable, so also (re)label those to keep the selector matching them even if
+# the label was lost during a BlockDevice rediscovery.
+echo "[INFO] Label OSD-candidate block devices as OSDs (app=elastic-osd)"
+for bd in $(kubectl get blockdevices.storage.deckhouse.io -o json | jq -r --arg re "$ELASTIC_OSD_LVG_REGEX" ".items[] | select(${ELASTIC_OSD_BD_SELECT}) | .metadata.name"); do
   echo "[INFO] Label blockdevice ${bd} app=elastic-osd"
   kubectl label blockdevice "${bd}" app=elastic-osd --overwrite
 done
