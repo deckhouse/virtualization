@@ -38,7 +38,7 @@ replace (
 replace (
 	go.cypherpunks.ru/gogost/v5 => github.com/flant/gogost/v5 v5.13.0
 	kubevirt.io/api => fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.95
-	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241108122445-9cf23c40b9ca
+	kubevirt.io/containerized-data-importer => fox.flant.com/deckhouse/virtualization/fork/containerized-data-importer.git v1.60.4-0.20241108122445-9cf23c40b9ca
 )
 
 // Kubernetes stack arbiters: keep every module on the same k8s minor.

@@ -1609,6 +1609,8 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9 h1:VpgP7xuJadIUu
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
+fox.flant.com/deckhouse/virtualization/fork/containerized-data-importer.git v1.60.4-0.20241108122445-9cf23c40b9ca h1:Fg1oj9ApQ8nBAgyPntRTVTwhCsveM0swvN/lX4BzVVU=
+fox.flant.com/deckhouse/virtualization/fork/containerized-data-importer.git v1.60.4-0.20241108122445-9cf23c40b9ca/go.mod h1:DPCIifnmTNK8C1dC/HKe4sfZX+V7ocfwLHPC0yiOJ/A=
 fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.61 h1:qxBZhbbiJd8EeP0EXGA2JXs8XVaWTwEQcA3lZ6DOELY=
 fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.61/go.mod h1:A/JToRoyGluXq0WQv5wBaLH7Z80hr8XNI04X0okgNIo=
 fox.flant.com/deckhouse/virtualization/fork/kubevirt.git/staging/src/kubevirt.io/api v1.6.2-v12n.69 h1:m/ARHVJvKA1XwQoPnW1kN3+/ZCh5HgVfg09fD7iRCRM=
@@ -3776,6 +3778,4 @@ sigs.k8s.io/kustomize/kyaml v0.20.1 h1:PCMnA2mrVbRP3NIB6v9kYCAc38uvFLVs8j/CD567A
 sigs.k8s.io/kustomize/kyaml v0.20.1/go.mod h1:0EmkQHRUsJxY8Ug9Niig1pUMSCGHxQ5RklbpV/Ri6po=
 sigs.k8s.io/mcs-api v0.1.1-0.20250116162235-62ede9a032dc h1:oQrn1nrTacXiaXEYg+0TozPznSDIHFl2U/KZ5UFiYT8=
 sigs.k8s.io/mcs-api v0.1.1-0.20250116162235-62ede9a032dc/go.mod h1:Uicqc5FnWP4dco2y7+AEg2mzNN20mVX1TDB3aDfmvhc=
-sigs.k8s.io/structured-merge-diff/v4 v4.7.0 h1:qPeWmscJcXP0snki5IYF79Z8xrl8ETFxgMd7wez1XkI=
-sigs.k8s.io/structured-merge-diff/v4 v4.7.0/go.mod h1:dDy58f92j70zLsuZVuUX5Wp9vtxXpaZnkPGWeqDfCps=
 sigs.k8s.io/yaml v1.5.0/go.mod h1:wZs27Rbxoai4C0f8/9urLZtZtF3avA3gKvGyPdDqTO4=
