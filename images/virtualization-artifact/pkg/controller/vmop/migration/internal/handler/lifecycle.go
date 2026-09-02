@@ -326,23 +326,27 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		}
 
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
 
 		completedCond.
 			Status(metav1.ConditionFalse).
 			Reason(vmopcondition.ReasonOperationFailed)
 
+		var msg string
 		if kvvmi != nil {
 			migrationState := kvvmi.Status.MigrationState
 			if migrationState != nil &&
 				migrationState.Failed &&
 				migrationState.EndTimestamp != nil &&
 				genericservice.IsAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop) {
-				completedCond.Message(fmt.Sprintf("Migration failed: %s", migrationState.FailureReason))
+				msg = fmt.Sprintf("Migration failed: %s", migrationState.FailureReason)
 			}
 		} else {
-			completedCond.Message("Migration failed because the virtual machine is currently not running.")
+			msg = "Migration failed because the virtual machine is currently not running."
 		}
+		if msg != "" {
+			completedCond.Message(msg)
+		}
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failureEventMessage(msg))
 
 		conditions.SetCondition(completedCond, &vmop.Status.Conditions)
 		return nil
@@ -352,7 +356,6 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 	switch mig.Status.Phase {
 	case virtv1.MigrationFailed:
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
 
 		reason := h.getFailedReason(mig)
 		if reason == vmopcondition.ReasonFailed {
@@ -363,6 +366,10 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 			}
 		}
 		msg := h.getFailedMessage(reason, mig)
+		// The event carries the same message as the condition: it is the only place an operator
+		// looking at the events sees why the migration failed. The event of KubeVirt next to it
+		// names the shutdown of the target pod, which is the consequence rather than the cause.
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failureEventMessage(msg))
 		progress := h.calculateMigrationProgress(vmop, mig, reason)
 		vmop.Status.Progress = migrationprogress.FormatPercent(progress)
 
@@ -413,6 +420,16 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 				Message("Timed out preparing the migration target."),
 			&vmop.Status.Conditions)
 		return nil
+	}
+
+	// The operation knows there is nowhere to place the target about a minute after the start,
+	// while the events stay silent until the target pod is dropped by its placement deadline
+	// minutes later. Report the answer once, when it appears: until the deadline expires the
+	// migration still succeeds if a node is freed or uncordoned, and that window is the only
+	// chance an operator has to act.
+	if reason == vmopcondition.ReasonTargetUnschedulable && prevCompleted.Reason != reason.String() {
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPPending,
+			"No node can accept this VirtualMachine yet. The migration waits for one and is canceled if none becomes available in time.")
 	}
 
 	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
@@ -871,6 +888,17 @@ func (h LifecycleHandler) forgetProgress(vmop *v1alpha2.VirtualMachineOperation)
 		return
 	}
 	h.progressStrategy.Forget(vmop.UID)
+}
+
+// failureEventMessage returns the message of the failure event. The message of the condition is
+// reused as is, and the generic wording is the fallback for the paths that leave it empty: an
+// event without a cause sends the reader looking for one in the events of KubeVirt, where the
+// nearest warning names the shutdown of the target pod rather than the reason for it.
+func failureEventMessage(conditionMessage string) string {
+	if conditionMessage == "" {
+		return "The VirtualMachineOperation failed."
+	}
+	return conditionMessage
 }
 
 func humanizeMigrationFailedMessage(message string) string {

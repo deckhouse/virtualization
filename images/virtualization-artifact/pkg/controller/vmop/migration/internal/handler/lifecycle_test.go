@@ -701,6 +701,100 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonAborted.String()))
 		})
 
+		// The events are the only place an operator watching the machine sees why the migration
+		// failed: the warning of KubeVirt next to them names the shutdown of the target pod,
+		// which is the consequence of the placement deadline rather than its cause.
+		It("names the cause in the event of a failed migration", func() {
+			var events []string
+			recorderMock.EventFunc = func(_ client.Object, _, _, message string) {
+				events = append(events, message)
+			}
+
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationFailed
+			mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
+				Type:    virtv1.VirtualMachineInstanceMigrationFailed,
+				Reason:  "Unschedulable",
+				Message: "pod is unschedulable",
+			}}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Message).ToNot(BeEmpty())
+			Expect(events).To(ContainElement(completed.Message))
+			Expect(events).ToNot(ContainElement("The VirtualMachineOperation failed."))
+		})
+
+		// The reason reaches the condition about a minute after the start, while the events stay
+		// silent until the target pod is dropped minutes later. Until then a freed or uncordoned
+		// node still lets the migration through, so the warning has to arrive with the answer.
+		It("warns once when the target turns out to be unschedulable", func() {
+			var events []string
+			recorderMock.EventFunc = func(_ client.Object, _, _, message string) {
+				events = append(events, message)
+			}
+
+			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+
+			mig := newSimpleMigration(fmt.Sprintf("vmop-%s", vmop.Name), name)
+			mig.Status.Phase = virtv1.MigrationScheduling
+			mig.UID = "migration-uid"
+
+			targetPod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      "target-pod",
+					Labels: map[string]string{
+						virtv1.AppLabel:          "virt-launcher",
+						virtv1.MigrationJobLabel: "migration-uid",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					Conditions: []corev1.PodCondition{{
+						Type:   corev1.PodScheduled,
+						Status: corev1.ConditionFalse,
+						Reason: corev1.PodReasonUnschedulable,
+					}},
+				},
+			}
+
+			fakeClient, srv = setupEnvironment(vmop, vm, mig, targetPod)
+			migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+			base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+			h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, found := conditions.GetCondition(vmopcondition.TypeCompleted, srv.Changed().Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonTargetUnschedulable.String()))
+			Expect(events).To(HaveLen(1))
+			Expect(events[0]).To(ContainSubstring("No node can accept this VirtualMachine yet"))
+
+			// The next reconcile finds the same reason already reported and stays silent: one
+			// warning per operation, not one per cycle.
+			events = nil
+			_, err = h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(events).To(BeEmpty())
+		})
+
 		It("should set progress to 100 for succeeded migration", func() {
 			vm := newVM(v1alpha2.PreferSafeMigrationPolicy)
 			vmop := newVMOPMigrate()
