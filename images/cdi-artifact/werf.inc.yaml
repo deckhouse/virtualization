@@ -1,6 +1,6 @@
 ---
-{{- $gitRepoName := "3p-containerized-data-importer" }}
-{{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
+{{- $gitRepoName := "containerized-data-importer" }}
+{{- $gitRepoUrl := "deckhouse/virtualization/fork/containerized-data-importer" }}
 {{- $version := get $.Core $gitRepoName }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -26,13 +26,13 @@ git:
     excludePaths:
       - patches/README.md
 secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
+- id: CI_JOB_TOKEN
+  value: "{{ env "CI_JOB_TOKEN" }}"
 shell:
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
-    git clone --depth=1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
+    git clone --depth=1 --branch {{ $version }} https://gitlab-ci-token:$(cat /run/secrets/CI_JOB_TOKEN)@fox.flant.com/{{ $gitRepoUrl }} /src/containerized-data-importer
 
     rm -rf /src/containerized-data-importer/.git
 
