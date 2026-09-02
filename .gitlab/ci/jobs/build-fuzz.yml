@@ -2,6 +2,13 @@
 # performs S3 corpus restore/replay for MR builds and publishes the images plus
 # build report from main. These jobs use the build stage and run in parallel
 # with build_dev and build_main after set_vars.
+#
+# build_fuzz_main runs automatically on every push to main; build_fuzz_dev is
+# manual on MR pipelines. Fuzz images sit on top of the pvc-artifact /
+# dvcr-artifact-builder / qemu chain and the -fuzz install stage replays the
+# whole corpus, so an MR run costs 15-45 minutes — far too much to spend on
+# every pipeline when nothing fuzz-related changed. Running it on demand keeps
+# the ability to check a fuzz target from an MR without paying for it always.
 
 .fuzz_source_auth:
   script:
@@ -20,9 +27,27 @@
         echo "SOURCE_REPO_SSH_KEY is not set: private mirror dependencies may fail."
       fi
 
+# build_fuzz_dev does NOT consume the upstream `.build_fuzz_dev` script.
+#
+# That script does `unset WERF_REPO` and points WERF_SECONDARY_REPO at the DEV
+# registry, so the build stores its stages in the runner-local storage and the
+# registry cache is read-only. In practice the secondary repo did not serve the
+# chain the fuzz images are built on: a dev run rebuilt qemu-src-artifact/install
+# (247 s), dvcr-artifact-builder/install + setup (324 + 237 s) and qemu/install +
+# setup (292 + 78 s) from scratch, while build_dev on the SAME commit pulled all
+# of them from the registry and build_fuzz_main (which keeps WERF_REPO) finished
+# in 15 s on a full cache hit. Whatever a dev run does build is then thrown away,
+# so the next run repeats the work.
+#
+# Keeping WERF_REPO puts these jobs on the same stage storage as build_dev and
+# build_fuzz_main, which is what makes the cache work in both directions. This is
+# no different from build_dev, which already pushes MR stages there. The rest of
+# the upstream dev body is kept: FUZZ_S3_BRANCH_SLUG stays "main" (the corpus is
+# only ever read during the build, and an MR has no corpus of its own) and the
+# build report is not saved because nothing uploads it from an MR run.
 build_fuzz_dev:
   extends:
-    - .build_fuzz_dev
+    - .build_fuzz
     - .dev
   needs:
     - job: set_vars
@@ -31,9 +56,47 @@ build_fuzz_dev:
     WERF_BUILD_FUZZ_IMAGES: "true"
     WERF_VIRTUAL_MERGE: "0"
     VAULT_AUTH_ROLE: ${MODULES_MODULE_NAME}
+    WERF_REPO: ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}
+  # Overrides the `when: always` rule .dev brings in. allow_failure keeps a
+  # skipped (or failed) on-demand fuzz build from blocking the MR.
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+    - when: never
   script:
     - !reference [.fuzz_source_auth, script]
-    - !reference [.build_fuzz_dev, script]
+    - |
+      SOURCE_REPO=${SOURCE_REPO#git@}
+      SOURCE_REPO=${SOURCE_REPO//://}
+      export SOURCE_REPO=https://gitlab-ci-token:${CI_JOB_TOKEN}@${SOURCE_REPO}
+    - |
+      set -euo pipefail
+
+      if [[ -z "${FUZZ_S3_ENDPOINT:-}" || -z "${FUZZ_S3_ACCESS_KEY:-}" || -z "${FUZZ_S3_SECRET_KEY:-}" ]]; then
+        echo "Fuzz S3 secrets are not set (required for in-image corpus sync)"
+        exit 1
+      fi
+
+      unset WERF_FINAL_IMAGES_ONLY
+
+      export FUZZ_S3_REPOSITORY="${CI_PROJECT_NAME}"
+      export FUZZ_S3_BRANCH_SLUG="main"
+      echo "MR fuzz build: stages shared with ${WERF_REPO}"
+      echo "Corpus replay path prefix: anomaloys-materials/${FUZZ_S3_REPOSITORY}/${FUZZ_S3_BRANCH_SLUG}/"
+
+      FUZZ_IMAGES="$(werf config list | grep -- '-fuzz$' || true)"
+      if [[ -z "${FUZZ_IMAGES}" ]]; then
+        echo "No fuzz images found"
+        exit 1
+      fi
+
+      echo "Building fuzz images:"
+      echo "${FUZZ_IMAGES}"
+
+      # shellcheck disable=SC2086
+      werf build ${FUZZ_IMAGES} \
+        --parallel=true --parallel-tasks-limit=10
 
 build_fuzz_main:
   extends:
