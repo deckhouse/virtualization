@@ -24,6 +24,17 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
+// Prefixes of the generated names of the operations that the controllers of the module create on
+// their own. Every such operation is an eviction, and the annotations that describe a workload
+// update are put on the internal virtual machine instance rather than on the operation, so the
+// name is the only thing that tells a firmware update apart from a node placement update.
+const (
+	FirmwareUpdatePrefix      = "firmware-update-"
+	NodePlacementUpdatePrefix = "nodeplacement-update-"
+	HotplugResourcesPrefix    = "hotplug-resources-"
+	VolumeMigrationPrefix     = "volume-migration-"
+)
+
 func IsInProgressOrPending(vmop *v1alpha2.VirtualMachineOperation) bool {
 	return vmop != nil && (vmop.Status.Phase == "" || vmop.Status.Phase == v1alpha2.VMOPPhasePending || vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress)
 }
@@ -38,15 +49,6 @@ func IsTerminating(vmop *v1alpha2.VirtualMachineOperation) bool {
 
 func IsMigration(vmop *v1alpha2.VirtualMachineOperation) bool {
 	return vmop != nil && (vmop.Spec.Type == v1alpha2.VMOPTypeMigrate || vmop.Spec.Type == v1alpha2.VMOPTypeEvict)
-}
-
-func InProgressOrPendingExists(vmops []v1alpha2.VirtualMachineOperation) bool {
-	for _, vmop := range vmops {
-		if IsInProgressOrPending(&vmop) {
-			return true
-		}
-	}
-	return false
 }
 
 func IsOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {

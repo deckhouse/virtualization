@@ -76,6 +76,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualMachineClassWatcher(),
 		watcher.NewVirtualMachineSnapshotWatcher(),
 		watcher.NewVMOPWatcher(),
+		watcher.NewVMBDAWatcher(),
 		watcher.NewVMMACWatcher(),
 		watcher.NewSecretWatcher(mgr.GetClient()),
 		watcher.NewNetworkWatcher(mgr.GetClient(), featuregates.Default()),

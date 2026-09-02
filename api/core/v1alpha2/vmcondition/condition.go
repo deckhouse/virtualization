@@ -57,6 +57,12 @@ const (
 	// TypeCoreFractionAutoscaling indicates whether the CPU core fraction of the VirtualMachine
 	// is being managed automatically. It is only set for VMs with an automatic core fraction.
 	TypeCoreFractionAutoscaling Type = "CoreFractionAutoscaling"
+
+	// TypeOperationInProgress indicates that an operation is being performed on the virtual machine:
+	// a power state change, a migration, a snapshot, a restore, a clone or a block device hot-plug.
+	// It is False when the last operation has failed, and is absent when nothing is being performed
+	// and the last operation ended without a failure.
+	TypeOperationInProgress Type = "OperationInProgress"
 )
 
 type AgentReadyReason string
@@ -341,4 +347,43 @@ const (
 	ReasonGPUClassReady    GPUClassReadyReason = "GPUClassReady"
 	ReasonGPUClassNotFound GPUClassReadyReason = "GPUClassNotFound"
 	ReasonGPUClassNotReady GPUClassReadyReason = "GPUClassNotReady"
+)
+
+type OperationInProgressReason string
+
+func (r OperationInProgressReason) String() string {
+	return string(r)
+}
+
+const (
+	// Reasons of an operation being performed right now.
+
+	ReasonVirtualMachineStarting   OperationInProgressReason = "Starting"
+	ReasonVirtualMachineStopping   OperationInProgressReason = "Stopping"
+	ReasonVirtualMachineRestarting OperationInProgressReason = "Restarting"
+	ReasonVirtualMachineMigrating  OperationInProgressReason = "Migrating"
+	ReasonVirtualMachineEvacuating OperationInProgressReason = "Evacuating"
+	// ReasonVolumeMigrating indicates that the disks of the virtual machine are being moved to
+	// another storage, which is carried out by a live migration of the machine.
+	ReasonVolumeMigrating OperationInProgressReason = "VolumeMigrating"
+	// ReasonFirmwareUpdating indicates that the virtual machine is being migrated to update its firmware.
+	ReasonFirmwareUpdating OperationInProgressReason = "FirmwareUpdating"
+	// ReasonNodePlacementUpdating indicates that the virtual machine is being migrated to apply
+	// its new node placement settings.
+	ReasonNodePlacementUpdating OperationInProgressReason = "NodePlacementUpdating"
+	// ReasonWorkloadUpdating indicates that the virtual machine is being migrated to apply an
+	// update of its workload that is not reported by a more specific reason.
+	ReasonWorkloadUpdating OperationInProgressReason = "WorkloadUpdating"
+	// ReasonResourcesHotplugging indicates that the virtual machine is being migrated to apply
+	// the hot-plugged CPU or memory.
+	ReasonResourcesHotplugging       OperationInProgressReason = "ResourcesHotplugging"
+	ReasonVirtualMachineRestoring    OperationInProgressReason = "Restoring"
+	ReasonVirtualMachineCloning      OperationInProgressReason = "Cloning"
+	ReasonVirtualMachineSnapshotting OperationInProgressReason = "Snapshotting"
+	ReasonBlockDeviceAttaching       OperationInProgressReason = "BlockDeviceAttaching"
+	ReasonBlockDeviceDetaching       OperationInProgressReason = "BlockDeviceDetaching"
+
+	// ReasonOperationFailed is the reason of the only outcome the condition reports. An operation
+	// that has completed, or that was superseded or deleted, leaves no condition behind.
+	ReasonOperationFailed OperationInProgressReason = "OperationFailed"
 )

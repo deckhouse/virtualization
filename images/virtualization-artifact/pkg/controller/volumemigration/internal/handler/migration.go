@@ -204,7 +204,7 @@ func (h *MigrationHandler) calculateBackoff(finishedVMOPs []*v1alpha2.VirtualMac
 
 func newVolumeMigrationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOperation {
 	return vmopbuilder.New(
-		vmopbuilder.WithGenerateName("volume-migration-"),
+		vmopbuilder.WithGenerateName(commonvmop.VolumeMigrationPrefix),
 		vmopbuilder.WithNamespace(namespace),
 		vmopbuilder.WithAnnotation(annotations.AnnVMOPVolumeMigration, "true"),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),

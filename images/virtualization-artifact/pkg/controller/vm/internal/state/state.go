@@ -366,17 +366,18 @@ func (s *state) Class(ctx context.Context) (*v1alpha2.VirtualMachineClass, error
 func (s *state) VMOPs(ctx context.Context) ([]*v1alpha2.VirtualMachineOperation, error) {
 	vm := s.vm.Current()
 	vmops := &v1alpha2.VirtualMachineOperationList{}
-	err := s.client.List(ctx, vmops, client.InNamespace(vm.Namespace))
+	err := s.client.List(ctx, vmops,
+		client.InNamespace(vm.Namespace),
+		client.MatchingFields{indexer.IndexFieldVMOPByVM: vm.Name},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list VirtualMachineOperation: %w", err)
 	}
 
-	var resultVMOPs []*v1alpha2.VirtualMachineOperation
+	resultVMOPs := make([]*v1alpha2.VirtualMachineOperation, 0, len(vmops.Items))
 
-	for _, vmop := range vmops.Items {
-		if vmop.Spec.VirtualMachine == vm.Name {
-			resultVMOPs = append(resultVMOPs, &vmop)
-		}
+	for i := range vmops.Items {
+		resultVMOPs = append(resultVMOPs, &vmops.Items[i])
 	}
 
 	return resultVMOPs, nil

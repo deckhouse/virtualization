@@ -64,6 +64,7 @@ func SetupController(
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
 	handlers := []Handler{
+		internal.NewOperationHandler(client),
 		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),

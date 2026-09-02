@@ -62,6 +62,8 @@ const (
 
 	IndexFieldVMBDAByVM = "spec.virtualMachineName"
 
+	IndexFieldVMOPByVM = "vmop.spec.virtualMachineName"
+
 	IndexFieldVMMACByVM      = "status.virtualMachine,Kind=VirtualMachineMACAddress"
 	IndexFieldVMMACByAddress = "spec.address|status.address"
 
@@ -108,6 +110,7 @@ var IndexGetters = []IndexGetter{
 	IndexCVIByReadyPhase,
 	IndexVMIPByAddress,
 	IndexVMBDAByVM,
+	IndexVMOPByVM,
 	IndexVMMACByVM,
 	IndexVMMACByAddress,
 	IndexVMMACLeaseByVMMAC,

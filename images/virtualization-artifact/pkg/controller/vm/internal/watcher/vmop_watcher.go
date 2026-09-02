@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -57,14 +56,29 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 				}
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachineOperation]{
-				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineOperation]) bool {
-					return commonvmop.IsMigration(e.Object)
+				// A removed operation is the last thing the OperationInProgress condition of the
+				// machine reports, so its removal has to reach the machine: otherwise the outcome of
+				// an operation collected by the garbage collector would be reported forever.
+				DeleteFunc: func(_ event.TypedDeleteEvent[*v1alpha2.VirtualMachineOperation]) bool {
+					return true
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineOperation]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
 					oldCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectOld.Status.Conditions)
 					newCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectNew.Status.Conditions)
+					if oldCompleted.Reason != newCompleted.Reason {
+						return true
+					}
 
-					return oldCompleted.Reason != newCompleted.Reason
+					// A power state operation reports its progress with the signal it has sent, and
+					// leaves the Completed reason untouched while doing so.
+					oldSignalSent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, e.ObjectOld.Status.Conditions)
+					newSignalSent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, e.ObjectNew.Status.Conditions)
+
+					return oldSignalSent.Status != newSignalSent.Status || oldSignalSent.Reason != newSignalSent.Reason
 				},
 			},
 		),
