@@ -4,7 +4,7 @@ firmware:
   edk2: stable202411
 core:
   kubevirt: v1.6.2-v12n.61.7
-  distribution: 3.1.1
+  distribution: v3.1.1-v12n.1
 package:
   acl: v2.3.1
   bzip2: bzip2-1.0.8
