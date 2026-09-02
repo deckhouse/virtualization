@@ -3,7 +3,6 @@ go 1.25.12
 use (
 	./api
 	./images/dvcr-artifact
-	./images/dvcr/dvcr-k8s-auth
 	./images/hooks
 	./images/kube-api-rewriter
 	./images/pre-delete-hook
