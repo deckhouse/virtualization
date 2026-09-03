@@ -203,8 +203,29 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		// Serialization: while a migration is in flight, KubeVirt only accepts
 		// continuing to the same targets or reverting to the source (handled above);
 		// a new, different target set is rejected. Wait for the current one to finalize.
-		if isVolumeMigrating(kvvmiInCluster) && !destinationsMatch(kvvmiInCluster, builtKVVMWithMigrationVolumes) {
-			log.Info("a volume migration is already in progress with different targets, wait for it to finalize.")
+		// A canceled round that has been fully reverted to the source volumes never
+		// finalizes by itself: KubeVirt's volume-update handler short-circuits when the
+		// KVVM and KVVMI volumes are equal, so the stale VolumesChange condition and
+		// status.migratedVolumes are kept forever and the next round would wait here
+		// until its VMOP times out. Patching the new target set is safe in that state:
+		// KubeVirt cancels the stale round (VolumeMigrationCancel clears the condition
+		// and migratedVolumes when the VMI is still on the source volumes) and then
+		// accepts the new set.
+		if isVolumeMigrating(kvvmiInCluster) && !destinationsMatch(kvvmiInCluster, builtKVVMWithMigrationVolumes) &&
+			!vmiRevertedToMigratedVolumeSources(kvvmiInCluster) {
+			inFlight, err := s.hasUnfinishedMigration(ctx, kvvmiInCluster)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			if !inFlight {
+				// The stale round is on the destination volumes (not the reverted-to-source
+				// shape handled above) and no VMIM exists to finalize it, so nothing will
+				// ever clear it: the guest and the recorded state have diverged. Recovering
+				// automatically risks migrating stale data, so only surface it loudly.
+				log.Warn("a stale volume migration holds different targets and no migration is running to finalize it; the VirtualMachine needs manual intervention (check kvvmi.status.migratedVolumes against the VirtualDisk state).")
+			} else {
+				log.Info("a volume migration is already in progress with different targets, wait for it to finalize.")
+			}
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
@@ -311,15 +332,52 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 	return false
 }
 
+// affinityMergeValue renders an affinity for a JSON merge patch so that every
+// sub-field is explicit. A JSON merge patch treats an absent key as "leave
+// unchanged", so marshaling the *corev1.Affinity directly (its nil sub-fields
+// are omitempty) would leave a previously-applied nodeAffinity in place. During
+// a volume migration the built affinity drops the source PV's node pinning so
+// the WaitForFirstConsumer target PVC can bind on a new node; without the
+// explicit null the stale source-node nodeAffinity survives on the KVVM
+// template, propagates to the running KVVMI, and pins the migration target pod
+// to the source node — deadlocking the migration when the VM's own affinity
+// forces it off that node. A nil affinity marshals to null and clears the whole
+// field.
+func affinityMergeValue(a *corev1.Affinity) any {
+	if a == nil {
+		return nil
+	}
+	return map[string]any{
+		"nodeAffinity":    a.NodeAffinity,
+		"podAffinity":     a.PodAffinity,
+		"podAntiAffinity": a.PodAntiAffinity,
+	}
+}
+
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) (reconcile.Result, error) {
 	mergePatch := map[string]any{
 		"spec": map[string]any{
 			"updateVolumesStrategy": kvvm.Spec.UpdateVolumesStrategy,
 			"template": map[string]any{"spec": map[string]any{
 				"volumes": kvvm.Spec.Template.Spec.Volumes,
+				// Disks are patched together with volumes to keep the merged object
+				// self-consistent: the builder maintains both arrays in sync, while a
+				// volumes-only patch built from a snapshot that predates a concurrent
+				// hotplug (addvolume) persist would drop the hotplug volume but leave
+				// its disk — the kubevirt webhook then denies the merged object
+				// ("disks[N].Name ... not found") BEFORE the resourceVersion
+				// precondition below is even checked, and the controller retries the
+				// same doomed patch. With disks included the merge is always valid and
+				// a stale snapshot surfaces as the intended 409.
+				"domain": map[string]any{"devices": map[string]any{
+					"disks": kvvm.Spec.Template.Spec.Domain.Devices.Disks,
+				}},
 				// Affinity is patched together with volumes because the migration
 				// target PVCs can resolve to a different node than the source.
-				"affinity": kvvm.Spec.Template.Spec.Affinity,
+				// affinityMergeValue keeps every sub-field explicit so a merge
+				// patch actually clears a stale nodeAffinity (the source PV's node
+				// pinning) instead of leaking it into the migration target pod.
+				"affinity": affinityMergeValue(kvvm.Spec.Template.Spec.Affinity),
 			}},
 		},
 	}
@@ -611,11 +669,54 @@ func allDisksMigrating(disks map[string]*v1alpha2.VirtualDisk) bool {
 	return true
 }
 
+// hasUnfinishedMigration reports whether any not-yet-final VMIM exists for the VMI.
+func (s MigrationVolumesService) hasUnfinishedMigration(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	migList := &virtv1.VirtualMachineInstanceMigrationList{}
+	if err := s.client.List(ctx, migList, client.InNamespace(kvvmi.Namespace)); err != nil {
+		return false, err
+	}
+	for i := range migList.Items {
+		mig := &migList.Items[i]
+		if mig.Spec.VMIName == kvvmi.Name && !mig.IsFinal() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // isVolumeMigrating reports whether KubeVirt is currently running a volume
 // migration for the VMI (condition VolumesChange=True).
 func isVolumeMigrating(kvvmi *virtv1.VirtualMachineInstance) bool {
 	cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
 	return cond.Status == corev1.ConditionTrue
+}
+
+// vmiRevertedToMigratedVolumeSources reports whether every volume recorded in
+// kvvmi.status.migratedVolumes is backed by its source PVC in the KVVMI spec:
+// the previous volume-migration round was canceled and fully reverted, and the
+// recorded migration state is a stale leftover (KubeVirt clears it only via
+// VolumeMigrationCancel, which requires a new volume update to be observed).
+// Mirrors KubeVirt's migratedVolumesInVMISpecMatchSource.
+func vmiRevertedToMigratedVolumeSources(kvvmi *virtv1.VirtualMachineInstance) bool {
+	if len(kvvmi.Status.MigratedVolumes) == 0 {
+		return false
+	}
+	volumes := make(map[string]string, len(kvvmi.Spec.Volumes))
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			volumes[v.Name] = v.PersistentVolumeClaim.ClaimName
+		}
+	}
+	for _, mv := range kvvmi.Status.MigratedVolumes {
+		if mv.SourcePVCInfo == nil {
+			return false
+		}
+		claim, ok := volumes[mv.VolumeName]
+		if !ok || claim != mv.SourcePVCInfo.ClaimName {
+			return false
+		}
+	}
+	return true
 }
 
 // destinationsMatch reports whether the patched set merely continues the in-flight

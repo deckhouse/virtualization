@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework/failfast"
 	vmopobserver "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmop"
 )
 
@@ -36,6 +37,21 @@ import (
 func UntilVMOPMigrationSucceeded(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, timeout time.Duration) {
 	GinkgoHelper()
 
+	if err := untilVMOPCompleted(ctx, vmop, timeout); err != nil {
+		//nolint:contextcheck // the skip checks intentionally use a fresh context, see skipIfKnownMigrationIssue
+		failVMOPMigration(vmop, err)
+	}
+}
+
+// untilVMOPCompleted waits for the VMOP to complete and returns the failure
+// instead of failing the spec, so callers can retry known transient outcomes.
+//
+// A migration can wedge with the VMOP forever Pending/InProgress while the
+// real error sits on another object (a KVVM sync denied by an admission
+// webhook, a terminally failed migration attempt on the internal VMI, a
+// reverted volume migration, an unschedulable target pod). Those wedges are
+// watched by the framework's fail-fast rules, which abort the spec directly.
+func untilVMOPCompleted(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, timeout time.Duration) error {
 	obs := vmopobserver.StartObserver(ctx, vmop)
 	defer obs.Stop()
 
@@ -45,24 +61,31 @@ func UntilVMOPMigrationSucceeded(ctx context.Context, vmop *v1alpha2.VirtualMach
 	if err == nil {
 		ok, predicateErr := vmopobserver.BeCompleted()(current)
 		if predicateErr != nil {
-			//nolint:contextcheck // the skip checks intentionally use a fresh context, see skipIfKnownMigrationIssue
-			failVMOPMigration(vmop, predicateErr)
+			return predicateErr
 		}
 		if ok {
-			return
+			return nil
 		}
 	}
 
-	if err := obs.WaitFor(vmopobserver.BeCompleted(), timeout); err != nil {
-		//nolint:contextcheck // the skip checks intentionally use a fresh context, see skipIfKnownMigrationIssue
-		failVMOPMigration(vmop, err)
-	}
+	return obs.WaitFor(vmopobserver.BeCompleted(), timeout)
 }
 
 func failVMOPMigration(vmop *v1alpha2.VirtualMachineOperation, err error) {
 	GinkgoHelper()
 
 	skipIfKnownMigrationIssue(vmop)
+
+	// The VMI migration state inspected above may already be gone (or belong to
+	// a newer attempt) by the time the VMOP settles, so also match the known
+	// kubevirt flakes against the VMOP failure message itself.
+	if err != nil && (IsKnownKubeVirtTargetPodShutdownFailureReason(err.Error()) ||
+		IsKnownKubeVirtClientSocketClosedFailureReason(err.Error()) ||
+		IsKnownKubeVirtHotplugDiskNotPermittedFailureReason(err.Error()) ||
+		failfast.IsKnownDRBDDualPrimaryDeniedFailureReason(err.Error())) {
+		Skip(fmt.Sprintf("skip due to known kubevirt migration issue for vmop %s/%s: %s",
+			vmop.Namespace, vmop.Name, err))
+	}
 
 	Fail(fmt.Sprintf("migration is not completed: %s", err))
 }

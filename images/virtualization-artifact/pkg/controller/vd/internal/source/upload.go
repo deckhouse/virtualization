@@ -122,7 +122,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
-		step.NewCleanUpUploaderStep(pod, svc, ing, ds.uploaderService),
+		step.NewCleanUpUploaderStep(pvc, pod, svc, ing, ds.uploaderService, cb),
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreateUploaderStep(pvc, pod, svc, ing, ds.uploaderService, ds.dvcrSettings, ds.recorder, cb),

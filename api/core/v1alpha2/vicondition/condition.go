@@ -79,6 +79,8 @@ const (
 	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
+	// ProvisioningFailedTerminally indicates that the provisioning process has failed permanently: retrying reproduces the same failure, so the provisioner is cleaned up and the failure is kept.
+	ProvisioningFailedTerminally ReadyReason = "ProvisioningFailedTerminally"
 	// StorageClassNotReady indicates that the provisioning process pending because `StorageClass` not ready.
 	StorageClassNotReady ReadyReason = "StorageClassNotReady"
 	// Ready indicates that the import process is complete and the `VirtualImage` is ready for use.

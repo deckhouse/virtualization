@@ -35,14 +35,19 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmbdaobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmbda"
+	vmopobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmop"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
+var _ = Describe("PowerState", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	DescribeTable("manages power state of a virtual machine", func(runPolicy v1alpha2.RunPolicy) {
 		var namespaceSuffix string
 		switch runPolicy {
@@ -60,50 +65,87 @@ var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 
 		t := newPowerStateTest(f)
 
+		var (
+			vmObs    vmobs.Observer
+			vmbdaObs vmbdaobs.Observer
+		)
+
 		By("Environment preparation", func() {
 			t.GenerateResources(runPolicy)
+
+			vmObs = vmobs.StartObserver(ctx, f, t.VM)
+			vmObs.Never(vmobs.BeFailed())
+			vmbdaObs = vmbdaobs.StartObserver(ctx, f, t.VMBDA)
+			vmbdaObs.Never(vmbdaobs.BeFailed())
+
 			err := f.CreateWithDeferredDeletion(
 				ctx, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
 			)
 			Expect(err).NotTo(HaveOccurred())
 
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
-				util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
+				err := vmObs.WaitFor(vmobs.BeStopped(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
 				util.StartVirtualMachine(ctx, f, t.VM)
 			}
 
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
-			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+			err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
+			// The first attachment waits out the blank disk provisioning and the CSI
+			// attach of the hotplug pod, which take minutes under a parallel run.
+			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
+			eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 		})
 
 		By("Shutdown VM by VMOP", func() {
+			// A fixed name (rather than generateName) lets the observer be armed
+			// before the VMOP is created, so even an instant Failed/Completed
+			// transition is captured.
 			vmopStop := vmopbuilder.New(
-				vmopbuilder.WithGenerateName(fmt.Sprintf("%s-stop-", util.VmopE2ePrefix)),
+				vmopbuilder.WithName(fmt.Sprintf("%s-stop", util.VmopE2ePrefix)),
 				vmopbuilder.WithNamespace(t.VM.Namespace),
 				vmopbuilder.WithType(v1alpha2.VMOPTypeStop),
 				vmopbuilder.WithVirtualMachine(t.VM.Name),
 			)
+			// Stopping an AlwaysOn VM must be rejected, so for that policy the
+			// VMOP's Failed phase is the expected outcome, not a wedge.
+			if t.VM.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy {
+				f.ExpectFailure(vmopStop)
+			}
+			vmopStopObs := vmopobs.StartObserver(ctx, vmopStop)
 			err := f.CreateWithDeferredDeletion(ctx, vmopStop)
 			Expect(err).NotTo(HaveOccurred())
 
 			switch t.VM.Spec.RunPolicy {
 			case v1alpha2.AlwaysOnPolicy:
-				util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseFailed), framework.ShortTimeout, vmopStop)
-				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				// Stopping an AlwaysOn VM is not allowed: the VMOP must fail and
+				// the VM must keep running.
+				err := vmopStopObs.WaitFor(beVMOPFailed(), framework.ShortTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				err = vmObs.WaitFor(vmobs.BeRunning(), framework.ShortTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.ShortTimeout)
+				Expect(err).NotTo(HaveOccurred())
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
-				util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopStop)
-				util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
+				err := vmopStopObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				err = vmObs.WaitFor(vmobs.BeStopped(), framework.ShortTimeout)
+				Expect(err).NotTo(HaveOccurred())
 			}
 		})
 
 		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(ctx, f, t.VM)
-				untilVMRunningSkippingStuckGuestShutdown(ctx, t.VM, framework.MiddleTimeout)
-				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+				// A cold start brings up the launcher pod and attaches four block
+				// devices through CSI, which outruns a minute under a parallel run.
+				expectVMRunningSkippingStuckGuestShutdown(ctx, vmObs, t.VM, framework.LongTimeout)
+				// The hotplugged disk is re-attached from scratch after a cold start,
+				// through the same CSI path as the boot devices.
+				err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 			}
 		})
 
@@ -113,25 +155,31 @@ var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
-			util.StopVirtualMachineFromOS(f, t.VM)
+			stopGuestAsRoot(f, t.VM)
 
 			switch t.VM.Spec.RunPolicy {
 			case v1alpha2.AlwaysOnPolicy:
-				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
-				util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+				expectVMRebooted(ctx, vmObs, t.VM, runningLastTransitionTime, framework.LongTimeout)
+				err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
-				util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
+				err := vmObs.WaitFor(vmobs.BeStopped(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
 			}
 		})
 
 		By("Start VM by VMOP", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(ctx, f, t.VM)
-				untilVMRunningSkippingStuckGuestShutdown(ctx, t.VM, framework.MiddleTimeout)
-				util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-				util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+				// A cold start brings up the launcher pod and attaches four block
+				// devices through CSI, which outruns a minute under a parallel run.
+				expectVMRunningSkippingStuckGuestShutdown(ctx, vmObs, t.VM, framework.LongTimeout)
+				// The hotplugged disk is re-attached from scratch after a cold start,
+				// through the same CSI path as the boot devices.
+				err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
+				eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 			}
 		})
 
@@ -142,20 +190,24 @@ var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
+			// A fixed name (rather than generateName) lets the observer be armed
+			// before the VMOP is created, so even an instant transition is captured.
 			vmopRestart := vmopbuilder.New(
-				vmopbuilder.WithGenerateName(fmt.Sprintf("%s-restart-", util.VmopE2ePrefix)),
+				vmopbuilder.WithName(fmt.Sprintf("%s-restart", util.VmopE2ePrefix)),
 				vmopbuilder.WithNamespace(t.VM.Namespace),
 				vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
 				vmopbuilder.WithVirtualMachine(t.VM.Name),
 			)
+			vmopRestartObs := vmopobs.StartObserver(ctx, vmopRestart)
 			err = f.CreateWithDeferredDeletion(ctx, vmopRestart)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopRestart)
-			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.MiddleTimeout)
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+			err = vmopRestartObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
+			expectVMRebooted(ctx, vmObs, t.VM, runningLastTransitionTime, framework.MiddleTimeout)
+			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
+			eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 		})
 
 		By("Reboot VM by SSH", func() {
@@ -165,18 +217,17 @@ var _ = Describe("PowerState", Label(precheck.NoPrecheck), func() {
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
-			util.RebootVirtualMachineBySSH(f, t.VM)
+			rebootGuestAsRoot(f, t.VM)
 
-			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
-			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
-			util.UntilSSHReady(f, t.VM, framework.MiddleTimeout)
+			expectVMRebooted(ctx, vmObs, t.VM, runningLastTransitionTime, framework.LongTimeout)
+			err = vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
+			eventually.SSHReadyAsRoot(f, t.VM, framework.LongTimeout)
 		})
 
 		By("Check VM can reach external network", func() {
-			err := network.CheckCiliumAgents(ctx, f.Kubectl(), t.VM.Name, f.Namespace().Name)
-			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VM.Name)
-			network.CheckExternalConnectivity(f, t.VM.Name, network.ExternalConnectivityHosts)
+			network.EnsureCiliumAgents(ctx, f.Kubectl(), t.VM.Name, f.Namespace().Name)
+			expectExternalConnectivityAsRoot(f, t.VM.Name, f.Namespace().Name)
 		})
 	},
 		Entry(
@@ -211,28 +262,28 @@ func newPowerStateTest(f *framework.Framework) *powerStateTest {
 }
 
 func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
-	t.VI = vibuilder.New(
+	t.VI = object.NewVI(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
-		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVITestDataQCOW),
+		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 
-	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS,
-		vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))),
+	t.VDRoot = object.NewVDFromCVI("vd-root", t.Framework.Namespace().Name, object.PrecreatedCVICustomBIOS,
+		vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))),
 	)
 
-	t.VDBlank = vdbuilder.New(
+	t.VDBlank = object.NewVD(
 		vdbuilder.WithName("vd-blank"),
 		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("100Mi"))),
+		vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse(vdCustomImageSize))),
 	)
 
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vmbuilder.WithCPU(1, ptr.To("100%")),
-		vmbuilder.WithMemory(resource.MustParse("512Mi")),
+		vmbuilder.WithCPU(1, ptr.To(object.CustomImageVMCoreFraction)),
+		vmbuilder.WithMemory(resource.MustParse(object.CustomImageVMMemory)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 		vmbuilder.WithBlockDeviceRefs(
@@ -242,7 +293,7 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 			},
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ClusterImageDevice,
-				Name: object.PrecreatedCVITestDataISO,
+				Name: object.PrecreatedCVICustomISO,
 			},
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ImageDevice,
@@ -251,7 +302,8 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 		),
 		vmbuilder.WithRestartApprovalMode(v1alpha2.Manual),
 		vmbuilder.WithRunPolicy(runPolicy),
-		vmbuilder.WithProvisioningUserData(object.AlpineCloudInit),
+		// The custom image has no cloud-init; the guest agent is baked
+		// into the image, so no provisioning is needed.
 	)
 
 	t.VMBDA = vmbdabuilder.New(
@@ -262,24 +314,66 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 	)
 }
 
-// untilVMRunningSkippingStuckGuestShutdown waits for the VirtualMachine to
-// become Running, skipping the spec when the controller hit the known
-// lost-guest-shutdown-reason race and will never process the start request
-// (see util.SkipIfGuestPowerActionStuck for the details).
-func untilVMRunningSkippingStuckGuestShutdown(ctx context.Context, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+// beVMOPFailed reports the VMOP has reached the Failed phase (used where the
+// operation is expected to be rejected, e.g. stopping an AlwaysOn VM). A
+// Completed phase is reported as a definite error so the wait aborts
+// immediately instead of burning the timeout.
+func beVMOPFailed() vmopobs.Predicate {
+	return func(op *v1alpha2.VirtualMachineOperation) (bool, error) {
+		switch op.Status.Phase {
+		case v1alpha2.VMOPPhaseFailed:
+			return true, nil
+		case v1alpha2.VMOPPhaseCompleted:
+			return false, fmt.Errorf("vmop %s/%s completed, expected it to fail", op.Namespace, op.Name)
+		default:
+			return false, nil
+		}
+	}
+}
+
+// stopGuestAsRoot asks the guest OS to power itself off. The custom
+// image has no cloud user and no sudo, so it logs in as root; the delayed
+// nohup lets the SSH session complete cleanly before the guest goes down.
+func stopGuestAsRoot(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	key := crclient.ObjectKeyFromObject(vm)
-	Eventually(func() error {
-		util.SkipIfGuestPowerActionStuck(ctx, key)
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && poweroff\" > /dev/null 2>&1 &", framework.WithSSHUser("root"))
+	Expect(err).NotTo(HaveOccurred())
+}
 
-		got := &v1alpha2.VirtualMachine{}
-		if err := framework.GetClients().GenericClient().Get(ctx, key, got); err != nil {
-			return fmt.Errorf("failed to get virtual machine: %w", err)
-		}
-		if got.Status.Phase != v1alpha2.MachineRunning {
-			return fmt.Errorf("virtual machine %s status.phase is %s, expected %s", key, got.Status.Phase, v1alpha2.MachineRunning)
-		}
-		return nil
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+// rebootGuestAsRoot asks the guest OS to reboot itself; see stopGuestAsRoot.
+func rebootGuestAsRoot(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && reboot\" > /dev/null 2>&1 &", framework.WithSSHUser("root"))
+	Expect(err).NotTo(HaveOccurred())
+}
+
+// expectVMRunningSkippingStuckGuestShutdown waits, via the VM Observer, for
+// the VirtualMachine to become Running. When the wait fails it first checks
+// for the known lost-guest-shutdown-reason controller race and skips the spec
+// in that case (see util.SkipIfGuestPowerActionStuck for the details).
+func expectVMRunningSkippingStuckGuestShutdown(ctx context.Context, vmObs vmobs.Observer, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+	GinkgoHelper()
+
+	err := vmObs.WaitFor(vmobs.BeRunning(), timeout)
+	if err != nil {
+		util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(vm))
+	}
+	Expect(err).NotTo(HaveOccurred())
+}
+
+// expectVMRebooted waits, via the VM Observer, until the VirtualMachine is
+// Running with a Running-condition transition newer than previousRunningTime,
+// i.e. the guest went down and came back. When the wait fails it first checks
+// for the known lost-guest-shutdown-reason controller race and skips the spec
+// in that case.
+func expectVMRebooted(ctx context.Context, vmObs vmobs.Observer, vm *v1alpha2.VirtualMachine, previousRunningTime time.Time, timeout time.Duration) {
+	GinkgoHelper()
+
+	err := vmObs.WaitFor(vmobs.BeRebootedAfter(previousRunningTime), timeout)
+	if err != nil {
+		util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(vm))
+	}
+	Expect(err).NotTo(HaveOccurred())
 }

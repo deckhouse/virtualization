@@ -26,7 +26,10 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
@@ -362,9 +365,9 @@ func isCheckEnabled(envName string) bool {
 	return os.Getenv(envName) != "no"
 }
 
-// IsModuleEnabled checks if a Deckhouse module is enabled.
+// IsModuleEnabledByConfig checks if a Deckhouse module is enabled by ModuleConfig.
 // Returns true if the module exists and is enabled (Spec.Enabled = true).
-func IsModuleEnabled(ctx context.Context, f *framework.Framework, moduleName string) bool {
+func IsModuleEnabledByConfig(ctx context.Context, f *framework.Framework, moduleName string) bool {
 	module, err := f.GetModuleConfig(ctx, moduleName)
 	if err != nil {
 		_, _ = fmt.Fprintf(GinkgoWriter, "failed to get %s module config: %v\n", moduleName, err)
@@ -372,4 +375,51 @@ func IsModuleEnabled(ctx context.Context, f *framework.Framework, moduleName str
 	}
 	enabled := module.Spec.Enabled
 	return enabled != nil && *enabled
+}
+
+// RequireModuleReady returns an error unless the Deckhouse module is enabled and Ready.
+func RequireModuleReady(ctx context.Context, f *framework.Framework, moduleName string) error {
+	module := &dv1alpha1.Module{}
+	if err := f.GenericClient().Get(ctx, client.ObjectKey{Name: moduleName}, module); err != nil {
+		return fmt.Errorf("failed to check %s module status: %w", moduleName, err)
+	}
+	if !IsModuleEnabled(module) {
+		return fmt.Errorf("%s module should be enabled", moduleName)
+	}
+	if module.Status.Phase != modulePhaseReady {
+		return fmt.Errorf("%s module should be ready; current status: %s", moduleName, module.Status.Phase)
+	}
+	return nil
+}
+
+// RequireModuleDisabled returns an error if the Deckhouse module is still enabled.
+// A module absent from the cluster counts as disabled.
+func RequireModuleDisabled(ctx context.Context, f *framework.Framework, moduleName string) error {
+	module := &dv1alpha1.Module{}
+	if err := f.GenericClient().Get(ctx, client.ObjectKey{Name: moduleName}, module); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to check %s module status: %w", moduleName, err)
+	}
+	if IsModuleEnabled(module) {
+		return fmt.Errorf("deprecated %s module should be disabled", moduleName)
+	}
+	return nil
+}
+
+func IsModuleEnabled(module *dv1alpha1.Module) bool {
+	if module == nil {
+		return false
+	}
+
+	for _, condition := range module.Status.Conditions {
+		switch condition.Type {
+		case "EnabledByModuleManager", "EnabledByModuleConfig":
+			if condition.Status == "True" {
+				return true
+			}
+		}
+	}
+	return false
 }

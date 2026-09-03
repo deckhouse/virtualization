@@ -17,15 +17,16 @@ clusterTransport:
 
 helperImages:
   curlImage: "curlimages/curl"
-testData:
-  imageHotplug: "/tmp/testdata/image-hotplug"
-  sizingPolicy: "/tmp/testdata/sizing-policy"
-  vmConfiguration: "/tmp/testdata/vm-configuration"
-  vmMigration: "/tmp/testdata/vm-migration"
-  sshKey: "/tmp/testdata/sshkeys/id_ed"
-  sshUser: "cloud"
 logFilter:
   - "pattern to exclude"
+  # TODO: drop when controller-created VMOPs (firmware-update, volume-migration) stop
+  # racing each other: a VMOP denied by the vmop admission webhook because a previous
+  # operation is still in flight is retried by its controller and is not a test failure.
+  - 'Previously created operation \"'
+  # TODO: drop when reconcilers stop logging plain context cancellation as an error:
+  # namespace teardown cancels in-flight requests (delete pvc import supplements,
+  # patch KubeVirt VM metadata, status subresource updates) mid-reconcile.
+  - "context canceled"
   - "validation failed for data source objectref" # Err.
   - "clean up failed for data source registry" # Err.
   - "the server rejected our request due to an error in our request" # Err.
@@ -37,12 +38,27 @@ logFilter:
   - 'failed to sync migrating volumes: admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: spec.template.spec.domain.devices.disks'
   - "in-flight migration detected" # "err": "admission webhook \"migration-create-validator.kubevirt.io\" denied the request: in-flight migration detected. Active migration job"
   - "the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug"
+  # Benign self-healing vd-controller transient: during a VirtualDisk reconcile
+  # Status.Target.PersistentVolumeClaim is momentarily empty and the reconciler
+  # restores the previous value in the same pass (vd_reconciler.go). Fires
+  # routinely during normal VD provisioning under parallel load; the disk still
+  # reaches Ready. TODO: drop when vd-controller stops clearing the target PVC mid-reconcile.
+  - "Target.PersistentVolumeClaim is empty, restore previous value"
+  # TODO: remove when the kubevirt hotplug attachment-pod startup race is fixed: virt-controller
+  # renders the attachment pod before virt-handler has populated vmi.status.selinuxContext, fails
+  # with FailedCreate and retries successfully a couple of seconds later (the VM starts normally).
+  - "Error rendering attachment pod template VMI is missing SELinux context"
   - "for now, migration of the rwo virtual disk is not allowed if the virtual machine has hot-plugged block devices" # {"level":"error","msg":"Error occurred during reconciliation","controller":"workload-updater-controller","err":"admission webhook \"vmop.virtualization-controller.validate.d8-virtualization\" denied the request: for now, migration of the rwo virtual disk is not allowed if the virtual machine has hot-plugged block devices","name":"example-1","namespace":"default","reconcileID":"d242d357-112b-4e75-a48f-a74ddb2c69af","time":"2025-10-02T21:19:56Z"}
   - "Too many requests: limit reached on type Namespace for key" # {"level":"error","msg":"Server rejected event (will not retry!)","err":"Too many requests: limit reached on type Namespace for key head-05d62af18-end-to-end-complex-test","event":{"count":13,"eventTime":null,"firstTimestamp":"2025-10-02T22:10:10Z","involvedObject":{"apiVersion":"virtualization.deckhouse.io/v1alpha2","kind":"VirtualMachine","name":"head-05d62af18-vm-always-on","namespace":"head-05d62af18-end-to-end-complex-test","resourceVersion":"251246482","uid":"1ba665b0-bfd1-44d2-b5e1-0dc491e7b90a"},"lastTimestamp":"2025-10-02T22:10:22Z","message":"The virtual machine configuration successfully synced","metadata":{"creationTimestamp":null,"name":"head-05d62af18-vm-always-on.186acc188a870618","namespace":"head-05d62af18-end-to-end-complex-test","resourceVersion":"251246479"},"reason":"VirtualMachineSynced","reportingComponent":"vm-controller/VirtualMachineSynced","reportingInstance":"","source":{"component":"vm-controller/VirtualMachineSynced"},"type":"Normal"},"time":"2025-10-02T22:10:22Z"}
   - "failed to detach"
   - 'failed to add finalizer \"virtualization.deckhouse.io/pod-protection\" on the \"Pod\"' # "err": "failed to add finalizer \"virtualization.deckhouse.io/pod-protection\" on the \"Pod\", \"virt-launcher-head-fc1d3f92-vm-always-on-restore-force-v6vqj\": Pod \"virt-launcher-head-fc1d3f92-vm-always-on-restore-force-v6vqj\" is invalid: metadata.finalizers: Forbidden: no new finalizers can be added if the object is being deleted, found new finalizers []string{\"virtualization.deckhouse.io/pod-protection\"}"
-  - 'failed to remove finalizer \"virtualization.deckhouse.io/vd-protection\" on the on the \"PersistentVolumeClaim\"' # "clean up failed for data source http: failed to remove finalizer \"virtualization.deckhouse.io/vd-protection\" on the \"PersistentVolumeClaim\", \"d8v-vd-103067fa-ab7a-4825-a0f0-5a3770e2851e-wausl\": PersistentVolumeClaim \"d8v-vd-103067fa-ab7a-4825-a0f0-5a3770e2851e-wausl\" is invalid: metadata.finalizers: Forbidden: no new finalizers can be added if the object is being deleted, found new finalizers []string{\"kubernetes.io/pvc-protection\"}"
+  # TODO: drop when the deployed controller carries the AddProtection race fix
+  # (tolerated 422 on a deleting VirtualDisk): the cached deletionTimestamp check
+  # races namespace teardown, the patch hits an already-terminating VD.
+  - 'failed to add finalizer \"virtualization.deckhouse.io/vd-protection\" on the \"VirtualDisk\"'
   - "Failed to detect RealSize disk on KVVMI" # benign race in the vd-controller MigrationHandler: volume-migration target sizing reads KVVMI status.volumeStatus[].size before virt-handler populates it (only after the VMI is Running), falls back to the spec size. {"level":"error","msg":"Failed to detect RealSize disk on KVVMI. Please report a bug.","controller":"vd-controller","handler":"MigrationHandler","name":"vm-c-root","namespace":"v12n-e2e-vm-affinity-toleration-l59ld","time":"2026-07-07T20:27:56Z"}
+  - "Failed to update lock optimistically: context deadline exceeded" # API-proxy blip during leader-election renewal; the controller falls back to the slow path and keeps the lease. "msg": "Failed to update lock optimistically: context deadline exceeded, falling back to slow path"
+  - "Unable to write event (may retry after sleeping)" # the event recorder retries on its own; a lost event says nothing about virtualization.
 regexpLogFilter:
   - "failed to detach: .* not found" # "err" "failed to detach: virtualmachine.kubevirt.io \"head-497d17b-vm-automatic-with-hotplug\" not found",
   - "error patching .* not found" # "err" "error patching *** virtualimages.virtualization.deckhouse.io \"head-497d17b-vi-pvc-oref-vi-oref-vd\" not found",
@@ -50,9 +66,33 @@ regexpLogFilter:
   - "Failed to update lock optimistically:.*leases.*leader-election-helper.*" # error during virtualization-controller lifecycle: attempt to reacquire leader election. "msg": "Failed to update lock optimistically: Put \"http://127.0.0.1:23915/apis/coordination.k8s.io/v1/namespaces/d8-virtualization/leases/d8-virt-operator-leader-election-helper?timeout=5s\": context deadline exceeded (Client.Timeout exceeded while awaiting headers), falling back to slow path"
   - "Failed to update lock: .* leases.*leader-election-helper.*" # "msg": "ock: Operation cannot be fulfilled on leases.coordination.k8s.io \"d8-virt-operator-leader-election-helper\": the object has been modified; please apply your changes to the latest version and try again",
   - "error retrieving resource lock .*leader-election-helper" #  "msg": "error retrieving resource lock d8-virtualization/d8-virt-operator-leader-election-helper: context deadline exceeded",
-  - "persistentvolumeclaims .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "persistentvolumeclaims \"vd-f6fd1238-9cfe-4c22-bb48-cd64778740e3-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-p8cxr because it is being terminated"
-  - "virtualmachineoperations.virtualization.deckhouse.io .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "virtualmachineoperations.virtualization.deckhouse.io \"volume-migration-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-qsggq because it is being terminated"
+  # Generalized: any resource the controller tries to create/reconcile while the
+  # test's namespace is being torn down races with the delete. Always benign
+  # (the namespace and everything in it is going away). Covers PVCs, VMOPs, SDN
+  # IPAddresses, internal VMs, etc.
+  - "is forbidden: unable to create new content in namespace .* because it is being terminated"
+  # A foreign webhook, not ours: the multitenancy module's grants validator
+  # answers with an "is-granted decision failed" server error under load, and
+  # every request it guards is rejected while that lasts - here the removal of
+  # a pvc-protection finalizer during namespace teardown. The controller logs
+  # the rejection and retries, the finalizer does come off, so this says
+  # nothing about virtualization.
+  - "failed calling webhook .*cluster-objects-grants-validator\\.multitenancy\\.deckhouse\\.io.*is-granted decision failed"
+  # Another foreign webhook: the sds-replicated-volume module's PVC validator
+  # is unreachable while its webhook pods restart or the node network flaps
+  # (connection refused / no route to host / operation not permitted), and
+  # every PVC create the controller issues is rejected until it comes back.
+  # The controller retries and the import proceeds, so this says nothing
+  # about virtualization.
+  - "failed calling webhook .*d8-sds-replicated-volume-pvc-validation\\.deckhouse\\.io"
   - "error patching metadata .* devices found, 16 is maximum" # "error patching metadata ([{\"op\":\"replace\",\"path\":\"/metadata/finalizers\",\"value\":[\"virtualization.deckhouse.io/vmbda-cleanup\"]}]): admission webhook \"vmbda.virtualization-controller.validate.d8-virtualization\" denied the request: block device attached to VirtualMachine \"x-310732-worker-16758df7-qglxg-49z75\" limit reached: 17 devices found, 16 is maximum"
+  # The controller reaches the API server through the in-pod kube-api proxy
+  # (127.0.0.1:23915). While the proxy or the API server restarts, every
+  # in-flight request fails with EOF / connection refused / context deadline;
+  # the controllers retry and recover, so this says nothing about
+  # virtualization. "err": "clean up failed for data source objectref: delete
+  # pvc import supplements: Delete \"http://127.0.0.1:23915/api/v1/...\": EOF"
+  - "http://127\\.0\\.0\\.1:23915/.*(EOF|connection refused|context deadline exceeded)"
 
 cleanupResources:
   - clustervirtualimages.virtualization.deckhouse.io

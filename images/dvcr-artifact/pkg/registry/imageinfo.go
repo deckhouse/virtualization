@@ -71,7 +71,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 		return getImageInfoVMDK(ctx, formatSourceReaders.TopReader(), headerBuf)
 	}
 
-	return getImageInfoStandard(ctx, formatSourceReaders, headerBuf)
+	return getImageInfoStandard(ctx, formatSourceReaders)
 }
 
 // getImageInfoVMDK obtains information about the VMDK image using a synthetic file.
@@ -147,7 +147,7 @@ func getImageInfoVMDK(ctx context.Context, sourceReader io.Reader, headerBuf []b
 }
 
 // getImageInfoStandard handles non-VMDK formats using the first 64MB of the file.
-func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.FormatReaders, headerBuf []byte) (ImageInfo, error) {
+func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.FormatReaders) (ImageInfo, error) {
 	var tempImageInfoFile *os.File
 	var err error
 	var bytesWrittenToTemp int64
@@ -160,20 +160,15 @@ func getImageInfoStandard(ctx context.Context, formatSourceReaders *importer.For
 		}
 		defer os.Remove(tempImageInfoFile.Name())
 
-		n, err := tempImageInfoFile.Write(headerBuf)
-		if err != nil {
-			return ImageInfo{}, fmt.Errorf("error writing header to temp file: %w", err)
+		// The reader already starts with the header bytes (getImageInfo prepends
+		// the probed header to the rest of the source), so sample straight from
+		// it. Writing headerBuf separately would both duplicate the first bytes
+		// in the sample and count them twice in the raw VirtualSize below.
+		n, err := io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), imageInfoSize)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return ImageInfo{}, fmt.Errorf("error writing image data to temp file: %w", err)
 		}
-		bytesWrittenToTemp = int64(n)
-
-		remaining := imageInfoSize - int64(len(headerBuf))
-		if remaining > 0 {
-			n, err := io.CopyN(tempImageInfoFile, formatSourceReaders.TopReader(), remaining)
-			if err != nil && !errors.Is(err, io.EOF) {
-				return ImageInfo{}, fmt.Errorf("error writing remaining data to temp file: %w", err)
-			}
-			bytesWrittenToTemp += n
-		}
+		bytesWrittenToTemp = n
 
 		if err = tempImageInfoFile.Close(); err != nil {
 			return ImageInfo{}, fmt.Errorf("error closing temp file: %w", err)

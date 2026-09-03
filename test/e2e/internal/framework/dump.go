@@ -22,7 +22,9 @@ import (
 	"io"
 	"os"
 	"path"
+	"sort"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -67,14 +69,16 @@ func (f *Framework) saveTestCaseDump(ctx context.Context) {
 		return
 	}
 
-	f.saveTestCaseResources(dumpDir)
+	f.saveFailureSummary(ctx, dumpDir)
+	f.saveTestCaseResources(ctx, dumpDir)
 	f.saveVMScreenshots(ctx, dumpDir)
+	f.saveVMSerialConsoles(ctx, dumpDir)
 	f.savePodAdditionalInfo(ctx, dumpDir)
-	f.saveIntvirtvmDescriptions(dumpDir)
-	f.saveIntvirtvmiDescriptions(dumpDir)
-	f.saveNodeAdditionalInfo(dumpDir)
+	f.saveIntvirtvmDescriptions(ctx, dumpDir)
+	f.saveIntvirtvmiDescriptions(ctx, dumpDir)
+	f.saveNodeAdditionalInfo(ctx, dumpDir)
 	f.saveEvents(ctx, dumpDir)
-	f.saveClusterNetworkInfo(dumpDir)
+	f.saveClusterNetworkInfo(ctx, dumpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -113,11 +117,11 @@ func GetTMPDir() string {
 	return tmpDir
 }
 
-func (f *Framework) saveTestCaseResources(dumpDir string) {
+func (f *Framework) saveTestCaseResources(ctx context.Context, dumpDir string) {
 	resFileName := path.Join(dumpDir, "resources.yaml")
 
 	// TODO: Add CVI and VMC to the request when the environment is isolated.
-	result := f.Clients.Kubectl().Get("virtualization,intvirt,pod,volumesnapshot,pvc", kubectl.GetOptions{
+	result := f.Clients.Kubectl().GetContext(ctx, "virtualization,intvirt,pod,volumesnapshot,pvc", kubectl.GetOptions{
 		Namespace: f.Namespace().Name,
 		Output:    "yaml",
 	})
@@ -148,13 +152,13 @@ func (f *Framework) savePodAdditionalInfo(ctx context.Context, dumpDir string) {
 
 	for _, pod := range pods.Items {
 		f.writePodLogs(ctx, pod.Name, pod.Namespace, dumpDir)
-		f.writePodDescription(pod.Name, pod.Namespace, dumpDir)
-		f.writeVirtualMachineGuestInfo(pod, dumpDir)
+		f.writePodDescription(ctx, pod.Name, pod.Namespace, dumpDir)
+		f.writeVirtualMachineGuestInfo(ctx, pod, dumpDir)
 	}
 }
 
-func (f *Framework) saveIntvirtvmDescriptions(dumpDir string) {
-	describeCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("describe intvirtvm --namespace %s", f.Namespace().Name), ShortTimeout)
+func (f *Framework) saveIntvirtvmDescriptions(ctx context.Context, dumpDir string) {
+	describeCmd := f.Clients.Kubectl().RawCommandContext(ctx, fmt.Sprintf("describe intvirtvm --namespace %s", f.Namespace().Name), ShortTimeout)
 	if describeCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to describe InternalVirtualizationVirtualMachine:\nError: %s\n", describeCmd.StdErr())
 	}
@@ -166,8 +170,8 @@ func (f *Framework) saveIntvirtvmDescriptions(dumpDir string) {
 	}
 }
 
-func (f *Framework) saveIntvirtvmiDescriptions(dumpDir string) {
-	describeCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("describe intvirtvmi --namespace %s", f.Namespace().Name), ShortTimeout)
+func (f *Framework) saveIntvirtvmiDescriptions(ctx context.Context, dumpDir string) {
+	describeCmd := f.Clients.Kubectl().RawCommandContext(ctx, fmt.Sprintf("describe intvirtvmi --namespace %s", f.Namespace().Name), ShortTimeout)
 	if describeCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to describe InternalVirtualizationVirtualMachineInstance:\nError: %s\n", describeCmd.StdErr())
 	}
@@ -219,8 +223,8 @@ func (f *Framework) writePodContainerLogs(ctx context.Context, pod *corev1.Pod, 
 	}
 }
 
-func (f *Framework) writePodDescription(name, namespace, dumpDir string) {
-	describeCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("describe pod %s --namespace %s", name, namespace), ShortTimeout)
+func (f *Framework) writePodDescription(ctx context.Context, name, namespace, dumpDir string) {
+	describeCmd := f.Clients.Kubectl().RawCommandContext(ctx, fmt.Sprintf("describe pod %s --namespace %s", name, namespace), ShortTimeout)
 	if describeCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to describe pod:\nPodName: %s\nError: %s\n", name, describeCmd.StdErr())
 	}
@@ -232,10 +236,10 @@ func (f *Framework) writePodDescription(name, namespace, dumpDir string) {
 	}
 }
 
-func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, dumpDir string) {
+func (f *Framework) writeVirtualMachineGuestInfo(ctx context.Context, pod corev1.Pod, dumpDir string) {
 	if pod.Labels != nil && pod.Status.Phase == corev1.PodRunning {
 		if value, ok := pod.Labels["kubevirt.internal.virtualization.deckhouse.io"]; ok && value == "virt-launcher" {
-			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
+			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommandContext(ctx, fmt.Sprintf("exec %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
 			if vlctlGuestInfoCmd.Error() != nil {
 				GinkgoWriter.Printf("Failed to get pod guest info:\nPodName: %s\nError: %s\n", pod.Name, vlctlGuestInfoCmd.StdErr())
 			}
@@ -249,17 +253,17 @@ func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, dumpDir string)
 	}
 }
 
-func (f *Framework) saveNodeAdditionalInfo(dumpDir string) {
+func (f *Framework) saveNodeAdditionalInfo(ctx context.Context, dumpDir string) {
 	GinkgoHelper()
 
-	f.writeNodeDescription(dumpDir)
-	f.writeNodeList(dumpDir)
+	f.writeNodeDescription(ctx, dumpDir)
+	f.writeNodeList(ctx, dumpDir)
 }
 
-func (f *Framework) writeNodeDescription(dumpDir string) {
+func (f *Framework) writeNodeDescription(ctx context.Context, dumpDir string) {
 	GinkgoHelper()
 
-	cmd := f.Clients.Kubectl().RawCommand("describe nodes", ShortTimeout)
+	cmd := f.Clients.Kubectl().RawCommandContext(ctx, "describe nodes", ShortTimeout)
 	if cmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to run 'kubectl describe nodes':\nCmdError: %v\nStderr: %s\n", cmd.Error(), cmd.StdErr())
 	}
@@ -273,10 +277,10 @@ func (f *Framework) writeNodeDescription(dumpDir string) {
 	}
 }
 
-func (f *Framework) writeNodeList(dumpDir string) {
+func (f *Framework) writeNodeList(ctx context.Context, dumpDir string) {
 	GinkgoHelper()
 
-	cmd := f.Clients.Kubectl().RawCommand("get nodes -o wide", ShortTimeout)
+	cmd := f.Clients.Kubectl().RawCommandContext(ctx, "get nodes -o wide", ShortTimeout)
 	if cmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to run 'kubectl get nodes -o wide':\nCmdError: %v\nStderr: %s\n", cmd.Error(), cmd.StdErr())
 	}
@@ -288,6 +292,110 @@ func (f *Framework) writeNodeList(dumpDir string) {
 			GinkgoWriter.Printf("Failed to write node list dump (wide):\nFile: %s\nError: %v\n", fileName, err)
 		}
 	}
+}
+
+// summaryFileName sorts first in the dump directory: it is the file to read before
+// any other.
+const summaryFileName = "00_summary.log"
+
+// maxSummaryLinesInOutput caps how much of the summary is echoed into the ginkgo
+// output, so a failure states its cause without opening the dump at all.
+const maxSummaryLinesInOutput = 20
+
+// saveFailureSummary collects the lines that usually explain a failure - Warning
+// events and containers that never started - into a single file and echoes the
+// head of it to the ginkgo output. Without it the cause (a FailedMount message, a
+// FailedScheduling reason) stays buried in events_<namespace>.yaml.
+func (f *Framework) saveFailureSummary(ctx context.Context, dumpDir string) {
+	var lines []string
+	lines = append(lines, f.warningEventLines(ctx)...)
+	lines = append(lines, f.stuckContainerLines(ctx)...)
+	if len(lines) == 0 {
+		return
+	}
+
+	fileName := path.Join(dumpDir, summaryFileName)
+	err := os.WriteFile(fileName, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to write failure summary:\nFile: %s\nError: %v\n", fileName, err)
+	}
+
+	GinkgoWriter.Printf("Failure summary (%s):\n", fileName)
+	for i, line := range lines {
+		if i == maxSummaryLinesInOutput {
+			GinkgoWriter.Printf("  ... %d more line(s) in %s\n", len(lines)-i, summaryFileName)
+			break
+		}
+		GinkgoWriter.Printf("  %s\n", line)
+	}
+}
+
+// warningEventLines returns the namespace Warning events as single-line records,
+// oldest first.
+func (f *Framework) warningEventLines(ctx context.Context) []string {
+	namespace := f.Namespace().Name
+	events, err := f.Clients.kubeClient.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		GinkgoWriter.Printf("Failed to get events for the failure summary:\nError: %v\n", err)
+		return nil
+	}
+
+	warnings := make([]corev1.Event, 0, len(events.Items))
+	for _, event := range events.Items {
+		if event.Type == corev1.EventTypeWarning {
+			warnings = append(warnings, event)
+		}
+	}
+	sort.Slice(warnings, func(i, j int) bool {
+		return eventTime(warnings[i]).Before(eventTime(warnings[j]))
+	})
+
+	lines := make([]string, 0, len(warnings))
+	for _, event := range warnings {
+		obj := event.InvolvedObject
+		lines = append(lines, fmt.Sprintf("WARN  %s  %s  %s/%s  x%d  %s",
+			eventTime(event).Format(time.RFC3339), event.Reason, obj.Kind, obj.Name, event.Count,
+			strings.Join(strings.Fields(event.Message), " ")))
+	}
+	return lines
+}
+
+// stuckContainerLines reports containers that are not running, with the reason the
+// kubelet gave: a pod stuck in ContainerCreating carries no logs to dump.
+func (f *Framework) stuckContainerLines(ctx context.Context) []string {
+	pods, err := f.Clients.kubeClient.CoreV1().Pods(f.Namespace().Name).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		GinkgoWriter.Printf("Failed to get pods for the failure summary:\nError: %v\n", err)
+		return nil
+	}
+
+	var lines []string
+	for _, pod := range pods.Items {
+		for _, status := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+			switch {
+			case status.State.Waiting != nil:
+				lines = append(lines, fmt.Sprintf("POD   %s/%s  phase=%s  waiting=%s  %s",
+					pod.Name, status.Name, pod.Status.Phase, status.State.Waiting.Reason,
+					strings.Join(strings.Fields(status.State.Waiting.Message), " ")))
+			case status.State.Terminated != nil && status.State.Terminated.ExitCode != 0:
+				lines = append(lines, fmt.Sprintf("POD   %s/%s  phase=%s  terminated=%s  exit=%d  %s",
+					pod.Name, status.Name, pod.Status.Phase, status.State.Terminated.Reason,
+					status.State.Terminated.ExitCode,
+					strings.Join(strings.Fields(status.State.Terminated.Message), " ")))
+			}
+		}
+	}
+	return lines
+}
+
+func eventTime(event corev1.Event) time.Time {
+	if !event.LastTimestamp.IsZero() {
+		return event.LastTimestamp.Time
+	}
+	if !event.EventTime.IsZero() {
+		return event.EventTime.Time
+	}
+	return event.CreationTimestamp.Time
 }
 
 func (f *Framework) saveEvents(ctx context.Context, dumpDir string) {
@@ -314,7 +422,7 @@ func (f *Framework) saveEvents(ctx context.Context, dumpDir string) {
 	}
 }
 
-func (f *Framework) saveClusterNetworkInfo(dumpDir string) {
+func (f *Framework) saveClusterNetworkInfo(ctx context.Context, dumpDir string) {
 	GinkgoHelper()
 
 	// Only for tests that use additional networks.
@@ -323,7 +431,7 @@ func (f *Framework) saveClusterNetworkInfo(dumpDir string) {
 	}
 
 	// Get all ClusterNetwork resources
-	cmd := f.Clients.Kubectl().RawCommand("get clusternetwork -o yaml", ShortTimeout)
+	cmd := f.Clients.Kubectl().RawCommandContext(ctx, "get clusternetwork -o yaml", ShortTimeout)
 	if cmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to get clusternetwork:\nCmdError: %v\nStderr: %s\n", cmd.Error(), cmd.StdErr())
 	}
@@ -337,7 +445,7 @@ func (f *Framework) saveClusterNetworkInfo(dumpDir string) {
 	}
 
 	// Get CEP (Cilium Endpoints) for the namespace
-	cepCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("get cep -n %s -o yaml", f.Namespace().Name), ShortTimeout)
+	cepCmd := f.Clients.Kubectl().RawCommandContext(ctx, fmt.Sprintf("get cep -n %s -o yaml", f.Namespace().Name), ShortTimeout)
 	if cepCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to get cep:\nCmdError: %v\nStderr: %s\n", cepCmd.Error(), cepCmd.StdErr())
 	}

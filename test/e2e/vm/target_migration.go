@@ -37,7 +37,10 @@ import (
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmopobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmop"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
@@ -45,7 +48,7 @@ import (
 
 const hostnameLabelKey = "kubernetes.io/hostname"
 
-var _ = Describe("TargetMigration", Label(precheck.PrecheckTargetMigration), func() {
+var _ = Describe("TargetMigration", Label(label.SIGCompute, precheck.PrecheckTargetMigration), func() {
 	var (
 		virtualMachine      *v1alpha2.VirtualMachine
 		targetMigrationVMOP *v1alpha2.VirtualMachineOperation
@@ -59,23 +62,27 @@ var _ = Describe("TargetMigration", Label(precheck.PrecheckTargetMigration), fun
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		f = framework.NewFramework("vm-target-migration")
+		f = framework.NewFramework("target-migration")
 		DeferCleanup(f.After)
 		f.Before()
 	})
 
 	It("checks if a VirtualMachine can be migrated to the target Node", func() {
+		var vmObs vmobs.Observer
+
 		By("Environment preparation", func() {
 			virtualDisk := object.NewVDFromCVI(
 				"vd-root",
 				f.Namespace().Name,
-				object.PrecreatedCVIAlpineBIOS,
-				vd.WithSize(ptr.To(resource.MustParse("400Mi"))),
+				object.PrecreatedCVICustomBIOS,
+				vd.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))),
 			)
 
 			virtualMachine = object.NewMinimalVM(
 				"vm-",
 				f.Namespace().Name,
+				// The custom image has no cloud-init; the guest agent is
+				// baked in, so no provisioning is needed.
 				vm.WithBootloader(v1alpha2.BIOS),
 				vm.WithDisks(virtualDisk),
 			)
@@ -83,7 +90,10 @@ var _ = Describe("TargetMigration", Label(precheck.PrecheckTargetMigration), fun
 			err := f.CreateWithDeferredDeletion(ctx, virtualDisk, virtualMachine)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, virtualMachine)
+			vmObs = vmobs.StartObserver(ctx, f, virtualMachine)
+			vmObs.Never(vmobs.BeFailed())
+			err = vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Migrate the `VirtualMachine`", func() {
@@ -97,9 +107,14 @@ var _ = Describe("TargetMigration", Label(precheck.PrecheckTargetMigration), fun
 			targetMigrationVMOP = newTargetMigrationVMOP(virtualMachine, targetNodeSelector)
 			err = f.CreateWithDeferredDeletion(ctx, targetMigrationVMOP)
 			Expect(err).NotTo(HaveOccurred())
+			// The VMOP uses generateName, so the observer can only start once the
+			// name is assigned by the create call.
+			vmopObs := vmopobs.StartObserver(ctx, targetMigrationVMOP)
 
-			util.UntilVMMigrationSucceeded(client.ObjectKeyFromObject(virtualMachine), framework.MaxTimeout)
-			util.UntilObjectPhase(ctx, string(v1alpha2.VMOPPhaseCompleted), framework.ShortTimeout, targetMigrationVMOP)
+			err = vmObs.WaitFor(vmobs.HaveMigrationSucceeded(), framework.MaxTimeout)
+			Expect(err).NotTo(HaveOccurred())
+			err = vmopObs.WaitFor(vmopobs.BeCompleted(), framework.ShortTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Check the result", func() {

@@ -29,6 +29,10 @@ import (
 
 const deletedPollInterval = time.Second
 
+// deletedLastLookTimeout bounds the final isDeleted check that runs after the
+// wait's own context has already expired.
+const deletedLastLookTimeout = 10 * time.Second
+
 // IsDeleted reports whether the resource identified by (name, namespace) no
 // longer exists. When provided to WaitForDeleted, it is polled alongside the
 // watch so fast deletions that happen before the watch starts are not missed.
@@ -72,7 +76,12 @@ func WaitForDeleted(
 		select {
 		case <-ctx.Done():
 			if isDeleted != nil {
-				gone, err := isDeleted(ctx)
+				// The last look must not run on the expired context: the client's
+				// rate limiter fails such a call immediately and its error would
+				// mask the actual timeout.
+				lastCtx, lastCancel := context.WithTimeout(context.WithoutCancel(ctx), deletedLastLookTimeout)
+				gone, err := isDeleted(lastCtx)
+				lastCancel()
 				if err != nil {
 					return fmt.Errorf("observer: check deletion of %s/%s: %w", namespace, name, err)
 				}

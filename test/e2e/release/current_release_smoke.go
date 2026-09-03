@@ -23,8 +23,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,6 +32,11 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmbdaobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmbda"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -43,10 +46,10 @@ const (
 	releaseTestPhasePostUpgrade  = "post-upgrade"
 	releaseUpgradeContextPathEnv = "RELEASE_UPGRADE_CONTEXT_PATH"
 	releaseNamespaceEnv          = "RELEASE_NAMESPACE"
-	releaseUpgradeStartedAtEnv   = "RELEASE_UPGRADE_STARTED_AT"
+	releaseUpgradeMigratesVMsEnv = "RELEASE_UPGRADE_MIGRATES_VMS"
 )
 
-var _ = Describe("CurrentReleaseSmoke", func() {
+var _ = Describe("CurrentReleaseSmoke", Label(label.SIGCompute), func() {
 	It("should validate current release virtual machines", func() {
 		switch getReleaseTestPhase() {
 		case releaseTestPhasePostUpgrade:
@@ -66,6 +69,24 @@ type currentReleaseSmokeTest struct {
 	dataDiskByName map[string]*dataDiskScenario
 	iperfClient    *vmScenario
 	iperfServer    *vmScenario
+
+	migrationWindowCache *migrationWindow
+}
+
+// migration returns the migration window for the module upgrade, fetching and
+// caching it on the first call so later callers don't re-list VMOPs. ok is
+// false when the upgrade does not migrate virtual machines, in which case
+// there is no migration window to report.
+func (t *currentReleaseSmokeTest) migration() (window migrationWindow, ok bool) {
+	if !upgradeMigratesVMs() {
+		return migrationWindow{}, false
+	}
+
+	if t.migrationWindowCache == nil {
+		window := getMigrationWindow(t.framework, t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
+		t.migrationWindowCache = &window
+	}
+	return *t.migrationWindowCache, true
 }
 
 func runPreUpgradeReleaseSmoke() {
@@ -85,38 +106,71 @@ func runPostUpgradeReleaseSmoke() {
 	test := newCurrentReleaseSmokeTest(f, namespace)
 
 	test.verifyVMsSurvivedUpgrade()
+	test.verifyVMsDidNotRestart()
 	test.verifyIPerfContinuityAfterUpgrade()
+	test.verifyEvictVMOPsCompleted()
 }
 
 func (t *currentReleaseSmokeTest) createResources() {
 	ctx := context.Background()
 
+	// Observers are armed before the resources are created, so every phase
+	// transition (including ones that settle quickly) is captured for the
+	// waits below.
 	By("Creating root and hotplug virtual disks")
+	diskObservers := make([]vdobs.Observer, 0, len(t.vms)+len(t.dataDisks))
+	for _, vmScenario := range t.vms {
+		diskObservers = append(diskObservers, vdobs.StartObserver(ctx, t.framework, vmScenario.rootDisk))
+	}
+	for _, diskScenario := range t.dataDisks {
+		diskObservers = append(diskObservers, vdobs.StartObserver(ctx, t.framework, diskScenario.disk))
+	}
 	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.diskObjects()...)).To(Succeed())
 
 	By("Creating virtual machines")
-	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.vmObjects()...)).To(Succeed())
-	if runningVMs := t.initialRunningVMObjects(); len(runningVMs) > 0 {
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, runningVMs...)
+	for _, vmScenario := range t.vms {
+		vmScenario.vmObs = vmobs.StartObserver(ctx, t.framework, vmScenario.vm)
 	}
-	if stoppedVMs := t.initialStoppedVMObjects(); len(stoppedVMs) > 0 {
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.MiddleTimeout, stoppedVMs...)
+	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.vmObjects()...)).To(Succeed())
+	for _, vmScenario := range t.vms {
+		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineRunning) {
+			err := vmScenario.vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred(),
+				"VM %s should be Running initially", vmScenario.vm.Name)
+		} else {
+			err := vmScenario.vmObs.WaitFor(vmobs.BeStopped(), framework.MiddleTimeout)
+			Expect(err).NotTo(HaveOccurred(),
+				"VM %s should be Stopped initially", vmScenario.vm.Name)
+		}
 	}
 
 	By("Starting manual-policy virtual machines")
 	for _, vmScenario := range t.manualStartVMs() {
 		util.StartVirtualMachine(ctx, t.framework, vmScenario.vm)
 	}
-	if startedVMs := t.manualStartVMObjects(); len(startedVMs) > 0 {
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, startedVMs...)
+	for _, vmScenario := range t.manualStartVMs() {
+		err := vmScenario.vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred(),
+			"manually started VM %s should be Running", vmScenario.vm.Name)
 	}
 
 	By("Attaching hotplug disks")
+	attachmentObservers := make([]vmbdaobs.Observer, 0, len(t.attachments))
+	for _, attachmentScenario := range t.attachments {
+		attachmentObservers = append(attachmentObservers, vmbdaobs.StartObserver(ctx, t.framework, attachmentScenario.attachment))
+	}
 	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.attachmentObjects()...)).To(Succeed())
-	util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MaxTimeout, t.attachmentObjects()...)
+	for i, obs := range attachmentObservers {
+		err := obs.WaitFor(vmbdaobs.BeAttached(), framework.MaxTimeout)
+		Expect(err).NotTo(HaveOccurred(),
+			"attachment %s should be Attached", t.attachments[i].name)
+	}
 
 	By("Waiting for all disks to become ready after consumers appear")
-	util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, t.diskObjects()...)
+	for _, obs := range diskObservers {
+		err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func (t *currentReleaseSmokeTest) verifyVMsReady() {
@@ -128,12 +182,15 @@ func (t *currentReleaseSmokeTest) verifyVMsReady() {
 	By("Checking attached disks inside guests")
 	for _, vmScenario := range t.vms {
 		By(fmt.Sprintf("Checking attached disks on %s", vmScenario.vm.Name))
-		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
 	}
 }
 
 func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 	By("Waiting for upgraded virtual machines to be running")
+	// The VMs were created by the pre-upgrade phase and may already be settled
+	// in Running; UntilObjectPhase handles that by checking the current state
+	// before waiting on the watch.
 	util.UntilObjectPhase(context.Background(), string(v1alpha2.MachineRunning), framework.LongTimeout, t.vmObjects()...)
 
 	By("Checking guest access after module upgrade")
@@ -143,12 +200,40 @@ func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 
 	By("Checking attached disks after module upgrade")
 	for _, vmScenario := range t.vms {
-		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
+	}
+}
+
+func (t *currentReleaseSmokeTest) verifyVMsDidNotRestart() {
+	GinkgoHelper()
+
+	migration, ok := t.migration()
+	if !ok {
+		By("Skipping the restart check: the upgrade does not migrate virtual machines")
+		return
+	}
+
+	By("Verifying that virtual machines did not restart since creation")
+
+	for _, vmScenario := range t.vms {
+		vm := t.getVirtualMachine(vmScenario.vm.Name, vmScenario.vm.Namespace)
+		Expect(vm.Status.Stats.LastStartTime.Time).To(BeTemporally("<", migration.start),
+			"VM %s/%s restarted during the module upgrade (last start %s)", vm.Namespace, vm.Name, vm.Status.Stats.LastStartTime.Time)
 	}
 }
 
 func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 	GinkgoHelper()
+
+	// iperf3 is baked into the custom image but nothing starts it at
+	// boot, so the smoke launches the server itself.
+	_, err := t.framework.SSHCommand(
+		t.iperfServer.vm.Name,
+		t.iperfServer.vm.Namespace,
+		"nohup iperf3 -s >/dev/null 2>&1 </dev/null &",
+		framework.WithSSHUser("root"),
+	)
+	Expect(err).NotTo(HaveOccurred(), "failed to start iperf3 server")
 
 	waitForIPerfServerToStart(t.framework, t.iperfServer.vm)
 
@@ -158,10 +243,11 @@ func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 		serverVM.Status.IPAddress,
 		releaseIPerfReportPath,
 	)
-	_, err := t.framework.SSHCommand(
+	_, err = t.framework.SSHCommand(
 		t.iperfClient.vm.Name,
 		t.iperfClient.vm.Namespace,
 		command,
+		framework.WithSSHUser("root"),
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start long-running iperf3 client")
 
@@ -203,36 +289,63 @@ func (t *currentReleaseSmokeTest) verifyIPerfContinuityAfterUpgrade() {
 	stopIPerfClient(t.framework, t.iperfClient.vm)
 
 	By("Validating the iperf report spans the module upgrade")
-	iperfServer := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
-	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath, iperfServer)
+	report := getIPerfClientReport(t.framework, t.iperfClient.vm, releaseIPerfReportPath)
 	Expect(isExpectedIPerfReportError(report.Error)).To(BeTrue(), "iperf3 report contains an unexpected error: %q", report.Error)
+	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
+	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
 
-	upgradeStartedAt, err := strconv.ParseInt(mustGetEnv(releaseUpgradeStartedAtEnv), 10, 64)
-	Expect(err).NotTo(HaveOccurred(), "upgrade timestamp must be a unix second")
+	migration, ok := t.migration()
+	if !ok {
+		By("Skipping the migration window checks: the upgrade does not migrate virtual machines")
+
+		return
+	}
+
+	By("Verifying the iperf test brackets the migration window (started before, stopped after)")
+
+	iperfStart, err := report.startTime()
+	Expect(err).NotTo(HaveOccurred(), "iperf3 report start timestamp must be parseable")
+	iperfEnd := report.endTime()
+
+	Expect(iperfStart.Before(migration.start)).To(BeTrue(),
+		"the iperf test must start before the migration starts (iperf start %s, migration start %s)", iperfStart, migration.start)
+	Expect(iperfEnd.After(migration.end)).To(BeTrue(),
+		"the iperf test must stop after the migration ends (iperf end %s, migration end %s)", iperfEnd, migration.end)
+
+	upgradeStartedAt := migration.start.Unix()
 
 	startedAt := int64(report.Start.Timestamp.Timesecs)
 	endedAt := startedAt + int64(math.Ceil(report.End.SumSent.End))
 	Expect(startedAt).To(BeNumerically("<=", upgradeStartedAt), "iperf3 should start before the module upgrade")
 	Expect(endedAt).To(BeNumerically(">", upgradeStartedAt), "iperf3 should continue after the module upgrade")
 
-	lowerIdx, upperIdx := continuityWindowBounds(startedAt, upgradeStartedAt, report.Intervals)
-	Expect(upperIdx).To(BeNumerically(">=", lowerIdx), "iperf3 report must include intervals around the module upgrade")
+	Expect(report.Intervals).NotTo(BeEmpty(), "iperf3 report must include intervals")
 
 	zeroIntervals := 0
-	transmittedAroundUpgrade := int64(0)
-	for idx := lowerIdx; idx <= upperIdx; idx++ {
-		interval := report.Intervals[idx]
+	for _, interval := range report.Intervals {
 		if interval.Sum.Bytes == 0 {
 			zeroIntervals++
+		}
+	}
+	Expect(zeroIntervals).To(BeNumerically("<=", 1), "iperf3 should not be interrupted over the whole test run")
+}
+
+func (t *currentReleaseSmokeTest) verifyEvictVMOPsCompleted() {
+	GinkgoHelper()
+
+	By("Verifying that all Evict VMOPs settled in the Completed phase after the upgrade")
+
+	namespace := t.iperfClient.vm.Namespace
+	vmops, err := t.framework.Clients.VirtClient().VirtualMachineOperations(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, vmop := range vmops.Items {
+		if vmop.Spec.Type != v1alpha2.VMOPTypeEvict {
 			continue
 		}
-		transmittedAroundUpgrade += interval.Sum.Bytes
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted),
+			"Evict VMOP %s/%s must be in Completed phase, got %q", vmop.Spec.VirtualMachine, vmop.Name, vmop.Status.Phase)
 	}
-
-	Expect(transmittedAroundUpgrade).To(BeNumerically(">", 0), "iperf3 should transmit data around the module upgrade")
-	Expect(zeroIntervals).To(BeNumerically("<=", 1), "iperf3 should not be interrupted during the module upgrade")
-	Expect(report.End.SumSent.Bytes).To(BeNumerically(">", 0), "iperf3 client should send data")
-	Expect(report.End.SumSent.BitsPerSecond).To(BeNumerically(">", 0), "iperf3 client should report throughput")
 }
 
 func (t *currentReleaseSmokeTest) getVirtualMachine(name, namespace string) *v1alpha2.VirtualMachine {
@@ -249,6 +362,13 @@ func getReleaseTestPhase() string {
 	}
 
 	return releaseTestPhasePreUpgrade
+}
+
+// Upgrades between releases that ship the same virt-handler and virt-launcher
+// never move a virtual machine. An unset value means the pipeline could not tell,
+// so a migration is still expected.
+func upgradeMigratesVMs() bool {
+	return os.Getenv(releaseUpgradeMigratesVMsEnv) != "false"
 }
 
 func mustGetEnv(name string) string {
@@ -268,16 +388,15 @@ func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
 		err = nsClient.Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(func() error {
-			_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-			return fmt.Errorf("namespace %q is still deleting", namespace)
-		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+		err = observer.WaitForDeleted(context.Background(), nsClient, namespace, "", framework.LongTimeout,
+			func(ctx context.Context) (bool, error) {
+				_, getErr := nsClient.Get(ctx, namespace, metav1.GetOptions{})
+				if k8serrors.IsNotFound(getErr) {
+					return true, nil
+				}
+				return false, getErr
+			})
+		Expect(err).NotTo(HaveOccurred(), "namespace %q must finish deleting", namespace)
 	case !k8serrors.IsNotFound(err):
 		Expect(err).NotTo(HaveOccurred())
 	}

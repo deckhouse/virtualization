@@ -124,6 +124,8 @@ func (h MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		return h.handleRevert(ctx, vd)
 	case complete:
 		return h.handleComplete(ctx, vd)
+	case delayNewRound:
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	return reconcile.Result{}, nil
@@ -143,6 +145,8 @@ func (a action) String() string {
 		return "revert"
 	case complete:
 		return "complete"
+	case delayNewRound:
+		return "delayNewRound"
 	default:
 		return "unknown"
 	}
@@ -154,17 +158,26 @@ const (
 	migrateSync
 	revert
 	complete
+	delayNewRound
 )
 
 func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDisk, log *slog.Logger) (action, error) {
 	// We should check ready disk only before start migration.
 	inUse, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUse.Reason != vdcondition.AttachedToVirtualMachine.String() && conditions.IsLastUpdated(inUse, vd) {
+		if commonvd.IsMigrating(vd) {
+			log.Info("VirtualDisk is not attached to any VirtualMachine anymore, but is migrating. Will be reverted.")
+			return revert, nil
+		}
 		return none, nil
 	}
 
 	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
 	if currentlyMountedVM == "" {
+		if commonvd.IsMigrating(vd) {
+			log.Info("VirtualDisk is not attached to any VirtualMachine anymore, but is migrating. Will be reverted.")
+			return revert, nil
+		}
 		log.Info("VirtualDisk is not attached to any VirtualMachine. Skip...")
 		return none, nil
 	}
@@ -197,6 +210,14 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 
 		// Check StorageClass before local disks
 		if commonvd.StorageClassChanged(vd) {
+			unfinalized, err := h.kvvmiHasUnfinalizedVolumeMigration(ctx, vd, vm)
+			if err != nil {
+				return none, err
+			}
+			if unfinalized {
+				log.Info("The KVVMI still carries the previous round's volume-change state, delay the new round.")
+				return delayNewRound, nil
+			}
 			log.Info("StorageClass Changed. VirtualDisk should be migrated.")
 			return migratePrepareTarget, nil
 		}
@@ -208,7 +229,7 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 			// Prepare disk targets only while the operation is still waiting for the
 			// disks to be ready to migrate. Once the compute migration has started or
 			// finished, a new prepare would race with the operation finalization: it
-			// overwrites the disk migration timestamp, breaks isMigrationsMatched on
+			// overwrites the disk migration timestamp, breaks isMigrationStarted on
 			// the next reconcile and gets reverted.
 			waiting, err := h.migratingIsWaitingForDisks(ctx, vm)
 			if err != nil {
@@ -218,6 +239,14 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 				log.Info("Operation is not waiting for disks to migrate, skip starting a new volume migration.")
 				return none, nil
 			}
+			unfinalized, err := h.kvvmiHasUnfinalizedVolumeMigration(ctx, vd, vm)
+			if err != nil {
+				return none, err
+			}
+			if unfinalized {
+				log.Info("The KVVMI still carries the previous round's volume-change state, delay the new round.")
+				return delayNewRound, nil
+			}
 			return h.getActionIfDisksShouldBeMigrating(ctx, vd, log)
 		}
 	}
@@ -226,6 +255,21 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 }
 
 func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, log *slog.Logger) (action, error) {
+	// The compute migration of this round has started: its result alone decides the
+	// disk's fate. Judging by anything else (the Running condition, the Migrating
+	// condition, the VMOP list) while the result is not final yet reverts a migration
+	// that is still alive.
+	if isMigrationStarted(vm, vd) {
+		switch vm.Status.MigrationState.Result {
+		case v1alpha2.MigrationResultFailed:
+			return revert, nil
+		case v1alpha2.MigrationResultSucceeded:
+			return complete, nil
+		default:
+			return migrateSync, nil
+		}
+	}
+
 	// If VirtualMachine is not running, we can't migrate it. Should be reverted.
 	//
 	// The phase is the fallback for the Running condition: while the VirtualMachine is
@@ -243,17 +287,21 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 		return revert, nil
 	}
 
-	if isMigrationsMatched(vm, vd) {
-		if vm.Status.MigrationState == nil {
-			log.Error("VirtualMachine migration state is empty. Please report a bug.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
-			return none, nil
-		}
-		switch vm.Status.MigrationState.Result {
-		case v1alpha2.MigrationResultFailed:
-			return revert, nil
-		case v1alpha2.MigrationResultSucceeded:
-			return complete, nil
-		}
+	// The checks below fall back to revert when no sign of an active migration is
+	// found. That is only safe while the guest still runs on the source volume. The
+	// KVVMI is the primary source of the migration result: vm.Status.MigrationState
+	// and the VMOP statuses propagate asynchronously, so right after a successful
+	// switchover there is a window where the VM's Migrating condition is already
+	// gone and no VMOP is in progress, yet the guest already runs on the target
+	// PVC. Reverting in that window deletes the PVC the guest just switched to and
+	// leaves KubeVirt with a volume-change state no one will ever finalize.
+	switched, err := h.guestSwitchedToTargetPVC(ctx, vd, vm)
+	if err != nil {
+		return none, err
+	}
+	if switched {
+		log.Info("The guest already runs on the target PersistentVolumeClaim. Will be completed.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
+		return complete, nil
 	}
 
 	// If migration is in progress. VirtualMachine must have the migrating condition.
@@ -274,6 +322,62 @@ func (h MigrationHandler) getActionIfMigrationInProgress(ctx context.Context, vd
 	}
 
 	return migrateSync, nil
+}
+
+// guestSwitchedToTargetPVC reports whether the current round's compute migration has
+// already succeeded and the guest runs on the round's target PVC, judged by the KVVMI
+// directly (its status is written by virt-handler first and is the source the VM and
+// VMOP statuses are copied from). During the migration KubeVirt keeps the VMI volume
+// pointed at the target from the very start, so the claim check alone is not enough:
+// the migration state must be completed, not failed, and belong to this round.
+func (h MigrationHandler) guestSwitchedToTargetPVC(ctx context.Context, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) (bool, error) {
+	targetPVC := vd.Status.MigrationState.TargetPVC
+	if targetPVC == "" {
+		return false, nil
+	}
+
+	kvvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv1.VirtualMachineInstance{})
+	if err != nil || kvvmi == nil {
+		return false, err
+	}
+
+	migState := kvvmi.Status.MigrationState
+	if migState == nil || !migState.Completed || migState.Failed {
+		return false, nil
+	}
+	if migState.EndTimestamp == nil || !migState.EndTimestamp.After(vd.Status.MigrationState.StartTimestamp.Time) {
+		return false, nil
+	}
+
+	volumeName := kvbuilder.GenerateVDDiskName(vd.Name)
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.Name != volumeName {
+			continue
+		}
+		return v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == targetPVC, nil
+	}
+
+	return false, nil
+}
+
+// kvvmiHasUnfinalizedVolumeMigration reports whether the KVVMI still carries a
+// previous round's volume-change state (the VolumesChange condition or recorded
+// migratedVolumes). Starting a new round on top of it overwrites
+// vd.Status.MigrationState while KubeVirt still refers to the old PVC set: the old
+// round can then be neither completed nor canceled, and every following VMOP wedges
+// on "a volume migration is already in progress with different targets".
+func (h MigrationHandler) kvvmiHasUnfinalizedVolumeMigration(ctx context.Context, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) (bool, error) {
+	kvvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vd.Namespace}, h.client, &virtv1.VirtualMachineInstance{})
+	if err != nil || kvvmi == nil {
+		return false, err
+	}
+
+	if len(kvvmi.Status.MigratedVolumes) > 0 {
+		return true, nil
+	}
+
+	volumesChange, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
+	return volumesChange.Status == corev1.ConditionTrue, nil
 }
 
 func (h MigrationHandler) getActionIfDisksShouldBeMigrating(ctx context.Context, vd *v1alpha2.VirtualDisk, log *slog.Logger) (action, error) {
@@ -930,13 +1034,14 @@ func listPersistentVolumeClaims(ctx context.Context, vd *v1alpha2.VirtualDisk, c
 	return pvcs, nil
 }
 
-// this function returns true when virtual machine migration includes virtual disk migration
+// isMigrationStarted returns true when the virtual machine migration belongs to the
+// current virtual disk migration round, whether or not it has finished.
 // VD-StartTimestamp -> VM-StartTimestamp -> VM-EndTimestamp -> VD-EndTimestamp
-func isMigrationsMatched(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) bool {
+func isMigrationStarted(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) bool {
 	vdStart := vd.Status.MigrationState.StartTimestamp
 	state := vm.Status.MigrationState
 
-	return state != nil && state.StartTimestamp != nil && state.StartTimestamp.After(vdStart.Time) && !state.EndTimestamp.IsZero()
+	return state != nil && state.StartTimestamp != nil && state.StartTimestamp.After(vdStart.Time)
 }
 
 func (h MigrationHandler) canFinalizeRevert(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {

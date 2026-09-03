@@ -18,15 +18,18 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -112,4 +115,34 @@ func setPhaseConditionToFailed(cbReady *conditions.ConditionBuilder, phase *v1al
 	cbReady.Status(metav1.ConditionFalse).
 		Reason(cvicondition.ProvisioningFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()))
+}
+
+func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, cvi *v1alpha2.ClusterVirtualImage, err error) error {
+	cvi.Status.Phase = v1alpha2.ImageFailed
+
+	switch {
+	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.ProvisioningNotStarted).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return nil
+	case errors.Is(err, service.ErrProvisioningFailed):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.ProvisioningFailed).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return nil
+	default:
+		return err
+	}
+}
+
+// recordProvisioningFailedEvent is kept apart from setPhaseConditionFromPodError
+// so that the latter stays identical to its VirtualImage counterpart, which does
+// not record events.
+func recordProvisioningFailedEvent(recorder eventrecord.EventRecorderLogger, cvi *v1alpha2.ClusterVirtualImage, err error) {
+	if errors.Is(err, service.ErrProvisioningFailed) {
+		recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+	}
 }

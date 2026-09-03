@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -33,16 +34,17 @@ import (
 const readyProgress = "100%"
 
 // BeFailed reports an invariant violation when the VirtualDisk has reached
-// the terminal Failed phase or its Ready condition reports the
-// ProvisioningFailed reason. It is intended to be used with [Observer.Never].
+// the terminal Failed phase or its Ready condition reports a provisioning
+// failure. It is intended to be used with [Observer.Never].
 func BeFailed() Predicate {
 	return func(d *v1alpha2.VirtualDisk) (bool, error) {
 		if d.Status.Phase == v1alpha2.DiskFailed {
 			return true, fmt.Errorf("VirtualDisk entered Failed phase")
 		}
 		if cond := findCondition(d.Status.Conditions, vdcondition.ReadyType.String()); cond != nil {
-			if isConditionFresh(cond, d) && cond.Reason == vdcondition.ProvisioningFailed.String() {
-				return true, fmt.Errorf("ready condition reports ProvisioningFailed: %s", cond.Message)
+			if isConditionFresh(cond, d) &&
+				(cond.Reason == vdcondition.ProvisioningFailed.String() || cond.Reason == vdcondition.ProvisioningFailedTerminally.String()) {
+				return true, fmt.Errorf("ready condition reports %s: %s", cond.Reason, cond.Message)
 			}
 		}
 		return false, nil
@@ -170,6 +172,123 @@ func BeReady() Predicate {
 		}
 
 		return true, nil
+	}
+}
+
+// BeInPhase reports the VirtualDisk has reached the given phase. Prefer the
+// richer [BeReady] for the Ready phase; this predicate is for waits on other
+// phases where only the phase itself matters. Intended for use with
+// [Observer.WaitFor].
+func BeInPhase(phase v1alpha2.DiskPhase) Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return d.Status.Phase == phase, nil
+	}
+}
+
+// BeResizing reports the VirtualDisk has entered the Resizing phase. Resizing
+// is transient, so this is meant to be observed with [Observer.WaitFor] started
+// before the resize is triggered, to catch the phase as it passes through.
+func BeResizing() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return d.Status.Phase == v1alpha2.DiskResizing, nil
+	}
+}
+
+// BeResized reports the VirtualDisk has finished a resize to expectedSize: it has
+// settled back on the Ready phase and its reported capacity is at least
+// expectedSize. Capacity comes straight from the PVC, and some CSI drivers
+// (e.g. ceph-rbd) round the provisioned size up, so it may legitimately exceed
+// the requested size; capacity >= expectedSize still catches a resize that did
+// not take effect.
+//
+// Unlike [BeReady], a phase other than Ready — in particular the transient
+// Resizing phase a disk passes through during expansion, where the Ready
+// condition may briefly stay True while the phase moves — is treated as "not
+// there yet" rather than an inconsistency, so this predicate can be waited on
+// right after triggering a resize. Intended for use with [Observer.WaitFor].
+func BeResized(expectedSize resource.Quantity) Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		if d.Status.Phase != v1alpha2.DiskReady || d.Status.Capacity == "" {
+			return false, nil
+		}
+		capacity, err := resource.ParseQuantity(d.Status.Capacity)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse capacity %q: %w", d.Status.Capacity, err)
+		}
+		return capacity.Cmp(expectedSize) >= 0, nil
+	}
+}
+
+// BeMigrationSucceeded reports the VirtualDisk has finished a volume
+// migration successfully: the migration state has both timestamps, the result
+// is Succeeded, the disk has settled back on the Ready phase and its target
+// PVC points at the migration target. A Failed result is reported as a
+// definite error so a WaitFor caller fails immediately. Intended for use with
+// [Observer.WaitFor].
+func BeMigrationSucceeded() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		ms := d.Status.MigrationState
+		if ms.StartTimestamp.IsZero() || ms.EndTimestamp.IsZero() {
+			return false, nil
+		}
+		switch ms.Result {
+		case v1alpha2.VirtualDiskMigrationResultSucceeded:
+			if d.Status.Phase != v1alpha2.DiskReady {
+				return false, nil
+			}
+			if d.Status.Target.PersistentVolumeClaim != ms.TargetPVC {
+				// The controller has not switched the disk to the target PVC yet.
+				return false, nil
+			}
+			return true, nil
+		case v1alpha2.VirtualDiskMigrationResultFailed:
+			return false, fmt.Errorf("VirtualDisk %s/%s migration failed: %s", d.Namespace, d.Name, ms.Message)
+		default:
+			return false, nil
+		}
+	}
+}
+
+// BeMigrationFailed reports the VirtualDisk's volume migration has finished
+// with the Failed result and the disk has been reverted to its source PVC
+// (still Ready). A Succeeded result is reported as a definite error so a
+// WaitFor caller expecting a failed migration aborts immediately. Intended
+// for use with [Observer.WaitFor].
+func BeMigrationFailed() Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		ms := d.Status.MigrationState
+		if ms.StartTimestamp.IsZero() || ms.EndTimestamp.IsZero() {
+			return false, nil
+		}
+		switch ms.Result {
+		case v1alpha2.VirtualDiskMigrationResultFailed:
+			if d.Status.Phase != v1alpha2.DiskReady {
+				return false, nil
+			}
+			if ms.TargetPVC == "" {
+				return false, fmt.Errorf("VirtualDisk %s/%s migration failed but targetPVC is empty", d.Namespace, d.Name)
+			}
+			if d.Status.Target.PersistentVolumeClaim != ms.SourcePVC {
+				// The controller has not reverted the disk to the source PVC yet.
+				return false, nil
+			}
+			return true, nil
+		case v1alpha2.VirtualDiskMigrationResultSucceeded:
+			return false, fmt.Errorf("VirtualDisk %s/%s migration succeeded, expected it to fail", d.Namespace, d.Name)
+		default:
+			return false, nil
+		}
+	}
+}
+
+// BeReadyWithStorageClass reports the VirtualDisk has settled on the Ready
+// phase with the given storage class in its status. It is used to wait out an
+// automatic follow-up migration round that carries a disk to its desired
+// storage class after a raced multi-disk change. Intended for use with
+// [Observer.WaitFor].
+func BeReadyWithStorageClass(name string) Predicate {
+	return func(d *v1alpha2.VirtualDisk) (bool, error) {
+		return d.Status.Phase == v1alpha2.DiskReady && d.Status.StorageClassName == name, nil
 	}
 }
 

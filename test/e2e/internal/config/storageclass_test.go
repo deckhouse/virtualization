@@ -28,7 +28,7 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 	scList := &storagev1.StorageClassList{Items: []storagev1.StorageClass{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "linstor-thin-r1",
+				Name: "default-sc",
 				Annotations: map[string]string{
 					"storageclass.kubernetes.io/is-default-class": "true",
 				},
@@ -36,7 +36,7 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 			Provisioner: "replicated.csi.storage.deckhouse.io",
 		},
 		{
-			ObjectMeta:  metav1.ObjectMeta{Name: "sds-local-thin-wffc"},
+			ObjectMeta:  metav1.ObjectMeta{Name: "other-sc"},
 			Provisioner: "local.csi.storage.deckhouse.io",
 		},
 	}}
@@ -48,21 +48,21 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveDefaultStorageClass() error = %v", err)
 		}
-		if got == nil || got.Name != "linstor-thin-r1" {
-			t.Fatalf("ResolveDefaultStorageClass() = %#v, want linstor-thin-r1", got)
+		if got == nil || got.Name != "default-sc" {
+			t.Fatalf("ResolveDefaultStorageClass() = %#v, want default-sc", got)
 		}
 	})
 
 	t.Run("uses env override", func(t *testing.T) {
 		unsetStorageClassNameEnv(t)
-		t.Setenv(StorageClassNameEnv, "sds-local-thin-wffc")
+		t.Setenv(StorageClassNameEnv, "other-sc")
 
 		got, err := ResolveDefaultStorageClass(scList)
 		if err != nil {
 			t.Fatalf("ResolveDefaultStorageClass() with env error = %v", err)
 		}
-		if got == nil || got.Name != "sds-local-thin-wffc" {
-			t.Fatalf("ResolveDefaultStorageClass() with env = %#v, want sds-local-thin-wffc", got)
+		if got == nil || got.Name != "other-sc" {
+			t.Fatalf("ResolveDefaultStorageClass() with env = %#v, want other-sc", got)
 		}
 	})
 
@@ -87,7 +87,7 @@ func TestResolveDefaultStorageClass(t *testing.T) {
 	t.Run("returns nil without default and env", func(t *testing.T) {
 		unsetStorageClassNameEnv(t)
 		scListWithoutDefault := &storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-			ObjectMeta:  metav1.ObjectMeta{Name: "sds-local-thin-wffc"},
+			ObjectMeta:  metav1.ObjectMeta{Name: "other-sc"},
 			Provisioner: "local.csi.storage.deckhouse.io",
 		}}}
 

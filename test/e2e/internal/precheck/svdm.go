@@ -21,19 +21,23 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
-	// svdmModuleName is the name of the Storage Volume Data Manager module in Deckhouse.
+	// svdmModuleName is the deprecated Storage Volume Data Manager module. Data exports
+	// moved to storage-foundation (v1.0.0+), which serves the
+	// dataexports.storage-foundation.deckhouse.io API that d8 v0.33.8+ uses.
 	svdmModuleName         = "storage-volume-data-manager"
 	svdmModuleCheckEnvName = "SVDM_MODULE_PRECHECK"
+
+	// dataExportModuleName provides the data-export machinery (DataExport CRD,
+	// data-manager controller and populator).
+	dataExportModuleName = "storage-foundation"
 )
 
-// svdmPrecheck implements Precheck interface for SVDM module.
+// svdmPrecheck implements Precheck interface for the data-export machinery.
 type svdmPrecheck struct{}
 
 func (s *svdmPrecheck) Label() string {
@@ -42,21 +46,16 @@ func (s *svdmPrecheck) Label() string {
 
 func (s *svdmPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(svdmModuleCheckEnvName) {
-		_, _ = GinkgoWriter.Write([]byte("Storage Volume Data Manager (SVDM) module check is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("data-export modules check is disabled.\n"))
 		return nil
 	}
 
-	if !IsModuleEnabled(ctx, f, svdmModuleName) {
-		return fmt.Errorf("%s=no to disable this precheck: Storage Volume Data Manager module should be enabled", svdmModuleCheckEnvName)
+	if err := RequireModuleDisabled(ctx, f, svdmModuleName); err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: %w", svdmModuleCheckEnvName, err)
 	}
 
-	svdmModule := &dv1alpha1.Module{}
-	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: svdmModuleName}, svdmModule)
-	if err != nil {
-		return fmt.Errorf("%s=no to disable this precheck: failed to check SVDM module status: %w", svdmModuleCheckEnvName, err)
-	}
-	if svdmModule.Status.Phase != modulePhaseReady {
-		return fmt.Errorf("%s=no to disable this precheck: Storage Volume Data Manager module should be ready; current status: %s", svdmModuleCheckEnvName, svdmModule.Status.Phase)
+	if err := RequireModuleReady(ctx, f, dataExportModuleName); err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: %w", svdmModuleCheckEnvName, err)
 	}
 
 	return nil

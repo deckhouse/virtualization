@@ -18,7 +18,6 @@ package source
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -234,19 +233,8 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = v1alpha2.ImageFailed
-
-			switch {
-			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vicondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
-			}
+			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+			return reconcile.Result{}, setPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		cb.
@@ -258,42 +246,27 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 		cvi.Status.Size = ds.statService.GetSize(pod)
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
-		cvi.Status.Progress = "100%"
+		cvi.Status.Progress = service.ProgressDone
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = v1alpha2.ImageFailed
-
-			switch {
-			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				if strings.Contains(err.Error(), "pod has unbound immediate PersistentVolumeClaims") {
-					cvi.Status.Phase = v1alpha2.ImageProvisioning
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vicondition.Provisioning).
-						Message("Restoring data from the snapshot. Waiting for the PersistentVolumeClaim to be Bound.")
-
-					return reconcile.Result{RequeueAfter: time.Second}, nil
-				}
-
+			// The importer pod mounts the PVC restored from the snapshot, so an
+			// unbound PVC is a normal part of provisioning, not a failure.
+			if isTransientPodError(err) && strings.Contains(err.Error(), "pod has unbound immediate PersistentVolumeClaims") {
+				cvi.Status.Phase = v1alpha2.ImageProvisioning
 				cb.
 					Status(metav1.ConditionFalse).
-					Reason(vicondition.ProvisioningNotStarted).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vicondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
+					Reason(vicondition.Provisioning).
+					Message("Restoring data from the snapshot. Waiting for the PersistentVolumeClaim to be Bound.")
+
+				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
+
+			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+			return reconcile.Result{}, setPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		err = ds.importerService.Protect(ctx, pod, supgen)
@@ -307,7 +280,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
-		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
+		cvi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress), service.ProgressMax)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)

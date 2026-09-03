@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 )
 
 // BeReady reports the VirtualDiskSnapshot has finished and reached the Ready
@@ -32,9 +33,21 @@ func BeReady() Predicate {
 		case v1alpha2.VirtualDiskSnapshotPhaseReady:
 			return true, nil
 		case v1alpha2.VirtualDiskSnapshotPhaseFailed:
-			return false, fmt.Errorf("VirtualDiskSnapshot entered Failed phase")
+			return false, fmt.Errorf("VirtualDiskSnapshot entered Failed phase: %s", failureDetail(s))
 		default:
 			return false, nil
 		}
 	}
+}
+
+// failureDetail extracts the reason and message the vdsnapshot controller left
+// on the VirtualDiskSnapshotReady condition (e.g. the latched VolumeSnapshot
+// error), so a Failed phase surfaces its cause instead of a bare phase name.
+func failureDetail(s *v1alpha2.VirtualDiskSnapshot) string {
+	for _, c := range s.Status.Conditions {
+		if c.Type == vdscondition.VirtualDiskSnapshotReadyType.String() {
+			return fmt.Sprintf("%s: %s", c.Reason, c.Message)
+		}
+	}
+	return "no VirtualDiskSnapshotReady condition with details found"
 }

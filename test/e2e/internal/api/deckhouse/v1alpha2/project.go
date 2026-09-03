@@ -20,10 +20,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ProjectStateDeployed is the value of Project.Status.State once the Project and
+// every resource it renders have been successfully applied.
+const ProjectStateDeployed = "Deployed"
+
 type Project struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              ProjectSpec `json:"spec,omitempty"`
+	Spec              ProjectSpec   `json:"spec,omitempty"`
+	Status            ProjectStatus `json:"status,omitempty"`
+}
+
+// ProjectStatus is a partial mirror of the upstream deckhouse.io/v1alpha2 Project
+// status: only the fields the e2e tests need are modelled here (currently the
+// aggregate State, e.g. "Deployed").
+type ProjectStatus struct {
+	// State is the aggregate state of the Project ("Deployed", "Error", ...).
+	State string `json:"state,omitempty"`
 }
 
 type ProjectSpec struct {

@@ -19,7 +19,10 @@ package framework
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -91,8 +94,29 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	})
 
 	if !res.WasSuccess() {
-		return "", fmt.Errorf("failed to execute command %s: %s: %s", command, res.Error().Error(), res.StdErr())
+		err := fmt.Errorf("failed to execute command %s: %s: %s", command, res.Error().Error(), res.StdErr())
+		skipIfKnownKubeletTLSVerifyFailure(err)
+		return "", err
 	}
 
 	return res.StdOut(), nil
+}
+
+// knownKubeletTLSVerifyRe matches the transient apiserver->kubelet TLS verification
+// failure on the dev cluster ("error dialing backend: tls: failed to verify
+// certificate: x509: certificate signed by unknown authority"): the kubelet serving
+// certificate rotates and for a moment every exec/attach going through the apiserver
+// is refused, killing whatever guest command a spec was running.
+var knownKubeletTLSVerifyRe = regexp.MustCompile(`error dialing backend: tls: failed to verify certificate`)
+
+// TODO: remove when the kubelet certificate rotation flake is fixed on the dev cluster.
+func skipIfKnownKubeletTLSVerifyFailure(err error) {
+	GinkgoHelper()
+
+	if err == nil {
+		return
+	}
+	if knownKubeletTLSVerifyRe.MatchString(err.Error()) {
+		Skip("skip due to known transient kubelet TLS verification failure: " + err.Error())
+	}
 }

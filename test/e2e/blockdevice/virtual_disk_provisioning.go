@@ -23,185 +23,131 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
+	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
+	viobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vi"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualDiskProvisioning", Label(precheck.NoPrecheck), func() {
+var _ = Describe("VirtualDiskProvisioning", Label(label.SIGStorage, precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
 	)
 	BeforeEach(func() {
 		ctx = context.Background()
-		f = framework.NewFramework("vd-provisioning")
-		sc := framework.GetConfig().StorageClass.DefaultStorageClass
-		if sc != nil && sc.Provisioner == framework.NFS {
-			Skip("VirtualImages on PVC only work with block storage classes, skipping NFS")
-		}
+		f = framework.NewFramework("virtual-disk-provisioning")
 
 		f.Before()
 		DeferCleanup(f.After)
+		// This suite does not use setupProject, which normally clears the
+		// scenario-node pin, so drop the namespace's entry here.
+		DeferCleanup(func() {
+			pinnedScenarioNodes.Delete(f.Namespace().Name)
+		})
 	})
 
+	// runVMConsumingDisk creates a consumer VirtualMachine for vd and waits until
+	// it is Running with a ready guest agent, then until the disk is Ready. The
+	// custom image has no cloud-init, so provisioning is disabled: the VM
+	// only needs to boot (its agent auto-starts) to consume the disk.
+	runVMConsumingDisk := func(vd *v1alpha2.VirtualDisk, vdObs vdobs.Observer) {
+		GinkgoHelper()
+		vmOpts := []vmbuilder.Option{
+			vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: vd.Name,
+			}),
+		}
+		if node, ok := scenarioNode(f); ok {
+			// TODO: remove this test-level pin once local PVC/snapshot sources and
+			// target VMs are guaranteed to use the same node by the controllers.
+			// Without it, the disk cloned from a node-local VirtualImage PV can only
+			// be provisioned on the image's node, while the VM and its hotplug pod
+			// are free to start on another node and deadlock there.
+			vmOpts = append(vmOpts, vmbuilder.WithNodeSelector(map[string]string{
+				hostnameNodeSelectorKey: node,
+			}))
+		}
+		vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmOpts...)
+		Expect(f.CreateWithDeferredDeletion(ctx, vm)).To(Succeed())
+
+		vmObs := vmobs.StartObserver(ctx, f, vm)
+		vmObs.Never(vmobs.BeFailed())
+		vmObs.Never(vmobs.HaveNoBootableDevice())
+		err := vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
+		err = vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
+		err = vdObs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	It("verifies that a VirtualDisk is provisioned successfully from a VirtualImage on a PVC", func() {
-		var (
-			vi *v1alpha2.VirtualImage
-			vd *v1alpha2.VirtualDisk
-			vm *v1alpha2.VirtualMachine
-		)
+		vi := object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim))
+		vi.Spec.PersistentVolumeClaim.StorageClass = defaultStorageClass()
+		Expect(f.CreateWithDeferredDeletion(ctx, vi)).To(Succeed())
 
-		By("Creating VirtualImage from precreated CVI", func() {
-			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+		viObs := viobs.StartObserver(ctx, f, vi)
+		viObs.Never(viobs.BeFailed())
+		err := viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 
-			err := f.CreateWithDeferredDeletion(ctx, vi)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		// On node-local storage the disk below is cloned from the image's PV via a
+		// CSI snapshot and can only be provisioned on the image's node, so pin the
+		// consumer VM there.
+		rememberVirtualImageNode(ctx, f, vi)
 
-		By("Waiting for VirtualImage to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, vi)
-		})
+		// No explicit size: the controller derives it from the source image, which
+		// matches the clone snapshot's restoreSize (see virtual_disk_creation.go).
+		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithStorageClass(defaultStorageClass()))
+		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
+		vdObs := vdobs.StartObserver(ctx, f, vd)
+		vdObs.Never(vdobs.BeFailed())
 
-		By("Creating VirtualDisk", func() {
-			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
-
-			err := f.CreateWithDeferredDeletion(ctx, vd)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
-			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(
-				v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vd.Name,
-				},
-			))
-
-			err := f.CreateWithDeferredDeletion(ctx, vm)
-			Expect(err).NotTo(HaveOccurred())
-
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-		})
-
-		By("Waiting for guest agent to be ready", func() {
-			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-		})
-
-		By("Waiting for VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
+		runVMConsumingDisk(vd, vdObs)
 	})
 
 	It("verifies that a VirtualDisk is provisioned successfully from a VirtualImage on dvcr", func() {
-		var (
-			vi *v1alpha2.VirtualImage
-			vd *v1alpha2.VirtualDisk
-			vm *v1alpha2.VirtualMachine
-		)
-		By("Creating VirtualImage", func() {
-			vi = object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
-			err := f.CreateWithDeferredDeletion(ctx, vi)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		vi := object.NewGeneratedVIFromCVI("vi-", f.Namespace().Name, object.PrecreatedCVICustomBIOS)
+		Expect(f.CreateWithDeferredDeletion(ctx, vi)).To(Succeed())
 
-		By("Waiting for VirtualImage to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.ImageReady), framework.LongTimeout, vi)
-		})
+		viObs := viobs.StartObserver(ctx, f, vi)
+		viObs.Never(viobs.BeFailed())
+		err := viObs.WaitFor(viobs.BeReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 
-		By("Creating VirtualDisk", func() {
-			vd = object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
-			err := f.CreateWithDeferredDeletion(ctx, vd)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		vd := object.NewVDFromVI("vd", f.Namespace().Name, vi, vdbuilder.WithStorageClass(defaultStorageClass()))
+		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
+		vdObs := vdobs.StartObserver(ctx, f, vd)
+		vdObs.Never(vdobs.BeFailed())
 
-		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
-			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.VirtualDiskKind,
-				Name: vd.Name,
-			}))
-			err := f.CreateWithDeferredDeletion(ctx, vm)
-			Expect(err).NotTo(HaveOccurred())
-
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-		})
-
-		By("Waiting for guest agent to be ready", func() {
-			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-		})
-
-		By("Waiting for VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
+		runVMConsumingDisk(vd, vdObs)
 	})
 
 	It("verifies that a VirtualDisk is provisioned successfully from a ClusterVirtualImage", func() {
-		var (
-			vd *v1alpha2.VirtualDisk
-			vm *v1alpha2.VirtualMachine
-		)
+		vd := object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
+		vdObs := vdobs.StartObserver(ctx, f, vd)
+		vdObs.Never(vdobs.BeFailed())
 
-		By("Creating VirtualDisk", func() {
-			vd = object.NewVDFromCVI("vd", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
-			err := f.CreateWithDeferredDeletion(ctx, vd)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
-			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.VirtualDiskKind,
-				Name: vd.Name,
-			}))
-			err := f.CreateWithDeferredDeletion(ctx, vm)
-			Expect(err).NotTo(HaveOccurred())
-
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-		})
-
-		By("Waiting for guest agent to be ready", func() {
-			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-		})
-
-		By("Waiting for VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
+		runVMConsumingDisk(vd, vdObs)
 	})
 
 	It("verifies that a VirtualDisk is provisioned successfully from a http", func() {
-		var (
-			vd *v1alpha2.VirtualDisk
-			vm *v1alpha2.VirtualMachine
-		)
+		vd := object.NewHTTPVDCustomBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))), vdbuilder.WithStorageClass(defaultStorageClass()))
+		Expect(f.CreateWithDeferredDeletion(ctx, vd)).To(Succeed())
+		vdObs := vdobs.StartObserver(ctx, f, vd)
+		vdObs.Never(vdobs.BeFailed())
 
-		By("Creating VirtualDisk", func() {
-			vd = object.NewHTTPVDAlpineBIOS("vd", f.Namespace().Name, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
-			err := f.CreateWithDeferredDeletion(ctx, vd)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		By("Creating VirtualMachine and waiting for VirtualMachine to be running", func() {
-			vm = object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.VirtualDiskKind,
-				Name: vd.Name,
-			}))
-			err := f.CreateWithDeferredDeletion(ctx, vm)
-			Expect(err).NotTo(HaveOccurred())
-
-			util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
-		})
-
-		By("Waiting for guest agent to be ready", func() {
-			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-		})
-
-		By("Waiting for VirtualDisk to be ready", func() {
-			util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, vd)
-		})
+		runVMConsumingDisk(vd, vdObs)
 	})
 })

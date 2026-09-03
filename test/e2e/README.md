@@ -43,13 +43,18 @@ $ kubectl get moduleconfigs.deckhouse.io global --output yaml | yq .spec
 ```
 ```yaml
 settings:
-  defaultClusterStorageClass: linstor-thin-r1
+  defaultClusterStorageClass: replicated-storage-class
 ```
 
 Additionally, the storage class in the tests can be defined by the environment variable `STORAGE_CLASS_NAME`:
 ```bash
-STORAGE_CLASS_NAME=linstor-thin-r1 task run
+STORAGE_CLASS_NAME=replicated-storage-class task run
 ```
+
+The override applies to the whole run: every VirtualDisk (and every PVC-backed
+VirtualImage) built through `internal/object` is pinned to `STORAGE_CLASS_NAME` unless the
+test picks a StorageClass itself. Without the variable no StorageClass is written to the
+spec, so the cluster default StorageClass applies.
 
 The StorageClass (`STORAGE_CLASS_NAME` or the cluster default) may use any volume binding
 mode. When the cluster has no default StorageClass, set `STORAGE_CLASS_NAME` explicitly.
@@ -89,18 +94,21 @@ Setup cluster connection in "$HOME/.kube/config" or by [switch](https://github.c
 task run
 ```
 
-To run e2e tests in parallel mode;
+Tests run in parallel by default (`--procs=24`, override with the `PROCS` env variable, timeout 1h).
+To run them sequentially (timeout 3h):
 
 ```bash
-task runp
+SEQUENTIAL=true task run
 ```
+
+`task runp` is deprecated and is just an alias for `task run`.
 
 ### Debugging options
 
 - Use the FOCUS environment variable to run a specific test.
 - Set `POST_CLEANUP=never` to disable cleanup after tests (takes precedence over `postCleanupMode` in config).
 - Set LABELS to run tests with specific label(https://onsi.github.io/ginkgo/#spec-labels).
-- Manage timeouts for new e2e tests (not for legacy tests) using env variables `E2E_SHORT_TIMEOUT`, `E2E_MIDDLE_TIMEOUT`, `E2E_LONG_TIMEOUT` and `E2E_MAX_TIMEOUT`.
+- Manage timeouts for e2e tests using env variables `E2E_SHORT_TIMEOUT`, `E2E_MIDDLE_TIMEOUT`, `E2E_LONG_TIMEOUT` and `E2E_MAX_TIMEOUT`.
 
 For example, to run only one test and leave all created resources in the cluster, use the following command:
 ```bash
@@ -137,54 +145,4 @@ Example:
 logFilter:
   - "failed to sync virtual disk data source objectref" # "err": "failed to sync virtual disk data source objectref: admission webhook \"datavolume-validate.cdi.kubevirt.io\" denied the request:  Destination PVC winwin/vd-win2022-8a136ef9-32d9-4ae3-a27f-e42e15c15f47 already exists"
   - "failed to detach: intvirtvm not found to unplug" # "err": "failed to detach: intvirtvm not found to unplug"
-```
-
-## Run tests in CI
-```bash
-task run:ci
-```
-
-### Example
-Create namespace for service account
-```bash
-kubectl create ns e2e-tests
-```
-Create service account
-```bash
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: e2e-tests
-  namespace: e2e-tests
-EOF
-```
-Create secret with token for service account
-```bash
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: e2e-tests
-  namespace: e2e-tests
-  annotations:
-    kubernetes.io/service-account.name: e2e-tests
-type: kubernetes.io/service-account-token
-EOF
-```
-Create ClusterRoleBinding 
-```bash
-kubectl create clusterrolebinding e2e-tests --clusterrole=cluster-admin --serviceaccount=e2e-tests:e2e-tests
-```
-Export envs and run
-```bash
-kubectl config view -o jsonpath='{"Cluster name\tServer\n"}{range .clusters[*]}{.name}{"\t"}{.cluster.server}{"\n"}{end}'
-export CLUSTER_NAME="some_server_name"
-export E2E_CLUSTERTRANSPORT_ENDPOINT=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER_NAME\")].cluster.server}")
-export E2E_CLUSTERTRANSPORT_TOKEN=$(kubectl get secret e2e-tests -n e2e-tests -ojsonpath='{.data.token}' | base64 -d)
-kubectl get secret e2e-tests -n e2e-tests -ojsonpath='{.data.ca\.crt}' | base64 -d > ca.crt
-export E2E_CLUSTERTRANSPORT_CERTIFICATEAUTHORITY="$PWD/ca.crt"
-export E2E_CLUSTERTRANSPORT_INSECURETLS="false"
-
-task run
 ```

@@ -29,20 +29,27 @@ import (
 )
 
 // BeFailed reports an invariant violation when the VirtualImage has reached
-// the terminal Failed phase or its Ready condition reports the
-// ProvisioningFailed reason. It is intended to be used with [Observer.Never].
+// the terminal Failed phase or its Ready condition reports a provisioning
+// failure. It is intended to be used with [Observer.Never].
 func BeFailed() Predicate {
 	return func(i *v1alpha2.VirtualImage) (bool, error) {
 		if i.Status.Phase == v1alpha2.ImageFailed {
 			return true, fmt.Errorf("VirtualImage entered Failed phase")
 		}
 		if cond := findCondition(i.Status.Conditions, vicondition.ReadyType.String()); cond != nil {
-			if isConditionFresh(cond, i) && cond.Reason == vicondition.ProvisioningFailed.String() {
-				return true, fmt.Errorf("ready condition reports ProvisioningFailed: %s", cond.Message)
+			if isConditionFresh(cond, i) && isProvisioningFailedReason(cond.Reason) {
+				return true, fmt.Errorf("ready condition reports %s: %s", cond.Reason, cond.Message)
 			}
 		}
 		return false, nil
 	}
+}
+
+// isProvisioningFailedReason reports whether a Ready condition reason means the
+// provisioning has failed, either retryably or terminally.
+func isProvisioningFailedReason(reason string) bool {
+	return reason == vicondition.ProvisioningFailed.String() ||
+		reason == vicondition.ProvisioningFailedTerminally.String()
 }
 
 // HaveFormat reports an invariant violation when a Ready VirtualImage reports a
@@ -141,6 +148,70 @@ func BeQuotaExceeded() Predicate {
 		if i.Status.Phase != v1alpha2.ImageFailed {
 			return false, fmt.Errorf(
 				"ready condition reports a quota-exceeded ProvisioningFailed but phase is %q, expected %q",
+				i.Status.Phase, v1alpha2.ImageFailed,
+			)
+		}
+		return true, nil
+	}
+}
+
+// checksumMismatchMessage is the part of the importer error the controller
+// copies into the Ready condition message when the downloaded data does not
+// match a checksum from the spec.
+const checksumMismatchMessage = "sum mismatch"
+
+// BeChecksumMismatch reports the VirtualImage has failed because the data
+// downloaded from the HTTP source did not match the checksum specified for
+// the given algorithm.
+//
+// The predicate is satisfied when the Ready condition is fresh, reports
+// Status=False with a provisioning-failure reason (ProvisioningFailed for the
+// importer, ProvisioningFailedTerminally for the uploader's verdict) and a
+// message naming both the algorithm and the mismatch, and the phase is Failed.
+//
+// Returned values:
+//   - (true, nil)  - the VirtualImage reports a fresh checksum-mismatch Ready
+//     condition together with the Failed phase;
+//   - (false, nil) - the controller has not yet reported a fresh
+//     checksum-mismatch Ready condition;
+//   - (false, err) - the mismatch is reported without naming the algorithm, or
+//     with an unexpected phase or Status, which is a controller bug.
+//
+// Intended for use with [Observer.WaitFor].
+func BeChecksumMismatch(algorithm string) Predicate {
+	return func(i *v1alpha2.VirtualImage) (bool, error) {
+		cond := findCondition(i.Status.Conditions, vicondition.ReadyType.String())
+		if cond == nil || !isConditionFresh(cond, i) {
+			return false, nil
+		}
+		if !isProvisioningFailedReason(cond.Reason) {
+			return false, nil
+		}
+
+		message := strings.ToLower(cond.Message)
+		if !strings.Contains(message, checksumMismatchMessage) {
+			return false, nil
+		}
+		// The message has to name the algorithm that did not match, so that a
+		// user reading the condition learns which checksum to fix. The importer
+		// error reaches the condition wrapped into the failure of the pod that
+		// carried it, so the algorithm is looked up anywhere in the message
+		// rather than at its start.
+		if !strings.Contains(message, strings.ToLower(algorithm)+" "+checksumMismatchMessage) {
+			return false, fmt.Errorf(
+				"ready condition reports a checksum mismatch that does not name the %q algorithm: %s",
+				algorithm, cond.Message,
+			)
+		}
+		if cond.Status != metav1.ConditionFalse {
+			return false, fmt.Errorf(
+				"ready condition reports a checksum mismatch but status is %s, expected %s",
+				cond.Status, metav1.ConditionFalse,
+			)
+		}
+		if i.Status.Phase != v1alpha2.ImageFailed {
+			return false, fmt.Errorf(
+				"ready condition reports a checksum mismatch but phase is %q, expected %q",
 				i.Status.Phase, v1alpha2.ImageFailed,
 			)
 		}
@@ -331,14 +402,10 @@ func (o *progressObservations) record(p float64) {
 	switch {
 	case p == 0:
 		o.hasZero = true
-	case p > 0 && p < 50:
-		o.hasIntermediateExceptFifty = true
-	case p > 50 && p < 100:
-		o.hasIntermediateExceptFifty = true
-	case p > 0 && p < 100 && p != 50:
-		o.hasIntermediateExceptFifty = true
 	case p == 100:
 		o.hasHundred = true
+	case p != 50:
+		o.hasIntermediateExceptFifty = true
 	}
 }
 

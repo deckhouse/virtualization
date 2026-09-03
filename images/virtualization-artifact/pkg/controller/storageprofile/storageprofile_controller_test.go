@@ -22,13 +22,18 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 )
 
@@ -118,6 +123,34 @@ func TestReconcileStorageProfileHonorsStorageClassAnnotation(t *testing.T) {
 	}
 	if sp.Status.CloneStrategy == nil || *sp.Status.CloneStrategy != cdiv1.CloneStrategyCsiClone {
 		t.Fatalf("unexpected clone strategy: %#v", sp.Status.CloneStrategy)
+	}
+}
+
+func TestReconcileStorageProfileRequeuesOnStaleCacheCreate(t *testing.T) {
+	ctx := context.Background()
+	scheme := storageProfileTestScheme(t)
+	sc := &storagev1.StorageClass{Provisioner: "csi.example.com"}
+	sc.Name = "fast"
+	existing := &storagev1alpha1.StorageProfile{ObjectMeta: metav1.ObjectMeta{Name: sc.Name}}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc, existing).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				// The cache lags behind this controller's own fresh Create: the profile
+				// exists on the server, but the cached Get still returns NotFound.
+				if _, ok := obj.(*storagev1alpha1.StorageProfile); ok {
+					return k8serrors.NewNotFound(schema.GroupResource{Group: storagev1alpha1.SchemeGroupVersion.Group, Resource: "storageprofiles"}, key.Name)
+				}
+				return cl.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+	r := &Reconciler{client: c, log: log.NewNop()}
+
+	res, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: sc.Name}})
+	if err != nil {
+		t.Fatalf("an already-existing profile behind a stale cache must requeue, not fail: %v", err)
+	}
+	if res.RequeueAfter == 0 {
+		t.Fatalf("expected a requeue to retry after the cache catches up, got %#v", res)
 	}
 }
 

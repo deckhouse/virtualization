@@ -26,18 +26,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/utils/ptr"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmbdaobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmbda"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
+var _ = Describe("HotplugPod", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
 		vi  *v1alpha2.VirtualImage
@@ -50,7 +51,7 @@ var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
 		f.Before()
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIAlpineBIOSPerf("hotplug-pod-", f.Namespace().Name)
+		newVI := object.NewGeneratedHTTPVICustomBIOS("hotplug-pod-", f.Namespace().Name)
 		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(ctx, newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
@@ -63,25 +64,34 @@ var _ = Describe("HotplugPod", Label(precheck.NoPrecheck), func() {
 			blank *v1alpha2.VirtualDisk
 		)
 		By("Create VM", func() {
-			root := object.NewVDFromVI("root", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
-			blank = object.NewBlankVD("blank", f.Namespace().Name, nil, ptr.To(resource.MustParse("100Mi")))
+			root := object.NewVDFromVI("root", f.Namespace().Name, vi, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))))
+			blank = object.NewBlankVD("blank", f.Namespace().Name, nil, ptr.To(resource.MustParse(vdCustomImageSize)))
 			Expect(f.CreateWithDeferredDeletion(ctx, root, blank)).To(Succeed())
 
 			var err error
-			vm = object.NewMinimalVM("hotplug-pod-", f.Namespace().Name, vmbuilder.WithDisks(root), vmbuilder.WithCPU(1, ptr.To("100%")))
+			// The custom image has no cloud-init; the guest agent is baked
+			// in, so no provisioning is needed.
+			vm = object.NewMinimalVM("hotplug-pod-", f.Namespace().Name, vmbuilder.WithDisks(root))
 			vm, err = f.VirtClient().VirtualMachines(f.Namespace().Name).Create(ctx, vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			f.DeferDelete(vm)
 		})
 
 		By("Wait until VM agent is ready", func() {
-			util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			vmObs := vmobs.StartObserver(ctx, f, vm)
+			vmObs.Never(vmobs.BeFailed())
+			err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Attaching disk", func() {
 			vmbda := object.NewVMBDAFromDisk(vm.Name, vm.Name, blank)
+			vmbdaObs := vmbdaobs.StartObserver(ctx, f, vmbda)
 			Expect(f.CreateWithDeferredDeletion(ctx, vmbda)).To(Succeed())
-			util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, vmbda)
+			// The first attachment waits out the blank disk provisioning and the CSI
+			// attach of the hotplug pod, which take minutes under a parallel run.
+			err := vmbdaObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("Evict hp pod", func() {

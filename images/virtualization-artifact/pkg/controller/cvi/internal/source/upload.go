@@ -158,8 +158,27 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		}
 
 		return reconcile.Result{}, nil
+	case condition.Reason == cvicondition.ProvisioningFailedTerminally.String():
+		// The uploader delivered a terminal verdict (e.g. a checksum mismatch):
+		// re-uploading replays it, so keep the failure and clean the uploader
+		// up instead of leaving it (or recreating it) to wait for an upload.
+		log.Debug("Upload terminally failed: clean up")
+
+		cvi.Status.Phase = v1alpha2.ImageFailed
+		cvi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.ProvisioningFailedTerminally).
+			Message(condition.Message)
+
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.AnyTerminating(pod, svc, ing):
-		cvi.Status.Phase = v1alpha2.ImagePending
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || ing == nil:
@@ -188,19 +207,8 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = v1alpha2.ImageFailed
-
-			switch {
-			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(cvicondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
-			}
+			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		ds.recorder.Event(
@@ -219,33 +227,20 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cvi.Status.Size = ds.statService.GetSize(pod)
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
-		cvi.Status.Progress = "100%"
+		cvi.Status.Progress = service.ProgressDone
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
-	case ds.statService.IsUploadStarted(cvi.GetUID(), pod):
+	case ds.statService.IsUploadStarted(cvi.GetUID(), pod) || hasUploadProgress(cvi.Status.Progress):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = v1alpha2.ImageFailed
-
-			switch {
-			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(cvicondition.ProvisioningNotStarted).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(cvicondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
+			if isTransientPodError(err) {
+				setUploadProvisioningPhaseCondition(cb, cvi)
+				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
+			recordProvisioningFailedEvent(ds.recorder, cvi, err)
+			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		cb.
@@ -254,7 +249,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 			Message("The image is being imported.")
 
 		cvi.Status.Phase = v1alpha2.ImageProvisioning
-		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
+		cvi.Status.Progress = service.CapProgressBelow(ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress), service.ProgressMax)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
@@ -281,10 +276,10 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 	default:
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(cvicondition.ProvisioningNotStarted).
+			Reason(cvicondition.Provisioning).
 			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name))
 
-		cvi.Status.Phase = v1alpha2.ImagePending
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 
 		log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 	}
@@ -300,6 +295,43 @@ func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVir
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.ClusterVirtualImage) error {
 	return nil
+}
+
+func setUploadProvisioningPhaseCondition(cb *conditions.ConditionBuilder, cvi *v1alpha2.ClusterVirtualImage) {
+	cvi.Status.Phase = v1alpha2.ImageProvisioning
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(cvicondition.Provisioning).
+		Message("The image is being imported.")
+}
+
+func isTransientPodError(err error) bool {
+	return errors.Is(err, service.ErrNotInitialized) || errors.Is(err, service.ErrNotScheduled)
+}
+
+// setUploadPhaseConditionFromPodError is setPhaseConditionFromPodError for the
+// upload flow: the uploader's terminal verdict (e.g. a checksum mismatch) is
+// deterministic, so it gets its own condition reason for later reconciles to
+// recognize without parsing the message.
+func setUploadPhaseConditionFromPodError(cb *conditions.ConditionBuilder, cvi *v1alpha2.ClusterVirtualImage, err error) error {
+	if errors.Is(err, service.ErrProvisioningFailed) && service.IsTerminationMessageError(err) {
+		cvi.Status.Phase = v1alpha2.ImageFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.ProvisioningFailedTerminally).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return nil
+	}
+	return setPhaseConditionFromPodError(cb, cvi, err)
+}
+
+func hasUploadProgress(progress string) bool {
+	switch progress {
+	case "", "0", "0%", "0.0%", "0.00%":
+		return false
+	default:
+		return true
+	}
 }
 
 func (ds UploadDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, supgen supplements.Generator) *uploader.Settings {

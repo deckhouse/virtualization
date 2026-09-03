@@ -58,6 +58,7 @@ type Client interface {
 	VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface
 	VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface
 	VirtualDiskSnapshots(namespace string) virtualizationv1alpha2.VirtualDiskSnapshotInterface
+	VirtualMachineSnapshots(namespace string) virtualizationv1alpha2.VirtualMachineSnapshotInterface
 	VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface
 	VirtualMachineIPAddresses(namespace string) virtualizationv1alpha2.VirtualMachineIPAddressInterface
 	VirtualMachineIPAddressLeases() virtualizationv1alpha2.VirtualMachineIPAddressLeaseInterface
@@ -109,6 +110,10 @@ func (c client) VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDis
 
 func (c client) VirtualDiskSnapshots(namespace string) virtualizationv1alpha2.VirtualDiskSnapshotInterface {
 	return c.virtClient.VirtualizationV1alpha2().VirtualDiskSnapshots(namespace)
+}
+
+func (c client) VirtualMachineSnapshots(namespace string) virtualizationv1alpha2.VirtualMachineSnapshotInterface {
+	return c.virtClient.VirtualizationV1alpha2().VirtualMachineSnapshots(namespace)
 }
 
 func (c client) VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface {

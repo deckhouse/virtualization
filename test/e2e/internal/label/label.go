@@ -20,6 +20,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
+// SIG labels identify the Special Interest Group that owns a group of e2e
+// specs, mirroring Kubernetes' [sig-*] test-ownership labels. They give every
+// spec an owner and an axis to run/filter a whole group by, e.g.
+// `go tool ginkgo --label-filter='sig-storage'`.
+const (
+	// SIGStorage owns VirtualDisks, VirtualImages, snapshots, data exports,
+	// quota and storage profiles (the blockdevice suite) and volume populators.
+	SIGStorage = "sig-storage"
+	// SIGCompute owns the VirtualMachine suites: lifecycle, configuration,
+	// sizing, CPU/memory hotplug, power state, guest devices (USB, TPM),
+	// scheduling, networking, live migration and evacuation, snapshots, pools
+	// and operations.
+	SIGCompute = "sig-compute"
+)
+
 func Slow() Labels {
 	return Label("Slow")
 }

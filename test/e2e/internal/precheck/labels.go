@@ -27,17 +27,27 @@ const (
 	// PrecheckVMC - test requires VMC module to be enabled.
 	PrecheckVMC = "vmclass-precheck"
 
-	// PrecheckSVDM - test requires SVDM module to be enabled.
+	// PrecheckSVDM - test requires the data-export machinery: storage-foundation enabled,
+	// the deprecated storage-volume-data-manager disabled.
 	PrecheckSVDM = "svdm-precheck"
 
 	// PrecheckDefaultStorageClass - test requires default StorageClass to be configured.
 	PrecheckDefaultStorageClass = "default-sc-precheck"
 
-	// PrecheckSnapshot - test requires snapshot-controller module to be enabled.
+	// PrecheckRWOImmediateStorageClass - the suite StorageClass must not be RWO with Immediate binding.
+	// This is a common precheck that runs for all tests automatically.
+	PrecheckRWOImmediateStorageClass = "rwo-immediate-sc-precheck"
+
+	// PrecheckSnapshot - test requires the CSI snapshot machinery: state-snapshotter and
+	// storage-foundation enabled, the deprecated snapshot-controller disabled.
 	PrecheckSnapshot = "snapshot-precheck"
 
 	// PrecheckVirtualization - test requires virtualization module to be enabled.
 	PrecheckVirtualization = "virtualization-precheck"
+
+	// PrecheckMigrationLimits - test requires the migration limits to be disabled
+	// on the virtualization ModuleConfig.
+	PrecheckMigrationLimits = "migration-limits-precheck"
 
 	// PrecheckUSB - test requires USB device with dummy_hcd to be configured.
 	PrecheckUSB = "usb-precheck"
@@ -47,6 +57,10 @@ const (
 
 	// PrecheckTargetMigration - test requires target migration feature to be available.
 	PrecheckTargetMigration = "target-migration-precheck"
+
+	// PrecheckMigratable - test requires enough ready KVM-enabled nodes to tell a machine that
+	// has a node to migrate to from a machine that has none.
+	PrecheckMigratable = "migratable-precheck"
 
 	// PrecheckPostCleanup - test requires postcleanup to be configured.
 	PrecheckPostCleanup = "post-cleanup-precheck"
@@ -67,6 +81,9 @@ const (
 
 	// HotplugInPlaceResizePrecheck - test requires HotplugCPUAndMemoryWithInPlaceResize feature gate to be enabled.
 	HotplugInPlaceResizePrecheck = "hotpluginplaceresize-precheck"
+
+	// PrecheckVerticalPodAutoscaler - test requires the vertical-pod-autoscaler module to be enabled.
+	PrecheckVerticalPodAutoscaler = "vertical-pod-autoscaler-precheck"
 )
 
 // KnownPrecheckLabels returns all known precheck label constants.
@@ -76,17 +93,21 @@ func KnownPrecheckLabels() []string {
 		PrecheckVMC,
 		PrecheckSVDM,
 		PrecheckDefaultStorageClass,
+		PrecheckRWOImmediateStorageClass,
 		PrecheckSnapshot,
 		PrecheckVirtualization,
+		PrecheckMigrationLimits,
 		PrecheckUSB,
 		PrecheckAffinityToleration,
 		PrecheckTargetMigration,
+		PrecheckMigratable,
 		PrecheckPostCleanup,
 		PrecheckPrecreatedCVI,
 		NoPrecheck,
 		HotplugCPUWithLiveMigrationPrecheck,
 		HotplugMemoryWithLiveMigrationPrecheck,
 		HotplugInPlaceResizePrecheck,
+		PrecheckVerticalPodAutoscaler,
 	}
 }
 

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 	scobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/storageclass"
 	spobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/storageprofile"
@@ -42,7 +43,7 @@ import (
 // deleted. A plain StorageClass is used so the test controls the full lifecycle:
 // SDS-managed StorageClasses cannot be deleted directly and are not removed when the
 // owning ReplicatedStorageClass is deleted.
-var _ = Describe("StorageProfileCreation", Label(precheck.NoPrecheck), func() {
+var _ = Describe("StorageProfileCreation", Label(label.SIGStorage, precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context

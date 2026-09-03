@@ -26,14 +26,17 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 )
 
 const (
 	replicatedStorageClass = "nested-thin-r1"
 	localThinStorageClass  = "nested-local-thin"
-	defaultRootDiskSize    = "400Mi"
-	defaultDataDiskSize    = "100Mi"
-	releaseNamespaceName   = "v12n-test-release"
+	// customRootDiskSize is for roots backed by the custom image
+	// (~47Mi virtual); it grows its root filesystem to the disk on first boot.
+	customRootDiskSize   = "64Mi"
+	defaultDataDiskSize  = "50Mi"
+	releaseNamespaceName = "v12n-test-release"
 )
 
 type vmScenario struct {
@@ -45,9 +48,17 @@ type vmScenario struct {
 	rootDiskSize            string
 	expectedAdditionalDisks int
 	skipGuestAgentCheck     bool
+	// customImage marks a scenario booted from the custom image: no
+	// cloud-init (cloudInit must be empty), guest commands log in as root
+	// (dropbear, baked key) without sudo.
+	customImage bool
 
 	rootDisk *v1alpha2.VirtualDisk
 	vm       *v1alpha2.VirtualMachine
+
+	// vmObs is armed before the VM is created (pre-upgrade phase only), so
+	// phase and agent transitions are captured from the very beginning.
+	vmObs vmobs.Observer
 }
 
 type dataDiskScenario struct {
@@ -83,68 +94,76 @@ func newCurrentReleaseSmokeTest(f *framework.Framework, namespace string) *curre
 		dataDiskByName: make(map[string]*dataDiskScenario),
 	}
 
+	// The scenario names keep their historical alpine/ubuntu identities: they
+	// are the stable anchor the post-upgrade phase looks resources up by.
+	// All non-iperf scenarios boot the custom image (no cloud-init);
+	// only the iperf pair still needs a cloud-init image for iperf3.
 	test.vms = []*vmScenario{
 		{
 			name:                    "vm-alpine-manual",
 			rootDiskName:            "vd-root-alpine-manual",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
+			cviName:                 object.PrecreatedCVICustomBIOS,
 			runPolicy:               v1alpha2.ManualPolicy,
-			rootDiskSize:            defaultRootDiskSize,
+			rootDiskSize:            customRootDiskSize,
 			expectedAdditionalDisks: 0,
+			customImage:             true,
 		},
 		{
 			name:                    "vm-alpine-single-hotplug",
 			rootDiskName:            "vd-root-alpine-single-hotplug",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
+			cviName:                 object.PrecreatedCVICustomBIOS,
 			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            defaultRootDiskSize,
+			rootDiskSize:            customRootDiskSize,
 			expectedAdditionalDisks: 1,
+			customImage:             true,
 		},
 		{
 			name:                    "vm-alpine-double-hotplug",
 			rootDiskName:            "vd-root-alpine-double-hotplug",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
+			cviName:                 object.PrecreatedCVICustomBIOS,
 			runPolicy:               v1alpha2.AlwaysOnPolicy,
-			rootDiskSize:            defaultRootDiskSize,
+			rootDiskSize:            customRootDiskSize,
 			expectedAdditionalDisks: 2,
+			customImage:             true,
 		},
 		{
 			name:                    "vm-ubuntu-replicated-five",
 			rootDiskName:            "vd-root-ubuntu-replicated-five",
-			cviName:                 object.PrecreatedCVIUbuntu,
-			cloudInit:               object.UbuntuCloudInit,
+			cviName:                 object.PrecreatedCVICustomBIOS,
 			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
+			rootDiskSize:            customRootDiskSize,
 			expectedAdditionalDisks: 5,
+			customImage:             true,
 		},
 		{
 			name:                    "vm-ubuntu-mixed-five",
 			rootDiskName:            "vd-root-ubuntu-mixed-five",
-			cviName:                 object.PrecreatedCVIUbuntu,
-			cloudInit:               object.UbuntuCloudInit,
+			cviName:                 object.PrecreatedCVICustomBIOS,
 			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
+			rootDiskSize:            customRootDiskSize,
 			expectedAdditionalDisks: 5,
+			customImage:             true,
 		},
 		{
 			name:                    "vm-alpine-iperf-client",
 			rootDiskName:            "vd-root-alpine-iperf-client",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.AlpineCloudInit,
+			cviName:                 object.PrecreatedCVICustomBIOS,
 			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            defaultRootDiskSize,
+			rootDiskSize:            customRootDiskSize,
 			expectedAdditionalDisks: 2,
 			skipGuestAgentCheck:     true,
+			customImage:             true,
 		},
 		{
+			// iperf3 is baked into the custom image; the smoke starts the
+			// server over SSH (see startLongRunningIPerf).
 			name:                    "vm-alpine-iperf-server",
 			rootDiskName:            "vd-root-alpine-iperf-server",
-			cviName:                 object.PrecreatedCVIAlpineBIOS,
-			cloudInit:               object.PerfCloudInit,
+			cviName:                 object.PrecreatedCVICustomBIOS,
 			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            defaultRootDiskSize,
+			rootDiskSize:            customRootDiskSize,
 			expectedAdditionalDisks: 0,
+			customImage:             true,
 		},
 	}
 
@@ -228,18 +247,24 @@ func newHotplugDisk(name, namespace, storageClass, size string) *v1alpha2.Virtua
 }
 
 func newVM(name, namespace string, runPolicy v1alpha2.RunPolicy, rootDiskName, cloudInit string) *v1alpha2.VirtualMachine {
-	return vmbuilder.New(
+	opts := []vmbuilder.Option{
 		vmbuilder.WithName(name),
 		vmbuilder.WithNamespace(namespace),
-		vmbuilder.WithCPU(1, ptr.To("20%")),
-		vmbuilder.WithMemory(resource.MustParse("512Mi")),
+		vmbuilder.WithCPU(1, ptr.To(object.CustomImageVMCoreFraction)),
+		vmbuilder.WithMemory(resource.MustParse(object.CustomImageVMMemory)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-		vmbuilder.WithProvisioningUserData(cloudInit),
 		vmbuilder.WithRunPolicy(runPolicy),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.DiskDevice,
 			Name: rootDiskName,
 		}),
-	)
+	}
+	// An empty cloudInit means the scenario boots the custom image:
+	// it has no cloud-init, and the guest agent is baked in, so no
+	// provisioning is needed.
+	if cloudInit != "" {
+		opts = append(opts, vmbuilder.WithProvisioningUserData(cloudInit))
+	}
+	return vmbuilder.New(opts...)
 }
