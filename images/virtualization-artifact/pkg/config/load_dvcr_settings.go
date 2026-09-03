@@ -62,6 +62,15 @@ const (
 	UploaderListenerNameVar = "UPLOADER_LISTENER_NAME"
 	// UploaderListenerTLSSecretVar is an env variable holds the name of the Secret the listener terminates TLS with.
 	UploaderListenerTLSSecretVar = "UPLOADER_LISTENER_TLS_SECRET"
+
+	// UploaderIngressNamespaceVar is the namespace of the Deckhouse ingress-nginx module that
+	// proxies user uploads to the uploader pod. Used to scope the uploader CiliumNetworkPolicy
+	// ingress in network-isolated projects.
+	UploaderIngressNamespaceVar = "UPLOADER_INGRESS_NAMESPACE"
+	// UploaderGatewayNamespaceVar is the namespace of the Gateway API data-plane (the alb
+	// module) that proxies user uploads when the UploadViaAPIGateway feature gate is on. Used
+	// to scope the uploader CiliumNetworkPolicy ingress in network-isolated projects.
+	UploaderGatewayNamespaceVar = "UPLOADER_GATEWAY_NAMESPACE"
 )
 
 func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error) {
@@ -88,6 +97,8 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 			ListenerName:  os.Getenv(UploaderListenerNameVar),
 			TLSSecretName: os.Getenv(UploaderListenerTLSSecretVar),
 		},
+		UploaderIngressNamespace: os.Getenv(UploaderIngressNamespaceVar),
+		UploaderGatewayNamespace: os.Getenv(UploaderGatewayNamespaceVar),
 	}
 
 	if dvcrSettings.RegistryURL == "" {

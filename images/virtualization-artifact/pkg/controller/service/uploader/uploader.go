@@ -430,7 +430,10 @@ func (u *uploaderService) Cleanup(ctx context.Context, sup supplements.Generator
 	}
 
 	npName := sup.NetworkPolicy()
-	np := &netv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: npName.Name, Namespace: npName.Namespace}}
+	np := &unstructured.Unstructured{}
+	np.SetGroupVersionKind(ciliumNetworkPolicyGVK)
+	np.SetName(npName.Name)
+	np.SetNamespace(npName.Namespace)
 
 	targets := []struct {
 		role string
@@ -475,7 +478,7 @@ func (u *uploaderService) newFactory(sup supplements.Generator, ownerRef metav1.
 		Checksums:              settings.Checksums,
 	}
 
-	return NewFactory(sup, podSettings, u.ingressSettings(sup), u.listenerSetSettings(), ownerRef)
+	return NewFactory(sup, podSettings, u.ingressSettings(sup), u.listenerSetSettings(), u.networkPolicySettings(sup), ownerRef)
 }
 
 func (u *uploaderService) listenerSetSettings() ListenerSetSettings {
@@ -485,6 +488,26 @@ func (u *uploaderService) listenerSetSettings() ListenerSetSettings {
 		Name:         s.Name,
 		Namespace:    s.Namespace,
 		ListenerName: s.ListenerName,
+	}
+}
+
+// networkPolicySettings builds the source namespaces and the API-Gateway flag for
+// the uploader CiliumNetworkPolicy: the controller namespace, the ingress
+// controller or Gateway data-plane namespace, and the uploader pod's own
+// namespace (sup.Namespace).
+func (u *uploaderService) networkPolicySettings(sup supplements.Generator) *NetworkPolicySettings {
+	var ingressNS, gatewayNS string
+	if u.useAPIGateway() {
+		gatewayNS = u.dvcrSettings.UploaderGatewayNamespace
+	} else {
+		ingressNS = u.dvcrSettings.UploaderIngressNamespace
+	}
+	return &NetworkPolicySettings{
+		ControllerNamespace: u.dvcrSettings.ControllerNamespace,
+		IngressNamespace:    ingressNS,
+		GatewayNamespace:    gatewayNS,
+		UseAPIGateway:       u.useAPIGateway(),
+		OwnNamespace:        sup.Namespace(),
 	}
 }
 

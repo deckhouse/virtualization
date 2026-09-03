@@ -30,6 +30,15 @@ import (
 type Settings struct {
 	// ControllerNamespace is the namespace where the virtualization-controller runs.
 	ControllerNamespace string
+	// UploaderIngressNamespace is the namespace of the ingress controller that proxies
+	// user uploads to the uploader pod (the Deckhouse ingress-nginx module namespace).
+	// Used to scope the uploader CiliumNetworkPolicy ingress in network-isolated projects.
+	// Empty disables the corresponding ingress rule (graceful degradation).
+	UploaderIngressNamespace string
+	// UploaderGatewayNamespace is the namespace of the Gateway API data-plane (the alb
+	// module) that proxies user uploads when the UploadViaAPIGateway feature gate is on.
+	// Empty disables the corresponding ingress rule (graceful degradation).
+	UploaderGatewayNamespace string
 	// AuthSecret is a name of the Secret with docker authentication.
 	AuthSecret string
 	// AuthSecretNamespace is a namespace for the AuthSecret.

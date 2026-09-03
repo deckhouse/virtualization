@@ -51,6 +51,22 @@ rules:
   - list
   - watch
   - patch
+# The per-pod ingress policy for importer/uploader pods is a CiliumNetworkPolicy
+# (standard NetworkPolicy cannot express the cluster-nodes source for host-network
+# in-cluster upload). The CRD is provided by the cni-cilium module, which the
+# virtualization module requires.
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  verbs:
+  - get
+  - create
+  - update
+  - delete
+  - list
+  - watch
+  - patch
 # The uploader is exposed either via an Ingress or, when the UploadViaAPIGateway
 # feature gate is on, via an HTTPRoute attached to the shared Gateway. The CRD is
 # provided by the alb module, so these rules are inert while it is absent.

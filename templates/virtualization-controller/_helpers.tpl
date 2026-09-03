@@ -94,6 +94,13 @@ true
 {{- end }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
+# The namespace of the Deckhouse ingress-nginx module that proxies user uploads to
+# the uploader pod. Used to scope the uploader CiliumNetworkPolicy ingress in
+# network-isolated projects (multitenancy-manager hard-codes the same namespace in
+# its isolated NetworkPolicy allow-list). Hard-coded by Deckhouse convention: the
+# platform uses only the Deckhouse ingress module.
+- name: UPLOADER_INGRESS_NAMESPACE
+  value: "d8-ingress-nginx"
 {{- if (include "virtualization.uploadViaAPIGatewayEnabled" .) }}
 # The ListenerSet rendered by this chart into the module namespace; per-upload
 # HTTPRoutes attach to its listener instead of referencing the Gateway directly.
@@ -105,6 +112,13 @@ true
 # for readiness; the Secret lives next to the ListenerSet in this namespace.
 - name: UPLOADER_LISTENER_TLS_SECRET
   value: {{ include "virtualization.uploaderGatewayTLSSecretName" . | quote }}
+# The namespace of the Gateway API data-plane (the alb module) that proxies user
+# uploads when the UploadViaAPIGateway feature gate is on. Used to scope the
+# uploader CiliumNetworkPolicy ingress in network-isolated projects.
+{{- $gateway := dict -}}
+{{- include "helm_lib_module_gateway" (list . $gateway) -}}
+- name: UPLOADER_GATEWAY_NAMESPACE
+  value: {{ $gateway.namespace | quote }}
 {{- end }}
 # cpu 4 so the zstd compressor on image upload is not the ceiling: one core
 # does ~416 MB/s, which caps a raw upload at about 3.3 Gbit. This is a limit,

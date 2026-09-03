@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,7 +88,7 @@ func (s ImporterService) Start(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, sup, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, sup, s.dvcrSettings.ControllerNamespace, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -216,7 +215,7 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup supplements
 }
 
 func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) (err error) {
-	var networkPolicy *netv1.NetworkPolicy
+	var networkPolicy client.Object
 
 	if pod != nil {
 		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod, sup)
@@ -234,7 +233,7 @@ func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod, sup suppl
 }
 
 func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) (err error) {
-	var networkPolicy *netv1.NetworkPolicy
+	var networkPolicy client.Object
 
 	if pod != nil {
 		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod, sup)

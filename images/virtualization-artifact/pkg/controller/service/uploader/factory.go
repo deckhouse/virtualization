@@ -18,6 +18,7 @@ package uploader
 
 import (
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -59,6 +60,27 @@ var httpRouteGVK = schema.GroupVersionKind{
 	Kind:    "HTTPRoute",
 }
 
+// ciliumNetworkPolicyGVK is the CiliumNetworkPolicy type. It is built as an
+// unstructured object to avoid pulling the cilium API go module into the
+// controller (the same pattern used for the Gateway API HTTPRoute above).
+var ciliumNetworkPolicyGVK = schema.GroupVersionKind{
+	Group:   "cilium.io",
+	Version: "v2",
+	Kind:    "CiliumNetworkPolicy",
+}
+
+// Container ports the uploader pod serves: metrics (8443) and upload (8444).
+const (
+	uploaderMetricsPort = 8443
+	uploaderUploadPort  = 8444
+)
+
+// ciliumNamespaceLabel is the synthesized identity label Cilium attaches to
+// every pod endpoint for namespace-based matching in fromEndpoints (Cilium's
+// EndpointSelector has no namespaceSelector field, unlike the standard
+// NetworkPolicy peer).
+const ciliumNamespaceLabel = "io.kubernetes.pod.namespace"
+
 // listenerSetKind is the Gateway API resource the per-upload HTTPRoutes attach to.
 // The Gateway itself is owned by the alb module, whose default listeners carry a
 // placeholder certificate; the module publishes the upload host through its own
@@ -75,7 +97,7 @@ const listenerSetKind = "ListenerSet"
 type Factory interface {
 	Pod() (*corev1.Pod, error)
 	Service() *corev1.Service
-	NetworkPolicy() *netv1.NetworkPolicy
+	NetworkPolicy() *unstructured.Unstructured
 	Ingress(uploadPath string) *netv1.Ingress
 	HTTPRoute(uploadPath string) *unstructured.Unstructured
 }
@@ -86,6 +108,7 @@ type factory struct {
 	podSettings         PodSettings
 	ingressSettings     IngressSettings
 	listenerSetSettings ListenerSetSettings
+	networkPolicySpec   *NetworkPolicySettings
 }
 
 // PodSettings carries the uploader Pod parameters that are not derived from the
@@ -127,11 +150,28 @@ type ListenerSetSettings struct {
 	ListenerName string
 }
 
+// NetworkPolicySettings carries the source namespaces and the API-Gateway flag used
+// to scope the uploader CiliumNetworkPolicy ingress in network-isolated projects.
+// ControllerNamespace is where the virtualization-controller runs (metrics scrape +
+// IsUploaderReady in-cluster probe); IngressNamespace is the Deckhouse ingress-nginx
+// module namespace (Ingress-path upload proxying); GatewayNamespace is the Gateway
+// API data-plane (alb) namespace (API-Gateway-path upload proxying); UseAPIGateway
+// toggles which of IngressNamespace/GatewayNamespace applies; OwnNamespace is the
+// uploader pod's namespace (in-cluster upload from pods of the same project).
+type NetworkPolicySettings struct {
+	ControllerNamespace string
+	IngressNamespace    string
+	GatewayNamespace    string
+	UseAPIGateway       bool
+	OwnNamespace        string
+}
+
 func NewFactory(
 	sup supplements.Generator,
 	podSettings PodSettings,
 	ingressSettings IngressSettings,
 	listenerSetSettings ListenerSetSettings,
+	networkPolicySettings *NetworkPolicySettings,
 	ownerReference metav1.OwnerReference,
 ) Factory {
 	return &factory{
@@ -139,6 +179,7 @@ func NewFactory(
 		podSettings:         podSettings,
 		ingressSettings:     ingressSettings,
 		listenerSetSettings: listenerSetSettings,
+		networkPolicySpec:   networkPolicySettings,
 		ownerReference:      ownerReference,
 	}
 }
@@ -234,39 +275,26 @@ func (f factory) Service() *corev1.Service {
 	}
 }
 
-// NetworkPolicy builds the egress-only NetworkPolicy for the uploader pod. It
-// sets no finalizer: the object is owned by the resource and removed by garbage
+// NetworkPolicy builds the CiliumNetworkPolicy for the uploader pod with scoped
+// ingress: the virtualization-controller namespace (metrics + readiness probe),
+// the ingress controller or Gateway API data-plane namespace (user upload proxying),
+// the uploader pod's own namespace (in-cluster upload from pods of the same
+// project), and the cluster nodes (host-network in-cluster upload from nodes).
+// Egress is allow-all. The CiliumNetworkPolicy is built as an unstructured object
+// to avoid a go dependency on the cilium API module (same pattern as HTTPRoute).
+// It sets no finalizer: the object is owned by the resource and removed by garbage
 // collection.
-func (f factory) NetworkPolicy() *netv1.NetworkPolicy {
+func (f factory) NetworkPolicy() *unstructured.Unstructured {
 	name := f.sup.NetworkPolicy()
 
-	return &netv1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "NetworkPolicy",
-			APIVersion: netv1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name.Name,
-			Namespace: name.Namespace,
-			Labels:    f.commonLabels(),
-			OwnerReferences: []metav1.OwnerReference{
-				f.ownerReference,
-			},
-		},
-		Spec: netv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{
-						Key:      annotations.AppLabel,
-						Operator: metav1.LabelSelectorOpIn,
-						Values:   []string{annotations.CDILabelValue, annotations.DVCRLabelValue},
-					},
-				},
-			},
-			Egress:      []netv1.NetworkPolicyEgressRule{{}},
-			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
-		},
-	}
+	cnp := &unstructured.Unstructured{}
+	cnp.SetGroupVersionKind(ciliumNetworkPolicyGVK)
+	cnp.SetName(name.Name)
+	cnp.SetNamespace(name.Namespace)
+	cnp.SetLabels(f.commonLabels())
+	cnp.SetOwnerReferences([]metav1.OwnerReference{f.ownerReference})
+	cnp.Object["spec"] = uploaderCNPSpec(f.networkPolicySpec)
+	return cnp
 }
 
 func (f factory) Ingress(path string) *netv1.Ingress {
@@ -518,4 +546,127 @@ func uploadURL(host string, withTLS bool, path string) string {
 		scheme = "https"
 	}
 	return fmt.Sprintf("%s://%s%s", scheme, host, path)
+}
+
+// uploaderCNPSpec builds the spec of the uploader CiliumNetworkPolicy as an
+// object (the CRD requires spec to be an object, not an array) of unstructured
+// maps/slices (so the object can be applied without a cilium API go dependency):
+//   - endpointSelector: the uploader app labels;
+//   - ingress: from the controller namespace on the metrics + upload ports, from
+//     the ingress controller OR the Gateway data-plane namespace on the upload
+//     port (depending on UseAPIGateway), from the uploader pod's own namespace
+//     on the upload port, and from the cluster nodes (host-network in-cluster
+//     upload) on the upload port;
+//   - egress: allow-all.
+//
+// Empty source namespaces skip the corresponding rule (graceful degradation):
+// the upload through that path does not work, but the controller metrics scrape
+// stays as long as the controller namespace is set.
+func uploaderCNPSpec(s *NetworkPolicySettings) map[string]interface{} {
+	spec := map[string]interface{}{
+		"endpointSelector": map[string]interface{}{
+			"matchExpressions": []interface{}{
+				map[string]interface{}{
+					"key":      annotations.AppLabel,
+					"operator": "In",
+					"values":   []interface{}{annotations.CDILabelValue, annotations.DVCRLabelValue},
+				},
+			},
+		},
+		// An egress rule with toEntities: [all] allows all egress (cluster pods, hosts,
+		// world). The uploader pod must reach DVCR to push the uploaded image; the
+		// project isolated NetworkPolicy imposes a default egress deny, so this rule
+		// is required to override it (Cilium union: an allow from any policy wins).
+		// Unlike the standard NetworkPolicy egress: [{}] (wildcard), a Cilium egress
+		// rule with no destination matcher matches nothing — toEntities: [all] is the
+		// Cilium equivalent of allow-all egress.
+		"egress": []interface{}{map[string]interface{}{"toEntities": []interface{}{"all"}}},
+		"enableDefaultDeny": map[string]interface{}{
+			"ingress": true,
+			"egress":  false,
+		},
+	}
+	if s == nil {
+		return spec
+	}
+
+	var ingressRules []interface{}
+	if s.ControllerNamespace != "" {
+		ingressRules = append(ingressRules,
+			namespaceIngressRule(s.ControllerNamespace, uploaderMetricsPort),
+			namespaceIngressRule(s.ControllerNamespace, uploaderUploadPort),
+		)
+	}
+	// Only one of the ingress-controller / gateway namespaces applies at a time;
+	// the inactive exposure does not exist, so its source is never a real client.
+	if s.UseAPIGateway {
+		if s.GatewayNamespace != "" {
+			ingressRules = append(ingressRules, namespaceIngressRule(s.GatewayNamespace, uploaderUploadPort))
+		}
+	} else {
+		if s.IngressNamespace != "" {
+			ingressRules = append(ingressRules, namespaceIngressRule(s.IngressNamespace, uploaderUploadPort))
+		}
+	}
+	if s.OwnNamespace != "" {
+		ingressRules = append(ingressRules, namespaceIngressRule(s.OwnNamespace, uploaderUploadPort))
+	}
+	ingressRules = append(ingressRules, entitiesIngressRule([]string{"cluster"}, uploaderUploadPort))
+
+	if len(ingressRules) > 0 {
+		spec["ingress"] = ingressRules
+	}
+	return spec
+}
+
+// namespaceIngressRule builds a CiliumNetworkPolicy ingress rule allowing a
+// namespace on a single TCP port.
+//
+// Cilium's fromEndpoints EndpointSelector has no namespaceSelector field
+// (unlike the standard NetworkPolicy peer): the API server silently drops it,
+// leaving a wildcard {}. Namespace filtering in Cilium is done via the
+// synthesized identity label ciliumNamespaceLabel.
+func namespaceIngressRule(namespace string, port int) map[string]interface{} {
+	return map[string]interface{}{
+		"fromEndpoints": []interface{}{
+			map[string]interface{}{
+				"matchLabels": map[string]interface{}{
+					ciliumNamespaceLabel: namespace,
+				},
+			},
+		},
+		"toPorts": []interface{}{
+			map[string]interface{}{
+				"ports": []interface{}{
+					map[string]interface{}{
+						"port":     strconv.Itoa(port),
+						"protocol": "TCP",
+					},
+				},
+			},
+		},
+	}
+}
+
+// entitiesIngressRule builds a CiliumNetworkPolicy ingress rule allowing the
+// given cilium entities (e.g. "cluster" for host-network traffic from nodes) on
+// a single TCP port.
+func entitiesIngressRule(entities []string, port int) map[string]interface{} {
+	entityVals := make([]interface{}, len(entities))
+	for i, e := range entities {
+		entityVals[i] = e
+	}
+	return map[string]interface{}{
+		"fromEntities": entityVals,
+		"toPorts": []interface{}{
+			map[string]interface{}{
+				"ports": []interface{}{
+					map[string]interface{}{
+						"port":     strconv.Itoa(port),
+						"protocol": "TCP",
+					},
+				},
+			},
+		},
+	}
 }
