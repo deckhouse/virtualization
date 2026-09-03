@@ -67,6 +67,9 @@ const (
 	// ReasonVMCPUAndMemoryResizing is event reason that the vm cpu and memory are resizing.
 	ReasonVMCPUAndMemoryResizing = "CPUAndMemoryResizing"
 
+	// ReasonWorkloadUpdateFailed is event reason that an automatic workload-update migration failed and will not be retried.
+	ReasonWorkloadUpdateFailed = "WorkloadUpdateFailed"
+
 	// ReasonErrVMOPFailed is event reason that operation is failed
 	ReasonErrVMOPFailed = "VirtualMachineOperationFailed"
 

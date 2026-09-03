@@ -396,11 +396,25 @@ var _ = Describe("LifecycleHandler", func() {
 				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{Conditions: []virtv1.VirtualMachineInstanceMigrationCondition{{Type: virtv1.VirtualMachineInstanceMigrationFailed, Reason: "VolumeAttach", Message: "csi volume attach failed"}}}},
 				vmopcondition.ReasonTargetDiskError,
 			),
+			Entry("corrupted block device state from failure reason",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{FailureReason: "unable to execute QEMU command 'query-named-block-nodes': Block device libvirt-3-format is ejected"}}},
+				vmopcondition.ReasonBlockDeviceStateCorrupted,
+			),
+			Entry("corrupted block device state from condition",
+				&virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{Conditions: []virtv1.VirtualMachineInstanceMigrationCondition{{Type: virtv1.VirtualMachineInstanceMigrationFailed, Reason: "MigrationFailed", Message: "Block device libvirt-3-format is ejected"}}}},
+				vmopcondition.ReasonBlockDeviceStateCorrupted,
+			),
 			Entry("generic failed reason",
 				&virtv1.VirtualMachineInstanceMigration{},
 				vmopcondition.ReasonFailed,
 			),
 		)
+
+		It("should recommend a restart for the corrupted block device state", func() {
+			h := LifecycleHandler{}
+			msg := h.getFailedMessage(vmopcondition.ReasonBlockDeviceStateCorrupted, nil)
+			Expect(msg).To(ContainSubstring("restart the VirtualMachine"))
+		})
 
 		It("should keep migration pending for inbound target node limit", func() {
 			mig := newSimpleMigration("vmop-test", name)

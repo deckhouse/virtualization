@@ -51,15 +51,15 @@ func SetupController(
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	handlers := []Handler{
-		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, commonvmop.FirmwareUpdatePrefix), firmwareImage, namespace, virtControllerName, disableFirmwareUpdate),
-		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, commonvmop.NodePlacementUpdatePrefix)),
+		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, recorder, commonvmop.FirmwareUpdatePrefix), firmwareImage, namespace, virtControllerName, disableFirmwareUpdate),
+		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, recorder, commonvmop.NodePlacementUpdatePrefix)),
 	}
 	isMemoryHotplug := featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration)
 	isCPUHotplug := featuregates.Default().Enabled(featuregates.HotplugCPUWithLiveMigration)
 	if isMemoryHotplug || isCPUHotplug {
 		hotplugHandler := handler.NewHotplugHandler(
 			client,
-			service.NewOneShotMigrationService(client, commonvmop.HotplugResourcesPrefix),
+			service.NewOneShotMigrationService(client, recorder, commonvmop.HotplugResourcesPrefix),
 			inplaceresize.New(featuregates.Default(), client),
 			featuregates.Default(),
 			recorder,
