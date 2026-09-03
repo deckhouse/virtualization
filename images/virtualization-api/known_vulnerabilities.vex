@@ -17,8 +17,36 @@
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "GO-2026-5932 относится к пакету golang.org/x/crypto/openpgp, который является unmaintained и не имеет исправленной версии. В образе virtualization-api пакет openpgp присутствует исключительно как транзитивная зависимость модуля golang.org/x/crypto; агрегированный apiserver не использует OpenPGP-функциональность. Код openpgp не входит в путь исполнения virtualization-api, поэтому уязвимость для образа не достижима.",
       "timestamp": "2026-07-13T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56855"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-56855 — отказ в обслуживании (DoS) в пакете golang.org/x/crypto/ssh (deadlock на установленном (established) канале), исправлен в golang.org/x/crypto v0.56.0. Из модуля golang.org/x/crypto в бинарный файл virtualization-api линкуются только криптографические примитивы (cryptobyte, chacha20poly1305, hkdf) для TLS; пакет golang.org/x/crypto/ssh в него не входит (go mod why: «main module does not need package golang.org/x/crypto/ssh»). Уязвимый ssh-код не участвует в исполнении, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-03T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-78662"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-78662 — отказ в обслуживании (DoS) в пакете golang.org/x/crypto/ssh (deadlock на неопределённом (undecided) канале), исправлен в golang.org/x/crypto v0.56.0. Из модуля golang.org/x/crypto в бинарный файл virtualization-api линкуются только криптографические примитивы (cryptobyte, chacha20poly1305, hkdf) для TLS; пакет golang.org/x/crypto/ssh в него не входит (go mod why: «main module does not need package golang.org/x/crypto/ssh»). Уязвимый ssh-код не участвует в исполнении, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-03T00:00:00Z"
     }
   ],
   "timestamp": "2026-07-13T00:00:00Z",
-  "last_updated": "2026-08-31T00:00:00Z"
+  "last_updated": "2026-09-03T00:00:00Z"
 }
