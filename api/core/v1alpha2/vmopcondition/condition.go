@@ -107,6 +107,11 @@ const (
 	// ReasonNotConverging indicates that migration cannot converge even with maximum throttling.
 	ReasonNotConverging ReasonCompleted = "NotConverging"
 
+	// ReasonBlockDeviceStateCorrupted indicates that the migration failed because a guest
+	// block device was left in a corrupted state by a previous failed migration.
+	// The virtual machine must be restarted to become migratable again.
+	ReasonBlockDeviceStateCorrupted ReasonCompleted = "BlockDeviceStateCorrupted"
+
 	// ReasonSourceSuspended indicates that source VM has been suspended.
 	ReasonSourceSuspended ReasonCompleted = "SourceSuspended"
 

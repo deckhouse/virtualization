@@ -323,7 +323,12 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 				migrationState.Failed &&
 				migrationState.EndTimestamp != nil &&
 				genericservice.IsAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop) {
-				completedCond.Message(fmt.Sprintf("Migration failed: %s", migrationState.FailureReason))
+				if isBlockDeviceStateCorrupted(migrationState.FailureReason) {
+					completedCond.Reason(vmopcondition.ReasonBlockDeviceStateCorrupted)
+					completedCond.Message(fmt.Sprintf("%s: %s", h.getFailedMessage(vmopcondition.ReasonBlockDeviceStateCorrupted, nil), migrationState.FailureReason))
+				} else {
+					completedCond.Message(fmt.Sprintf("Migration failed: %s", migrationState.FailureReason))
+				}
 			}
 		} else {
 			completedCond.Message("Migration failed because the virtual machine is currently not running.")
@@ -561,6 +566,10 @@ func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.Virtua
 }
 
 func getMessageByMigrationFailedReason(mig *virtv1.VirtualMachineInstanceMigration) string {
+	if mig == nil {
+		return ""
+	}
+
 	cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationFailed, mig.Status.Conditions)
 
 	if cond.Status == corev1.ConditionTrue && found {
@@ -585,6 +594,9 @@ func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigr
 		if state.AbortRequested || state.AbortStatus == virtv1.MigrationAbortSucceeded {
 			return vmopcondition.ReasonAborted
 		}
+		if isBlockDeviceStateCorrupted(state.FailureReason) {
+			return vmopcondition.ReasonBlockDeviceStateCorrupted
+		}
 		if strings.Contains(strings.ToLower(state.FailureReason), "converg") || strings.Contains(strings.ToLower(state.FailureReason), "progress") {
 			return vmopcondition.ReasonNotConverging
 		}
@@ -592,6 +604,9 @@ func (h LifecycleHandler) getFailedReason(mig *virtv1.VirtualMachineInstanceMigr
 
 	if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationFailed, mig.Status.Conditions); found {
 		reason := strings.ToLower(cond.Reason + " " + cond.Message)
+		if isBlockDeviceStateCorrupted(reason) {
+			return vmopcondition.ReasonBlockDeviceStateCorrupted
+		}
 		if strings.Contains(reason, "schedul") || strings.Contains(reason, "unschedul") {
 			return vmopcondition.ReasonTargetUnschedulable
 		}
@@ -614,6 +629,8 @@ func (h LifecycleHandler) getFailedMessage(reason vmopcondition.ReasonCompleted,
 		base = "Migration failed: target pod is unschedulable"
 	case vmopcondition.ReasonTargetDiskError:
 		base = "Migration failed: target disk attach error"
+	case vmopcondition.ReasonBlockDeviceStateCorrupted:
+		base = "Migration failed: a block device of the virtual machine was left in a corrupted state by a previous failed migration, restart the VirtualMachine to make it migratable again"
 	}
 
 	if mig != nil && mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
@@ -791,6 +808,14 @@ func (h LifecycleHandler) forgetProgress(vmop *v1alpha2.VirtualMachineOperation)
 		return
 	}
 	h.progressStrategy.Forget(vmop.UID)
+}
+
+// isBlockDeviceStateCorrupted reports whether the libvirt failure text indicates a guest
+// block device stuck in the "ejected" state. QEMU may leave a hotplugged CD-ROM backend
+// ejected after an aborted migration; from then on every query-named-block-nodes call for
+// the domain fails and only a restart of the virtual machine recovers it.
+func isBlockDeviceStateCorrupted(failureText string) bool {
+	return strings.Contains(strings.ToLower(failureText), "is ejected")
 }
 
 func humanizeMigrationFailedMessage(message string) string {
