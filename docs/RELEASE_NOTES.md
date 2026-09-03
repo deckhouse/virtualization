@@ -3,6 +3,37 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.10.5
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: September 3, 2026.
+</span>
+
+### Highlights
+
+- The release fixes possible data loss during a disk migration and a VM with an attached image that could not be migrated at all. It also patches vulnerabilities in the module.
+
+### Fixes
+
+- [vmop] An operation on a virtual machine (VM) created without any labels and annotations no longer fails.
+- [vm] A VM with an attached image can now be live migrated.
+- [vm] A migration of a VM with a corrupted block device now names the reason and suggests a restart.
+- [vm] An automatic VM update no longer gives up after the first failed migration and retries it up to three times.
+- [core] The service components of a VM are no longer left on the source node after a live migration.
+- [vd] Fixed possible data loss during a disk migration.
+- [vd] A disk can be migrated again right after a canceled migration.
+- [vi] A [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) no longer returns to the `Pending` phase while it is being uploaded.
+- [core] A zero-size disk no longer blocks disk operations and VM migrations.
+- [dvcr] Fixed the overstated size reported for an image in the `raw` format.
+- [module] Fixed an error that kept the module from being enabled on the first attempt.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-56854
+  - CVE-2026-84304
+  - GHSA-w67g-5rqw-f597
+
 ## v1.10.4
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
