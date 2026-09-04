@@ -32,11 +32,11 @@ shell:
     for dir in {bin,sbin,lib,lib64};do
       ln -s usr/$dir $dir
     done
-    # /var/run must stay a real directory: kubevirt walks
-    # /proc/<pid>/root/var/run/kubevirt/... with O_NOFOLLOW and aborts on any symlink.
-    # /run is the compatibility link, the opposite of the usual host layout.
-    mkdir -p var/run
-    ln -s var/run run
+    # /var/run -> ../run symlink to prevent making /var/run a directory during the build.
+    # It is needed for better compatibility with containerd default top layer.
+    mkdir -p run
+    mkdir -p var
+    ln -s var/run ../run
     cd /
 
     cp -pr /tmp /relocate
