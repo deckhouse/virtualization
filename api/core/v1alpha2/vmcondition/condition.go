@@ -282,6 +282,18 @@ func (r EvictionRequiredReason) String() string {
 const (
 	// ReasonEvictionRequired indicates that the VirtualMachine should be evicting from node.
 	ReasonEvictionRequired EvictionRequiredReason = "EvictionRequired"
+	// ReasonNodeUnderMaintenance indicates that the node running the VirtualMachine is being taken
+	// out of service, while the eviction of the machine has not started yet.
+	ReasonNodeUnderMaintenance EvictionRequiredReason = "NodeUnderMaintenance"
+	// ReasonRestartRequired indicates that the VirtualMachine cannot leave the node by live migration
+	// and is restarted by the platform: right away when an administrator approved the restart on
+	// the node, or once the node maintenance deadline has passed.
+	ReasonRestartRequired EvictionRequiredReason = "RestartRequired"
+	// ReasonEvictionBlocked indicates that the VirtualMachine cannot leave the node and no restart
+	// is allowed, so the node stays occupied. It covers both a machine that cannot be live migrated
+	// at all and one that has no node to migrate to: the reason names the state of the eviction,
+	// while the message of the condition names who can move it forward.
+	ReasonEvictionBlocked EvictionRequiredReason = "EvictionBlocked"
 )
 
 type NetworkReadyReason string

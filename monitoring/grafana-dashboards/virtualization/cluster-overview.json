@@ -96,7 +96,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg (\n    sum by (pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Pending|Stopped)\"}==1\n    )\n)",
+          "expr": "sum (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase=\"Running\"}==1\n    )\n)",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -168,7 +168,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count(d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase=\"Migrating\"} == 1) or vector(0)",
+          "expr": "count(\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase=\"Migrating\"} == 1\n    )\n) or vector(0)",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -240,7 +240,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg (\n    count by (pod) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\"} == 0\n    )\n) or vector(0)",
+          "expr": "count (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\"} == 0\n    )\n) or vector(0)",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -307,7 +307,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg (\n  sum by (pod) (\n        (\n            (\n                d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} \n                * \n                d8_virtualization_virtualmachine_cpu_core_fraction\n            )\n            # Stopped VM do not use CPU\n            *\n            on(namespace, pod, name) group_left()\n            (\n                1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n            )\n            # Pending VM do not eats RAM\n            *\n            on(namespace, pod, name) group_left()\n            (\n            1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n            )\n        ) / 100\n    )\n) ",
+          "expr": "sum (\n  max by (namespace, name) (\n        (\n            (\n                d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} \n                * \n                d8_virtualization_virtualmachine_cpu_core_fraction\n            )\n            # Stopped VM do not use CPU\n            *\n            on(namespace, name) group_left()\n            (\n                1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n            )\n            # Pending VM do not eats RAM\n            *\n            on(namespace, name) group_left()\n            (\n            1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n            )\n        ) / 100\n    )\n) ",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -375,7 +375,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg (\n  sum by(pod) (\n    (\n      d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"}\n      +\n      d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes\n    )\n    # VM during migration eats x2 RAM\n    *\n    on(namespace, pod, name) group_left()\n    (\n      1 + max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"})\n    )\n    # Stopped VM do not eats RAM\n    *\n    on(namespace, pod, name) group_left()\n    (\n      1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n    )\n    # Pending VM do not eats RAM\n    *\n    on(namespace, pod, name) group_left()\n    (\n      1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n    )\n  )\n)\n",
+          "expr": "sum (\n  max by(namespace, name) (\n    (\n      d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"}\n      +\n      d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes\n    )\n    # VM during migration eats x2 RAM\n    *\n    on(namespace, name) group_left()\n    (\n      1 + max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"})\n    )\n    # Stopped VM do not eats RAM\n    *\n    on(namespace, name) group_left()\n    (\n      1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n    )\n    # Pending VM do not eats RAM\n    *\n    on(namespace, name) group_left()\n    (\n      1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n    )\n  )\n)\n",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -443,7 +443,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg (\n  sum by (pod) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
+          "expr": "sum (\n  max by (namespace, name) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -453,6 +453,19 @@
       ],
       "title": "Storage allocated",
       "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 160,
+      "panels": [],
+      "title": "Namespaces",
+      "type": "row"
     },
     {
       "datasource": {
@@ -531,7 +544,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Active VM Count"
+                "value": "Running VMs"
               }
             ]
           },
@@ -701,7 +714,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 6
       },
       "id": 80,
       "maxPerRow": 6,
@@ -727,7 +740,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Pending|Stopped)\"}==1\n    )\n)",
+          "expr": "sum by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase=\"Running\"}==1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -742,7 +755,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        (\n            (\n                d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} \n                * \n                d8_virtualization_virtualmachine_cpu_core_fraction\n            )\n            # Stopped VM do not use CPU\n            *\n            on(namespace, pod, name) group_left()\n            (\n                1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n            )\n            # Pending VM do not eats RAM\n            *\n            on(namespace, pod, name) group_left()\n            (\n            1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n            )\n        ) / 100\n    )\n) ",
+          "expr": "sum by (namespace) (\n  max by (namespace, name) (\n        (\n            (\n                d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} \n                * \n                d8_virtualization_virtualmachine_cpu_core_fraction\n            )\n            # Stopped VM do not use CPU\n            *\n            on(namespace, name) group_left()\n            (\n                1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n            )\n            # Pending VM do not eats RAM\n            *\n            on(namespace, name) group_left()\n            (\n            1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n            )\n        ) / 100\n    )\n) ",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -758,7 +771,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by(namespace) (\n  sum by(namespace, pod) (\n    (\n      d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"}\n      +\n      d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes\n    )\n    # VM during migration eats x2 RAM\n    *\n    on(namespace, pod, name) group_left()\n    (\n      1 + max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"})\n    )\n    # Stopped VM do not eats RAM\n    *\n    on(namespace, pod, name) group_left()\n    (\n      1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n    )\n    # Pending VM do not eats RAM\n    *\n    on(namespace, pod, name) group_left()\n    (\n      1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n    )\n  )\n)\n",
+          "expr": "sum by(namespace) (\n  max by(namespace, name) (\n    (\n      d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"}\n      +\n      d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes\n    )\n    # VM during migration eats x2 RAM\n    *\n    on(namespace, name) group_left()\n    (\n      1 + max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"})\n    )\n    # Stopped VM do not eats RAM\n    *\n    on(namespace, name) group_left()\n    (\n      1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"})\n    )\n    # Pending VM do not eats RAM\n    *\n    on(namespace, name) group_left()\n    (\n      1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"})\n    )\n  )\n)\n",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -802,7 +815,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
+          "expr": "sum by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -817,7 +830,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualimage_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
+          "expr": "sum by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualimage_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -832,7 +845,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualdisksnapshot_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
+          "expr": "sum by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualdisksnapshot_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -847,7 +860,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachinesnapshot_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
+          "expr": "sum by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachinesnapshot_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -862,7 +875,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (name,namespace) (\n  sum by (namespace,pod) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
+          "expr": "sum by (namespace) (\n  max by (namespace, name) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -877,7 +890,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
+          "expr": "sum by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -892,7 +905,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase=\"Migrating\"}==1\n    )\n)",
+          "expr": "sum by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase=\"Migrating\"}==1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -908,7 +921,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\"} == 0\n    )\n)",
+          "expr": "count by (namespace) (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\"} == 0\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -917,7 +930,7 @@
           "refId": "NonMigratableVMs"
         }
       ],
-      "title": "Namespaces",
+      "title": "",
       "transformations": [
         {
           "id": "merge",
@@ -979,7 +992,737 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 17
+      },
+      "id": 161,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "How each node stands for a maintenance: how many machines it runs, how many are migrating, how many can leave by live migration and how many cannot, how many are affected by a maintenance right now, and how much room is left on the node for virtual machines.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false,
+                "minWidth": 70
+              },
+              "displayName": "",
+              "mappings": [],
+              "noValue": "-",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "node"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Node"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 200
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Node details",
+                        "url": "/d/rYdddlPWk/node?var-ds_prometheus=${ds_prometheus}&var-node=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #RunningVMs"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Running VMs"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #MigratingVMs"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Migrating VMs"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #MigratableVMs"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Migratable VMs"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #NonMigratableVMs"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Non-migratable VMs"
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #UnderMaintenance"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Under maintenance"
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "text",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #FreeCPU"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "CPU free for VMs"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #FreeMemory"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Memory free for VMs"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Unschedulable"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Unschedulable"
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "0": {
+                            "index": 0,
+                            "text": "no"
+                          },
+                          "1": {
+                            "index": 1,
+                            "text": "yes"
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 18
+          },
+          "id": 141,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": [
+                "Value #RunningVMs",
+                "Value #MigratingVMs",
+                "Value #MigratableVMs",
+                "Value #NonMigratableVMs",
+                "Value #UnderMaintenance",
+                "Value #FreeCPU",
+                "Value #FreeMemory"
+              ],
+              "reducer": [
+                "sum"
+              ],
+              "show": true
+            },
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Non-migratable VMs"
+              }
+            ]
+          },
+          "pluginVersion": "10.4.19",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "count by (node) (\n    max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", node!=\"\", phase=\"Running\"} == 1\n    )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "RunningVMs"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "count by (node) (\n    max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", node!=\"\", phase=\"Migrating\"} == 1\n    )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "MigratingVMs"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "count by (node) (\n    max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\", node!=\"\"} == 1\n    )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "MigratableVMs"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "count by (node) (\n    max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\", node!=\"\"} == 0\n    )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "NonMigratableVMs"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "count by (node) (\n    max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_eviction_required{namespace=~\"$namespace\", node!=\"\"} == 1\n    )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "UnderMaintenance"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (node) (kube_node_status_allocatable{resource=\"cpu\"})\n-\n(\n  sum by (node) (\n    max by (node, namespace, name) (\n      d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} * d8_virtualization_virtualmachine_cpu_core_fraction / 100\n    )\n  )\n  or\n  max by (node) (kube_node_status_allocatable{resource=\"cpu\"}) * 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "FreeCPU"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (node) (kube_node_status_allocatable{resource=\"memory\"})\n-\n(\n  sum by (node) (\n    max by (node, namespace, name) (\n      d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"}\n      + d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes\n    )\n  )\n  or\n  max by (node) (kube_node_status_allocatable{resource=\"memory\"}) * 0\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "FreeMemory"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (node) (kube_node_spec_unschedulable)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Unschedulable"
+            }
+          ],
+          "title": "",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "node",
+                    "Value #RunningVMs",
+                    "Value #MigratingVMs",
+                    "Value #MigratableVMs",
+                    "Value #NonMigratableVMs",
+                    "Value #UnderMaintenance",
+                    "Value #FreeCPU",
+                    "Value #FreeMemory",
+                    "Value #Unschedulable"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "node": 0,
+                  "Value #RunningVMs": 1,
+                  "Value #MigratingVMs": 2,
+                  "Value #MigratableVMs": 3,
+                  "Value #NonMigratableVMs": 4,
+                  "Value #UnderMaintenance": 5,
+                  "Value #FreeCPU": 6,
+                  "Value #FreeMemory": 7,
+                  "Value #Unschedulable": 8
+                },
+                "renameByName": {}
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Number of running VMs distributed across cluster nodes over time",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 30,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 0,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 26
+          },
+          "id": 136,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "sum by (node) (\n  max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Pending|Stopped)\",node!=\"\"} \n    )\n)",
+              "format": "time_series",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "GuaranteedCores"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum (\n  max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Pending|Stopped)\",node!=\"\"} \n    )\n) ",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Total",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Running VMs by node",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Number of running virtual machines that cannot be live migrated, grouped by the node they run on",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 30,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 0,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 26
+          },
+          "id": 142,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "count by (node) (\n    max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\", node!=\"\"} == 0\n    )\n)",
+              "format": "time_series",
+              "instant": false,
+              "legendFormat": "{{node}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "count (\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\"} == 0\n    )\n) or vector(0)",
+              "format": "time_series",
+              "instant": false,
+              "legendFormat": "Total",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Non-migratable VMs by node",
+          "type": "timeseries"
+        }
+      ],
+      "title": "Nodes",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
       },
       "id": 120,
       "panels": [
@@ -1074,7 +1817,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 35
           },
           "id": 69,
           "options": {
@@ -1100,7 +1843,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Stopped|Terminating)\"} \n    )\n)",
+              "expr": "sum by (namespace) (\n  max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Stopped|Terminating)\"} \n    )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "{{namespace}}",
@@ -1113,7 +1856,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg (\n  sum by (pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Stopped|Terminating)\"} \n    )\n) ",
+              "expr": "sum (\n  max by (namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Stopped|Terminating)\"} \n    )\n) ",
               "hide": false,
               "instant": false,
               "legendFormat": "Total",
@@ -1122,149 +1865,6 @@
             }
           ],
           "title": "Running VMs by namespace",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "description": "Number of running VMs distributed across cluster nodes over time",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 30,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "stepBefore",
-                "lineStyle": {
-                  "fill": "solid"
-                },
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "fieldMinMax": false,
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Total"
-                },
-                "properties": [
-                  {
-                    "id": "custom.stacking",
-                    "value": {
-                      "group": "A",
-                      "mode": "none"
-                    }
-                  },
-                  {
-                    "id": "custom.lineWidth",
-                    "value": 0
-                  },
-                  {
-                    "id": "custom.fillOpacity",
-                    "value": 0
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 17
-          },
-          "id": 136,
-          "options": {
-            "legend": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "displayMode": "table",
-              "placement": "right",
-              "showLegend": true,
-              "sortBy": "Last *",
-              "sortDesc": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${ds_prometheus}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "avg by (node) (\n  sum by (node, pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Pending|Stopped)\",node!=\"\"} \n    )\n)",
-              "format": "time_series",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "GuaranteedCores"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${ds_prometheus}"
-              },
-              "editorMode": "code",
-              "expr": "avg (\n  sum by (pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\",phase!~\"(Pending|Stopped)\",node!=\"\"} \n    )\n) ",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "Total",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Running VMs by node",
           "type": "timeseries"
         },
         {
@@ -1357,8 +1957,8 @@
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 0,
-            "y": 25
+            "x": 12,
+            "y": 35
           },
           "id": 134,
           "options": {
@@ -1384,7 +1984,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by (phase) (\n  sum by (phase,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} \n    )\n)",
+              "expr": "sum by (phase) (\n  max by (phase, namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} \n    )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "{{namespace}}",
@@ -1393,149 +1993,6 @@
             }
           ],
           "title": "Total VM count by phase",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "description": "Number of running virtual machines that cannot be live migrated, grouped by the node they run on",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 30,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "stepBefore",
-                "lineStyle": {
-                  "fill": "solid"
-                },
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "fieldMinMax": false,
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Total"
-                },
-                "properties": [
-                  {
-                    "id": "custom.stacking",
-                    "value": {
-                      "group": "A",
-                      "mode": "none"
-                    }
-                  },
-                  {
-                    "id": "custom.lineWidth",
-                    "value": 0
-                  },
-                  {
-                    "id": "custom.fillOpacity",
-                    "value": 0
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 25
-          },
-          "id": 141,
-          "options": {
-            "legend": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "displayMode": "table",
-              "placement": "right",
-              "showLegend": true,
-              "sortBy": "Last *",
-              "sortDesc": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${ds_prometheus}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "avg by (node) (\n    count by (node, pod) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\", node!=\"\"} == 0\n    )\n)",
-              "format": "time_series",
-              "instant": false,
-              "legendFormat": "{{node}}",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${ds_prometheus}"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "avg (\n    count by (pod) (\n        d8_virtualization_virtualmachine_migratable{namespace=~\"$namespace\"} == 0\n    )\n) or vector(0)",
-              "format": "time_series",
-              "instant": false,
-              "legendFormat": "Total",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Non-migratable VMs by node",
           "type": "timeseries"
         }
       ],
@@ -1548,7 +2005,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 19
       },
       "id": 21,
       "panels": [
@@ -1871,7 +2328,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by (namespace) (\n  sum by (namespace, pod) (\n    (\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n      *\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n      *\n      (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n      *\n      (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n    ) / 100\n  )\n)",
+              "expr": "sum by (namespace) (\n  max by (namespace, name) (\n    (\n      max by(namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n      *\n      max by(namespace, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n      *\n      (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n      *\n      (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n    ) / 100\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "{{namespace}}",
@@ -1884,7 +2341,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg (\n  sum by (pod) (\n    (\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n      *\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n      *\n      (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n      *\n      (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n    ) / 100\n  )\n)",
+              "expr": "sum (\n  max by (namespace, name) (\n    (\n      max by(namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n      *\n      max by(namespace, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n      *\n      (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n      *\n      (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n    ) / 100\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "Total",
@@ -1994,7 +2451,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "(\n  sum by (namespace) (\n    rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  ) / 1000\n)\n/\n(\n  avg by (namespace) (\n    sum by (namespace, pod) (\n      (\n        max by(namespace, pod, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n        *\n        max by(namespace, pod, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n        *\n        (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n        *\n        (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n      ) / 100\n    )\n  ) / 100\n)",
+              "expr": "(\n  sum by (namespace) (\n    max by (namespace, name) (\n      rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  ) / 1000\n)\n/\n(\n  sum by (namespace) (\n    max by (namespace, name) (\n      (\n        max by(namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n        *\n        max by(namespace, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n        *\n        (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n        *\n        (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n      ) / 100\n    )\n  ) / 100\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "{{namespace}}",
@@ -2015,7 +2472,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 20
       },
       "id": 28,
       "panels": [
@@ -2268,7 +2725,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by(namespace) (\n  sum by(namespace, pod) (\n    (\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})\n      +\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes{namespace=~\"$namespace\"})\n    )\n    *\n    (1 + max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"}))\n    *\n    (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n    *\n    (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n  )\n)",
+              "expr": "sum by(namespace) (\n  max by(namespace, name) (\n    (\n      max by(namespace, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})\n      +\n      max by(namespace, name) (d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes{namespace=~\"$namespace\"})\n    )\n    *\n    (1 + max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"}))\n    *\n    (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n    *\n    (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "__auto",
@@ -2281,7 +2738,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg (\n  sum by(pod) (\n    (\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})\n      +\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes{namespace=~\"$namespace\"})\n    )\n    *\n    (1 + max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"}))\n    *\n    (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n    *\n    (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n  )\n)",
+              "expr": "sum (\n  max by(namespace, name) (\n    (\n      max by(namespace, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})\n      +\n      max by(namespace, name) (d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes{namespace=~\"$namespace\"})\n    )\n    *\n    (1 + max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"}))\n    *\n    (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n    *\n    (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "Total",
@@ -2387,7 +2844,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace) (\n  d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"}\n  -\n  d8_virtualization_virtualmachine_os_memory_free_bytes{namespace=~\"$namespace\"}\n)\n/\n(\n  avg by (namespace) (\n    sum by (pod, namespace) (\n      max by(namespace, pod, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})\n      *\n      (1 + max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"}))\n      *\n      (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n      *\n      (1 - max by(namespace, pod, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n    )\n  ) / 100\n)",
+              "expr": "(\n  sum by (namespace) (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"}\n      -\n      d8_virtualization_virtualmachine_os_memory_free_bytes{namespace=~\"$namespace\"}\n    )\n  )\n)\n/\n(\n  sum by (namespace) (\n    max by(namespace, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})\n    *\n    (1 + max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Migrating\"}))\n    *\n    (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Stopped\"}))\n    *\n    (1 - max by(namespace, name) (d8_virtualization_virtualmachine_status_phase{phase=\"Pending\"}))\n  ) / 100\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "{{namespace}}",
@@ -2408,7 +2865,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 21
       },
       "id": 60,
       "panels": [
@@ -2731,7 +3188,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
+              "expr": "sum by (namespace) (\n  max by (namespace, name) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
               "hide": false,
               "instant": false,
               "legendFormat": "{{ name }}",
@@ -2744,7 +3201,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg (\n  sum by (pod) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
+              "expr": "sum (\n  max by (namespace, name) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
               "hide": false,
               "instant": false,
               "legendFormat": "Total",
@@ -2765,7 +3222,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 22
       },
       "id": 128,
       "panels": [
@@ -2824,7 +3281,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "avg (\n    sum by (pod) (\n        d8_virtualization_clustervirtualimage_status_phase{}==1\n    )\n)",
+              "expr": "sum (\n    max by (name) (\n        d8_virtualization_clustervirtualimage_status_phase{}==1\n    )\n)",
               "format": "time_series",
               "instant": true,
               "legendFormat": "__auto",
@@ -3241,7 +3698,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "avg (\n    sum by (pod) (\n        d8_virtualization_virtualimage_status_phase{}==1\n    )\n)",
+              "expr": "sum (\n    max by (namespace, name) (\n        d8_virtualization_virtualimage_status_phase{}==1\n    )\n)",
               "format": "time_series",
               "instant": true,
               "legendFormat": "__auto",

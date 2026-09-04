@@ -30,7 +30,9 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 // VMContainerNameSuffix - a name suffix for container with virt-launcher, libvirt and qemu processes.
@@ -242,4 +244,20 @@ func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string 
 		res[k] = v
 	}
 	return res
+}
+
+// HoldsNodeUnderMaintenance reports whether the machine keeps its node occupied: the eviction has
+// arrived and the machine cannot leave alive, so only a restart moves it.
+func HoldsNodeUnderMaintenance(vm *v1alpha2.VirtualMachine) bool {
+	if vm == nil {
+		return false
+	}
+
+	cond, found := conditions.GetCondition(vmcondition.TypeEvictionRequired, vm.Status.Conditions)
+	if !found {
+		return false
+	}
+
+	return cond.Reason == vmcondition.ReasonEvictionBlocked.String() ||
+		cond.Reason == vmcondition.ReasonRestartRequired.String()
 }

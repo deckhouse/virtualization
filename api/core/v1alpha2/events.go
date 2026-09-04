@@ -34,6 +34,10 @@ const (
 	// ReasonVMEvicted is event reason that VM is about to evict.
 	ReasonVMEvicted = "Evicted"
 
+	// ReasonVMNodeMaintenanceRestarted is event reason that VM is restarted to release a node
+	// that is being taken out of service.
+	ReasonVMNodeMaintenanceRestarted = "NodeMaintenanceRestarted"
+
 	// ReasonVMMigrated is event reason that VM is about to migrate.
 	ReasonVMMigrated = "Migrated"
 

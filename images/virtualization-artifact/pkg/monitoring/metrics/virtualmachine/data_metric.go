@@ -54,6 +54,8 @@ type dataMetric struct {
 	// It may differ from spec.virtualMachineClassName if the spec was changed but the VM wasn't restarted.
 	AppliedVirtualMachineClassName string
 	Migratable                     bool
+	// EvictionRequiredReason is empty while the node running the virtual machine works as usual.
+	EvictionRequiredReason string
 	// MigratableKnown is false while the virtual machine is not running: migratability is not
 	// evaluated then, and the metric is not exported instead of reporting a stale value.
 	MigratableKnown bool
@@ -130,11 +132,23 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 		Annotations: promutil.WrapPrometheusLabels(vm.GetAnnotations(), "annotation", func(key, _ string) bool {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
-		firmwareUpToDate: firmwareUpToDate,
-		Migratable:       migratableCondition.Status == metav1.ConditionTrue,
-		MigratableKnown:  hasMigratableCondition,
-		MigratableReason: migratableCondition.Reason,
+		firmwareUpToDate:       firmwareUpToDate,
+		Migratable:             migratableCondition.Status == metav1.ConditionTrue,
+		MigratableKnown:        hasMigratableCondition,
+		MigratableReason:       migratableCondition.Reason,
+		EvictionRequiredReason: evictionRequiredReason(vm),
 	}
+}
+
+// evictionRequiredReason reports what the platform is going to do with the virtual machine while
+// its node is being taken out of service. It stays empty for a machine whose node works as usual,
+// so no series is exported for it.
+func evictionRequiredReason(vm *v1alpha2.VirtualMachine) string {
+	cond, found := conditions.GetCondition(vmcondition.TypeEvictionRequired, vm.Status.Conditions)
+	if !found || cond.Status != metav1.ConditionTrue {
+		return ""
+	}
+	return cond.Reason
 }
 
 func getPercent(s string) intstr.IntOrString {

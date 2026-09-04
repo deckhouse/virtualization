@@ -31,14 +31,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-// NodeWatcher wakes up virtual machines when readiness of their node changes. Nothing else
-// reports that a running virtual machine became unobservable: the node is gone, so neither the
-// virtual machine nor its pod generates events any more.
+// NodeWatcher wakes up virtual machines when their node changes in a way the machines have to
+// react to: it becomes unobservable, or it starts being taken out of service. Nothing else reports
+// either event — the node is gone or merely closed, so neither the virtual machine nor its pod
+// generates events any more.
 func NewNodeWatcher(client client.Client) *NodeWatcher {
 	return &NodeWatcher{client: client}
 }
@@ -71,7 +73,8 @@ func (w *NodeWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 				CreateFunc: func(event.TypedCreateEvent[*corev1.Node]) bool { return false },
 				DeleteFunc: func(event.TypedDeleteEvent[*corev1.Node]) bool { return true },
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Node]) bool {
-					return nodeReady(e.ObjectOld) != nodeReady(e.ObjectNew)
+					return nodeReady(e.ObjectOld) != nodeReady(e.ObjectNew) ||
+						NodeMaintenanceChanged(e.ObjectOld, e.ObjectNew)
 				},
 			},
 		),
@@ -80,6 +83,31 @@ func (w *NodeWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	}
 
 	return nil
+}
+
+// NodeMaintenanceChanged reports whether the node started or stopped being taken out of service,
+// or whether the permission to restart machines on it appeared or was taken away. Without it a
+// virtual machine learns about any of that only at the next reconcile caused by something else,
+// so the warning to its owner, the restart deadline and the restart itself are all late.
+func NodeMaintenanceChanged(oldNode, newNode *corev1.Node) bool {
+	if oldNode == nil || newNode == nil {
+		return true
+	}
+
+	if oldNode.Spec.Unschedulable != newNode.Spec.Unschedulable {
+		return true
+	}
+
+	markers := append(annotations.NodeMaintenanceMarkers(), annotations.AnnNodeVMRestartApproved)
+	for _, marker := range markers {
+		oldValue, oldFound := oldNode.GetAnnotations()[marker]
+		newValue, newFound := newNode.GetAnnotations()[marker]
+		if oldFound != newFound || oldValue != newValue {
+			return true
+		}
+	}
+
+	return false
 }
 
 func nodeReady(node *corev1.Node) corev1.ConditionStatus {

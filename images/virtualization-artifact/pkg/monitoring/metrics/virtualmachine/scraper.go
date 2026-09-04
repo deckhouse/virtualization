@@ -55,6 +55,7 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineFirmwareUpToDate(m)
 	s.updateMetricVirtualMachineInfo(m)
 	s.updateMetricVirtualMachineMigratable(m)
+	s.updateMetricVirtualMachineEvictionRequired(m)
 }
 
 func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
@@ -175,6 +176,13 @@ func (s *scraper) updateMetricVirtualMachineMigratable(m *dataMetric) {
 		return
 	}
 	s.defaultUpdate(MetricVirtualMachineMigratable, common.BoolFloat64(m.Migratable), m, m.MigratableReason)
+}
+
+func (s *scraper) updateMetricVirtualMachineEvictionRequired(m *dataMetric) {
+	if m.EvictionRequiredReason == "" {
+		return
+	}
+	s.defaultUpdate(MetricVirtualMachineEvictionRequired, 1, m, m.EvictionRequiredReason)
 }
 
 func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, labelValues ...string) {

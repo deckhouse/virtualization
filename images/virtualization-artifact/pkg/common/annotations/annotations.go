@@ -136,6 +136,9 @@ const (
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
 	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller
 	AnnVMOPVolumeMigration = AnnAPIGroupV + "/volume-migration"
+	// AnnVMOPNodeMaintenance is an annotation on vmop that represents a vmop created to release
+	// a node that is being taken out of service.
+	AnnVMOPNodeMaintenance = AnnAPIGroupV + "/node-maintenance"
 
 	// AnnVMOPRestore is an annotation on a resource that indicates it was created by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
 	AnnVMOPRestore = AnnAPIGroupV + "/vmoprestore"
@@ -188,6 +191,25 @@ const (
 
 	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
 	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
+
+	// Annotations node-manager and the shutdown inhibitor of Deckhouse leave on a node they are
+	// taking out of service. Both drain annotations matter: `draining` is removed once node-manager
+	// gives up on the drain, while `drained` stays.
+	AnnNodeDraining   = "update.node.deckhouse.io/draining"
+	AnnNodeDrained    = "update.node.deckhouse.io/drained"
+	AnnNodeCordonedBy = "node.deckhouse.io/cordoned-by"
+
+	// AnnNodeVMRestartRequired is set by the module on a node held by virtual machines that cannot
+	// leave it by live migration: it asks a cluster administrator for the permission to restart
+	// them, the same way node-manager asks with `disruption-required`.
+	AnnNodeVMRestartRequired = AnnAPIGroupV + "/virtualmachines-restart-required"
+
+	// AnnNodeVMRestartApproved is the answer of a cluster administrator to that request: the
+	// machines holding this node may be restarted. The value is ignored, only the presence of the
+	// key matters. The approval may be given ahead of the works and waits on an open node, doing
+	// nothing until a maintenance actually needs it; the module removes both annotations once the
+	// node is released, so one approval covers one maintenance.
+	AnnNodeVMRestartApproved = AnnAPIGroupV + "/virtualmachines-restart-approved"
 
 	// AnnAllowDelete is the break-glass annotation of the state-snapshotter module's
 	// delete guard: without it the guard denies deleting VolumeSnapshots we manage.
@@ -391,4 +413,10 @@ func MatchExpressions(labels map[string]string, expressions []metav1.LabelSelect
 		}
 	}
 	return true
+}
+
+// NodeMaintenanceMarkers lists the annotations that tell a node is being taken out of service.
+// A node closed for new workloads without any of them is closed for some other reason.
+func NodeMaintenanceMarkers() []string {
+	return []string{AnnNodeDraining, AnnNodeDrained, AnnNodeCordonedBy}
 }

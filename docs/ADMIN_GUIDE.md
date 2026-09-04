@@ -1309,6 +1309,30 @@ How to perform the operation in the web interface:
 - Select the desired node from the list and click the "Cordon + Drain" button.
 - To remove it from maintenance mode, click the "Uncordon" button.
 
+#### Restarting virtual machines during node maintenance
+
+A virtual machine cannot always be moved to another node by live migration. It may be pinned to the node by its placement rules or use a device passed through from the node. The `Migratable` condition in the VM status explains why. Such a VM keeps running and holds the node, so the maintenance cannot be completed until the VM is restarted.
+
+When the module finds such a VM while the node is entering maintenance mode, it adds the `virtualization.deckhouse.io/virtualmachines-restart-required` annotation to the node. To allow the restart, add the following annotation to the node:
+
+```bash
+d8 k annotate node <nodename> virtualization.deckhouse.io/virtualmachines-restart-approved=""
+```
+
+Here, `<nodename>` is the node that is entering maintenance mode.
+
+Only the VMs that cannot be moved by live migration are restarted. The guest operating system shuts down gracefully, and then the VM starts again according to its run policy (`runPolicy`). Each restart creates a VirtualMachineOperation resource named `node-maintenance-restart-*`. A restart interrupts the applications running inside the VM, so agree on it with the project owners.
+
+The approval never applies to a VM that can be moved by live migration (including a VM that has no suitable target node at the moment). Such a VM is live migrated as soon as a suitable node appears.
+
+You can add the approval in advance, when planning the maintenance. Until the node enters maintenance mode, the annotation has no effect. The module removes both annotations once the node is released, so each approval covers a single maintenance of a single node.
+
+The module acts on the eviction of VMs from the node. If the eviction stops on timeout (the [`spec.nodeDrainTimeoutSecond`](/modules/node-manager/cr.html#nodegroup-v1-spec-nodedraintimeoutsecond) parameter of the NodeGroup resource, 10 minutes by default), the eviction is not retried. An approval added after that causes no restart, and the node has to be released manually.
+
+The restart releases the node, but it does not guarantee that the VM starts on another node right away: the restriction that prevents live migration usually prevents the VM from starting on another node as well. In this case, the VM stays in the `Pending` phase, and its `Running` condition shows the reason returned by the scheduler. The maintenance can continue: the VM starts as soon as a suitable node appears, including after the node returns to service with the `d8 k uncordon` command.
+
+VM owners see the same information in the `EvictionRequired` condition of the VM status. While the node is only being prepared for maintenance, the condition is a warning. Once the eviction has started, the condition shows what happens to the VM: a live migration, a restart by the platform, or waiting on the node if no restart is allowed.
+
 #### Shutting down and rebooting a node with virtual machines
 
 Running virtual machines postpone the shutdown and reboot of their node. The module automatically adds the `pod.deckhouse.io/inhibit-node-shutdown` label to virtual machine pods, and DKP delays the node shutdown based on this label (the mechanism is available in the EE edition and is described in the [`node-manager` module documentation](/modules/node-manager/)). No extra steps are required to enable it.
@@ -1347,7 +1371,9 @@ The shutdown delay does not move virtual machines to other nodes, it only keeps 
   d8 k -n <namespace> patch vm <vmname> --type merge -p '{"spec":{"runPolicy":"AlwaysOnUnlessStoppedManually"}}'
   ```
 
-Otherwise, the node will not shut down, and the `D8VirtualizationNodeEvacuationStuck` alert will fire for it in an hour.
+Instead of stopping such VMs manually, you can [let the platform restart them](#restarting-virtual-machines-during-node-maintenance) for the duration of the maintenance. The run policy needs no changes then.
+
+Otherwise, the node will not shut down. Two alerts report this. The `D8VirtualizationVirtualMachineHoldsNodeMaintenance` alert lists the VMs that hold the node and wait for a decision from the administrator. The `D8VirtualizationNodeEvacuationStuck` alert fires when a VM was evicted from the node but has neither migrated nor restarted for 15 minutes.
 
 ### VM Rebalancing
 

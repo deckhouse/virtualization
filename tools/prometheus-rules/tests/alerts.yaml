@@ -358,55 +358,128 @@ tests:
       - eval_time: 65m
         alertname: D8VirtualizationVirtualMachinesWithOutdatedFirmware
         exp_alerts: []
+  # The eviction happened and the machine is still there: whatever was promised is not delivered.
   - interval: 1m
-    name: NodeEvacuationStuck fires when machines stay on a node closed for workloads
+    name: NodeEvacuationStuck fires when a promised migration never happens
     input_series:
-      - series: kube_node_spec_unschedulable{node="n1"}
-        values: 0 0 1+0x80
-      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="default", name="vm1"}
-        values: 1+0x80
-      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="prod", name="vm2"}
-        values: 1+0x80
+      - series: d8_virtualization_virtualmachine_eviction_required{reason="EvictionRequired", node="n1", namespace="default", name="vm1", uid="uid-vm1"}
+        values: 1+0x40
     alert_rule_test:
-      # Draining a node full of large machines takes a while, so the first hour is silent.
-      - eval_time: 45m
+      - eval_time: 10m
         alertname: D8VirtualizationNodeEvacuationStuck
         exp_alerts: []
-      - eval_time: 70m
+      - eval_time: 20m
         alertname: D8VirtualizationNodeEvacuationStuck
         exp_alerts:
           - exp_labels:
               severity_level: "6"
               tier: cluster
               node: n1
+              namespace: default
+              name: vm1
+              reason: EvictionRequired
+              uid: uid-vm1
             exp_annotations:
-              description: "The node `n1` accepts no new workloads, but 2 virtual machines are still running on it an hour later.\n\nImpact:\n- Maintenance of the node cannot be completed: a node that still runs virtual machines is not shut down or rebooted, and an automatic node update stalls on it.\n- The virtual machines themselves keep working, and nothing is lost. Holding the node back is the expected protection, not a failure.\n\nThe recommended course of action:\n\n1. List the virtual machines on the node and check whether they can be migrated:\n   ```bash\n   d8 k get vm -A -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,NODE:.status.nodeName,MIGRATABLE:.status.conditions[?(@.type==\"Migratable\")].status' | grep n1\n   ```\n2. For each virtual machine:\n   - `Migratable=True` \u2014 move it to another node without stopping the guest operating system:\n     `d8 v evict <name> -n <namespace>`\n   - `Migratable=False` \u2014 it has to be stopped for the duration of the maintenance. Stopping is only accepted for the `Manual` and `AlwaysOnUnlessStoppedManually` run policies, so check the policy first:\n     ```bash\n     d8 k -n <namespace> get vm <name> -o jsonpath='{.spec.runPolicy}'\n     ```\n     With `AlwaysOn` the request is refused with `NotApplicableForVirtualMachineRunPolicy`, so switch the policy, stop the machine, and restore both once the maintenance is over:\n     ```bash\n     d8 k -n <namespace> patch vm <name> --type merge -p '{\"spec\":{\"runPolicy\":\"AlwaysOnUnlessStoppedManually\"}}'\n     d8 v stop <name> -n <namespace>\n     ```\n\n   A virtual machine can be non-migratable because of local disks or devices passed through from the node.\n3. Once every virtual machine has left the node, the maintenance continues on its own.\n"
+              description: "The virtual machine `vm1` in the namespace `default` was evicted from the node `n1` being taken out of service and is still running on it. For the last 15 minutes nothing has moved it: no migration and no restart is running. The platform promised `EvictionRequired`.\n\nImpact:\n- The node is not released, its maintenance cannot be completed, and an automatic node update stalls on it.\n- The machine itself works as usual, and nothing is lost.\n\nThe recommended course of action:\n\n1. `EvictionRequired` means a live migration was promised. Look at the operations of the machine (`d8 k -n default get vmop`): a failed `evacuation-*` names the reason in its `Completed` condition. Check whether any node can accept the machine: placement rules, free CPU and memory, the migration limits of the module.\n2. `RestartRequired` means the platform announced a restart of its own. Look for a failed `node-maintenance-restart-*` operation: such a restart is not repeated during the same maintenance. Taking the approval off the node and giving it again starts a new maintenance and a new attempt.\n3. The node can be released by hand: a cluster administrator has no access to virtual machines in projects, so ask the owner of the namespace to restart the machine, or restart it as a superadmin.\n4. A machine that cannot leave the node at all and has no approval is not this alert: it raises `D8VirtualizationVirtualMachineHoldsNodeMaintenance` and needs a decision, not diagnostics.\n"
               plk_create_group_if_not_exists__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
               plk_grouped_by__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
               plk_markup_format: markdown
               plk_protocol_version: "1"
-              summary: Virtual machines are not leaving a node that is being taken out of service.
+              summary: A virtual machine is not leaving a node that is being taken out of service.
+  # An announced restart that never happened is the same stall.
   - interval: 1m
-    name: NodeEvacuationStuck stays silent on a node that accepts workloads
+    name: NodeEvacuationStuck fires when an announced restart never happens
     input_series:
-      - series: kube_node_spec_unschedulable{node="n1"}
-        values: 0+0x80
-      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="default", name="vm1"}
-        values: 1+0x80
+      - series: d8_virtualization_virtualmachine_eviction_required{reason="RestartRequired", node="n1", namespace="default", name="vm1", uid="uid-vm1"}
+        values: 1+0x40
     alert_rule_test:
-      - eval_time: 70m
+      - eval_time: 20m
+        alertname: D8VirtualizationNodeEvacuationStuck
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+              node: n1
+              namespace: default
+              name: vm1
+              reason: RestartRequired
+              uid: uid-vm1
+            exp_annotations:
+              description: "The virtual machine `vm1` in the namespace `default` was evicted from the node `n1` being taken out of service and is still running on it. For the last 15 minutes nothing has moved it: no migration and no restart is running. The platform promised `RestartRequired`.\n\nImpact:\n- The node is not released, its maintenance cannot be completed, and an automatic node update stalls on it.\n- The machine itself works as usual, and nothing is lost.\n\nThe recommended course of action:\n\n1. `EvictionRequired` means a live migration was promised. Look at the operations of the machine (`d8 k -n default get vmop`): a failed `evacuation-*` names the reason in its `Completed` condition. Check whether any node can accept the machine: placement rules, free CPU and memory, the migration limits of the module.\n2. `RestartRequired` means the platform announced a restart of its own. Look for a failed `node-maintenance-restart-*` operation: such a restart is not repeated during the same maintenance. Taking the approval off the node and giving it again starts a new maintenance and a new attempt.\n3. The node can be released by hand: a cluster administrator has no access to virtual machines in projects, so ask the owner of the namespace to restart the machine, or restart it as a superadmin.\n4. A machine that cannot leave the node at all and has no approval is not this alert: it raises `D8VirtualizationVirtualMachineHoldsNodeMaintenance` and needs a decision, not diagnostics.\n"
+              plk_create_group_if_not_exists__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: A virtual machine is not leaving a node that is being taken out of service.
+  # A live migration of a large machine runs longer than the window: while it runs, nothing is stuck.
+  - interval: 1m
+    name: NodeEvacuationStuck stays silent while a migration is running
+    input_series:
+      - series: d8_virtualization_virtualmachine_eviction_required{reason="EvictionRequired", node="n1", namespace="default", name="vm1", uid="uid-vm1"}
+        values: 1+0x40
+      - series: d8_virtualization_virtualmachineoperation_status_phase{phase="InProgress", type="Evict", namespace="default", name="evacuation-1", virtualmachine="vm1", uid="uid-vmop1"}
+        values: 1+0x40
+    alert_rule_test:
+      - eval_time: 30m
         alertname: D8VirtualizationNodeEvacuationStuck
         exp_alerts: []
+  # The same for the phase of the machine.
   - interval: 1m
-    name: NodeEvacuationStuck stays silent once the machines have left
+    name: NodeEvacuationStuck stays silent while the machine is migrating
     input_series:
-      - series: kube_node_spec_unschedulable{node="n1"}
-        values: 1+0x80
-      - series: d8_virtualization_virtualmachine_status_phase{phase="Running", node="n1", namespace="default", name="vm1"}
-        values: 0+0x80
+      - series: d8_virtualization_virtualmachine_eviction_required{reason="EvictionRequired", node="n1", namespace="default", name="vm1", uid="uid-vm1"}
+        values: 1+0x40
+      - series: d8_virtualization_virtualmachine_status_phase{phase="Migrating", node="n1", namespace="default", name="vm1"}
+        values: 1+0x40
     alert_rule_test:
-      - eval_time: 70m
+      - eval_time: 30m
         alertname: D8VirtualizationNodeEvacuationStuck
+        exp_alerts: []
+  # A machine that cannot leave at all belongs to the other alert, not to this one.
+  - interval: 1m
+    name: NodeEvacuationStuck stays silent while the eviction is blocked
+    input_series:
+      - series: d8_virtualization_virtualmachine_eviction_required{reason="EvictionBlocked", node="n1", namespace="default", name="vm1", uid="uid-vm1"}
+        values: 1+0x40
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: D8VirtualizationNodeEvacuationStuck
+        exp_alerts: []
+  # A person has to decide here: the platform already said it cannot release the node itself.
+  - interval: 1m
+    name: HoldsNodeMaintenance fires while the eviction is blocked
+    input_series:
+      - series: d8_virtualization_virtualmachine_eviction_required{reason="EvictionBlocked", node="n1", namespace="default", name="vm1", uid="uid-vm1"}
+        values: 1+0x40
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: D8VirtualizationVirtualMachineHoldsNodeMaintenance
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: D8VirtualizationVirtualMachineHoldsNodeMaintenance
+        exp_alerts:
+          - exp_labels:
+              severity_level: "6"
+              tier: cluster
+              node: n1
+              namespace: default
+              name: vm1
+            exp_annotations:
+              description: "The virtual machine `vm1` in the namespace `default` cannot leave the node `n1`, and no restart is allowed: either it cannot be live migrated at all, or no other node in the cluster can accept it.\n\nImpact:\n- Maintenance of the node cannot be completed while this machine keeps running on it.\n- The machine itself works as usual, and nothing is lost.\n\nThe recommended course of action:\n\n1. Look at the `Migratable` condition of the machine. The reason `VirtualMachineWaitingForMigrationTarget` means the machine is fit for live migration and only lacks a node that can accept it right now; any other reason means it cannot leave the node alive at all.\n2. No node can accept it: open a suitable node for new workloads or free one, and the machine leaves by live migration on its own.\n3. It cannot be live migrated at all: allow the restart for this maintenance, and the platform releases the node itself:\n   ```bash\n   d8 k annotate node n1 virtualization.deckhouse.io/virtualmachines-restart-approved=\"\"\n   ```\n   A restart interrupts the workload inside the machine, so agree on it with the owners of the projects. The platform asks for this permission itself with the `virtualmachines-restart-required` annotation on the node, and removes both once the node is released.\n4. Or ask the owner of the namespace to restart the machine: a cluster administrator has no access to virtual machines in projects, so the machine itself can only be handled by its owner or by a superadmin.\n"
+              plk_create_group_if_not_exists__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__node_maintenance: NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: A virtual machine cannot leave a node that is being taken out of service.
+  # A machine the platform restarts on its own needs no decision.
+  - interval: 1m
+    name: HoldsNodeMaintenance stays silent when a restart is coming
+    input_series:
+      - series: d8_virtualization_virtualmachine_eviction_required{reason="RestartRequired", node="n1", namespace="default", name="vm1", uid="uid-vm1"}
+        values: 1+0x40
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: D8VirtualizationVirtualMachineHoldsNodeMaintenance
         exp_alerts: []
   # The regression tests below cover the state that the previous set of rules caught with
   # absent(kube_pod_status_phase) and the rewrite initially lost: the object itself is gone,

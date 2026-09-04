@@ -1249,6 +1249,12 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
       ```
 
+The `type: EvictionRequired` condition appears when the node running the VM is entering maintenance mode. If the node is only cordoned with the `d8 k cordon` command and the maintenance has not started, the condition does not appear. The `type: Migratable` condition explains why the VM cannot be moved by live migration.
+
+The message of the condition shows what happens to the VM: a live migration without stopping the guest operating system, a restart by the platform approved by a cluster administrator, or waiting on the node until the VM is restarted. A VM that can be moved by live migration is never restarted to free the node. Until the eviction starts, the condition is a warning: the maintenance can be called off, and no eviction follows.
+
+After the restart, the VM starts on another suitable node. If the cluster has no suitable node, the VM stays in the `Pending` phase, and its `Running` condition shows the reason returned by the scheduler. A node in maintenance mode accepts no new VMs, so a VM pinned to it by placement rules or using a device passed through from it starts only after that node returns to service.
+
 The `type: SizingPolicyMatched, status: False` condition indicates that the resource configuration does not comply with the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save VM parameters without making the resources conform to the policy.
 
 Conditions display information about the state of the VM, as well as on problems that arise. You can understand what is wrong with the VM by analyzing them:

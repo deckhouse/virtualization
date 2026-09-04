@@ -128,6 +128,47 @@ d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node
 	// A machine that is not running carries no migratable condition: migratability is not evaluated
 	// then. Exporting a zero would report "cannot be migrated" for every stopped machine, so the
 	// series is omitted until there is an answer to report.
+	DescribeTable("reports what happens to the machine while its node is taken out of service",
+		func(condition *metav1.Condition, expected string) {
+			vm := newVM()
+			if condition != nil {
+				vm.Status.Conditions = append(vm.Status.Conditions, *condition)
+			}
+
+			Expect(testutil.CollectAndCompare(collectorOf(vm), strings.NewReader(expected),
+				"d8_virtualization_virtualmachine_eviction_required")).To(Succeed())
+		},
+		Entry("no series while the node works as usual", nil, ""),
+		Entry("a restart is coming",
+			&metav1.Condition{
+				Type:   vmcondition.TypeEvictionRequired.String(),
+				Status: metav1.ConditionTrue,
+				Reason: vmcondition.ReasonRestartRequired.String(),
+			},
+			`# HELP d8_virtualization_virtualmachine_eviction_required Whether the node running the virtualmachine is being taken out of service, labeled by what happens to the virtualmachine.
+# TYPE d8_virtualization_virtualmachine_eviction_required gauge
+d8_virtualization_virtualmachine_eviction_required{name="vm-01",namespace="team-a",node="node-1",reason="RestartRequired",uid="uid-vm-01"} 1
+`),
+		Entry("the eviction is blocked",
+			&metav1.Condition{
+				Type:   vmcondition.TypeEvictionRequired.String(),
+				Status: metav1.ConditionTrue,
+				Reason: vmcondition.ReasonEvictionBlocked.String(),
+			},
+			`# HELP d8_virtualization_virtualmachine_eviction_required Whether the node running the virtualmachine is being taken out of service, labeled by what happens to the virtualmachine.
+# TYPE d8_virtualization_virtualmachine_eviction_required gauge
+d8_virtualization_virtualmachine_eviction_required{name="vm-01",namespace="team-a",node="node-1",reason="EvictionBlocked",uid="uid-vm-01"} 1
+`),
+		// The condition is kept with status False nowhere in the module, but a series must not
+		// appear even then: nothing is happening to the machine.
+		Entry("no series for a condition that is not true",
+			&metav1.Condition{
+				Type:   vmcondition.TypeEvictionRequired.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmcondition.ReasonRestartRequired.String(),
+			}, ""),
+	)
+
 	It("exports no series for a machine whose migratable condition is not set", func() {
 		c := collectorOf(newVM())
 

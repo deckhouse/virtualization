@@ -53,6 +53,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/migrationiface"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/nodemaintenance"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/populator"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
@@ -586,6 +587,12 @@ func main() {
 
 	evacuationLogger := logger.NewControllerLogger(evacuation.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if err = evacuation.SetupController(ctx, mgr, virtClient, evacuationLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	nodeMaintenanceLogger := logger.NewControllerLogger(nodemaintenance.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = nodemaintenance.SetupController(ctx, mgr, nodeMaintenanceLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

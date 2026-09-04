@@ -41,6 +41,7 @@ const (
 	MetricVirtualMachineFirmwareUpToDate                        = "virtualmachine_firmware_up_to_date"
 	MetricVirtualMachineInfo                                    = "virtualmachine_info"
 	MetricVirtualMachineMigratable                              = "virtualmachine_migratable"
+	MetricVirtualMachineEvictionRequired                        = "virtualmachine_eviction_required"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "node"}
@@ -184,6 +185,13 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 
 	MetricVirtualMachineMigratable: metrics.NewMetricInfo(MetricVirtualMachineMigratable,
 		"Whether the virtualmachine can be live migrated. The reason label carries the reason of the Migratable condition.",
+		prometheus.GaugeValue,
+		WithBaseLabels("reason"),
+		nil,
+	),
+
+	MetricVirtualMachineEvictionRequired: metrics.NewMetricInfo(MetricVirtualMachineEvictionRequired,
+		"Whether the node running the virtualmachine is being taken out of service, labeled by what happens to the virtualmachine.",
 		prometheus.GaugeValue,
 		WithBaseLabels("reason"),
 		nil,

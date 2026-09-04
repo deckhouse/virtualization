@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package evacuation
+// Package nodemaintenance keeps the dialogue about releasing a node on the node itself: the module
+// asks for the permission to restart the machines that hold it, an administrator answers, and both
+// annotations go away once the node is free. The permission is spent by the maintenance that used
+// it, not revoked when the node reopens, so it may be given ahead of the works and still covers a
+// single maintenance.
+package nodemaintenance
 
 import (
 	"context"
@@ -25,39 +30,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation/internal/handler"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/nodemaintenance/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
 )
 
-const (
-	ControllerName = "evacuation-controller"
-)
+const ControllerName = "node-maintenance-controller"
 
-func SetupController(
-	ctx context.Context,
-	mgr manager.Manager,
-	virtClient kubeclient.Client,
-	log *log.Logger,
-) error {
+func SetupController(ctx context.Context, mgr manager.Manager, log *log.Logger) error {
 	client := mgr.GetClient()
 
-	handlers := []Handler{
-		handler.NewEvacuationHandler(
-			client,
-			newCanceler(virtClient),
-			eventrecord.NewEventRecorderLogger(mgr, ControllerName),
-		),
-	}
-	r := NewReconciler(client, handlers)
+	r := NewReconciler(client, handler.NewRestartApprovalHandler(client))
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
-		UsePriorityQueue: ptr.To(true),
 	})
 	if err != nil {
 		return err
@@ -67,6 +55,6 @@ func SetupController(
 		return err
 	}
 
-	log.Info("Initialized evacuation controller")
+	log.Info("Initialized node maintenance controller")
 	return nil
 }
