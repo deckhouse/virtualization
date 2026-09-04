@@ -127,6 +127,49 @@
             - GHSA-gcjh-h69q-9w9g
             - GHSA-hrxh-6v49-42gf
             - GO-2026-5932
+- version: v1.10.5
+  date: "2026-09-03"
+  highlights:
+    - en: The release fixes possible data loss during a disk migration and a VM with an attached image that could not be migrated at all. It also patches vulnerabilities in the module.
+      ru: Релиз устраняет возможную потерю данных при миграции диска и невозможность мигрировать ВМ с подключённым образом. Также исправлены уязвимости в модуле.
+  fixes:
+    virtual-machines:
+      - en: An operation on a virtual machine (VM) created without any labels and annotations no longer fails.
+        ru: Операция над виртуальной машиной (ВМ), созданная без лейблов и аннотаций, больше не завершается ошибкой.
+      - en: A VM with an attached image can now be live migrated.
+        ru: ВМ с подключённым образом теперь можно мигрировать.
+      - en: A migration of a VM with a corrupted block device now names the reason and suggests a restart.
+        ru: Миграция ВМ со сбойным блочным устройством теперь называет причину и советует перезапуск.
+      - en: An automatic VM update no longer gives up after the first failed migration and retries it up to three times.
+        ru: Автоматическое обновление ВМ больше не прекращается после первой неудачной миграции и повторяет её до трёх раз.
+      - en: The service components of a VM are no longer left on the source node after a live migration.
+        ru: Служебные компоненты ВМ больше не остаются на исходном узле после живой миграции.
+    disks-and-images:
+      - en: Fixed possible data loss during a disk migration.
+        ru: Исправлена возможная потеря данных при миграции диска.
+      - en: A disk can be migrated again right after a canceled migration.
+        ru: Диск можно мигрировать повторно сразу после отменённой миграции.
+      - en: A [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) no longer returns to the `Pending` phase while it is being uploaded.
+        ru: "[ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) больше не возвращается в фазу `Pending` во время загрузки."
+      - en: A zero-size disk no longer blocks disk operations and VM migrations.
+        ru: Диск нулевого размера больше не блокирует операции с дисками и миграции ВМ.
+      - en: Fixed the overstated size reported for an image in the `raw` format.
+        ru: Исправлен завышенный размер, который модуль показывал для образов в формате `raw`.
+    module:
+      - en: Fixed an error that kept the module from being enabled on the first attempt.
+        ru: Исправлена ошибка, из-за которой модуль не включался с первого раза.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-56854
+            - CVE-2026-84304
+            - GHSA-w67g-5rqw-f597
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-56854
+            - CVE-2026-84304
+            - GHSA-w67g-5rqw-f597
 - version: v1.10.4
   date: "2026-08-28"
   highlights:
