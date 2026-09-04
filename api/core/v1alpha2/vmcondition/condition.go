@@ -153,6 +153,10 @@ const (
 	// usable and the virtual machine starts, but something in them looks wrong:
 	// the message of the condition says what.
 	ReasonProvisioningReadyWithWarnings ProvisioningReadyReason = "ProvisioningReadyWithWarnings"
+	// ReasonProvisioningSecretNotFound means the referenced provisioning secret does not exist.
+	// It is told apart from the other ways provisioning can be invalid because it is the only one
+	// that also breaks a running machine: the secret is mounted into every virt-launcher pod.
+	ReasonProvisioningSecretNotFound ProvisioningReadyReason = "ProvisioningSecretNotFound"
 )
 
 type ConfigurationAppliedReason string
@@ -313,6 +317,10 @@ const (
 	// ReasonWaitingForMigrationTarget indicates that the virtual machine can be migrated and the
 	// cluster has nodes matching its placement rules, but none of them can take it at the moment.
 	ReasonWaitingForMigrationTarget MigratableReason = "VirtualMachineWaitingForMigrationTarget"
+	// ReasonProvisioningSecretMissing indicates that the provisioning secret of the virtual
+	// machine is gone. Every virt-launcher pod mounts it, so the target pod of a migration
+	// would never leave ContainerCreating.
+	ReasonProvisioningSecretMissing MigratableReason = "VirtualMachineProvisioningSecretMissing"
 )
 
 type MigratingReason string

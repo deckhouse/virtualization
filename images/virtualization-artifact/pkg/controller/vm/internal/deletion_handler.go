@@ -36,16 +36,18 @@ const deletionHandlerName = "DeletionHandler"
 
 func NewDeletionHandler(client client.Client) *DeletionHandler {
 	return &DeletionHandler{
-		client:        client,
-		protection:    service.NewProtectionService(client, v1alpha2.FinalizerKVVMProtection), //nolint:staticcheck // FinalizerKVVMProtection is deprecated but still required until migration is complete.
-		pvcProtection: service.NewProtectionService(client, v1alpha2.FinalizerPVCProtection),
+		client:                       client,
+		protection:                   service.NewProtectionService(client, v1alpha2.FinalizerKVVMProtection), //nolint:staticcheck // FinalizerKVVMProtection is deprecated but still required until migration is complete.
+		pvcProtection:                service.NewProtectionService(client, v1alpha2.FinalizerPVCProtection),
+		provisioningSecretProtection: service.NewProtectionService(client, v1alpha2.FinalizerProvisioningSecretProtection),
 	}
 }
 
 type DeletionHandler struct {
-	client        client.Client
-	protection    *service.ProtectionService
-	pvcProtection *service.ProtectionService
+	client                       client.Client
+	protection                   *service.ProtectionService
+	pvcProtection                *service.ProtectionService
+	provisioningSecretProtection *service.ProtectionService
 }
 
 func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -68,6 +70,15 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to update finalizer on the KVVM %q: %w", kvvm.GetName(), err)
 	}
+
+	// A deleted virtual machine starts no new pods, and the pods it still runs have already
+	// mounted their provisioning secret, so the secret is released right away instead of waiting
+	// for the runtime objects. Holding it any longer would outlive the machine itself: nothing
+	// would be left to reconcile the finalizer away, and deleting the namespace would stall on it.
+	if err := reconcileProvisioningSecretProtection(ctx, h.client, h.provisioningSecretProtection, s.VirtualMachine().Current().GetNamespace()); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to release provisioning secret protection: %w", err)
+	}
+
 	if kvvm != nil {
 		err = object.DeleteObject(ctx, h.client, kvvm)
 		if err != nil {

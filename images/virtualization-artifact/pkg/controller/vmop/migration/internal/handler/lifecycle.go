@@ -556,13 +556,18 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 		return false
 	}
 
+	message := "VirtualMachine is not migratable, cannot be processed."
+	if migratable.Message != "" {
+		message += " " + migratable.Message
+	}
+
 	vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 			Generation(vmop.GetGeneration()).
 			Reason(vmopcondition.ReasonOperationFailed).
 			Status(metav1.ConditionFalse).
-			Message("VirtualMachine is not migratable, cannot be processed."),
+			Message(message),
 		&vmop.Status.Conditions)
 	return false
 }

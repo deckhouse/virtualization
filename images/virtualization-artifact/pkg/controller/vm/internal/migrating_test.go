@@ -380,6 +380,63 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratable.String()))
 		})
+		// Nothing about the instance can fix a provisioning secret that no longer exists: kubelet
+		// stalls the target pod on the missing mount before KubeVirt is involved at all.
+		It("reports a missing provisioning secret and wins over the instance reasons", func() {
+			vm := newVM()
+			vm.Status.Conditions = []metav1.Condition{{
+				Type:   vmcondition.TypeProvisioningReady.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmcondition.ReasonProvisioningSecretNotFound.String(),
+			}}
+			kvvm := newKVVMWithConditions(
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceIsMigratable),
+					Status: corev1.ConditionTrue,
+				},
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable),
+					Status: corev1.ConditionTrue,
+				},
+			)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+			reconcile()
+
+			cond, exists := migratableOf(vm)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonProvisioningSecretMissing.String()))
+			Expect(cond.Message).ToNot(BeEmpty())
+		})
+
+		// A secret that exists but carries the wrong data is still mounted, so the target pod
+		// starts and the migration is none of this condition's business.
+		It("stays migratable when the provisioning is invalid but its secret exists", func() {
+			vm := newVM()
+			vm.Status.Conditions = []metav1.Condition{{
+				Type:   vmcondition.TypeProvisioningReady.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmcondition.ReasonProvisioningNotReady.String(),
+			}}
+			kvvm := newKVVMWithConditions(
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceIsMigratable),
+					Status: corev1.ConditionTrue,
+				},
+				virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceMigrationTargetAvailable),
+					Status: corev1.ConditionTrue,
+				},
+			)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, newKVVMI(nil))
+			reconcile()
+
+			cond, exists := migratableOf(vm)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratable.String()))
+		})
+
 		// The disks are a property of the machine itself, so that reason is more specific and wins
 		// over the missing target. With volume migration enabled the disk branch reports the machine
 		// as migratable, and then the missing target takes over — that path is covered in a cluster.

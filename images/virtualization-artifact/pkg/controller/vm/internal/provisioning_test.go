@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -218,7 +219,32 @@ var _ = Describe("ProvisioningHandler", func() {
 			cond := reconcile(newVM(userDataRef))
 
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			// A reason of its own: a missing secret also breaks a running machine, and the
+			// migratable condition tells it apart from a secret that is merely malformed.
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonProvisioningSecretNotFound.String()))
 			Expect(cond.Message).To(ContainSubstring("not found"))
+		})
+
+		It("protects the referenced secret and records the machines that use it", func() {
+			secret := newSecret(v1alpha2.SecretTypeCloudInit, map[string][]byte{"userData": []byte(validCloudConfig)})
+
+			fakeClient, resource, vmState := setupEnvironment(newVM(userDataRef), secret)
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+			h := NewProvisioningHandler(fakeClient, recorder)
+
+			ctx := testutil.ContextBackgroundWithNoOpLogger()
+			_, err := h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resource.Update(context.Background())).To(Succeed())
+
+			updated := &corev1.Secret{}
+			Expect(fakeClient.Get(context.Background(), client.ObjectKeyFromObject(secret), updated)).To(Succeed())
+			Expect(updated.Finalizers).To(ContainElement(v1alpha2.FinalizerProvisioningSecretProtection))
+			Expect(updated.Annotations).To(HaveKeyWithValue(annotations.AnnInUseByVirtualMachines, name))
 		})
 
 		It("is not ready when the secret has the wrong type", func() {

@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -231,19 +232,11 @@ func getNetworkNamesByType(obj client.Object, typ string) []string {
 func IndexVMByProvisioningSecret() (obj client.Object, field string, extractValue client.IndexerFunc) {
 	return &v1alpha2.VirtualMachine{}, IndexFieldVMByProvisioningSecret, func(object client.Object) []string {
 		vm, ok := object.(*v1alpha2.VirtualMachine)
-		if !ok || vm == nil || vm.Spec.Provisioning == nil {
+		if !ok {
 			return nil
 		}
 
-		var secrets []string
-		if vm.Spec.Provisioning.UserDataRef != nil && vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
-			secrets = append(secrets, vm.Spec.Provisioning.UserDataRef.Name)
-		}
-		if vm.Spec.Provisioning.SysprepRef != nil && vm.Spec.Provisioning.SysprepRef.Kind == v1alpha2.SysprepRefKindSecret {
-			secrets = append(secrets, vm.Spec.Provisioning.SysprepRef.Name)
-		}
-
-		return secrets
+		return commonvm.ProvisioningSecretNames(vm)
 	}
 }
 

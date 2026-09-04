@@ -26,10 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -55,9 +53,6 @@ func (w *SecretWatcher) Watch(mgr manager.Manager, ctr controller.Controller) er
 			mgr.GetCache(),
 			&corev1.Secret{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueue),
-			predicate.TypedFuncs[*corev1.Secret]{
-				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool { return false },
-			},
 		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on Secret: %w", err)

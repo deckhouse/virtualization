@@ -175,6 +175,25 @@ func MountedVirtualMachineNames(ctx context.Context, c client.Client, kind v1alp
 	return names, nil
 }
 
+// ProvisioningSecretNames returns the names of the Secrets the provisioning of the virtual
+// machine refers to. A reference of any other kind is skipped: only a Secret is an object that
+// can be resolved and protected.
+func ProvisioningSecretNames(vm *v1alpha2.VirtualMachine) []string {
+	if vm == nil || vm.Spec.Provisioning == nil {
+		return nil
+	}
+
+	var names []string
+	if ref := vm.Spec.Provisioning.UserDataRef; ref != nil && ref.Kind == v1alpha2.UserDataRefKindSecret && ref.Name != "" {
+		names = append(names, ref.Name)
+	}
+	if ref := vm.Spec.Provisioning.SysprepRef; ref != nil && ref.Kind == v1alpha2.SysprepRefKindSecret && ref.Name != "" {
+		names = append(names, ref.Name)
+	}
+
+	return names
+}
+
 // HasBlockDeviceStatusRef reports whether VM status contains a block device reference with the provided kind and name.
 func HasBlockDeviceStatusRef(vm v1alpha2.VirtualMachine, kind v1alpha2.BlockDeviceKind, name string) bool {
 	for _, bd := range vm.Status.BlockDeviceRefs {

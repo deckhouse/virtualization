@@ -44,13 +44,19 @@ const nameProvisioningHandler = "ProvisioningHandler"
 const eventReasonProvisioningInvalid = "ProvisioningInvalid"
 
 func NewProvisioningHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *ProvisioningHandler {
-	return &ProvisioningHandler{client: client, recorder: recorder, validator: newProvisioningValidator(client)}
+	return &ProvisioningHandler{
+		client:     client,
+		recorder:   recorder,
+		validator:  newProvisioningValidator(client),
+		protection: service.NewProtectionService(client, v1alpha2.FinalizerProvisioningSecretProtection),
+	}
 }
 
 type ProvisioningHandler struct {
-	client    client.Client
-	recorder  eventrecord.EventRecorderLogger
-	validator *provisioningValidator
+	client     client.Client
+	recorder   eventrecord.EventRecorderLogger
+	validator  *provisioningValidator
+	protection *service.ProtectionService
 }
 
 func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -67,6 +73,14 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
+	}
+
+	// The provisioning secret belongs to the user, and nothing else keeps it from being deleted
+	// while the machine that needs it is running. The protection is reconciled namespace-wide,
+	// so it is released as soon as this machine stops needing the secret, whether because it was
+	// stopped or because its spec.provisioning changed.
+	if err := reconcileProvisioningSecretProtection(ctx, h.client, h.protection, current.GetNamespace()); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile provisioning secret protection: %w", err)
 	}
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeProvisioningReady).
@@ -153,8 +167,11 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 		builder.Reason(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
 		return warnings, nil
 	case errors.As(err, new(secretNotFoundError)):
+		// Told apart from the other invalid provisionings on purpose: a missing secret is the
+		// only one that also breaks an already running machine, so the migratable condition
+		// keys off this reason.
 		builder.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonProvisioningNotReady).
+			Reason(vmcondition.ReasonProvisioningSecretNotFound).
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return nil, nil
 

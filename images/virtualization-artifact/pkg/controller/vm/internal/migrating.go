@@ -297,6 +297,19 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 		return nil
 	}
 
+	// A machine whose provisioning secret is gone cannot be migrated however migratable its
+	// devices and disks are: every virt-launcher pod mounts that secret and renders the
+	// provisioning image from it anew, so kubelet stalls the target pod in ContainerCreating long
+	// before KubeVirt gets a say. Reported before the reasons that describe the instance itself,
+	// because no change of the instance can make this one go away.
+	if provisioningSecretIsMissing(vm) {
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonProvisioningSecretMissing).
+			Message(messageProvisioningSecretMissing)
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
+	}
+
 	// A machine that has nowhere to go is not migratable, no matter how well it is fit for the
 	// migration itself and no matter how its disks would travel along. Every positive answer goes
 	// through this check; the reasons that describe the machine itself are more specific and are
@@ -381,6 +394,18 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 const messageNoMigrationTarget = "Live migration is not possible: no other node in the cluster can accept this VirtualMachine. Check its placement and affinity rules and those of its VirtualMachineClass."
 
 const messageMigrationTargetUnavailable = "Live migration is possible, but there is no node to migrate to at the moment: the nodes matching the placement rules of this VirtualMachine are excluded from scheduling or do not run the virtualization."
+
+const messageProvisioningSecretMissing = "Live migration is not possible: the provisioning secret of this VirtualMachine no longer exists, and every virt-launcher pod mounts it, so the target pod would never start. Restore the secret, or remove spec.provisioning and restart the VirtualMachine."
+
+// provisioningSecretIsMissing reports whether the ProvisioningReady condition blames a secret that
+// does not exist. The other ways provisioning can be invalid do not block a migration: the secret
+// is still there to be mounted, however wrong its contents are.
+func provisioningSecretIsMissing(vm *v1alpha2.VirtualMachine) bool {
+	provisioning, _ := conditions.GetCondition(vmcondition.TypeProvisioningReady, vm.Status.Conditions)
+
+	return provisioning.Status == metav1.ConditionFalse &&
+		provisioning.Reason == vmcondition.ReasonProvisioningSecretNotFound.String()
+}
 
 // migrationTargetReason returns the reason of the MigrationTargetAvailable condition of the
 // internal virtual machine while the cluster has no node to migrate to, and an empty string while

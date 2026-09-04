@@ -87,6 +87,11 @@ const (
 	AnnVirtualMachineClass        = "virtualmachineclass." + AnnAPIGroupV
 	AnnVirtualMachineClassDefault = AnnVirtualMachineClass + "/is-default-class"
 
+	// AnnInUseByVirtualMachines is an annotation on a provisioning Secret. It lists the virtual
+	// machines that keep the secret from being deleted. A Secret has no status of its own, so
+	// this is the only place on the object itself that can answer why it stays in Terminating.
+	AnnInUseByVirtualMachines = AnnAPIGroupV + "/in-use-by-virtual-machines"
+
 	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMLastAppliedSpec = AnnAPIGroup + "/vm.last-applied-spec"
 	// AnnVMLastAppliedSpecLegacy is a legacy annotation on KVVM. It contains a JSON with VM spec.

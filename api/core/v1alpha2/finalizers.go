@@ -35,6 +35,12 @@ const (
 	FinalizerVMSnapshotProtection                 = "virtualization.deckhouse.io/vmsnapshot-protection"
 	FinalizerVMOPProtectionByEvacuationController = "virtualization.deckhouse.io/vmop-protection-by-evacuation-controller"
 	FinalizerVMOPProtectionByVMController         = "virtualization.deckhouse.io/vmop-protection-by-vm-controller"
+	// FinalizerProvisioningSecretProtection keeps the provisioning Secret of a virtual machine
+	// that is not stopped. The secret is not consumed once at the first boot: every
+	// virt-launcher pod renders the cloud-init or sysprep image from it anew, so a deleted
+	// secret leaves the machine unable to start and stalls the target pod of a live migration
+	// in ContainerCreating.
+	FinalizerProvisioningSecretProtection = "virtualization.deckhouse.io/provisioning-secret-protection"
 
 	FinalizerCVICleanup             = "virtualization.deckhouse.io/cvi-cleanup"
 	FinalizerVDCleanup              = "virtualization.deckhouse.io/vd-cleanup"
