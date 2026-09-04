@@ -185,6 +185,59 @@ var _ = Describe("MigratingHandler", func() {
 			}
 		})
 
+		It("Should mark a migration that carries the disks along", func() {
+			vm := newVM()
+			kvvmi := newKVVMI(&virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Now()},
+			})
+			kvvmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{{VolumeName: "root"}}
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+			reconcile()
+
+			updated := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updated)).To(Succeed())
+			Expect(updated.Status.MigrationState.VolumeMigration).To(BeTrue())
+		})
+
+		It("Should keep the mark once kvvmi drops the migrated volumes", func() {
+			vm := newVM()
+			start := &metav1.Time{Time: time.Now()}
+			// KubeVirt clears status.migratedVolumes when the migration ends, while the
+			// migration state stays in the status of the VirtualMachine afterwards.
+			vm.Status.MigrationState = &v1alpha2.VirtualMachineMigrationState{
+				StartTimestamp:  start,
+				VolumeMigration: true,
+			}
+			kvvmi := newKVVMI(&virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: start,
+				EndTimestamp:   &metav1.Time{Time: start.Add(time.Minute)},
+				Completed:      true,
+			})
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+			reconcile()
+
+			updated := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updated)).To(Succeed())
+			Expect(updated.Status.MigrationState.VolumeMigration).To(BeTrue())
+		})
+
+		It("Should not carry the mark into the next migration", func() {
+			vm := newVM()
+			vm.Status.MigrationState = &v1alpha2.VirtualMachineMigrationState{
+				StartTimestamp:  &metav1.Time{Time: time.Now().Add(-time.Hour)},
+				VolumeMigration: true,
+			}
+			kvvmi := newKVVMI(&virtv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Now()},
+			})
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+			reconcile()
+
+			updated := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), updated)).To(Succeed())
+			Expect(updated.Status.MigrationState.VolumeMigration).To(BeFalse())
+		})
+
 		It("Should set condition when vmop is in progress with pending reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)

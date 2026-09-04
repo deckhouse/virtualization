@@ -404,6 +404,9 @@ type VirtualMachineMigrationState struct {
 	Target       VirtualMachineLocation `json:"target,omitempty"`
 	Source       VirtualMachineLocation `json:"source,omitempty"`
 	Result       MigrationResult        `json:"result,omitempty"`
+	// VolumeMigration is true when the disks of the virtual machine move to another storage
+	// along with its memory.
+	VolumeMigration bool `json:"volumeMigration,omitempty"`
 }
 
 // MigrationResult defines a migration result

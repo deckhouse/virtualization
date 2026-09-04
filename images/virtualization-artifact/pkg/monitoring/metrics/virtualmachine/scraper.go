@@ -18,6 +18,7 @@ package virtualmachine
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -56,6 +57,7 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineInfo(m)
 	s.updateMetricVirtualMachineMigratable(m)
 	s.updateMetricVirtualMachineEvictionRequired(m)
+	s.updateMetricVirtualMachineMigration(m)
 }
 
 func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
@@ -183,6 +185,22 @@ func (s *scraper) updateMetricVirtualMachineEvictionRequired(m *dataMetric) {
 		return
 	}
 	s.defaultUpdate(MetricVirtualMachineEvictionRequired, 1, m, m.EvictionRequiredReason)
+}
+
+func (s *scraper) updateMetricVirtualMachineMigration(m *dataMetric) {
+	if m.Migration == nil {
+		return
+	}
+	s.defaultUpdate(MetricVirtualMachineMigrationInfo, 1, m,
+		m.Migration.SourceNode, m.Migration.TargetNode, m.Migration.Result,
+		strconv.FormatBool(m.Migration.VolumeMigration))
+
+	if m.Migration.Start > 0 {
+		s.defaultUpdate(MetricVirtualMachineMigrationStartTimestampSeconds, m.Migration.Start, m)
+	}
+	if m.Migration.End > 0 {
+		s.defaultUpdate(MetricVirtualMachineMigrationEndTimestampSeconds, m.Migration.End, m)
+	}
 }
 
 func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, labelValues ...string) {

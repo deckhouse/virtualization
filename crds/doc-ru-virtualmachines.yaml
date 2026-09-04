@@ -715,6 +715,9 @@ spec:
                     result:
                       description: |
                         Результат миграции: `Succeeded` или `Failed`.
+                    volumeMigration:
+                      description: |
+                        Переезжают ли диски виртуальной машины в другое хранилище вместе с её памятью.
                 stats:
                   description: Статистика по виртуальной машине.
                   properties:

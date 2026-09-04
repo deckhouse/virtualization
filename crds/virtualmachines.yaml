@@ -1226,6 +1226,10 @@ spec:
                         - ""
                         - "Succeeded"
                         - "Failed"
+                    volumeMigration:
+                      description: |
+                        Whether the disks of the VM move to another storage along with its memory.
+                      type: boolean
                 stats:
                   type: object
                   description: Virtual machine statistics.

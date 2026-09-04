@@ -80,7 +80,7 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	// EndTimestamp) would leave a stale in-progress state, which keeps
 	// liveMigrationInProgress true forever and blocks every future migration of
 	// the VM.
-	vm.Status.MigrationState = h.wrapMigrationState(kvvmi)
+	vm.Status.MigrationState = h.wrapMigrationState(kvvmi, vm.Status.MigrationState)
 
 	err = h.syncMigratable(ctx, s, vm, kvvm, kvvmi)
 	if err != nil {
@@ -99,7 +99,7 @@ func (h *MigratingHandler) Name() string {
 	return nameMigratingHandler
 }
 
-func (h *MigratingHandler) wrapMigrationState(kvvmi *virtv1.VirtualMachineInstance) *v1alpha2.VirtualMachineMigrationState {
+func (h *MigratingHandler) wrapMigrationState(kvvmi *virtv1.VirtualMachineInstance, prev *v1alpha2.VirtualMachineMigrationState) *v1alpha2.VirtualMachineMigrationState {
 	if kvvmi == nil {
 		return nil
 	}
@@ -120,8 +120,28 @@ func (h *MigratingHandler) wrapMigrationState(kvvmi *virtv1.VirtualMachineInstan
 		Source: v1alpha2.VirtualMachineLocation{
 			Node: migrationState.SourceNode,
 		},
-		Result: h.getMigrationResult(migrationState),
+		Result:          h.getMigrationResult(migrationState),
+		VolumeMigration: h.isVolumeMigration(kvvmi, migrationState, prev),
 	}
+}
+
+// isVolumeMigration reports whether the disks move to another storage along with the memory.
+// KubeVirt fills kvvmi.status.migratedVolumes before the migration starts and drops it once the
+// migration is over or cancelled, while the migration state stays in the status of the
+// VirtualMachine afterwards. The answer is therefore remembered for as long as the same migration
+// is reported, otherwise a finished volume migration would look like an ordinary one. The start
+// time identifies the migration: the next migration of the same machine cannot start in the same
+// second, because the current one has to finish first.
+func (h *MigratingHandler) isVolumeMigration(
+	kvvmi *virtv1.VirtualMachineInstance,
+	state *virtv1.VirtualMachineInstanceMigrationState,
+	prev *v1alpha2.VirtualMachineMigrationState,
+) bool {
+	if len(kvvmi.Status.MigratedVolumes) > 0 {
+		return true
+	}
+
+	return prev != nil && prev.VolumeMigration && prev.StartTimestamp.Equal(state.StartTimestamp)
 }
 
 func (h *MigratingHandler) getMigrationResult(state *virtv1.VirtualMachineInstanceMigrationState) v1alpha2.MigrationResult {

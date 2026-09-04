@@ -42,6 +42,9 @@ const (
 	MetricVirtualMachineInfo                                    = "virtualmachine_info"
 	MetricVirtualMachineMigratable                              = "virtualmachine_migratable"
 	MetricVirtualMachineEvictionRequired                        = "virtualmachine_eviction_required"
+	MetricVirtualMachineMigrationInfo                           = "virtualmachine_migration_info"
+	MetricVirtualMachineMigrationStartTimestampSeconds          = "virtualmachine_migration_start_timestamp_seconds"
+	MetricVirtualMachineMigrationEndTimestampSeconds            = "virtualmachine_migration_end_timestamp_seconds"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "node"}
@@ -194,6 +197,27 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 		"Whether the node running the virtualmachine is being taken out of service, labeled by what happens to the virtualmachine.",
 		prometheus.GaugeValue,
 		WithBaseLabels("reason"),
+		nil,
+	),
+
+	MetricVirtualMachineMigrationInfo: metrics.NewMetricInfo(MetricVirtualMachineMigrationInfo,
+		"The last known migration of the virtualmachine: the node it leaves, the node it goes to, the outcome and whether the disks move to another storage along with the memory.",
+		prometheus.GaugeValue,
+		WithBaseLabels("source_node", "target_node", "result", "volume_migration"),
+		nil,
+	),
+
+	MetricVirtualMachineMigrationStartTimestampSeconds: metrics.NewMetricInfo(MetricVirtualMachineMigrationStartTimestampSeconds,
+		"The time the last known migration of the virtualmachine started.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineMigrationEndTimestampSeconds: metrics.NewMetricInfo(MetricVirtualMachineMigrationEndTimestampSeconds,
+		"The time the last known migration of the virtualmachine ended. Absent while the migration is in progress.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
 		nil,
 	),
 }

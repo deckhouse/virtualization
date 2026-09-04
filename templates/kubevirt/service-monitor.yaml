@@ -192,8 +192,13 @@ spec:
             - __name__
           targetLabel: __name__
         # other vm metrics -------------------------------------------------------------------------
+        # The migration status metrics below are upstream KubeVirt metrics about the VMI and the
+        # VMIM: they carry a single node label that means the source node during the migration and
+        # the target node after it, and vmi/vmim instead of the resource names of the module. The
+        # module answers the same questions by d8_virtualization_virtualmachine_migration_info and
+        # the migration timestamps, so these stay available for a debug under the internal prefix.
         - action: replace
-          regex: kubevirt_vmi_(number_of_outdated|info|node_cpu_affinity|last_api_connection_timestamp_seconds|migrations.*)
+          regex: kubevirt_vmi_(number_of_outdated|info|node_cpu_affinity|last_api_connection_timestamp_seconds|migrations.*|migration_start_time_seconds|migration_end_time_seconds|migration_succeeded|migration_failed)
           replacement: d8_internal_virtualization_kubevirt_${1}
           sourceLabels:
             - __name__

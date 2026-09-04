@@ -1968,6 +1968,508 @@
         "x": 0,
         "y": 20
       },
+      "id": 110,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "The migrations of this project happening right now, whatever period is selected. Moving: memory when only the memory travels, memory + disks when the disks move to another storage too. Convergence compares the rate the guest dirties memory with the rate it travels: ok below four fifths of it, risky up to it, stuck at or above it, where the migration cannot finish on its own.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false,
+                "minWidth": 70
+              },
+              "displayName": "",
+              "mappings": [],
+              "noValue": "-",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "name"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Virtual machine"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 200
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Virtual machine details",
+                        "url": "/d/bdw6dw2izvpxcb/namespace-virtual-machine?var-ds_prometheus=${ds_prometheus}&var-namespace=${namespace}&var-name=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "source_node"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "From node"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 160
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Node details",
+                        "url": "/d/rYdddlPWk/node?var-ds_prometheus=${ds_prometheus}&var-node=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "target_node"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "To node"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 160
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Node details",
+                        "url": "/d/rYdddlPWk/node?var-ds_prometheus=${ds_prometheus}&var-node=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Started"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Started"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "dateTimeFromNow"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 120
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #DataTotal"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Data to transfer"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Convergence"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Convergence"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "none"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 130
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "range",
+                        "options": {
+                          "from": 0,
+                          "to": 0.8,
+                          "result": {
+                            "text": "ok",
+                            "index": 0
+                          }
+                        }
+                      },
+                      {
+                        "type": "range",
+                        "options": {
+                          "from": 0.8,
+                          "to": 1,
+                          "result": {
+                            "text": "risky",
+                            "index": 1
+                          }
+                        }
+                      },
+                      {
+                        "type": "range",
+                        "options": {
+                          "from": 1,
+                          "to": 1000000,
+                          "result": {
+                            "text": "stuck",
+                            "index": 2
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "transparent",
+                          "value": null
+                        },
+                        {
+                          "color": "super-light-green",
+                          "value": 0
+                        },
+                        {
+                          "color": "super-light-orange",
+                          "value": 0.8
+                        },
+                        {
+                          "color": "super-light-red",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background",
+                      "mode": "basic"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Moving"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Moving"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "none"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 150
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "memory",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "memory + disks",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #TransferRate"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Transfer rate"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "Bps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #DirtyRate"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Dirty memory rate"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "Bps"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "id": 111,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Started"
+              }
+            ]
+          },
+          "pluginVersion": "10.4.19",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name, source_node, target_node) (\n    d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\"}\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Info"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_start_timestamp_seconds{namespace=\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\"})\n) * 1000",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Started"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_data_total_bytes{namespace=\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\"})\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "DataTotal"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_disk_transfer_rate_bytes{namespace=\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\"})\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "TransferRate"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\"})\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "DirtyRate"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\"}\n)\n    /\n(\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_migration_disk_transfer_rate_bytes{namespace=\"$namespace\"}\n    ) > 0\n)\n* on (namespace, name) group_left ()\n    max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\"})",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Convergence"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\", volume_migration=\"true\"}\n)\nor\nmax by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_info{namespace=\"$namespace\", result=\"InProgress\"}\n) * 0",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Moving"
+            }
+          ],
+          "title": "Migrations",
+          "type": "table",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "name",
+                    "source_node",
+                    "target_node",
+                    "Value #Started",
+                    "Value #DataTotal",
+                    "Value #Convergence",
+                    "Value #Moving",
+                    "Value #TransferRate",
+                    "Value #DirtyRate"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "name": 0,
+                  "Value #Moving": 1,
+                  "Value #Convergence": 2,
+                  "source_node": 3,
+                  "target_node": 4,
+                  "Value #Started": 5,
+                  "Value #DataTotal": 6,
+                  "Value #TransferRate": 7,
+                  "Value #DirtyRate": 8
+                },
+                "renameByName": {}
+              }
+            }
+          ]
+        }
+      ],
+      "title": "VM migrations",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
       "id": 21,
       "panels": [
         {
@@ -2406,7 +2908,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 22
       },
       "id": 28,
       "panels": [
@@ -2696,7 +3198,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 23
       },
       "id": 60,
       "panels": [
@@ -3505,7 +4007,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 24
       },
       "id": 5,
       "panels": [
@@ -4131,7 +4633,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 25
       },
       "id": 6,
       "panels": [

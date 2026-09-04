@@ -19,6 +19,7 @@ package virtualmachine
 import (
 	"context"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -175,6 +176,91 @@ d8_virtualization_virtualmachine_eviction_required{name="vm-01",namespace="team-
 		Expect(testutil.CollectAndCompare(c, strings.NewReader(""),
 			"d8_virtualization_virtualmachine_migratable")).To(Succeed())
 	})
+
+	DescribeTable("reports where the machine migrates from and to",
+		func(state *v1alpha2.VirtualMachineMigrationState, expected string) {
+			vm := newVM()
+			vm.Status.MigrationState = state
+			c := collectorOf(vm)
+
+			Expect(testutil.CollectAndCompare(c, strings.NewReader(expected),
+				"d8_virtualization_virtualmachine_migration_info",
+				"d8_virtualization_virtualmachine_migration_start_timestamp_seconds",
+				"d8_virtualization_virtualmachine_migration_end_timestamp_seconds")).To(Succeed())
+		},
+		// The machine is still travelling: the API leaves the result empty, and the label says
+		// InProgress instead, because an empty label value cannot be matched in PromQL.
+		Entry("the migration is in progress",
+			&v1alpha2.VirtualMachineMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Unix(1770000000, 0)},
+				Source:         v1alpha2.VirtualMachineLocation{Node: "node-1"},
+				Target:         v1alpha2.VirtualMachineLocation{Node: "node-2", Pod: "d8v-vm-vm-01-abcde"},
+			},
+			`# HELP d8_virtualization_virtualmachine_migration_info The last known migration of the virtualmachine: the node it leaves, the node it goes to, the outcome and whether the disks move to another storage along with the memory.
+# TYPE d8_virtualization_virtualmachine_migration_info gauge
+d8_virtualization_virtualmachine_migration_info{name="vm-01",namespace="team-a",node="node-1",result="InProgress",source_node="node-1",target_node="node-2",uid="uid-vm-01",volume_migration="false"} 1
+# HELP d8_virtualization_virtualmachine_migration_start_timestamp_seconds The time the last known migration of the virtualmachine started.
+# TYPE d8_virtualization_virtualmachine_migration_start_timestamp_seconds gauge
+d8_virtualization_virtualmachine_migration_start_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1.77e+09
+`),
+		// The disks of the machine move to another storage along with its memory, which takes
+		// far longer than a migration of the memory alone.
+		Entry("the disks travel along with the machine",
+			&v1alpha2.VirtualMachineMigrationState{
+				StartTimestamp:  &metav1.Time{Time: time.Unix(1770000000, 0)},
+				Source:          v1alpha2.VirtualMachineLocation{Node: "node-1"},
+				Target:          v1alpha2.VirtualMachineLocation{Node: "node-2"},
+				VolumeMigration: true,
+			},
+			`# HELP d8_virtualization_virtualmachine_migration_info The last known migration of the virtualmachine: the node it leaves, the node it goes to, the outcome and whether the disks move to another storage along with the memory.
+# TYPE d8_virtualization_virtualmachine_migration_info gauge
+d8_virtualization_virtualmachine_migration_info{name="vm-01",namespace="team-a",node="node-1",result="InProgress",source_node="node-1",target_node="node-2",uid="uid-vm-01",volume_migration="true"} 1
+# HELP d8_virtualization_virtualmachine_migration_start_timestamp_seconds The time the last known migration of the virtualmachine started.
+# TYPE d8_virtualization_virtualmachine_migration_start_timestamp_seconds gauge
+d8_virtualization_virtualmachine_migration_start_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1.77e+09
+`),
+		// The state survives the migration, which is what makes the direction observable after
+		// the few seconds the migration itself takes.
+		Entry("the migration succeeded",
+			&v1alpha2.VirtualMachineMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Unix(1770000000, 0)},
+				EndTimestamp:   &metav1.Time{Time: time.Unix(1770000005, 0)},
+				Source:         v1alpha2.VirtualMachineLocation{Node: "node-1"},
+				Target:         v1alpha2.VirtualMachineLocation{Node: "node-2"},
+				Result:         v1alpha2.MigrationResultSucceeded,
+			},
+			`# HELP d8_virtualization_virtualmachine_migration_info The last known migration of the virtualmachine: the node it leaves, the node it goes to, the outcome and whether the disks move to another storage along with the memory.
+# TYPE d8_virtualization_virtualmachine_migration_info gauge
+d8_virtualization_virtualmachine_migration_info{name="vm-01",namespace="team-a",node="node-1",result="Succeeded",source_node="node-1",target_node="node-2",uid="uid-vm-01",volume_migration="false"} 1
+# HELP d8_virtualization_virtualmachine_migration_end_timestamp_seconds The time the last known migration of the virtualmachine ended. Absent while the migration is in progress.
+# TYPE d8_virtualization_virtualmachine_migration_end_timestamp_seconds gauge
+d8_virtualization_virtualmachine_migration_end_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1.770000005e+09
+# HELP d8_virtualization_virtualmachine_migration_start_timestamp_seconds The time the last known migration of the virtualmachine started.
+# TYPE d8_virtualization_virtualmachine_migration_start_timestamp_seconds gauge
+d8_virtualization_virtualmachine_migration_start_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1.77e+09
+`),
+		Entry("the migration failed",
+			&v1alpha2.VirtualMachineMigrationState{
+				StartTimestamp: &metav1.Time{Time: time.Unix(1770000000, 0)},
+				EndTimestamp:   &metav1.Time{Time: time.Unix(1770000005, 0)},
+				Source:         v1alpha2.VirtualMachineLocation{Node: "node-1"},
+				Target:         v1alpha2.VirtualMachineLocation{Node: "node-2"},
+				Result:         v1alpha2.MigrationResultFailed,
+			},
+			`# HELP d8_virtualization_virtualmachine_migration_info The last known migration of the virtualmachine: the node it leaves, the node it goes to, the outcome and whether the disks move to another storage along with the memory.
+# TYPE d8_virtualization_virtualmachine_migration_info gauge
+d8_virtualization_virtualmachine_migration_info{name="vm-01",namespace="team-a",node="node-1",result="Failed",source_node="node-1",target_node="node-2",uid="uid-vm-01",volume_migration="false"} 1
+# HELP d8_virtualization_virtualmachine_migration_end_timestamp_seconds The time the last known migration of the virtualmachine ended. Absent while the migration is in progress.
+# TYPE d8_virtualization_virtualmachine_migration_end_timestamp_seconds gauge
+d8_virtualization_virtualmachine_migration_end_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1.770000005e+09
+# HELP d8_virtualization_virtualmachine_migration_start_timestamp_seconds The time the last known migration of the virtualmachine started.
+# TYPE d8_virtualization_virtualmachine_migration_start_timestamp_seconds gauge
+d8_virtualization_virtualmachine_migration_start_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1.77e+09
+`),
+		// A machine that has never migrated carries no state, and the direction of a migration
+		// that did not happen must not be reported as a series of empty nodes.
+		Entry("the machine has never migrated", nil, ""),
+	)
 })
 
 // expectedRunningVM is the full set of series a single running machine produces. Keeping the

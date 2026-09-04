@@ -1001,7 +1001,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "description": "How each node stands for a maintenance: how many machines it runs, how many are migrating, how many can leave by live migration and how many cannot, how many are affected by a maintenance right now, and how much room is left on the node for virtual machines.",
+          "description": "How each node stands for a maintenance: how many machines it runs, how many are leaving it and arriving on it right now, how many can leave by live migration and how many cannot, how many are affected by a maintenance right now, and how much room is left on the node for virtual machines.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1072,12 +1072,70 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Value #MigratingVMs"
+                  "options": "Value #OutboundMigrations"
                 },
                 "properties": [
                   {
                     "id": "displayName",
-                    "value": "Migrating VMs"
+                    "value": "Outbound migrations"
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "transparent",
+                          "value": null
+                        },
+                        {
+                          "color": "super-light-blue",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background",
+                      "mode": "basic"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #InboundMigrations"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Inbound migrations"
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "transparent",
+                          "value": null
+                        },
+                        {
+                          "color": "super-light-blue",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background",
+                      "mode": "basic"
+                    }
                   }
                 ]
               },
@@ -1109,7 +1167,7 @@
                       "mode": "absolute",
                       "steps": [
                         {
-                          "color": "green",
+                          "color": "text",
                           "value": null
                         },
                         {
@@ -1238,7 +1296,8 @@
               "countRows": false,
               "fields": [
                 "Value #RunningVMs",
-                "Value #MigratingVMs",
+                "Value #OutboundMigrations",
+                "Value #InboundMigrations",
                 "Value #MigratableVMs",
                 "Value #NonMigratableVMs",
                 "Value #UnderMaintenance",
@@ -1281,14 +1340,29 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "count by (node) (\n    max by (node, namespace, name) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", node!=\"\", phase=\"Migrating\"} == 1\n    )\n)",
+              "expr": "label_replace(\n    count by (source_node) (\n        max by (namespace, name, source_node) (\n            d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", source_node!=\"\", result=\"InProgress\"}\n        )\n    ),\n    \"node\", \"$1\", \"source_node\", \"(.+)\"\n)",
               "format": "table",
               "hide": false,
               "instant": true,
               "interval": "",
               "intervalFactor": 1,
               "legendFormat": "__auto",
-              "refId": "MigratingVMs"
+              "refId": "OutboundMigrations"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "label_replace(\n    count by (target_node) (\n        max by (namespace, name, target_node) (\n            d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", target_node!=\"\", result=\"InProgress\"}\n        )\n    ),\n    \"node\", \"$1\", \"target_node\", \"(.+)\"\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "InboundMigrations"
             },
             {
               "datasource": {
@@ -1394,7 +1468,8 @@
                   "names": [
                     "node",
                     "Value #RunningVMs",
-                    "Value #MigratingVMs",
+                    "Value #OutboundMigrations",
+                    "Value #InboundMigrations",
                     "Value #MigratableVMs",
                     "Value #NonMigratableVMs",
                     "Value #UnderMaintenance",
@@ -1412,19 +1487,790 @@
                 "indexByName": {
                   "node": 0,
                   "Value #RunningVMs": 1,
-                  "Value #MigratingVMs": 2,
-                  "Value #MigratableVMs": 3,
-                  "Value #NonMigratableVMs": 4,
-                  "Value #UnderMaintenance": 5,
-                  "Value #FreeCPU": 6,
-                  "Value #FreeMemory": 7,
-                  "Value #Unschedulable": 8
+                  "Value #OutboundMigrations": 2,
+                  "Value #InboundMigrations": 3,
+                  "Value #MigratableVMs": 4,
+                  "Value #NonMigratableVMs": 5,
+                  "Value #UnderMaintenance": 6,
+                  "Value #FreeCPU": 7,
+                  "Value #FreeMemory": 8,
+                  "Value #Unschedulable": 9
                 },
                 "renameByName": {}
               }
             }
           ],
           "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "The migrations happening right now, whatever period is selected. Moving: memory when only the memory travels, memory + disks when the disks move to another storage too. Convergence compares the rate the guest dirties memory with the rate it travels: ok below four fifths of it, risky up to it, stuck at or above it, where the migration cannot finish on its own.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false,
+                "minWidth": 70
+              },
+              "displayName": "",
+              "mappings": [],
+              "noValue": "-",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "namespace"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Project"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 160
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Virtual machines of the project",
+                        "url": "/d/aenrewb6nk0sgf/namespace-virtual-machines?var-ds_prometheus=${ds_prometheus}&var-namespace=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "name"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Virtual machine"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 200
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Virtual machine details",
+                        "url": "/d/bdw6dw2izvpxcb/namespace-virtual-machine?var-ds_prometheus=${ds_prometheus}&var-namespace=${__data.fields.namespace}&var-name=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "source_node"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "From node"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 160
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Node details",
+                        "url": "/d/rYdddlPWk/node?var-ds_prometheus=${ds_prometheus}&var-node=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "target_node"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "To node"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 160
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "Node details",
+                        "url": "/d/rYdddlPWk/node?var-ds_prometheus=${ds_prometheus}&var-node=${__value.raw}&${__url_time_range}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Started"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Started"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "dateTimeFromNow"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 120
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #DataTotal"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Data to transfer"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Convergence"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Convergence"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "none"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 130
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "range",
+                        "options": {
+                          "from": 0,
+                          "to": 0.8,
+                          "result": {
+                            "text": "ok",
+                            "index": 0
+                          }
+                        }
+                      },
+                      {
+                        "type": "range",
+                        "options": {
+                          "from": 0.8,
+                          "to": 1,
+                          "result": {
+                            "text": "risky",
+                            "index": 1
+                          }
+                        }
+                      },
+                      {
+                        "type": "range",
+                        "options": {
+                          "from": 1,
+                          "to": 1000000,
+                          "result": {
+                            "text": "stuck",
+                            "index": 2
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "transparent",
+                          "value": null
+                        },
+                        {
+                          "color": "super-light-green",
+                          "value": 0
+                        },
+                        {
+                          "color": "super-light-orange",
+                          "value": 0.8
+                        },
+                        {
+                          "color": "super-light-red",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background",
+                      "mode": "basic"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #Moving"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Moving"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "none"
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 150
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "memory",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "memory + disks",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #TransferRate"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Transfer rate"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "Bps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #DirtyRate"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Dirty memory rate"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "Bps"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 26
+          },
+          "id": 162,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Started"
+              }
+            ]
+          },
+          "pluginVersion": "10.4.19",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name, source_node, target_node) (\n    d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"}\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Info"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_start_timestamp_seconds{namespace=~\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"})\n) * 1000",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Started"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_data_total_bytes{namespace=~\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"})\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "DataTotal"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_disk_transfer_rate_bytes{namespace=~\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"})\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "TransferRate"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=~\"$namespace\"}\n        * on (namespace, name) group_left ()\n            max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"})\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "DirtyRate"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=~\"$namespace\"}\n)\n    /\n(\n    max by (namespace, name) (\n        d8_virtualization_virtualmachine_migration_disk_transfer_rate_bytes{namespace=~\"$namespace\"}\n    ) > 0\n)\n* on (namespace, name) group_left ()\n    max by (namespace, name) (d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"})",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Convergence"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\", volume_migration=\"true\"}\n)\nor\nmax by (namespace, name) (\n    d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"}\n) * 0",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "Moving"
+            }
+          ],
+          "title": "Migrations",
+          "type": "table",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "namespace",
+                    "name",
+                    "source_node",
+                    "target_node",
+                    "Value #Started",
+                    "Value #DataTotal",
+                    "Value #TransferRate",
+                    "Value #DirtyRate",
+                    "Value #Convergence",
+                    "Value #Moving",
+                    "Value #TransferRate",
+                    "Value #DirtyRate"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "namespace": 0,
+                  "name": 1,
+                  "Value #Moving": 2,
+                  "Value #Convergence": 3,
+                  "source_node": 4,
+                  "target_node": 5,
+                  "Value #Started": 6,
+                  "Value #DataTotal": 7,
+                  "Value #TransferRate": 8,
+                  "Value #DirtyRate": 9
+                },
+                "renameByName": {}
+              }
+            }
+          ]
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "How fast the memory of the migrating machines leaves each node, stacked by the node they leave. The height of a band is what a node is sending out right now.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 0,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "Bps"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 34
+          },
+          "id": 164,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (source_node) (\n    d8_virtualization_virtualmachine_migration_disk_transfer_rate_bytes{namespace=~\"$namespace\"}\n        * on (namespace, name) group_left (source_node)\n            max by (namespace, name, source_node) (\n                d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"}\n            )\n)",
+              "legendFormat": "{{source_node}}",
+              "range": true,
+              "refId": "Outbound"
+            }
+          ],
+          "title": "Outbound migration traffic",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "How fast the memory of the migrating machines arrives on each node, stacked by the node they go to. The height of a band is what a node is taking in right now.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 0,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "Bps"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 34
+          },
+          "id": 165,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (target_node) (\n    d8_virtualization_virtualmachine_migration_disk_transfer_rate_bytes{namespace=~\"$namespace\"}\n        * on (namespace, name) group_left (target_node)\n            max by (namespace, name, target_node) (\n                d8_virtualization_virtualmachine_migration_info{namespace=~\"$namespace\", result=\"InProgress\"}\n            )\n)",
+              "legendFormat": "{{target_node}}",
+              "range": true,
+              "refId": "Inbound"
+            }
+          ],
+          "title": "Inbound migration traffic",
+          "type": "timeseries"
         },
         {
           "datasource": {
@@ -1517,7 +2363,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 26
+            "y": 42
           },
           "id": 136,
           "options": {
@@ -1660,7 +2506,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 26
+            "y": 42
           },
           "id": 142,
           "options": {

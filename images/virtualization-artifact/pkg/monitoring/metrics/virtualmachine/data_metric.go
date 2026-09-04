@@ -62,7 +62,26 @@ type dataMetric struct {
 	// MigratableReason tells the answers of the same value apart: a machine whose disks travel
 	// along with it and a machine with no node to take it right now are both migratable.
 	MigratableReason string
+	// Migration is nil for a machine that has never migrated, and no migration series is
+	// exported for it.
+	Migration *migrationDataMetric
 }
+
+// migrationDataMetric describes the last known migration of the virtual machine.
+type migrationDataMetric struct {
+	SourceNode string
+	TargetNode string
+	Result     string
+	// Start and End are unix seconds; End stays 0 while the migration is in progress.
+	Start float64
+	End   float64
+	// VolumeMigration is true when the disks move to another storage along with the memory.
+	VolumeMigration bool
+}
+
+// migrationResultInProgress stands for the empty result the API reports while the machine is still
+// travelling: an empty label value is indistinguishable from a missing label in PromQL.
+const migrationResultInProgress = "InProgress"
 
 // DO NOT mutate VirtualMachine!
 func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
@@ -137,7 +156,36 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 		MigratableKnown:        hasMigratableCondition,
 		MigratableReason:       migratableCondition.Reason,
 		EvictionRequiredReason: evictionRequiredReason(vm),
+		Migration:              newMigrationDataMetric(vm),
 	}
+}
+
+// newMigrationDataMetric reports the last known migration of the virtual machine. The state stays
+// in the status once the migration is over, so the metric answers "where did the machine go" long
+// after the seconds the migration itself took, no matter whether a scrape fell into that window.
+func newMigrationDataMetric(vm *v1alpha2.VirtualMachine) *migrationDataMetric {
+	state := vm.Status.MigrationState
+	if state == nil {
+		return nil
+	}
+
+	m := &migrationDataMetric{
+		SourceNode:      state.Source.Node,
+		TargetNode:      state.Target.Node,
+		Result:          string(state.Result),
+		VolumeMigration: state.VolumeMigration,
+	}
+	if m.Result == "" {
+		m.Result = migrationResultInProgress
+	}
+	if state.StartTimestamp != nil {
+		m.Start = float64(state.StartTimestamp.Unix())
+	}
+	if state.EndTimestamp != nil {
+		m.End = float64(state.EndTimestamp.Unix())
+	}
+
+	return m
 }
 
 // evictionRequiredReason reports what the platform is going to do with the virtual machine while
