@@ -629,7 +629,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 
-	pvTerms, err := s.PVNodeAffinityTerms(ctx)
+	pvTerms, _, err := s.PVNodeAffinityTerms(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect PV node affinities: %w", err)
 	}

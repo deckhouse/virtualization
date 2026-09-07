@@ -100,6 +100,49 @@ func toleratesNodeTaints(node *corev1.Node, tolerations []corev1.Toleration) boo
 	return !untolerated
 }
 
+// PlacementTerms returns the required node affinity terms of a virtual machine itself: the terms of
+// its own affinity, each carrying the match expressions of its VirtualMachineClass. An empty result
+// means no node affinity restricts the machine.
+func PlacementTerms(vmAffinity *corev1.Affinity, classMatchExpressions []corev1.NodeSelectorRequirement) []corev1.NodeSelectorTerm {
+	var terms []corev1.NodeSelectorTerm
+	if vmAffinity != nil && vmAffinity.NodeAffinity != nil &&
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+		terms = vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	}
+
+	if len(classMatchExpressions) == 0 {
+		return terms
+	}
+	// The class restricts the machine on its own, so its expressions have to hold whichever term of
+	// the machine is satisfied.
+	if len(terms) == 0 {
+		return []corev1.NodeSelectorTerm{{MatchExpressions: classMatchExpressions}}
+	}
+
+	result := make([]corev1.NodeSelectorTerm, 0, len(terms))
+	for _, term := range terms {
+		term.MatchExpressions = append(
+			append([]corev1.NodeSelectorRequirement{}, term.MatchExpressions...),
+			classMatchExpressions...,
+		)
+		result = append(result, term)
+	}
+	return result
+}
+
+// NarrowTerms narrows terms by extra: a node has to satisfy a term of either side. An empty side
+// restricts nothing, so the other side is returned as it is.
+func NarrowTerms(terms, extra []corev1.NodeSelectorTerm) []corev1.NodeSelectorTerm {
+	switch {
+	case len(terms) == 0:
+		return extra
+	case len(extra) == 0:
+		return terms
+	default:
+		return CrossProductTerms(terms, extra)
+	}
+}
+
 func CrossProductTerms(a, b []corev1.NodeSelectorTerm) []corev1.NodeSelectorTerm {
 	var result []corev1.NodeSelectorTerm
 	for _, termA := range a {

@@ -33,11 +33,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
+	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -146,7 +149,77 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 	}
 
+	// After the propagation: that patch replaces the whole annotation map of the internal virtual
+	// machine with the propagated one, which would drop the annotation set below.
+	if err = h.syncMigrationNodeAffinityTerms(ctx, s, kvvm); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to sync the migration node affinity terms of the KubeVirt VM %q: %w", kvvm.GetName(), err)
+	}
+
 	return reconcile.Result{}, nil
+}
+
+// syncMigrationNodeAffinityTerms keeps the AnnMigrationNodeAffinityTerms annotation of the internal
+// virtual machine up to date. What it carries and who reads it is described at the annotation itself.
+//
+// It is patched here instead of being rendered along with the rest of the internal virtual machine,
+// because that rendering happens only when the spec of the VirtualMachine changes, while a machine
+// that is already running has to get the annotation as well: it is the running machines with local
+// disks that are reported as having nowhere to migrate to.
+func (h *SyncMetadataHandler) syncMigrationNodeAffinityTerms(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) error {
+	// Where the disks cannot travel, the node they pin the machine to is a placement rule of the
+	// machine as good as the ones its owner wrote, and the search for a migration target must keep
+	// taking it into account.
+	if !featuregates.Default().Enabled(featuregates.VolumeMigration) {
+		return object.RemoveAnnotation(ctx, h.client, kvvm, annotations.AnnMigrationNodeAffinityTerms)
+	}
+
+	class, err := s.Class(ctx)
+	if err != nil {
+		return err
+	}
+	if class == nil {
+		return nil
+	}
+
+	_, stayingTerms, err := s.PVNodeAffinityTerms(ctx)
+	if err != nil {
+		return fmt.Errorf("collect PV node affinities: %w", err)
+	}
+
+	value, err := MigrationNodeAffinityTerms(s.VirtualMachine().Current(), class, stayingTerms)
+	if err != nil {
+		return err
+	}
+
+	return object.EnsureAnnotation(ctx, h.client, kvvm, annotations.AnnMigrationNodeAffinityTerms, value)
+}
+
+// MigrationNodeAffinityTerms renders the value of the AnnMigrationNodeAffinityTerms annotation: the
+// node affinity terms of the machine and of its class, narrowed by the node affinity of the volumes
+// that stay where they are while the machine migrates.
+func MigrationNodeAffinityTerms(
+	vm *v1alpha2.VirtualMachine,
+	class *v1alpha2.VirtualMachineClass,
+	stayingTerms []corev1.NodeSelectorTerm,
+) (string, error) {
+	terms := nodeaffinity.NarrowTerms(
+		nodeaffinity.PlacementTerms(
+			v1alpha2.NewAffinityFromVMAffinity(vm.Spec.Affinity),
+			class.Spec.NodeSelector.MatchExpressions,
+		),
+		stayingTerms,
+	)
+	if terms == nil {
+		// An empty array says the machine itself is not restricted, a missing annotation says
+		// nothing at all, so the difference has to survive the marshalling.
+		terms = []corev1.NodeSelectorTerm{}
+	}
+
+	value, err := json.Marshal(terms)
+	if err != nil {
+		return "", fmt.Errorf("marshal node affinity terms: %w", err)
+	}
+	return string(value), nil
 }
 
 func (h *SyncMetadataHandler) Name() string {
@@ -238,7 +311,11 @@ func (h *SyncMetadataHandler) updateKVVMSpecTemplateMetadataAnnotations(currAnno
 		if k == annotations.AnnVMLastAppliedSpec ||
 			k == annotations.AnnVMLastAppliedSpecLegacy ||
 			k == annotations.AnnVMClassLastAppliedSpec ||
-			k == annotations.AnnVMClassLastAppliedSpecLegacy {
+			k == annotations.AnnVMClassLastAppliedSpecLegacy ||
+			// Addressed to virt-controller and belongs to the internal virtual machine alone.
+			// Mirroring it into the template would change the rendered spec on every reconcile
+			// that follows the annotation, and the rendering would take it back out again.
+			k == annotations.AnnMigrationNodeAffinityTerms {
 			continue
 		}
 

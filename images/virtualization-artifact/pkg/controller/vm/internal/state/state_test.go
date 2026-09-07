@@ -249,7 +249,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvc, pv)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(BeNil())
 	})
@@ -262,7 +262,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvc, pv)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions).To(HaveLen(1))
@@ -284,7 +284,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vdA, pvcA, pvA, vdB, pvcB, pvB)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions).To(HaveLen(2))
@@ -305,7 +305,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vdNet, pvcNet, pvNet, vdLocal, pvcLocal, pvLocal)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions).To(HaveLen(1))
@@ -333,7 +333,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vdBound, pvcBound, pvBound, vdPending, pvcPending, otherSC)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1))
@@ -362,12 +362,80 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcLocal, localSC, lvg)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Key).To(Equal(corev1.LabelHostname))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1))
+	})
+
+	// A disk travels along with the machine, so the node it lives on is not a placement rule of the
+	// machine. The nodes of its storage class still are: the volume of the target is provisioned
+	// there, and nowhere else.
+	DescribeTable("should keep the nodes of the storage class of a disk that travels along",
+		func(lvgParam string, lvgNodes map[string]string, expectedNodes []string) {
+			vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+			vd := makeVD("local-disk", "pvc-local")
+			vd.Status.StorageClassName = "local-storage-class-thin"
+			pvc := makePVC("pvc-local", "pv-local")
+			pv := makePV("pv-local", nodeAffinityTerm(node1))
+			localSC := &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: "local-storage-class-thin"},
+				Provisioner: localCSIProvisioner,
+				Parameters:  map[string]string{lvmVolumeGroupsParam: lvgParam},
+			}
+
+			objs := []client.Object{vd, pvc, pv, localSC}
+			for lvgName, nodeName := range lvgNodes {
+				lvg := &unstructured.Unstructured{}
+				lvg.SetGroupVersionKind(schema.GroupVersionKind{
+					Group: "storage.deckhouse.io", Version: "v1alpha1", Kind: "LVMVolumeGroup",
+				})
+				lvg.SetName(lvgName)
+				Expect(unstructured.SetNestedField(lvg.Object, nodeName, "spec", "local", "nodeName")).To(Succeed())
+				objs = append(objs, lvg)
+			}
+
+			s := buildState(vm, objs...)
+			ctx := logger.ToContext(context.TODO(), slog.Default())
+			terms, stayingTerms, err := s.PVNodeAffinityTerms(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			// The pin of the volume keeps being applied to the machine itself.
+			Expect(terms).To(HaveLen(1))
+			Expect(stayingTerms).To(HaveLen(1))
+			Expect(stayingTerms[0].MatchExpressions).To(HaveLen(1))
+			Expect(stayingTerms[0].MatchExpressions[0].Key).To(Equal(corev1.LabelHostname))
+			Expect(stayingTerms[0].MatchExpressions[0].Values).To(ConsistOf(expectedNodes))
+		},
+		// The machine has nowhere to go: the volume can only be provisioned on the node it already
+		// runs on.
+		Entry("a class that lives on one node",
+			"- name: vg-data-node-1\n  thin:\n    poolName: thin-data\n",
+			map[string]string{"vg-data-node-1": node1},
+			[]string{node1}),
+		Entry("a class that lives on two nodes",
+			"- name: vg-data-node-1\n  thin:\n    poolName: thin-data\n- name: vg-data-node-2\n  thin:\n    poolName: thin-data\n",
+			map[string]string{"vg-data-node-1": node1, "vg-data-node-2": node2},
+			[]string{node1, node2}),
+	)
+
+	It("should keep no terms of a disk on a storage class that is not local", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "net-disk"})
+		vd := makeVD("net-disk", "pvc-net")
+		vd.Status.StorageClassName = "replicated-storage-class"
+		pvc := makePVC("pvc-net", "pv-net")
+		pv := makePV("pv-net", nodeAffinityTerm(node1))
+		netSC := &storagev1.StorageClass{
+			ObjectMeta:  metav1.ObjectMeta{Name: "replicated-storage-class"},
+			Provisioner: "replicated.csi.storage.deckhouse.io",
+		}
+
+		s := buildState(vm, vd, pvc, pv, netSC)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+		_, stayingTerms, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stayingTerms).To(BeNil())
 	})
 
 	It("should intersect bound PV terms with LVMVolumeGroup topology", func() {
@@ -400,7 +468,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vdBound, pvcBound, pvBound, vdLocal, pvcLocal, localSC, lvg)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).NotTo(BeEmpty())
 	})
@@ -427,7 +495,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcWFFC, pvAvail1, pvAvail2, pvBound)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(2), "should have terms from 2 available PVs (not the bound one)")
 	})
@@ -446,7 +514,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcWFFC, pvAvail)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions).To(HaveLen(1))
@@ -468,7 +536,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcWFFC, pvAvail)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions).To(HaveLen(1))
@@ -500,7 +568,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vdBound, pvcBound, pvBound, vdWFFC, pvcWFFC, pvAvail1, pvAvail2)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		// bound-disk allows node1,node2; wffc-disk allows node2,node3
 		// intersection (cross-product) should yield terms matching node2
@@ -515,7 +583,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vi, pvc, pv)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node3))
@@ -527,7 +595,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vi)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(BeNil())
 	})
@@ -537,7 +605,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(BeNil())
 	})
@@ -566,7 +634,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
@@ -609,7 +677,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvAvailTarget)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
@@ -640,7 +708,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
@@ -672,7 +740,7 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node1),
@@ -703,11 +771,89 @@ var _ = Describe("PVNodeAffinityTerms", func() {
 
 		s := buildState(vm, vd, pvcSource, pvSource, pvcTarget, pvTarget)
 		ctx := logger.ToContext(context.TODO(), slog.Default())
-		terms, err := s.PVNodeAffinityTerms(ctx)
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(terms).To(HaveLen(1))
 		Expect(terms[0].MatchExpressions[0].Values).To(ConsistOf(node2),
 			"a migrating disk must never pin to the source node, even with a stale Migrating condition")
+	})
+
+	// More than one handler asks for the terms within a reconcile, and collecting them walks every
+	// block device down to its persistent volume.
+	It("should collect the terms once per state", func() {
+		vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+		vd := makeVD("local-disk", "pvc-local")
+		pvc := makePVC("pvc-local", "pv-local")
+		pv := makePV("pv-local", nodeAffinityTerm(node1))
+
+		s := buildState(vm, vd, pvc, pv)
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+
+		terms, _, err := s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1))
+
+		Expect(s.client.Delete(ctx, pv)).To(Succeed())
+
+		terms, _, err = s.PVNodeAffinityTerms(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(terms).To(HaveLen(1), "the answer is remembered, the volumes are not walked again")
+	})
+
+	// Volume migration replaces the claim of a VirtualDisk only, so the node a disk pins the machine
+	// to is left behind when the machine migrates, while the node of an image is not.
+	Context("the terms of the volumes that stay", func() {
+		It("should be empty when every volume is a disk", func() {
+			vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"})
+			vd := makeVD("local-disk", "pvc-local")
+			pvc := makePVC("pvc-local", "pv-local")
+			pv := makePV("pv-local", nodeAffinityTerm(node1))
+
+			s := buildState(vm, vd, pvc, pv)
+			ctx := logger.ToContext(context.TODO(), slog.Default())
+			terms, stayingTerms, err := s.PVNodeAffinityTerms(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(terms).To(HaveLen(1))
+			Expect(stayingTerms).To(BeEmpty())
+		})
+
+		It("should hold the node of an image on a persistent volume claim", func() {
+			vm := makeVM(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: "local-image"})
+			vi := makeVI("local-image", "pvc-image", v1alpha2.StoragePersistentVolumeClaim)
+			pvc := makePVC("pvc-image", "pv-image")
+			pv := makePV("pv-image", nodeAffinityTerm(node1))
+
+			s := buildState(vm, vi, pvc, pv)
+			ctx := logger.ToContext(context.TODO(), slog.Default())
+			terms, stayingTerms, err := s.PVNodeAffinityTerms(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(terms).To(Equal(stayingTerms))
+			Expect(stayingTerms).To(HaveLen(1))
+			Expect(stayingTerms[0].MatchExpressions[0].Values).To(ConsistOf(node1))
+		})
+
+		It("should hold the node of the image alone when a disk pins the machine as well", func() {
+			vm := makeVM(
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "local-disk"},
+				v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: "local-image"},
+			)
+			vd := makeVD("local-disk", "pvc-local")
+			pvcDisk := makePVC("pvc-local", "pv-local")
+			pvDisk := makePV("pv-local", nodeAffinityTerm(node1))
+			vi := makeVI("local-image", "pvc-image", v1alpha2.StoragePersistentVolumeClaim)
+			pvcImage := makePVC("pvc-image", "pv-image")
+			pvImage := makePV("pv-image", nodeAffinityTerm(node1, node2))
+
+			s := buildState(vm, vd, pvcDisk, pvDisk, vi, pvcImage, pvImage)
+			ctx := logger.ToContext(context.TODO(), slog.Default())
+			terms, stayingTerms, err := s.PVNodeAffinityTerms(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(terms).To(HaveLen(1))
+			Expect(terms[0].MatchExpressions).To(HaveLen(2), "both volumes pin the machine")
+			Expect(stayingTerms).To(HaveLen(1))
+			Expect(stayingTerms[0].MatchExpressions).To(HaveLen(1))
+			Expect(stayingTerms[0].MatchExpressions[0].Values).To(ConsistOf(node1, node2))
+		})
 	})
 })
 

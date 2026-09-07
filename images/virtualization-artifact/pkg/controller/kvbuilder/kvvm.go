@@ -249,31 +249,27 @@ func (b *KVVM) SetPriorityClassName(priorityClassName string) {
 }
 
 func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []corev1.NodeSelectorRequirement) {
+	// The affinity is built from the one of the VirtualMachine, and what lands in the internal
+	// virtual machine is narrowed further by the node affinity of the persistent volumes. Without a
+	// copy those terms reach back into the VirtualMachine the caller holds, and since the internal
+	// virtual machine is rendered more than once per reconcile, the same node pin is appended to its
+	// placement rules again and again.
+	vmAffinity = vmAffinity.DeepCopy()
+
 	if len(classMatchExpressions) == 0 {
 		b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 		return
 	}
+	terms := nodeaffinity.PlacementTerms(vmAffinity, classMatchExpressions)
+
 	if vmAffinity == nil {
 		vmAffinity = &corev1.Affinity{}
 	}
 	if vmAffinity.NodeAffinity == nil {
 		vmAffinity.NodeAffinity = &corev1.NodeAffinity{}
 	}
-	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
-	}
-	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
-		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{}
-	}
-	if len(vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms) == 0 {
-		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-			corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions})
-	} else {
-		for i := range vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
-			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions = append(
-				vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions, classMatchExpressions...)
-		}
+	vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{
+		NodeSelectorTerms: terms,
 	}
 
 	b.Resource.Spec.Template.Spec.Affinity = vmAffinity
@@ -980,11 +976,7 @@ func (b *KVVM) ApplyPVNodeAffinity(pvTerms []corev1.NodeSelectorTerm) {
 	}
 
 	existing := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-	if len(existing) == 0 {
-		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = pvTerms
-	} else {
-		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = nodeaffinity.CrossProductTerms(existing, pvTerms)
-	}
+	affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = nodeaffinity.NarrowTerms(existing, pvTerms)
 
 	b.Resource.Spec.Template.Spec.Affinity = affinity
 }

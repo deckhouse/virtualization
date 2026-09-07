@@ -113,6 +113,25 @@ const (
 
 	AnnOsType = AnnAPIGroupV + "/os-type"
 
+	// AnnMigrationNodeAffinityTerms is an annotation on KVVM. It holds, as a JSON array of
+	// corev1.NodeSelectorTerm, the required node affinity terms that keep holding once the virtual
+	// machine has been migrated: the rules of the VirtualMachine and of its VirtualMachineClass,
+	// plus the node affinity of the volumes that stay where they are.
+	//
+	// The affinity of the KVVM template carries the node the disks currently live on, so that the
+	// pod lands where the data is. Volume migration lifts that pin by moving the disks along, and
+	// the search for a migration target has to skip it, or every machine with a local disk reads
+	// as having nowhere to go. The pin cannot be told from a rule the user wrote once the two are
+	// merged into the affinity, and virt-controller has no PersistentVolume store to derive it on
+	// its own, hence this annotation.
+	//
+	// It is written only where the platform can actually move the disks, and the volumes of an
+	// image are excluded from the pins that travel: volume migration replaces the claim of a
+	// VirtualDisk only. An empty array means the machine itself has no node affinity rules, which
+	// is not the same as a missing annotation: without the annotation virt-controller keeps using
+	// the affinity of the rendered pod.
+	AnnMigrationNodeAffinityTerms = AnnAPIGroupV + "/migration-node-affinity-terms"
+
 	// AnnVMStartRequested is an annotation on KVVM that represents a request to start a virtual machine.
 	AnnVMStartRequested = AnnAPIGroupV + "/vm-start-requested"
 

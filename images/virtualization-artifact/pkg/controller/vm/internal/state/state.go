@@ -62,7 +62,7 @@ type VirtualMachineState interface {
 	VMOPs(ctx context.Context) ([]*v1alpha2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
 	ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.VirtualDisk, error)
-	PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorTerm, error)
+	PVNodeAffinityTerms(ctx context.Context) (terms, stayingTerms []corev1.NodeSelectorTerm, err error)
 	USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error)
 	USBDevicesByName(ctx context.Context) (map[string]*v1alpha2.USBDevice, error)
 }
@@ -82,6 +82,17 @@ type state struct {
 	vm     *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 	shared Shared
 	bdRefs []blockDeviceRef
+
+	pvNodeAffinity *pvNodeAffinity
+}
+
+// pvNodeAffinity holds the answer of PVNodeAffinityTerms for the reconcile this state was created
+// for. Collecting it walks every block device of the machine down to its persistent volume, and
+// more than one handler needs it, while a state does not outlive a single reconcile.
+type pvNodeAffinity struct {
+	terms        []corev1.NodeSelectorTerm
+	stayingTerms []corev1.NodeSelectorTerm
+	err          error
 }
 
 type blockDeviceRef struct {
@@ -417,40 +428,73 @@ func (s *state) ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.Virt
 	return nonMigratableVirtualDisks, nil
 }
 
-func (s *state) PVNodeAffinityTerms(ctx context.Context) ([]corev1.NodeSelectorTerm, error) {
+// PVNodeAffinityTerms returns the node affinity of the persistent volumes backing the block devices
+// of the virtual machine.
+//
+// terms pins the machine to the nodes where all of its volumes are available. stayingTerms holds the
+// same for the volumes that stay where they are while the machine migrates: volume migration replaces
+// the claim of a VirtualDisk only (see ApplyMigrationVolumes), so the volume of an image keeps the
+// machine on its node even when its disks travel along.
+//
+// The answer is collected once per reconcile and shared by the handlers that ask for it, so the
+// terms it returns are to be read, not changed.
+func (s *state) PVNodeAffinityTerms(ctx context.Context) (terms, stayingTerms []corev1.NodeSelectorTerm, err error) {
+	if s.pvNodeAffinity == nil {
+		terms, stayingTerms, err = s.collectPVNodeAffinityTerms(ctx)
+		s.pvNodeAffinity = &pvNodeAffinity{terms: terms, stayingTerms: stayingTerms, err: err}
+	}
+	return s.pvNodeAffinity.terms, s.pvNodeAffinity.stayingTerms, s.pvNodeAffinity.err
+}
+
+func (s *state) collectPVNodeAffinityTerms(ctx context.Context) (terms, stayingTerms []corev1.NodeSelectorTerm, err error) {
 	refs, err := s.collectBlockDeviceRefs(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("collect block device refs: %w", err)
+		return nil, nil, fmt.Errorf("collect block device refs: %w", err)
 	}
 
 	vmMigrating, err := s.isVolumeMigrating(ctx, refs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	var perPVTerms [][]corev1.NodeSelectorTerm
+	var perPVTerms, stayingPerPVTerms [][]corev1.NodeSelectorTerm
 	namespace := s.vm.Current().GetNamespace()
 
 	for _, ref := range refs {
 		pvcName, err := s.resolvePVCName(ctx, ref.Kind, ref.Name, vmMigrating)
 		if err != nil {
-			return nil, fmt.Errorf("resolve PVC name for %s/%s: %w", ref.Kind, ref.Name, err)
+			return nil, nil, fmt.Errorf("resolve PVC name for %s/%s: %w", ref.Kind, ref.Name, err)
 		}
 		if pvcName == "" {
 			continue
 		}
 
-		terms, err := s.pvNodeAffinityTermsForPVC(ctx, ref.Kind, ref.Name, pvcName, namespace)
+		refTerms, err := s.pvNodeAffinityTermsForPVC(ctx, ref.Kind, ref.Name, pvcName, namespace)
 		if err != nil {
-			return nil, fmt.Errorf("get PV node affinity for PVC %s: %w", pvcName, err)
+			return nil, nil, fmt.Errorf("get PV node affinity for PVC %s: %w", pvcName, err)
 		}
-		if terms == nil {
+		if refTerms == nil {
 			continue
 		}
-		perPVTerms = append(perPVTerms, terms)
+		perPVTerms = append(perPVTerms, refTerms)
+		if ref.Kind != v1alpha2.DiskDevice {
+			stayingPerPVTerms = append(stayingPerPVTerms, refTerms)
+			continue
+		}
+
+		// The disk travels along with the machine, so its current node says nothing about where the
+		// machine may go. Its storage class still does: the volume of the target is provisioned on
+		// the nodes that class lives on, and the pod of the migration carries those same nodes.
+		scTerms, err := s.nodeAffinityTermsFromStorageClassOf(ctx, ref, pvcName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("get storage class node affinity for %s/%s: %w", ref.Kind, ref.Name, err)
+		}
+		if scTerms != nil {
+			stayingPerPVTerms = append(stayingPerPVTerms, scTerms)
+		}
 	}
 
-	return nodeaffinity.IntersectTerms(perPVTerms), nil
+	return nodeaffinity.IntersectTerms(perPVTerms), nodeaffinity.IntersectTerms(stayingPerPVTerms), nil
 }
 
 func (s *state) isVolumeMigrating(ctx context.Context, refs []blockDeviceRef) (bool, error) {
@@ -665,6 +709,20 @@ const (
 // nodeAffinityTermsFromStorageClassTopology resolves node topology for dynamic provisioning
 // by reading the StorageClass parameters and looking up LVMVolumeGroup resources to determine
 // which nodes can provision volumes for this StorageClass.
+// nodeAffinityTermsFromStorageClassOf returns the nodes the storage class of a block device lives
+// on, as node affinity terms. An empty result means the class restricts nothing, which is the case
+// for every class but a local one.
+func (s *state) nodeAffinityTermsFromStorageClassOf(ctx context.Context, ref blockDeviceRef, pvcName string) ([]corev1.NodeSelectorTerm, error) {
+	storageClassName, err := s.resolveStorageClassName(ctx, ref.Kind, ref.Name, pvcName)
+	if err != nil {
+		return nil, fmt.Errorf("resolve StorageClass: %w", err)
+	}
+	if storageClassName == "" {
+		return nil, nil
+	}
+	return s.nodeAffinityTermsFromStorageClassTopology(ctx, storageClassName)
+}
+
 func (s *state) nodeAffinityTermsFromStorageClassTopology(ctx context.Context, storageClassName string) ([]corev1.NodeSelectorTerm, error) {
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {

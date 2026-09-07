@@ -198,3 +198,74 @@ var _ = Describe("IntersectTerms", func() {
 		Expect(result[0].MatchExpressions).To(HaveLen(2))
 	})
 })
+
+var _ = Describe("PlacementTerms", func() {
+	req := func(key string) corev1.NodeSelectorRequirement {
+		return corev1.NodeSelectorRequirement{Key: key, Operator: corev1.NodeSelectorOpExists}
+	}
+
+	It("returns nothing when neither the machine nor its class restricts the node", func() {
+		Expect(nodeaffinity.PlacementTerms(nil, nil)).To(BeEmpty())
+		Expect(nodeaffinity.PlacementTerms(&corev1.Affinity{}, nil)).To(BeEmpty())
+	})
+
+	It("returns the terms of the machine when the class adds nothing", func() {
+		affinity := &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{req("a")}}},
+			},
+		}}
+		Expect(nodeaffinity.PlacementTerms(affinity, nil)).To(HaveLen(1))
+	})
+
+	It("turns the expressions of the class into a term of their own when the machine has none", func() {
+		result := nodeaffinity.PlacementTerms(nil, []corev1.NodeSelectorRequirement{req("class")})
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].MatchExpressions).To(ConsistOf(req("class")))
+	})
+
+	// A node has to satisfy the class whichever term of the machine it satisfies.
+	It("adds the expressions of the class to every term of the machine", func() {
+		affinity := &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{MatchExpressions: []corev1.NodeSelectorRequirement{req("a")}},
+					{MatchExpressions: []corev1.NodeSelectorRequirement{req("b")}},
+				},
+			},
+		}}
+		result := nodeaffinity.PlacementTerms(affinity, []corev1.NodeSelectorRequirement{req("class")})
+		Expect(result).To(HaveLen(2))
+		Expect(result[0].MatchExpressions).To(ConsistOf(req("a"), req("class")))
+		Expect(result[1].MatchExpressions).To(ConsistOf(req("b"), req("class")))
+	})
+
+	It("leaves the terms of the machine untouched", func() {
+		terms := []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{req("a")}}}
+		affinity := &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{NodeSelectorTerms: terms},
+		}}
+		nodeaffinity.PlacementTerms(affinity, []corev1.NodeSelectorRequirement{req("class")})
+		Expect(terms[0].MatchExpressions).To(ConsistOf(req("a")))
+	})
+})
+
+var _ = Describe("NarrowTerms", func() {
+	terms := func(key string) []corev1.NodeSelectorTerm {
+		return []corev1.NodeSelectorTerm{{
+			MatchExpressions: []corev1.NodeSelectorRequirement{{Key: key, Operator: corev1.NodeSelectorOpExists}},
+		}}
+	}
+
+	It("returns the other side when one of them restricts nothing", func() {
+		Expect(nodeaffinity.NarrowTerms(nil, terms("b"))).To(Equal(terms("b")))
+		Expect(nodeaffinity.NarrowTerms(terms("a"), nil)).To(Equal(terms("a")))
+		Expect(nodeaffinity.NarrowTerms(nil, nil)).To(BeEmpty())
+	})
+
+	It("merges both sides into a term a node has to satisfy as a whole", func() {
+		result := nodeaffinity.NarrowTerms(terms("a"), terms("b"))
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].MatchExpressions).To(HaveLen(2))
+	})
+})

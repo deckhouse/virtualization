@@ -226,6 +226,36 @@ func TestApplyPVNodeAffinity(t *testing.T) {
 			}
 		}
 	})
+
+	// The internal virtual machine is rendered more than once per reconcile from the same
+	// VirtualMachine object, so a node pin written back into it would be appended again on every
+	// render and would keep growing.
+	t.Run("PV terms do not reach the affinity of the caller", func(t *testing.T) {
+		vmAffinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{pvTerm("zone", "us-east-1a")},
+				},
+			},
+		}
+		pvTerms := []corev1.NodeSelectorTerm{pvTerm("topology/node", "node-1")}
+
+		for range 2 {
+			b := NewEmptyKVVM(nn, KVVMOptions{})
+			b.SetAffinity(vmAffinity, nil)
+			b.ApplyPVNodeAffinity(pvTerms)
+
+			got := b.Resource.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			if len(got) != 1 || len(got[0].MatchExpressions) != 2 {
+				t.Fatalf("expected 1 term of 2 expressions in the internal virtual machine, got %d term(s) of %d", len(got), len(got[0].MatchExpressions))
+			}
+		}
+
+		kept := vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+		if len(kept) != 1 || len(kept[0].MatchExpressions) != 1 {
+			t.Errorf("the affinity of the caller was changed: %d term(s) of %d expression(s)", len(kept), len(kept[0].MatchExpressions))
+		}
+	})
 }
 
 func TestSetOsType(t *testing.T) {

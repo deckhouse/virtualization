@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -281,6 +282,43 @@ var _ = Describe("SyncMetadataHandler", func() {
 	})
 })
 
+var _ = Describe("SyncMetadataHandler and the migration node affinity terms", func() {
+	const (
+		name      = "vm-migration-terms"
+		namespace = "default"
+	)
+
+	// The feature gate that lets the volumes travel is locked to the edition, so only the branch of
+	// an edition without volume migration is reachable here. It is the one that has to clean up:
+	// an annotation left behind would make virt-controller answer as if the disks could travel.
+	It("removes the annotation where the volumes cannot travel", func() {
+		Expect(featuregates.Default().Enabled(featuregates.VolumeMigration)).To(BeFalse(),
+			"the test relies on the edition of the build, not on a mutable gate")
+
+		vm := vmbuilder.NewEmpty(name, namespace)
+		kvvm := newEmptyKVVM(name, namespace)
+		kvvm.Spec = virtv1.VirtualMachineSpec{
+			Template: &virtv1.VirtualMachineInstanceTemplateSpec{ObjectMeta: metav1.ObjectMeta{}},
+		}
+		kvvm.Annotations = map[string]string{
+			annotations.AnnMigrationNodeAffinityTerms: "[]",
+			"user.example.com/keep":                   "kept",
+		}
+
+		fakeClient, _, vmState := setupEnvironment(vm, kvvm)
+		_, err := NewSyncMetadataHandler(fakeClient).Handle(
+			testutil.ContextBackgroundWithNoOpLogger(), vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		updated := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(context.Background(),
+			client.ObjectKey{Namespace: namespace, Name: name}, updated)).To(Succeed())
+		Expect(updated.Annotations).NotTo(HaveKey(annotations.AnnMigrationNodeAffinityTerms))
+		Expect(updated.Annotations).To(HaveKeyWithValue("user.example.com/keep", "kept"),
+			"only the one annotation is taken away")
+	})
+})
+
 var _ = Describe("SyncMetadataHandler.updateKVVMSpecTemplateMetadataAnnotations", func() {
 	h := &SyncMetadataHandler{}
 
@@ -298,5 +336,96 @@ var _ = Describe("SyncMetadataHandler.updateKVVMSpecTemplateMetadataAnnotations"
 		Expect(res).To(HaveKeyWithValue(annotations.AnnSchedulerExtraPVCs, "pvc-a,pvc-b"))
 		Expect(res).To(HaveKeyWithValue("user.example.com/new", "propagated"))
 		Expect(res).NotTo(HaveKey("user.example.com/old"))
+	})
+
+	// Mirroring it would change the rendered template on every reconcile that follows the annotation,
+	// and the rendering would take it back out again.
+	It("keeps the migration node affinity terms out of the template", func() {
+		res := h.updateKVVMSpecTemplateMetadataAnnotations(nil, map[string]string{
+			annotations.AnnMigrationNodeAffinityTerms: "[]",
+			"user.example.com/new":                    "propagated",
+		})
+
+		Expect(res).NotTo(HaveKey(annotations.AnnMigrationNodeAffinityTerms))
+		Expect(res).To(HaveKeyWithValue("user.example.com/new", "propagated"))
+	})
+})
+
+// The feature gate that lets the volumes travel is locked to the edition, so the value of the
+// annotation is checked on its own rather than through the handler.
+var _ = Describe("MigrationNodeAffinityTerms", func() {
+	term := func(key string, values ...string) corev1.NodeSelectorTerm {
+		return corev1.NodeSelectorTerm{
+			MatchExpressions: []corev1.NodeSelectorRequirement{{
+				Key:      key,
+				Operator: corev1.NodeSelectorOpIn,
+				Values:   values,
+			}},
+		}
+	}
+
+	vmWithAffinity := func(terms ...corev1.NodeSelectorTerm) *v1alpha2.VirtualMachine {
+		vm := &v1alpha2.VirtualMachine{}
+		if len(terms) > 0 {
+			vm.Spec.Affinity = &v1alpha2.VMAffinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: terms,
+					},
+				},
+			}
+		}
+		return vm
+	}
+
+	It("renders an empty array for a machine without rules of its own", func() {
+		value, err := MigrationNodeAffinityTerms(&v1alpha2.VirtualMachine{}, &v1alpha2.VirtualMachineClass{}, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(value).To(Equal("[]"), "an empty array and a missing annotation must not read the same")
+	})
+
+	It("renders the rules of the machine", func() {
+		value, err := MigrationNodeAffinityTerms(
+			vmWithAffinity(term("zone", "a")), &v1alpha2.VirtualMachineClass{}, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(value).To(ContainSubstring(`"key":"zone"`))
+	})
+
+	It("adds the node selector of the class", func() {
+		class := &v1alpha2.VirtualMachineClass{Spec: v1alpha2.VirtualMachineClassSpec{
+			NodeSelector: v1alpha2.NodeSelector{
+				MatchExpressions: []corev1.NodeSelectorRequirement{{
+					Key:      "cpu",
+					Operator: corev1.NodeSelectorOpExists,
+				}},
+			},
+		}}
+		value, err := MigrationNodeAffinityTerms(vmWithAffinity(term("zone", "a")), class, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(value).To(ContainSubstring(`"key":"zone"`))
+		Expect(value).To(ContainSubstring(`"key":"cpu"`))
+	})
+
+	// The volumes that stay behind keep the machine on their node, so they belong to the rules that
+	// hold after the migration just as much as the ones its owner wrote.
+	It("narrows the rules by the volumes that stay", func() {
+		value, err := MigrationNodeAffinityTerms(
+			vmWithAffinity(term("zone", "a")),
+			&v1alpha2.VirtualMachineClass{},
+			[]corev1.NodeSelectorTerm{term("topology.local/node", "node-1")},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(value).To(ContainSubstring(`"key":"zone"`))
+		Expect(value).To(ContainSubstring(`"key":"topology.local/node"`))
+	})
+
+	It("renders the volumes that stay alone when the machine has no rules of its own", func() {
+		value, err := MigrationNodeAffinityTerms(
+			&v1alpha2.VirtualMachine{},
+			&v1alpha2.VirtualMachineClass{},
+			[]corev1.NodeSelectorTerm{term("topology.local/node", "node-1")},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(value).To(ContainSubstring(`"key":"topology.local/node"`))
 	})
 })
