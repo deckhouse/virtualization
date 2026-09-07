@@ -1,0 +1,197 @@
+# End-to-end tests on a cluster leased from the shared e2e pool.
+#
+# The clusters are not owned by this repository: a sibling CI project
+# (deckhouse/virtualization/ci/e2e-pool) keeps a pool of ready nested clusters
+# and hands one out at a time. Everything about the pool — its API, its
+# credentials, how a lease is taken and returned — lives in that project's
+# `/templates/lease.yml`, imported below. This repository only knows three
+# script fragments and one state word:
+#
+#   !reference [.e2e_pool, acquire]  take a lease, export KUBECONFIG for it
+#   !reference [.e2e_pool, env]      re-derive that KUBECONFIG in after_script
+#   !reference [.e2e_pool, release]  give the lease back
+#
+# Lease lifecycle: free -> busy (acquire) -> free or dirty (release). The pool
+# only understands those two end states; deciding which one applies is this
+# repository's job, because only the test code knows how to clean up after
+# itself. So after_script runs `task cleanup` + puts the module platform object
+# back on `main`, and exports E2E_POOL_STATE=free only when both succeeded.
+# Anything else (test failure with leftovers, job timeout, killed runner) leaves
+# the default `dirty` and the pool takes the cluster out of rotation until it is
+# reset.
+#
+# Required CI/CD variables — group-level on `deckhouse/virtualization`, so both
+# this repository and the pool project see them (see the lease template for the
+# full contract):
+#   E2E_POOL_URL, E2E_POOL_USER, E2E_POOL_PASSWORD_FILE
+#   KUBECONFIG_E2E_REGULAR_XX   one file variable per pool cluster
+#
+# None of them may be protected: protected variables are handed only to
+# pipelines of protected branches and tags, while this job runs in MR
+# pipelines and would fail in `acquire`. The access boundary is group
+# membership instead — which also means merge requests from forks cannot take
+# a lease.
+
+include:
+  # The lease fragments, pinned to a tag so that changes in the pool project
+  # cannot silently alter this repository's pipeline. Bumping the pin is a
+  # merge request here.
+  - project: "deckhouse/virtualization/ci/e2e-pool"
+    ref: "v1"
+    file: "/templates/lease.yml"
+
+# ---------------------------------------------------------------------------
+# e2e: the nightly suite, run on demand against a leased cluster.
+#
+# Time budget: `timeout: 3h` has to cover the wait inside `acquire` (up to 90
+# minutes when the pool is busy) + the run itself + 30 minutes of cleanup. It
+# must also stay equal to the heartbeat timeout in the lease template: a
+# heartbeat outliving its job keeps the lease busy and hides it from the pool's
+# reaper.
+#
+# `tags: [deckhouse-e2e-en]` must be restated because default.tags in
+# .gitlab/ci/defaults.yml is `deckhouse`, which has neither the e2e toolchain
+# nor network access to the pool clusters.
+# ---------------------------------------------------------------------------
+
+# Shared body of the e2e buttons; the per-storage jobs below only set the
+# storage variables. One resource_group across all of them: a single MR's
+# runs are serialized, whatever button was pressed.
+.e2e:
+  stage: e2e
+  # MR pipelines + MODULES_MODULE_TAG=mr<iid> + DEV registry credentials.
+  extends:
+    - .dev
+  tags:
+    - deckhouse-e2e-en
+  timeout: 3h
+  needs:
+    - build_dev
+  # Button-triggered, permanently — not just during rollout. `.dev` supplies
+  # `rules: [if merge_request_event, when: always]`, and the `when` of a
+  # matching rule beats a job-level `when:`, so the manual gate has to be
+  # restated here or it is silently ignored. `allow_failure: true` restores what
+  # a job-level `when: manual` would have given (rules-based manual jobs default
+  # to false): the MR pipeline neither waits for e2e nor goes red because of it.
+  # Making e2e blocking is a separate decision (`allow_failure: false`).
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+    - when: never
+  # A cancelled run costs a lease and a cleanup; cheaper to let it finish.
+  # Overrides `interruptible: true` from .gitlab/ci/defaults.yml.
+  interruptible: false
+  # Serializes the runs of one MR: with interruptible: false a new commit leaves
+  # the previous run going, and two runs of one MR would take two clusters and
+  # race over the same mr<iid> image tag.
+  resource_group: e2e-mr-$CI_MERGE_REQUEST_IID
+  variables:
+    E2E_SCRIPT_DIR: $CI_PROJECT_DIR/.github/scripts/bash/e2e
+    E2E_CONFIG: $CI_PROJECT_DIR/test/e2e/default_config.yaml
+    # Below the ginkgo default of 24: at full parallelism the apiserver load
+    # CFS-throttles the pool master (8 vCPU at coreFraction 50%, so ~4 cores)
+    # into freezes long enough for etcd requests to time out. The flake border
+    # measured around 16. Nightly keeps the Taskfile default.
+    PROCS: "14"
+    # after_script gets 5 minutes by default; the cleanup below does not fit.
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 30m
+  script:
+    # NOT in before_script: the upstream Setup.gitlab-ci.yml before_script owns
+    # `werf cr login` for every job, and overriding it would leave `crane` in
+    # checkout-to-mpo without registry auth. Behaviorally equivalent —
+    # before_script and script share one shell, so KUBECONFIG and the heartbeat
+    # started by `acquire` survive into the steps below.
+    # Collapsed log section around everything before the suite itself, so the
+    # job log opens on the test run. Same trick as GitHub's log groups.
+    # The runner prints only the first line of a multi-line block, so the raw
+    # escape-sequence echo stays out of the log.
+    - |
+      : fold the preparation into a collapsed log section
+      echo -e "\e[0Ksection_start:$(date +%s):e2e_prepare[collapsed=true]\r\e[0KPrepare cluster (lease, module image, readiness gates)"
+    - !reference [.e2e_pool, acquire]
+    - v12n_tag="$MODULES_MODULE_TAG" task -d test/e2e checkout-to-mpo
+    - bash "$E2E_SCRIPT_DIR/patch-virtualization-feature-gates.sh" "$MODULES_MODULE_TAG"
+    # The gates patch triggers another module reconcile; the suite's
+    # virtualization-precheck insists on Ready, so wait the reconcile out
+    # (the nightly workflow does the same between configuration and tests).
+    - |
+      source "$E2E_SCRIPT_DIR/wait-virtualization-ready.sh"
+      d8_queue
+      virtualization_ready
+      kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 900s
+      virt_handler_ready
+    # detect-k8s-version decides whether USB (DRA) specs can run on this
+    # cluster: below k8s 1.34 they are excluded via a ginkgo label filter,
+    # exactly like the nightly workflow does.
+    - |
+      bash "$E2E_SCRIPT_DIR/detect-k8s-version.sh" "$CI_PROJECT_DIR/.k8s-version.env"
+      export SERVER_K8S_VERSION="$(grep '^server-version=' "$CI_PROJECT_DIR/.k8s-version.env" | cut -d= -f2-)"
+      export USB_SUPPORTED="$(grep '^usb-supported=' "$CI_PROJECT_DIR/.k8s-version.env" | cut -d= -f2-)"
+      export LABELS="$(grep '^label-filter=' "$CI_PROJECT_DIR/.k8s-version.env" | cut -d= -f2-)"
+      echo -e "\e[0Ksection_end:$(date +%s):e2e_prepare\r\e[0K"
+      # The wrapper, not run-nightly-e2e.sh directly: a cancel does not stop
+      # the suite by itself, see the wrapper's header.
+      bash "$CI_PROJECT_DIR/.gitlab/ci/scripts/bash/e2e/run-mr-e2e.sh"
+  after_script:
+    # A separate step in a separate shell, which also runs on failure and on job
+    # timeout — that is why the lease is handed back here and not from a `trap`.
+    # The shell of `script` is gone by now, so `env` re-derives KUBECONFIG from
+    # the lease file in $CI_PROJECT_DIR before anything touches the cluster.
+    # Collapsed section over the whole cleanup: it is noise unless the release
+    # went wrong, and then it is one click away.
+    - |
+      : fold the cleanup into a collapsed log section
+      echo -e "\e[0Ksection_start:$(date +%s):e2e_cleanup[collapsed=true]\r\e[0KCleanup cluster and release the lease"
+    - !reference [.e2e_pool, env]
+    # The registry login from before_script lives in a DOCKER_CONFIG that does
+    # not survive into this shell either — and checkout-to-mpo below reads the
+    # module image with crane. Log in again into a job-local config.
+    - |
+      export DOCKER_CONFIG="$CI_PROJECT_DIR/.docker-e2e"
+      mkdir -p "$DOCKER_CONFIG"
+      printf '%s' "$MODULES_REGISTRY_PASSWORD" | crane auth login "${MODULES_REGISTRY%%/*}" -u "$MODULES_REGISTRY_LOGIN" --password-stdin
+    # Hand the cluster back ready to use; on any cleanup failure it goes back
+    # dirty (the default of E2E_POOL_STATE in the lease template). Both steps
+    # are bounded so that `release` still fits in the 30m after_script budget:
+    # a cleanup hanging on Terminating namespaces used to eat all of it and the
+    # lease stayed busy behind a dead job.
+    - |
+      if timeout 20m task -d test/e2e cleanup && v12n_tag=main timeout 5m task -d test/e2e checkout-to-mpo; then
+        export E2E_POOL_STATE=free
+      fi
+    - !reference [.e2e_pool, release]
+    - |
+      : close the cleanup log section
+      echo -e "\e[0Ksection_end:$(date +%s):e2e_cleanup\r\e[0K"
+  artifacts:
+    when: always
+    # Same as the unit-test jobs; a run is triaged the day it happens, and the
+    # instance default of 60 days is not ours to rely on.
+    expire_in: 3 days
+    paths:
+      - test/e2e/e2e_report_*.json
+      - test/e2e/e2e_output_*.log
+      # The only record of what the watchdog did: it outlives the job log.
+      - e2e_watchdog.log
+
+# The buttons. Pool clusters carry every storage type at once (the release
+# pipeline's "mixed" layout), so the matrix is just variables on one lease —
+# no separate pool types, the queue stays whole.
+e2e:nfs:
+  extends: .e2e
+  variables:
+    CSI: nfs
+    STORAGE_CLASS_NAME: nfs
+
+e2e:replicated:
+  extends: .e2e
+  variables:
+    CSI: replicated
+    STORAGE_CLASS_NAME: nested-thin-r1
+
+e2e:local:
+  extends: .e2e
+  variables:
+    CSI: local
+    STORAGE_CLASS_NAME: nested-local-thin

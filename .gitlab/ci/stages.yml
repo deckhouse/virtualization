@@ -3,9 +3,10 @@
 # This is the union of the stages used by the previous root .gitlab-ci.yml
 # and the new stages introduced during the GitHub Actions migration.
 #
-# We intentionally drop the `e2e` stage here: all e2e-* workflows are
-# excluded from the GitLab CI migration. Any future re-introduction of e2e
-# stages lives in a separate file.
+# The `e2e` stage was dropped during the GitHub Actions migration and is now
+# back: it holds a single manual job defined in .gitlab/ci/jobs/e2e.yml, which
+# runs the suite against a cluster leased from an external cluster-pool CI
+# project (the pool's own logic is imported from there, not kept here).
 #
 # Stage semantics:
 #   pre               — upstream Translate_Changelog hidden template stage
@@ -22,6 +23,10 @@
 #                       (dev tags are build-only: the DEV registry has no
 #                       release channels, so there is no DEV deploy stage)
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
+#   e2e                 — end-to-end suite on a cluster leased from the external
+#                         pool (jobs/e2e.yml). One manual job per MR pipeline,
+#                         `needs: [build_dev]`, so its position after scan is a
+#                         DAG artifact rather than a real ordering requirement.
 #   deploy_prod         — prod release-channel deploy. ONE stage with independent
 #                         manual jobs per channel (tag-push flow, deploy-prod.yml)
 #                         and per-edition deploy from Run pipeline
@@ -48,6 +53,7 @@ stages:
   - prod_check
   - build
   - scan
+  - e2e
   - deploy_prod
   - prod_verify
   - prod_release

@@ -51,7 +51,14 @@ fi
 require_env DEV_MODULE_SOURCE
 # shellcheck disable=SC2153,SC2154 # set in the workflow, checked by require_env above
 dev_module_source="${DEV_MODULE_SOURCE}"
-summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+# GitLab's shell executor cannot reopen /dev/stdout (EACCES), so without a
+# step summary the section goes to a temp file dumped into the job log at exit.
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  summary_file="${GITHUB_STEP_SUMMARY}"
+else
+  summary_file="$(mktemp)"
+  trap 'cat "${summary_file}"; rm -f "${summary_file}"' EXIT
+fi
 
 wanted="$(virtualization_feature_gates "${dev_module_source}" "$@")"
 echo "[INFO] Releases: $*"

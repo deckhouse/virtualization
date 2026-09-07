@@ -96,6 +96,10 @@ include:
   # GitLab release creation, Loop notification.
   - local: ".gitlab/ci/jobs/release-channels.yml"
   - local: ".gitlab/ci/jobs/cleanup.yml"
+  # e2e.yml carries its own `include:` of the lease template from the sibling
+  # cluster-pool CI project; GitLab flattens nested includes, so importing the
+  # job file from here pulls the template in with it.
+  - local: ".gitlab/ci/jobs/e2e.yml"
 
   # --- Local validation and scanning jobs ---
   - local: ".gitlab/ci/jobs/lint-dmt.yml"

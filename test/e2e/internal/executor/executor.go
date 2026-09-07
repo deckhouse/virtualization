@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -79,6 +80,15 @@ func (e CMDExecutor) ExecuteContext(ctx context.Context, command string, stdout,
 func (e CMDExecutor) MakeCmd(ctx context.Context, command string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "bash", "-c", command)
 	cmd.Env = mergeEnvs(cmd.Environ(), e.env)
+	// On cancellation kill the whole process group, not just bash: descendants
+	// (d8, ssh) survive the default kill, inherit the output pipes and block
+	// Wait forever, hanging the suite. WaitDelay is the safety net for
+	// descendants that escape the group.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	cmd.WaitDelay = 10 * time.Second
 	return cmd
 }
 

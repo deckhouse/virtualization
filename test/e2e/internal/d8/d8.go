@@ -100,7 +100,9 @@ func (v D8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions)
 		timeout = opts.Timeout
 	}
 
-	localSSHOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR'"
+	// ControlMaster from the runner's ssh_config breaks long VM/namespace
+	// names: the mux socket path exceeds the unix socket limit (~108 bytes).
+	localSSHOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR' --local-ssh-opts='-o ControlMaster=no' --local-ssh-opts='-o ControlPath=none'"
 	localSSHOpts = fmt.Sprintf("%s --local-ssh-opts='-o ServerAliveInterval=15' --local-ssh-opts='-o ServerAliveCountMax=8' --local-ssh-opts='-o ConnectTimeout=%d'", localSSHOpts, int(timeout.Seconds()))
 
 	cmd := fmt.Sprintf("%s ssh %s -c '%s' --local-ssh=true %s", v.cmd, vmName, command, localSSHOpts)

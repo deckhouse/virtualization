@@ -25,7 +25,14 @@ require_env CLUSTERALERTS_DIR
 alerts_dir="${CLUSTERALERTS_DIR:-}"
 alert_prefix="${CLUSTERALERTS_PREFIX:-D8Virtualization}"
 collect_result="${COLLECT_RESULT:-}"
-summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+# GitLab's shell executor cannot reopen /dev/stdout (EACCES), so without a
+# step summary the section goes to a temp file dumped into the job log at exit.
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  summary_file="${GITHUB_STEP_SUMMARY}"
+else
+  summary_file="$(mktemp)"
+  trap 'cat "${summary_file}"; rm -f "${summary_file}"' EXIT
+fi
 
 {
   echo "## ClusterAlerts in the nested cluster"
