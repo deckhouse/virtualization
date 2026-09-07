@@ -18,9 +18,12 @@ package evacuation
 
 import (
 	"context"
+	"errors"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -75,7 +78,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	if vm.IsEmpty() {
 		log.Info("Reconcile observe an absent VirtualMachine: it may be deleted")
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, r.releaseOrphanedVMOPs(ctx, req.NamespacedName)
 	}
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
@@ -88,6 +91,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	})
 
 	return rec.Reconcile(ctx)
+}
+
+// releaseOrphanedVMOPs removes the evacuation protection finalizer from VMOPs
+// whose VirtualMachine no longer exists: there is no evacuation left to cancel,
+// and the finalizer is only ever removed in reconciles driven by the VM, so
+// keeping it would leave such VMOPs in Terminating forever.
+func (r *Reconciler) releaseOrphanedVMOPs(ctx context.Context, vmKey types.NamespacedName) error {
+	vmops := v1alpha2.VirtualMachineOperationList{}
+	if err := r.client.List(ctx, &vmops, client.InNamespace(vmKey.Namespace)); err != nil {
+		return err
+	}
+
+	var errs error
+	for i := range vmops.Items {
+		vmop := &vmops.Items[i]
+		if vmop.Spec.VirtualMachine != vmKey.Name {
+			continue
+		}
+		if controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController) {
+			if err := r.client.Update(ctx, vmop); err != nil {
+				errs = errors.Join(errs, client.IgnoreNotFound(err))
+			}
+		}
+	}
+	return errs
 }
 
 func (r *Reconciler) factory() *v1alpha2.VirtualMachine {
