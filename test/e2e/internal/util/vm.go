@@ -177,6 +177,21 @@ func skipIfKnownKubeVirtTargetPodShutdownMigrationFailure(ctx context.Context, v
 	}
 }
 
+func GetInternalVirtualMachine(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	GinkgoHelper()
+
+	obj := &rewrite.VirtualMachine{}
+	err := framework.GetClients().RewriteClient().Get(ctx, vm.Name, obj, rewrite.InNamespace(vm.Namespace))
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return obj.VirtualMachine, nil
+}
+
 func GetInternalVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	GinkgoHelper()
 

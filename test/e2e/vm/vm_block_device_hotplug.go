@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -56,6 +57,36 @@ func requireNoRestart() vmobs.Predicate {
 		}
 		return false, nil
 	}
+}
+
+// expectVolumesConverged checks that the VirtualMachine and its instance agree on volumes,
+// element for element. They are compared with DeepEqual when the migration readiness is
+// decided, so a volume missing from one side, or kept in a different position, silently
+// blocks every further migration of that VM while everything else still looks healthy.
+func expectVolumesConverged(vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	eventually.UntilAssertion(func(g Gomega) {
+		ctx := context.Background()
+
+		intVM, err := util.GetInternalVirtualMachine(ctx, vm)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(intVM).NotTo(BeNil())
+
+		intVMI, err := util.GetInternalVirtualMachineInstance(ctx, vm)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(intVMI).NotTo(BeNil())
+
+		g.Expect(volumeNames(intVM.Spec.Template.Spec.Volumes)).To(Equal(volumeNames(intVMI.Spec.Volumes)))
+	}, framework.LongTimeout, eventually.WithPolling(hotplugPolling))
+}
+
+func volumeNames(volumes []virtv1.Volume) []string {
+	names := make([]string, 0, len(volumes))
+	for _, volume := range volumes {
+		names = append(names, volume.Name)
+	}
+	return names
 }
 
 var _ = Describe("VirtualMachineBlockDeviceHotplugAttach", Label(label.SIGCompute, precheck.NoPrecheck), func() {
@@ -100,6 +131,9 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugAttach", Label(label.SIGComput
 			Equal(initialDiskCount+1), framework.LongTimeout,
 			eventually.WithPolling(hotplugPolling),
 			eventually.WithExplanation("expected %d block devices in guest after hotplug", initialDiskCount+1))
+
+		By("Verifying the virtual machine and its instance agree on volumes")
+		expectVolumesConverged(vm)
 	})
 })
 
@@ -148,6 +182,12 @@ var _ = Describe("VirtualMachineBlockDeviceHotplugDetach", Label(label.SIGComput
 			Equal(initialDiskCount-1), framework.LongTimeout,
 			eventually.WithPolling(hotplugPolling),
 			eventually.WithExplanation("expected %d block devices in guest after unplug", initialDiskCount-1))
+
+		By("Verifying the volume is gone from both the virtual machine and its instance")
+		expectVolumesConverged(vm)
+		intVM, err := util.GetInternalVirtualMachine(context.Background(), vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(volumeNames(intVM.Spec.Template.Spec.Volumes)).NotTo(ContainElement(ContainSubstring(vdBlank.Name)))
 	})
 })
 

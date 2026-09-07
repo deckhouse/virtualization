@@ -215,7 +215,7 @@ func ApplyVirtualMachineSpec(
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
-	isVmRunning bool,
+	kvvmi *virtv1.VirtualMachineInstance,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
@@ -246,7 +246,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
-	if err := applyBlockDeviceRefs(kvvm, vm, isVmRunning, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
+	if err := applyBlockDeviceRefs(kvvm, vm, kvvmi, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
 		return err
 	}
 
@@ -279,12 +279,13 @@ func ApplyVirtualMachineSpec(
 }
 
 func applyBlockDeviceRefs(
-	kvvm *KVVM, vm *v1alpha2.VirtualMachine, isVmRunning bool,
+	kvvm *KVVM, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance,
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
+	isVmRunning := kvvmi != nil && kvvmi.Status.Phase == virtv1.Running
 	// Backstop against a derived-name collision. The derivation is collision-
 	// resistant (64-bit hash), so this is astronomically unlikely, but SetDisk
 	// replaces an existing disk/volume by name, so a silent collision would drop
@@ -347,7 +348,7 @@ func applyBlockDeviceRefs(
 		}
 	}
 
-	if err := syncAttachedVMBDAHotplugVolumes(kvvm, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
+	if err := syncAttachedVMBDAHotplugVolumes(kvvm, kvvmi, vdByName, viByName, cviByName, vmbdaByBlockDeviceRef); err != nil {
 		return err
 	}
 
@@ -441,20 +442,33 @@ func cleanupRemovedStaticDisks(kvvm *KVVM, specDiskNames, hotpluggableVolumes, v
 
 func syncAttachedVMBDAHotplugVolumes(
 	kvvm *KVVM,
+	kvvmi *virtv1.VirtualMachineInstance,
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
-	kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
+	unplugging := pendingVolumeRemovals(kvvm)
 
-	for ref := range vmbdaByBlockDeviceRef {
+	for ref, vmbdas := range vmbdaByBlockDeviceRef {
 		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
 		if diskName == "" {
 			continue
 		}
 
+		kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 		if !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
+			// The volume is gone from the KVVM while the instance keeps running it, so the two
+			// stay apart forever and the VM never migrates again (VolumesSynced). Put it back,
+			// but never while the volume is being unplugged: that would undo the detach.
+			if _, removing := unplugging[diskName]; removing {
+				continue
+			}
+			if allBeingDeleted(vmbdas) {
+				continue
+			}
+
+			restoreHotplugVolume(kvvm, kvvmi, diskName)
 			continue
 		}
 
@@ -470,6 +484,68 @@ func syncAttachedVMBDAHotplugVolumes(
 	}
 
 	return nil
+}
+
+// restoreHotplugVolume puts a hotplug volume back into the VirtualMachine, copying it from the
+// instance that still runs it. The copy is verbatim and keeps the position the instance keeps:
+// the volume arrays of the two objects are compared with DeepEqual, so a volume rebuilt from the
+// block device, or appended to the tail, would leave them apart just the same. A volume without
+// its disk is rejected by the kubevirt webhook, so both have to be there.
+func restoreHotplugVolume(kvvm *KVVM, kvvmi *virtv1.VirtualMachineInstance, name string) {
+	// No instance, no volume to copy: a stopped VM carries no hotplug volumes at all.
+	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Running {
+		return
+	}
+
+	volumeIndex := slices.IndexFunc(kvvmi.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == name })
+	if volumeIndex < 0 || !IsHotpluggableVolume(kvvmi.Spec.Volumes[volumeIndex]) {
+		return
+	}
+
+	diskIndex := slices.IndexFunc(kvvmi.Spec.Domain.Devices.Disks, func(d virtv1.Disk) bool { return d.Name == name })
+	if diskIndex < 0 {
+		return
+	}
+
+	volumes := kvvm.Resource.Spec.Template.Spec.Volumes
+	kvvm.Resource.Spec.Template.Spec.Volumes = slices.Insert(volumes, min(volumeIndex, len(volumes)), *kvvmi.Spec.Volumes[volumeIndex].DeepCopy())
+
+	disks := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks
+	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.Insert(disks, min(diskIndex, len(disks)), *kvvmi.Spec.Domain.Devices.Disks[diskIndex].DeepCopy())
+}
+
+// IsHotpluggableVolume reports whether the volume is attached to a running instance rather than
+// declared in the VirtualMachine template.
+func IsHotpluggableVolume(volume virtv1.Volume) bool {
+	return volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable ||
+		volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable
+}
+
+// pendingVolumeRemovals returns the volumes kubevirt has been asked to unplug.
+func pendingVolumeRemovals(kvvm *KVVM) map[string]struct{} {
+	names := make(map[string]struct{})
+	for _, vr := range kvvm.Resource.Status.VolumeRequests {
+		if vr.RemoveVolumeOptions != nil {
+			names[vr.RemoveVolumeOptions.Name] = struct{}{}
+		}
+	}
+	return names
+}
+
+// allBeingDeleted reports whether every VMBDA of a block device is on its way out:
+// the disk is being detached, not attached.
+func allBeingDeleted(vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
+	// No objects to judge by: the ref itself proves an attachment exists, so treat this
+	// as "not being deleted" rather than vacuously true.
+	if len(vmbdas) == 0 {
+		return false
+	}
+	for _, vmbda := range vmbdas {
+		if vmbda != nil && vmbda.GetDeletionTimestamp() == nil {
+			return false
+		}
+	}
+	return true
 }
 
 func setBlockDeviceDisk(
@@ -546,9 +622,13 @@ func setVMBDABlockDeviceDisk(
 	switch ref.Kind {
 	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
 		name := GenerateVDDiskName(ref.Name)
+		// The disk ref may not be reflected in block device refs yet during the hotplug attach
+		// window, and a volume that fell out of the KVVM takes its ref down with it, because
+		// the status is rebuilt from that very array. Skip instead of removeDisk: an attached
+		// disk is finalizer-protected, so a missing map entry means the status lagged, not that
+		// the disk is gone. Mirrors the tolerant VirtualImage branch below.
 		vd, ok := vdByName[ref.Name]
 		if !ok || vd == nil {
-			removeDisk(kvvm, name)
 			return nil
 		}
 
