@@ -17,6 +17,8 @@ limitations under the License.
 package kvbuilder
 
 import (
+	"maps"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -96,6 +98,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
+			nil,
 			map[string]*v1alpha2.VirtualDisk{diskName: vd},
 			nil,
 			nil,
@@ -121,6 +124,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
+			nil,
 			map[string]*v1alpha2.VirtualDisk{diskName: vd},
 			nil,
 			nil,
@@ -133,11 +137,12 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
 	})
 
-	It("should remove missing VirtualDisk attached via VMBDA", func() {
+	It("should keep VMBDA VirtualDisk volume when the disk is not resolved yet", func() {
 		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
 
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
+			nil,
 			map[string]*v1alpha2.VirtualDisk{},
 			nil,
 			nil,
@@ -146,8 +151,8 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 			},
 		)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
-		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
 	})
 
 	It("should keep VMBDA ClusterVirtualImage volume when the image is not resolved yet", func() {
@@ -156,6 +161,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
+			nil,
 			nil,
 			nil,
 			map[string]*v1alpha2.ClusterVirtualImage{},
@@ -174,6 +180,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 
 		err := syncAttachedVMBDAHotplugVolumes(
 			kvvm,
+			nil,
 			nil,
 			map[string]*v1alpha2.VirtualImage{},
 			nil,
@@ -208,6 +215,329 @@ func newKVVMWithVMBDAImageVolume(volName string) *KVVM {
 	}
 	return kvvm
 }
+
+// A VMBDA-attached block device: the volume the running instance carries and the caches the
+// builder rebuilds that volume from. The gates are common to every kind, the rebuild is where
+// the builder branches per kind, so the kinds are tabled there.
+type hotplugCase struct {
+	ref       v1alpha2.VMBDAObjectRef
+	volume    virtv1.Volume
+	vdByName  map[string]*v1alpha2.VirtualDisk
+	viByName  map[string]*v1alpha2.VirtualImage
+	cviByName map[string]*v1alpha2.ClusterVirtualImage
+}
+
+const (
+	hotplugNamespace = "test-ns"
+	hotplugClaim     = "pvc-hotplug"
+	hotplugImage     = "dvcr.example/image:tag"
+)
+
+func hotpluggedDisk() hotplugCase {
+	return hotpluggedDiskNamed("data-disk")
+}
+
+func hotpluggedDiskNamed(name string) hotplugCase {
+	vd := &v1alpha2.VirtualDisk{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: hotplugNamespace, UID: types.UID("uid-" + name)},
+		Status: v1alpha2.VirtualDiskStatus{
+			Target: v1alpha2.DiskTarget{PersistentVolumeClaim: hotplugClaim + "-" + name},
+		},
+	}
+
+	return hotplugCase{
+		ref:      v1alpha2.VMBDAObjectRef{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: name},
+		volume:   hotplugPVCVolume(GenerateVDDiskName(name), hotplugClaim+"-"+name, false),
+		vdByName: map[string]*v1alpha2.VirtualDisk{name: vd},
+	}
+}
+
+func hotpluggedImageOnPVC() hotplugCase {
+	const name = "image-on-pvc"
+	vi := &v1alpha2.VirtualImage{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: hotplugNamespace, UID: "vi-pvc-uid"},
+		Spec:       v1alpha2.VirtualImageSpec{Storage: v1alpha2.StorageKubernetes},
+		Status: v1alpha2.VirtualImageStatus{
+			Target: v1alpha2.VirtualImageStatusTarget{PersistentVolumeClaim: hotplugClaim},
+		},
+	}
+
+	return hotplugCase{
+		ref: v1alpha2.VMBDAObjectRef{Kind: v1alpha2.VMBDAObjectRefKindVirtualImage, Name: name},
+		// An image is immutable, so a PVC-backed one is mounted read-only.
+		volume:   hotplugPVCVolume(GenerateVIDiskName(name), hotplugClaim, true),
+		viByName: map[string]*v1alpha2.VirtualImage{name: vi},
+	}
+}
+
+func hotpluggedImageInRegistry() hotplugCase {
+	const name = "image-in-registry"
+	vi := &v1alpha2.VirtualImage{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: hotplugNamespace, UID: "vi-registry-uid"},
+		Spec:       v1alpha2.VirtualImageSpec{Storage: v1alpha2.StorageContainerRegistry},
+		Status: v1alpha2.VirtualImageStatus{
+			Target: v1alpha2.VirtualImageStatusTarget{RegistryURL: hotplugImage},
+		},
+	}
+
+	return hotplugCase{
+		ref:      v1alpha2.VMBDAObjectRef{Kind: v1alpha2.VMBDAObjectRefKindVirtualImage, Name: name},
+		volume:   hotplugContainerDiskVolume(GenerateVIDiskName(name), hotplugImage),
+		viByName: map[string]*v1alpha2.VirtualImage{name: vi},
+	}
+}
+
+func hotpluggedClusterImage() hotplugCase {
+	const name = "cluster-image"
+	cvi := &v1alpha2.ClusterVirtualImage{
+		ObjectMeta: metav1.ObjectMeta{Name: name, UID: "cvi-uid"},
+		Status: v1alpha2.ClusterVirtualImageStatus{
+			Target: v1alpha2.ClusterVirtualImageStatusTarget{RegistryURL: hotplugImage},
+		},
+	}
+
+	return hotplugCase{
+		ref:       v1alpha2.VMBDAObjectRef{Kind: v1alpha2.VMBDAObjectRefKindClusterVirtualImage, Name: name},
+		volume:    hotplugContainerDiskVolume(GenerateCVIDiskName(name), hotplugImage),
+		cviByName: map[string]*v1alpha2.ClusterVirtualImage{name: cvi},
+	}
+}
+
+func hotplugPVCVolume(name, claimName string, readOnly bool) virtv1.Volume {
+	return virtv1.Volume{
+		Name: name,
+		VolumeSource: virtv1.VolumeSource{
+			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: claimName,
+					ReadOnly:  readOnly,
+				},
+				Hotpluggable: true,
+			},
+		},
+	}
+}
+
+func hotplugContainerDiskVolume(name, image string) virtv1.Volume {
+	return virtv1.Volume{
+		Name: name,
+		VolumeSource: virtv1.VolumeSource{
+			ContainerDisk: &virtv1.ContainerDiskSource{
+				Image:        image,
+				Hotpluggable: true,
+			},
+		},
+	}
+}
+
+func runningInstance(volumes ...virtv1.Volume) *virtv1.VirtualMachineInstance {
+	disks := make([]virtv1.Disk, 0, len(volumes))
+	for _, volume := range volumes {
+		disks = append(disks, virtv1.Disk{
+			Name:        volume.Name,
+			DiskDevice:  virtv1.DiskDevice{Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusSCSI}},
+			ErrorPolicy: ptr.To(virtv1.DiskErrorPolicyReport),
+		})
+	}
+
+	return &virtv1.VirtualMachineInstance{
+		Spec: virtv1.VirtualMachineInstanceSpec{
+			Volumes: volumes,
+			Domain:  virtv1.DomainSpec{Devices: virtv1.Devices{Disks: disks}},
+		},
+		Status: virtv1.VirtualMachineInstanceStatus{Phase: virtv1.Running},
+	}
+}
+
+func deletingVMBDA() *v1alpha2.VirtualMachineBlockDeviceAttachment {
+	return &v1alpha2.VirtualMachineBlockDeviceAttachment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "vmbda",
+			Namespace:         hotplugNamespace,
+			DeletionTimestamp: ptr.To(metav1.Now()),
+			Finalizers:        []string{"test"},
+		},
+	}
+}
+
+func newHotplugKVVM(volumes ...virtv1.Volume) *KVVM {
+	kvvm := NewEmptyKVVM(namespacedName("test-vm", hotplugNamespace), KVVMOptions{})
+	kvvm.Resource.Spec.Template.Spec.Volumes = volumes
+	for _, v := range volumes {
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = append(
+			kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks, virtv1.Disk{Name: v.Name})
+	}
+	return kvvm
+}
+
+func syncHotplugCases(
+	kvvm *KVVM,
+	kvvmi *virtv1.VirtualMachineInstance,
+	vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment,
+	cases ...hotplugCase,
+) error {
+	vdByName := make(map[string]*v1alpha2.VirtualDisk)
+	viByName := make(map[string]*v1alpha2.VirtualImage)
+	cviByName := make(map[string]*v1alpha2.ClusterVirtualImage)
+	vmbdaByRef := make(map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment)
+
+	for _, c := range cases {
+		maps.Copy(vdByName, c.vdByName)
+		maps.Copy(viByName, c.viByName)
+		maps.Copy(cviByName, c.cviByName)
+		vmbdaByRef[c.ref] = vmbdas
+	}
+
+	return syncAttachedVMBDAHotplugVolumes(kvvm, kvvmi, vdByName, viByName, cviByName, vmbdaByRef)
+}
+
+var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from the KVVM", func() {
+	// The VirtualMachine and its instance must converge on their own: while the two disagree
+	// on volumes, VolumesSynced stays false and the virtual machine cannot migrate at all.
+	DescribeTable("should restore the volume the instance still runs",
+		func(newCase func() hotplugCase) {
+			hotplug := newCase()
+			kvvm := newHotplugKVVM()
+			kvvmi := runningInstance(hotplug.volume)
+
+			Expect(syncHotplugCases(kvvm, kvvmi, nil, hotplug)).To(Succeed())
+
+			// VolumesSynced compares both arrays with DeepEqual, so a volume restored with
+			// different content, or in a different position, never converges.
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal(kvvmi.Spec.Volumes))
+			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+		},
+		Entry("VirtualDisk", hotpluggedDisk),
+		Entry("VirtualImage stored in a PVC", hotpluggedImageOnPVC),
+		Entry("VirtualImage stored in the registry", hotpluggedImageInRegistry),
+		Entry("ClusterVirtualImage", hotpluggedClusterImage),
+	)
+
+	DescribeTable("should leave a volume that is still in the KVVM as it is",
+		func(newCase func() hotplugCase) {
+			hotplug := newCase()
+			kvvm := newHotplugKVVM(hotplug.volume)
+
+			Expect(syncHotplugCases(kvvm, runningInstance(hotplug.volume), nil, hotplug)).To(Succeed())
+
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal([]virtv1.Volume{hotplug.volume}))
+			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+		},
+		Entry("VirtualDisk", hotpluggedDisk),
+		Entry("VirtualImage stored in a PVC", hotpluggedImageOnPVC),
+		Entry("VirtualImage stored in the registry", hotpluggedImageInRegistry),
+		Entry("ClusterVirtualImage", hotpluggedClusterImage),
+	)
+
+	// The gates do not branch per block device kind, so one kind covers them all.
+	DescribeTable("should not restore the volume",
+		func(setup func(kvvm *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment)) {
+			hotplug := hotpluggedDisk()
+			kvvm := newHotplugKVVM()
+			kvvmi, vmbdas := setup(kvvm, hotplug)
+
+			Expect(syncHotplugCases(kvvm, kvvmi, vmbdas, hotplug)).To(Succeed())
+
+			Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
+			Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+		},
+		Entry("when the virtual machine is stopped",
+			func(_ *KVVM, _ hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
+				return nil, nil
+			}),
+		Entry("when the instance is no longer running",
+			func(_ *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
+				kvvmi := runningInstance(hotplug.volume)
+				kvvmi.Status.Phase = virtv1.Succeeded
+				return kvvmi, nil
+			}),
+		Entry("while the volume is being unplugged",
+			func(kvvm *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
+				kvvm.Resource.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{{
+					RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{Name: hotplug.volume.Name},
+				}}
+				return runningInstance(hotplug.volume), nil
+			}),
+		Entry("when every VMBDA of the block device is being deleted",
+			func(_ *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
+				return runningInstance(hotplug.volume), []*v1alpha2.VirtualMachineBlockDeviceAttachment{deletingVMBDA()}
+			}),
+	)
+
+	It("should not restore a volume the instance carries without its disk", func() {
+		hotplug := hotpluggedDisk()
+		// A volume without its disk is rejected by the kubevirt webhook, and the whole
+		// reconcile fails with it.
+		kvvmi := runningInstance(hotplug.volume)
+		kvvmi.Spec.Domain.Devices.Disks = nil
+		kvvm := newHotplugKVVM()
+
+		Expect(syncHotplugCases(kvvm, kvvmi, nil, hotplug)).To(Succeed())
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
+	})
+
+	It("should not restore a volume the instance does not carry as hotpluggable", func() {
+		hotplug := hotpluggedDisk()
+		kvvmi := runningInstance(hotplug.volume)
+		kvvmi.Spec.Volumes[0].PersistentVolumeClaim.Hotpluggable = false
+		kvvm := newHotplugKVVM()
+
+		Expect(syncHotplugCases(kvvm, kvvmi, nil, hotplug)).To(Succeed())
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
+	})
+
+	It("should restore the volume while only one VMBDA of the disk is being deleted", func() {
+		hotplug := hotpluggedDisk()
+		vmbdas := []*v1alpha2.VirtualMachineBlockDeviceAttachment{
+			deletingVMBDA(),
+			{ObjectMeta: metav1.ObjectMeta{Name: "vmbda-live", Namespace: hotplugNamespace}},
+		}
+		kvvmi := runningInstance(hotplug.volume)
+		kvvm := newHotplugKVVM()
+
+		Expect(syncHotplugCases(kvvm, kvvmi, vmbdas, hotplug)).To(Succeed())
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal(kvvmi.Spec.Volumes))
+	})
+
+	It("should restore the volume at the position the instance keeps it", func() {
+		first, second := hotpluggedDiskNamed("first-disk"), hotpluggedDiskNamed("second-disk")
+		kvvmi := runningInstance(first.volume, second.volume)
+		// Only the first volume fell out of the KVVM.
+		kvvm := newHotplugKVVM(second.volume)
+
+		Expect(syncHotplugCases(kvvm, kvvmi, nil, first, second)).To(Succeed())
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal(kvvmi.Spec.Volumes))
+	})
+
+	It("should restore the claim the instance actually runs", func() {
+		hotplug := hotpluggedDisk()
+		// The disk has been migrated: the instance runs the target claim while the
+		// VirtualDisk status still points at the source one.
+		kvvmi := runningInstance(hotplugPVCVolume(hotplug.volume.Name, "pvc-target", false))
+		kvvm := newHotplugKVVM()
+
+		Expect(syncHotplugCases(kvvm, kvvmi, nil, hotplug)).To(Succeed())
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal(kvvmi.Spec.Volumes))
+	})
+
+	It("should restore the volume when the block device is missing from the caches", func() {
+		hotplug := hotpluggedDisk()
+		// A volume that fell out of the KVVM also falls out of .status.blockDeviceRefs, and
+		// that is what the block device caches are built from: the restore cannot rely on them.
+		hotplug.vdByName = nil
+		kvvmi := runningInstance(hotplug.volume)
+		kvvm := newHotplugKVVM()
+
+		Expect(syncHotplugCases(kvvm, kvvmi, nil, hotplug)).To(Succeed())
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal(kvvmi.Spec.Volumes))
+	})
+})
 
 var _ = Describe("ApplyMigrationVolumes", func() {
 	const (
@@ -564,8 +894,14 @@ var _ = Describe("applyBlockDeviceRefs", func() {
 				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: vdPVC},
 			},
 		}
+		var kvvmi *virtv1.VirtualMachineInstance
+		if isVmRunning {
+			kvvmi = &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{Phase: virtv1.Running},
+			}
+		}
 		Expect(applyBlockDeviceRefs(
-			kvvm, vm, isVmRunning,
+			kvvm, vm, kvvmi,
 			map[string]*v1alpha2.VirtualDisk{vdName: vd}, nil, nil, nil,
 		)).To(Succeed())
 		return kvvm

@@ -58,6 +58,15 @@ func (VirtualMachineInstanceMigration) GVR() schema.GroupVersionResource {
 	return rewriteVirtualizationV1(resource)
 }
 
+type VirtualMachine struct {
+	*virtv1.VirtualMachine
+}
+
+func (VirtualMachine) GVR() schema.GroupVersionResource {
+	resource := rewriteInternalVirtualizationResource("virtualmachines")
+	return rewriteVirtualizationV1(resource)
+}
+
 type VirtualMachineInstance struct {
 	*virtv1.VirtualMachineInstance
 }
