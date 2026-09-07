@@ -649,6 +649,52 @@ var _ = Describe("StatisticHandler syncStats", func() {
 	)
 })
 
+var _ = Describe("StatisticHandler syncPods", func() {
+	newPod := func(name string, uid types.UID) corev1.Pod {
+		return corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				UID:       uid,
+			},
+		}
+	}
+
+	It("orders the pods by name whatever order the list comes in", func() {
+		h := NewStatisticHandler(nil)
+		vm := &v1alpha2.VirtualMachine{}
+		pods := &corev1.PodList{Items: []corev1.Pod{
+			newPod("pod-c", "uid-c"),
+			newPod("pod-a", "uid-a"),
+			newPod("pod-b", "uid-b"),
+		}}
+
+		h.syncPods(vm, nil, pods)
+
+		Expect(vm.Status.VirtualMachinePods).To(HaveLen(3))
+		Expect(vm.Status.VirtualMachinePods[0].Name).To(Equal("pod-a"))
+		Expect(vm.Status.VirtualMachinePods[1].Name).To(Equal("pod-b"))
+		Expect(vm.Status.VirtualMachinePods[2].Name).To(Equal("pod-c"))
+	})
+
+	It("keeps the active flag on the active pod after sorting", func() {
+		h := NewStatisticHandler(nil)
+		vm := &v1alpha2.VirtualMachine{}
+		activePod := newPod("pod-c", "uid-c")
+		pods := &corev1.PodList{Items: []corev1.Pod{
+			activePod,
+			newPod("pod-a", "uid-a"),
+		}}
+
+		h.syncPods(vm, &activePod, pods)
+
+		Expect(vm.Status.VirtualMachinePods).To(Equal([]v1alpha2.VirtualMachinePod{
+			{Name: "pod-a", Active: false},
+			{Name: "pod-c", Active: true},
+		}))
+	})
+})
+
 func newVMWithRunningCondition(transitionTime metav1.Time) *v1alpha2.VirtualMachine {
 	return &v1alpha2.VirtualMachine{
 		Status: v1alpha2.VirtualMachineStatus{

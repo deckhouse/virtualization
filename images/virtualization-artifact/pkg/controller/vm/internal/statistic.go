@@ -17,9 +17,11 @@ limitations under the License.
 package internal
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"time"
 
@@ -343,6 +345,13 @@ func (h *StatisticHandler) syncPods(changed *v1alpha2.VirtualMachine, pod *corev
 			Active: active,
 		}
 	}
+	// The pod list comes from the client cache, which iterates over a map, so its order
+	// differs between calls. An unsorted list rewrites the status on every reconcile, and
+	// the write comes back as a watch event that starts the next reconcile.
+	slices.SortFunc(virtualMachinePods, func(a, b v1alpha2.VirtualMachinePod) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+
 	changed.Status.VirtualMachinePods = virtualMachinePods
 }
 
