@@ -100,7 +100,8 @@ func newEmptyKVVMI(name, namespace string) *virtv1.VirtualMachineInstance {
 	}
 }
 
-func newEmptyPOD(name, namespace, vmName string) *corev1.Pod {
+// Every caller lives in the "default" namespace, so the Pod is stamped there too.
+func newEmptyPOD(name, vmName string) *corev1.Pod {
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -108,7 +109,7 @@ func newEmptyPOD(name, namespace, vmName string) *corev1.Pod {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 			Labels: map[string]string{
 				virtv1.VirtualMachineNameLabel: vmName,
 			},

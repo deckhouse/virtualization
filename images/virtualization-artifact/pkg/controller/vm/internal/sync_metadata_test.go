@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("SyncMetadataHandler", func() {
@@ -183,7 +184,7 @@ var _ = Describe("SyncMetadataHandler", func() {
 			vm := newVM()
 			kvvm := newKVVM(vm)
 			kvvmi := newEmptyKVVMI(name, namespace)
-			pod := newEmptyPOD(name, namespace, vm.Name)
+			pod := newEmptyPOD(name, vm.Name)
 			pod.Status.Phase = corev1.PodRunning
 
 			vm.Status.VirtualMachinePods = []v1alpha2.VirtualMachinePod{
@@ -222,6 +223,58 @@ var _ = Describe("SyncMetadataHandler", func() {
 			})
 		})
 
+		DescribeTable("marks the pod with the live-migratable label only while the machine can leave its node alive",
+			func(migratable *metav1.Condition, expected bool) {
+				vm := newVM()
+				if migratable != nil {
+					vm.Status.Conditions = []metav1.Condition{*migratable}
+				}
+				kvvm := newKVVM(vm)
+				kvvmi := newEmptyKVVMI(name, namespace)
+				pod := newEmptyPOD(name, vm.Name)
+				pod.Status.Phase = corev1.PodRunning
+
+				vm.Status.VirtualMachinePods = []v1alpha2.VirtualMachinePod{{Name: pod.Name, Active: true}}
+
+				fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, pod)
+				_, err := NewSyncMetadataHandler(fakeClient).Handle(ctx, vmState)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(fakeClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: vm.Name}, pod)).To(Succeed())
+				if expected {
+					Expect(pod.GetLabels()).To(HaveKeyWithValue(annotations.LiveMigratableLabel, "true"))
+				} else {
+					Expect(pod.GetLabels()).NotTo(HaveKey(annotations.LiveMigratableLabel))
+				}
+			},
+			Entry("machine can be live migrated",
+				&metav1.Condition{Type: vmcondition.TypeMigratable.String(), Status: metav1.ConditionTrue}, true),
+			Entry("machine cannot be live migrated",
+				&metav1.Condition{Type: vmcondition.TypeMigratable.String(), Status: metav1.ConditionFalse}, false),
+			Entry("migratability is not known yet", nil, false),
+		)
+
+		It("ignores the live-migratable label forged on the virtual machine", func() {
+			vm := newVM()
+			vm.Labels[annotations.LiveMigratableLabel] = "true"
+			vm.Status.Conditions = []metav1.Condition{
+				{Type: vmcondition.TypeMigratable.String(), Status: metav1.ConditionFalse},
+			}
+			kvvm := newKVVM(vm)
+			kvvmi := newEmptyKVVMI(name, namespace)
+			pod := newEmptyPOD(name, vm.Name)
+			pod.Status.Phase = corev1.PodRunning
+
+			vm.Status.VirtualMachinePods = []v1alpha2.VirtualMachinePod{{Name: pod.Name, Active: true}}
+
+			fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, pod)
+			_, err := NewSyncMetadataHandler(fakeClient).Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(fakeClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: vm.Name}, pod)).To(Succeed())
+			Expect(pod.GetLabels()).NotTo(HaveKey(annotations.LiveMigratableLabel))
+		})
+
 		// A hung source pod keeps the Running phase, so it goes on being patched with the
 		// propagated labels: the inhibit label has to be stripped from it explicitly.
 		It("strips the inhibit-node-shutdown label from a pod left behind by a migration", func() {
@@ -246,7 +299,7 @@ var _ = Describe("SyncMetadataHandler", func() {
 			}
 
 			newRunningPod := func(podName, node string, uid types.UID) *corev1.Pod {
-				pod := newEmptyPOD(podName, namespace, vm.Name)
+				pod := newEmptyPOD(podName, vm.Name)
 				pod.UID = uid
 				pod.Spec.NodeName = node
 				pod.Status.Phase = corev1.PodRunning

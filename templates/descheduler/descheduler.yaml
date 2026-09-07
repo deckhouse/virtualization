@@ -10,6 +10,13 @@ spec:
     matchExpressions:
       - key: vm.kubevirt.internal.virtualization.deckhouse.io/name
         operator: Exists
+      # A machine that cannot be live migrated is left alone: the only other way off its node is a
+      # restart, and that happens solely on a node under maintenance and only with the permission
+      # of an administrator.
+      - key: vm.virtualization.deckhouse.io/live-migratable
+        operator: In
+        values:
+          - "true"
   strategies:
     lowNodeUtilization:
       enabled: true

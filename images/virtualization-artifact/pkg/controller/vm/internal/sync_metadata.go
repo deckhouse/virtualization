@@ -37,11 +37,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameSyncMetadataHandler = "SyncMetadataHandler"
@@ -367,11 +369,17 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 
 	// Add label to prevent node shutdown.
 	propagateLabels := merger.MergeLabels(
-		vm.GetLabels(),
+		commonvm.RemoveNonPropagatableLabels(vm.GetLabels()),
 		map[string]string{
 			annotations.InhibitNodeShutdownLabel: "",
 		},
 	)
+
+	// Tell the descheduler whether this machine can leave its node alive: its policy evicts only
+	// the machines that can.
+	if migratable, found := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions); found && migratable.Status == metav1.ConditionTrue {
+		propagateLabels[annotations.LiveMigratableLabel] = "true"
+	}
 
 	if !vm.Status.Resources.CPU.RuntimeOverhead.IsZero() {
 		propagateLabels[annotations.QuotaDiscountCPU] = vm.Status.Resources.CPU.RuntimeOverhead.String()

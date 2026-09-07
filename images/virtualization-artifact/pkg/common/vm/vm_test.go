@@ -268,3 +268,27 @@ var _ = Describe("MountedVirtualMachineNames", func() {
 		Expect(names).To(BeEmpty())
 	})
 })
+
+var _ = Describe("RemoveNonPropagatableAnnotations", func() {
+	It("drops the descheduler annotations so a machine owner cannot steer the descheduler", func() {
+		res := RemoveNonPropagatableAnnotations(map[string]string{
+			"descheduler.alpha.kubernetes.io/evict":                "true",
+			"descheduler.alpha.kubernetes.io/eviction-in-progress": "true",
+			"descheduler.alpha.kubernetes.io/request-evict-only":   "",
+			"descheduler.alpha.kubernetes.io/prefer-no-eviction":   "true",
+		})
+		Expect(res).To(BeEmpty())
+	})
+
+	It("keeps the annotations of a machine owner", func() {
+		res := RemoveNonPropagatableAnnotations(map[string]string{
+			"team":                      "platform",
+			"example.io/owner":          "alice",
+			"kubectl.kubernetes.io/foo": "bar",
+		})
+		Expect(res).To(Equal(map[string]string{
+			"team":             "platform",
+			"example.io/owner": "alice",
+		}))
+	})
+})

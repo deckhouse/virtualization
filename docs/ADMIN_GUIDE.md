@@ -1386,6 +1386,8 @@ After the module is enabled, the system automatically monitors the distribution 
 - Load balancing: The system monitors CPU reservation on each node. If more than 80% of CPU resources are reserved on a node, some virtual machines will be automatically migrated to less-loaded nodes. This helps avoid overloads and ensures stable VM operation.
 - Correct placement: The system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
 
+Rebalancing covers only the VMs that can leave their node by live migration. A VM that cannot be live migrated — for example, one with a passed-through device — is never moved by rebalancing, because the only other way off the node is a restart. Such a VM is restarted solely during [node maintenance](#restarting-virtual-machines-during-node-maintenance) and only with the permission of an administrator.
+
 ### ColdStandby
 
 ColdStandby provides a mechanism to recover a virtual machine from a failure on a node it was running on.

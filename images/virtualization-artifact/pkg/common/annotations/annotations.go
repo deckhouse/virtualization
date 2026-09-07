@@ -230,6 +230,11 @@ const (
 	// node is released, so one approval covers one maintenance.
 	AnnNodeVMRestartApproved = AnnAPIGroupV + "/virtualmachines-restart-approved"
 
+	// AnnDeschedulerPrefix is the prefix of the annotations the descheduler reads off a Pod to
+	// decide whether it may be evicted and whether an eviction is already under way. Only the
+	// platform sets them, on the launcher Pod; they are never propagated from a VirtualMachine.
+	AnnDeschedulerPrefix = "descheduler.alpha.kubernetes.io/"
+
 	// AnnAllowDelete is the break-glass annotation of the state-snapshotter module's
 	// delete guard: without it the guard denies deleting VolumeSnapshots we manage.
 	AnnAllowDelete = "deckhouse.io/allow-delete"
@@ -290,6 +295,13 @@ const (
 
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
+
+	// LiveMigratableLabel marks the launcher Pod of a machine that can leave its node by live
+	// migration. The descheduler policy of the module selects Pods by this label: a machine that
+	// cannot be live migrated has no outcome the descheduler could reach, since the only other way
+	// off the node is a restart, and a restart happens solely on a node under maintenance and only
+	// with the permission of an administrator.
+	LiveMigratableLabel = "vm." + AnnAPIGroupV + "/live-migratable"
 
 	// AnnNetworksSpec is the annotation for request network configuration into Pod.
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"

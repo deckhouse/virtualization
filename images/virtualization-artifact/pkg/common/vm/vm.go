@@ -241,6 +241,31 @@ func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string 
 			continue
 		}
 
+		// The descheduler reads these annotations off the launcher Pod and obeys them before any
+		// policy check: `evict` alone makes a Pod a target regardless of the policy selectors, and
+		// `eviction-in-progress` makes a machine look as if it were already leaving its node. They
+		// belong to the platform, not to the owner of a virtual machine, so they are never carried
+		// over from the VirtualMachine.
+		if strings.HasPrefix(k, annotations.AnnDeschedulerPrefix) {
+			continue
+		}
+
+		res[k] = v
+	}
+	return res
+}
+
+// RemoveNonPropagatableLabels removes the labels the platform sets on the objects of a virtual
+// machine itself. They state what the platform knows about the machine, so an owner of a machine
+// must not be able to forge them by labelling the VirtualMachine.
+func RemoveNonPropagatableLabels(labels map[string]string) map[string]string {
+	res := make(map[string]string, len(labels))
+
+	for k, v := range labels {
+		if k == annotations.LiveMigratableLabel {
+			continue
+		}
+
 		res[k] = v
 	}
 	return res

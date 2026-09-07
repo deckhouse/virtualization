@@ -149,7 +149,7 @@ var _ = Describe("TestStatisticHandler", func() {
 	}
 
 	newPod := func(requestCPU, limitCPU, requestMemory, limitMemory string) *corev1.Pod {
-		pod := newEmptyPOD(podName, vmNamespace, vmName)
+		pod := newEmptyPOD(podName, vmName)
 		pod.UID = podUID
 		pod.Spec = corev1.PodSpec{
 			NodeName: nodeName,
