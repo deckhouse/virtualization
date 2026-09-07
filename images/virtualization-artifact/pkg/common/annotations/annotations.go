@@ -97,6 +97,11 @@ const (
 	// AnnVMLastAppliedSpecLegacy is a legacy annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMLastAppliedSpecLegacy = AnnAPIGroupLegacy + "/vm.last-applied-spec"
 
+	// AnnEnableVIOMMU is a user annotation on a VirtualMachine that adds an emulated
+	// Intel IOMMU to the guest (KubeVirt fork feature), so VFIO-based PCI passthrough
+	// works inside the virtual machine. Requires the VIOMMU feature gate.
+	AnnEnableVIOMMU = AnnAPIGroup + "/enable-viommu"
+
 	// AnnVMClassLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMClassLastAppliedSpec = AnnAPIGroup + "/vmclass.last-applied-spec"
 	// AnnVMClassLastAppliedSpecLegacy is a legacy annotation on KVVM. It contains a JSON with VMClass spec.

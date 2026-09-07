@@ -45,7 +45,7 @@ type Validator struct {
 func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceService, attachmentService *service.AttachmentService, featureGate featuregate.FeatureGate, log *log.Logger, virtualMachineCIDRs []string) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
-			validators.NewMetaValidator(client),
+			validators.NewMetaValidator(client, featureGate),
 			validators.NewIPAMValidator(client, virtualMachineCIDRs),
 			validators.NewBlockDeviceSpecRefsValidator(),
 			validators.NewSizingPolicyValidator(client),
@@ -79,7 +79,7 @@ func NewTemplateSpecValidator(client client.Client, featureGate featuregate.Feat
 			validators.NewCoreFractionValidator(client, featureGate),
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
-			validators.NewMetaValidator(client),
+			validators.NewMetaValidator(client, featureGate),
 			validators.NewSizingPolicyValidator(client),
 			validators.NewNetworksValidator(client, featureGate, virtualMachineCIDRs),
 			validators.NewFirstDiskValidator(client),

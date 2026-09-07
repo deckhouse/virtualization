@@ -21,20 +21,24 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/component-base/featuregate"
 	"kubevirt.io/api/core"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type MetaValidator struct {
-	client client.Client
+	client      client.Client
+	featureGate featuregate.FeatureGate
 }
 
-func NewMetaValidator(client client.Client) *MetaValidator {
-	return &MetaValidator{client: client}
+func NewMetaValidator(client client.Client, featureGate featuregate.FeatureGate) *MetaValidator {
+	return &MetaValidator{client: client, featureGate: featureGate}
 }
 
 func (v *MetaValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
@@ -54,10 +58,30 @@ func (v *MetaValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMa
 		}
 	}
 
+	if err := v.validateVIOMMUAnnotation(nil, vm); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 
-func (v *MetaValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+// validateVIOMMUAnnotation rejects turning on the emulated IOMMU annotation while
+// the VIOMMU feature gate is disabled. A VM that already carries the annotation is
+// left updatable, so disabling the gate does not brick existing resources.
+func (v *MetaValidator) validateVIOMMUAnnotation(oldVM, newVM *v1alpha2.VirtualMachine) error {
+	if newVM.Annotations[annotations.AnnEnableVIOMMU] != "true" {
+		return nil
+	}
+	if oldVM != nil && oldVM.Annotations[annotations.AnnEnableVIOMMU] == "true" {
+		return nil
+	}
+	if v.featureGate.Enabled(featuregates.VIOMMU) {
+		return nil
+	}
+	return fmt.Errorf("the %s annotation requires the VIOMMU feature gate to be enabled in the virtualization module settings", annotations.AnnEnableVIOMMU)
+}
+
+func (v *MetaValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	for key := range newVM.Annotations {
 		if strings.Contains(key, core.GroupName) {
 			return nil, fmt.Errorf("using the %s group's name in the annotation is prohibited", core.GroupName)
@@ -68,6 +92,10 @@ func (v *MetaValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.Vir
 		if strings.Contains(key, core.GroupName) {
 			return nil, fmt.Errorf("using the %s group's name in the label is prohibited", core.GroupName)
 		}
+	}
+
+	if err := v.validateVIOMMUAnnotation(oldVM, newVM); err != nil {
+		return nil, err
 	}
 
 	return nil, nil

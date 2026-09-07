@@ -30,6 +30,7 @@ const (
 	VolumeMigration                      featuregate.Feature = "VolumeMigration"
 	TargetMigration                      featuregate.Feature = "TargetMigration"
 	USB                                  featuregate.Feature = "USB"
+	VIOMMU                               featuregate.Feature = "VIOMMU"
 	GPU                                  featuregate.Feature = "GPU"
 	HotplugCPUWithLiveMigration          featuregate.Feature = "HotplugCPUWithLiveMigration"
 	HotplugMemoryWithLiveMigration       featuregate.Feature = "HotplugMemoryWithLiveMigration"
@@ -65,6 +66,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	GPU: {
+		Default:       false,
+		LockToDefault: version.GetEdition() == version.EditionCE,
+		PreRelease:    featuregate.Alpha,
+	},
+	VIOMMU: {
 		Default:       false,
 		LockToDefault: version.GetEdition() == version.EditionCE,
 		PreRelease:    featuregate.Alpha,
