@@ -2,7 +2,7 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://openvex.dev/docs/public/vex-virtualization-virt-launcher-cve-2026-41579",
   "author": "Deckhouse <contact@deckhouse.io>",
-  "version": 1,
+  "version": 4,
   "statements": [
     {
       "vulnerability": {
@@ -17,8 +17,50 @@
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "В образе virt-launcher модуль github.com/opencontainers/runc присутствует только как библиотека управления cgroups: в бинарный файл /usr/bin/virt-launcher попадают пакеты libcontainer/cgroups, libcontainer/configs и libcontainer/devices, а код создания контейнера и настройки rootfs, к которому относится CVE-2026-41579, не компилируется и не вызывается.",
       "timestamp": "2026-08-17T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56855"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-56855 относится к подпакету golang.org/x/crypto/ssh (обработка SSH-каналов). В образе virt-launcher бинарный файл /usr/bin/virt-launcher линкует модуль golang.org/x/crypto, но не подпакет ssh; подпакет ssh в kubevirt используется только в virtctl, которого в этом образе нет. Код ssh не входит в путь исполнения, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-78662"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-78662 относится к подпакету golang.org/x/crypto/ssh (мультиплексирование SSH-каналов). В образе virt-launcher бинарный файл /usr/bin/virt-launcher линкует модуль golang.org/x/crypto, но не подпакет ssh; подпакет ssh в kubevirt используется только в virtctl, которого в этом образе нет. Код ssh не входит в путь исполнения, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-10722"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/cilium/ebpf@v0.17.3"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-10722 — переполнение целого числа в функции loadRawSpec (btf/btf.go) библиотеки github.com/cilium/ebpf, достижимой только через LoadCollectionSpec/LoadCollectionSpecFromReader при разборе BTF. В образе virt-launcher (бинарный файл /usr/bin/virt-launcher) github.com/cilium/ebpf присутствует только как транзитивная зависимость runc (libcontainer/cgroups/ebpf — фильтр устройств cgroup v2). Этот код собирает eBPF-программу программно (asm-инструкции) и загружает её через ebpf.NewProgram, не вызывая LoadCollectionSpec и не разбирая BTF; собственный код kubevirt ebpf не использует. Уязвимая функция loadRawSpec в путь исполнения не попадает, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
     }
   ],
   "timestamp": "2026-08-17T00:00:00Z",
-  "last_updated": "2026-08-17T00:00:00Z"
+  "last_updated": "2026-09-07T00:00:00Z"
 }

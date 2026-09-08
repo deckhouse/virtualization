@@ -1,0 +1,52 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-virtualization-vm-route-forge-crypto-ssh",
+  "author": "Deckhouse <contact@deckhouse.io>",
+  "version": 2,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56855"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-56855 относится к подпакету golang.org/x/crypto/ssh (обработка SSH-каналов). В образе vm-route-forge бинарный файл /app/vm-route-forge линкует модуль golang.org/x/crypto, но не подпакет ssh; SSH-функциональность не используется. Код ssh не входит в путь исполнения, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-78662"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-78662 относится к подпакету golang.org/x/crypto/ssh (мультиплексирование SSH-каналов). В образе vm-route-forge бинарный файл /app/vm-route-forge линкует модуль golang.org/x/crypto, но не подпакет ssh; SSH-функциональность не используется. Код ssh не входит в путь исполнения, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-10722"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/cilium/ebpf@v0.17.1"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "CVE-2026-10722 — переполнение целого числа в функции loadRawSpec (btf/btf.go) библиотеки github.com/cilium/ebpf при разборе BTF с подконтрольным злоумышленнику смещением через LoadCollectionSpec/LoadCollectionSpecFromReader. В образе vm-route-forge BPF-объект загружается функцией LoadCollectionSpecFromReader исключительно из встроенного во время сборки файла (//go:embed ebpf_x86_bpfel.o, сгенерирован bpf2go); внешние BTF-данные не разбираются. Управлять этими данными злоумышленник не может; уязвимость дополнительно требует локальных привилегий и приводит только к отказу в обслуживании (CVSS 1.9, low). Поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
+    }
+  ],
+  "timestamp": "2026-09-07T00:00:00Z",
+  "last_updated": "2026-09-07T00:00:00Z"
+}

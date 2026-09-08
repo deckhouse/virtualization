@@ -74,3 +74,4 @@ imageSpec:
     {{- else }}
     entrypoint: ["/app/vm-route-forge"]
     {{- end }}
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
