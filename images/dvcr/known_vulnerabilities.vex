@@ -2,7 +2,7 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://openvex.dev/docs/public/vex-virtualization-dvcr-go-2026-5932",
   "author": "Deckhouse <contact@deckhouse.io>",
-  "version": 2,
+  "version": 3,
   "statements": [
     {
       "vulnerability": {
@@ -17,8 +17,36 @@
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "GO-2026-5932 относится к пакету golang.org/x/crypto/openpgp, который является unmaintained и не имеет исправленной версии. В образе dvcr пакет openpgp присутствует исключительно как транзитивная зависимость модуля golang.org/x/crypto; бинарный файл registry (форк distribution/distribution) не использует OpenPGP-функциональность: подпись и проверка manifest'ов реализованы через go-jose, а не через openpgp. Код openpgp не входит в путь исполнения registry, поэтому уязвимость для образа dvcr не достижима.",
       "timestamp": "2026-07-13T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56855"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-56855 относится к пакету golang.org/x/crypto/ssh (обработка SSH-каналов после установления соединения). Бинарный файл registry (форк distribution/distribution) не импортирует golang.org/x/crypto/ssh: SSH-подпакет отсутствует в vendor-дереве образа и в бинарный файл не линкуется. Реестр обслуживает клиентов только по HTTP(S) и не выступает ни SSH-сервером, ни SSH-клиентом. Уязвимый код не входит в путь исполнения registry, поэтому уязвимость для образа dvcr не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-78662"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.55.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-78662 относится к пакету golang.org/x/crypto/ssh (обработка канала, зарегистрированного в mux chanList). Бинарный файл registry (форк distribution/distribution) не импортирует golang.org/x/crypto/ssh: SSH-подпакет отсутствует в vendor-дереве образа и в бинарный файл не линкуется. Реестр обслуживает клиентов только по HTTP(S) и не выступает ни SSH-сервером, ни SSH-клиентом. Уязвимый код не входит в путь исполнения registry, поэтому уязвимость для образа dvcr не достижима.",
+      "timestamp": "2026-09-07T00:00:00Z"
     }
   ],
   "timestamp": "2026-07-13T00:00:00Z",
-  "last_updated": "2026-08-31T00:00:00Z"
+  "last_updated": "2026-09-07T00:00:00Z"
 }

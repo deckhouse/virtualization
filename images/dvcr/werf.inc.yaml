@@ -100,7 +100,8 @@ shell:
     #               and dns/dnsmessage panic CVE-2026-46600 (needs >= 0.56.0)
     #   x/text   -> infinite-loop on invalid input CVE-2026-56852 (needs >= 0.39.0)
     #   x/sys    -> CVE-2026-39824 (0.46.0 is required by x/net 0.56.0)
-    #   grpc     -> GHSA-hrxh-6v49-42gf (xDS RBAC / HTTP/2; needs >= 1.82.1)
+    #   grpc     -> GHSA-hrxh-6v49-42gf (xDS RBAC / HTTP/2) and the HTTP/2 data-frame
+    #               memory-exhaustion DoS CVE-2026-84304 (needs >= 1.83.1)
     # distribution vendors its deps, so go.mod/go.sum edits must be followed by `go mod vendor`
     # to keep vendor/modules.txt consistent (the default build uses -mod=vendor).
     go mod edit \
@@ -108,7 +109,7 @@ shell:
       -replace golang.org/x/net=golang.org/x/net@v0.56.0 \
       -replace golang.org/x/sys=golang.org/x/sys@v0.46.0 \
       -replace golang.org/x/text=golang.org/x/text@v0.39.0 \
-      -replace google.golang.org/grpc=google.golang.org/grpc@v1.82.1
+      -replace google.golang.org/grpc=google.golang.org/grpc@v1.83.2
     go mod tidy
     go mod vendor
 
