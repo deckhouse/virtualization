@@ -65,6 +65,7 @@ const (
 type Prober interface {
 	SerialConsole(ctx context.Context, name string, options *virtualizationv1alpha2.SerialConsoleOptions) (virtualizationv1alpha2.StreamInterface, *subv1alpha2.VirtualMachineSession, error)
 	VNC(ctx context.Context, name string, options *virtualizationv1alpha2.VNCOptions) (virtualizationv1alpha2.StreamInterface, *subv1alpha2.VirtualMachineSession, error)
+	SPICE(ctx context.Context, name string, options *virtualizationv1alpha2.SPICEOptions) (virtualizationv1alpha2.StreamInterface, *subv1alpha2.VirtualMachineSession, error)
 }
 
 // probe asks the endpoint of the stream itself who holds it.
@@ -75,6 +76,9 @@ func probe(ctx context.Context, vms Prober, name string, kind subv1alpha2.Sessio
 		return current, err
 	case subv1alpha2.VNCSession:
 		_, current, err := vms.VNC(ctx, name, &virtualizationv1alpha2.VNCOptions{Probe: true})
+		return current, err
+	case subv1alpha2.SPICESession:
+		_, current, err := vms.SPICE(ctx, name, &virtualizationv1alpha2.SPICEOptions{Probe: true})
 		return current, err
 	default:
 		return nil, fmt.Errorf("unknown session kind %q", kind)

@@ -69,6 +69,7 @@ because its business logic does not yet have their default behavior implemented.
 - HostDevices
 - HotplugHostDevicesWithDRA # custom feature gate - added in our KubeVirt fork, not present in upstream
 - GPUsWithDRA
+- VideoConfig # required for spec.domain.devices.video
 {{- if has "HotplugCPUAndMemoryWithInPlaceResize" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
 - InPlaceResize # custom feature gate - added in our KubeVirt fork, not present in upstream
 {{- end }}

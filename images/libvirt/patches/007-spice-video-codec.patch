@@ -1,0 +1,27 @@
+diff --git a/src/qemu/qemu_command.c b/src/qemu/qemu_command.c
+--- a/src/qemu/qemu_command.c
++++ b/src/qemu/qemu_command.c
+@@ -8267,6 +8267,23 @@ qemuBuildGraphicsSPICECommandLine(virQEMUDriverConfig *cfg,
+         }
+     }
+
++    /* Offer the gstreamer encoders for streamed areas, MJPEG last as a fallback.
++     * Without this the SPICE server only ever has its built-in MJPEG encoder, no
++     * matter that libspice-server is linked against gstreamer and the plugins ship
++     * in the image. The option itself comes from our QEMU patch
++     * 004-spice-video-codec: upstream QEMU never exposed
++     * spice_server_set_video_codecs(), so both sides need patching, and this one is
++     * useless without it — QEMU rejects the unknown parameter and the domain dies
++     * at startup.
++     * The client negotiates: an encoder it cannot decode is skipped, so the list is
++     * safe for every client.
++     * h264 is absent on purpose. The SPICE server accepts it in this list without
++     * checking that the element exists (reds.cpp only validates the encoder and
++     * codec names), and the pipeline it then builds asks for x264enc, which is
++     * GPL-licensed and not shipped. The failure would surface per stream, at
++     * gst_parse_launch_full with GST_PARSE_FLAG_FATAL_ERRORS, not at startup. */
++    virBufferAddLit(&opt, "video-codec=gstreamer:vp8;spice:mjpeg,");
++
+     /* Turn on seamless migration unconditionally. If migration destination
+      * doesn't support it, it fallbacks to previous migration algorithm silently. */
+     virBufferAddLit(&opt, "seamless-migration=on,");

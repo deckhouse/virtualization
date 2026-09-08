@@ -74,6 +74,7 @@ type SessionKind string
 const (
 	ConsoleSession SessionKind = "console"
 	VNCSession     SessionKind = "vnc"
+	SPICESession   SessionKind = "spice"
 )
 
 // Description is the user-facing name of the stream, as it goes into a warning or an event.
@@ -83,9 +84,21 @@ func (k SessionKind) Description() string {
 		return "serial console"
 	case VNCSession:
 		return "VNC"
+	case SPICESession:
+		return "SPICE"
 	default:
 		return string(k)
 	}
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineSPICE struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// Probe asks who holds the SPICE display instead of connecting to it. See VirtualMachineConsole.Probe.
+	Probe bool `json:"probe,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

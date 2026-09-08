@@ -52,6 +52,7 @@ rules:
   resources:
   - virtualmachines/console
   - virtualmachines/vnc
+  - virtualmachines/spice
   - virtualmachines/portforward
   verbs:
   - get

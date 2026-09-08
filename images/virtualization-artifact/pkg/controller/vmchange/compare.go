@@ -73,6 +73,7 @@ func (v *VMSpecComparator) comparators() []VMSpecFieldComparator {
 		vmSpecFieldComparator(compareDisruptions),
 		vmSpecFieldComparator(compareTerminationGracePeriodSeconds),
 		vmSpecFieldComparator(compareEnableParavirtualization),
+		vmSpecFieldComparator(compareSpice),
 		vmSpecFieldComparator(compareOSType),
 		vmSpecFieldComparator(compareBootloader),
 		NewComparatorCPU(v.featureGate),

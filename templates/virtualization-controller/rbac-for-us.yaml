@@ -290,6 +290,7 @@ rules:
   resources:
   - expand-vm-spec
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/spice
   - virtualmachineinstances/console
   - virtualmachineinstances/portforward
   - virtualmachineinstances/pause

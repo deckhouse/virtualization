@@ -402,6 +402,28 @@ var _ = Describe("SyncMetadataHandler.updateKVVMSpecTemplateMetadataAnnotations"
 		Expect(res).NotTo(HaveKey(annotations.AnnMigrationNodeAffinityTerms))
 		Expect(res).To(HaveKeyWithValue("user.example.com/new", "propagated"))
 	})
+
+	It("keeps the SPICE annotation, which decides whether the domain gets the display", func() {
+		curr := map[string]string{
+			annotations.AnnSpice: "true",
+		}
+		newAnno := map[string]string{
+			"user.example.com/new": "propagated",
+		}
+
+		res := h.updateKVVMSpecTemplateMetadataAnnotations(curr, newAnno)
+
+		Expect(res).To(HaveKeyWithValue(annotations.AnnSpice, "true"))
+	})
+
+	It("does not bring the SPICE annotation back once the builder has removed it", func() {
+		res := h.updateKVVMSpecTemplateMetadataAnnotations(
+			map[string]string{},
+			map[string]string{"user.example.com/new": "propagated"},
+		)
+
+		Expect(res).NotTo(HaveKey(annotations.AnnSpice))
+	})
 })
 
 // The feature gate that lets the volumes travel is locked to the edition, so the value of the

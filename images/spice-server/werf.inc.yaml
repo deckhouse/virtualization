@@ -1,0 +1,127 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+final: false
+from: {{ index $.Images "builder/scratch" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+
+---
+{{- $gitRepoName := .ImageName }}
+{{- $version := get .Firmware $gitRepoName }}
+{{- $gitRepoUrl := "spice/spice.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+from: {{ index $.Images "builder/src" }}
+secrets:
+- id: SOURCE_REPO
+  value: {{ .PACKAGE_CLONE_REPO }}
+shell:
+  install:
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
+
+    cd /src/{{ $gitRepoName }}-{{ $version }}
+
+    # spice-common is a submodule with a relative url (../spice-common.git), so it
+    # resolves next to the parent in whichever mirror the clone came from and needs
+    # no url rewrite. Its own submodule (common/recorder) is only compiled with
+    # instrumentation=recorder, which flags.tmpl leaves at "no", hence no --recursive.
+    git submodule update --init --depth=1 subprojects/spice-common
+
+    # No downstream patches left, so nothing is applied here and the patches directory
+    # is not even copied in: werf fails a git.add that matches no files, and the only
+    # thing left in that directory is its README.
+
+    # The project version comes from build-aux/git-version-gen, which reads
+    # .tarball-version first and only then asks git. Writing the file keeps the
+    # version correct once .git is gone - without it meson names the project
+    # UNKNOWN and qemu then rejects spice-server as older than 0.14.0.
+    echo "{{ $version | trimPrefix "v" }}" > .tarball-version
+
+    # Drop the git metadata once the sources are in place. meson runs
+    # build-aux/meson/check-spice-common, which re-runs `submodule update --init
+    # --recursive` whenever the tree is a git checkout - and that pulls in
+    # spice-common's own recorder submodule, which this build deliberately skips,
+    # along with its make-it-quick submodule from github, unreachable from the build.
+    # Without .git the check is a no-op, and nothing else here needs git any more.
+    rm -rf .git subprojects/spice-common/.git
+
+---
+{{- $name := print .ImageName "-dependencies" -}}
+{{- define "$name" -}}
+pmPackages:
+- glib2 glib2-devel pixman pixman-devel openssl openssl-devel
+- libjpeg-turbo libjpeg-turbo-devel zlib zlib-devel lz4 lz4-devel
+- opus opus-devel orc orc-devel
+# The four pkg-config modules the video encoder needs (gstreamer-1.0,
+# gstreamer-base-1.0, gstreamer-app-1.0, gstreamer-video-1.0) all live in
+# gstreamer-devel; the plugin sets carry the libraries those .pc files name.
+- gstreamer gstreamer-devel gst-plugins-base gst-plugins-good
+- spice-protocol libffi libffi-devel pcre2 pcre2-devel
+- meson ninja-build make pkgconf binutils
+- python python-devel python-wheel git
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+final: false
+from: {{ index $.Images "builder/golang-1.25" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/{{ $gitRepoName }}-{{ $version }}
+  to: /{{ $gitRepoName }}-{{ $version }}
+  before: install
+shell:
+  install:
+  {{- include "pm packages install" (list $builderDependencies.pmPackages "/") | nindent 2 }}
+  - |
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
+
+    # Both library directories are in play on this builder: pm installs into
+    # /usr/lib while the base image keeps /usr/lib64. Same reasoning as in the
+    # qemu build.
+    export PKG_CONFIG_LIBDIR="/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    export LIBRARY_PATH="/usr/lib:/usr/lib64"
+
+    # A missing .pc file switches the encoder off silently instead of failing the
+    # build, so the four modules are checked before meson runs.
+    pkg-config --modversion gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 gstreamer-video-1.0
+
+    # spice-common generates the protocol marshallers with spice_codegen.py, which
+    # needs six and pyparsing. The python-wheel package unpacks the vendored wheel
+    # set into /wheels, the same one the qemu build takes distlib from.
+    pip3 install -f file:///wheels --no-index six pyparsing
+
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    # The option list lives in flags.tmpl next to this file, with the reasoning
+    # behind it.
+    meson setup build \
+      {{- tpl (.Files.Get (printf "images/%s/flags.tmpl" .ImageName)) . | trim | nindent 6 }}
+
+    {{- $_ := set $ "ProjectName" (list .ImageName "spice-server" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | nindent 6 }}
+  setup:
+  - |
+    OUTDIR=/out
+    cd /{{ $gitRepoName }}-{{ $version }}
+    DESTDIR=$OUTDIR ninja -C build install
+
+    # Only the shared library and what links against it are needed downstream:
+    # qemu wants the headers and spice-server.pc at build time, virt-launcher wants
+    # the library at runtime. reds_stat is a debugging tool for a statistics file
+    # this build does not enable.
+    rm -rf $OUTDIR/usr/bin
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+    tree -hp $OUTDIR

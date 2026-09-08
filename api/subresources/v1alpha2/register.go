@@ -53,6 +53,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachine{},
 		&VirtualMachineConsole{},
 		&VirtualMachineVNC{},
+		&VirtualMachineSPICE{},
 		&VirtualMachinePortForward{},
 		&VirtualMachineAddVolume{},
 		&VirtualMachineRemoveVolume{},

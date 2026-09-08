@@ -57,6 +57,11 @@ func (f *fakeProber) VNC(context.Context, string, *virtualizationv1alpha2.VNCOpt
 	return nil, current, err
 }
 
+func (f *fakeProber) SPICE(context.Context, string, *virtualizationv1alpha2.SPICEOptions) (virtualizationv1alpha2.StreamInterface, *subv1alpha2.VirtualMachineSession, error) {
+	current, err := f.answer()
+	return nil, current, err
+}
+
 func (f *fakeProber) answer() (*subv1alpha2.VirtualMachineSession, error) {
 	f.calls++
 	if f.err != nil {

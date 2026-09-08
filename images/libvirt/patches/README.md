@@ -49,3 +49,22 @@ Fixes `startupPolicy='optional'` for USB hostdev in containerized environments.
 In containers, sysfs (`/sys/bus/usb/devices/`) is mounted from the host kernel and exposes all USB devices regardless of mount namespace isolation. This causes `virUSBDeviceSearch` to report a device as available even when the corresponding `/dev/bus/usb/` node is not present in the container's mount namespace. As a result, `startupPolicy='optional'` does not remove the missing hostdev from the domain XML, and QEMU fails to start.
 
 The patch adds a `virFileExists` check on the device node path after sysfs discovery. If the node is missing, the device is skipped so that callers see an empty result and handle the absence gracefully.
+
+## 006-vnc-lossy-encoding.patch
+
+Enables lossy VNC encodings on the QEMU command line (`-vnc ...,lossy=on`).
+
+There is no domain XML knob for this option, and without it the Tight encoder never picks JPEG:
+`tight_detect_smooth_image()` bails out while `lossy` is unset. It pairs with the QEMU patch
+`003-vnc-jpeg-defaults`, which decides which quality levels are allowed to be lossy.
+
+## 007-spice-video-codec.patch
+
+Passes a video codec list to the SPICE display: `video-codec=gstreamer:h264;gstreamer:vp8;spice:mjpeg`.
+
+Without it the SPICE server only ever has its built-in MJPEG encoder for streamed areas, however many
+gstreamer plugins the image ships. There is no domain XML knob for the option, and the option itself
+comes from the QEMU patch `004-spice-video-codec` — unpatched QEMU rejects the unknown parameter and
+the domain fails to start, so the two patches only work as a pair.
+
+MJPEG stays last as a fallback: the client negotiates the list and skips any encoder it cannot decode.

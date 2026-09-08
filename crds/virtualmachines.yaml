@@ -885,6 +885,21 @@ spec:
                   description: |
                     Grace period after sending a `SIGTERM` signal to shut down a VM. Once the grace period expires, the VM is forcibly terminated.
 
+                spice:
+                  type: object
+                  description: |
+                    Settings of the SPICE display.
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: false
+                      description: |
+                        Enable the SPICE display on the VM. SPICE is added next to VNC rather than replacing it, so existing VNC sessions keep working; a SPICE client also gets sound, USB redirection from the client and a clipboard shared with the guest.
+
+                        > **Note**: SPICE reserves memory whether a client is connected or not. It is accounted for in the VM overhead, so the launcher pod becomes larger.
+
+                        > **Note**: Changing this parameter requires a VM restart.
+
                 enableParavirtualization:
                   type: boolean
                   default: true

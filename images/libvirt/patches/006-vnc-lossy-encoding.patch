@@ -1,0 +1,15 @@
+diff --git a/src/qemu/qemu_command.c b/src/qemu/qemu_command.c
+--- a/src/qemu/qemu_command.c
++++ b/src/qemu/qemu_command.c
+@@ -8032,6 +8032,11 @@
+                               graphics->data.vnc.sharePolicy));
+     }
+ 
++    /* Let the Tight encoder use JPEG for smooth, frequently updated areas.
++     * There is no domain XML knob for this, and without it QEMU never picks
++     * JPEG: tight_detect_smooth_image() bails out when lossy is unset. */
++    virBufferAddLit(&opt, ",lossy=on");
++
+     if (graphics->data.vnc.auth.passwd || cfg->vncPassword) {
+         virBufferAddLit(&opt, ",password=on");
+     }

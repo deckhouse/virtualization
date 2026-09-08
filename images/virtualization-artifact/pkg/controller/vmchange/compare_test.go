@@ -37,6 +37,25 @@ func TestActionRequiredOnCompare(t *testing.T) {
 		assertFn    func(t *testing.T, changes SpecChanges)
 	}{
 		{
+			// SPICE builds the display, the sound card, the redirection slots and the
+			// vdagent channel into the domain at start, so it cannot be switched on a
+			// running VM.
+			"restart on spice.enabled change",
+			`
+spice:
+  enabled: false
+`,
+			`
+spice:
+  enabled: true
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("spice.enabled", ChangeReplace),
+			),
+		},
+		{
 			"restart on cpu.cores change",
 			`
 cpu:

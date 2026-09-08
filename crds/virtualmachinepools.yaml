@@ -1310,9 +1310,6 @@ spec:
                         disruptions:
                           default:
                             restartApprovalMode: Manual
-                          description: |-
-                            Disruptions describes the policy for applying changes that require rebooting the VM
-                            Changes to some VM configuration settings require a reboot of the VM to apply them. This policy allows you to specify the behavior of how the VM will respond to such changes.
                           properties:
                             restartApprovalMode:
                               description:
@@ -1514,6 +1511,22 @@ spec:
                             - Manual
                             - AlwaysOnUnlessStoppedManually
                           type: string
+                        spice:
+                          description: Settings of the SPICE display.
+                          properties:
+                            enabled:
+                              default: false
+                              description: |-
+                                Enable the SPICE display on the VM. SPICE is added next to VNC rather than
+                                replacing it, so existing VNC sessions keep working; a SPICE client also gets
+                                sound, USB redirection from the client and a clipboard shared with the guest.
+                                Note: SPICE reserves memory whether a client is connected or not. It is accounted
+                                for in the VM overhead, so the launcher pod becomes larger.
+                                Note: changing this parameter requires a VM restart.
+                              type: boolean
+                          required:
+                            - enabled
+                          type: object
                         terminationGracePeriodSeconds:
                           default: 60
                           description:

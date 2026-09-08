@@ -1,0 +1,32 @@
+diff --git a/ui/spice-core.c b/ui/spice-core.c
+--- a/ui/spice-core.c
++++ b/ui/spice-core.c
+@@ -486,6 +486,9 @@ static QemuOptsList qemu_spice_opts = {
+             .name = "streaming-video",
+             .type = QEMU_OPT_STRING,
+         },{
++            .name = "video-codec",
++            .type = QEMU_OPT_STRING,
++        },{
+             .name = "agent-mouse",
+             .type = QEMU_OPT_BOOL,
+         },{
+@@ -800,6 +803,18 @@ void qemu_spice_display_init_done(void)
+         spice_server_set_streaming_video(spice_server, SPICE_STREAM_VIDEO_OFF);
+     }
+ 
++    /* Pick the encoders for streamed areas, e.g. "gstreamer:vp8;spice:mjpeg".
++     * libspice-server has had spice_server_set_video_codecs() since 0.13.2 and is
++     * linked against gstreamer, but upstream QEMU never exposed the setter, so the
++     * server was stuck with its built-in MJPEG encoder no matter which plugins the
++     * image shipped. The client negotiates the list, so an encoder it cannot decode
++     * is skipped. */
++    str = qemu_opt_get(opts, "video-codec");
++    if (str && spice_server_set_video_codecs(spice_server, str) != 0) {
++        error_report("spice: invalid video-codec: %s", str);
++        exit(1);
++    }
++
+     spice_server_set_agent_mouse
+         (spice_server, qemu_opt_get_bool(opts, "agent-mouse", 1));
+     spice_server_set_playback_compression

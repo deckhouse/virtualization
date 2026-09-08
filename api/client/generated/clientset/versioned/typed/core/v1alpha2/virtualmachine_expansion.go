@@ -34,6 +34,9 @@ type VirtualMachineExpansion interface {
 	SerialConsole(ctx context.Context, name string, options *SerialConsoleOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error)
 	// VNC connects to the VNC of the virtual machine. See SerialConsole about Probe.
 	VNC(ctx context.Context, name string, options *VNCOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error)
+	// SPICE opens one SPICE channel connection, or, with Probe set in the options, reports who
+	// holds the display and leaves them alone. See SerialConsole about Probe.
+	SPICE(ctx context.Context, name string, options *SPICEOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error)
 	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
 	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
 	Unfreeze(ctx context.Context, name string) error
@@ -55,6 +58,11 @@ type VNCOptions struct {
 	Probe bool
 }
 
+type SPICEOptions struct {
+	// Probe asks who holds the SPICE display instead of connecting to it.
+	Probe bool
+}
+
 type StreamOptions struct {
 	In  io.Reader
 	Out io.Writer
@@ -70,6 +78,10 @@ func (c *virtualMachines) SerialConsole(_ context.Context, name string, options 
 }
 
 func (c *virtualMachines) VNC(_ context.Context, name string, options *VNCOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error) {
+	return nil, nil, fmt.Errorf("not implemented")
+}
+
+func (c *virtualMachines) SPICE(_ context.Context, name string, options *SPICEOptions) (StreamInterface, *v1alpha2.VirtualMachineSession, error) {
 	return nil, nil, fmt.Errorf("not implemented")
 }
 

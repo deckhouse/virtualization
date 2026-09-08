@@ -727,6 +727,59 @@ func (b *KVVM) SetProvisioning(p *v1alpha2.Provisioning) error {
 	}
 }
 
+// SetSpiceDevices attaches the devices that only make sense together with a SPICE
+// display: a video adapter, a sound card and USB redirection slots.
+//
+// The adapter is virtio-gpu rather than QXL. QXL is the only model that ever sent
+// drawing commands to SPICE, but Red Hat dropped its Windows driver at Windows 10, so
+// on modern guests it degrades to a plain VGA. virtio-gpu is supported by the Linux
+// kernel out of the box and by viogpudo on Windows 10+, though it hands SPICE a ready
+// framebuffer, so it does not restore the drawing-command path either — it merely
+// beats bochs on resize and overhead.
+//
+// It should be called after SetMetadata, which copies the annotations of the
+// VirtualMachine onto the template: the same key set there by a user must not decide
+// anything, spec.spice.enabled is the only source of truth.
+func (b *KVVM) SetSpiceDevices(vm *v1alpha2.VirtualMachine) {
+	devices := &b.Resource.Spec.Template.Spec.Domain.Devices
+
+	// Turning SPICE off has to undo what turning it on did. The builder works on top
+	// of the KVVM that already exists, so devices left behind would outlive the
+	// restart: the domain would keep the SPICE display and the launcher pod would keep
+	// the memory reserved for it. The video model is not lost — SetVideoModel puts it
+	// back right after this when the annotation asks for one.
+	if vm.Spec.Spice == nil || !vm.Spec.Spice.Enabled {
+		devices.Video = nil
+		devices.Sound = nil
+		devices.ClientPassthrough = nil
+		b.RemoveKVVMIAnnotation(annotations.AnnSpice)
+		return
+	}
+
+	devices.Video = &virtv1.VideoDevice{Type: "virtio"}
+	devices.Sound = &virtv1.SoundDevice{Name: "sound0", Model: "ich9"}
+	devices.ClientPassthrough = &virtv1.ClientPassthroughDevices{}
+
+	// The kubevirt fork reads the annotation on the VirtualMachineInstance to decide
+	// whether to add the SPICE graphics, the vdagent channel and to route the
+	// redirection slots through it, and the same annotation is what its memory
+	// overhead calculation keys on. spec.spice.enabled is the user-facing knob, this is
+	// how it reaches the domain.
+	b.SetKVVMIAnnotation(annotations.AnnSpice, "true")
+}
+
+// SetVideoModel overrides the video adapter independently of SPICE. virtio-gpu gives
+// plain VNC damage rectangles, a hardware cursor and resize, so it is worth having
+// without any SPICE at all. Old guests (XP, Win7) have no virtio-gpu driver and are
+// better off on the default bochs/vga, hence the explicit opt-in.
+func (b *KVVM) SetVideoModel(vm *v1alpha2.VirtualMachine) {
+	model := vm.GetAnnotations()[annotations.AnnVideo]
+	if model == "" {
+		return
+	}
+	b.Resource.Spec.Template.Spec.Domain.Devices.Video = &virtv1.VideoDevice{Type: model}
+}
+
 func (b *KVVM) SetOSType(osType v1alpha2.OsType) error {
 	switch osType {
 	case v1alpha2.Windows:

@@ -47,6 +47,22 @@ pmPackages:
 - brotli libstdc++ libcap libgpg-error lz4
 - userspace-rcu lzo
 - udev libfdt libblkio libusb pulseaudio libepoxy librbd libatomic libquadmath gnu-gcc-lib  # runtime dependencies of the in-repo qemu build
+# libjpeg-turbo is needed by qemu itself (--enable-vnc-jpeg) and by libspice-server;
+# libusbredirparser by the hw-usb-redirect module, which USB redirection loads.
+- libjpeg-turbo libusbredirparser
+# opus is linked by libspice-server for the playback channel; libvpx sits behind the
+# vp8enc plugin and orc behind the gstreamer libraries, both loaded by that encoder.
+- opus libvpx orc
+# gstreamer: libspice-server links the core and plugins-base libraries and loads
+# vp8enc (gst-plugins-good) as a plugin at runtime. pm installs into /relocate, so
+# the plugin directory /usr/lib/gstreamer-1.0 — which nothing lists in DT_NEEDED and
+# which GST_PLUGIN_SYSTEM_PATH defaults to — and the out-of-process plugin scanner
+# in /usr/libexec ship along with the libraries.
+- gstreamer gst-plugins-base gst-plugins-good
+# libspice-server is not here: it is built from source in this repo and imported
+# below. The SPICE features of qemu live in loadable modules (ui-spice-core,
+# chardev-spice, audio-spice), so nothing lists the library in DT_NEEDED and it has
+# to be placed explicitly either way.
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -89,6 +105,11 @@ import:
 - image: {{ .ModuleNamePrefix }}libvirt
   add: /libvirt
   to: /libvirt-bins
+  before: install
+# libspice-server, built from source in this repo as well
+- image: {{ .ModuleNamePrefix }}spice-server
+  add: /spice-server
+  to: /spice-server-bins
   before: install
 # EDK2 (uefi firmware)
 - image: {{ .ModuleNamePrefix }}edk2
@@ -176,6 +197,13 @@ shell:
     echo "Copy libvirt binaries into /relocate"
     cp -a /libvirt-bins/. /relocate/
     rm -rf /libvirt-bins
+
+    # Only the library: the headers and spice-server.pc from that image are for the
+    # qemu build, they have nothing to do here.
+    echo "Copy libspice-server into /relocate"
+    mkdir -p /relocate/usr/lib64
+    cp -a /spice-server-bins/usr/lib64/libspice-server.so* /relocate/usr/lib64/
+    rm -rf /spice-server-bins
 
     echo "Create runtime folder hierarchy"
     mkdir -p /relocate/{etc,root}

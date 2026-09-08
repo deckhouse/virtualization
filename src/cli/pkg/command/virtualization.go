@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/portforward"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/scp"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/spice"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ssh"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/vnc"
 	"github.com/deckhouse/virtualization/src/cli/internal/comp"
@@ -93,6 +94,7 @@ func NewCommand(programName string) *cobra.Command {
 		console.NewCommand(),
 		collectdebuginfo.NewCommand(),
 		vnc.NewCommand(),
+		spice.NewCommand(),
 		portforward.NewCommand(),
 		ssh.NewCommand(),
 		scp.NewCommand(),

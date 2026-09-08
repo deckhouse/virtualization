@@ -1,0 +1,49 @@
+{{- /*
+Meson options for the libspice-server build. Included by images/spice-server/werf.inc.yaml.
+
+The library is built here rather than taken from pm because the behaviour we need
+to change is not exposed at all: the gstreamer encoder hardcodes which elements
+it asks for, and the thresholds of the video-area detector are compile-time
+constants in server/video-stream.h. Both are patch territory, see
+patches/README.md.
+
+The layout is pinned for the same reason libvirt pins it: meson's own defaults
+(prefix=/usr/local, libdir=lib) would put the library where neither the qemu
+build nor virt-launcher looks for it.
+
+gstreamer is on, at version 1.0. The encoder needs four pkg-config modules
+(gstreamer-1.0, -base-1.0, -app-1.0, -video-1.0), all of which pm provides in
+gstreamer-devel alongside the gst-plugins-base and gst-plugins-good packages.
+Without them the server is limited to its built-in MJPEG encoder for streamed areas,
+which compresses every frame on its own; vp8 is the reason for the whole exercise.
+
+Only vp8 and vp9 are available through it. h264 would need x264enc, which spice
+asks for by name and which lives in gst-plugins-ugly under the GPL; the pm packages
+carry neither that plugin set nor its encoder.
+
+opus is enabled: without it the playback channel stays at
+SPICE_AUDIO_DATA_MODE_RAW (server/sound.cpp), which is audible but sends the guest
+audio uncompressed, and the fallback to RAW remains in place anyway for clients
+that cannot decode opus.
+
+lz4 is on, it is the image compression the console actually benefits from, and
+pm carries lz4 1.10.0 against the required 1.7.3.
+
+smartcard is disabled: libcacard is not in pm and the module does not pass
+smartcards through. sasl is off because the console is authenticated at the API
+layer, long before a client reaches this socket. manual and tests build nothing
+that ships.
+
+generate-code is not set here on purpose: spice already selects `server` for the
+spice-common subproject, so the client-side marshallers are not generated.
+*/ -}}
+--prefix=/usr \
+-Dlibdir=/usr/lib64 \
+-Dgstreamer=1.0 \
+-Dopus=enabled \
+-Dsmartcard=disabled \
+-Dsasl=false \
+-Dlz4=true \
+-Dtests=false \
+-Dmanual=false \
+-Dinstrumentation=no

@@ -1,6 +1,7 @@
 firmware:
   qemu: v9.2.0
   libvirt: v10.9.0
+  spice-server: v0.15.2
   edk2: stable202411
 core:
   kubevirt: v1.6.2-v12n.103

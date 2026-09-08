@@ -38,6 +38,7 @@ type VirtualMachineStorage struct {
 	vmLister            virtlisters.VirtualMachineLister
 	console             *vmrest.ConsoleREST
 	vnc                 *vmrest.VNCREST
+	spice               *vmrest.SPICEREST
 	portforward         *vmrest.PortForwardREST
 	addVolume           *vmrest.AddVolumeREST
 	removeVolume        *vmrest.RemoveVolumeREST
@@ -69,6 +70,7 @@ func NewStorage(
 		vmLister:            vmLister,
 		console:             vmrest.NewConsoleREST(baseRest),
 		vnc:                 vmrest.NewVNCREST(baseRest),
+		spice:               vmrest.NewSPICEREST(baseRest),
 		portforward:         vmrest.NewPortForwardREST(baseRest),
 		addVolume:           vmrest.NewAddVolumeREST(baseRest),
 		removeVolume:        vmrest.NewRemoveVolumeREST(baseRest),
@@ -87,6 +89,10 @@ func (store VirtualMachineStorage) ConsoleREST() *vmrest.ConsoleREST {
 
 func (store VirtualMachineStorage) VncREST() *vmrest.VNCREST {
 	return store.vnc
+}
+
+func (store VirtualMachineStorage) SpiceREST() *vmrest.SPICEREST {
+	return store.spice
 }
 
 func (store VirtualMachineStorage) PortForwardREST() *vmrest.PortForwardREST {

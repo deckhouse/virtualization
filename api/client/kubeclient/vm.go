@@ -133,6 +133,18 @@ func (v vm) probe(ctx context.Context, name string, kind subv1alpha2.SessionKind
 	return session, nil
 }
 
+// SPICE opens one SPICE channel connection. A client session needs several of
+// them in parallel — one per channel — so callers are expected to invoke this
+// once per accepted client connection rather than once per session.
+func (v vm) SPICE(ctx context.Context, name string, options *virtualizationv1alpha2.SPICEOptions) (virtualizationv1alpha2.StreamInterface, *subv1alpha2.VirtualMachineSession, error) {
+	if options != nil && options.Probe {
+		session, err := v.probe(ctx, name, subv1alpha2.SPICESession)
+		return nil, session, err
+	}
+	stream, err := asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "spice", url.Values{})
+	return stream, nil, err
+}
+
 func (v vm) PortForward(name string, opts subv1alpha2.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error) {
 	params := url.Values{}
 	if opts.Port > 0 {

@@ -27,6 +27,7 @@ const (
 	DefaultOSType                        = v1alpha2.GenericOs
 	DefaultBootloader                    = v1alpha2.BIOS
 	DefaultEnableParavirtualization      = true
+	DefaultSpiceEnabled                  = false
 	DefaultTerminationGracePeriodSeconds = int64(60)
 )
 
@@ -100,6 +101,29 @@ func compareEnableParavirtualization(current, desired *v1alpha2.VirtualMachineSp
 		DefaultEnableParavirtualization,
 		ActionRestart,
 	)
+}
+
+func compareSpice(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	// Restart, not hotplug: the SPICE display, the sound card, the USB redirection
+	// slots and the vdagent channel are all built into the domain when it starts.
+	//
+	// Reduced to the enabled flag rather than compared as an object: an absent spec
+	// and an explicit spice.enabled=false mean the same thing, and comparing the
+	// pointers would ask for a restart on a change that changes nothing.
+	return comparePtrBools(
+		"spice.enabled",
+		spiceEnabledPtr(current.Spice),
+		spiceEnabledPtr(desired.Spice),
+		DefaultSpiceEnabled,
+		ActionRestart,
+	)
+}
+
+func spiceEnabledPtr(spice *v1alpha2.SpiceSpec) *bool {
+	if spice == nil {
+		return nil
+	}
+	return &spice.Enabled
 }
 
 func compareOSType(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {

@@ -80,6 +80,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/spice
   - virtualmachineinstances/vnc/screenshot
   - virtualmachineinstances/portforward
   - virtualmachineinstances/guestosinfo
@@ -127,6 +128,7 @@ rules:
   - virtualmachines/removeresourceclaim
   - virtualmachines/unfreeze
   - virtualmachines/vnc
+  - virtualmachines/spice
   - virtualmachinepools
   - virtualmachinepools/scaledownwith
   verbs:

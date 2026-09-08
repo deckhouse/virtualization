@@ -45,6 +45,14 @@ type VirtualMachineVNC struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type VirtualMachineSPICE struct {
+	metav1.TypeMeta
+
+	Probe bool
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type VirtualMachinePortForward struct {
 	metav1.TypeMeta
 

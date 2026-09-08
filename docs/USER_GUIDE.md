@@ -1817,6 +1817,7 @@ The following methods are available for connecting to the virtual machine:
 - remote management protocol (such as SSH), which must be preconfigured on the virtual machine.
 - serial console
 - VNC protocol
+- SPICE protocol, if it is enabled on the virtual machine
 
 An example of connecting to a virtual machine using a serial console:
 
@@ -1872,6 +1873,42 @@ d8 v vnc linux-vm
 ```
 
 The VNC of a virtual machine is exclusive in the same way the serial console is: connecting disconnects whoever is already there, and `d8 v vnc` asks about it first. See the warning above.
+
+#### SPICE
+
+SPICE is a remote display protocol that, unlike VNC, brings the sound of the guest operating system, redirects USB devices from the client machine into it, and shares a clipboard with it. It is added next to VNC rather than instead of it, so existing VNC sessions and the web interface keep working.
+
+SPICE is disabled by default. To turn it on, set the `spec.spice.enabled` parameter in the specification of the virtual machine and restart the VM:
+
+```yaml
+spec:
+  spice:
+    enabled: true
+```
+
+Together with SPICE, the virtual machine gets a virtio-gpu video adapter. If the guest system has no driver for it, as is the case with Windows 7 and Windows XP, set another adapter model with the `virtualization.deckhouse.io/video` annotation, using the `vga`, `bochs` or `ramfb` value.
+
+The SPICE guest agent adds a shared clipboard, automatic resize to the client window and a local cursor. Install it in the guest system. On Linux it is the `spice-vdagent` package, on Windows it is `spice-guest-tools`.
+
+Connecting requires the `remote-viewer` SPICE client from the `virt-viewer` package. The command opens it for you:
+
+```bash
+d8 v spice linux-vm
+```
+
+If you have no such client, run the proxy alone and connect with your own viewer to the port the command prints:
+
+```bash
+d8 v spice linux-vm --proxy-only
+```
+
+The SPICE display is exclusive the same way the serial console and VNC are. Connecting disconnects whoever is already there, and `d8 v spice` asks about it first.
+
+{{< alert level="warning" >}}
+Changing the `spec.spice.enabled` parameter requires a virtual machine restart.
+
+SPICE reserves memory whether a client is connected or not. The reserved memory is accounted for in the VM overhead, so on the node the machine takes more memory than its specification asks for.
+{{< /alert >}}
 
 Example command for connecting via SSH.
 

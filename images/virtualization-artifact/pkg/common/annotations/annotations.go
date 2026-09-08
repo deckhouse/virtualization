@@ -137,6 +137,18 @@ const (
 	// the affinity of the rendered pod.
 	AnnMigrationNodeAffinityTerms = AnnAPIGroupV + "/migration-node-affinity-terms"
 
+	// AnnSpice marks a VirtualMachineInstance whose domain must carry the SPICE
+	// display. It is set by the platform from spec.spice.enabled of the VirtualMachine
+	// and is not meant to be set by hand: the kubevirt fork reads it when building the
+	// domain and when calculating the memory overhead of the launcher pod. Hence the
+	// internal prefix, shared with the other controller-to-fork signals.
+	AnnSpice = AnnAPIGroup + "/spice"
+
+	// AnnVideo overrides the video adapter model: virtio, bochs, vga, ramfb.
+	// Independent of SPICE — virtio-gpu benefits plain VNC too (damage rectangles,
+	// hardware cursor, resize).
+	AnnVideo = AnnAPIGroupV + "/video"
+
 	// AnnVMStartRequested is an annotation on KVVM that represents a request to start a virtual machine.
 	AnnVMStartRequested = AnnAPIGroupV + "/vm-start-requested"
 

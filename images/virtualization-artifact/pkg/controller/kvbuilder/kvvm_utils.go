@@ -232,6 +232,11 @@ func ApplyVirtualMachineSpec(
 
 	kvvm.SetUSBMigrationStrategy()
 	kvvm.SetMetadata(vm.ObjectMeta)
+	// After SetMetadata on purpose: it copies the annotations of the VirtualMachine
+	// onto the template, and the SPICE annotation must come from spec.spice.enabled
+	// alone, never from a key a user put on their own resource.
+	kvvm.SetSpiceDevices(vm)
+	kvvm.SetVideoModel(vm)
 	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)

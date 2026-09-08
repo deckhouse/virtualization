@@ -109,6 +109,9 @@ type VirtualMachineSpec struct {
 	// +kubebuilder:default:=true
 	EnableParavirtualization *bool `json:"enableParavirtualization,omitempty"`
 
+	// Settings of the SPICE display.
+	Spice *SpiceSpec `json:"spice,omitempty"`
+
 	// +kubebuilder:default:="Generic"
 	OsType OsType `json:"osType,omitempty"`
 	// +kubebuilder:default:="BIOS"
@@ -220,6 +223,60 @@ const (
 	Automatic RestartApprovalMode = "Automatic"
 	Manual    RestartApprovalMode = "Manual"
 )
+
+// SpiceSpec is an object rather than a single boolean on purpose: SPICE has settings
+// that belong next to the switch, the maximum resolution advertised to the guest above
+// all, and a field cannot grow into an object within an API version.
+//
+// A resolution field would make the memory overhead a function of that field, and the
+// overhead is currently two constants in the kubevirt fork (SpiceStaticOverhead and
+// SpiceSessionOverhead in pkg/virt-controller/services/template.go). What is known so
+// far, and what is not:
+//
+//   - Measured at 1280x800 with no client attached: +28 MiB on Windows 11 with 4 GiB of
+//     RAM, +15 MiB on a Linux guest with 1 GiB, plus 10-13 MiB for a connected client.
+//     The constants stand at 35Mi and 44Mi, the static one following the worse guest, so
+//     today's numbers have room.
+//   - Reading the server code says the static part does not scale with the resolution,
+//     while the session part follows the area that changes rather than the pixel count:
+//     the GLZ dictionary is sized once when the channel opens and the image cache is a
+//     1024-entry table.
+//   - That reading is NOT measured. Nobody has run the same guest at two resolutions and
+//     compared the numbers.
+//
+// So whoever adds the field measures first: same VM, same scene, two resolutions, RSS of
+// qemu minus its guest mappings, taken after the process settles (a fresh one reads
+// 15-20 MiB low). If the overhead turns out to scale, the constants become a function of
+// the requested resolution rather than a pair of numbers, and the pod gets sized off the
+// spec field instead of off a fixed budget.
+//
+// The field is planned as spec.spice.resolution, taking named presets rather than a pixel
+// pair — HD, FHD, QHD, UHD — so that a user picks a screen size instead of doing arithmetic.
+// Note that the video device is shared: VNC renders the same framebuffer, so whatever this
+// field sets is what a VNC client sees too, SPICE switched off included.
+//
+// Video memory is the real ceiling, and it is a constant today: the converter pins VRam at
+// 16384 KiB with a single head (pkg/virt-launcher/virtwrap/converter/converter.go). The
+// value comes from upstream KubeVirt and the fork does not change it. At 32 bits per pixel
+// that gives:
+//
+//	HD  1280x720   3.5 MiB   fits
+//	FHD 1920x1080    8 MiB   fits
+//	QHD 2560x1440   14 MiB   only just
+//	UHD 3840x2160   32 MiB   does not fit — vram has to grow first
+//
+// So the knob is two changes, not one: the preset the user picks, and vram derived from
+// that preset instead of the hardcoded 16384.
+type SpiceSpec struct {
+	// Enable the SPICE display on the VM. SPICE is added next to VNC rather than
+	// replacing it, so existing VNC sessions keep working; a SPICE client also gets
+	// sound, USB redirection from the client and a clipboard shared with the guest.
+	// Note: SPICE reserves memory whether a client is connected or not. It is accounted
+	// for in the VM overhead, so the launcher pod becomes larger.
+	// Note: changing this parameter requires a VM restart.
+	// +kubebuilder:default:=false
+	Enabled bool `json:"enabled"`
+}
 
 // Disruptions describes the policy for applying changes that require rebooting the VM
 // Changes to some VM configuration settings require a reboot of the VM to apply them. This policy allows you to specify the behavior of how the VM will respond to such changes.

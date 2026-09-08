@@ -88,8 +88,20 @@ pmPackages:
 - multipath-tools-devel lvm2 lvm2-devel userspace-rcu userspace-rcu-devel libseccomp
 - libseccomp-devel rdma-core rdma-core-devel libnl-devel liburing liburing-devel
 - libselinux libselinux-devel libsepol libsepol-devel libxkbcommon libxkbcommon-devel
-- libpng libpng-devel pixman pixman-devel cyrus-sasl-devel snappy
+- libpng libpng-devel libjpeg-turbo libjpeg-turbo-devel pixman pixman-devel cyrus-sasl-devel snappy
 - snappy-devel libusbredirparser libusbredirparser-devel libusb libusb-devel spice-protocol
+# spice-protocol above is only the protocol headers. The library --enable-spice
+# links against is libspice-server, which this repo builds itself (see
+# images/spice-server) and imports above, so it is not listed here. Its
+# spice-server.pc names opus and orc-0.4 in Requires.private, and pkg-config
+# resolves the whole chain even for a shared link, so both -devel packages have to
+# be here or the qemu meson run fails at "Package 'opus', required by
+# 'spice-server', not found".
+- opus opus-devel orc orc-devel
+# gstreamer is here for the same reason: spice-server.pc names its four modules in
+# Requires.private, and gstreamer-devel is where those .pc files live. qemu never
+# calls gstreamer itself, libspice-server does.
+- gstreamer gstreamer-devel
 - pulseaudio pulseaudio-devel libsndfile libsndfile-devel libepoxy libepoxy-devel
 - mesa mesa-devel libdrm libdrm-devel libslirp libslirp-devel
 - librbd ceph-devel boost boost-devel lz4 lz4-devel
@@ -118,6 +130,13 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
+# libspice-server, built from source in this repo with the module's patches.
+# --enable-spice needs its headers and spice-server.pc at configure time; both
+# land in the prefix PKG_CONFIG_LIBDIR below already covers.
+- image: {{ .ModuleNamePrefix }}spice-server
+  add: /spice-server
+  to: /
+  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.PACKAGE_CLONE_REPO }}

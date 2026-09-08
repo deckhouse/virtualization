@@ -31,6 +31,10 @@ func (c *fakeVirtualMachines) VNC(ctx context.Context, name string, options *cor
 	return nil, nil, nil
 }
 
+func (c *fakeVirtualMachines) SPICE(ctx context.Context, name string, options *corev1alpha2.SPICEOptions) (corev1alpha2.StreamInterface, *v1alpha2.VirtualMachineSession, error) {
+	return nil, nil, nil
+}
+
 func (c *fakeVirtualMachines) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (corev1alpha2.StreamInterface, error) {
 	return nil, nil
 }

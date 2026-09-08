@@ -823,6 +823,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/spice
   - virtualmachineinstances/vnc/screenshot
   - virtualmachineinstances/portforward
   - virtualmachineinstances/guestosinfo
@@ -979,6 +980,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/spice
   - virtualmachineinstances/vnc/screenshot
   - virtualmachineinstances/portforward
   - virtualmachineinstances/guestosinfo
