@@ -29,7 +29,7 @@ import (
 
 const collectorName = "virtualdisk-collector"
 
-func SetupCollector(reader client.Reader,
+func SetupCollectors(reader client.Reader,
 	registerer prometheus.Registerer,
 	log *log.Logger,
 ) *Collector {
@@ -38,6 +38,7 @@ func SetupCollector(reader client.Reader,
 		log:      log.With(logger.SlogCollector(collectorName)),
 	}
 	registerer.MustRegister(c)
+	registerer.MustRegister(ProvisioningDuration)
 	return c
 }
 

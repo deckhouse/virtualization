@@ -24,6 +24,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/statistic"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/watcher"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -48,12 +49,14 @@ func NewController(client client.Client, mgr manager.Manager, featureGate featur
 			handler.NewDeletionHandler(migration),
 			handler.NewLifecycleHandler(client, migration, baseSvc, recorder, systemNetworkName),
 		},
+		observer: statistic.NewObserver(migration),
 	}
 }
 
 type Controller struct {
 	watchers []reconciler.Watcher
 	handlers []reconciler.Handler[*v1alpha2.VirtualMachineOperation]
+	observer genericservice.StatisticObserver
 }
 
 func (c *Controller) Name() string {
@@ -66,6 +69,10 @@ func (c *Controller) Watchers() []reconciler.Watcher {
 
 func (c *Controller) Handlers() []reconciler.Handler[*v1alpha2.VirtualMachineOperation] {
 	return c.handlers
+}
+
+func (c *Controller) GetObserver() genericservice.StatisticObserver {
+	return c.observer
 }
 
 func (c *Controller) ShouldReconcile(vmop *v1alpha2.VirtualMachineOperation) bool {

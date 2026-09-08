@@ -58,6 +58,7 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineMigratable(m)
 	s.updateMetricVirtualMachineEvictionRequired(m)
 	s.updateMetricVirtualMachineMigration(m)
+	s.updateMetricVirtualMachinePhaseTransitionTimestamp(m)
 }
 
 func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
@@ -82,6 +83,26 @@ func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	for _, p := range phases {
 		s.defaultUpdate(MetricVirtualMachineStatusPhase,
 			common.BoolFloat64(p.value), m, p.name)
+	}
+}
+
+func (s *scraper) updateMetricVirtualMachinePhaseTransitionTimestamp(m *dataMetric) {
+	// A restarted machine visits the same phase more than once and the history keeps every visit.
+	// Reporting them all would emit two series with identical labels and fail the whole scrape, so
+	// only the latest entry of each phase is reported.
+	latest := make(map[v1alpha2.MachinePhase]int64, len(m.PhaseTransitions))
+	for _, pt := range m.PhaseTransitions {
+		if pt.Phase == "" || pt.Timestamp.IsZero() {
+			continue
+		}
+		if ts := pt.Timestamp.Unix(); ts > latest[pt.Phase] {
+			latest[pt.Phase] = ts
+		}
+	}
+
+	for phase, ts := range latest {
+		s.defaultUpdate(MetricVirtualMachinePhaseTransitionTimestamp,
+			float64(ts), m, string(phase))
 	}
 }
 

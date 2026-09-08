@@ -45,6 +45,7 @@ const (
 	MetricVirtualMachineMigrationInfo                           = "virtualmachine_migration_info"
 	MetricVirtualMachineMigrationStartTimestampSeconds          = "virtualmachine_migration_start_timestamp_seconds"
 	MetricVirtualMachineMigrationEndTimestampSeconds            = "virtualmachine_migration_end_timestamp_seconds"
+	MetricVirtualMachinePhaseTransitionTimestamp                = "virtualmachine_phase_transition_timestamp_seconds"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "node"}
@@ -69,6 +70,15 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 var virtualMachineMetrics = map[string]metrics.MetricInfo{
 	MetricVirtualMachineStatusPhase: metrics.NewMetricInfo(MetricVirtualMachineStatusPhase,
 		"The virtualmachine current phase.",
+		prometheus.GaugeValue,
+		WithBaseLabels("phase"),
+		nil,
+	),
+
+	MetricVirtualMachinePhaseTransitionTimestamp: metrics.NewMetricInfo(MetricVirtualMachinePhaseTransitionTimestamp,
+		"The unix timestamp of the transition into the phase. "+
+			"Subtracting it from time() tells how long the machine has been in the phase, "+
+			"which is how a machine that never leaves it is spotted.",
 		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
 		nil,

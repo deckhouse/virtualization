@@ -75,7 +75,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return vmop.Update(ctx)
 	})
 
-	return rec.Reconcile(ctx)
+	res, err := rec.Reconcile(ctx)
+	if err != nil {
+		return res, err
+	}
+
+	if observer := r.controller.GetObserver(); observer != nil {
+		observer.Observe(ctx, r.client, vmop.Current(), vmop.Changed())
+	}
+
+	return res, nil
 }
 
 func (r *Reconciler) factory() *v1alpha2.VirtualMachineOperation {

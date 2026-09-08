@@ -122,7 +122,7 @@ func SetupController(
 		return err
 	}
 
-	vmmetrics.SetupCollector(mgrCache, metrics.Registry, log)
+	vmmetrics.SetupCollectors(mgrCache, metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachine controller")
 	return nil

@@ -22,6 +22,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,9 +37,31 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
+
+func launchHistogram(stage string) *dto.Histogram {
+	ch := make(chan prometheus.Metric, 16)
+	vmmetrics.LaunchDuration.Collect(ch)
+	close(ch)
+
+	for metric := range ch {
+		m := &dto.Metric{}
+		Expect(metric.Write(m)).To(Succeed())
+		for _, label := range m.GetLabel() {
+			if label.GetName() == "stage" && label.GetValue() == stage {
+				return m.GetHistogram()
+			}
+		}
+	}
+	return &dto.Histogram{}
+}
+
+func launchObservations(stage string) uint64 {
+	return launchHistogram(stage).GetSampleCount()
+}
 
 var _ = Describe("TestStatisticHandler", func() {
 	const (
@@ -584,6 +608,126 @@ var _ = Describe("StatisticHandler syncStats", func() {
 
 		Expect(changed.Status.Stats.LaunchTimeDuration.VirtualMachineStarting).NotTo(BeNil())
 		Expect(changed.Status.Stats.LaunchTimeDuration.VirtualMachineStarting.Duration).To(BeNumerically("~", 40*time.Second, 5*time.Second))
+	})
+
+	It("observes every launch stage exactly once", func() {
+		vmmetrics.LaunchDuration.Reset()
+
+		current, changed := newVMWithStats(v1alpha2.MachineRunning,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachinePending,
+				Timestamp: metav1.NewTime(time.Now().Add(-70 * time.Second)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineStarting,
+				Timestamp: metav1.NewTime(time.Now().Add(-40 * time.Second)),
+			},
+		)
+
+		h.syncStats(current, changed, nil)
+		ObserveLaunchStages(current, changed)
+		Expect(launchObservations(vmmetrics.LaunchStageVirtualMachineStarting)).To(BeNumerically("==", 1))
+		Expect(launchObservations(vmmetrics.LaunchStageTotal)).To(BeNumerically("==", 1))
+		Expect(launchHistogram(vmmetrics.LaunchStageTotal).GetSampleSum()).To(BeNumerically("~", 70, 1))
+
+		current = changed.DeepCopy()
+		h.syncStats(current, changed, nil)
+		ObserveLaunchStages(current, changed)
+
+		Expect(launchObservations(vmmetrics.LaunchStageVirtualMachineStarting)).To(BeNumerically("==", 1),
+			"the second reconciliation must not observe the same launch again")
+		Expect(launchObservations(vmmetrics.LaunchStageTotal)).To(BeNumerically("==", 1))
+	})
+
+	It("does not count a launch twice when the status write is repeated after a conflict", func() {
+		vmmetrics.LaunchDuration.Reset()
+
+		current, changed := newVMWithStats(v1alpha2.MachineStarting,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachinePending,
+				Timestamp: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+			},
+		)
+
+		h.syncStats(current, changed, nil)
+		Expect(changed.Status.Stats.LaunchTimeDuration.WaitingForDependencies).NotTo(BeNil())
+
+		retried := current.DeepCopy()
+		h.syncStats(current, retried, nil)
+		ObserveLaunchStages(current, retried)
+
+		Expect(launchObservations(vmmetrics.LaunchStageWaitingForDependencies)).To(BeNumerically("==", 1))
+	})
+
+	It("measures the total of a restart from Starting", func() {
+		vmmetrics.LaunchDuration.Reset()
+
+		current, changed := newVMWithStats(v1alpha2.MachineRunning,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachinePending,
+				Timestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineStopped,
+				Timestamp: metav1.NewTime(time.Now().Add(-30 * time.Minute)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineStarting,
+				Timestamp: metav1.NewTime(time.Now().Add(-20 * time.Second)),
+			},
+		)
+
+		h.syncStats(current, changed, nil)
+		ObserveLaunchStages(current, changed)
+
+		Expect(launchHistogram(vmmetrics.LaunchStageTotal).GetSampleSum()).To(BeNumerically("~", 20, 1))
+	})
+
+	It("does not observe the agent stage after a migration", func() {
+		vmmetrics.LaunchDuration.Reset()
+
+		current, changed := newVMWithStats(v1alpha2.MachineRunning,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineMigrating,
+				Timestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineRunning,
+				Timestamp: metav1.NewTime(time.Now().Add(-50 * time.Minute)),
+			},
+		)
+		kvvmi := &virtv1.VirtualMachineInstance{}
+		kvvmi.Status.GuestOSInfo.Name = "Ubuntu"
+
+		h.syncStats(current, changed, kvvmi)
+		ObserveLaunchStages(current, changed)
+
+		Expect(changed.Status.Stats.LaunchTimeDuration.GuestOSAgentStarting).NotTo(BeNil(),
+			"the status field is the API and keeps its value")
+		Expect(launchObservations(vmmetrics.LaunchStageGuestOSAgentStarting)).To(BeZero())
+	})
+
+	It("observes the agent stage after a launch", func() {
+		vmmetrics.LaunchDuration.Reset()
+
+		current, changed := newVMWithStats(v1alpha2.MachineRunning,
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineStarting,
+				Timestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
+			},
+			v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				Phase:     v1alpha2.MachineRunning,
+				Timestamp: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+			},
+		)
+		kvvmi := &virtv1.VirtualMachineInstance{}
+		kvvmi.Status.GuestOSInfo.Name = "Ubuntu"
+
+		h.syncStats(current, changed, kvvmi)
+		ObserveLaunchStages(current, changed)
+
+		Expect(launchObservations(vmmetrics.LaunchStageGuestOSAgentStarting)).To(BeNumerically("==", 1))
+		Expect(launchHistogram(vmmetrics.LaunchStageGuestOSAgentStarting).GetSampleSum()).To(BeNumerically("~", 30, 1))
 	})
 
 	It("keeps the calculated durations on the following reconciliations", func() {

@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponeimporter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
@@ -80,7 +81,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			vdsupplements.SetPVCName(vd.Changed(), vd.Current().Status.Target.PersistentVolumeClaim)
 		}
 
-		return vd.Update(ctx)
+		if err := vd.Update(ctx); err != nil {
+			return err
+		}
+		internal.ObserveCreationDuration(vd.Current(), vd.Changed())
+		return nil
 	})
 
 	return rec.Reconcile(ctx)

@@ -126,6 +126,65 @@ d8_virtualization_virtualmachine_migratable{name="vm-01",namespace="team-a",node
 			migratable(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget), "0"),
 	)
 
+	It("reports a timestamp for every recorded phase transition", func() {
+		vm := newVM(migratable(metav1.ConditionTrue, vmcondition.ReasonMigratable))
+		vm.Status.Stats = &v1alpha2.VirtualMachineStats{
+			PhasesTransitions: []v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				{Phase: v1alpha2.MachinePending, Timestamp: metav1.Unix(1700000000, 0)},
+				{Phase: v1alpha2.MachineStarting, Timestamp: metav1.Unix(1700000017, 0)},
+				{Phase: v1alpha2.MachineRunning, Timestamp: metav1.Unix(1700000026, 0)},
+			},
+		}
+		c := collectorOf(vm)
+
+		expected := `
+# HELP d8_virtualization_virtualmachine_phase_transition_timestamp_seconds The unix timestamp of the transition into the phase. Subtracting it from time() tells how long the machine has been in the phase, which is how a machine that never leaves it is spotted.
+# TYPE d8_virtualization_virtualmachine_phase_transition_timestamp_seconds gauge
+d8_virtualization_virtualmachine_phase_transition_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",phase="Pending",uid="uid-vm-01"} 1.7e+09
+d8_virtualization_virtualmachine_phase_transition_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",phase="Running",uid="uid-vm-01"} 1.700000026e+09
+d8_virtualization_virtualmachine_phase_transition_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",phase="Starting",uid="uid-vm-01"} 1.700000017e+09
+`
+		Expect(testutil.CollectAndCompare(c, strings.NewReader(expected),
+			"d8_virtualization_virtualmachine_phase_transition_timestamp_seconds")).To(Succeed())
+	})
+
+	It("reports the latest entry when a phase repeats in the history", func() {
+		vm := newVM(migratable(metav1.ConditionTrue, vmcondition.ReasonMigratable))
+		vm.Status.Stats = &v1alpha2.VirtualMachineStats{
+			PhasesTransitions: []v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				{Phase: v1alpha2.MachineStarting, Timestamp: metav1.Unix(1700000017, 0)},
+				{Phase: v1alpha2.MachineRunning, Timestamp: metav1.Unix(1700000026, 0)},
+				{Phase: v1alpha2.MachineStopped, Timestamp: metav1.Unix(1700000100, 0)},
+				{Phase: v1alpha2.MachineStarting, Timestamp: metav1.Unix(1700000200, 0)},
+				{Phase: v1alpha2.MachineRunning, Timestamp: metav1.Unix(1700000210, 0)},
+			},
+		}
+		c := collectorOf(vm)
+
+		expected := `
+# HELP d8_virtualization_virtualmachine_phase_transition_timestamp_seconds The unix timestamp of the transition into the phase. Subtracting it from time() tells how long the machine has been in the phase, which is how a machine that never leaves it is spotted.
+# TYPE d8_virtualization_virtualmachine_phase_transition_timestamp_seconds gauge
+d8_virtualization_virtualmachine_phase_transition_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",phase="Running",uid="uid-vm-01"} 1.70000021e+09
+d8_virtualization_virtualmachine_phase_transition_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",phase="Starting",uid="uid-vm-01"} 1.7000002e+09
+d8_virtualization_virtualmachine_phase_transition_timestamp_seconds{name="vm-01",namespace="team-a",node="node-1",phase="Stopped",uid="uid-vm-01"} 1.7000001e+09
+`
+		Expect(testutil.CollectAndCompare(c, strings.NewReader(expected),
+			"d8_virtualization_virtualmachine_phase_transition_timestamp_seconds")).To(Succeed())
+	})
+
+	It("skips a transition with no timestamp", func() {
+		vm := newVM(migratable(metav1.ConditionTrue, vmcondition.ReasonMigratable))
+		vm.Status.Stats = &v1alpha2.VirtualMachineStats{
+			PhasesTransitions: []v1alpha2.VirtualMachinePhaseTransitionTimestamp{
+				{Phase: v1alpha2.MachinePending},
+			},
+		}
+		c := collectorOf(vm)
+
+		Expect(testutil.CollectAndCompare(c, strings.NewReader(""),
+			"d8_virtualization_virtualmachine_phase_transition_timestamp_seconds")).To(Succeed())
+	})
+
 	// A machine that is not running carries no migratable condition: migratability is not evaluated
 	// then. Exporting a zero would report "cannot be migrated" for every stopped machine, so the
 	// series is omitted until there is an answer to report.

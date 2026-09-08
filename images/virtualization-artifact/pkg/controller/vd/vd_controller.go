@@ -131,7 +131,7 @@ func NewController(
 		return nil, err
 	}
 
-	vdcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, log)
+	vdcolelctor.SetupCollectors(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualDisk controller", "image", importerImage)
 

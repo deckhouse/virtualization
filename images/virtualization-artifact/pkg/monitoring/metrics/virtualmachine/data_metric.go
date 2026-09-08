@@ -17,6 +17,7 @@ limitations under the License.
 package virtualmachine
 
 import (
+	"slices"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +59,8 @@ type dataMetric struct {
 	EvictionRequiredReason string
 	// MigratableKnown is false while the virtual machine is not running: migratability is not
 	// evaluated then, and the metric is not exported instead of reporting a stale value.
-	MigratableKnown bool
+	MigratableKnown  bool
+	PhaseTransitions []v1alpha2.VirtualMachinePhaseTransitionTimestamp
 	// MigratableReason tells the answers of the same value apart: a machine whose disks travel
 	// along with it and a machine with no node to take it right now are both migratable.
 	MigratableReason string
@@ -122,6 +124,11 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 	// condition says so, which is why the condition is the source here rather than the disks.
 	migratableCondition, hasMigratableCondition := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
+	var phaseTransitions []v1alpha2.VirtualMachinePhaseTransitionTimestamp
+	if vm.Status.Stats != nil {
+		phaseTransitions = slices.Clone(vm.Status.Stats.PhasesTransitions)
+	}
+
 	pods := make([]v1alpha2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {
 		pods[i] = *pod.DeepCopy()
@@ -157,6 +164,7 @@ func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 		MigratableReason:       migratableCondition.Reason,
 		EvictionRequiredReason: evictionRequiredReason(vm),
 		Migration:              newMigrationDataMetric(vm),
+		PhaseTransitions:       phaseTransitions,
 	}
 }
 

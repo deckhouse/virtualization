@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -126,7 +127,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, s)
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		return vm.Update(ctx)
+		if err := vm.Update(ctx); err != nil {
+			return err
+		}
+		internal.ObserveLaunchStages(vm.Current(), vm.Changed())
+		internal.ObserveShutdown(vm.Current(), vm.Changed())
+		return nil
 	})
 
 	return rec.Reconcile(ctx)

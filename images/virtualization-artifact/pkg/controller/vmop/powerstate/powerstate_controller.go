@@ -65,6 +65,10 @@ func (c *Controller) Handlers() []reconciler.Handler[*v1alpha2.VirtualMachineOpe
 	return c.handlers
 }
 
+func (c *Controller) GetObserver() genericservice.StatisticObserver {
+	return nil
+}
+
 func (c *Controller) ShouldReconcile(vmop *v1alpha2.VirtualMachineOperation) bool {
 	return watcher.Match(vmop)
 }

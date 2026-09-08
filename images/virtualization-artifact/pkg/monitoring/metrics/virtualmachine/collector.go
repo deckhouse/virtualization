@@ -29,12 +29,13 @@ import (
 
 const collectorName = "virtualmachine-collector"
 
-func SetupCollector(reader client.Reader,
+func SetupCollectors(reader client.Reader,
 	registerer prometheus.Registerer,
 	log *log.Logger,
 ) {
 	c := NewCollector(reader, log)
 	c.Register(registerer)
+	registerer.MustRegister(LaunchDuration, MigrationDuration, ShutdownDuration)
 }
 
 type handler func(m *dataMetric) (stop bool)

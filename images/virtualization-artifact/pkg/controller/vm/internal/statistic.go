@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -426,6 +427,54 @@ func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, 
 	syncLastStartTime(changed, kvvmi)
 }
 
+// ObserveLaunchStages must be called only after a successful status write: a repeated
+// reconciliation computes the same value again, and observing from inside the handler counted
+// every launch on the stand twice.
+func ObserveLaunchStages(current, changed *v1alpha2.VirtualMachine) {
+	if current == nil || changed == nil || changed.Status.Stats == nil {
+		return
+	}
+	var before v1alpha2.VirtualMachineLaunchTimeDuration
+	if current.Status.Stats != nil {
+		before = current.Status.Stats.LaunchTimeDuration
+	}
+	after := changed.Status.Stats.LaunchTimeDuration
+	pts := changed.Status.Stats.PhasesTransitions
+
+	if before.WaitingForDependencies == nil && after.WaitingForDependencies != nil {
+		vmmetrics.ObserveLaunchStage(vmmetrics.LaunchStageWaitingForDependencies, after.WaitingForDependencies.Duration)
+	}
+
+	running, prev := -1, -1
+	for i := len(pts) - 1; i > 0; i-- {
+		if pts[i].Phase == v1alpha2.MachineRunning {
+			running, prev = i, i-1
+			break
+		}
+	}
+	launched := prev >= 0 && pts[prev].Phase == v1alpha2.MachineStarting
+
+	if before.VirtualMachineStarting == nil && after.VirtualMachineStarting != nil {
+		vmmetrics.ObserveLaunchStage(vmmetrics.LaunchStageVirtualMachineStarting, after.VirtualMachineStarting.Duration)
+
+		// The total has no field in the status: from Pending for a new machine, from Starting for one
+		// started from Stopped.
+		if launched {
+			start := pts[prev].Timestamp
+			if prev > 0 && pts[prev-1].Phase == v1alpha2.MachinePending {
+				start = pts[prev-1].Timestamp
+			}
+			vmmetrics.ObserveLaunchStage(vmmetrics.LaunchStageTotal, pts[running].Timestamp.Sub(start.Time))
+		}
+	}
+
+	// The agent field is reset on every drop-out, so after a migration it holds the age of the
+	// machine on the new node, hence the check that Running was entered from Starting.
+	if before.GuestOSAgentStarting == nil && after.GuestOSAgentStarting != nil && launched {
+		vmmetrics.ObserveLaunchStage(vmmetrics.LaunchStageGuestOSAgentStarting, after.GuestOSAgentStarting.Duration)
+	}
+}
+
 func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
 	running := getRunningCondition(vm)
 	if running == nil || running.Status != metav1.ConditionTrue {
@@ -489,4 +538,30 @@ func NewPhaseTransitions(phaseTransitions []v1alpha2.VirtualMachinePhaseTransiti
 		return phaseTransitions[len(phaseTransitions)-5:]
 	}
 	return phaseTransitions
+}
+
+// ObserveShutdown must be called after the status write, as ObserveLaunchStages.
+func ObserveShutdown(current, changed *v1alpha2.VirtualMachine) {
+	if current == nil || changed == nil || changed.Status.Stats == nil {
+		return
+	}
+
+	pts := changed.Status.Stats.PhasesTransitions
+	if len(pts) < 2 || pts[len(pts)-1].Phase != v1alpha2.MachineStopped {
+		return
+	}
+
+	if current.Status.Stats != nil {
+		before := current.Status.Stats.PhasesTransitions
+		if len(before) > 0 && before[len(before)-1].Phase == v1alpha2.MachineStopped {
+			return
+		}
+	}
+
+	stopping := pts[len(pts)-2]
+	if stopping.Phase != v1alpha2.MachineStopping {
+		return
+	}
+
+	vmmetrics.ObserveShutdown(pts[len(pts)-1].Timestamp.Sub(stopping.Timestamp.Time))
 }

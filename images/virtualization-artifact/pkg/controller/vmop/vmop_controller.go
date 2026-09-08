@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/powerstate"
+	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -44,6 +45,8 @@ type SubController interface {
 	Watchers() []reconciler.Watcher
 	Handlers() []reconciler.Handler[*v1alpha2.VirtualMachineOperation]
 	ShouldReconcile(vmop *v1alpha2.VirtualMachineOperation) bool
+	// GetObserver returns nil when the sub-controller has nothing to report.
+	GetObserver() genericservice.StatisticObserver
 }
 
 const ControllerName = "vmop-controller"

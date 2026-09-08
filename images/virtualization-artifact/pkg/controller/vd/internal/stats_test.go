@@ -22,11 +22,38 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	vdmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vd"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
+
+func observations(stage, datasource string) uint64 {
+	ch := make(chan prometheus.Metric, 16)
+	vdmetrics.ProvisioningDuration.Collect(ch)
+	close(ch)
+
+	for metric := range ch {
+		m := &dto.Metric{}
+		Expect(metric.Write(m)).To(Succeed())
+		var gotStage, gotDataSource string
+		for _, label := range m.GetLabel() {
+			switch label.GetName() {
+			case "stage":
+				gotStage = label.GetValue()
+			case "datasource":
+				gotDataSource = label.GetValue()
+			}
+		}
+		if gotStage == stage && gotDataSource == datasource {
+			return m.GetHistogram().GetSampleCount()
+		}
+	}
+	return 0
+}
 
 var _ = Describe("StatsHandler", func() {
 	var h StatsHandler
@@ -48,6 +75,7 @@ var _ = Describe("StatsHandler", func() {
 
 	BeforeEach(func() {
 		h = StatsHandler{}
+		vdmetrics.ProvisioningDuration.Reset()
 	})
 
 	It("calculates waitingForFirstConsumer while the disk waits for the virtual machine", func() {
@@ -82,6 +110,65 @@ var _ = Describe("StatsHandler", func() {
 
 		Expect(vd.Status.Stats.CreationDuration.TotalProvisioning).NotTo(BeNil())
 		Expect(vd.Status.Stats.CreationDuration.TotalProvisioning.Duration).To(BeNumerically("~", 60*time.Second, 5*time.Second))
+	})
+
+	It("fills totalProvisioning once and observes the provisioning once", func() {
+		current := newVD(100*time.Second, metav1.Condition{
+			Type:               vdcondition.ReadyType.String(),
+			Status:             metav1.ConditionTrue,
+			Reason:             vdcondition.Ready.String(),
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			ObservedGeneration: 1,
+		})
+		current.Status.Stats.CreationDuration.WaitingForDependencies = &metav1.Duration{Duration: 0}
+
+		conflicted := current.DeepCopy()
+		_, err := h.Handle(context.Background(), conflicted)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(conflicted.Status.Stats.CreationDuration.TotalProvisioning).NotTo(BeNil())
+
+		changed := current.DeepCopy()
+		_, err = h.Handle(context.Background(), changed)
+		Expect(err).NotTo(HaveOccurred())
+		first := changed.Status.Stats.CreationDuration.TotalProvisioning.Duration
+		ObserveCreationDuration(current, changed)
+
+		Expect(observations(vdmetrics.ProvisioningStageProvisioning, vdmetrics.DataSourceBlank)).To(BeNumerically("==", 1),
+			"only the write that succeeded feeds the histogram")
+		Expect(observations(vdmetrics.ProvisioningStageWaitingForDependencies, vdmetrics.DataSourceBlank)).To(BeNumerically("==", 1),
+			"a zero wait is a fast stage, not a missing one, and must be counted")
+
+		current = changed.DeepCopy()
+		changed.CreationTimestamp = metav1.NewTime(time.Now().Add(-500 * time.Second))
+		_, err = h.Handle(context.Background(), changed)
+		Expect(err).NotTo(HaveOccurred())
+		ObserveCreationDuration(current, changed)
+
+		Expect(changed.Status.Stats.CreationDuration.TotalProvisioning.Duration).To(Equal(first))
+		Expect(observations(vdmetrics.ProvisioningStageProvisioning, vdmetrics.DataSourceBlank)).To(BeNumerically("==", 1),
+			"the second reconciliation must not observe the provisioning again")
+	})
+
+	// The handler is not called here: a disk with a source runs into the importer, which this suite
+	// has no services for.
+	It("labels the observation with the data source of the disk", func() {
+		current := newVD(3*time.Minute, metav1.Condition{
+			Type:               vdcondition.ReadyType.String(),
+			Status:             metav1.ConditionTrue,
+			Reason:             vdcondition.Ready.String(),
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			ObservedGeneration: 1,
+		})
+		current.Spec.DataSource = &v1alpha2.VirtualDiskDataSource{Type: v1alpha2.DataSourceTypeHTTP}
+
+		changed := current.DeepCopy()
+		changed.Status.Stats.CreationDuration.TotalProvisioning = &metav1.Duration{Duration: 3 * time.Minute}
+
+		ObserveCreationDuration(current, changed)
+
+		Expect(observations(vdmetrics.ProvisioningStageProvisioning, vdmetrics.DataSourceHTTP)).To(BeNumerically("==", 1))
+		Expect(observations(vdmetrics.ProvisioningStageProvisioning, vdmetrics.DataSourceBlank)).To(BeNumerically("==", 0),
+			"a disk with a source must not land in the series of the blank disks")
 	})
 
 	It("does not change waitingForFirstConsumer once the disk leaves the state", func() {

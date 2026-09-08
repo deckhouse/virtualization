@@ -30,6 +30,7 @@ import (
 	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	vdmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vd"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -127,4 +128,38 @@ func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// ObserveCreationDuration observes every stage at once rather than where each is computed:
+// waitingForFirstConsumer and dvcrProvisioning are recalculated on every reconciliation. Call it
+// only after a successful status write: a repeated reconciliation computes the same values again.
+func ObserveCreationDuration(current, changed *v1alpha2.VirtualDisk) {
+	if current == nil || changed == nil {
+		return
+	}
+	if current.Status.Stats.CreationDuration.TotalProvisioning != nil || changed.Status.Stats.CreationDuration.TotalProvisioning == nil {
+		return
+	}
+	d := changed.Status.Stats.CreationDuration
+	datasource := vdmetrics.DataSourceLabel(changed.Spec.DataSource)
+	stages := []struct {
+		name  string
+		value *metav1.Duration
+	}{
+		{vdmetrics.ProvisioningStageWaitingForDependencies, d.WaitingForDependencies},
+		{vdmetrics.ProvisioningStageWaitingForFirstConsumer, d.WaitingForFirstConsumer},
+		{vdmetrics.ProvisioningStageDVCR, d.DVCRProvisioning},
+		{vdmetrics.ProvisioningStageProvisioning, d.TotalProvisioning},
+	}
+	for _, stage := range stages {
+		if stage.value == nil {
+			continue
+		}
+		// For this stage alone zero means "no data": StatService.GetImportDuration returns 0 while
+		// the importer pod has no final report yet.
+		if stage.name == vdmetrics.ProvisioningStageDVCR && stage.value.Duration == 0 {
+			continue
+		}
+		vdmetrics.ObserveProvisioningStage(stage.name, datasource, stage.value.Duration)
+	}
 }
