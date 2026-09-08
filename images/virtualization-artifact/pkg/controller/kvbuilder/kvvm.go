@@ -1006,10 +1006,11 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 	if b.Resource.Spec.Template.ObjectMeta.Annotations == nil {
 		b.Resource.Spec.Template.ObjectMeta.Annotations = make(map[string]string, len(metadata.Annotations))
 	}
-	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, metadata.Labels)
-	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
+	// Exclude module-/KubeVirt-owned keys from the user metadata before copying onto the template;
+	// keys kvbuilder already set on the template are untouched (only the user map is filtered).
+	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, annotations.ExcludeLabels(metadata.Labels))
+	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, annotations.ExcludeAnnotations(metadata.Annotations))
 
-	b.Resource.Spec.Template.ObjectMeta.Labels = vm.RemoveNonPropagatableLabels(b.Resource.Spec.Template.ObjectMeta.Labels)
 	b.Resource.Spec.Template.ObjectMeta.Annotations = vm.RemoveNonPropagatableAnnotations(b.Resource.Spec.Template.ObjectMeta.Annotations)
 }
 

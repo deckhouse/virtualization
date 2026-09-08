@@ -504,3 +504,62 @@ var _ = Describe("MigrationNodeAffinityTerms", func() {
 		Expect(value).To(ContainSubstring(`"key":"topology.local/node"`))
 	})
 })
+
+var _ = Describe("PropagateVMMetadata reserved-key filtering", func() {
+	newMeta := func(vm *v1alpha2.VirtualMachine) *metav1.ObjectMeta {
+		kvvm := &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vm.Name, Namespace: vm.Namespace}}
+		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "virt-launcher-" + vm.Name, Namespace: vm.Namespace}}
+		md := &metav1.ObjectMeta{}
+		_, err := PropagateVMMetadata(vm, kvvm, pod, md)
+		Expect(err).NotTo(HaveOccurred())
+		return md
+	}
+
+	It("does not propagate module- or KubeVirt-owned labels, keeps user labels", func() {
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vm", Namespace: "tenant",
+				Labels: map[string]string{
+					annotations.QuotaExcludeLabel:                           "true",  // resource-quota-overrides.deckhouse.io/ignore
+					annotations.SkipPodSecurityStandardsCheckLabel:          "true",  // security.deckhouse.io/skip-pss-check
+					"vm.kubevirt.io/name":                                   "spoof", // KubeVirt pod/VMI matching label
+					"vm.kubevirt.internal.virtualization.deckhouse.io/name": "spoof", // rewritten form of the same
+					annotations.LiveMigratableLabel:                         "true",  // descheduler hint, module-set
+					"team":                                                  "blue",
+				},
+			},
+		}
+		md := newMeta(vm)
+		Expect(md.Labels).NotTo(HaveKey(annotations.QuotaExcludeLabel))
+		Expect(md.Labels).NotTo(HaveKey(annotations.SkipPodSecurityStandardsCheckLabel))
+		Expect(md.Labels).NotTo(HaveKey("vm.kubevirt.io/name"))
+		Expect(md.Labels).NotTo(HaveKey("vm.kubevirt.internal.virtualization.deckhouse.io/name"))
+		Expect(md.Labels).NotTo(HaveKey(annotations.LiveMigratableLabel))
+		Expect(md.Labels).To(HaveKeyWithValue("team", "blue"))
+	})
+
+	It("does not propagate reserved annotations incl. the rewritten kubevirt.io form", func() {
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vm", Namespace: "tenant",
+				Annotations: map[string]string{
+					annotations.AnnVMStartRequested:                          "true",
+					"kubevirt." + annotations.AnnAPIGroup + "/foo":           "bar", // restored to kubevirt.io/foo on write
+					"vm.kubevirt.internal.virtualization.deckhouse.io/probe": "1",   // rewritten subdomain form (vm.kubevirt.io/probe)
+					annotations.AnnIntegrityCoreChecksum:                     "deadbeef",
+					"pre.hook.backup.velero.io/command":                      `["/bin/echo"]`, // velero freeze-hook override
+					"usb.virtualization.deckhouse.io/migrationStrategy":      "LiveMigrate",
+					"docs.example.com/note":                                  "keep",
+				},
+			},
+		}
+		md := newMeta(vm)
+		Expect(md.Annotations).NotTo(HaveKey(annotations.AnnVMStartRequested))
+		Expect(md.Annotations).NotTo(HaveKey("kubevirt." + annotations.AnnAPIGroup + "/foo"))
+		Expect(md.Annotations).NotTo(HaveKey("vm.kubevirt.internal.virtualization.deckhouse.io/probe"))
+		Expect(md.Annotations).NotTo(HaveKey(annotations.AnnIntegrityCoreChecksum))
+		Expect(md.Annotations).NotTo(HaveKey("pre.hook.backup.velero.io/command"))
+		Expect(md.Annotations).NotTo(HaveKey("usb.virtualization.deckhouse.io/migrationStrategy"))
+		Expect(md.Annotations).To(HaveKeyWithValue("docs.example.com/note", "keep"))
+	})
+})

@@ -255,22 +255,6 @@ func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string 
 	return res
 }
 
-// RemoveNonPropagatableLabels removes the labels the platform sets on the objects of a virtual
-// machine itself. They state what the platform knows about the machine, so an owner of a machine
-// must not be able to forge them by labelling the VirtualMachine.
-func RemoveNonPropagatableLabels(labels map[string]string) map[string]string {
-	res := make(map[string]string, len(labels))
-
-	for k, v := range labels {
-		if k == annotations.LiveMigratableLabel {
-			continue
-		}
-
-		res[k] = v
-	}
-	return res
-}
-
 // HoldsNodeUnderMaintenance reports whether the machine keeps its node occupied: the eviction has
 // arrived and the machine cannot leave alive, so only a restart moves it.
 func HoldsNodeUnderMaintenance(vm *v1alpha2.VirtualMachine) bool {

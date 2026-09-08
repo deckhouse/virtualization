@@ -369,8 +369,10 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 	}
 
 	// Add label to prevent node shutdown.
+	// Exclude module-/KubeVirt-owned labels from the user set; controller-managed labels below are
+	// added after, so the module still sets them itself.
 	propagateLabels := merger.MergeLabels(
-		commonvm.RemoveNonPropagatableLabels(vm.GetLabels()),
+		annotations.ExcludeLabels(vm.GetLabels()),
 		map[string]string{
 			annotations.InhibitNodeShutdownLabel: "",
 		},
@@ -401,7 +403,9 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 	}
 
 	// Remove dangerous annotations.
-	curAnno := commonvm.RemoveNonPropagatableAnnotations(vm.GetAnnotations())
+	// Exclude module-/KubeVirt-owned keys from the user annotations, on top of the always-stripped
+	// last-propagated/kubectl keys.
+	curAnno := annotations.ExcludeAnnotations(commonvm.RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
 
 	newAnno, annoChanged := merger.ApplyMapChanges(metadata.Annotations, lastPropagatedAnno, curAnno)
 	if annoChanged {

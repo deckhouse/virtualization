@@ -18,6 +18,7 @@ package annotations
 
 import (
 	"slices"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -399,6 +400,104 @@ const (
 func IsDataExportRequested(obj metav1.Object) bool {
 	anns := obj.GetAnnotations()
 	return anns[AnnDataExportRequest] == "true" || anns[AnnDataExportRequestLegacy] == "true"
+}
+
+// ExcludedAnnotationPrefixes are annotation key prefixes the module and other modules own and set
+// on module-managed objects themselves. They must not be copied from a user resource: the
+// controller reads some of them back as trusted state and KubeVirt reacts to the kubevirt.io family.
+var ExcludedAnnotationPrefixes = []string{
+	AnnAPIGroup,       // internal.virtualization.deckhouse.io
+	AnnAPIGroupLegacy, // virt.deckhouse.io
+	AnnIntegrityGroup, // integrity.virtualization.deckhouse.io/
+	AnnVersionsGroup,  // versions.virtualization.deckhouse.io
+	"e2e.internal.virtualization.deckhouse.io",
+	"resource-quota-overrides.deckhouse.io",
+	"security.deckhouse.io",
+	"network.deckhouse.io",
+	"scheduler.deckhouse.io",
+	"usb.virtualization.deckhouse.io",
+	// Control keys under the shared virtualization.deckhouse.io domain (which also carries
+	// user-facing keys, so it is not excluded wholesale).
+	AnnAPIGroupV + "/vm-start-requested",
+	AnnAPIGroupV + "/vm-restart-requested",
+	AnnAPIGroupV + "/restore-power-state",
+	AnnAPIGroupV + "/virtual-machine-filesystem-request",
+	AnnAPIGroupV + "/inbound-migration",
+	AnnAPIGroupV + "/sync-migration",
+	AnnAPIGroupV + "/workload-update",
+	AnnAPIGroupV + "/evacuation",
+	AnnAPIGroupV + "/volume-migration",
+	AnnAPIGroupV + "/vmop",
+	AnnAPIGroupV + "/vd-original",
+	AnnAPIGroupV + "/pvc-population",
+	AnnAPIGroupV + "/dvcr-",
+}
+
+// ExcludedLabelPrefixes are label key prefixes owned by other modules. Narrower than for
+// annotations: only these policy labels and the descheduler hint exist as labels dangerous to
+// carry onto the Pod (the KubeVirt family is handled by isKubevirtOwnedKey).
+var ExcludedLabelPrefixes = []string{
+	"resource-quota-overrides.deckhouse.io",
+	"security.deckhouse.io",
+	LiveMigratableLabel, // descheduler hint, set by the module itself after the filter
+}
+
+// isKubevirtOwnedKey matches the KubeVirt metadata family in both forms: upstream kubevirt.io and
+// the kubevirt.internal.virtualization.deckhouse.io form kube-api-rewriter round-trips to. Matched
+// by substring so subdomain variants (vm.*, operator.*, *.node.*) are covered too.
+func isKubevirtOwnedKey(key string) bool {
+	return strings.Contains(key, "kubevirt.io") ||
+		strings.Contains(key, "kubevirt.internal.virtualization.deckhouse.io")
+}
+
+// IsExcludedAnnotationKey reports whether an annotation is module- or KubeVirt-owned
+// and must not be propagated from a user resource onto module-managed objects.
+func IsExcludedAnnotationKey(key string) bool {
+	// velero.io: backup hook annotations run commands in the launcher Pod at backup time.
+	if isKubevirtOwnedKey(key) || strings.Contains(key, "velero.io") {
+		return true
+	}
+	for _, p := range ExcludedAnnotationPrefixes {
+		if strings.HasPrefix(key, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsExcludedLabelKey reports whether a label must not be propagated from a user
+// resource onto module-managed objects.
+func IsExcludedLabelKey(key string) bool {
+	if isKubevirtOwnedKey(key) {
+		return true
+	}
+	for _, p := range ExcludedLabelPrefixes {
+		if strings.HasPrefix(key, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// ExcludeAnnotations returns a copy of m without annotations owned by the module or KubeVirt.
+func ExcludeAnnotations(m map[string]string) map[string]string {
+	return filterExcluded(m, IsExcludedAnnotationKey)
+}
+
+// ExcludeLabels returns a copy of m without labels owned by another module or KubeVirt.
+func ExcludeLabels(m map[string]string) map[string]string {
+	return filterExcluded(m, IsExcludedLabelKey)
+}
+
+func filterExcluded(m map[string]string, isExcluded func(string) bool) map[string]string {
+	res := make(map[string]string, len(m))
+	for k, v := range m {
+		if isExcluded(k) {
+			continue
+		}
+		res[k] = v
+	}
+	return res
 }
 
 // AddAnnotation adds an annotation to an object
