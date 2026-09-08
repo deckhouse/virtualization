@@ -5,8 +5,9 @@ parsing, checksum verification, upload, and the importer's handling of a hostile
 
 This one Go module builds both `dvcr-importer` and `dvcr-uploader`, so it holds the targets of
 two components. `task fuzz:*` runs them, and those are the tasks the external fuzzing platform
-calls — though no fuzz image is published from this repository yet, so today they are run
-locally through the container loop below.
+calls. The repository builds a `dvcr-artifact-fuzz` image for them, and that image replays
+every seed corpus while it builds; the container loop below stays the way to run a campaign by
+hand.
 
 Contents:
 
@@ -84,11 +85,12 @@ certification requirement, not a style preference. The lowest count today is 23.
   covers the test files only: this document, and any other `.md` outside `doc-ru-*`/`*.ru.md`,
   is still checked.
 - Seed corpus entries run as ordinary subtests under `go test`, so a broken seed fails wherever
-  the package is tested — but nothing tests this module in CI. CI runs unit tests for
+  the package is tested. In CI that place is the fuzz image build, not the test job: the
+  `-fuzz` image replays every target's corpus as its last build step, and a broken seed fails
+  the build. The ordinary jobs still leave this module alone — unit tests cover
   `images/virtualization-artifact` and the hooks only (`test:virtualization-controller` and
   `test:hooks` in `.gitlab/ci/jobs/test.yml`), and `lint:go` prunes `images/dvcr-artifact`
-  outright (`.gitlab/ci/jobs/lint-validate.yml`). The seeds here are only checked when someone
-  runs them locally.
+  outright (`.gitlab/ci/jobs/lint-validate.yml`).
 
 ## Running a target
 
@@ -117,12 +119,14 @@ cross-compiled for `GOARCH=arm64`, which excludes the libnbd path altogether.
 
 ### task fuzz:* (the platform contract)
 
-**No fuzz image is published from this repository today.** The external fuzzing platform finds
-components by scanning werf build reports for images whose name contains `-fuzz`, so until such
-an image exists the platform does not run these targets — the tasks below are the agreed
-interface, and what actually runs them right now is the local container loop further down.
-Adding the image was deliberately left out of the build: a test-only image must not be able to
-break the module build, which is exactly what it did on its first CI run.
+**The `-fuzz` image exists now.** The external fuzzing platform finds components by scanning
+werf build reports for images whose name contains `-fuzz`, and `werf.inc.yaml` ends with
+`{{- include "fuzz image" . }}`, which [`.werf/defines/fuzz.tmpl`](../../.werf/defines/fuzz.tmpl)
+turns into `{ModuleNamePrefix}dvcr-artifact-fuzz`. Two things keep a test-only image from
+breaking the module build, which is exactly what it did on its first CI run: it is
+`final: false`, so it never reaches the module bundle, and the whole template is behind
+`WERF_BUILD_FUZZ_IMAGES=true`, which only `build_fuzz_dev` and `build_fuzz_main` set
+(`.gitlab/ci/jobs/build-fuzz.yml`). An ordinary `werf build` still produces no fuzz image.
 
 
 `Taskfile.dist.yaml` implements the four tasks the external fuzzing platform calls. They are
@@ -158,6 +162,31 @@ Notes that matter when reading or changing these tasks:
 - **Run the tasks from `images/dvcr-artifact`.** `Taskfile.dist.yaml` is one of the names
   go-task discovers on its own, so no `-t` flag is needed — but the root `Taskfile.yaml` does
   not include this module, so there is no `task dvcr:fuzz:list` from the repository root.
+
+### What the image build runs
+
+The image is built from `dvcr-artifact-builder` with `CGO_ENABLED=1`, imports `/qemu-img` from
+the `qemu` image and installs `file`, `jq`, the AWS CLI and go-task. Its install stage then does
+the campaign-independent half of the work:
+
+1. downloads the modules into the image layer (`GOMODCACHE=/fuzz/gomod`, not the mounted
+   `/go/pkg`, which is outside the image);
+2. mirrors the corpus overlay from `s3://anomaloys-materials/<repository>/<branch slug>/` into
+   each target's `testdata/fuzz/<FuzzFunc>/`, skipping names that are already there;
+3. discovers the targets with `task fuzz:list` and replays each one through `task fuzz:replay`;
+4. deletes exactly the files it restored, then removes the emptied `testdata/fuzz` directories,
+   so a crash reproducer is the only thing that can be left behind.
+
+An empty or missing corpus in S3 is normal and does not fail the build. A failing replay does,
+and so does a `fuzz:list` that returns no targets at all.
+
+**Inside the image, `task fuzz:*` is not this module's `Taskfile.dist.yaml`.** The template
+copies the repository-root `Taskfile.fuzz.yml` into the workdir as `Taskfile.yml`. The four task
+names match, the bodies do not: the in-image copy has no defaults — `FUZZ_WORKERS` unset makes
+`-parallel=` a syntax error, `FUZZ_PKG`/`FUZZ_TARGET` unset run `go test ""` — and its
+`fuzz:list` always lists `./...`, ignoring `FUZZ_PACKAGES`. The build loop always passes both
+variables, so this only shows up when running a task by hand inside the image. Keep the two
+files in step when changing either.
 
 ### Native (Linux host)
 
@@ -306,6 +335,7 @@ assume.
 | --- | --- | --- |
 | `$(go env GOCACHE)/fuzz/<package import path>/<FuzzFunc>/` | every coverage-expanding input the fuzzer finds | no |
 | `<package>/testdata/fuzz/<FuzzFunc>/` | crash reproducers only, written when a target fails | yes, it is not gitignored |
+| `s3://anomaloys-materials/<repository>/<branch slug>/` | the corpus the platform keeps between campaigns | no; the image build restores it into `testdata/fuzz` and deletes it again after the replay |
 
 Consequences:
 
@@ -366,6 +396,8 @@ Open items in the targets themselves, kept here so nobody has to rediscover them
   survives between iterations. `keepAlive` keeps the server up through a failed upload
   (`processUpload` in `pkg/uploader/uploader.go`); without it, the first non-permanent upload
   error shut the listener down and every later iteration silently talked to a closed port.
-- **Nothing runs these targets in CI.** See the seed corpus convention above: the module is
-  outside both the test and the lint jobs, and no fuzz image is published either. The seeds are
-  checked only by whoever runs them locally, through the container loop above.
+- **CI replays the corpus, it does not fuzz.** The `-fuzz` image build runs `task fuzz:replay`
+  over every target, which is a regression check on known inputs. Mutation runs are the
+  external platform's job, on its own schedule; nothing in this repository starts one. The
+  module also stays outside the test and lint jobs, so the replay in the image build is the
+  only automated thing that compiles these packages.

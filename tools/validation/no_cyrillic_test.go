@@ -119,3 +119,26 @@ func Test_skip_release_notes_source(t *testing.T) {
 		}
 	}
 }
+
+func Test_skip_threat_model(t *testing.T) {
+	// The threat model follows the RBPO methodology and cites Russian catalogues,
+	// so it is written in Russian.
+	for _, name := range []string{
+		"virtualization-threat-model.md",
+		"docs/virtualization-threat-model.md",
+	} {
+		if !skipThreatModelRe.MatchString(name) {
+			t.Errorf("Should skip '%s'", name)
+		}
+	}
+
+	for _, name := range []string{
+		"threat-model.md",
+		"virtualization-threat-model.md.tmpl",
+		"docs/other-virtualization-threat-model.md",
+	} {
+		if skipThreatModelRe.MatchString(name) {
+			t.Errorf("Should not skip '%s'", name)
+		}
+	}
+}

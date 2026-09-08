@@ -37,6 +37,10 @@ var skipFuzzTestRe = regexp.MustCompile(`_fuzz_test\.go$`)
 // names, so Cyrillic in these files is the point, not a slip.
 var skipReleaseNotesRe = regexp.MustCompile(`CHANGELOG/release-notes\.ya?ml$|tools/releasenotes/`)
 
+// The security threat model is written in Russian on purpose: it follows the RBPO
+// methodology and cites the FSTEC BDU catalogue, both of which are Russian sources.
+var skipThreatModelRe = regexp.MustCompile(`(^|/)virtualization-threat-model\.md$`)
+
 func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (exitCode int) {
 	fmt.Printf("Run 'no cyrillic' validation ...\n")
 
@@ -115,6 +119,11 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 
 			if skipReleaseNotesRe.MatchString(fileName) {
 				msgs.Add(NewSkip(fileName, "bilingual release notes source"))
+				continue
+			}
+
+			if skipThreatModelRe.MatchString(fileName) {
+				msgs.Add(NewSkip(fileName, "threat model"))
 				continue
 			}
 

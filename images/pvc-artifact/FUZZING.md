@@ -68,9 +68,10 @@ certification requirement, not a style preference. The lowest count today is 31.
   covers the test files only - this document, like every other `.md` outside `doc-ru-*`, is
   still checked and is therefore English only.
 - Seed corpus entries run as ordinary subtests under `go test`, so a broken seed fails
-  wherever the package is tested. Nothing tests this module in CI today: the pipeline runs
-  unit tests for `images/virtualization-artifact` and the hooks only, and no fuzz image is
-  published either, so the seeds are checked only when someone runs them locally.
+  wherever the package is tested. In CI that place is the fuzz image build: the `-fuzz` image
+  replays every target's corpus as its last build step, and a broken seed fails the build. The
+  ordinary jobs still leave this module alone — the pipeline runs unit tests for
+  `images/virtualization-artifact` and the hooks only.
 
 Every input is capped at 64 KiB with `t.Skip`. That is a technical limit against pointless
 memory and time, never a filter on malformed data - malformed data is what these paths exist
@@ -96,10 +97,23 @@ nothing is silently short-circuited by a missing tool.
 duration variable: the stopping policy belongs to the platform. From the repository root the
 tasks are reachable as `task pvc-artifact:fuzz:list` and so on.
 
-These are the tasks the external fuzzing platform calls, but it reaches them only through a
-published fuzz image, and this repository does not build one — a test-only image must not be
-able to break the module build. So today the tasks are for local use, and `fuzz:local:*` below
-is what runs them on the architecture the component ships as.
+These are the tasks the external fuzzing platform calls, and it reaches them through the
+`-fuzz` image: `werf.inc.yaml` ends with `{{- include "fuzz image" . }}`, which
+[`.werf/defines/fuzz.tmpl`](../../.werf/defines/fuzz.tmpl) turns into
+`{ModuleNamePrefix}pvc-artifact-fuzz`, built from the regular `pvc-artifact` image with
+`CGO_ENABLED=0`. The image is `final: false` and the whole template is behind
+`WERF_BUILD_FUZZ_IMAGES=true`, which only `build_fuzz_dev` and `build_fuzz_main` set
+(`.gitlab/ci/jobs/build-fuzz.yml`) — a test-only image must not be able to break the module
+build. Its install stage restores the corpus overlay from S3, discovers the targets with
+`task fuzz:list` and replays each one; mutation runs stay the platform's call.
+
+**Inside the image the tasks come from the repository-root `Taskfile.fuzz.yml`**, copied into
+the workdir as `Taskfile.yml`, not from this module's `Taskfile.yaml`. The names match, the
+bodies do not: the in-image copy has no defaults for `FUZZ_PKG`, `FUZZ_TARGET` or
+`FUZZ_WORKERS`, and its `fuzz:list` always lists `./...`. Keep the two in step when changing
+either.
+
+`fuzz:local:*` below runs the same tasks on the architecture the component ships as.
 
 ```bash
 task pvc-artifact:fuzz:list
