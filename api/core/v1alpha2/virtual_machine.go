@@ -377,6 +377,7 @@ const (
 )
 
 type VirtualMachineStatus struct {
+	// +crd-enricher:raw:description="The current phase of a virtual machine:\n\n* `Pending`: The VM is waiting for its dependent resources, such as disks, images, or IP addresses, to become ready.\n* `Starting`: All dependent resources are ready, and the VM is being started on one of the cluster nodes.\n* `Running`: The VM is running.\n* `Migrating`: The VM is being moved to another cluster node by live migration.\n* `Stopping`: The VM is shutting down or restarting.\n* `Stopped`: The VM is stopped and consumes no compute resources.\n* `Pause`: The VM is paused.\n* `Degraded`: An error occurred during the VM startup or while it was running.\n* `Terminating`: The VM is being deleted.\n"
 	Phase MachinePhase `json:"phase"`
 	// The name of the node on which the VM is currently running.
 	Node string `json:"nodeName"`
@@ -562,12 +563,7 @@ type NetworksStatus struct {
 	IPAddress string `json:"ipAddress,omitempty"`
 }
 
-// MachinePhase defines current phase of the virtual machine:
-// * `Pending` - The process of starting the VM is in progress.
-// * `Running` - VM is running.
-// * `Degraded` - An error occurred during the startup process or while the VM is running.
-// * `Terminating` - The VM is currently in the process of shutting down.
-// * `Stopped` - The VM is stopped.
+// MachinePhase defines the current phase of the virtual machine.
 // +kubebuilder:validation:Enum:={Pending,Running,Terminating,Stopped,Stopping,Starting,Migrating,Pause,Degraded}
 type MachinePhase string
 

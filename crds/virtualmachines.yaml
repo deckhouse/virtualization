@@ -1128,12 +1128,15 @@ spec:
                   description: |
                     The current phase of a virtual machine:
 
-                    * `Scheduling`: The VM has been scheduled for provisioning on cluster nodes.
-                    * `Pending`: The VM startup is in progress.
+                    * `Pending`: The VM is waiting for its dependent resources, such as disks, images, or IP addresses, to become ready.
+                    * `Starting`: All dependent resources are ready, and the VM is being started on one of the cluster nodes.
                     * `Running`: The VM is running.
+                    * `Migrating`: The VM is being moved to another cluster node by live migration.
+                    * `Stopping`: The VM is shutting down or restarting.
+                    * `Stopped`: The VM is stopped and consumes no compute resources.
+                    * `Pause`: The VM is paused.
                     * `Degraded`: An error occurred during the VM startup or while it was running.
-                    * `Terminating`: The VM is currently shutting down.
-                    * `Stopped`: The VM is stopped.
+                    * `Terminating`: The VM is being deleted.
                   enum:
                     - "Pending"
                     - "Running"

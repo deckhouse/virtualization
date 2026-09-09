@@ -134,11 +134,11 @@ type ClusterVirtualImageStatus struct {
 	// Current status of the ClusterVirtualImage resource:
 	// * `Pending`: The resource has been created and is on a waiting queue.
 	// * `Provisioning`: The resource is being created: copying, downloading, or building of the image is in progress.
-	// * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+	// * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoints to upload the image are specified in `.status.imageUploadURLs`.
 	// * `Ready`: The resource has been created and is ready to use.
 	// * `Failed`: There was an error when creating the resource.
-	// * `Terminating`: The resource is being deleted.
 	// * `ImageLost`: The image is missing in DVCR. The resource cannot be used.
+	// * `Terminating`: The resource is being deleted. It stays in this phase while the image is still attached to a virtual machine.
 	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,ImageLost}
 	Phase ImagePhase `json:"phase,omitempty"`
 	// Progress of copying an image from the source to DVCR. Appears only during the `Provisioning' phase.

@@ -11,7 +11,7 @@ weight: 70
 
 Below is a typical Windows guest OS installation scenario from an ISO image. Before you begin, host the ISO on an HTTP endpoint reachable from the cluster.
 
-1. Create an empty [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) for OS installation:
+1. Create an empty [VirtualDisk](cr.html#virtualdisk) for OS installation:
 
    ```yaml
    apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -25,7 +25,7 @@ Below is a typical Windows guest OS installation scenario from an ISO image. Bef
        storageClassName: local-path
    ```
 
-1. Create [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) resources for the Windows OS ISO and the VirtIO driver ISO:
+1. Create [ClusterVirtualImage](cr.html#clustervirtualimage) resources for the Windows OS ISO and the VirtIO driver ISO:
 
    ```yaml
    apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -110,9 +110,9 @@ Unattended Windows installation uses an answer file (`unattend.xml` or `autounat
 The example answer file below:
 
 - Sets the English UI language and keyboard layout.
-- Connects the `VirtIO` drivers for the setup stage (the order of devices in `blockDeviceRefs` on the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource must match the paths in the file).
+- Connects the `VirtIO` drivers for the setup stage (the order of devices in `blockDeviceRefs` on the [VirtualMachine](cr.html#virtualmachine) resource must match the paths in the file).
 - Creates disk layout for installation with EFI.
-- Creates a user `cloud` (administrator, password `cloud`) and a user `user` (password `user`).
+- Creates the `cloud` administrator and the regular `user` account.
 
 <details><summary><b>Example of the contents of the autounattend.xml file…</b></summary>
 
@@ -210,7 +210,7 @@ The example answer file below:
       </ImageInstall>
       <UserData>
         <ProductKey>
-          <Key>VK7JG-NPHTM-C97JM-9MPGT-3V66T</Key>
+          <Key><PRODUCT_KEY></Key>
           <WillShowUI>OnError</WillShowUI>
         </ProductKey>
         <AcceptEula>true</AcceptEula>
@@ -262,7 +262,7 @@ The example answer file below:
             <DisplayName>cloud</DisplayName>
             <Group>Administrators</Group>
             <Password>
-              <Value>cloud</Value>
+              <Value><ADMIN_PASSWORD></Value>
               <PlainText>true</PlainText>
             </Password>
           </LocalAccount>
@@ -271,7 +271,7 @@ The example answer file below:
             <DisplayName>user</DisplayName>
             <Group>Users</Group>
             <Password>
-              <Value>user</Value>
+              <Value><USER_PASSWORD></Value>
               <PlainText>true</PlainText>
             </Password>
           </LocalAccount>
@@ -282,7 +282,7 @@ The example answer file below:
         <Enabled>true</Enabled>
         <LogonCount>1</LogonCount>
         <Password>
-          <Value>cloud</Value>
+          <Value><ADMIN_PASSWORD></Value>
           <PlainText>true</PlainText>
         </Password>
       </AutoLogon>
@@ -304,6 +304,8 @@ The example answer file below:
 ```
 
 </details>
+
+Replace `<PRODUCT_KEY>` with your Windows product key, and `<ADMIN_PASSWORD>` and `<USER_PASSWORD>` with the passwords of the accounts being created. Windows reads these passwords from the file in plain text, so don't leave the finished answer file on a shared resource.
 
 1. Save the answer file as `autounattend.xml` (use the example above or adjust it to your needs).
 
@@ -356,18 +358,18 @@ A golden image is a pre-configured virtual machine image that can be used to qui
 
 1. Install and configure qemu-guest-agent (recommended):
 
-  - For RHEL/CentOS:
+   - For RHEL/CentOS:
 
-    ```bash
-    yum install -y qemu-guest-agent
-    ```
+     ```bash
+     yum install -y qemu-guest-agent
+     ```
 
-  - For Debian/Ubuntu:
+   - For Debian/Ubuntu:
 
-    ```bash
-    apt-get update
-    apt-get install -y qemu-guest-agent
-    ```
+     ```bash
+     apt-get update
+     apt-get install -y qemu-guest-agent
+     ```
 
 1. Enable and start the service:
 
@@ -376,7 +378,7 @@ A golden image is a pre-configured virtual machine image that can be used to qui
    systemctl start qemu-guest-agent
    ```
 
-1. Set the VM run policy to [runPolicy: AlwaysOnUnlessStoppedManually](/modules/virtualization/cr.html#virtualmachine-v1alpha2-spec-runpolicy) — this is required so you can shut down the VM.
+1. Set the machine run policy to [`AlwaysOnUnlessStoppedManually`](cr.html#virtualmachine-v1alpha2-spec-runpolicy), otherwise you will not be able to shut it down.
 
 1. Prepare the image. Clean unused filesystem blocks:
 
@@ -387,18 +389,18 @@ A golden image is a pre-configured virtual machine image that can be used to qui
 
 1. Clean network settings:
 
-  - For RHEL:
+   - For RHEL:
 
-    ```bash
-    nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
-    rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
-    ```
+     ```bash
+     nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+     rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+     ```
 
-  - For Debian/Ubuntu:
+   - For Debian/Ubuntu:
 
-    ```bash
-    rm -f /etc/network/interfaces.d/*
-    ```
+     ```bash
+     rm -f /etc/network/interfaces.d/*
+     ```
 
 1. Clean system identifiers:
 
@@ -408,13 +410,13 @@ A golden image is a pre-configured virtual machine image that can be used to qui
    ln -s /etc/machine-id /var/lib/dbus/machine-id
    ```
 
-1. Remove SSH host keys:
+1. Remove the SSH host keys:
 
    ```bash
    rm -f /etc/ssh/ssh_host_*
    ```
 
-1. Clean systemd journal:
+1. Clean the systemd journal:
 
    ```bash
    journalctl --vacuum-size=100M --vacuum-time=7d
@@ -422,17 +424,17 @@ A golden image is a pre-configured virtual machine image that can be used to qui
 
 1. Clean package manager cache:
 
-  - For RHEL:
+   - For RHEL:
 
-    ```bash
-    yum clean all
-    ```
+     ```bash
+     yum clean all
+     ```
 
-  - For Debian/Ubuntu:
+   - For Debian/Ubuntu:
 
-    ```bash
-    apt-get clean
-    ```
+     ```bash
+     apt-get clean
+     ```
 
 1. Clean temporary files:
 
@@ -453,19 +455,19 @@ A golden image is a pre-configured virtual machine image that can be used to qui
    history -c
    ```
 
-   For RHEL: reset and restore SELinux contexts (choose one of the following):
+1. On RHEL, reset and restore the SELinux contexts in one of two ways.
 
-  - Option 1: Check and restore contexts immediately:
+   Restore the contexts right away:
 
-    ```bash
-    restorecon -R /
-    ```
+   ```bash
+   restorecon -R /
+   ```
 
-  - Option 2: Schedule relabel on next boot:
+   Or schedule a relabel for the next boot:
 
-    ```bash
-    touch /.autorelabel
-    ```
+   ```bash
+   touch /.autorelabel
+   ```
 
 1. Verify that `/etc/fstab` references UUID or `LABEL` rather than names like `/dev/sdX`:
 
@@ -493,59 +495,63 @@ A golden image is a pre-configured virtual machine image that can be used to qui
    poweroff
    ```
 
-1. Create a [VirtualImage](/modules/virtualization/cr.html#virtualimage) resource that references the prepared VM’s [VirtualDisk](/modules/virtualization/cr.html#virtualdisk):
+1. Create a [VirtualImage](cr.html#virtualimage) resource that references the prepared VM’s [VirtualDisk](cr.html#virtualdisk):
 
    ```bash
    d8 k apply -f -<<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: <image-name>
-     namespace: <namespace>
+     name: <IMAGE_NAME>
+     namespace: <NAMESPACE>
    spec:
      dataSource:
        type: ObjectRef
        objectRef:
          kind: VirtualDisk
-         name: <source-disk-name>
+         name: <SOURCE_DISK_NAME>
    EOF
    ```
 
-   Or create a [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) resource so the image is available cluster-wide for all projects:
+   Or create a [ClusterVirtualImage](cr.html#clustervirtualimage) resource so the image is available cluster-wide for all projects:
 
    ```bash
    d8 k apply -f -<<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: ClusterVirtualImage
    metadata:
-     name: <image-name>
+     name: <IMAGE_NAME>
    spec:
      dataSource:
        type: ObjectRef
        objectRef:
          kind: VirtualDisk
-         name: <source-disk-name>
-         namespace: <namespace>
+         name: <SOURCE_DISK_NAME>
+         namespace: <NAMESPACE>
    EOF
    ```
 
-1. Create a new [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) from the resulting image:
+   Here, `<IMAGE_NAME>` is the name of the image being created, `<NAMESPACE>` is the namespace of the prepared machine, and `<SOURCE_DISK_NAME>` is the name of its disk.
+
+1. Create a new [VirtualDisk](cr.html#virtualdisk) from the resulting image:
 
    ```bash
    d8 k apply -f -<<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualDisk
    metadata:
-     name: <vm-disk-name>
-     namespace: <namespace>
+     name: <VM_DISK_NAME>
+     namespace: <NAMESPACE>
    spec:
      dataSource:
        type: ObjectRef
        objectRef:
          kind: VirtualImage
-         name: <image-name>
+         name: <IMAGE_NAME>
    EOF
    ```
+
+   Here, `<VM_DISK_NAME>` is the name of the disk of the new machine.
 
 After completing these steps, you will have a golden image that can be used to quickly create new virtual machines with pre-installed software and configurations.
 
@@ -553,11 +559,11 @@ After completing these steps, you will have a golden image that can be used to q
 
 You can connect to a VM via the serial console ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) or VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
 These methods use different communication channels with the guest OS and depend on its configuration.
-For more details on connecting, see the [Connecting to a virtual machine](user_guide.html#connecting-to-a-virtual-machine) section.
+For more details on connecting, see the [Connecting to a virtual machine](./user_guide.html#connecting-to-a-virtual-machine) section.
 
 The sections below describe common situations where only one connection method works.
 
-#### No VNC access, but the serial console works
+#### Why does VNC not work when the serial console is available?
 
 VNC displays the guest OS screen and requires virtual terminal support in the kernel.
 The serial console works independently of the graphics subsystem.
@@ -576,7 +582,7 @@ CONFIG_VT=y
 
 If the output shows `CONFIG_VT is not set`, rebuild the kernel with the option enabled or use an OS image with a suitable kernel configuration.
 
-#### No serial console access, but VNC works
+#### Why does the serial console not work when VNC is available?
 
 The serial console connects to the `ttyS0` port in the guest OS.
 If the `getty` service for this port is not running, `d8 v console` will not show a login prompt even though VNC continues to work.
@@ -607,16 +613,16 @@ Example `cloud-config` for updating the system and installing packages from a li
 
 ```yaml
 #cloud-config
-# Update package lists
+# Update package lists.
 package_update: true
-# Upgrade installed packages to latest versions
+# Upgrade installed packages to latest versions.
 package_upgrade: true
-# List of packages to install
+# List of packages to install.
 packages:
   - nginx
   - curl
   - htop
-# Commands to run after package installation
+# Commands to run after package installation.
 runcmd:
   - systemctl enable --now nginx.service
 ```
@@ -627,16 +633,22 @@ Example `cloud-config` for creating a local user with a password and SSH key:
 
 ```yaml
 #cloud-config
-# List of users to create
+# List of users to create.
 users:
-  - name: cloud                    # Username
-    passwd: "$6$rounds=4096$saltsalt$..."  # Password hash (SHA-512)
-    lock_passwd: false            # Do not lock the account
-    sudo: ALL=(ALL) NOPASSWD:ALL  # Sudo privileges without password prompt
-    shell: /bin/bash              # Default shell
-    ssh-authorized-keys:          # SSH keys for access
-      - ssh-ed25519 AAAAC3NzaC... your-public-key ...
-# Allow password authentication via SSH
+    # Username.
+  - name: cloud
+    # Password hash.
+    passwd: "<PASSWORD_HASH>"
+    # Do not lock the account.
+    lock_passwd: false
+    # Sudo privileges without a password prompt.
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    # Default shell.
+    shell: /bin/bash
+    # SSH keys for access.
+    ssh-authorized-keys:
+      - <SSH_PUBLIC_KEY>
+# Allow password authentication via SSH.
 ssh_pwauth: true
 ```
 
@@ -652,14 +664,18 @@ Example `cloud-config` for creating a file with specified access permissions:
 
 ```yaml
 #cloud-config
-# List of files to create
+# List of files to create.
 write_files:
-  - path: /opt/scripts/start.sh    # File path
-    content: |                     # File content
+    # File path.
+  - path: /opt/scripts/start.sh
+    # File content.
+    content: |
       #!/bin/bash
       echo "Starting application"
-    owner: cloud:cloud            # File owner (user:group)
-    permissions: '0755'           # Access permissions (octal format)
+    # File owner, user and group.
+    owner: cloud:cloud
+    # Access permissions in octal format.
+    permissions: '0755'
 ```
 
 #### Configuring disk and filesystem
@@ -668,21 +684,29 @@ Example `cloud-config` for disk partitioning, filesystem creation, and mounting:
 
 ```yaml
 #cloud-config
-# Disk partitioning setup
+# Disk partitioning setup.
 disk_setup:
-  /dev/sdb:                        # Disk device
-    table_type: gpt                # Partition table type (gpt or mbr)
-    layout: true                   # Automatically create partitions
-    overwrite: false               # Do not overwrite existing partitions
+  # Disk device.
+  /dev/sdb:
+    # Partition table type, gpt or mbr.
+    table_type: gpt
+    # Automatically create partitions.
+    layout: true
+    # Do not overwrite existing partitions.
+    overwrite: false
 
-# Filesystem setup
+# Filesystem setup.
 fs_setup:
-  - label: data                    # Filesystem label
-    filesystem: ext4               # Filesystem type
-    device: /dev/sdb1              # Partition device
-    partition: auto                # Automatically detect partition
+    # Filesystem label.
+  - label: data
+    # Filesystem type.
+    filesystem: ext4
+    # Partition device.
+    device: /dev/sdb1
+    # Automatically detect partition.
+    partition: auto
 
-# Filesystem mounting
+# Filesystem mounting.
 mounts:
   # [device, mount_point, fs_type, options, dump, pass]
   - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
@@ -696,9 +720,11 @@ The settings described in this section apply only to additional networks. The ma
 
 If additional networks are connected to a virtual machine, configure them manually via cloud-init: create configuration files in `write_files` and apply the settings in `runcmd`.
 
-For more information on connecting additional networks to a virtual machine, see [Additional network interfaces](/products/virtualization-platform/documentation/user/resource-management/virtual-machines.html#additional-network-interfaces).
+For more information on connecting additional networks to a virtual machine, see [Additional network interfaces](./user_guide.html#additional-network-interfaces).
 
-##### For systemd-networkd
+{{< tabs name="cloudinit-net" >}}
+
+{{% tab name="systemd-networkd" %}}
 
 Example `cloud-config` for distributions that use `systemd-networkd` (Debian, CoreOS, and others):
 
@@ -719,7 +745,9 @@ runcmd:
   - systemctl restart systemd-networkd
 ```
 
-##### For Netplan (Ubuntu)
+{{% /tab %}}
+
+{{% tab name="Netplan (Ubuntu)" %}}
 
 Example `cloud-config` for Ubuntu and other systems that use `Netplan`:
 
@@ -744,7 +772,9 @@ runcmd:
   - netplan apply
 ```
 
-##### For ifcfg (RHEL/CentOS)
+{{% /tab %}}
+
+{{% tab name="ifcfg (RHEL/CentOS)" %}}
 
 Example `cloud-config` for RHEL-compatible distributions that use the `ifcfg` scheme and `NetworkManager`:
 
@@ -766,7 +796,9 @@ runcmd:
   - nmcli connection up eth1
 ```
 
-##### For Alpine Linux
+{{% /tab %}}
+
+{{% tab name="Alpine Linux" %}}
 
 Example `cloud-config` for distributions that use the traditional `/etc/network/interfaces` format (Alpine and similar):
 
@@ -785,6 +817,10 @@ write_files:
 runcmd:
   - /etc/init.d/networking restart
 ```
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 ### How to use Ansible to provision virtual machines?
 
@@ -808,7 +844,7 @@ The example assumes that:
        # Path to private key.
        ansible_ssh_private_key_file: /home/user/.ssh/id_rsa
      hosts:
-       # Host name in the format <VM name>.<namespace>.
+       # Host name in the format <VM_NAME>.<NAMESPACE>.
        frontend.demo-app:
 
    ```
@@ -843,7 +879,7 @@ The command works only for virtual machines that have the main cluster network (
 
 Instead of manually creating an inventory file, you can use the `d8 v ansible-inventory` command, which automatically generates an Ansible inventory from virtual machines in the specified namespace. The command is compatible with the [ansible inventory script](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#inventory-scripts) interface.
 
-The command includes only virtual machines with assigned IP addresses in the `Running` state. Host names are formatted as `<vmname>.<namespace>` (for example, `frontend.demo-app`).
+Only machines in the `Running` phase that have an assigned IP address get into the inventory. Host names are formatted as `<VM_NAME>.<NAMESPACE>` (for example, `frontend.demo-app`).
 
 1. Optionally set host variables via annotations (for example, the SSH user):
 
@@ -858,7 +894,7 @@ The command includes only virtual machines with assigned IP addresses in the `Ru
    ```
 
 {{< alert level="info" >}}
-The `<(...)` construct is necessary because Ansible expects a file or script as the source of the host list. Simply specifying the command in quotes will not work — Ansible will try to execute the string as a script. The `<(...)` construct passes the command output as a file that Ansible can read.
+The `<(...)` construct is necessary because Ansible expects a file or script as the source of the host list. Simply specifying the command in quotes won't work, because Ansible tries to execute the string as a script. The `<(...)` construct passes the command output as a file that Ansible can read.
 {{< /alert >}}
 
 1. Or save the inventory to a file and run the check:
@@ -870,7 +906,7 @@ The `<(...)` construct is necessary because Ansible expects a file or script as 
 
 ### How to redirect traffic to a virtual machine?
 
-The virtual machine runs in a Kubernetes cluster, so directing network traffic to it works like routing traffic to pods. To route traffic to a virtual machine, use the standard Kubernetes mechanism — the Service resource, which selects targets using a label selector.
+A virtual machine runs in a Kubernetes cluster, so traffic reaches it the same way it reaches any other workload. Routing is handled by the standard Kubernetes Service resource, which selects targets by labels.
 
 1. Create a service with the required settings.
 
@@ -887,11 +923,9 @@ The virtual machine runs in a Kubernetes cluster, so directing network traffic t
    spec: ...
    ```
 
-1. To route network traffic to the virtual machine's ports, create the following Service:
+1. To route network traffic to the virtual machine's ports, create a service:
 
-1. To route network traffic to the virtual machine's ports, create the following service:
-
-This service listens on ports 80 and 443 and forwards traffic to the target virtual machine’s ports 80 and 443. SSH access from outside the cluster is provided on port 2211.
+   This service listens on ports 80 and 443 and forwards traffic to the corresponding ports of the target virtual machine. SSH access from outside is provided on port 2211:
 
    ```yaml
    apiVersion: v1
@@ -933,7 +967,7 @@ The DVCR volume size is set in the `virtualization` module ModuleConfig (`spec.s
    Example output:
 
    ```console
-    {"size":"58G","storageClass":"linstor-thick-data-r1"}
+   {"size":"58G","storageClass":"linstor-thick-data-r1"}
    ```
 
 1. Increase `size` using `patch` (set the value you need):
@@ -969,15 +1003,15 @@ The DVCR volume size is set in the `virtualization` module ModuleConfig (`spec.s
 
    Example output:
 
-   ```console
+   ```console {.nowrap-default}
    NAME STATUS VOLUME                                    CAPACITY    ACCESS MODES   STORAGECLASS           AGE
    dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
    ```
 
-### How do I change the DVCR StorageClass when a PVC already exists?
+### How to change the DVCR StorageClass when a PVC already exists?
 
 {{< alert level="warning" >}}
-You can change the DVCR storage StorageClass only by recreating the PVC. All images previously loaded into DVCR are lost, along with data for existing [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) and [VirtualImage](/modules/virtualization/cr.html#virtualimage) resources.
+You can change the DVCR storage StorageClass only by recreating the PVC. All images previously loaded into DVCR are lost, along with data for existing [ClusterVirtualImage](cr.html#clustervirtualimage) and [VirtualImage](cr.html#virtualimage) resources.
 {{< /alert >}}
 
 The [`spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`](configuration.html#parameters-dvcr-storage-persistentvolumeclaim-storageclassname) field in the `virtualization` module ModuleConfig sets the StorageClass for the virtual machine image storage volume (DVCR). While a PVC for that volume exists in the `d8-virtualization` namespace, you cannot change the field via the API.
@@ -998,16 +1032,16 @@ To change the DVCR StorageClass, perform the following steps:
    d8 k get pvc -n d8-virtualization
    ```
 
-1. Delete the PVC you found. Replace `<pvc-name>` with the resource name. If the command fails because of insufficient permissions, run it as `system:sudouser`:
+1. Delete the PVC you found. Replace `<PVC_NAME>` with the resource name. If the command fails because of insufficient permissions, run it as `system:sudouser`:
 
    ```shell
-   d8 k --as system:sudouser -n d8-virtualization delete pvc/<pvc-name>
+   d8 k --as system:sudouser -n d8-virtualization delete pvc/<PVC_NAME>
    ```
 
-1. Set the new StorageClass in ModuleConfig. Replace `<storage-class-name>` with the class name you need.
+1. Set the new StorageClass in ModuleConfig, substituting the class you need for `<STORAGE_CLASS_NAME>`:
 
    ```shell
-   d8 k patch mc virtualization --type merge -p '{"spec":{"settings":{"dvcr":{"storage":{"persistentVolumeClaim":{"storageClassName":"<storage-class-name>"}}}}}}'
+   d8 k patch mc virtualization --type merge -p '{"spec":{"settings":{"dvcr":{"storage":{"persistentVolumeClaim":{"storageClassName":"<STORAGE_CLASS_NAME>"}}}}}}'
    ```
 
    Example output:
@@ -1030,7 +1064,7 @@ To change the DVCR StorageClass, perform the following steps:
 
    Example output:
 
-   ```console
+   ```console {.nowrap-default}
    NAME   STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          VOLUMEATTRIBUTESCLASS   AGE
    dvcr   Bound    pvc-b43f2e33-32cc-435a-aa1d-b53df35b030a   100Gi      RWO            linstor-thin-r1-hdd   <unset>                 34s
    ```
@@ -1053,7 +1087,7 @@ Applying a NodeGroupConfiguration (NGC) manifest removes the file on the nodes. 
    metadata:
      name: containerd-dvcr-remove-old-config.sh
    spec:
-     weight: 32 # Must be in range 32–90
+     weight: 32 # Must be in range 32–90.
      nodeGroups: ["*"]
      bundles: ["*"]
      content: |
@@ -1101,4 +1135,4 @@ Applying a NodeGroupConfiguration (NGC) manifest removes the file on the nodes. 
    d8 k delete -f containerd-dvcr-remove-old-config.yaml
    ```
 
-For more information on migration, see [Migrating container runtime to containerd v2](/products/virtualization-platform/documentation/admin/platform-management/platform-scaling/node/migrating.html).
+For more information on migration, see [Migrating container runtime to containerd v2](/products/kubernetes-platform/documentation/v1/admin/configuration/platform-scaling/node/migrating.html).

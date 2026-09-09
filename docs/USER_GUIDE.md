@@ -1,20 +1,21 @@
 ---
-title: "User Guide"
-menuTitle: "User Guide"
+title: "User guide"
 weight: 50
 ---
 
-## Introduction
+This guide describes how to create and modify `virtualization` module resources in a project or cluster namespace.
 
-This guide is intended for users of the `virtualization` module in the Deckhouse ecosystem and describes the procedure for creating and modifying resources that are available for creation in cluster projects and namespaces.
+## Quick start on creating a virtual machine
 
-## Quick start on creating a VM
+This section walks through a minimal scenario: you create an Ubuntu 24.04 image, a disk from that image, and a virtual machine (VM), connect to it over the console, and then delete the created resources.
 
-Example of creating a virtual machine with Ubuntu 24.04.
+{{< tabs name="quickstart" >}}
 
-1. Create a virtual machine image from an external source:
+{{% tab name="Using the CLI" %}}
 
-   ```yaml
+1. Create a [VirtualImage](cr.html#virtualimage) from an external source:
+
+   ```bash
    d8 k apply -f - <<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
@@ -29,21 +30,9 @@ Example of creating a virtual machine with Ubuntu 24.04.
    EOF
    ```
 
-   How to create a virtual machine image from an external source in the web interface:
+1. Create a [VirtualDisk](cr.html#virtualdisk) from that image. Make sure the cluster has a default StorageClass, then apply the manifest:
 
-   - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" → "Disk Images" section.
-   - Click "Create Image".
-   - Select "Load data from link (HTTP)" from the list.
-   - In the form that opens, enter `ubuntu` in the "Image Name" field.
-   - Select `ContainerRegistry` in the "Storage" field.
-   - In the "URL" field, paste `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img`.
-   - Click the "Create" button.
-   - The image status is displayed at the top left, under the image name.
-
-1. Create a virtual machine disk from the image created in the previous step (Caution: Make sure that the default StorageClass is present on the system before creating it):
-
-   ```yaml
+   ```bash
    d8 k apply -f - <<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualDisk
@@ -58,43 +47,9 @@ Example of creating a virtual machine with Ubuntu 24.04.
    EOF
    ```
 
-   How to create a virtual machine disk from the image created in the previous step in the web interface (this step can be skipped and performed when creating a VM):
-
-   - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" section → "VM Disks".
-   - Click "Create Disk".
-   - In the form that opens, enter `linux-disk` in the "Disk Name" field.
-   - In the "Source" field, make sure that the "Project" checkbox is selected.
-   - Select `ubuntu` from the drop-down list
-   - In the "Size" field, you can change the size to a larger one, for example, `5Gi`.
-   - In the "StorageClass Name" field, you can select StorageClass or leave the default selection.
-   - Click the "Create" button.
-   - The disk status is displayed at the top left, under the disk name.
-
-   {{< alert level="info">}}
-   Remember, if your StorageClass has the WaitForFirstConsumer setting, the disk will wait for a VM to be created with that disk.
-   In this case, the disk status will be "CREATING 0%," but the disk will already be selectable when creating a VM, [see the disks section](#disks).
-   {{< /alert >}}
-
-1. Creating a virtual machine:
-
-   The example uses the cloud-init script to create a cloud user with the cloud password generated as follows:
+1. Create a [VirtualMachine](cr.html#virtualmachine). The example uses a cloud-init script that creates the `cloud` user:
 
    ```bash
-   mkpasswd --method=SHA-512 --rounds=4096
-   ```
-
-   You can change the user name and password in this section:
-
-   ```yaml
-   users:
-     - name: cloud
-       passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
-   ```
-
-   Create a virtual machine from the following specification:
-
-   ```yaml
    d8 k apply -f - <<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualMachine
@@ -113,7 +68,7 @@ Example of creating a virtual machine with Ubuntu 24.04.
          ssh_pwauth: True
          users:
            - name: cloud
-             passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+             passwd: <PASSWORD_HASH>
              shell: /bin/bash
              sudo: ALL=(ALL) NOPASSWD:ALL
              lock_passwd: False
@@ -123,53 +78,9 @@ Example of creating a virtual machine with Ubuntu 24.04.
    EOF
    ```
 
-   How to create a virtual machine in the web interface:
+   Where `<PASSWORD_HASH>` is the hash of the user password, in quotes. Generate it with `mkpasswd --method=SHA-512 --rounds=4096`: the command prompts for the password and prints the ready value. The script format is described in the [cloud-init documentation](https://cloudinit.readthedocs.io/).
 
-   - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" → "Virtual Machines" section.
-   - Click "Create".
-   - In the form that opens, enter `linux-vm` in the "Name" field.
-   - In the "Machine Parameters" section, you can leave the settings at their default values.
-   - In the "Disks and Images" section, in the "Boot Disks" subsection, click "Add".
-
-     If you have already created a disk:
-      - In the form that opens, click "Choose from existing".
-      - Select the `linux-disk` disk from the list.
-
-     If you have not created a disk:
-
-     - In the form that opens, click "Create new disk”"
-     - In the "Name" field, enter `linux-disk`.
-     - In the "Source" field, click the arrow to expand the list and make sure that the "Project" checkbox is selected.
-     - Select `ubuntu` from the drop-down list.
-     - In the "Size" field, you can change the size to a larger one, for example, `5Gi`.
-     - In the "Storage Class" field, you can select StorageClass or leave the default selection.
-     - Click the "Create and add" button.
-
-   - Scroll down to the "Additional parameters" section.
-   - Enable the "Cloud-init" switch.
-   - Enter your data in the field that appears:
-
-     ```yaml
-     #cloud-config
-     ssh_pwauth: True
-     users:
-       - name: cloud
-         passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
-         shell: /bin/bash
-         sudo: ALL=(ALL) NOPASSWD:ALL
-         lock_passwd: False
-     ```
-
-   - Click the "Create" button.
-   - The VM status is displayed at the top left, under its name.
-
-   Useful links:
-
-   - [cloud-init documentation](https://cloudinit.readthedocs.io/)
-   - [Resource Parameters](cr.html)
-
-1. Verify with the command that the image and disk have been created and the virtual machine is running. Resources are not created instantly, so you will need to wait a while before they are ready.
+1. Verify that the image and the disk are created and the VM is running. Resources don't become ready instantly, so wait for the expected values in the `PHASE` column:
 
    ```bash
    d8 k get vi,vd,vm
@@ -177,18 +88,18 @@ Example of creating a virtual machine with Ubuntu 24.04.
 
    Example output:
 
-   ```txt
+   ```console {.nowrap-default}
    NAME                                                 PHASE   CDROM   PROGRESS   AGE
-   virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
-   #
-   NAME                                                 PHASE   CAPACITY   AGE
-   virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
-   #
-   NAME                                                 PHASE     NODE           IPADDRESS     AGE
-   virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+   virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%       7h50m
+
+   NAME                                                 PHASE   CAPACITY   VIRTUALMACHINE   AGE
+   virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   4Gi        linux-vm         7h40m
+
+   NAME                                                 PHASE     UPTIME   NODE           IPADDRESS    AGE
+   virtualmachine.virtualization.deckhouse.io/linux-vm  Running   7h30m    virtlab-pt-2   10.66.10.2   7h46m
    ```
 
-1. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
+1. Connect to the VM over the console:
 
    ```bash
    d8 v console linux-vm
@@ -196,24 +107,18 @@ Example of creating a virtual machine with Ubuntu 24.04.
 
    Example output:
 
-   ```txt
+   ```console {.nowrap-default}
    Successfully connected to linux-vm console. The escape sequence is ^]
-   #
+
    linux-vm login: cloud
-   Password: cloud
+   Password:
    ...
    cloud@linux-vm:~$
    ```
 
-   How to connect to a virtual machine using the console in the web interface:
+   To exit the console, press `Ctrl+]`.
 
-   - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" → "Virtual Machines" section.
-   - Select the required VM from the list and click on its name.
-   - In the form that opens, go to the "TTY" tab.
-   - Go to the console window that opens. Here you can connect to the VM.
-
-1. Use the following commands to delete previously created resources:
+1. Delete the created resources:
 
    ```bash
    d8 k delete vm linux-vm
@@ -221,168 +126,191 @@ Example of creating a virtual machine with Ubuntu 24.04.
    d8 k delete vi ubuntu
    ```
 
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Create an image from an external source:
+
+   1. Go to the **Projects** tab and select the project you need.
+   1. Go to **Virtualization** → **Images**.
+   1. Click **Create**.
+   1. In the **Source** block, select **By link**.
+   1. In the form that opens, enter `ubuntu` in the **Image name** field.
+   1. In the **Storage** block, select `ContainerRegistry` in the **Storage type** field.
+   1. In the **URL** field, paste `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img`.
+   1. Click **Create**.
+   1. Check the image status on its page.
+
+1. Create a disk from that image. You can skip this step and create the disk while creating the VM.
+
+   1. Go to **Virtualization** → **Disks**.
+   1. Click **Create**.
+   1. In the form that opens, enter `linux-disk` in the **Disk name** field.
+   1. In the **Source** field, select the `ubuntu` image from the drop-down list.
+   1. If required, specify a larger size in the **Size** field, for example `5Gi`.
+   1. In the **Storage class** field, select a StorageClass or keep the default one.
+   1. Click **Create**.
+   1. Check the disk status on its page.
+
+   > If the selected StorageClass uses the `WaitForFirstConsumer` mode, the disk waits for the VM that uses it.
+   > Until then, the disk shows the "CREATING 0%" status, but you can already select it when creating a VM.
+
+1. Create a virtual machine:
+
+   1. Go to **Virtualization** → **Virtual machines**.
+   1. Click **Create**.
+   1. In the form that opens, enter `linux-vm` in the **Name** field.
+   1. In the **Platform** and **Resources** sections, keep the default settings.
+   1. In the **Disks** section, click **Add**.
+
+      If the disk is already created, select **Existing** in the **Disks / Images** window that opens and pick `linux-disk` from the list.
+
+      If the disk isn't created, select **Create from** in the same window and set the parameters:
+
+      - In the **Name** field, enter `linux-disk`.
+      - In the **Source** field, select the `ubuntu` image from the drop-down list. The list shows the resource type.
+      - If required, specify a larger size in the **Size** field, for example `5Gi`.
+      - In the **Storage** field, select a StorageClass or keep the default one.
+
+      Click **Add**.
+
+   1. Scroll down to the **Cloud-init** toggle and enable it.
+   1. Paste the script into the field that appears, replacing `<PASSWORD_HASH>` with the password hash in quotes, generated with `mkpasswd --method=SHA-512 --rounds=4096`:
+
+      ```yaml
+      #cloud-config
+      ssh_pwauth: True
+      users:
+        - name: cloud
+          passwd: <PASSWORD_HASH>
+          shell: /bin/bash
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          lock_passwd: False
+      ```
+
+   1. Click **Create**.
+   1. Check the VM status on its page.
+
+1. Connect to the VM over the console:
+
+   1. Go to **Virtualization** → **Virtual machines**.
+   1. Select the VM from the list and click its name.
+   1. In the form that opens, go to the **TTY** tab and log in to the console window.
+
+1. Delete the created resources:
+
+   1. Go to **Virtualization** and select the section you need, for example **Virtual machines**, **Disks**, or **Images**.
+   1. In the resource row, click the ellipsis button and select **Delete**. In some lists, for example in the list of VM snapshots, deletion is a separate button.
+   1. In the confirmation window, click **Delete** or cancel the action with **Don't delete**.
+
+   > **Important:** Deleting a resource is irreversible. A disk attached to a running virtual machine can't be deleted, and the **Delete** item is inactive for it.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
 ## Images
 
-The `VirtualImage` resource is designed for uploading virtual machine images and subsequently using them to create virtual machine disks.
-
-{{< alert level="warning">}}
-Please note that `VirtualImage` is a project resource, which means it is only available within the project or namespace where it was created. To use images at the cluster level, a separate resource is provided — [`ClusterVirtualImage`](./admin_guide.html#images).
-{{< /alert >}}
-
-When connected to a virtual machine, the image is accessed in read-only mode.
-
-The image creation process includes the following steps:
-
-- The user creates a `VirtualImage` resource.
-- After creation, the image is automatically downloaded from the source specified in the specification to DVCR or PVC storage, depending on the type.
-- Once the download is complete, the resource becomes available for disk creation.
-
-There are different types of images:
-
-- **ISO image**: an installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
-- **Preinstalled disk image**: contains an already installed and configured operating system ready for use after the virtual machine is created. Ready images can be obtained from the distribution developers' resources or created by yourself.
-
-Examples of resources for obtaining virtual machine images:
-
-<a id="image-resources-table"></a>
-| Distribution                                                                      | Default user.             |
-| --------------------------------------------------------------------------------- | ------------------------- |
-| [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
-| [AlpineLinux](https://alpinelinux.org/cloud/)                                     | `alpine`                  |
-| [CentOS](https://cloud.centos.org/centos/)                                        | `cloud-user`              |
-| [Debian](https://cdimage.debian.org/images/cloud/)                                | `debian`                  |
-| [Rocky](https://rockylinux.org/download/)                                         | `rocky`                   |
-| [Ubuntu](https://cloud-images.ubuntu.com/)                                        | `ubuntu`                  |
-
-The following preinstalled image formats are supported:
-
-- qcow2
-- raw
-- vmdk
-- vdi
-
-Image files can also be compressed with one of the following compression algorithms: gz, xz.
-
-Once a share is created, the image type and size are automatically determined, and this information is reflected in the share status.
-
-The image status shows two sizes:
-
-- `STOREDSIZE` (storage size) — the amount of space the image actually occupies in storage (DVCR or PVC). For images uploaded in a compressed format (for example, `.gz` or `.xz`), this value is smaller than the unpacked size.
-- `UNPACKEDSIZE` (unpacked size) — the image size after unpacking. It is used when creating a disk from the image and defines the minimum disk size that can be created.
-
-{{< alert level="info" >}}
-When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger.
-If the size is not specified, the disk will be created with a size equal to `UNPACKEDSIZE`.
-{{< /alert >}}
-
-Images can be downloaded from various sources, such as HTTP servers where image files are located or container registries. It is also possible to download images directly from the command line using the curl utility.
-
-Images can be created from other images and virtual machine disks.
-
-Project image two storage options are supported:
-
-- `ContainerRegistry` - the default type in which the image is stored in `DVCR`.
-- `PersistentVolumeClaim` - the type that uses `PVC` as the storage for the image. This option is preferred if you are using storage that supports `PVC` fast cloning, which allows you to create disks from images faster.
+An image holds the contents of a disk that you use to create virtual machine disks. A [VirtualImage](cr.html#virtualimage) is created in a project and available only in the project or namespace where it was created.
 
 {{< alert level="warning" >}}
-Using an image with the `storage: PersistentVolumeClaim` parameter is only supported for creating disks in the same storage class (StorageClass).
+To make the same image available to every project in the cluster, you need a cluster image, [ClusterVirtualImage](cr.html#clustervirtualimage). Only an administrator can create it; the procedure is described in the [admin guide](admin_guide.html#images).
 {{< /alert >}}
 
-A full description of the `VirtualImage` resource configuration settings can be found at [link](cr.html#virtualimage).
+A virtual machine accesses an attached image in read-only mode.
 
-### Creating image from HTTP server
+An image appears in a project in three steps:
 
-Consider creating an image with the option of storing it in DVCR. Execute the following command to create a `VirtualImage`:
+1. You create a [VirtualImage](cr.html#virtualimage) resource and specify a data source in it.
+1. The module downloads the image from that source to the storage, which is either DVCR or a PVC, depending on the selected type.
+1. The downloaded image becomes available for creating disks.
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu-24-04
-spec:
-  # Save the image to DVCR
-  storage: ContainerRegistry
-  # The source for the image.
-  dataSource:
-    type: HTTP
-    http:
-      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-EOF
-```
+### Sources and storage options
 
-Check the result of the `VirtualImage` creation:
+The image source can be an HTTP server hosting the image file, a container image registry, or a file on your computer that you upload from the command line. You can also create an image from another image, from a virtual machine disk, or from a disk snapshot.
 
-```bash
-d8 k get virtualimage ubuntu-24-04
-# or a shorter version
-d8 k get vi ubuntu-24-04
-```
+Image types, supported file formats, and compression algorithms are described in [Image types and formats](admin_guide.html#image-types-and-formats) in the admin guide.
 
-Example output:
+The downloaded image is stored in one of two ways, set by the [`.spec.storage`](cr.html#virtualimage-v1alpha2-spec-storage) parameter:
 
-```txt
-NAME           PHASE   CDROM   PROGRESS   AGE
-ubuntu-24-04   Ready   false   100%       23h
-```
+- `ContainerRegistry`: The default option, the image is stored in DVCR.
+- `PersistentVolumeClaim`: The image is stored in a PVC. This option is preferable if the storage can clone PVCs quickly, because disks are created from such an image faster.
 
-After creation the `VirtualImage` resource can be in the following states (phases):
+{{< alert level="warning" >}}
+An image stored with `storage: PersistentVolumeClaim` can only be used to create disks in the same storage class.
+{{< /alert >}}
 
-- `Pending` - waiting for all dependent resources required for image creation to be ready.
-- `WaitForUserUpload` - waiting for the user to upload the image (the phase is present only for `type=Upload`).
-- `Provisioning` - the image creation process is in progress.
-- `Ready` - the image is created and ready for use.
-- `Failed` - an error occurred during the image creation process.
-- `Terminating` - the image is being deleted. The image may "hang" in this state if it is still connected to the virtual machine.
-- `ImageLost` - the image is missing in DVCR. The resource cannot be used.
-- `PVCLost` - the child PVC of the resource is missing. The resource cannot be used.
+The `PHASE` column in the `d8 k get vi` output shows the progress of image creation; for its values, see the [`.status.phase`](cr.html#virtualimage-v1alpha2-status-phase) field. To follow the creation in real time, add the `-w` flag. If an image stays not ready for a long time, check the [`.status.conditions`](cr.html#virtualimage-v1alpha2-status-conditions) block and the `d8 k describe vi` output for the reason.
 
-As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. After entering the `Ready` phase, the contents of the `.spec` block cannot be changed!
+Until an image reaches the `Ready` phase, you can change its `.spec` block, and the download restarts after each change. For a ready image, the `.spec` block can no longer be changed. For all image parameters, see [VirtualImage](cr.html#virtualimage).
 
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
+### Creating an image from an HTTP server
 
-You can trace the image creation process by adding the `-w` key to the previous command:
+The simplest way to create an image is to provide a link to a file hosted on an HTTP server.
 
-```bash
-d8 k get vi ubuntu-24-04 -w
-```
+{{< tabs name="vi-http" >}}
 
-Example output:
+{{% tab name="Using the CLI" %}}
 
-```txt
-NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-24-04   Provisioning   false              4s
-ubuntu-24-04   Provisioning   false   0.0%       4s
-ubuntu-24-04   Provisioning   false   28.2%      6s
-ubuntu-24-04   Provisioning   false   66.5%      8s
-ubuntu-24-04   Provisioning   false   100.0%     10s
-ubuntu-24-04   Provisioning   false   100.0%     16s
-ubuntu-24-04   Ready          false   100%       18s
-```
+1. Create a [VirtualImage](cr.html#virtualimage) resource. In the example, the image is stored in DVCR:
 
-The `VirtualImage` resource description provides additional information about the downloaded image:
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: ubuntu-24-04
+   spec:
+     # Store the image in DVCR.
+     storage: ContainerRegistry
+     # Source for the image.
+     dataSource:
+       type: HTTP
+       http:
+         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+   EOF
+   ```
 
-```bash
-d8 k describe vi ubuntu-24-04
-```
+1. Verify that the image is created:
 
-How to create an image from an HTTP server in the web interface:
+   ```bash
+   d8 k get virtualimage ubuntu-24-04
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Disk Images" section.
-- Click "Create Image".
-- Select "Load data from link (HTTP)" from the list.
-- In the form that opens, enter the image name in the "Image name" field.
-- Select `ContainerRegistry` in the "Storage" field.
-- Specify the link to the image in the "URL" field.
-- Click the "Create" button.
-- The image status is displayed at the top left, under the image name.
+   # Short form of the command.
+   d8 k get vi ubuntu-24-04
+   ```
+
+   Example output:
+
+   ```console
+   NAME           PHASE   CDROM   PROGRESS   AGE
+   ubuntu-24-04   Ready   false   100%       23h
+   ```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Images**.
+1. Click **Create**.
+1. In the **Source** block, select **By link**.
+1. In the form that opens, enter the image name in the **Image name** field.
+1. In the **Storage** block, select `ContainerRegistry` in the **Storage type** field.
+1. In the **URL** field, specify the link to the image.
+1. Click **Create**.
+1. Check the image status on its page.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 #### Verifying the integrity of a downloaded image
 
-The `checksum` block makes the platform verify what it has downloaded from the HTTP server. The image becomes `Ready` only if the downloaded file matches every checksum specified, otherwise the resource ends up in the `Failed` phase:
+The [`checksum`](cr.html#virtualimage-v1alpha2-spec-datasource-http-checksum) block makes the module verify what it downloaded from the HTTP server. The image reaches the `Ready` phase only if the downloaded file matches every specified checksum, otherwise the resource ends up in the `Failed` phase:
 
-```yaml
+```bash
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
@@ -399,79 +327,98 @@ spec:
 EOF
 ```
 
-The following algorithms are supported. Take the checksum from the mirror that publishes the image, and put it into the field of the matching algorithm:
+Take the checksum from the mirror that publishes the image and put it in the field of the matching algorithm:
 
-| Field         | Algorithm                              | Verification speed |
-|---------------|----------------------------------------|--------------------|
-| `sha1`        | SHA-1                                  | ~1.6 GB/s          |
-| `sha256`      | SHA-256                                | ~1.5 GB/s          |
-| `md5`         | MD5                                    | ~700 MB/s          |
-| `sha512`      | SHA-512                                | ~570 MB/s          |
-| `streebog256` | GOST R 34.11-2012 (Streebog), 256 bits | ~17 MB/s           |
-| `streebog512` | GOST R 34.11-2012 (Streebog), 512 bits | ~17 MB/s           |
+| Field         | Algorithm                             | Verification speed |
+| ------------- | ------------------------------------- | ------------------ |
+| `sha1`        | SHA-1                                 | ~1.6 GB/s          |
+| `sha256`      | SHA-256                               | ~1.5 GB/s          |
+| `md5`         | MD5                                   | ~700 MB/s          |
+| `sha512`      | SHA-512                               | ~570 MB/s          |
+| `streebog256` | GOST R 34.11-2012 (Streebog), 256-bit | ~17 MB/s           |
+| `streebog512` | GOST R 34.11-2012 (Streebog), 512-bit | ~17 MB/s           |
 
-The speeds are an order of magnitude, not a promise: they were measured on an x86-64 processor with the SHA instruction set, and a processor without it computes SHA-1 and SHA-256 several times slower. What holds on any processor is the distance between the rows. SHA-1 and SHA-256 are computed with dedicated instructions, MD5 and SHA-512 with hand-written assembly, and all four hash the data faster than it arrives over the network, so their cost stays unnoticed against the download itself.
+The speeds are an order of magnitude, not a promise. They were measured on an x86-64 CPU with the SHA instruction set, and a CPU without it computes SHA-1 and SHA-256 several times slower. What holds on any CPU is the distance between the rows. SHA-1 and SHA-256 are computed by dedicated instructions, MD5 and SHA-512 by hand-written assembly, and all four hash data faster than it arrives over the network, so their cost stays invisible against the download itself.
 
-The Streebog algorithms have no hardware support anywhere and are about two orders of magnitude slower — for a 10 GiB image, that is around ten minutes of hashing alone. Image creation becomes limited by the processor rather than by the network, so specify them only when a checksum according to GOST is actually required. Both lengths cost the same: GOST R 34.11-2012 uses one compression function for 256 and 512 bits alike, and the shorter variant differs only in its initial value.
+The Streebog algorithms have no hardware support anywhere and are about two orders of magnitude slower. For a 10 GiB image, that's around ten minutes of hashing alone, and image creation becomes CPU-bound rather than network-bound. Use them only when a GOST checksum is actually required. Both lengths cost the same, because GOST R 34.11-2012 uses one compression function for 256 and 512 bits, and the shorter variant differs only in the initial value.
 
-Checksums are calculated in a single pass over the downloaded data, so specifying several of them at once costs the sum of their times. Fields left empty cost nothing.
+Checksums are computed in a single pass over the downloaded data, so specifying several checksums at once costs the sum of their times. Empty fields cost nothing.
 
-The same block is available for the `Upload` data source, under `dataSource.upload`, and works the same way: the data the user uploads is verified against every checksum specified, and a mismatch leaves the resource in the `Failed` phase. See [Load an image from the command line](#load-an-image-from-the-command-line).
+The same block is available for the `Upload` source in the [`dataSource.upload.checksum`](cr.html#virtualimage-v1alpha2-spec-datasource-upload-checksum) parameter and works the same way. The uploaded data is verified against every specified checksum, and on a mismatch the resource stays in the `Failed` phase.
 
-Now let's look at an example of creating an image and storing it in PVC:
+#### Storing an image in a PVC
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu-24-04-pvc
-spec:
-  storage: PersistentVolumeClaim
-  persistentVolumeClaim:
-    # Substitute your StorageClass name.
-    storageClassName: rv-thin-r2
-  # Source for image creation.
-  dataSource:
-    type: HTTP
-    http:
-      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-EOF
-```
+To create disks from an image faster, store it in a PVC. The module can then clone the volume instead of unpacking the image again.
 
-Check the result of the `VirtualImage` creation:
+{{< tabs name="vi-pvc" >}}
 
-```bash
-d8 k get vi ubuntu-24-04-pvc
-```
+{{% tab name="Using the CLI" %}}
 
-Example output:
+1. Create a [VirtualImage](cr.html#virtualimage) resource with the `PersistentVolumeClaim` storage type:
 
-```txt
-NAME              PHASE   CDROM   PROGRESS   AGE
-ubuntu-24-04-pvc  Ready   false   100%       23h
-```
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: ubuntu-24-04-pvc
+   spec:
+     # Storage settings for the project image.
+     storage: PersistentVolumeClaim
+     persistentVolumeClaim:
+       # Specify the name of your StorageClass.
+       storageClassName: rv-thin-r2
+     # Source for the image.
+     dataSource:
+       type: HTTP
+       http:
+         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+   EOF
+   ```
 
-If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-images).
+   If the [`.spec.persistentVolumeClaim.storageClassName`](cr.html#virtualimage-v1alpha2-spec-persistentvolumeclaim-storageclassname) parameter isn't set, the module uses the cluster-wide default StorageClass or the class set for images in the [module settings](./admin_guide.html#storage-classes-for-images-and-disks).
 
-How to create an image and store it in PVC in the web interface:
+1. Verify that the image is created:
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Disk Images" section.
-- Click "Create Image".
-- Select "Load data from link (HTTP)" from the list.
-- In the form that opens, enter the image name in the "mage name" field.
-- In the "Storage" field, select `PersistentVolumeClaim`.
-- In the "Storage class" field, you can select StorageClass or leave the default selection.
-- In the URL field, specify the link to the image.
-- Click the Create button.
-- The image status is displayed at the top left, under the image name.
+   ```bash
+   d8 k get vi ubuntu-24-04-pvc
+   ```
 
-### Creating an image from Container Registry
+   Example output:
 
-An image stored in Container Registry has a certain format. Let's look at an example:
+   ```console {.nowrap-default}
+   NAME               PHASE   CDROM   PROGRESS   AGE
+   ubuntu-24-04-pvc   Ready   false   100%       23h
+   ```
 
-1. Download the image locally:
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Images**.
+1. Click **Create**.
+1. In the **Source** block, select **By link**.
+1. In the form that opens, enter the image name in the **Image name** field.
+1. In the **Storage** block, select `PersistentVolumeClaim` in the **Storage type** field.
+1. In the **Storage class** field, select a StorageClass or keep the default one.
+1. In the **URL** field, specify the link to the image.
+1. Click **Create**.
+1. Check the image status on its page.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Creating an image from a container image registry
+
+The module can pull an image from an external container image registry, but the disk file must be located in the container image under the `/disk` path. The following steps show how to prepare such a container image and create a project image from it.
+
+{{< tabs name="vi-registry" >}}
+
+{{% tab name="Using the CLI" %}}
+
+1. Download the image file to your local machine:
 
    ```bash
    curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
@@ -484,23 +431,23 @@ An image stored in Container Registry has a certain format. Let's look at an exa
    COPY ubuntu2404.img /disk/ubuntu2404.img
    ```
 
-1. Build the container image. The example below uses [docker.com](https://www.docker.com/) as the container registry. You need an account on the service and a properly configured environment:
+1. Build the container image. The example uses the [docker.com](https://www.docker.com/) registry, which requires an account and a configured environment:
 
    ```bash
-   docker build -t docker.io/<username>/ubuntu2404:latest
+   docker build -t docker.io/<USERNAME>/ubuntu2404:latest
    ```
 
-   Where `username` is the username specified when registering with [docker.com](https://www.docker.com/).
+   Where `<USERNAME>` is the username you specified when registering in the registry.
 
-1. Push the created image to the container registry:
+1. Push the built container image to the registry:
 
    ```bash
-   docker push docker.io/<username>/ubuntu2404:latest
+   docker push docker.io/<USERNAME>/ubuntu2404:latest
    ```
 
-1. To use this image, create a resource as an example:
+1. Create a [VirtualImage](cr.html#virtualimage) resource that points to the container image:
 
-   ```yaml
+   ```bash
    d8 k apply -f - <<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
@@ -511,122 +458,124 @@ An image stored in Container Registry has a certain format. Let's look at an exa
      dataSource:
        type: ContainerImage
        containerImage:
-         image: docker.io/<username>/ubuntu2404:latest
+         image: docker.io/<USERNAME>/ubuntu2404:latest
    EOF
    ```
 
-How to create an image from Container Registry in the web interface:
+The module works only with registries that have TLS enabled. If the registry uses its own certificate authority, provide the certificate chain in the [`caBundle`](cr.html#virtualimage-v1alpha2-spec-datasource-containerimage-cabundle) parameter, and take the credentials for a private registry from the secret specified in the `imagePullSecret` parameter.
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Disk Images" section.
-- Click "Create Image".
-- Select "Upload data from container image" from the list.
-- In the form that opens, enter the image name in the "Image Name" field.
-- In the "Storage" field, select `ContainerRegistry`.
-- In the "Image in Container Registry" field, specify `docker.io/<username>/ubuntu2404:latest`.
-- Click the "Create" button.
-- The image status is displayed at the top left, under the image name.
+{{% /tab %}}
 
-### Load an image from the command line
+{{% tab name="Using the web interface" %}}
 
-To load an image from the command line, first create the following resource as shown below with the `VirtualImage` example:
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Images**.
+1. Click **Create**.
+1. In the **Source** block, select **From registry**.
+1. In the form that opens, enter the image name in the **Image name** field.
+1. In the **Storage** block, select `ContainerRegistry` in the **Storage type** field.
+1. In the **Image in container registry** field, specify the path to the container image.
+1. Click **Create**.
+1. Check the image status on its page.
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: some-image
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: Upload
-EOF
-```
+{{% /tab %}}
 
-Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for image upload. If the upload is not started within 10 minutes, the resource will transition to the `Failed` phase; to try again, recreate the resource.
+{{< /tabs >}}
 
-To have the platform verify what has been uploaded, add the `checksum` block to the data source. It accepts the same algorithms as the HTTP source (see [Verifying the integrity of a downloaded image](#verifying-the-integrity-of-a-downloaded-image)), and the checksums are calculated over the bytes the client sends, so they are the checksums of the very file being uploaded:
+### Uploading an image from the command line
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: some-image
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: Upload
-    upload:
-      checksum:
-        sha256: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
-EOF
-```
+If the image file is on your computer, upload it directly. The module creates a temporary upload endpoint for this and waits for the data.
 
-If the uploaded data does not match, the resource transitions to the `Failed` phase, and the upload has to be repeated on a recreated resource.
+{{< tabs name="vi-upload" >}}
 
-There are two options available for uploading from a cluster node and from an arbitrary node outside the cluster:
+{{% tab name="Using the CLI" %}}
 
-```bash
-d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
-```
+1. Create a [VirtualImage](cr.html#virtualimage) resource with the `Upload` source:
 
-Example output:
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: some-image
+   spec:
+     # Storage settings for the project image.
+     storage: ContainerRegistry
+     # Image source settings.
+     dataSource:
+       type: Upload
+   EOF
+   ```
 
-```json
-{
-  "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
-  "inCluster":"http://10.222.165.239/upload"
-}
-```
+   The resource moves to the `WaitForUserUpload` phase and is ready to accept the file. Start the upload within 10 minutes, otherwise the resource moves to the `Failed` phase and you have to create it again.
 
-As an example, download the Cirros image:
+1. Get the addresses that accept the file:
 
-```bash
-curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-```
+   ```bash
+   d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}" | jq
+   ```
 
-Upload the image using the following command:
+   Example output:
 
-```bash
-curl https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm --progress-bar -T cirros.img | cat
-```
+   ```console {.nowrap-default}
+   {
+     "external": "https://virtualization.example.com/upload/<SECRET_URL>",
+     "inCluster": "http://10.222.165.239/upload"
+   }
+   ```
 
-After the upload is complete, the image should be created and enter the `Ready` phase
+   Use the `inCluster` address if you upload the file from one of the cluster nodes, and `external` in all other cases.
 
-```bash
-d8 k get vi some-image
-```
+1. Upload the file to the selected address. The example first downloads the Cirros image and then sends it to the cluster:
 
-Example output:
+   ```bash
+   curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+   curl https://virtualization.example.com/upload/<SECRET_URL> --progress-bar -T cirros.img | cat
+   ```
 
-```txt
-NAME         PHASE   CDROM   PROGRESS   AGE
-some-image   Ready   false   100%       1m
-```
+   Where `<SECRET_URL>` is the last part of the address from the previous step.
 
-How to upload an image from the command line in the web interface:
+1. Verify that the image has reached the `Ready` phase:
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Disk Images" section.
-- Click "Create Image" then select "Upload from computer" from the drop-down menu.
-- Enter the image name in the "Image Name" field.
-- In the "Upload File" field, click the "Choose a file from your computer" link.
-- Select the file in the file manager that opens.
-- Click the "Create" button.
-- Wait until the image changes to `Ready` status.
+   ```bash
+   d8 k get vi some-image
+   ```
+
+   Example output:
+
+   ```console
+   NAME         PHASE   CDROM   PROGRESS   AGE
+   some-image   Ready   false   100%       1m
+   ```
+
+You can also verify the uploaded file against a checksum. To do this, specify the [`checksum`](cr.html#virtualimage-v1alpha2-spec-datasource-upload-checksum) block in the data source. The checksums are computed over the bytes the client sends, and on a mismatch the resource stays in the `Failed` phase, so the upload has to be repeated on a recreated resource.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Images**.
+1. Click **Create**, then select **Upload** in the **Source** block.
+1. In the **Image name** field, enter the image name.
+1. In the **Upload file** block, drag the file to the highlighted area or click **select on your computer**.
+1. Select the file in the file manager that opens.
+1. Click **Create**.
+1. Wait until the image reaches the **Ready** state.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 ### Creating an image from a disk
 
-It is possible to create an image from [disk](#disks). To do so, one of the following conditions must be met:
+You can create an image from a [disk](#disks) if the disk isn't attached to any virtual machine, or if the machine it's attached to is powered off.
 
-- The disk is not attached to any virtual machine.
-- The virtual machine to which the disk is attached is in a powered off state.
+{{< tabs name="vi-from-disk" >}}
 
-Example of creating an image from a disk:
+{{% tab name="Using the CLI" %}}
 
-```yaml
+```bash
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
@@ -642,25 +591,33 @@ spec:
 EOF
 ```
 
-How to create an image from a disk in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Disk Images" section.
-- Click "Create Image".
-- Select "Write data from disk" from the list.
-- In the form that opens, enter `linux-vm-root` in the "Image Name" field.
-- In the "Storage" field, select `ContainerRegistry`.
-- In the "Disk" field, select the desired disk from the drop-down list.
-- Click the "Create" button.
-- The image status is displayed at the top left, under its name.
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Images**.
+1. Click **Create**.
+1. In the **Source** block, select **Create from**.
+1. In the form that opens, enter `linux-vm-root` in the **Image name** field.
+1. In the **Storage** block, select `ContainerRegistry` in the **Storage type** field.
+1. In the **Source** field, select the disk you need from the drop-down list.
+1. Click **Create**.
+1. Check the image status on its page.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 ### Creating an image from a disk snapshot
 
-It is possible to create an image from [snapshot](#snapshots). This requires that the disk snapshot is in the ready phase.
+You can create an image from a [disk snapshot](#creating-disk-snapshots) if the snapshot is in the `Ready` phase.
 
-Example of creating an image from a disk snapshot:
+{{< tabs name="vi-from-snapshot" >}}
 
-```yaml
+{{% tab name="Using the CLI" %}}
+
+```bash
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
@@ -676,43 +633,66 @@ spec:
 EOF
 ```
 
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Images**.
+1. Click **Create**.
+1. In the form that opens, enter the image name in the **Image name** field.
+1. In the **Storage** block, select the image storage type in the **Storage type** field.
+1. In the **Source** block, select **Create from**.
+1. In the **Source** field, expand the list and select the snapshot you need in the **Disk snapshots** group.
+1. Click **Create**.
+1. Check the image status on its page.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+Image properties are convenient to review in the web interface, in **Virtualization** → **Images**:
+
+- The list shows the image name, status, size, format in the **Type** column, and visibility scope in the **Availability** column, and the filters narrow it down by status, image, and type.
+- On the image page, the **Information** tab collects the creation parameters in the **Storage** and **Source** blocks, and the **State** block shows the average download speed, format, unpacked size, size in storage, creation time, the **CD-ROM** flag, and the image path in DVCR.
+- The **Meta** and **YAML** tabs show labels with annotations and the full resource specification.
+
 ## Disks
 
-Virtual machine disks are used to write and store data required for operating systems and applications to run. Various types of storage can be used for this purpose.
+A disk stores virtual machine data, including the operating system and application files. A disk is described by the [VirtualDisk](cr.html#virtualdisk) resource, and its specification consists of two blocks:
 
-The disk specification contains two main blocks:
+- [`persistentVolumeClaim`](cr.html#virtualdisk-v1alpha2-spec-persistentvolumeclaim): Storage parameters, that is, the StorageClass and the size.
+- [`dataSource`](cr.html#virtualdisk-v1alpha2-spec-datasource): The data source, which can be an image, another disk, or a snapshot.
 
-- `persistentVolumeClaim`: Disk storage parameters (StorageClass and size).
-- `dataSource`: The source used to create the disk (image, another disk, snapshot).
+Without the `dataSource` block, an empty disk is created, and then you have to specify at least the size in `persistentVolumeClaim`. If a source is set, you can omit the `persistentVolumeClaim` block, and the module takes the size from the source and picks the storage class based on it too. When no class can be picked, the module uses the cluster-wide default StorageClass or the class set for disks in the [module settings](./admin_guide.html#storage-classes-for-images-and-disks).
 
-If `dataSource` is not specified, an empty disk is created. In this case, you must specify at least the size and StorageClass in `persistentVolumeClaim`.
+The `PHASE` column in the `d8 k get vd` output shows the progress of disk creation; for its values, see the [`.status.phase`](cr.html#virtualdisk-v1alpha2-status-phase) field. If a disk stays not ready for a long time, the [`.status.conditions`](cr.html#virtualdisk-v1alpha2-status-conditions) block tells you the reason.
 
-If `dataSource` is specified, you can omit `persistentVolumeClaim`. Then:
-
-- The disk size is determined automatically based on the source.
-- The StorageClass is determined from the source. If it cannot be derived, the cluster default StorageClass is used, or the value configured for disks in the [module settings](./admin_guide.html#storage-class-settings-for-disks).
-
-Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
-
-Storage systems can differ in the following parameters:
-
-- Volume type: A storage class can support filesystem volumes (`FileSystem`, for example NFS) or block volumes (`Block`, for example iSCSI, Ceph RBD). For `FileSystem` volumes, a VM disk is created in the `qcow2` format. Some storage classes support both volume types.
-- `VolumeBindingMode`:
-  - `Immediate` — the disk is created right after the resource is created (the disk is expected to be attachable to a VM on any node in the cluster).
-
-    ![VolumeBindingMode: Immediate](images/vd-immediate.png)
-
-  - `WaitForFirstConsumer` — the disk is created only after it is attached to a VM and is provisioned on the node where the VM will run.
-
-    ![VolumeBindingMode: WaitForFirstConsumer](images/vd-wffc.png)
-
-When a disk is created, all parameters (volume type, disk format, volume binding mode, and other settings) are determined automatically based on the capabilities of the selected `StorageClass`.
+Until a disk reaches the `Ready` phase, you can change any field of the `.spec` block, and the creation restarts after the change. For a ready disk, only the size and the storage class remain editable, in the [`.spec.persistentVolumeClaim.size`](cr.html#virtualdisk-v1alpha2-spec-persistentvolumeclaim-size) and [`.spec.persistentVolumeClaim.storageClassName`](cr.html#virtualdisk-v1alpha2-spec-persistentvolumeclaim-storageclassname) parameters.
 
 {{< alert level="warning" >}}
-Creating disks from ISO images is not supported.
+You can't create a disk from an ISO image.
 {{< /alert >}}
 
-To find out the available storage options, run the following command:
+### How storage affects a disk
+
+Disk behavior depends on the storage behind the selected StorageClass. The differences show up in two properties.
+
+The volume type determines the format in which the module creates the disk. On file system volumes (`FileSystem`, for example NFS), the disk is created in the `qcow2` format, and on block devices (`Block`, for example iSCSI or Ceph RBD), data is written directly. Some storage types support both.
+
+The volume binding mode determines when the disk is created:
+
+- `Immediate`: The disk is created right away, independently of virtual machines, and you can attach it to a machine on any cluster node.
+
+  ![VolumeBindingMode: Immediate](images/vd-immediate.png)
+
+- `WaitForFirstConsumer`: The disk is created only after it's attached to a virtual machine, and it's placed on the node where that machine starts.
+
+  ![VolumeBindingMode: WaitForFirstConsumer](images/vd-wffc.png)
+
+The module determines the remaining parameters, including the disk format, on its own from the capabilities of the selected StorageClass.
+
+To view the available storage types, run the following command:
 
 ```bash
 d8 k get storageclass
@@ -720,611 +700,639 @@ d8 k get storageclass
 
 Example output:
 
-```txt
-NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-rv-thin-r1 (default)                 replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-rv-thin-r2                           replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
+```console {.nowrap-default}
+NAME                   PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+rv-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+rv-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+nfs-4-1-wffc           nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
-A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
+In the web interface, the same list is available on the **System** tab, in **Storage** → **Storage classes**.
 
-How to find out the available storage options in the web interface:
+### Creating an empty disk
 
-- Go to the "System" tab, then to the "Storage" section → "Storage Classes".
+An empty disk is what you need to install an operating system on it or to store data separately from the system disk.
 
-### Create an empty disk
+{{< tabs name="vd-blank" >}}
 
-Empty disks are usually used to install an OS on them, or to store some data.
+{{% tab name="Using the CLI" %}}
 
-Create a disk:
+1. Create a [VirtualDisk](cr.html#virtualdisk) resource with the size and the storage class:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: blank-disk
-spec:
-  # Disk storage parameter settings.
-  persistentVolumeClaim:
-    # Substitute your StorageClass name.
-    storageClassName: rv-thin-r2
-    size: 100Mi
-EOF
-```
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: blank-disk
+   spec:
+     # Disk storage parameters.
+     persistentVolumeClaim:
+       # Specify the name of your StorageClass.
+       storageClassName: rv-thin-r2
+       size: 100Mi
+   EOF
+   ```
 
-After creation, the `VirtualDisk` resource can be in the following phase:
+1. Verify that the disk is created:
 
-- `Pending`: Waiting for all dependent resources required for disk creation to be ready.
-- `Provisioning`: Disk creation process is in progress.
-- `Resizing`: Process of resizing the disk is in progress.
-- `WaitForFirstConsumer`: Disk is waiting for the virtual machine that will use it to be created.
-- `WaitForUserUpload`: Disk is waiting for the user to upload an image (type: Upload).
-- `Ready`: Disk has been created and is ready for use.
-- `Migrating`: Live migration of a disk.
-- `Exporting`: The disk export process is in progress.
-- `Failed`: An error occurred during the creation process.
-- `PVCLost`: System error, PVC with data has been lost.
-- `Terminating`: Disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
+   ```bash
+   d8 k get vd blank-disk
+   ```
 
-As long as the disk has not reached the `Ready` phase, you can modify any fields in the `.spec` block. When changes are made, the disk creation process is restarted.
+   Example output:
 
-{{< alert level="info" >}}
-After the disk reaches the `Ready` phase, you can still change `.spec.persistentVolumeClaim.size` and `.spec.persistentVolumeClaim.storageClassName`. All other `.spec` fields are immutable.
-{{< /alert >}}
+   ```console {.nowrap-default}
+   NAME         PHASE   CAPACITY   VIRTUALMACHINE   AGE
+   blank-disk   Ready   100Mi                       1m2s
+   ```
 
-If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
+{{% /tab %}}
 
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
+{{% tab name="Using the web interface" %}}
 
-Check the status of the disk after creation with the command:
+You can skip this step and create the disk while creating the VM.
 
-```bash
-d8 k get vd blank-disk
-```
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Disks**.
+1. Click **Create**.
+1. In the form that opens, enter `blank-disk` in the **Disk name** field.
+1. In the **Size** field, specify the size with units, for example `100Mi`.
+1. In the **Storage class** field, select a StorageClass or keep the default one.
+1. Click **Create**.
+1. Check the disk status on its page.
 
-Example output:
+{{% /tab %}}
 
-```txt
-NAME       PHASE   CAPACITY   AGE
-blank-disk   Ready   100Mi      1m2s
-```
-
-How to create an empty disk in the web interface (this step can be skipped and performed when creating a VM):
-
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "VM Disks" section.
-- Click "Create Disk".
-- In the form that opens, enter `blank-disk` in the "Disk Name" field.
-- In the "Size" field, set the size with the measurement units `100Mi`.
-- In the "StorageClass Name" field, you can select a StorageClass or leave the default selection.
-- Click the "Create" button.
-- The disk status is displayed at the top left, under the disk name.
+{{< /tabs >}}
 
 ### Creating a disk from an image
 
-A disk can also be created and populated with data from previously created `ClusterVirtualImage` and `VirtualImage` images.
+You can fill a disk with data from an image created earlier, either a project [VirtualImage](cr.html#virtualimage) or a cluster [ClusterVirtualImage](cr.html#clustervirtualimage).
 
-When creating a disk, you can specify its desired size, which must be equal to or larger than the size of the extracted image. If no size is specified, a disk will be created with the size corresponding to the original disk image.
+Specifying the disk size is optional. If you don't set it, the module creates the disk exactly at the unpacked size of the image, and if you do set it, the size must be no smaller than the unpacked one.
 
-Using the example of the previously created image `VirtualImage`, let's consider the command that allows you to determine the size of the unpacked image:
+{{< tabs name="vd-from-image" >}}
 
-```bash
-d8 k get vi ubuntu-24-04 -o wide
-```
+{{% tab name="Using the CLI" %}}
 
-Example output:
+1. Check the unpacked image size in the `UNPACKEDSIZE` column:
 
-```txt
-NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-ubuntu-24-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-24-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
-```
+   ```bash
+   d8 k get vi ubuntu-24-04 -o wide
+   ```
 
-The size you are looking for is specified in the **UNPACKEDSIZE** column and is 2.5Gi.
+   Example output:
 
-Let's create a disk from this image:
+   ```console {.nowrap-default}
+   NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                              TARGETPVC   AGE
+   ubuntu-24-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/vi/default/ubuntu-24-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0               122m
+   ```
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: linux-vm-root
-spec:
-  # Disk storage parameter settings.
-  persistentVolumeClaim:
-    # Specify a size larger than the value of the unpacked image.
-    size: 10Gi
-    # Substitute your StorageClass name.
-    storageClassName: rv-thin-r2
-  # The source from which the disk is created.
-  dataSource:
-    type: ObjectRef
-    objectRef:
-      kind: VirtualImage
-      name: ubuntu-24-04
-EOF
-```
+1. Create a disk with a size larger than the unpacked one:
 
-Now create a disk, without explicitly specifying the size:
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: linux-vm-root
+   spec:
+     # Disk storage parameters.
+     persistentVolumeClaim:
+       # The size is larger than the unpacked image size.
+       size: 10Gi
+       # Specify the name of your StorageClass.
+       storageClassName: rv-thin-r2
+     # The source the disk is created from.
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualImage
+         name: ubuntu-24-04
+   EOF
+   ```
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: linux-vm-root-2
-spec:
-  # Disk storage settings.
-  persistentVolumeClaim:
-    # Substitute your StorageClass name.
-    storageClassName: rv-thin-r2
-  # The source from which the disk is created.
-  dataSource:
-    type: ObjectRef
-    objectRef:
-      kind: VirtualImage
-      name: ubuntu-24-04
-EOF
-```
+1. Create a second disk without specifying the size:
 
-Check the status of the disks after creation:
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: linux-vm-root-2
+   spec:
+     # Disk storage parameters.
+     persistentVolumeClaim:
+       # Specify the name of your StorageClass.
+       storageClassName: rv-thin-r2
+     # The source the disk is created from.
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualImage
+         name: ubuntu-24-04
+   EOF
+   ```
 
-```bash
-d8 k get vd
-```
+1. Compare the sizes of the created disks:
 
-Example output:
+   ```bash
+   d8 k get vd
+   ```
 
-```txt
-NAME           PHASE   CAPACITY   AGE
-linux-vm-root    Ready   10Gi       7m52s
-linux-vm-root-2  Ready   2590Mi     7m15s
-```
+   Example output:
 
-How to create a disk from an image in the web interface (this step can be skipped and performed when creating a VM):
+   ```console {.nowrap-default}
+   NAME              PHASE   CAPACITY   VIRTUALMACHINE   AGE
+   linux-vm-root     Ready   10Gi                        7m52s
+   linux-vm-root-2   Ready   2590Mi                      7m15s
+   ```
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "VM Disks" section.
-- Click "Create Disk".
-- In the form that opens, enter `linux-vm-root` in the "Disk Name" field.
-- In the "Source" field, make sure that the "Project" checkbox is selected.
-- Select the image you want from the drop-down list.
-- In the "Size" field, you can change the size to a larger one or leave the default selection.
-- In the "StorageClass Name" field, you can select a StorageClass or leave the default selection.
-- Click the "Create" button.
-- The disk status is displayed at the top left, under the disk name.
+   The first disk got the specified 10 GiB, and the second one got the unpacked image size.
 
-### Upload a disk from the command line
+{{% /tab %}}
 
-To upload a disk from the command line, first create the VirtualDisk resource as shown in the following example:
+{{% tab name="Using the web interface" %}}
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: uploaded-disk
-spec:
-  dataSource:
-    type: Upload
-EOF
-```
+You can skip this step and create the disk while creating the VM.
 
-Once created, the resource enters the `WaitForUserUpload` phase, which means it is ready to accept a disk upload. If the upload is not started within 10 minutes, the resource will transition to the `Failed` phase; to try again, recreate the resource.
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Disks**.
+1. Click **Create**.
+1. In the form that opens, enter `linux-vm-root` in the **Disk name** field.
+1. In the **Source** field, select the image you need from the drop-down list.
+1. If required, specify a larger size in the **Size** field or keep the default value.
+1. In the **Storage class** field, select a StorageClass or keep the default one.
+1. Click **Create**.
+1. Check the disk status on its page.
 
-Two upload options are available: from a cluster node and from any node outside the cluster:
+{{% /tab %}}
 
-```bash
-d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}"  | jq
-```
+{{< /tabs >}}
 
-Example output:
+### Uploading a disk from the command line
 
-```json
-{
-  "external": "https://virtualization.example.com/upload/<secret-url>",
-  "inCluster": "http://10.222.165.239/upload"
-}
-```
+If the image file is on your computer, upload it straight into a disk. The module creates a temporary upload endpoint for this and waits for the data.
 
-Upload the disk using the following command:
+{{< tabs name="vd-upload" >}}
 
-```bash
-curl https://virtualization.example.com/upload/<secret-url> --progress-bar -T <image.name> | cat
-```
+{{% tab name="Using the CLI" %}}
 
-After the upload completes, the disk should be created and enter the `Ready` phase:
+1. Create a [VirtualDisk](cr.html#virtualdisk) resource with the `Upload` source:
 
-```bash
-d8 k get vd uploaded-disk
-```
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: uploaded-disk
+   spec:
+     dataSource:
+       type: Upload
+   EOF
+   ```
 
-Example output:
+   The resource moves to the `WaitForUserUpload` phase and is ready to accept the file. Start the upload within 10 minutes, otherwise the resource moves to the `Failed` phase and you have to create it again.
 
-```txt
-NAMESPACE   NAME                  PHASE   CAPACITY    AGE
-default     uploaded-disk         Ready   3Gi         7d23h
-```
+1. Get the addresses that accept the file:
 
-### Change disk size
+   ```bash
+   d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}" | jq
+   ```
 
-You can increase the size of disks even if they are already attached to a running virtual machine. To do this, edit the `spec.persistentVolumeClaim.size` field:
+   Example output:
 
-Check the size before the change:
+   ```console {.nowrap-default}
+   {
+     "external": "https://virtualization.example.com/upload/<SECRET_URL>",
+     "inCluster": "http://10.222.165.239/upload"
+   }
+   ```
 
-```bash
-d8 k get vd linux-vm-root
-```
+   Use the `inCluster` address if you upload the file from one of the cluster nodes, and `external` in all other cases.
 
-Example output:
+1. Upload the file to the selected address:
 
-```txt
-NAME          PHASE   CAPACITY   AGE
-linux-vm-root   Ready   10Gi       10m
-```
+   ```bash
+   curl https://virtualization.example.com/upload/<SECRET_URL> --progress-bar -T <IMAGE_FILE> | cat
+   ```
 
-Let's apply the changes:
+   Where `<SECRET_URL>` is the address from the previous step, and `<IMAGE_FILE>` is the path to the image file on your computer.
 
-```bash
-d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+1. Verify that the disk has reached the `Ready` phase:
 
-# Alternatively, apply the changes by editing the resource.
+   ```bash
+   d8 k get vd uploaded-disk
+   ```
 
-d8 k edit vd linux-vm-root
-```
+   Example output:
 
-Let's check the size after the change:
+   ```console {.nowrap-default}
+   NAME            PHASE   CAPACITY   VIRTUALMACHINE   AGE
+   uploaded-disk   Ready   3Gi                         7d23h
+   ```
 
-```bash
-d8 k get vd linux-vm-root
-```
+{{% /tab %}}
 
-Example output:
+{{% tab name="Using the web interface" %}}
 
-```txt
-NAME          PHASE   CAPACITY   AGE
-linux-vm-root   Ready   11Gi       12m
-```
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Disks**.
+1. Click **Create**.
+1. In the form that opens, enter the disk name in the **Disk name** field.
+1. In the **Disk** block, select **Upload** in the **Data source** field.
+1. Drag the file to the highlighted area, or click it and select the file on your computer.
+1. In the **Size** field, specify the disk size, and in the **Storage class** field, select a StorageClass.
+1. Click **Create**.
 
-How to change the disk size in the web interface:
+> If the selected storage class uses the `WaitForFirstConsumer` volume binding mode, the **Upload** option isn't available. Without a consumer, the disk isn't created and there's nowhere to upload the file, so select a storage class with the `Immediate` mode or upload the data as an image.
+>
+> For the same reason, an empty disk created in advance with such a storage class stays in the "WAITING FOR VM" status and isn't offered in the **Disks / Images** window when attaching to a virtual machine, because only a ready disk can be selected. Create such disks right from the virtual machine form with the **Blank** or **Create from** options.
 
-Method #1:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "VM Disks" section.
-- Select the desired disk and click on the pencil icon in the "Size" column.
-- In the pop-up window, you can change the size to a larger one.
-- Click on the "Apply" button.
-- The disk status is displayed in the "Status" column.
+{{< /tabs >}}
 
-Method #2:
+Disk properties are convenient to review in the web interface, in **Virtualization** → **Disks**:
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "VM Disks" section.
-- Select the desired disk and click on its name.
-- In the form that opens, on the "Configuration" tab, in the "Size" field, you can change the size to a larger one.
-- Click on the "Save" button that appears.
-- The disk status is displayed at the top left, under its name.
+- The list shows the disk name, status, size, storage class in the **Class** column, the virtual machine that uses the disk in the **Used by** column, and the resource age.
+- On the disk page, the **Configuration** tab shows the data source, size, storage class, and the list of VMs in the **Used in** row.
+- The **Diagnostics** tab shows the PVC name, its phase, size, storage class, PV name, and age, as well as the duration of the disk creation stages in the **Diagnostics summary** block.
+
+### Changing the disk size
+
+You can grow a disk even while it's attached to a running virtual machine. You can't shrink a disk.
+
+{{< tabs name="vd-resize" >}}
+
+{{% tab name="Using the CLI" %}}
+
+1. Check the current disk size:
+
+   ```bash
+   d8 k get vd linux-vm-root
+   ```
+
+   Example output:
+
+   ```console {.nowrap-default}
+   NAME            PHASE   CAPACITY   VIRTUALMACHINE   AGE
+   linux-vm-root   Ready   10Gi       linux-vm         10m
+   ```
+
+1. Set the new size in the [`.spec.persistentVolumeClaim.size`](cr.html#virtualdisk-v1alpha2-spec-persistentvolumeclaim-size) parameter:
+
+   ```bash
+   d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+
+   # You can achieve the same result by editing the resource.
+   d8 k edit vd linux-vm-root
+   ```
+
+1. Verify that the size has changed:
+
+   ```bash
+   d8 k get vd linux-vm-root
+   ```
+
+   Example output:
+
+   ```console {.nowrap-default}
+   NAME            PHASE   CAPACITY   VIRTUALMACHINE   AGE
+   linux-vm-root   Ready   11Gi       linux-vm         12m
+   ```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+You can change the size from the virtual machine page:
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM the disk is attached to from the list and click its name.
+1. On the **Configuration** tab, in the **Disks** section, click the pencil icon next to the disk size.
+1. In the window that opens, specify a larger size.
+1. Click **Apply**.
+
+Or from the disk page itself:
+
+1. Go to **Virtualization** → **Disks**.
+1. Select the disk you need and click its name.
+1. On the **Configuration** tab, specify a larger size in the **Size** field.
+1. Click the **Save** button that appears.
+1. Check the disk status on its page.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 ### Migrating disks to other storage
 
-In commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its StorageClass.
+In paid editions, you can move a disk to another storage by changing its storage class. The move works both for disks defined in the VM specification and for disks attached as a separate resource.
 
-Migration is supported for both statically attached disks and dynamically attached (hotplug) disks.
-
-{{< alert level="warning">}}
-Limitations of disk migration between storage:
-
-- Migration is only available for virtual machines in the `Running` state.
-- Migration is only supported between disks of the same type: `Block` ↔ `Block`, `FileSystem` ↔ `FileSystem`; conversion between different types is not possible.
+{{< alert level="warning" >}}
+The virtual machine must be in the `Running` phase, and the source and target storage must be of the same type. You can't move a disk from a file system volume to a block device or the other way around.
 {{< /alert >}}
 
-Example of migrating a disk to the `new-storage-class-name` StorageClass:
+To move a disk, specify the new storage class in the [`.spec.persistentVolumeClaim.storageClassName`](cr.html#virtualdisk-v1alpha2-spec-persistentvolumeclaim-storageclassname) parameter:
 
 ```bash
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 
-# Alternatively, apply the changes by editing the resource.
-
+# You can achieve the same result by editing the resource.
 d8 k edit vd disk
 ```
 
-After the disk configuration is updated, a live migration of the VM is triggered, during which the VM disk is moved to the new storage.
+After that, a live migration of the VM starts, during which the disk moves to the new storage.
 
-If a VM has multiple disks attached, and you need to change the storage class for several of them, this operation must be performed sequentially:
+If you need to move several disks of the same machine, change the storage class one disk at a time:
 
 ```bash
 d8 k patch vd disk1 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 ```
 
-If migration fails, retry attempts are performed with increasing delays (exponential backoff algorithm). The maximum delay is 300 seconds (5 minutes). Delays are: 5 seconds (1st attempt), 10 seconds (2nd), then each delay doubles until it reaches 300 seconds (7th and subsequent attempts). The first attempt is performed without delay.
+The module retries a failed migration with a growing delay. The first attempt runs immediately, the next ones after 5 and 10 seconds, then the delay doubles and from the seventh attempt stays at 300 seconds. To cancel the migration, restore the previous storage class in the specification.
 
-To cancel migration, the StorageClass in the specification must be reverted to its original value.
+### Exporting a disk or a snapshot
 
+Export writes the contents of a disk or its snapshot to a file so that you can move the data outside the cluster.
+
+{{< tabs name="data-export" >}}
+
+{{% tab name="Using the CLI" %}}
+
+You can export virtual machine disks and disk snapshots with the `d8` utility (version 0.20.7 and later). For this feature to work, the [`storage-volume-data-manager`](/modules/storage-volume-data-manager/) module has to be enabled.
+
+> **Important:** The disk must not be in use at the moment of export. If the disk is attached to a virtual machine, stop the VM first.
+
+An example of exporting a disk, with the command run on a cluster node:
+
+```bash
+d8 data export download -n <NAMESPACE> vd/<VD_NAME> -o file.img
+```
+
+An example of exporting a disk snapshot, with the command run on a cluster node:
+
+```bash
+d8 data export download -n <NAMESPACE> vds/<VD_SNAPSHOT_NAME> -o file.img
+```
+
+If you export data from somewhere other than a cluster node (for example, from your local machine), use the `--publish` flag.
+
+> To import a downloaded disk back into the cluster, upload it as an [image](#uploading-an-image-from-the-command-line) or as a [disk](#uploading-a-disk-from-the-command-line).
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Stop the virtual machine the disk is attached to. While the disk is in use, the **Download** item isn't available.
+1. Go to **Virtualization** → **Disks**.
+1. In the row of the disk you need, click the ellipsis button and select **Download**.
+1. Wait until the **Preparing...** step in the **Download** window changes to **Ready**: the file downloads automatically as soon as it's created. If that doesn't happen, click **Download** in the window.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+{{< alert level="warning" >}}
+While an export is active, the disk is in the `Exporting` phase and a virtual machine with this disk won't start. The export ends when its lifetime expires or when the DataExport resource created for it is deleted.
+{{< /alert >}}
 ## Virtual machines
 
-The `VirtualMachine` resource is used to create a virtual machine, its parameters allow you to configure:
+To create a virtual machine, use the [VirtualMachine](cr.html#virtualmachine) resource. Its parameters let you configure:
 
-- [Virtual machine class](admin_guide.html#virtual-machine-classes).
-- Resources required for virtual machine operation (processor, memory, disks and images).
-- Rules of virtual machine placement on cluster nodes.
-- Bootloader settings and optimal parameters for the guest OS.
-- Virtual machine startup policy and policy for applying changes.
-- Initial configuration scenarios (cloud-init).
-- List of block devices.
+- the [virtual machine class](admin_guide.html#virtual-machine-classes);
+- the resources required for the virtual machine to run (CPU, memory, disks, and images);
+- the placement rules for the virtual machine on cluster nodes;
+- the bootloader settings and optimal parameters for the guest OS;
+- the virtual machine startup policy and the policy for applying changes;
+- the initial configuration scripts (cloud-init);
+- the list of block devices.
 
-The full description of virtual machine configuration parameters can be found at [link](cr.html#virtualmachine)
+For a full description of virtual machine configuration parameters, see the [configuration reference](cr.html#virtualmachine).
 
 ### Creating a virtual machine
 
-Below is an example of a simple virtual machine configuration running Ubuntu OS 24.04. The example uses the initial virtual machine initialization script (cloud-init), which installs the `qemu-guest-agent` guest agent and the `nginx` service, and creates the `cloud` user with the `cloud` password:
+The following steps show how to start an Ubuntu 24.04 virtual machine on the disk you [created earlier](#creating-a-disk-from-an-image). The cloud-init script installs the `qemu-guest-agent` agent and the `nginx` service, and creates the `cloud` user with the `cloud` password.
 
-The password in the example was generated using the command `mkpasswd --method=SHA-512 --rounds=4096 -S saltsalt` and you can change it to your own if necessary:
+{{< tabs name="vm-create" >}}
 
-Create a virtual machine with the disk created [previously](#creating-a-disk-from-an-image):
+{{% tab name="Using the CLI" %}}
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: linux-vm
-spec:
-  # VM class name.
-  virtualMachineClassName: generic
-  # Block of scripts for the initial initialization of the VM.
-  provisioning:
-    type: UserData
-    # Example cloud-init script to create cloud user with cloud password and install qemu-guest-agent service and nginx service.
-    userData: |
-      #cloud-config
-      package_update: true
-      packages:
-        - nginx
-        - qemu-guest-agent
-      runcmd:
-        - systemctl daemon-reload
-        - systemctl enable --now nginx.service
-        - systemctl enable --now qemu-guest-agent.service
-      ssh_pwauth: True
-      users:
-        - name: cloud
-          passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
-          shell: /bin/bash
-          sudo: ALL=(ALL) NOPASSWD:ALL
-          lock_passwd: False
-      final_message: "The system is finally up, after $UPTIME seconds"
-  # VM resource settings.
-  cpu:
-    # Number of CPU cores.
-    cores: 1
-    # Request 10% of the CPU time of one physical core.
-    coreFraction: 10%
-  memory:
-    # Amount of RAM.
-    size: 1Gi
-  # List of disks and images used in the VM.
-  blockDeviceRefs:
-    # The order of disks and images in this block determines the boot priority.
-    - kind: VirtualDisk
-      name: linux-vm-root
-EOF
-```
+1. Create a [VirtualMachine](cr.html#virtualmachine) resource:
 
-Check the state of the virtual machine after creation:
+   ```bash
+   d8 k apply -f - <<"EOF"
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualMachine
+   metadata:
+     name: linux-vm
+   spec:
+     # VM class name.
+     virtualMachineClassName: generic
+     # OS type: Generic for Linux and Windows for Windows. Generic by default.
+     # osType: Generic
+     # Bootloader type: BIOS, EFI, or EFIWithSecureBoot. BIOS by default.
+     # bootloader: BIOS
+     # VM initialization script.
+     provisioning:
+       type: UserData
+       userData: |
+         #cloud-config
+         package_update: true
+         packages:
+           - nginx
+           - qemu-guest-agent
+         runcmd:
+           - systemctl daemon-reload
+           - systemctl enable --now nginx.service
+           - systemctl enable --now qemu-guest-agent.service
+         ssh_pwauth: True
+         users:
+           - name: cloud
+             passwd: <PASSWORD_HASH>
+             shell: /bin/bash
+             sudo: ALL=(ALL) NOPASSWD:ALL
+             lock_passwd: False
+         final_message: "The system is finally up, after $UPTIME seconds"
+     # VM resource settings.
+     cpu:
+       # Number of CPU cores.
+       cores: 1
+       # Guaranteed share of the CPU time of one core.
+       coreFraction: 10%
+     memory:
+       # Amount of RAM.
+       size: 1Gi
+     # List of disks and images attached to the VM.
+     blockDeviceRefs:
+       # The order in this block sets the boot priority.
+       - kind: VirtualDisk
+         name: linux-vm-root
+   EOF
+   ```
 
-```bash
-d8 k get vm linux-vm
-```
+   Where `<PASSWORD_HASH>` is the hash of the `cloud` user password, in quotes, generated with `mkpasswd --method=SHA-512 --rounds=4096`.
 
-Example output:
+1. Verify that the machine has started:
 
-```txt
-NAME        PHASE     NODE           IPADDRESS     AGE
-linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
-```
+   ```bash
+   d8 k get vm linux-vm
+   ```
 
-After creation, the virtual machine will automatically get an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
+   Example output:
 
-How to create a virtual machine in the web interface:
+   ```console {.nowrap-default}
+   NAME       PHASE     UPTIME   NODE           IPADDRESS     AGE
+   linux-vm   Running   11m      virtlab-pt-2   10.66.10.12   11m
+   ```
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Click "Create".
-- In the form that opens, enter `linux-vm` in the "Name" field.
-- In the "Machine Parameters" section, set `1` in the "Cores" field.
-- In the "Machine Parameters" section, set `10%` in the "CPU Share" field.
-- In the "Machine Parameters" section, set `1Gi` in the "Size" field.
-- In the "Disks and Images" section, in the "Boot Disks" subsection, click "Add".
-- In the form that opens, click "Choose from existing".
-- Select the `linux-vm-root` disk from the list.
-- Scroll down to the "Additional Parameters" section.
-- Enable the "Cloud-init" switch.
-- Enter your data in the field that appears:
+   The machine gets an IP address automatically from the range that the administrator sets in the [module settings](admin_guide.html#network-settings).
 
-  ```yaml
-  #cloud-config
-  package_update: true
-  packages:
-    - nginx
-    - qemu-guest-agent
-  runcmd:
-    - systemctl daemon-reload
-    - systemctl enable --now nginx.service
-    - systemctl enable --now qemu-guest-agent.service
-  ssh_pwauth: True
-  users:
-    - name: cloud
-      passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
-      shell: /bin/bash
-      sudo: ALL=(ALL) NOPASSWD:ALL
-      lock_passwd: False
-  final_message: "The system is finally up, after $UPTIME seconds"
-  ```
+{{% /tab %}}
 
-- Click the "Create" button.
-- The VM status is displayed at the top left, under its name.
+{{% tab name="Using the web interface" %}}
 
-### Virtual Machine Life Cycle
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Click **Create**.
+1. In the form that opens, enter `linux-vm` in the **Name** field.
+1. In the **Resources** section, set `1` in the **CPU cores** field, `10%` in the **Core fraction** field, and `1Gi` in the **Memory size** field.
+1. In the **Disks** section, click **Add**.
+1. In the **Disks / Images** window that opens, select **Existing** and pick the `linux-vm-root` disk from the list.
+1. Scroll down to the **Cloud-init** toggle and enable it.
+1. Paste the script into the field that appears, replacing `<PASSWORD_HASH>` with the password hash in quotes:
 
-A virtual machine (VM) goes through several phases in its existence, from creation to deletion. These stages are called phases and reflect the current state of the VM. To understand what is happening with the VM, you should check its status (`.status.phase` field), and for more detailed information - `.status.conditions` block. All the main phases of the VM life cycle, their meaning and peculiarities are described below.
+   ```yaml
+   #cloud-config
+   package_update: true
+   packages:
+     - nginx
+     - qemu-guest-agent
+   runcmd:
+     - systemctl daemon-reload
+     - systemctl enable --now nginx.service
+     - systemctl enable --now qemu-guest-agent.service
+   ssh_pwauth: True
+   users:
+     - name: cloud
+       passwd: <PASSWORD_HASH>
+       shell: /bin/bash
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       lock_passwd: False
+   final_message: "The system is finally up, after $UPTIME seconds"
+   ```
 
-![vm-lifecycle](./images/vm-lifecycle.png)
+1. Click **Create**.
+1. Check the VM status on its page.
 
-- `Pending` - waiting for resources to be ready
+{{% /tab %}}
 
-  A VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
-  - Possible problems:
-    - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
-    - Namespace or project quotas have been exceeded.
-  - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
+{{< /tabs >}}
 
-    ```bash
-    d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
-    ```
+### Virtual machine life cycle
 
-- `Starting` - starting the virtual machine
+From creation to deletion, a virtual machine goes through several phases. The current one is shown by the [`.status.phase`](cr.html#virtualmachine-v1alpha2-status-phase) field, and the details of what's happening to the machine are in the [`.status.conditions`](cr.html#virtualmachine-v1alpha2-status-conditions) block.
 
-  All dependent VM resources are ready and the system is attempting to start the VM on one of the cluster nodes.
-  - Possible problems:
-    - There is no suitable node to start.
-    - There is not enough CPU or memory on suitable nodes.
-  - Diagnostics:
-    - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
+![](./images/vm-lifecycle.png)
 
-      ```bash
-      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
-      ```
-
-- `Running` - the virtual machine is running
-
-  The VM is successfully started and running.
-  - Features:
-    - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
-      - The `type: FirmwareUpToDate, status: False` condition informs that the VM firmware needs to be updated.
-      - Condition `type: ConfigurationApplied, status: False` informs that the VM configuration is not applied to the running VM.
-      - The `type: SizingPolicyMatched, status: False` condition informs that the VM resource configuration does not match the sizing policy requirements for the VirtualMachineClass being used and requires that these settings be brought into compliance otherwise new changes to the VM configuration cannot be saved.
-      - The `type: AwaitingRestartToApplyConfiguration, status: True` condition displays information about the need to manually reboot the VM because some configuration changes cannot be applied without rebooting the VM.
-    - Possible problems:
-      - An internal failure in the VM or hypervisor.
-    - Diagnosis:
-      - Check `.status.conditions`, condition `type: Running`.
-
-        ```bash
-        d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
-        ```
-
-- `Stopping` - The VM is stopped or rebooted.
-
-- `Stopped` - The VM is stopped and is not consuming computational resources
-
-- `Terminating` - the VM is deleted.
-
-    This phase is irreversible. All resources associated with the VM are released, but are not automatically deleted.
-
-- `Migrating` - live migration of a VM
-
-  The VM is migrated to another node in the cluster (live migration).
-  - Features:
-    - The `type: Migratable` condition indicates whether the VM can be migrated. It is evaluated
-      for a running VM only: while the VM is stopped, the condition is absent.
-    - If the VM itself is fit for migration but no other node in the cluster matches its placement
-      rules, the condition is `False` with the reason `VirtualMachineNoMigrationTarget`.
-    - If the matching nodes exist but none of them can take the VM at the moment (excluded from
-      scheduling, not ready, running no virtualization), the condition stays `True` with the reason
-      `VirtualMachineWaitingForMigrationTarget`: such a state clears up on its own.
-  - Possible issues:
-    - Incompatibility of processor instructions (when using host or host-passthrough processor types).
-    - Difference in kernel versions on hypervisor nodes.
-    - No other node matches the placement rules of the VM or of its VirtualMachineClass.
-    - Not enough CPU or memory on eligible nodes.
-    - Namespace or project quotas have been exceeded.
-  - Diagnostics:
-    - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
-
-      ```bash
-      d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
-      ```
-
-The `type: EvictionRequired` condition appears when the node running the VM is entering maintenance mode. If the node is only cordoned with the `d8 k cordon` command and the maintenance has not started, the condition does not appear. The `type: Migratable` condition explains why the VM cannot be moved by live migration.
-
-The message of the condition shows what happens to the VM: a live migration without stopping the guest operating system, a restart by the platform approved by a cluster administrator, or waiting on the node until the VM is restarted. A VM that can be moved by live migration is never restarted to free the node. Until the eviction starts, the condition is a warning: the maintenance can be called off, and no eviction follows.
-
-After the restart, the VM starts on another suitable node. If the cluster has no suitable node, the VM stays in the `Pending` phase, and its `Running` condition shows the reason returned by the scheduler. A node in maintenance mode accepts no new VMs, so a VM pinned to it by placement rules or using a device passed through from it starts only after that node returns to service.
-
-The `type: SizingPolicyMatched, status: False` condition indicates that the resource configuration does not comply with the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save VM parameters without making the resources conform to the policy.
-
-Conditions display information about the state of the VM, as well as on problems that arise. You can understand what is wrong with the VM by analyzing them:
+The conditions in the [`.status.conditions`](cr.html#virtualmachine-v1alpha2-status-conditions) block answer the question of why the machine is in its current phase. To view the ones that have a message, run the following command:
 
 ```bash
-d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
+d8 k get vm <VM_NAME> -o json | jq '.status.conditions[] | select(.message != "")'
 ```
+
+Where `<VM_NAME>` is the virtual machine name.
+
+#### Diagnostics by phase
+
+While a VM is in the `Pending` phase, it waits for its dependent resources to become ready, that is, disks, images, the VM class, and the secret with the initial configuration script. A delay in this phase means that one of the resources isn't ready or that the namespace or project quotas are exhausted. The conditions ending in `Ready` show what exactly blocks the startup:
+
+```bash
+d8 k get vm <VM_NAME> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
+```
+
+In the `Starting` phase, the dependent resources are ready and the module starts the VM on one of the nodes. If the startup drags on, there's no suitable node, or the suitable nodes lack CPU or memory. The `Running` condition reports the reason:
+
+```bash
+d8 k get vm <VM_NAME> -o json | jq '.status.conditions[] | select(.type=="Running")'
+```
+
+In the `Migrating` phase, the machine moves to another node by live migration. The migration doesn't start or gets interrupted if the CPU instruction sets on the nodes are incompatible, the kernel versions differ, no node matches the placement rules, or the suitable nodes lack resources. The `Migrating` condition together with the [`.status.migrationState`](cr.html#virtualmachine-v1alpha2-status-migrationstate) block shows the migration progress:
+
+```bash
+d8 k get vm <VM_NAME> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
+```
+
+The `Terminating` phase is irreversible, all resources associated with the VM are released, but the resources themselves aren't deleted.
+
+#### Conditions of a running VM
+
+For a running machine, a few conditions are worth watching:
+
+- `AgentReady` with the `True` status means that `qemu-guest-agent` is running in the guest system, and then the [`.status.guestOSInfo`](cr.html#virtualmachine-v1alpha2-status-guestosinfo) block contains information about the guest OS.
+- `FirmwareUpToDate` with the `False` status means that it's time to update the VM firmware.
+- `ConfigurationApplied` with the `False` status means that the specified configuration hasn't been applied to the running machine yet.
+- `AwaitingRestartToApplyConfiguration` with the `True` status means that some of the changes apply only after a restart, and you have to perform it manually.
+- `SizingPolicyMatched` with the `False` status means that the machine resources don't match the sizing policy of its class. Until you bring the parameters in line with the policy, you can't save configuration changes.
+- `Migratable` shows whether the machine can be moved by live migration. The condition is computed only for a running VM, and a powered-off one doesn't have it. The `False` status with the `VirtualMachineNoMigrationTarget` reason means that the machine itself is suitable for migration, but there's no suitable node in the cluster. The `True` status with the `VirtualMachineWaitingForMigrationTarget` reason means that suitable nodes exist, but none of them can accept the machine right now, and this state resolves on its own.
+
+#### Eviction from a node
+
+The `EvictionRequired` condition appears when the node with your VM is put into maintenance mode. If the node was only made unschedulable with the `d8 k cordon` command but maintenance hasn't started, the condition doesn't appear.
+
+The condition message tells you what will happen to the machine, namely a live migration without stopping the guest OS, a restart by the module with the cluster administrator's permission, or waiting until the machine is restarted. A machine that can be moved by live migration isn't restarted just to free the node. Until the eviction starts, the condition is only a warning, because maintenance can be canceled.
+
+After a restart, the machine starts on another suitable node. If there's no such node, it stays in the `Pending` phase, and the `Running` condition shows the reason from the scheduler. A node in maintenance mode doesn't accept new machines, so a VM pinned to it by placement rules or using a device passed through from it starts only after the node returns to service.
+
+#### Viewing the state in the web interface
+
+The web interface shows the phase of a machine, its resources, and current problems on the machine page.
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+
+The page header shows the current VM phase, its IP address, class, resource configuration, the number of attached disks and images, the node it's placed on, whether the guest OS agent is running, and the time since startup. The page itself is split into the **Configuration**, **Monitoring**, **Operations**, **Events**, **VNC**, **TTY**, **Network policies**, **Snapshots**, **Diagnostics**, **Meta**, and **YAML** tabs.
+
+On the **Configuration** tab of a running VM, usage charts appear next to the **CPU cores** and **Memory size** fields. In the **Disks** block, each device shows its boot order number, name, size, status, attachment method, storage class, and current disk load. In the **Networks** block, the network name, its status, and the IP and MAC addresses are shown, and the main cluster network is labeled **Main**.
 
 ### Configuring CPU and coreFraction
 
-When creating a virtual machine, you can configure how much CPU resources it will use using the `cores` and `coreFraction` parameters.
-The `cores` parameter specifies the number of virtual CPU cores allocated to the VM.
-The `coreFraction` parameter specifies the guaranteed minimum share of processing power allocated to each core.
-
-{{< alert level="warning">}}
-Available `coreFraction` values may be defined in the VirtualMachineClass resource for a given range of cores (`cores`), in which case only those values may be used.
-{{< /alert >}}
-
-For example, if you specify `cores: 2`, the VM will be allocated two virtual cores corresponding to the two physical cores of the hypervisor.
-If `coreFraction: 20%`, the VM is guaranteed to receive at least 20% of the processing power of each core, regardless of the hypervisor node utilization. At the same time, if there are free resources on the node, the VM can use up to 100% of each core's power to maximize performance.
-Thus, the VM is guaranteed to receive 0.2 CPU of the processing power of each physical core and can utilize up to 100% of the power of two cores (2 CPUs) if there are idle resources on the node.
-
-{{< alert level="info">}}
-If the `coreFraction` parameter is not defined, each VM virtual core is allocated 100% of the physical hypervisor CPU core.
-{{< /alert >}}
-
-Let's look at an example configuration:
+Two parameters set the CPU resources of a machine. The [`.spec.cpu.cores`](cr.html#virtualmachine-v1alpha2-spec-cpu-cores) parameter sets the number of virtual cores, and [`.spec.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-spec-cpu-corefraction) sets the guaranteed share of the power of each of them.
 
 ```yaml
 spec:
   cpu:
     cores: 2
-    coreFraction: 10%
-```
-
-{{< alert level="info">}}
-This approach allows for stable VM performance even under high load under conditions of CPU resource oversubscription, where more cores are allocated to virtual machines than are available on the hypervisor.
-{{< /alert >}}
-
-The `cores` and `coreFraction` parameters are taken into account when planning the placement of VMs on nodes. The guaranteed capacity (minimum fraction of each core) is considered when selecting a node so that it can provide the required performance for all VMs. If a node does not have sufficient resources to fulfill the guarantees, the VM will not run on that node.
-
-Visualization on the example of virtual machines with the following CPU configurations, when placed on the same node:
-
-VM1:
-
-```yaml
-spec:
-  cpu:
-    cores: 1
     coreFraction: 20%
 ```
 
-VM2:
+In this example, the machine gets two virtual cores and a guaranteed 20% of the power of each, that is, 0.4 cores in total, regardless of the node load. When the node has free resources, the machine can take both cores in full. Such a reserve lets you keep more machines on a node than it has physical cores, without losing stability under load.
 
-```yaml
-spec:
-  cpu:
-    cores: 1
-    coreFraction: 80%
-```
+If `coreFraction` isn't set, each virtual core gets 100% of a physical one.
 
-![vm-corefraction](./images/vm-corefraction.png)
+{{< alert level="warning" >}}
+An administrator can restrict the set of allowed `coreFraction` values in the sizing policy of the VM class, and then you have to choose from them.
+{{< /alert >}}
+
+The guaranteed share is taken into account when selecting a node, so a machine doesn't start where the node can't provide the guarantees to all machines placed on it. The figure shows two machines with one core each, the first with `coreFraction: 20%` and the second with `coreFraction: 80%`.
+
+![](./images/vm-corefraction.png)
 
 #### Automatic coreFraction (Auto)
 
-{{< alert level="warning">}}
-This feature is available in the Enterprise Edition only and is in the Alpha stage. It requires both the `VerticalVirtualMachineAutoscaler` and `HotplugCPUAndMemoryWithInPlaceResize` feature gates to be enabled, as well as the `vertical-pod-autoscaler` module enabled in the cluster: its recommender is the engine behind the automatic core fraction.
+The module can pick the CPU time share on its own, following how much the machine consumes.
+
+{{< alert level="warning" >}}
+The feature is available only in the Enterprise Edition and is in the Alpha stage. It requires the enabled [`vertical-pod-autoscaler`](/modules/vertical-pod-autoscaler/) module, which picks the core fraction, and the `HotplugCPUAndMemoryWithInPlaceResize` feature in the module settings.
 {{< /alert >}}
 
-Instead of a fixed percentage you can set `coreFraction: Auto` and let the platform pick the share of CPU for you: it is raised when the VM lacks CPU and lowered when the VM is idle. The number of cores (`cores`) and the memory size never change, and the fraction is applied in place — without rebooting the VM.
+Instead of a fixed percentage, you can set `coreFraction: Auto`. Then the module picks the fraction, raising it when the machine lacks CPU and lowering it when the machine is idle. The number of cores and the amount of memory stay unchanged, and the new fraction applies without a restart.
 
 ```yaml
 spec:
@@ -1333,31 +1341,32 @@ spec:
     coreFraction: Auto
 ```
 
-How it works:
+The selection works as follows:
 
-- A fresh VM starts at 10% (or the closest value the sizing policy allows), because a VM with no usage history is assumed to be idle.
-- The share is changed by steps. If the VirtualMachineClass sizing policy lists `coreFractions`, those are the steps. Otherwise the platform uses 5%, 10%, 15%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, and 99%.
-- 100% is never selected automatically: at 100% the VM's CPU requests would equal its limits, and such a VM cannot be resized without a reboot. A `coreFractions` list containing 100% is used without it, so the highest share the autoscaler can reach is the next value down; with no sizing policy the ceiling is 99%.
-- For the same reason `Auto` requires a sizing policy that leaves at least two shares to choose from. A policy allowing only `50%`, or `50%` and `100%`, would pin the VM to 50% forever, so such a combination is rejected: set the fixed percentage instead.
-- The value recommended by the autoscaler is published in `.status.recommendedResources.cpu.coreFraction`, and the applied one in `.status.resources.cpu.coreFraction`. Each change is reported by the `CoreFractionScaling` event on the VM.
-- If the node has no room for the new requests, the VM is live-migrated to another node and keeps running.
-- The `type: CoreFractionAutoscaling` condition on the VM tells whether the share is being selected for it. While it is, the condition is `status: True` — with the `WaitingForRecommendation` reason for the first minutes, until enough CPU usage data is collected, and `CoreFractionAutoscalingEnabled` afterwards.
-- If the automatic selection becomes unavailable, the condition switches to `status: False` and its reason says why: `CoreFractionAutoscalingDisabled` (vertical autoscaling is off), `InPlaceResizeDisabled` (in-place resizing is off) or `SizingPolicyHasNoSteps` (the sizing policy of the class was narrowed to a single share). The VM keeps the share it has and stops following the load until an explicit percentage is set.
+- A new machine starts at 10% or the nearest value allowed by the sizing policy, because a machine with no consumption history counts as idle.
+- The fraction changes in steps. If the class sizing policy defines a `coreFractions` list, its values become the steps, otherwise 5%, 10%, 15%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, and 99% are used.
+- The 100% value is never selected automatically, because at that value the CPU requests equal the limits, and such a machine can't be changed without a restart. If 100% is listed in `coreFractions`, it simply isn't used, and the ceiling becomes the next value down, while without a sizing policy the ceiling is 99%.
+- For the same reason, the sizing policy has to leave at least two values to choose from. A policy that allows only 50%, or 50% and 100%, would pin the machine at 50% forever, so such a combination is rejected and you have to set the fraction explicitly.
+- The recommended value is published in the [`.status.recommendedResources.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-status-recommendedresources-cpu-corefraction) field, and the applied one in [`.status.resources.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-status-resources-cpu-corefraction). Every change is reported by the `CoreFractionScaling` event.
+- If the node doesn't have room for the new requests, the machine moves to another node and keeps running.
 
-To opt out, set an explicit percentage. Switching between `100%` and `Auto` (in either direction) requires a VM reboot, because it changes the VM's QoS class; all other transitions are applied in place.
+The `CoreFractionAutoscaling` condition shows whether the selection is running. While it works, the condition has the `True` status, and for the first few minutes, until statistics accumulate, the reason is `WaitingForRecommendation`, and then `CoreFractionAutoscalingEnabled`.
 
-### Virtual machine resource configuration and sizing policy
+If the selection becomes unavailable, the condition switches to `False`, and the reason explains why:
 
-The sizing policy in VirtualMachineClass, defined in the `.spec.sizingPolicies` section, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and core utilization fraction (`coreFraction`). This policy is not mandatory. If it is not present for a VM, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the VM configuration must strictly comply with it. Otherwise, it will not be possible to save the configuration.
+- `CoreFractionAutoscalingDisabled`: Vertical autoscaling is disabled.
+- `InPlaceResizeDisabled`: In-place resource changes are disabled.
+- `SizingPolicyHasNoSteps`: The sizing policy is narrowed down to a single value.
 
-The policy divides the number of cores (`cores`) into ranges, such as 1-4 cores or 5-8 cores. For each range, it specifies how much memory can be allocated (`memory`) per core and/or what `coreFraction` values are allowed.
+The machine keeps running with its current fraction, but stops following the load.
 
-If the VM configuration (cores, memory, or coreFraction) does not match the policy, the VM status will show the condition `type: SizingPolicyMatched, status: False`.
+To opt out of automatic selection, set an explicit percentage. Switching between `100%` and `Auto` in either direction requires a machine restart, because it changes the QoS class, and the other transitions apply on the fly.
 
-If you change the policy in VirtualMachineClass, the configuration of existing VMs may need to be changed to match the new policy.
-Virtual machines that do not comply with the new policy will continue to run, but any changes to their configuration cannot be saved until they comply with the new policy.
+### Sizing policy
 
-For example:
+An administrator can restrict the resource combinations available to machines of a certain class by setting a sizing policy in the [`.spec.sizingPolicies`](cr.html#virtualmachineclass-v1alpha3-spec-sizingpolicies) parameter of the [VirtualMachineClass](cr.html#virtualmachineclass) resource. If there's no policy, resources are set freely.
+
+The policy splits the number of cores into ranges and sets the allowed amount of memory and the allowed `coreFraction` values for each of them:
 
 ```yaml
 spec:
@@ -1378,86 +1387,55 @@ spec:
       coreFractions: [20, 50, 100]
 ```
 
-If the VM uses 2 cores, it falls in the range of 1-4 cores. Then memory can be selected from 1 GB to 8 GB, and coreFraction is only 5%, 10%, 20%, 50%, or 100%. For 6 cores, the range is 5-8 cores, where memory is from 5GB to 16GB and coreFraction is 20%, 50% or 100%.
+With such a policy, a machine with two cores falls into the first range, gets from 1 to 8 GiB of memory and one of the values 5%, 10%, 20%, 50%, or 100%. A machine with six cores falls into the second range, where 5 to 16 GiB of memory is available and the core fraction is 20%, 50%, or 100%.
 
-In addition to VM sizing, the policy also allows you to implement the desired maximum oversubscription for VMs.
-For example, by specifying `coreFraction: 20%` in the policy, you guarantee any VM at least 20% of the CPU compute resources, which would effectively define a maximum possible oversubscription of 5:1.
+The policy also limits oversubscription. For example, the minimum value `coreFraction: 20%` guarantees each machine one fifth of a core, which means oversubscription doesn't exceed 5 to 1.
 
-If you try to create or update a VM whose configuration violates the sizing policy, the request is rejected with a message that names the parameter to change and the values to use. Each message about a specific policy also ends with the hint `check the sizing policy of the VirtualMachineClass or contact the administrator for more information` (omitted below for brevity). Examples for a class `supercpu` with the policy above:
+If the machine configuration doesn't match the policy, the `SizingPolicyMatched` condition with the `False` status appears in the status. Such a machine keeps running, but you can't save changes to its configuration until the resources are brought in line with the policy. The same happens when an administrator changes the policy of a class whose machines are already running.
 
-- Cores outside all ranges (`cores: 10`): `does not match any sizing policy of VirtualMachineClass "supercpu": its 10 CPU core(s) fall outside the allowed ranges (1-4, 5-8); set the number of cores (spec.cpu.cores) accordingly`
-- Core fraction not allowed (`cores: 2`, `coreFraction: 30%`): `the CPU core fraction "30%" is not allowed; set the core fraction (spec.cpu.coreFraction) to one of: 5%, 10%, 20%, 50%, 100%`
-- Memory out of range (`cores: 2`, `size: 16Gi`): `the memory size (16Gi) is out of the range allowed by the sizing policy; set the memory size (spec.memory.size) between 1Gi and 8Gi`
-- Cores not on the step grid (`cores.step`): `the number of CPU cores (7) does not match the sizing policy step; set the number of cores (spec.cpu.cores) to 6 or 8`
-- Memory not on the step grid (`memory.step`): `the memory size (1536Mi) does not match the sizing policy step; set the memory size (spec.memory.size) to 1Gi or 2Gi`
-- Per-core memory out of range (`memory.perCore`): `the memory size (18Gi) is not allowed for 6 CPU core(s); set the memory size (spec.memory.size) between 6Gi and 12Gi, or change the number of cores (spec.cpu.cores) (the sizing policy allows between 1Gi and 2Gi of memory per core)`
-- Per-core memory not on the step grid: `the memory size (2560Mi) does not match the per-core sizing policy step for 2 CPU core(s); set the memory size (spec.memory.size) to 2Gi or 4Gi, or change the number of cores (spec.cpu.cores)`
-- Several violations at once: all reasons are listed in a single message under `does not match the sizing policy of VirtualMachineClass "supercpu" for several reasons:`.
+Besides the bounds, a range can set a grid step in the `cores.step` and `memory.step` parameters, and memory bounds per single core in the `memory.perCore` block.
 
-### Automatic CPU topology configuration
+A request that violates the policy is rejected with a message that names the parameter and the allowed values. Every message ends with the hint `check the sizing policy of the VirtualMachineClass or contact the administrator for more information`, which is omitted below.
 
-The CPU topology of a virtual machine (VM) determines how the CPU cores are allocated across sockets. This is important to ensure optimal performance and compatibility with applications that may depend on the CPU configuration. In the VM configuration, you specify only the total number of processor cores, and the topology (the number of sockets and cores in each socket) is automatically calculated based on this value.
+For the `supercpu` class with the policy above, the messages look like this:
 
-The number of processor cores is specified in the VM configuration as follows:
+- the number of cores is outside all ranges, `cores: 10`: `does not match any sizing policy of VirtualMachineClass "supercpu": its 10 CPU core(s) fall outside the allowed ranges (1-4, 5-8); set the number of cores (spec.cpu.cores) accordingly`;
+- an unsupported core fraction, `cores: 2` and `coreFraction: 30%`: `the CPU core fraction "30%" is not allowed; set the core fraction (spec.cpu.coreFraction) to one of: 5%, 10%, 20%, 50%, 100%`;
+- memory outside the range, `cores: 2` and `size: 16Gi`: `the memory size (16Gi) is out of the range allowed by the sizing policy; set the memory size (spec.memory.size) between 1Gi and 8Gi`.
 
-```yaml
-spec:
-  cpu:
-    cores: 1
-```
+If a range defines a step or per-core memory bounds, four more messages become possible:
 
-Next, the system automatically determines the topology depending on the specified number of cores. The calculation rules depend on the range of the number of cores and are described below.
+- cores off the step grid: `the number of CPU cores (7) does not match the sizing policy step; set the number of cores (spec.cpu.cores) to 6 or 8`;
+- memory off the step grid: `the memory size (1536Mi) does not match the sizing policy step; set the memory size (spec.memory.size) to 1Gi or 2Gi`;
+- memory per core outside the range: `the memory size (18Gi) is not allowed for 6 CPU core(s); set the memory size (spec.memory.size) between 6Gi and 12Gi, or change the number of cores (spec.cpu.cores) (the sizing policy allows between 1Gi and 2Gi of memory per core)`;
+- memory per core off the step grid: `the memory size (2560Mi) does not match the per-core sizing policy step for 2 CPU core(s); set the memory size (spec.memory.size) to 2Gi or 4Gi, or change the number of cores (spec.cpu.cores)`.
 
-- If the number of cores is between 1 and 16 (1 ≤ `.spec.cpu.cores` ≤ 16):
-  - 1 socket is used.
-  - The number of cores in the socket is equal to the specified value.
-  - Change step: 1 (you can increase or decrease the number of cores one at a time).
-  - Valid values: any integer from 1 to 16 inclusive.
-  - Example: If `.spec.cpu.cores` = 8, topology: 1 socket with 8 cores.
-- If the number of cores is from 17 to 32 (16 < `.spec.cpu.cores` ≤ 32):
-  - 2 sockets are used.
-  - Cores are evenly distributed between sockets (the number of cores in each socket is the same).
-  - Change step: 2 (total number of cores must be even).
-  - Allowed values: 18, 20, 22, 24, 26, 28, 30, 32.
-  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
-  - Example: If `.spec.cpu.cores` = 20, topology: 2 sockets with 10 cores each.
-- If the number of cores is between 33 and 64 (32 < `.spec.cpu.cores` ≤ 64):
-  - 4 sockets are used.
-  - Cores are evenly distributed among the sockets.
-  - Step change: 4 (the total number of cores must be a multiple of 4).
-  - Allowed values: 36, 40, 44, 48, 52, 56, 60, 64.
-  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
-  - Example: If `.spec.cpu.cores` = 40, topology: 4 sockets with 10 cores each.
-- If the number of cores is greater than 64 (`.spec.cpu.cores` > 64):
-  - 8 sockets are used.
-  - Cores are evenly distributed among the sockets.
-  - Step change: 8 (the total number of cores must be a multiple of 8).
-  - Valid values: 72, 80, 88, 96, and so on up to 248.
-  - Limitations: minimum 9 cores per socket.
-  - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
+When there are several violations, all the reasons are listed in one message under the `does not match the sizing policy of VirtualMachineClass "supercpu" for several reasons:` heading.
 
-The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
+### CPU topologies
 
-The maximum possible number of cores is 248.
-
-Summary table by `spec.cpu.cores` range:
-
-| Cores range        | Number of sockets | Change step | Minimum cores per socket | Maximum cores per socket |
-|--------------------|-------------------|-------------|--------------------------|--------------------------|
-| `1 ≤ cores ≤ 16`   | 1                 | 1           | 1                        | 16                       |
-| `16 < cores ≤ 32`  | 2                 | 2           | 9                        | 16                       |
-| `32 < cores ≤ 64`  | 4                 | 4           | 9                        | 16                       |
-| `64 < cores ≤ 248` | 8                 | 8           | 9                        | 16                       |
-
-Memory overhead does not depend on the maximum possible vCPU topology; it is calculated from actively used cores: (sockets × cores per socket × threads per core) × 8 MiB per logical CPU.
-
-Example: with `spec.cpu.cores: 20`, the status shows a topology of two sockets with 10 cores each:
+The topology determines how the CPU cores of a machine are distributed across sockets, and compatibility with applications sensitive to the CPU configuration depends on it. You set only the total number of cores in the [`.spec.cpu.cores`](cr.html#virtualmachine-v1alpha2-spec-cpu-cores) parameter, and the module calculates the number of sockets itself:
 
 ```yaml
 spec:
   cpu:
     cores: 20
-# ...
+```
+
+The more cores there are, the more sockets they're split across, and the larger the step with which you can change their number. The total number of cores has to be a multiple of the number of sockets, otherwise the request is rejected.
+
+| Number of cores    | Sockets | Multiple of | Cores per socket |
+| ------------------ | ------- | ----------- | ---------------- |
+| `1 ≤ cores ≤ 16`   | 1       | 1           | 1 to 16          |
+| `16 < cores ≤ 32`  | 2       | 2           | 9 to 16          |
+| `32 < cores ≤ 64`  | 4       | 4           | 9 to 16          |
+| `64 < cores ≤ 248` | 8       | 8           | 9 to 31          |
+
+For example, 20 cores give two sockets of 10 cores, and 80 cores give eight sockets of 10. The maximum for one machine is 248 cores.
+
+The module publishes the calculated topology in the status:
+
+```yaml
 status:
   resources:
     cpu:
@@ -1466,68 +1444,56 @@ status:
         sockets: 2
 ```
 
-The current VM topology (number of sockets and cores in each socket) is displayed in the VM status in the following format:
+The memory overhead depends on the actually active cores and amounts to 8 MiB per logical core, that is, per the product of the number of sockets, cores per socket, and threads per core.
 
-```yaml
-status:
-  resources:
-    cpu:
-      coreFraction: 10%
-      cores: 1
-      requestedCores: "1"
-      runtimeOverhead: "0"
-      topology:
-        sockets: 1
-        coresPerSocket: 1
-```
+### Configuring the OS type and bootloader
 
-### OS type and bootloader configuration
-
-The `osType` parameter determines the operating system type and applies an optimal set of virtual devices and parameters for correct VM operation.
+The `osType` parameter defines the operating system type and applies the optimal set of virtual devices and parameters for the VM to work correctly.
 
 Supported values:
 
-- `Generic` (default): For Linux and other operating systems. Uses standard virtual device configuration.
-- `Windows`: For Microsoft Windows family operating systems. Automatically enables Hyper-V features, TPM device, and other settings optimized for Windows.
-- `Legacy`: For operating systems with no built-in AHCI or virtio drivers: Windows XP, Windows 2000, Windows Server 2003, DOS-era systems, and Linux with a kernel older than 2.6.19. Such a VM gets the i440fx chipset, and with `enableParavirtualization: false` also an IDE bus for disks and CD-ROMs and an RTL8139 network adapter, which these operating systems have drivers for.
+- `Generic` (default): For Linux and other operating systems. The standard virtual device configuration is used.
+- `Windows`: For Microsoft Windows operating systems. Automatically enables Hyper-V features, a TPM device, and other settings optimized for Windows.
+- `Legacy`: For operating systems without built-in AHCI and virtio drivers: Windows XP, Windows 2000, Windows Server 2003, DOS-era systems, and Linux with a kernel older than 2.6.19. Such a VM gets the i440fx chipset, and with `enableParavirtualization: false` it also gets the IDE bus for disks and CD-ROM and the RTL8139 network adapter, whose drivers these operating systems have.
 
 {{< alert level="warning" >}}
-The TPM device provided to the virtual machine is not persistent (TPM emulation in memory). This means that when the VM is rebooted or migrated, the TPM state is reset. It is recommended to consider this limitation when planning to use Windows security features that depend on TPM.
+A virtual machine gets an emulated TPM whose state is kept in memory and isn't persisted. When the VM restarts or migrates, the TPM state is reset. Keep this limitation in mind when using Windows security features that depend on TPM.
 {{< /alert >}}
 
-The set of virtual devices the guest sees:
+The set of virtual devices the guest OS sees:
 
-| Device                     | `Generic`                                             | `Windows`                                             | `Legacy`               |
-| -------------------------- | ----------------------------------------------------- | ----------------------------------------------------- | ---------------------- |
-| Chipset                    | q35                                                   | q35                                                   | i440fx                 |
-| Bootloader                 | `BIOS`, `EFI`, `EFIWithSecureBoot`                    | `BIOS`, `EFI`, `EFIWithSecureBoot`                    | `BIOS` only            |
-| Disk bus                   | virtio-scsi, or SATA with `enableParavirtualization: false` | virtio-scsi, or SATA with `enableParavirtualization: false` | virtio-blk, or IDE with `enableParavirtualization: false` |
-| CD-ROM bus                 | virtio-scsi, or SATA with `enableParavirtualization: false` | virtio-scsi, or SATA with `enableParavirtualization: false` | IDE |
-| Block devices in `.spec.blockDeviceRefs` | up to 16                                | up to 16                                              | up to 16, or up to 4 with `enableParavirtualization: false` |
-| Network adapter            | virtio-net, or e1000 with `enableParavirtualization: false` | virtio-net, or e1000 with `enableParavirtualization: false` | virtio-net, or RTL8139 with `enableParavirtualization: false` |
-| USB controller             | xHCI (USB 3.0)                                        | xHCI (USB 3.0)                                        | UHCI (USB 1.1)         |
-| TPM                        | no                                                    | TPM 2.0                                               | no                     |
-| Random number generator    | virtio-rng                                            | no                                                    | no                     |
-| Hyper-V enlightenments     | no                                                    | yes                                                   | no                     |
-| Disk hot-plug              | yes                                                   | yes                                                   | only with `enableParavirtualization: true`, and only if the guest has a virtio-scsi driver |
-| CPU and memory hot-plug    | yes                                                   | yes                                                   | no                     |
+| Device                         | `Generic`                                                   | `Windows`                                                   | `Legacy`                     |
+| ------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------- |
+| Chipset                        | q35                                                         | q35                                                         | i440fx                       |
+| Bootloader                     | `BIOS`, `EFI`, `EFIWithSecureBoot`                          | `BIOS`, `EFI`, `EFIWithSecureBoot`                          | `BIOS` only                  |
+| Disk bus                       | virtio-scsi, SATA with `enableParavirtualization: false`    | virtio-scsi, SATA with `enableParavirtualization: false`    | virtio-blk, IDE with `enableParavirtualization: false` |
+| CD-ROM bus                     | virtio-scsi, SATA with `enableParavirtualization: false`    | virtio-scsi, SATA with `enableParavirtualization: false`    | IDE |
+| Block devices in [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) | up to 16                                          | up to 16                                                    | up to 16, up to 4 with `enableParavirtualization: false` |
+| Network adapter                | virtio-net, e1000 with `enableParavirtualization: false`    | virtio-net, e1000 with `enableParavirtualization: false`    | virtio-net, RTL8139 with `enableParavirtualization: false` |
+| USB controller                 | xHCI (USB 3.0)                                              | xHCI (USB 3.0)                                              | UHCI (USB 1.1)               |
+| TPM                            | no                                                          | TPM 2.0                                                     | no                           |
+| Random number generator        | virtio-rng                                                  | no                                                          | no                           |
+| Hyper-V features               | no                                                          | yes                                                         | no                           |
+| Attaching disks on the fly     | yes                                                         | yes                                                         | only with `enableParavirtualization: true` and only if the guest OS has the virtio-scsi driver |
+| Changing CPU and memory on the fly | yes                                                     | yes                                                         | no                           |
 
-USB device passthrough works for `Legacy`, but the UHCI controller is limited to USB 1.1 speed (12 Mbit/s): enough for a mouse, a keyboard or a token, but not for fast storage.
+USB device passthrough works for `Legacy`, but the UHCI controller is limited to the USB 1.1 speed of 12 Mbps, so fast storage in such a VM hits the bus limit.
 
-Choose `Legacy` when the guest operating system cannot drive an AHCI controller, not merely because it is old: Linux with a kernel 2.6.19 or newer works with `osType: Generic` and `enableParavirtualization: false`, which has no four-device limit and still allows hot-plugging via `VirtualMachineBlockDeviceAttachment`.
+Choose `Legacy` when the guest operating system can't work with an AHCI controller, not just because it's old. For Linux with kernel 2.6.19 and newer, `osType: Generic` with `enableParavirtualization: false` is a fit, because there's no four-device limit there and attaching disks on the fly through [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) remains available.
 
 {{< alert level="warning" >}}
-The following capabilities are not available for `Legacy`:
+For `Legacy`, the following isn't available:
 
-- changing the number of CPU cores or the memory size on the fly: these guests bring neither online. The change is accepted, the VM reports it in `.status.restartAwaitingChanges` with the `AwaitingRestartToApplyConfiguration` condition, and it takes effect after a restart;
-- the `EFI` and `EFIWithSecureBoot` bootloaders and initial provisioning (`cloud-init` and Sysprep): these guests support none of them;
-- guest OS information in the VM status and file system information. The QEMU guest agent can be installed in such a guest from an archived virtio-win release and the VM does report `AgentReady`, but its version is too old for the platform: the VM also gets the `AgentVersionNotSupported` condition, no guest OS information is collected, and there is no newer agent to update to. A snapshot with `requiredConsistency: true` cannot succeed either, for a separate reason: the platform does ask the agent to freeze the file system, and the agent answers that the command is disabled in its build — `guest-fsfreeze-status has been disabled for this instance`. On Windows a freeze goes through a VSS provider, which that build does not carry. The snapshot waits in `InProgress` and ends in `Failed` about ten minutes later. Take snapshots of such VMs with `requiredConsistency: false`.
+- Changing the number of CPU cores and the amount of memory on a running VM, because these guest operating systems don't bring them into service. The change is accepted, the VM shows it in [`.status.restartAwaitingChanges`](cr.html#virtualmachine-v1alpha2-status-restartawaitingchanges) along with the `AwaitingRestartToApplyConfiguration` condition, and it applies after a restart.
+- Changing the contents of [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) on a running VM, because these disks stay static in both paravirtualization modes, so add a block device before the VM starts.
+- The `EFI` and `EFIWithSecureBoot` bootloaders, as well as initialization (`cloud-init` and Sysprep), because these guest operating systems don't support them.
+- Guest OS information in the VM status and file system information.
 
-- changing `.spec.blockDeviceRefs` on a running VM: those disks stay static in both paravirtualization modes, so a block device has to be added before the VM is started.
+You can install the QEMU guest agent in such an OS from an archived virtio-win release, and the VM does show `AgentReady`, but its version is too old for the module. The VM gets the `AgentVersionNotSupported` condition, guest OS information isn't collected, and there's nothing to update the agent to.
 
-With `enableParavirtualization: false` one more limit applies:
+A snapshot with `requiredConsistency: true` also doesn't complete successfully, but for a different reason. The module requests a file system freeze, and the agent replies that the command is disabled in its build with the `guest-fsfreeze-status has been disabled for this instance` message. On Windows, the freeze goes through the VSS provider, which isn't in this build. The snapshot waits in the `InProgress` phase for about ten minutes and moves to `Failed`, so set `requiredConsistency: false` for such VMs.
 
-- no more than 4 block devices in total: an IDE bus provides two channels with two devices each.
+With `enableParavirtualization: false`, one more limitation applies. There can be no more than four block devices in total, because the IDE bus provides two channels with two devices each.
 {{< /alert >}}
 
 Example configuration for a Windows XP virtual machine:
@@ -1540,11 +1506,11 @@ spec:
   # other parameters...
 ```
 
-The `bootloader` parameter determines the bootloader type for the virtual machine:
+The `bootloader` parameter defines the bootloader type of the virtual machine:
 
-- `BIOS` (default): Use legacy BIOS.
-- `EFI`: Use Unified Extensible Firmware Interface (UEFI/EFI).
-- `EFIWithSecureBoot`: Use UEFI/EFI with Secure Boot support.
+- `BIOS` (default): Uses the legacy BIOS.
+- `EFI`: Uses the Unified Extensible Firmware Interface (UEFI/EFI).
+  - `EFIWithSecureBoot`: Uses UEFI/EFI with Secure Boot support.
 
 Example configuration for a Windows virtual machine:
 
@@ -1555,7 +1521,7 @@ spec:
   # other parameters...
 ```
 
-Example configuration for a Linux virtual machine (default values can be omitted):
+Example configuration for a Linux virtual machine (you can omit the default values):
 
 ```yaml
 spec:
@@ -1565,27 +1531,34 @@ spec:
 ```
 
 {{< alert level="info" >}}
-For most modern Linux distributions, it is recommended to use `bootloader: EFI`. For Windows, `bootloader: EFI` or `bootloader: EFIWithSecureBoot` is usually required.
+For modern Linux distributions, choose `bootloader: EFI`, and for Windows, choose `bootloader: EFI` or `bootloader: EFIWithSecureBoot`.
 {{< /alert >}}
 
 {{< alert level="warning" >}}
-`EFIWithSecureBoot` needs a persistent volume for the Secure Boot state, which requires a default StorageClass in the cluster. Without one, the virtual machine does not start and stays in `Pending`, and its status reports that no default StorageClass is available. It starts automatically once a default StorageClass exists.
+`EFIWithSecureBoot` needs a persistent volume for the Secure Boot state, and creating it needs a default StorageClass in the cluster. If there's none, the virtual machine doesn't start and stays in the `Pending` state, and its status says that the default StorageClass isn't found. As soon as a default StorageClass appears, the machine starts automatically.
 {{< /alert >}}
 
-The `enableParavirtualization` parameter controls the use of the `virtio` bus for connecting virtual devices to the VM. Changing the parameter value takes effect only after the VM is restarted.
+The `enableParavirtualization` parameter controls the use of the `virtio` bus for attaching the virtual devices of the VM. A change to this parameter takes effect only after the VM restarts.
 
-- `true` (default): The `virtio` bus is used for disks, network interfaces, and other devices, which provides better performance. You can change `.spec.blockDeviceRefs` on a running VM without rebooting by adding and removing devices if the disk is available on the node where the VM runs.
-- `false`: Standard device emulation is used (SATA for disks, e1000 for network interfaces; IDE and RTL8139 for the `Legacy` osType), which may be required for compatibility with older guest OSes without `VirtIO` drivers. Changes to `.spec.blockDeviceRefs` on a running VM (adding or removing disks and images, including ISO images) take effect after rebooting the VM. To attach and detach disks without rebooting, use the [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`) resource without changing the list in the VM specification.
+- `true` (default): The `virtio` bus is used for disks, network interfaces, and other devices, which gives better performance. You can change the contents of [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) on a running VM without a restart, adding and removing devices, if the disk is available on the node where the VM runs.
+- `false`: Standard device emulation is used (SATA for disks, e1000 for network interfaces; IDE and RTL8139 for the `Legacy` OS type), which may be required for compatibility with older operating systems that lack `VirtIO` drivers. Changes to [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) on a running VM (adding and removing disks and images, including ISO) take effect after the VM restarts. To attach and detach disks without a restart, use the [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) (`vmbda`) resource, without changing the list in the VM specification.
 
 {{< alert level="info" >}}
-To use paravirtualization mode (`virtio`), some operating systems require installing the corresponding drivers. If drivers are not installed, the VM may fail to boot or devices may not work correctly.
+To use the paravirtualization mode (`virtio`), some operating systems require the matching drivers to be installed. If the drivers aren't installed, the VM may fail to boot or the devices may work incorrectly.
 {{< /alert >}}
 
-For the `Legacy` osType the default of `true` is the wrong one: these operating systems have no built-in virtio drivers, so a VM you are going to install from the original media needs `enableParavirtualization: false` — otherwise the installer reports that it found no hard disks. Creating or updating such a VM produces an admission warning.
+For the `Legacy` OS type, the default value `true` isn't a fit, because these operating systems have no built-in virtio drivers, so for a VM you're going to install from the original media, set `enableParavirtualization: false`, otherwise the installer reports that it found no hard drives. A warning is issued when creating and modifying such a VM.
 
-Keep `enableParavirtualization: true` for a `Legacy` VM only when the virtio drivers are already installed in the guest. The VM then keeps the i440fx chipset and the `BIOS` bootloader, but gets its disks on virtio-blk, a virtio-net adapter, and no four-device limit. The CD-ROM stays on IDE, because virtio-blk has no CD-ROM. To switch an installed guest: install the drivers, shut the VM down, set `enableParavirtualization: true` and start it again. Windows XP, 2000 and Server 2003 need an archived virtio-win release, the current ones no longer ship drivers for them — and the disk driver to install is `viostor`, the virtio-blk one, since that package carries no virtio-scsi driver for these operating systems.
+Keep `enableParavirtualization: true` for a VM with the `Legacy` OS type only when the virtio drivers are already installed in the guest OS. Then the VM keeps the i440fx chipset and the `BIOS` bootloader, but gets disks on virtio-blk, the virtio-net adapter, and loses the four-device limit. The CD-ROM stays on the IDE bus, because virtio-blk has no drive.
 
-The disk controller driver has to be installed in the guest before the switch, not after: the guest boots from that controller. If the VM does not boot after the switch, set `enableParavirtualization` back to `false` and restart it — the disks return to the IDE bus and the guest boots as before.
+To switch a system that's already installed:
+
+1. Install the virtio drivers in the guest OS. For Windows XP, 2000, and Server 2003, take an archived virtio-win release, because the current releases no longer contain drivers for these systems, and install `viostor`, the virtio-blk driver. The package has no virtio-scsi driver for these operating systems.
+1. Power off the VM.
+1. Set `enableParavirtualization: true`.
+1. Start the VM.
+
+The order of the steps matters. The disk controller driver has to appear in the guest OS before the switch, not after, because the VM boots from that very controller. If the VM doesn't boot after the switch, set `enableParavirtualization: false` back and restart it. The disks return to the IDE bus and the guest OS boots as before.
 
 Example configuration with paravirtualization disabled:
 
@@ -1595,9 +1568,9 @@ spec:
   # other parameters...
 ```
 
-### Initialization scripts
+### VM initialization scripts
 
-Initialization scripts are used for the initial configuration of a virtual machine when it is started.
+Initialization scripts are designed for the initial configuration of a virtual machine when it starts.
 
 The following initialization scripts are supported:
 
@@ -1606,22 +1579,22 @@ The following initialization scripts are supported:
 
 #### Cloud-Init
 
-Cloud-Init is a tool for automatically configuring virtual machines on first boot. It allows you to perform a wide range of configuration tasks without manual intervention.
+Cloud-Init is a tool for automatically configuring virtual machines at first boot. It performs a wide range of configuration tasks without manual intervention.
 
 {{< alert level="warning" >}}
-Cloud-Init configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the [official Cloud-Init documentation](https://cloudinit.readthedocs.io/en/latest/explanation/format.html#headers-and-content-types).
+The Cloud-Init configuration is written in YAML and has to start with the `#cloud-config` header at the beginning of the configuration block. For other possible headers and their purpose, see the [official cloud-init documentation](https://cloudinit.readthedocs.io/en/latest/explanation/format.html#headers-and-content-types).
 {{< /alert >}}
 
-The main capabilities of Cloud-Init include:
+Key Cloud-Init capabilities:
 
-- Creating users, setting passwords, and adding SSH keys for access.
-- Automatically installing necessary software on first boot.
-- Running arbitrary commands and scripts for system configuration.
-- Automatically starting and enabling system services (for example, [`qemu-guest-agent`](#guest-os-agent)).
+- creating users, setting passwords, adding SSH keys for access;
+- automatically installing the required software at first boot;
+- running arbitrary commands and scripts to configure the system;
+- automatically starting and enabling system services (for example, [`qemu-guest-agent`](#guest-os-agent)).
 
-##### Typical usage scenarios
+Here are the typical scenarios.
 
-1. Adding an SSH key for a [pre-installed user](#image-resources-table) that may already be present in the cloud image (for example, the `ubuntu` user in official Ubuntu images). The name of such a user depends on the image. Check the documentation for your distribution.
+1. Adding an SSH key for a [preinstalled user](admin_guide.html#image-resources-table) that may already be present in a cloud image (for example, the `ubuntu` user in official Ubuntu images). The name of such a user depends on the image. Check it in the documentation for your distribution.
 
    ```yaml
    #cloud-config
@@ -1629,13 +1602,13 @@ The main capabilities of Cloud-Init include:
      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
    ```
 
-1. Creating a user with a password and SSH key:
+1. Creating a user with a password and an SSH key:
 
    ```yaml
    #cloud-config
    users:
      - name: cloud
-       passwd: "$6$rounds=4096$saltsalt$..."
+       passwd: <PASSWORD_HASH>
        lock_passwd: false
        sudo: ALL=(ALL) NOPASSWD:ALL
        shell: /bin/bash
@@ -1644,7 +1617,7 @@ The main capabilities of Cloud-Init include:
    ssh_pwauth: True
    ```
 
-   To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
+   Where `<PASSWORD_HASH>` is the password hash in quotes, generated with the `mkpasswd --method=SHA-512 --rounds=4096` command.
 
 1. Installing packages and services:
 
@@ -1660,9 +1633,11 @@ The main capabilities of Cloud-Init include:
      - systemctl enable --now qemu-guest-agent.service
    ```
 
-##### Using Cloud-Init
+{{< tabs name="cloud-init-usage" >}}
 
-The Cloud-Init script can be embedded directly into the virtual machine specification, but its size is limited to a maximum of 2048 bytes:
+{{% tab name="Using the CLI" %}}
+
+You can embed a Cloud-Init script directly into the virtual machine specification, but such a script is limited to 2048 bytes:
 
 ```yaml
 spec:
@@ -1674,7 +1649,7 @@ spec:
       ...
 ```
 
-For longer scenarios and/or when private data is involved, the script for initial initialization of the virtual machine can be created in a Secret resource. An example of a Secret with a Cloud-Init script is shown below:
+For longer scripts or scripts with private data, create the virtual machine initialization script in a Secret resource. Here is an example of a Secret resource with a Cloud-Init script:
 
 ```yaml
 apiVersion: v1
@@ -1686,7 +1661,7 @@ data:
 type: provisioning.virtualization.deckhouse.io/cloud-init
 ```
 
-A fragment of the virtual machine configuration when using the Cloud-Init initialization script stored in a Secret:
+A fragment of the virtual machine configuration that uses a Cloud-Init initialization script stored in a Secret resource:
 
 ```yaml
 spec:
@@ -1697,15 +1672,41 @@ spec:
       name: cloud-init-example
 ```
 
-{{< alert level="info" >}}
-The value of the `.data.userData` field must be Base64 encoded. To encode it, you can use the `base64 -w 0` command or `echo -n "content" | base64`.
-{{< /alert >}}
+> The value of the `.data.userData` field has to be Base64-encoded. To encode it, use the `base64 -w 0` or `echo -n "content" | base64` command.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Create a virtual machine or select an existing one and click its name.
+1. On the **Configuration** tab, scroll down to the **Cloud-init** toggle and enable it.
+1. Select the input mode:
+   - **Basic setup**: Fill in the **Username**, **Password**, and **Public SSH key** fields, and enable the **Unrestricted sudo access** toggle if required. The platform builds the cloud-init configuration itself.
+   - **Editing**: Enter the cloud-init configuration manually in the **Parameters** field. The used volume is shown below the field (no more than 2048 bytes). In the **Linked secret** field, you can select an existing initialization script, and its contents load into the field. If no secret is linked, the configuration is stored in the VM specification.
+1. Click the **Save** button that appears (or **Create** when creating the VM).
+
+You can store a script as a separate resource and reuse it for several VMs. To create such a resource:
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Initialization scripts**.
+1. Click **Create**.
+1. In the **Name** field, enter the script name, and in the **Type** field, select `cloud-init` or `sysprep`.
+1. In the **Files** block, set the key in the **File name** field (`userData` by default), and enter the contents manually, drag a file to the field, or click it to upload a file.
+1. Click **Create**.
+
+The **Initialization scripts** section shows secrets of the `provisioning.virtualization.deckhouse.io/*` type, each with its name, type (`cloud-init` or `sysprep`), the list of keys, and the resource age. To make a virtual machine use such a script, reference it in the [`.spec.provisioning.userDataRef`](cr.html#virtualmachine-v1alpha2-spec-provisioning-userdataref) parameter.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 #### Sysprep
 
-When configuring virtual machines running Windows using Sysprep, only the Secret-based option is supported.
+To configure virtual machines running Windows with Sysprep, only the Secret resource option is supported.
 
-An example of a Secret with a Sysprep script is shown below:
+Here is an example of a Secret resource with a Sysprep script:
 
 ```yaml
 apiVersion: v1
@@ -1718,10 +1719,10 @@ type: provisioning.virtualization.deckhouse.io/sysprep
 ```
 
 {{< alert level="info" >}}
-The value of the `.data.unattend.xml` field must be Base64 encoded. To encode, you can use the command `base64 -w 0` or `echo -n "content" | base64`.
+The value of the `.data.unattend.xml` field has to be Base64-encoded. To encode it, use the `base64 -w 0` or `echo -n "content" | base64` command.
 {{< /alert >}}
 
-A fragment of the virtual machine configuration using the Sysprep initialization script in a Secret:
+A fragment of the virtual machine configuration that uses a Sysprep initialization script in a Secret resource:
 
 ```yaml
 spec:
@@ -1734,92 +1735,80 @@ spec:
 
 ### Guest OS agent
 
-To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
+Install QEMU Guest Agent in the guest system so that the module can interact with the operating system inside the VM. The agent is needed for three things:
 
-The module supports `qemu-guest-agent` version 5.2.0 and later. To check the current agent version in the guest OS, run:
+- it makes consistent disk and VM snapshots possible;
+- it reports information about the running system, and that information lands in the [`.status.guestOSInfo`](cr.html#virtualmachine-v1alpha2-status-guestosinfo) block;
+- it shows that the operating system has actually booted, rather than just the virtual machine having started.
+
+The module works with `qemu-guest-agent` version 5.2.0 and later. To check the installed version, run the following command:
 
 ```bash
 qemu-guest-agent --version
 ```
 
-How will the agent help?
+Guest system information looks like this:
 
-- It will provide consistent snapshots of disks and VMs.
-- It will provide information about the running OS, which will be reflected in the status of the VM.
-  Example:
+```yaml
+status:
+  guestOSInfo:
+    id: fedora
+    kernelRelease: 6.11.4-301.fc41.x86_64
+    kernelVersion: "#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024"
+    machine: x86_64
+    name: Fedora Linux
+    prettyName: Fedora Linux 41 (Cloud Edition)
+    version: 41 (Cloud Edition)
+    versionId: "41"
+```
 
-  ```yaml
-  status:
-    guestOSInfo:
-      id: fedora
-      kernelRelease: 6.11.4-301.fc41.x86_64
-      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
-      machine: x86_64
-      name: Fedora Linux
-      prettyName: Fedora Linux 41 (Cloud Edition)
-      version: 41 (Cloud Edition)
-      versionId: "41"
-  ```
-
-- Will allow tracking that the OS has actually booted:
-
-  ```bash
-  d8 k get vm -o wide
-  ```
-
-  Example output (see `AGENT` column):
-
-  ```console
-  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
-  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
-  ```
-
-How to install QEMU Guest Agent:
-
-For Debian-based OS:
+The `AGENT` column shows whether the agent is running:
 
 ```bash
+d8 k get vm -o wide
+```
+
+Example output:
+
+```console {.nowrap-default}
+NAME     PHASE     UPTIME   CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
+fedora   Running   5d21h    6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
+```
+
+Install the agent with the command for your distribution and start the service:
+
+```bash
+# Debian and derivatives.
 sudo apt install qemu-guest-agent
-```
 
-For CentOS-based OS:
-
-```bash
+# CentOS and derivatives.
 sudo yum install qemu-guest-agent
-```
 
-Starting the agent service:
-
-```bash
 sudo systemctl enable --now qemu-guest-agent
 ```
 
-You can automate the installation of the agent for Linux OS using a cloud-init initialization script. Below is an example snippet of such a script to install qemu-guest-agent:
+For Linux, it's convenient to automate the installation with an initialization script:
 
 ```yaml
-  #cloud-config
-  package_update: true
-  packages:
-    - qemu-guest-agent
-  runcmd:
-    - systemctl enable --now qemu-guest-agent.service
+#cloud-config
+package_update: true
+packages:
+  - qemu-guest-agent
+runcmd:
+  - systemctl enable --now qemu-guest-agent.service
 ```
 
-QEMU Guest Agent does not require additional configuration after installation. However, to ensure application-level snapshot consistency (without stopping services), you can add scripts that are executed automatically in the guest OS before and after filesystem `freeze` and `thaw` operations. The scripts must be executable and placed in a special directory, whose path depends on the Linux distribution in use:
-
-- `/etc/qemu-ga/hooks.d/`: For Debian/Ubuntu-based distributions.
-- `/etc/qemu/fsfreeze-hook.d/`: For RHEL/CentOS/Fedora-based distributions.
+The agent doesn't need any configuration after installation. If your snapshots need application data consistency, put the preparation scripts in the `/etc/qemu-ga/hooks.d/` directory on Debian and Ubuntu, or `/etc/qemu/fsfreeze-hook.d/` on RHEL, CentOS, and Fedora. The scripts have to be executable, and the agent runs them before the file system freeze and after the thaw, so you don't have to stop the application services.
 
 ### Connecting to a virtual machine
 
-The following methods are available for connecting to the virtual machine:
+You can connect to a virtual machine in four ways. The first is a remote management protocol such as SSH, which you configure in the guest OS yourself. The second is the serial console. The third is VNC. The fourth is SPICE, if it is enabled for the machine.
 
-- remote management protocol (such as SSH), which must be preconfigured on the virtual machine.
-- serial console
-- VNC protocol
-- SPICE protocol, if it is enabled on the virtual machine
+{{< tabs name="vm-connect" >}}
 
-An example of connecting to a virtual machine using a serial console:
+{{% tab name="Using the CLI" %}}
+
+Serial console:
 
 ```bash
 d8 v console linux-vm
@@ -1827,21 +1816,51 @@ d8 v console linux-vm
 
 Example output:
 
-```txt
+```console {.nowrap-default}
 Successfully connected to linux-vm console. The escape sequence is ^]
-#
 linux-vm login: cloud
 Password: cloud
 ```
 
-Press `Ctrl+]` to finalize the serial console.
+To exit the console, press `Ctrl+]`.
+
+Connecting over VNC:
+
+```bash
+d8 v vnc linux-vm
+```
+
+Connecting over SPICE:
+
+```bash
+d8 v spice linux-vm
+```
+
+Connecting over SSH:
+
+```bash
+d8 v ssh cloud@linux-vm
+```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. Go to the **TTY** tab to work with the serial console, or to the **VNC** tab to connect over VNC.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 {{< alert level="warning" >}}
-The serial console and the VNC of a virtual machine are exclusive: only one user works in them at a time, and connecting disconnects whoever is already there.
+The serial console and VNC are exclusive, only one user works in them, and a new connection disconnects whoever is already working with the machine.
 
-Before connecting, `d8 v console` and `d8 v vnc` report who is using the stream and since when, and ask what to do:
+Before connecting, `d8 v console` and `d8 v vnc` report who took the stream and since when, and offer a choice:
 
-```txt
+```console {.nowrap-default}
 The serial console of linux-vm is in use:
   user       serviceaccount default/alice
   connected  12 minutes ago (14:32), from the d8 v command line
@@ -1849,36 +1868,18 @@ The serial console of linux-vm is in use:
 Connect and disconnect them? [y] yes  [N] no  [w] wait until free:
 ```
 
-Answer `w` to wait until the other user disconnects and then connect automatically. Pressing Enter cancels the connection: the safe answer is the default one.
-
-Use `--force` to connect without the question. When the command runs non-interactively (in a script), it connects the way it always did and reports in its error output who was disconnected.
+The `w` answer means waiting until the other user disconnects and connecting automatically. Pressing Enter cancels the connection, because the safe option is selected by default. The `--force` flag connects without asking, and it's also what you need for a non-interactive run in a script.
 {{< /alert >}}
 
 {{< alert level="info" >}}
-The serial console does not support automatic terminal resizing. If full-screen applications or text editors are displayed incorrectly, run the following command after you log in:
-
-```bash
-stty rows <number_of_rows> cols <number_of_columns>
-```
-
-For example: `stty rows 50 cols 200`
-
-If the `xterm` package is installed on the system, you can also use the `resize` command.
+The serial console doesn't resize the terminal automatically. If the command output wraps incorrectly, set the size manually with the `stty rows <ROWS> cols <COLUMNS>` command, for example `stty rows 50 cols 200`. When the `xterm` package is installed in the system, the `resize` command does the same job.
 {{< /alert >}}
-
-Example command for connecting via VNC:
-
-```bash
-d8 v vnc linux-vm
-```
-
-The VNC of a virtual machine is exclusive in the same way the serial console is: connecting disconnects whoever is already there, and `d8 v vnc` asks about it first. See the warning above.
 
 #### SPICE
 
-SPICE is a remote display protocol that, unlike VNC, brings the sound of the guest operating system, redirects USB devices from the client machine into it, and shares a clipboard with it. It is added next to VNC rather than instead of it, so existing VNC sessions and the web interface keep working.
+SPICE is a second remote display protocol that, unlike VNC, brings the sound of the guest system, redirects USB devices from your computer into it, and shares a clipboard with it. It works alongside VNC, so open VNC sessions and the web interface keep working.
 
-SPICE is disabled by default. To turn it on, set the `spec.spice.enabled` parameter in the specification of the virtual machine and restart the VM:
+SPICE is disabled by default. To turn it on, set the [`.spec.spice.enabled`](cr.html#virtualmachine-v1alpha2-spec-spice-enabled) parameter and restart the machine:
 
 ```yaml
 spec:
@@ -1886,72 +1887,54 @@ spec:
     enabled: true
 ```
 
-Together with SPICE, the virtual machine gets a virtio-gpu video adapter. If the guest system has no driver for it, as is the case with Windows 7 and Windows XP, set another adapter model with the `virtualization.deckhouse.io/video` annotation, using the `vga`, `bochs` or `ramfb` value.
+Together with SPICE, the machine gets a virtio-gpu video adapter. If the guest system has no driver for it, as in Windows 7 and Windows XP, set another adapter model with the `virtualization.deckhouse.io/video` annotation, using the `vga`, `bochs`, or `ramfb` value.
 
-The SPICE guest agent adds a shared clipboard, automatic resize to the client window and a local cursor. Install it in the guest system. On Linux it is the `spice-vdagent` package, on Windows it is `spice-guest-tools`.
+A shared clipboard, a resize to the client window, and a local cursor are added by the SPICE guest agent. Install it in the guest system, on Linux it's the `spice-vdagent` package, on Windows it's `spice-guest-tools`.
 
-Connecting requires the `remote-viewer` SPICE client from the `virt-viewer` package. The command opens it for you:
-
-```bash
-d8 v spice linux-vm
-```
-
-If you have no such client, run the proxy alone and connect with your own viewer to the port the command prints:
+Connecting requires the `remote-viewer` client from the `virt-viewer` package, and the `d8 v spice` command opens it for you. If you don't have such a client, run the proxy alone and connect with your own client to the port the command prints:
 
 ```bash
 d8 v spice linux-vm --proxy-only
 ```
 
-The SPICE display is exclusive the same way the serial console and VNC are. Connecting disconnects whoever is already there, and `d8 v spice` asks about it first.
-
 {{< alert level="warning" >}}
-Changing the `spec.spice.enabled` parameter requires a virtual machine restart.
+The SPICE display is exclusive the same way the serial console and VNC are, and `d8 v spice` warns you before disconnecting whoever is already connected.
 
-SPICE reserves memory whether a client is connected or not. The reserved memory is accounted for in the VM overhead, so on the node the machine takes more memory than its specification asks for.
+SPICE reserves memory whether a client is connected or not. This memory is part of the machine overhead, so on the node the machine takes more memory than its specification asks for.
 {{< /alert >}}
 
-Example command for connecting via SSH.
+### Startup policy and VM state management
+
+The startup policy determines how the module maintains the machine state. It's set by the [`.spec.runPolicy`](cr.html#virtualmachine-v1alpha2-spec-runpolicy) parameter:
+
+- `AlwaysOnUnlessStoppedManually`: The default option. The machine always runs, and you can stop it only manually.
+- `AlwaysOn`: The machine always runs, and even after a shutdown from the guest OS the module starts it again.
+- `Manual`: You manage the machine state yourself.
+- `AlwaysOff`: The machine is always off, and you can't start it.
+
+You can manage the machine state in two ways, by creating a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource or by using the `d8` utility. The resource describes the action declaratively, and the utility creates the same resource for you.
+
+| `d8` command   | Operation type | Action                       |
+| -------------- | -------------- | ---------------------------- |
+| `d8 v stop`    | `Stop`         | Stop the VM                  |
+| `d8 v start`   | `Start`        | Start the VM                 |
+| `d8 v restart` | `Restart`      | Restart the VM               |
+| `d8 v evict`   | `Evict`        | Evict the VM to another node |
+| `d8 v migrate` | `Migrate`      | Migrate the VM to another node |
+
+{{< tabs name="vm-operations" >}}
+
+{{% tab name="Using the CLI" %}}
+
+The easiest way to restart a machine is with the `d8` utility:
 
 ```bash
-d8 v ssh cloud@linux-vm
+d8 v restart linux-vm
 ```
 
-How to connect to a virtual machine in the web interface:
+The same operation with a resource:
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- In the form that opens, go to the "TTY" tab to work with the serial console.
-- In the form that opens, go to the "VNC" tab to connect via VNC.
-- Go to the window that opens. Here you can connect to the VM.
-
-### Virtual machine startup policy and virtual machine state management
-
-The virtual machine startup policy is intended for automated virtual machine state management. It is defined as the `.spec.runPolicy` parameter in the virtual machine specification. The following policies are supported:
-
-- `AlwaysOnUnlessStoppedManually` - (default) after creation, the VM is always in a running state. In case of failures the VM operation is restored automatically. It is possible to stop the VM only by calling the `d8 v stop` command or creating a corresponding operation.
-- `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means. In case of failures the VM operation is restored automatically.
-- `Manual` - after creation, the state of the VM is controlled manually by the user using commands or operations. The VM is powered off immediately after creation. To power it on, the `d8 v start` command must be executed.
-- `AlwaysOff` - after creation the VM is always in the off state. There is no possibility to turn on the VM through commands/operations.
-
-How to select a VM startup policy in the web interface:
-
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the desired VM from the list and click on its name.
-- On the "Configuration" tab, scroll down to the "Additional Settings" section.
-- Select the desired policy from the Startup Policy combo box.
-
-The state of the virtual machine can be controlled using the following methods:
-
-Creating a `VirtualMachineOperation` (`vmop`) resource.
-Using the `d8` utility with the corresponding subcommand.
-
-The `VirtualMachineOperation` resource declaratively defines an imperative action to be performed on the virtual machine. This action is applied to the virtual machine immediately after it is created by the corresponding `vmop`. The action is applied to the virtual machine once.
-
-Example operation to perform a reboot of a virtual machine named `linux-vm`:
-
-```yaml
+```bash
 d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
@@ -1959,177 +1942,148 @@ metadata:
   generateName: restart-linux-vm-
 spec:
   virtualMachineName: linux-vm
+  # Type of the operation to perform.
   type: Restart
 EOF
 ```
 
-You can view the result of the action using the command:
+The list of operations shows the result:
 
 ```bash
 d8 k get virtualmachineoperation
-# or
+
+# Short form of the command.
 d8 k get vmop
 ```
 
-The same action can be performed using the `d8` utility:
+{{% /tab %}}
 
-```bash
-d8 v restart  linux-vm
-```
+{{% tab name="Using the web interface" %}}
 
-A list of possible operations is given in the table below:
+The startup policy is set on the machine page:
 
-| d8               | vmop type   | Action                         |
-| ---------------- | ----------- | ------------------------------ |
-| `d8 v stop`      | `Stop`      | Stop VM                        |
-| `d8 v start`     | `Start`     | Start the VM                   |
-| `d8 v restart`   | `Restart`   | Restart the VM                 |
-| `d8 v evict`     | `Evict`     | Evict the VM to another host   |
-| `d8 v migrate`   | `Migrate`   | Migrate the VM to another host |
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, scroll down to the **Life cycle** section.
+1. Select the policy you need from the **Startup policy** list.
 
-Only one active operation is executed for a VM at a time. If a new operation is compatible with an already active operation, it can supersede the older operation. The older operation is completed with `status.phase: Completed` and the `Completed` condition reason `Superseded`, while the new operation continues execution. For example, `Stop` can supersede an active `Start`, `Stop` with `force: true` can supersede a regular `Stop`, and `Restart` can supersede an active `Migrate` or `Evict`.
+Operations are available from the machine list:
 
-If operations are incompatible, the new operation is rejected until the active operation finishes. Restore and clone operations do not supersede other VM operations.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the virtual machine you need from the list and click the ellipsis button.
+1. In the menu that opens, select the operation.
 
-How to perform the operation in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the desired virtual machine from the list and click the ellipsis button.
-- In the pop-up menu, you can select possible operations for the VM.
+{{< /tabs >}}
 
-### Change virtual machine configuration
+Only one operation runs at a time for a single machine. A new operation either supersedes the active one or fails, and which of the two happens depends on the pair of types:
 
-You can change the configuration of a virtual machine at any time after the `VirtualMachine` resource has been created. However, how these changes are applied depends on the current phase of the virtual machine and the nature of the changes made.
+| Active operation                        | What can supersede it                     |
+| --------------------------------------- | ----------------------------------------- |
+| `Start`                                 | `Stop`                                    |
+| `Stop` or `Restart` without `force`     | `Stop` or `Restart` with `force: true`    |
+| `Migrate`, `Evict`                      | `Stop`, `Restart`                         |
+| `Stop` or `Restart` with `force: true`  | nothing                                   |
 
-Changes to the virtual machine configuration can be made using the following command:
+A superseded operation moves to the `Superseded` phase. An operation that can't supersede the active one moves to the `Failed` phase, so you have to create it again after the active one finishes. Restore and clone operations don't supersede other operations.
 
-```bash
-d8 k edit vm linux-vm
-```
+### Changing the VM configuration
 
-If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the changes made will take effect immediately after the virtual machine is started.
+You can change the machine configuration at any time after creation. On a powered-off machine, the changes apply right away, and on a running one it depends on what exactly you changed.
 
-If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
+| Configuration block                     | How it applies on a running VM                                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.metadata.labels`                      | Right away, and it propagates to the VM pod                                                                                                  |
+| `.metadata.annotations`                 | Right away, and it propagates to the VM pod                                                                                                  |
+| [`.spec.liveMigrationPolicy`](cr.html#virtualmachine-v1alpha2-spec-livemigrationpolicy)             | Right away                                                                                                                                   |
+| [`.spec.runPolicy`](cr.html#virtualmachine-v1alpha2-spec-runpolicy)                       | Right away                                                                                                                                   |
+| [`.spec.disruptions.restartApprovalMode`](cr.html#virtualmachine-v1alpha2-spec-disruptions-restartapprovalmode) | Right away                                                                                                                                   |
+| [`.spec.affinity`](cr.html#virtualmachine-v1alpha2-spec-affinity)                        | Right away in the EE and SE+ editions, a restart is required in CE                                                                           |
+| [`.spec.nodeSelector`](cr.html#virtualmachine-v1alpha2-spec-nodeselector)                    | Right away in the EE and SE+ editions, a restart is required in CE                                                                           |
+| [`.spec.cpu.cores`](cr.html#virtualmachine-v1alpha2-spec-cpu-cores)                       | Without a restart if [changing the number of cores without a restart](#changing-the-number-of-cores-without-a-restart) is enabled in the EE and SE+ editions, otherwise a restart is required |
+| [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks)                        | Adding and removing networks applies on a running VM if the guest OS supports attaching interfaces on the fly                                |
+| Other `.spec` fields                    | A restart is required                                                                                                                        |
 
-| Configuration block                     | How changes are applied                                                                                                                                                                                                                 |
-|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `.metadata.labels`                      | Applies immediately and propagates to the VM pod                                                                                                                                                                                        |
-| `.metadata.annotations`                 | Applies immediately and propagates to the VM pod                                                                                                                                                                                        |
-| `.spec.liveMigrationPolicy`             | Applies immediately                                                                                                                                                                                                                     |
-| `.spec.runPolicy`                       | Applies immediately                                                                                                                                                                                                                     |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately                                                                                                                                                                                                                     |
-| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart                                                                                                                                                                                 |
-| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart                                                                                                                                                                                 |
-| `.spec.cpu.cores`                       | May apply immediately if hotplug is enabled (EE, SE+), see [CPU hotplug](#cpu-hotplug); otherwise a restart is required.                                                                                                                |
-| `.spec.networks`                        | Adding or removing `Network` or `ClusterNetwork` on a running VM applies without reboot. Changes to `Main` or the order of existing networks require a VM restart (see [Additional network interfaces](#additional-network-interfaces)) |
-| `.spec.*`                               | Only after VM restart                                                                                                                                                                                                                   |
+{{< tabs name="vm-config" >}}
 
-How to change the VM configuration in the web interface:
+{{% tab name="Using the CLI" %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- You are now on the "Configuration" tab, where you can make changes.
-- The list of changed parameters and a warning if the VM needs to be restarted are displayed at the top of the page.
+The following example changes the number of cores.
 
-Let's consider an example of changing the configuration of a virtual machine:
+1. Check how many cores the guest OS sees now:
 
-Suppose we want to change the number of processor cores. The virtual machine is currently running and using one core, which can be confirmed by connecting to it through the serial console and executing the `nproc` command.
+   ```bash
+   d8 v ssh cloud@linux-vm --command "nproc"
+   ```
 
-```bash
-d8 v ssh cloud@linux-vm --command "nproc"
-```
+   Example output:
 
-Example output:
+   ```console
+   1
+   ```
 
-```txt
-1
-```
+1. Set the new number of cores:
 
-Apply the following patch to the virtual machine to change the number of cores from 1 to 2.
+   ```bash
+   d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
 
-```bash
-d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+   # You can achieve the same result by editing the resource.
+   d8 k edit vm linux-vm
+   ```
 
-# Alternatively, apply the changes by editing the resource.
+1. Verify that the change is accepted but not applied yet. The guest OS still sees one core, and the list of pending changes isn't empty:
 
-d8 k edit vm linux-vm
-```
+   ```bash
+   d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
+   ```
 
-Example output:
+   Example output:
 
-```txt
-# virtualmachine.virtualization.deckhouse.io/linux-vm patched
-```
+   ```json
+   [
+     {
+       "currentValue": 1,
+       "desiredValue": 2,
+       "operation": "replace",
+       "path": "cpu.cores"
+     }
+   ]
+   ```
 
-Configuration changes have been made but not yet applied to the virtual machine. Check this by re-executing:
+   The `NEED RESTART` column shows the same:
 
-```bash
-d8 v ssh cloud@linux-vm --command "nproc"
-```
+   ```bash
+   d8 k get vm linux-vm -o wide
+   ```
 
-Example output:
+   Example output:
 
-```txt
-1
-```
+   ```console {.nowrap-default}
+   NAME       PHASE     UPTIME   CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
+   linux-vm   Running   5m16s    2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
+   ```
 
-A restart of the virtual machine is required to apply this change. Run the following command to see the changes waiting to be applied (requiring a restart):
+1. Restart the machine:
 
-```bash
-d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
-```
+   ```bash
+   d8 v restart linux-vm
+   ```
 
-Example output:
+1. Check the result. After the restart, the [`.status.restartAwaitingChanges`](cr.html#virtualmachine-v1alpha2-status-restartawaitingchanges) block is empty and the guest OS sees two cores:
 
-```json
-[
-  {
-    "currentValue": 1,
-    "desiredValue": 2,
-    "operation": "replace",
-    "path": "cpu.cores"
-  }
-]
-```
+   ```bash
+   d8 v ssh cloud@linux-vm --command "nproc"
+   ```
 
-Run the command:
+   Example output:
 
-```bash
-d8 k get vm linux-vm -o wide
-```
+   ```console
+   2
+   ```
 
-Example output:
-
-```txt
-NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
-linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
-```
-
-In the `NEED RESTART` column we see the value `True`, which means that a reboot is required to apply the changes.
-
-Let's reboot the virtual machine:
-
-```bash
-d8 v restart linux-vm
-```
-
-After a reboot, the changes will be applied and the `.status.restartAwaitingChanges` block will be empty.
-
-Execute the command to verify:
-
-```bash
-d8 v ssh cloud@linux-vm --command "nproc"
-```
-
-Example output:
-
-```txt
-2
-```
-
-The default behavior is to apply changes to the virtual machine through a "manual" restart. If you want to apply the changes immediately and automatically, you need to change the change application policy:
+By default, you confirm the restart. To make the module apply the changes itself, set the [`.spec.disruptions.restartApprovalMode`](cr.html#virtualmachine-v1alpha2-spec-disruptions-restartapprovalmode) parameter to `Automatic`:
 
 ```yaml
 spec:
@@ -2137,67 +2091,25 @@ spec:
     restartApprovalMode: Automatic
 ```
 
-How to perform the operation in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- On the "Configuration" tab, scroll down to the "Additional Settings" section.
-- Enable the "Auto-apply changes" switch.
-- Click on the "Save" button that appears.
+{{% tab name="Using the web interface" %}}
 
-### CPU hotplug
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. Make the changes on the **Configuration** tab. If the machine has to be restarted, the module shows a warning and the list of pending changes.
+1. To make the changes apply without your confirmation, scroll down to the **Life cycle** section, enable the **Auto-apply changes** toggle, and click **Save**.
 
-CPU hotplug lets you change `spec.cpu.cores` for a running VM without restart when the change can be applied through live migration. Within the current CPU topology, you can both increase and decrease the number of cores.
+{{% /tab %}}
 
-This functionality is disabled by default.
+{{< /tabs >}}
 
-To enable this functionality, add `HotplugCPUWithLiveMigration` to `.spec.settings.featureGates` array in the ModuleConfig/virtualization:
+#### Changing the number of cores without a restart
 
-```yaml
-kind: ModuleConfig
-metadata:
-  name: virtualization
-spec:
-  settings:
-    featureGates:
-    - HotplugCPUWithLiveMigration
-```
+You can change the number of cores of a running machine without rebooting it, if the change is applicable through live migration. Within the current CPU topology, you can both add and remove cores.
 
-If the new `.spec.cpu.cores` value falls within the hotplug range for the current topology and the VM is migratable, the change is applied through live migration. If the new value requires a different CPU topology or the VM cannot be migrated, a VM restart is required. The need for restart is reflected by the `AwaitingRestartToApplyConfiguration` condition.
-
-Topology calculation rules and allowed change steps for `spec.cpu.cores` are described in [Automatic CPU topology configuration](#automatic-cpu-topology-configuration).
-
-Guest OS specifics:
-
-- After live migration, new vCPUs may require explicit activation inside the guest OS.
-- On Linux, added CPUs can be enabled through sysfs:
-
-  ```bash
-  echo 1 > /sys/devices/system/cpu/cpu1/online
-  ```
-
-- To automatically enable new CPUs on Linux, configure a `udev` rule. After that, added CPUs become visible in `cat /proc/cpuinfo` and `top`:
-
-  ```bash
-  cat <<'EOF' > /etc/udev/rules.d/99-hotplug-cpu.rules
-  SUBSYSTEM=="cpu",ACTION=="add",RUN+="/bin/sh -c '[ ! -e /sys$devpath/online ] || echo 1 > /sys$devpath/online'"
-  EOF
-  ```
-
-Limitations:
-
-- Changing `spec.cpu.cores` without restart is possible only within the hotplug range of the current CPU topology.
-- If the change requires CPU topology reconfiguration, a VM restart is required.
-- When decreasing CPU count within the current topology, CPU distribution across sockets may become uneven.
-
-### Memory hotplug
-
-Memory hotplug lets you increase `spec.memory.size` for a running VM without restart when the change can be applied through live migration. Decreasing memory always requires a VM restart.
-
-This functionality is disabled by default.
-
-To enable this functionality, add `HotplugMemoryWithLiveMigration` to `.spec.settings.featureGates` array in the ModuleConfig `virtualization`:
+The feature is disabled by default. To enable it, an administrator adds `HotplugCPUWithLiveMigration` to the [`.spec.settings.featureGates`](admin_guide.html#module-parameters) parameter of the module:
 
 ```yaml
 kind: ModuleConfig
@@ -2206,78 +2118,141 @@ metadata:
 spec:
   settings:
     featureGates:
-    - HotplugMemoryWithLiveMigration
+      - HotplugCPUWithLiveMigration
 ```
 
-If the new `spec.memory.size` is greater than the current value and the VM is migratable, the change is applied through live migration. If you need to shrink memory, the VM originally had less than 1 GiB of memory, or the VM cannot be migrated, a VM restart is required. The need for restart is reflected by the `AwaitingRestartToApplyConfiguration` condition.
+In the web interface, the same toggle is called **Change CPU without reboot** and is located in the **Experimental features** block on the **System** tab, in **Deckhouse** → **Modules** → `virtualization` → **Configuration**. Only a platform administrator has the rights for this.
 
-Guest OS specifics:
+When the feature is enabled and the new [`.spec.cpu.cores`](cr.html#virtualmachine-v1alpha2-spec-cpu-cores) value stays within the current topology, the module applies the change by live migration. If the change requires a different topology, the machine has to be rebooted. The topology calculation rules are described in [CPU topologies](#cpu-topologies).
 
-- After live migration, newly added memory blocks may require explicit activation inside the guest OS; memory configured at VM creation does not require extra activation.
-- On Linux, added memory can be enabled through sysfs (see device names in `ls /sys/bus/memory/devices/`):
+{{< tabs name="vm-cpu-change" >}}
 
-  ```bash
-  echo 1 > /sys/bus/memory/devices/memoryXXX/online
-  ```
+{{% tab name="Using the CLI" %}}
 
-- To automatically enable added memory on Linux, configure a `udev` rule. After that, added memory becomes visible in `free` and `lsmem`:
+```bash
+d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":4}}}'
+```
 
-  ```bash
-  cat <<'EOF' > /etc/udev/rules.d/99-hotplug-memory.rules
-  SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"
-  EOF
-  ```
+{{% /tab %}}
 
-Limitations:
+{{% tab name="Using the web interface" %}}
 
-- Increasing memory without restart is possible only if the VM memory size is at least 1 GiB. If the VM was created with less than 1 GiB, any memory size change requires a restart.
-- In the current module version, the maximum VM memory size is limited to 256 GiB.
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, in the **Resources** section, set the new value in the **CPU cores** field.
+1. Click the **Save** button that appears.
 
-### Placement of VMs by nodes
+{{% /tab %}}
 
-The following methods can be used to manage the placement of virtual machines (placement parameters) across nodes:
+{{< /tabs >}}
 
-- Simple label selection (`nodeSelector`) — the basic method for selecting nodes with specified labels.
-- Preferred selection (`Affinity`):
-- `nodeAffinity` — specifies priority nodes for placement.
-  - `virtualMachineAndPodAffinity` — defines workload co-location rules for VMs or containers.
-- Co-location avoidance (`AntiAffinity`):
-- `virtualMachineAndPodAntiAffinity` — defines workload rules for VMs or containers to be placed on the same node.
+The guest OS doesn't always bring new cores into service on its own, especially after a live migration. In Linux, a core is brought online through sysfs:
 
-All of the above parameters (including the `.spec.nodeSelector` parameter from VirtualMachineClass) are applied together when scheduling VMs. If at least one condition cannot be met, the VM will not be started. To minimize risks, we recommend:
+```bash
+echo 1 > /sys/devices/system/cpu/cpu1/online
+```
 
-- Creating consistent placement rules.
-- Checking the compatibility of rules before applying them.
-- Consider the types of conditions:
-- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — require strict compliance.
-- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — allow partial compliance.
-- Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
-- Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
-- Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to the VM.
+To make this happen automatically, add a `udev` rule:
+
+```bash {.nowrap-default}
+cat <<'EOF' > /etc/udev/rules.d/99-hotplug-cpu.rules
+SUBSYSTEM=="cpu",ACTION=="add",RUN+="/bin/sh -c '[ ! -e /sys$devpath/online ] || echo 1 > /sys$devpath/online'"
+EOF
+```
+
+The cores brought into service appear in the output of `nproc`, `cat /proc/cpuinfo`, and `top`.
+
+When you reduce the number of cores within the current topology, the distribution of cores across sockets is preserved.
+
+#### Changing the amount of memory without a restart
+
+You can increase the amount of memory of a running machine without rebooting it. Reducing it requires a restart.
+
+The feature is disabled by default. To enable it, an administrator adds `HotplugMemoryWithLiveMigration` to the [`.spec.settings.featureGates`](admin_guide.html#module-parameters) parameter of the module:
+
+```yaml
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+      - HotplugMemoryWithLiveMigration
+```
+
+In the web interface, the toggle is called **Change memory without reboot** and is located in the same place, in the **Experimental features** block of the module settings.
+
+When the feature is enabled, the new [`.spec.memory.size`](cr.html#virtualmachine-v1alpha2-spec-memory-size) value is greater than the current one, and the machine allows migration, the module applies the change by live migration. A restart is required if the memory is reduced, if the original size is less than 1 GiB, or if the machine can't be migrated. Without a restart, memory grows up to 256 GiB, the ceiling built into the machine configuration at first start.
+
+{{< tabs name="vm-memory-change" >}}
+
+{{% tab name="Using the CLI" %}}
+
+```bash
+d8 k patch vm linux-vm --type merge -p '{"spec":{"memory":{"size":"4Gi"}}}'
+```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, in the **Resources** section, set the new value in the **Memory size** field.
+1. Click the **Save** button that appears.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+As with cores, the guest OS may not bring new memory blocks into service on its own. In Linux, a block is brought online through sysfs, and the device name is visible in the `lsmem` output or in the `/sys/bus/memory/devices/` directory:
+
+```bash
+echo 1 > /sys/bus/memory/devices/memoryXXX/online
+```
+
+To make this happen automatically, add a `udev` rule:
+
+```bash {.nowrap-default}
+cat <<'EOF' > /etc/udev/rules.d/99-hotplug-memory.rules
+SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"
+EOF
+```
+
+### Placing VMs on nodes
+
+Four mechanisms control where exactly a virtual machine starts:
+
+- [`.spec.nodeSelector`](cr.html#virtualmachine-v1alpha2-spec-nodeselector): The simplest way, it selects nodes with the required labels.
+- [`.spec.affinity.nodeAffinity`](cr.html#virtualmachine-v1alpha2-spec-affinity-nodeaffinity): Sets the preferred nodes for placement.
+- [`.spec.affinity.virtualMachineAndPodAffinity`](cr.html#virtualmachine-v1alpha2-spec-affinity-virtualmachineandpodaffinity): Places the machine next to other machines and workloads.
+- [`.spec.affinity.virtualMachineAndPodAntiAffinity`](cr.html#virtualmachine-v1alpha2-spec-affinity-virtualmachineandpodantiaffinity): On the contrary, spreads them across different nodes.
+
+Conditions can be hard or soft. A hard `requiredDuringSchedulingIgnoredDuringExecution` condition is mandatory, and the machine doesn't start if there's no suitable node. A soft `preferredDuringSchedulingIgnoredDuringExecution` condition is taken into account by the scheduler where possible.
+
+All rules, including [`.spec.nodeSelector`](cr.html#virtualmachine-v1alpha2-spec-nodeselector) from the VM class, apply together. If at least one hard condition can't be met, the machine stays in the `Pending` phase. So set consistent rules, prefer combinations of labels over single hard restrictions, and keep spare nodes for critical workloads. Also consider the startup order: if one machine has to end up next to another, the second one has to start first. If the nodes you need have `taints`, add the matching `tolerations` to the machine.
 
 {{< alert level="info" >}}
-When changing placement parameters:
-
-- If the current location of the VM meets the new requirements, it remains on the current node.
-- If the requirements are violated:
-
-  - In commercial editions: The VM is automatically moved to a suitable node using live migration.
-  - In the CE edition: The VM will require a reboot to apply.
+When you change the placement rules of a running machine and its current node no longer meets the new requirements, in paid editions the module moves the machine by live migration, and in the CE edition the changes apply only after a reboot. A machine that already meets the new requirements stays where it is.
 {{< /alert >}}
 
-How to manage VM placement parameters by nodes in the web interface:
+To set the placement rules in the web interface:
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- On the "Configuration" tab, scroll down to the "Placement" section.
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, scroll down to the **VM placement** toggle.
+1. Select the input mode. In the **Basic setup** mode, the rules are set with the **Co-location** and **Separate placement** toggles, and in the **Editing** mode, the placement block is set manually as YAML.
+1. Enable the toggle you need and fill in the fields. The **Select rule mode** field offers **Required** (`requiredDuringSchedulingIgnoredDuringExecution`) and **Preferred** (`preferredDuringSchedulingIgnoredDuringExecution`), and the **Placement rule** field offers placement relative to other VMs or relative to node labels.
+1. Click the **Save** button that appears.
 
 #### Tolerance to node restrictions
 
-`tolerations` allow VMs to be scheduled onto nodes with `taints` that would otherwise block placement. This is useful when you need to run VMs on special nodes (for example, test nodes) or nodes with specific characteristics.
+`Tolerations` let a VM start on nodes with restrictions (`taints`) that otherwise block scheduling. This is useful when you need to run VMs on special nodes (for example, test nodes) or nodes with certain characteristics.
 
-Example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint:
+Here is an example of using `tolerations` to allow a start on nodes with the `node.deckhouse.io/group=:NoSchedule` taint:
 
 ```yaml
 spec:
@@ -2287,13 +2262,13 @@ spec:
       effect: "NoSchedule"
 ```
 
-Each entry in `tolerations` must match a node `taint` for the VM to be scheduled onto that node.
+Each element of the `tolerations` list has to match a `taint` on the node for the VM to be placed on that node.
 
 {{< alert level="warning" >}}
-Viewing node information (including `taints`) requires an appropriate role with access to cluster-level resources.
+To view information about cluster nodes (including `taints`), you need a user role with access to cluster-level resources.
 {{< /alert >}}
 
-To view `taints` on cluster nodes, run:
+To view the `taints` on cluster nodes, run the following command:
 
 ```bash
 d8 k get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
@@ -2302,12 +2277,12 @@ d8 k get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 For more details:
 
 ```bash
-d8 k describe node <node-name>
+d8 k describe node <NODE_NAME>
 ```
 
 #### Simple label binding (nodeSelector)
 
-A `nodeSelector` is the simplest way to control the placement of virtual machines using a set of labels. It allows you to specify on which nodes virtual machines can run by selecting nodes with the desired labels.
+`nodeSelector` is the simplest way to control the placement of virtual machines using a set of labels. It lets you specify which nodes virtual machines can start on by selecting nodes with the required labels.
 
 ```yaml
 spec:
@@ -2317,25 +2292,23 @@ spec:
 
 ![](images/placement-nodeselector.png)
 
-In this example, there are three nodes in the cluster: two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be placed on nodes that have the `disktype` label with the value `ssd`.
+In this example, the cluster has three nodes, two of them with fast disks (`disktype=ssd`) and one with slow ones (`disktype=hdd`). The virtual machine is placed only on nodes that have the `disktype` label with the `ssd` value.
 
-How to perform the operation in the web interface in the [Placement section](#placement-of-vms-by-nodes):
+To perform the operation in the web interface in the [placement section](#placing-vms-on-nodes):
 
-- Click "Add" in the "Run on nodes" -> "Select nodes by labels" block.
-- In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.nodeSelector` settings.
-- To confirm the key parameters, click the "Enter" button.
-- Click the "Save" button that appears.
+1. Enable the **Co-location** toggle.
+1. In the **Select rule mode** field, select **Required**.
+1. In the **Placement rule** field, select **On selected nodes**.
+1. In the **How to identify the node group** field, select **By labels** and specify the node labels (for example, `disktype: ssd`); the **By name** option lets you select specific nodes.
+1. Click the **Save** button that appears.
 
-#### Preferred Binding (Affinity)
+#### Preferred binding (Affinity)
 
-Placement requirements can be:
+`Affinity` provides more flexible and powerful tools compared to `nodeSelector`. It lets you set "preferences" and "requirements" for the placement of virtual machines. `Affinity` supports two kinds: `nodeAffinity` and `virtualMachineAndPodAffinity`.
 
-- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is placed only on nodes that meet the condition.
-- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is placed on suitable nodes, if possible.
+`nodeAffinity` defines the nodes to run a VM on using label selector expressions.
 
-`nodeAffinity` - determines on which nodes a VM can be launched using tag expressions.
-
-Example of using `nodeAffinity` with a strict rule:
+Here is an example of using `nodeAffinity` with a hard rule:
 
 ```yaml
 spec:
@@ -2352,19 +2325,19 @@ spec:
 
 ![](images/placement-node-affinity.png)
 
-In this example, there are three nodes in the cluster, two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be deployed on nodes that have the `disktype` label with the value `ssd`.
+In this example, the cluster has three nodes, two of them with fast disks (`disktype=ssd`) and one with slow ones (`disktype=hdd`). The virtual machine is placed only on nodes that have the `disktype` label with the `ssd` value.
 
-If you use a soft requirement (`preferredDuringSchedulingIgnoredDuringExecution`), then if there are no resources to start the VM on nodes with disks labeled `disktype=ssd`, it will be scheduled on a node with disks labeled `disktype=hdd`.
+If you use a soft requirement (`preferredDuringSchedulingIgnoredDuringExecution`), then when there are no resources to run the VM on nodes with `disktype=ssd` disks, it's scheduled on a node with `disktype=hdd` disks.
 
-`virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It allows you to specify a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
+`virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It lets you set a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
 
-Example of a soft rule:
+Here is an example of a soft rule:
 
 ```yaml
 spec:
   affinity:
     virtualMachineAndPodAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
+      preferredDuringSchedulingIgnoredDuringExecution:
         - weight: 1
           podAffinityTerm:
             labelSelector:
@@ -2375,34 +2348,29 @@ spec:
 
 ![](images/placement-vm-affinity.png)
 
-In this example, the virtual machine will be placed, if possible (since preferred is used) only on hosts that have a virtual machine with the server label and database value.
+In this example, the virtual machine is placed only on nodes that already run a virtual machine with the `server: database` label. The rule is soft (`preferred`), so if there are no such nodes, the machine starts on any suitable one.
 
-To place VMs across availability zones instead of specific nodes, set `topologyKey` to `topology.kubernetes.io/zone` (see [Placing VMs by availability zones](#placing-vms-by-availability-zones)).
+To place VMs across availability zones (instead of pinning them to specific nodes), set `topologyKey: topology.kubernetes.io/zone` ([Placing VMs across availability zones](#placing-vms-across-availability-zones)).
 
-How to set "preferences" and "mandatories" for placing virtual machines in the web interface in the [Placement section](#placement-of-vms-by-nodes):
+To set "preferences" and "requirements" for the placement of virtual machines in the web interface, in the [placement section](#placing-vms-on-nodes):
 
-- Click "Add" in the "Run VM near other VMs" block.
-- In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.affinity.virtualMachineAndPodAffinity` settings.
-- To confirm the key parameters, click the "Enter" button.
-- Select one of the options "On one server" or "In one zone" that corresponds to the `topologyKey` parameter.
-- Click the "Save" button that appears.
+1. Enable the **Co-location** toggle, which corresponds to the `spec.affinity.virtualMachineAndPodAffinity` settings.
+1. In the **Select rule mode** field, select **Required** or **Preferred**.
+1. In the **Placement rule** field, select **On nodes with selected VMs**.
+1. In the **Select labels** field, select the labels of the VMs you need from the list or enter your own in the `key: value` format.
+1. Click the **Save** button that appears.
 
-#### Avoid co-location (AntiAffinity)
+#### Avoiding co-location (AntiAffinity)
 
-`AntiAffinity` is the opposite of `Affinity`, which allows you to specify requirements to avoid co-location of virtual machines on the same hosts. This is useful for load balancing or fault tolerance.
-
-Placement requirements can be strict or soft:
-
-- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled only on nodes that meet the condition.
-- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled on suitable nodes if possible.
+`AntiAffinity` is used to prevent VMs from being placed together on nodes. It's useful for fault tolerance or load balancing.
 
 {{< alert level="warning" >}}
-Be careful when using strict requirements in small clusters with few nodes for VMs. If you apply `virtualMachineAndPodAntiAffinity` with `requiredDuringSchedulingIgnoredDuringExecution`, each VM replica must run on a separate node. In a cluster with limited nodes, this may cause some VMs to fail to start due to insufficient available nodes.
+Be careful with hard requirements in small clusters that have few nodes to run virtual machines (VMs) on. If the `virtualMachineAndPodAntiAffinity` parameter with the `requiredDuringSchedulingIgnoredDuringExecution` type is used for virtual machines, it means that each VM copy has to be placed on a separate node. With a limited number of nodes in the cluster, this can lead to a situation where some VMs can't start because of a lack of available nodes.
 {{< /alert >}}
 
-The terms `Affinity` and `AntiAffinity` apply only to the relationship between virtual machines. For nodes, the bindings used are called `nodeAffinity`. There is no separate antithesis in `nodeAffinity` as with `virtualMachineAndPodAffinity`, but you can create opposite conditions by specifying negative operators in label expressions: to emphasize the exclusion of certain nodes, you can use `nodeAffinity` with an operator such as `NotIn`.
+The terms `Affinity` and `AntiAffinity` describe the relationships between virtual machines. There's no such antonym for nodes, but you can achieve the same result through `nodeAffinity` with the `NotIn` operator, excluding the nodes you need.
 
-Example of using `virtualMachineAndPodAntiAffinity`:
+Here is an example of using `virtualMachineAndPodAntiAffinity`:
 
 ```yaml
 spec:
@@ -2417,32 +2385,33 @@ spec:
 
 ![](images/placement-vm-antiaffinity.png)
 
-In this example, the virtual machine being created will not be placed on the same host as the virtual machine labeled server: database.
+In this example, the virtual machine being created isn't placed on the same node as a virtual machine with the `server: database` label.
 
-To place VMs across availability zones instead of specific nodes, set `topologyKey` to `topology.kubernetes.io/zone` (see [Placing VMs by availability zones](#placing-vms-by-availability-zones)).
+To place VMs across availability zones (instead of pinning them to specific nodes), set `topologyKey: topology.kubernetes.io/zone` ([Placing VMs across availability zones](#placing-vms-across-availability-zones)).
 
-How to configure VM AntiAffinity on nodes in the web interface in the [Placement section](#placement-of-vms-by-nodes):
+To configure the prevention of co-locating VMs on nodes in the web interface, in the [placement section](#placing-vms-on-nodes):
 
-- Click "Add" in the "Identify similar VMs by labels" -> "Select labels" block.
-- In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.affinity.virtualMachineAndPodAntiAffinity` settings.
-- To confirm the key parameters, click the "Enter" button.
-- Check the boxes next to the labels you want to use in the placement settings.
-- Select one of the options in the "Select options" section.
-- Click the "Save" button that appears.
+1. Enable the **Separate placement** toggle, which corresponds to the `spec.affinity.virtualMachineAndPodAntiAffinity` settings.
+1. In the **Select rule mode** field, select **Required** or **Preferred**.
+1. In the **Placement rule** field, select **On nodes with selected VMs**.
+1. In the **Select labels** field, select the labels of the VMs you don't want the machine placed next to, or enter your own label in the `key: value` format.
+1. Click the **Save** button that appears.
 
-#### Placing VMs by availability zones
+#### Placing VMs across availability zones
+
+Placement rules work not only at the node level, but also at the availability zone level.
 
 {{< alert level="warning" >}}
-Availability zones must be pre-configured on cluster nodes. For this, nodes must have the `topology.kubernetes.io/zone` label set with the availability zone specified.
+Availability zones have to be configured on the cluster nodes in advance. To do this, the nodes have to have the `topology.kubernetes.io/zone` label with the availability zone specified.
 {{< /alert >}}
 
-In the examples above, `topologyKey: "kubernetes.io/hostname"` is used, which places VMs on the same node. For placing VMs by availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"`.
+The examples above use `topologyKey: "kubernetes.io/hostname"`, which places VMs on the same node. To place VMs across availability zones instead of nodes, use `topologyKey: "topology.kubernetes.io/zone"`.
 
-When using `Affinity` with `topologyKey: "topology.kubernetes.io/zone"`, VMs will be placed in the same availability zone where a virtual machine with the specified labels is present.
+With `Affinity` and `topologyKey: "topology.kubernetes.io/zone"`, VMs are placed in the same availability zone where a virtual machine with the specified labels is present.
 
-When using `AntiAffinity` with `topologyKey: "topology.kubernetes.io/zone"`, VMs will not be placed in the same availability zone as the virtual machine with the specified labels. This is useful for ensuring fault tolerance when distributing VMs across different availability zones.
+With `AntiAffinity` and `topologyKey: "topology.kubernetes.io/zone"`, VMs aren't placed in the same availability zone as a virtual machine with the specified labels. This is useful for fault tolerance when distributing VMs across different availability zones.
 
-To view availability zones on cluster nodes (if these zones are configured), run the following command:
+To view the availability zones on cluster nodes (if those zones are set), run the following command:
 
 ```bash
 d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topology\.kubernetes\.io/zone
@@ -2450,92 +2419,105 @@ d8 k get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topol
 
 ### Attaching block devices (disks and images)
 
-You can attach disks and images to a virtual machine. They are described as block devices (BlockDevices).
+You can attach disks and images to a virtual machine. They're described as block devices (BlockDevices).
 
 Block device types and access modes:
 
-| Block device type                                                          | Comment                                                     |
-|----------------------------------------------------------------------------|-------------------------------------------------------------|
-| [VirtualImage](/modules/virtualization/cr.html#virtualimage)               | Connected in read-only mode, or as a CD-ROM for ISO images. |
-| [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) | Connected in read-only mode, or as a CD-ROM for ISO images. |
-| [VirtualDisk](/modules/virtualization/cr.html#virtualdisk)                 | Connected in read/write mode.                               |
+| Block device type                                                          | Comment                                                           |
+|----------------------------------------------------------------------------|-------------------------------------------------------------------|
+| [VirtualImage](cr.html#virtualimage)               | Attached in read-only mode, or as a CD-ROM for ISO images.        |
+| [ClusterVirtualImage](cr.html#clustervirtualimage) | Attached in read-only mode, or as a CD-ROM for ISO images.        |
+| [VirtualDisk](cr.html#virtualdisk)                 | Attached in read-write mode.                                      |
 
-Two attachment methods are available:
+There are two ways to attach devices:
 
-- Via the VM specification (`.spec.blockDeviceRefs`): Disks are listed in the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) configuration and boot order is set for them (by position in the list or via the `bootOrder` field). Recommended when configuring the VM manually or via GitOps, or when you need to control boot order (e.g., an ISO for OS installation).
-- Via [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`): Disk is attached via a separate resource and does not participate in boot order. Disks are attached using the `virtio-scsi` bus regardless of `enableParavirtualization`. Recommended for automation and when you do not have permission to edit the VM.
+- Through the VM specification ([`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs)): The disks are listed in the [VirtualMachine](cr.html#virtualmachine) configuration, and the boot order is set for them (by position in the list or through the `bootOrder` field). Recommended when configuring a VM manually, and when you need control over the boot order (for example, an ISO for OS installation).
+- Through [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) (`vmbda`): The disk is attached as a separate resource and doesn't take part in the boot order. Disks are attached through the `virtio-scsi` bus, regardless of the `enableParavirtualization` value. Recommended for automation and when you don't have the rights to edit the VM.
 
-With `enableParavirtualization: true`, both methods let you attach and detach disks on a running VM without rebooting, if the disk is available on the node where the VM runs. With `enableParavirtualization: false`, the `.spec.blockDeviceRefs` list on a running VM changes only after a reboot; you can still attach and detach disks without rebooting using [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) (`vmbda`).
-
-{{< alert level="warning" >}}
-For the `Legacy` osType with `enableParavirtualization: false` an attachment is rejected: its disks are on the IDE bus, which cannot be hot-plugged. Add the device to `.spec.blockDeviceRefs` and restart the VM. With paravirtualization on an attachment is accepted, but the disk still arrives on the `virtio-scsi` bus: Windows XP and Server 2003 have no driver for it and will not see it, whereas a guest that does have one — the osType picks a chipset, not an operating system — uses it like any other VM.
-{{< /alert >}}
+With `enableParavirtualization: true`, both ways let you attach and detach disks on a running VM without a reboot, if the disk is available on the node where it runs. With `enableParavirtualization: false`, the contents of [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) on a running VM change only after a reboot; to attach and detach disks without a reboot, use [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) (`vmbda`).
 
 {{< alert level="warning" >}}
-For VMs with `enableParavirtualization: false`, the following applies:
+When paravirtualization is disabled (`enableParavirtualization: false`), the devices from [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) work on the SATA bus, and on the IDE bus for the `Legacy` OS type. On a running VM, changes to this list, including attaching and detaching an ISO image, take effect only after a reboot.
 
-- devices in `.spec.blockDeviceRefs` use the SATA bus, or the IDE bus for the `Legacy` osType; changes to the list on a running VM (adding or removing a disk, including an ISO image) take effect after rebooting the VM. Account for this when using the web interface and in automation;
-- disks attached through [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) use the `virtio-scsi` bus and can be attached and detached without rebooting the VM; `VirtIO` drivers for the SCSI controller must be installed in the guest OS, otherwise the disk may not appear in the OS even when the `vmbda` resource is created successfully in the cluster.
+Disks attached through [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) use the `virtio-scsi` bus and are attached without a reboot, if the guest OS has the driver for this bus. For the `Legacy` OS type with paravirtualization disabled, such an attachment is rejected, because the IDE bus doesn't support attaching on the fly: add the device to [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) and restart the VM.
 {{< /alert >}}
 
-Hot-plugging (hotplug) is only possible if the storage is available on the cluster node where the virtual machine runs. When you create or update a VM, or create a `vmbda`, placement rules (`nodeSelector`, `affinity`, `tolerations`) for the volume, the VM, and the VM class are taken into account: there must be at least one valid combined placement. If the VM is already running on a specific node, a new disk must be available on that node.
+You can attach a disk to a running VM only when the storage is available on the cluster node where the virtual machine runs. When creating and updating a VM, and when creating a [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment), the placement rules (`nodeSelector`, `affinity`, `tolerations`) of the volume, the virtual machine, and the VM class are taken into account, and they have to share at least one valid placement. If the VM is already running on a specific node, the new disk has to be available on that node.
 
-Once a live migration of the virtual machine starts preparing its target, a disk can be neither hot-plugged nor hot-unplugged. A newly created VirtualMachineBlockDeviceAttachment resource stays in the `Pending` phase with the `BlockedByMigration` reason in the `Attached` condition, and a deleted one stays in the `Terminating` phase; both proceed once the migration completes. While the migration is still queued and no target has been created yet, attaching and detaching work as usual.
+While a live migration of the machine is preparing the target node, a disk can be neither attached nor detached. A new [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) resource stays in the `Pending` phase with the `BlockedByMigration` reason in the `Attached` condition, and a deleted one stays in the `Terminating` phase, and both finish once the migration completes. While the migration is still queued and the target node isn't being prepared yet, attaching and detaching work as usual.
 
-#### Attaching via the VM specification
+#### Attaching through the VM specification
 
-The list of block devices is defined in the `.spec.blockDeviceRefs` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
+The devices listed in the machine specification are attached at startup and stay in place for the whole run.
 
-By default, boot order follows the order of devices in the list. You can set it explicitly with the optional `bootOrder` field (smaller value means higher priority). If `bootOrder` is set for at least one device, only devices with `bootOrder` set are included in the boot sequence. Allowed values: integers ≥ 1, unique within the list. When you remove a device from the list, boot order is recalculated for the remaining devices.
+{{< tabs name="bd-spec" >}}
 
-Changing the order of devices in the list or their `bootOrder` values takes effect after a VM reboot. For example, you can attach an ISO image for OS installation with the desired boot priority, then remove it from the list after installation. If paravirtualization is disabled (`enableParavirtualization: false`), edits to `.spec.blockDeviceRefs` on a running VM, including for ISO images, apply after rebooting the VM.
+{{% tab name="Using the CLI" %}}
 
-Virtual machine configuration fragment with block devices and explicit boot order:
+The list of block devices is set in the [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) field of the [VirtualMachine](cr.html#virtualmachine) resource.
+
+By default, the boot order matches the order of the devices in the list, and the optional `bootOrder` field lets you set it explicitly (a lower value means a higher priority). If `bootOrder` is specified for at least one device, only the devices with a set `bootOrder` get into the boot chain. Integers from 1 and up are allowed, unique within the list. When a device is removed from the list, the boot order is recalculated for the remaining devices.
+
+A change to the order of devices in the list or to the `bootOrder` values takes effect after the VM reboots. For example, you can attach an ISO image for OS installation with the boot priority you need, and remove it from the list after the installation. If the VM has paravirtualization disabled (`enableParavirtualization: false`), edits to [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) on a running VM, including ones with an ISO image, apply after the VM reboots.
+
+A fragment of the virtual machine configuration with block devices and an explicit boot order:
 
 ```yaml
 spec:
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: <virtual-disk-name>
+      name: <VD_NAME>
       bootOrder: 1
     - kind: VirtualImage
-      name: <virtual-image-name>
+      name: <VI_NAME>
       bootOrder: 2
 ```
 
-To attach a disk to a running virtual machine, add it to the `.spec.blockDeviceRefs` list:
+To attach a disk to a running virtual machine, add it to the [`.spec.blockDeviceRefs`](cr.html#virtualmachine-v1alpha2-spec-blockdevicerefs) list:
 
 ```yaml
 spec:
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: <virtual-disk-name>
+      name: <VD_NAME>
     - kind: VirtualImage
-      name: <virtual-image-name>
+      name: <VI_NAME>
     - kind: VirtualDisk
-      name: <additional-disk-name>
+      name: <ADDITIONAL_DISK_NAME>
 ```
 
-To detach a disk, remove it from the list. When `enableParavirtualization: false`, list changes on a running VM take effect after rebooting the VM.
+To detach a disk, remove it from the list. With `enableParavirtualization: false`, a change to the list on a running VM takes effect after the VM reboots.
 
-How to work with bootable block devices in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- In the "Boot Disks" section you can:
-  - Add: Attach a new disk or image to the VM.
-  - Extract: Detach the device from the VM (the image or disk remains in the project and can be attached again to this or another VM).
-  - Delete: Remove the image or disk resource from the cluster (after deletion it cannot be reused).
-  - Resize: Change the size of the disk.
-  - Reorder: Change the boot order of devices.
+{{% tab name="Using the web interface" %}}
 
-#### Attaching via VirtualMachineBlockDeviceAttachment (vmbda)
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, scroll down to the **Disks** section.
+1. The following actions are available in the disk list:
+   - **Add**: Attach a new disk or image to the VM.
+   - **Eject**: Detach the device from the VM (the image or disk stays in the project, and you can attach it again to this or another VM).
+   - **Delete**: Delete the image or disk resource itself from the cluster (after deletion, you can't reuse it).
+   - Change the disk size, with the pencil icon next to the current size.
+   - Change the boot order, by changing the position of the disk in the list.
 
-The [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) resource attaches and detaches a block device to or from a VM without changing its spec. Suited for automation and scenarios when the user does not have permission to edit the VM.
+{{% /tab %}}
 
-Create a resource that attaches the empty disk `blank-disk` to the virtual machine `linux-vm`:
+{{< /tabs >}}
+
+#### Attaching through VirtualMachineBlockDeviceAttachment
+
+A separate resource attaches a device to a machine without touching its specification.
+
+{{< tabs name="bd-vmbda" >}}
+
+{{% tab name="Using the CLI" %}}
+
+The [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) resource attaches and detaches a block device on a VM without changing its specification. It suits automation and scenarios where the user doesn't have the rights to edit the VM.
+
+Create a resource that attaches the empty `blank-disk` disk to the `linux-vm` virtual machine:
 
 ```shell
 d8 k apply -f - <<EOF
@@ -2551,13 +2533,7 @@ spec:
 EOF
 ```
 
-After creation, [VirtualMachineBlockDeviceAttachment](/modules/virtualization/cr.html#virtualmachineblockdeviceattachment) can be in the following states:
-
-- `Pending` - waiting for all dependent resources to be ready.
-- `InProgress` - the process of device connection is in progress.
-- `Attached` - the device is connected.
-
-Diagnosing problems with the resource is done by analyzing the information in the `.status.conditions` block.
+The device is attached when the resource moves to the `Attached` phase. The other phases are described in the [`.status.phase`](cr.html#virtualmachineblockdeviceattachment-v1alpha2-status-phase) field, and the [`.status.conditions`](cr.html#virtualmachineblockdeviceattachment-v1alpha2-status-conditions) block shows the reason for a delay.
 
 Check the state of your resource:
 
@@ -2567,12 +2543,12 @@ d8 k get vmbda attach-blank-disk
 
 Example output:
 
-```console
-NAME                PHASE      VIRTUAL MACHINE NAME   AGE
-attach-blank-disk   Attached   linux-vm              3m7s
+```console {.nowrap-default}
+NAME                PHASE      VIRTUALMACHINE   AGE
+attach-blank-disk   Attached   linux-vm         3m7s
 ```
 
-Connect to the virtual machine and make sure the disk is connected:
+Connect to the virtual machine and make sure the disk is attached:
 
 ```bash
 d8 v ssh cloud@linux-vm --command "lsblk"
@@ -2580,23 +2556,23 @@ d8 v ssh cloud@linux-vm --command "lsblk"
 
 Example output:
 
-```console
+```console {.nowrap-default}
 NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
 sda       8:0    0   10G  0 disk <--- statically attached linux-vm-root disk
 |-sda1    8:1    0  9.9G  0 part /
 |-sda14   8:14   0    4M  0 part
 `-sda15   8:15   0  106M  0 part /boot/efi
 sdb       8:16   0    1M  0 disk <--- cloudinit
-sdc       8:32   0 95.9M  0 disk <--- dynamically attached disk blank-disk
+sdc       8:32   0 95.9M  0 disk <--- dynamically attached blank-disk disk
 ```
 
-To detach the disk from the virtual machine, delete the previously created resource:
+To detach the disk from the virtual machine, delete the resource you created earlier:
 
 ```bash
 d8 k delete vmbda attach-blank-disk
 ```
 
-Attaching images is done by analogy: set the `kind` field to VirtualImage or ClusterVirtualImage and the image name.
+Images are attached the same way, only the `kind` field takes the [VirtualImage](cr.html#virtualimage) or [ClusterVirtualImage](cr.html#clustervirtualimage) value.
 
 ```bash
 d8 k apply -f - <<EOF
@@ -2612,125 +2588,696 @@ spec:
 EOF
 ```
 
-How to work with additional block devices in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- In the "Additional Disks" section you can:
-  - Add: Attach a new disk or image to the VM.
-  - Extract: Detach the device from the VM (the image or disk remains in the project and can be attached again to this or another VM).
-  - Delete: Remove the image or disk resource from the cluster (after deletion it cannot be reused).
-  - Resize: Change the size of the disk.
+{{% tab name="Using the web interface" %}}
 
-#### Disk naming in guest OS
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, scroll down to the **Disks** section.
+1. The following actions are available in the disk list:
+   - **Add**: Attach a new disk or image to the VM; to attach the device as an additional one (through [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment), without rebooting the VM), select the **Additional** checkbox in the **Disks / Images** window.
+   - **Eject**: Detach the device from the VM (the image or disk stays in the project, and you can attach it again to this or another VM).
+   - **Delete**: Delete the image or disk resource itself from the cluster (after deletion, you can't reuse it).
+   - Change the disk size, with the pencil icon next to the current size.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Disk naming in the guest OS
+
+Disk names in the guest system aren't stable, so relying on them in configuration is risky.
 
 {{< alert level="warning">}}
-Block device names (`/dev/sda`, `/dev/sdb`, `/dev/sdc`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. This order may change between reboots, so device names can change even if SCSI addresses remain the same.
+Block device names (`/dev/sda`, `/dev/sdb`, `/dev/sdc`, and so on) are assigned by the Linux kernel in the order the devices are discovered at boot. This order can change between reboots, so device names can change even when the SCSI addresses stay the same.
 
-Using `/dev/sdX` in configuration files (for example, `/etc/fstab`) or scripts may cause the wrong disk to be mounted or the VM to behave incorrectly after a reboot.
+If you use `/dev/sdX` in configuration files (for example, `/etc/fstab`) or in scripts, after a VM reboot you can mount the wrong disk or end up with a malfunctioning system.
 {{< /alert >}}
 
 **Example:**
 
 After the first VM boot:
 
-```console
+```console {.nowrap-default}
 $ lsscsi
 [0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sda
 [0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sdb
 ```
 
-After VM reboot:
+After a VM reboot:
 
-```console
+```console {.nowrap-default}
 $ lsscsi
 [0:0:0:1]  disk    QEMU     QEMU HARDDISK   /dev/sdb
 [0:0:0:2]  disk    QEMU     QEMU HARDDISK   /dev/sda
 ```
 
-SCSI addresses (`0:0:0:1`, `0:0:0:2`) remain unchanged, but device names (`/dev/sda`, `/dev/sdb`) are swapped.
+The SCSI addresses (`0:0:0:1`, `0:0:0:2`) stay the same, but the device names (`/dev/sda`, `/dev/sdb`) swap places.
 
 Use stable identifiers instead of `/dev/sdX`:
 
-- **`/dev/disk/by-uuid/`** — by partition UUID (preferred for `/etc/fstab`)
-- **`/dev/disk/by-path/`** — by SCSI connection path
-- **`/dev/disk/by-id/`** — by SCSI device ID
+- `/dev/disk/by-uuid/`: By partition UUID (preferable for `/etc/fstab`).
+- `/dev/disk/by-path/`: By the SCSI connection path.
+- `/dev/disk/by-id/`: By the SCSI device ID.
 
-In configuration files and scripts, use partition UUIDs or symlinks from `/dev/disk/by-*` instead of `/dev/sdX` names.
+In configuration files and scripts, use partition UUIDs or symbolic links from `/dev/disk/by-*` instead of `/dev/sdX` names.
 
-#### Network interface naming in guest OS
+#### Network interface naming in the guest OS
 
-In systems without predictable network interface naming support, network interface names (`eth0`, `eth1`, `eth2`, etc.) are assigned by the Linux kernel in the order devices are discovered during boot. When adding new network interfaces or changing the order of networks in `.spec.networks`, the interface order may change, which can cause IP addresses to be assigned to the wrong interfaces.
+In systems without predictable network interface naming, network interface names (`eth0`, `eth1`, `eth2`, and so on) are assigned by the Linux kernel in the order the devices are discovered at boot. When you add new network interfaces or change the order of networks in [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks), the interface order can change, and IP addresses can end up assigned to the wrong interfaces.
 
-Using `ethX` in configuration files (for example, `/etc/network/interfaces`, `netplan`, `systemd-networkd`) or scripts may lead to unexpected network behavior or connection to the wrong network when adding new interfaces or changing the network order.
+Using `ethX` in configuration files (for example, `/etc/network/interfaces`, `netplan`, `systemd-networkd`) or in scripts when adding new interfaces or changing the order of networks can lead to network failures or a connection to the wrong network.
 
-Modern distributions with systemd (Ubuntu 16.04+, Debian 9+, CentOS 7+, RHEL 7+) use predictable interface names (`enpXsY`, `ensX`, `enoX`) by default, which are based on the physical characteristics of the device (PCI coordinates) and remain stable between reboots and when adding new interfaces.
+Modern distributions with systemd (Ubuntu 16.04+, Debian 9+, CentOS 7+, RHEL 7+) use predictable interface names by default (`enpXsY`, `ensX`, `enoX`), which are based on the physical characteristics of the device (PCI coordinates) and stay stable between reboots and when new interfaces are added.
 
-However, even when using predictable names, it is recommended to bind network configuration to interface MAC addresses for guaranteed stability, especially when changing the order of networks in `.spec.networks` or adding new interfaces.
+But even with predictable names, bind the network configuration to the MAC addresses of the interfaces, especially if the order of networks in [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) changes or new interfaces are added.
 
-**Example for systems without predictable naming:**
+An example for systems without predictable naming:
 
 Initially, the VM has two interfaces:
 
-```console
+```console {.nowrap-default}
 $ ip link show
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536
 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
 ```
 
-After adding a new interface at the beginning of the `.spec.networks` list and rebooting the VM:
+After adding a new interface at the beginning of the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) list and rebooting the VM:
 
-```console
+```console {.nowrap-default}
 $ ip link show
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536
 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # New interface
-3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Old eth0
-4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Old eth1
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Former eth0
+4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500  # Former eth1
 ```
 
-MAC addresses remain unchanged, but interface names (`eth0`, `eth1`) shift, which can lead to IP addresses being assigned to the wrong interfaces.
+The MAC addresses stay the same, but the interface names (`eth0`, `eth1`) shift, which can lead to IP addresses being assigned to the wrong interfaces.
 
 Use stable identifiers instead of `ethX`:
 
-- **`enpXsY`** — predictable names based on physical location (systemd networkd naming scheme, enabled by default in modern systems)
-- **MAC address binding** — in `netplan`, `systemd-networkd`, or `/etc/network/interfaces` configuration (preferred for guaranteed stability)
+- `enpXsY`: Predictable names based on the physical location (systemd networkd naming scheme, enabled by default in modern systems).
+- Binding by MAC address: In the `netplan`, `systemd-networkd`, or `/etc/network/interfaces` configuration (preferable for guaranteed stability).
 
-In configuration files and scripts, use stable interface names (`enpXsY`) or MAC address binding instead of `ethX` names.
-
-{{< alert level="info" >}}
-Predictable interface order works only on guest OS with systemd (e.g. Ubuntu, Debian). On Alpine and other distros without systemd the order may not match.
-{{< /alert >}}
-
-### Organizing interaction with virtual machines
-
-Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
+In configuration files and scripts, use stable interface names (`enpXsY`) or binding by MAC address instead of `ethX` names.
 
 {{< alert level="info" >}}
-If connecting to a VM from a cluster node does not work, check `NetworkPolicy` in the project. Project network policies can restrict access to the VM, including connections from cluster nodes.
+The predictable interface order holds only in guest operating systems with systemd (for example, Ubuntu, Debian). In Alpine and other distributions without systemd, the order may differ.
 {{< /alert >}}
 
-Services simplify interaction with both individual VMs and groups of similar VMs. For example, the ClusterIP service type creates a fixed internal address that can be used to access both a single VM and a group of VMs, regardless of their actual IP addresses. This allows other system components to interact with resources through a stable name or IP, automatically directing traffic to the right machines.
+To open a machine application to other machines or to users outside the cluster, configure a service or Ingress as described in [Accessing applications on a virtual machine](#accessing-applications-on-a-virtual-machine).
 
-Services also serve as a load balancing tool: they distribute requests evenly among all connected machines, ensuring fault tolerance and ease of expansion without the need to reconfigure clients.
+### Live VM migration
 
-For scenarios where direct access to specific VMs within the cluster is important (for example, for diagnostics or cluster configuration), headless services can be used. Headless services do not assign a common IP, but instead link the DNS name to the real addresses of all connected machines. A request to such a name returns a list of IPs, allowing you to select the desired VM manually while maintaining the convenience of predictable DNS records.
+Live migration of virtual machines is the process of moving a running VM from one physical node to another without shutting it down. This feature plays a key role in managing virtualized infrastructure, keeping applications running during maintenance, load balancing, or updates.
 
-For external access, services are supplemented with mechanisms such as NodePort, which opens a port on a cluster node, LoadBalancer, which automatically creates a cloud load balancer, or Ingress, which manages HTTP/HTTPS traffic routing.
+#### How live migration works
 
-All these approaches are united by their ability to hide the complexity of the infrastructure behind simple interfaces: clients work with a specific address, and the system itself decides how to route the request to the desired VM, even if its number or status changes.
+The live migration process consists of several stages:
 
-The service name is formed as `<service-name>.<namespace or project name>.svc.<clustername>`, or more briefly: `<service-name>.<namespace or project name>.svc`. For example, if your service name is `http` and the namespace is `default`, the full DNS name will be `http.default.svc.cluster.local`.
+1. A new VM is created on the target node in a paused state. Its configuration (CPU, disks, network) is copied from the source node.
 
-The VM's membership in the service is determined by a set of labels. To set labels on a VM in the context of infrastructure management, use the following command:
+1. All the RAM of the VM is copied to the target node over the network. This is called the initial transfer.
+
+1. While the memory is being transferred, the VM keeps running on the source node and can modify some memory pages. Such pages are called dirty pages, and the hypervisor marks them.
+
+1. After the initial transfer, only the modified pages are sent again. This process repeats in several cycles:
+
+   - The higher the load on the VM, the more dirty pages appear, and the longer the migration takes.
+   - With good network bandwidth, the amount of unsynchronized data gradually decreases.
+
+1. When the number of dirty pages becomes minimal, the VM on the source node is paused (usually for 100 milliseconds):
+
+   - The remaining memory changes are transferred to the target node.
+   - The state of the CPU, devices, and open connections is synchronized.
+   - The VM starts on the new node, and the original copy is deleted.
+
+Until the VM switches to the new node (step 5), the VM on the source node keeps running as usual and serving users.
+
+![Migration](./images/migration.png)
+
+#### Requirements and limitations
+
+A live migration doesn't always succeed. The following is what has to match on the source and target nodes.
+
+**Disk availability.** All disks attached to the VM have to be available on the target node. With network storage such as NFS or Ceph, this requirement is met on its own, because the disks are visible from all cluster nodes. Local storage needs to be able to create a new local volume on the target node, and if such storage exists only on the source node, the migration doesn't run.
+
+**Attaching and detaching disks.** While a migration is preparing the target node, disks can be neither attached to the machine with a [VirtualMachineBlockDeviceAttachment](cr.html#virtualmachineblockdeviceattachment) resource nor detached by deleting one. An attachment stays in the `Pending` phase with the `BlockedByMigration` reason in the `Attached` condition, and a deleted one stays in the `Terminating` phase, until the migration completes. While the migration is still queued and the target node isn't being prepared yet, for example when it waits for the project quota to free up, attaching and detaching work as usual. The reverse is also true, a migration waits for an attach or detach request that has already been sent, and all that time the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource stays in the `Pending` phase with the `WaitingForBlockDeviceAttachment` reason. If the request doesn't complete within 5 minutes, the operation fails.
+
+**Network bandwidth.** The slower the network, the more memory synchronization iterations the migration goes through and the longer the VM downtime at the final stage, and in the worst case the migration doesn't fit into the timeout. The [`.spec.liveMigrationPolicy`](#configuring-the-migration-policy) policy controls how the migration runs, and the [AutoConverge](#migrations-with-insufficient-network-bandwidth) mechanism helps with a slow network.
+
+**Kernel versions.** All cluster nodes have to run the same Linux kernel version. Differences in versions lead to incompatible interfaces, system calls, and resource handling, which breaks the migration.
+
+**CPU compatibility.** The CPU type in the virtual machine class sets the CPU requirements. The `Host` type allows migration only between nodes with similar CPUs, so it works neither between Intel and AMD nor between different CPU generations with different instruction sets. The `HostPassthrough` type requires exactly the same CPU on the target node as on the source one. To let a machine migrate between nodes with different CPUs, set the `Discovery`, `Model`, or `Features` type in the class.
+
+**Duration.** A migration has a completion timeout of 800 seconds per gibibyte of VM memory, plus 800 seconds per gibibyte of disk when the disks move along with it. For example, a machine with 4 GiB of memory and a 20 GiB disk gets `800 × (4 + 20) = 19200` seconds, or about 5.3 hours. A migration that doesn't fit into this time is considered failed and is canceled, which happens with a slow network or a high load on the VM.
+
+#### Checking whether a VM is ready for migration
+
+The `type: Migratable` condition in the VM status shows whether the VM can be moved by live migration. It takes into account both the VM itself (disks, passed-through devices, CPU type) and the state of the cluster (whether there's a node to move it to). The `True` value answers the question of whether the move is possible, not whether the VM will move at this very moment, so look at the reason along with the value.
+
+The overall picture for all VMs:
 
 ```bash
-d8 k label vm <vm-name> label-name=label-value
+d8 k get vm -o wide
 ```
 
-Example:
+The value in the `MIGRATABLE` column shows the result, and the condition describes the reason:
+
+```bash
+d8 k get vm <VM_NAME> -o json | jq '.status.conditions[] | select(.type=="Migratable")'
+```
+
+The most common reasons:
+
+| Reason | What it means | What to do |
+| --- | --- | --- |
+| `VirtualMachineMigratable` | The VM can be moved by live migration | — |
+| `VirtualMachineNoMigrationTarget` | The VM is capable of migrating, but no other cluster node can host it | Check the `spec.nodeSelector`, `spec.affinity`, and `spec.tolerations` of the VM and the same parameters of its [VirtualMachineClass](cr.html#virtualmachineclass) |
+| `VirtualMachineWaitingForMigrationTarget` | The VM is capable of migrating and suitable nodes exist in the cluster, but none of them can accept it right now, because the nodes are unschedulable, not ready, or don't run virtualization | If maintenance is in progress, migration becomes possible as soon as such a node returns. In other cases, check why the nodes are unschedulable and whether virtualization runs on them |
+| `VirtualMachineDisksNotMigratable` | The VM disks are in storage available from only one node | Move the disks to storage with the `ReadWriteMany` access mode |
+| `VirtualMachineHostDevicesNotMigratable` | The VM has a device attached that can't be moved to another node | Detach the device and restart the VM |
+| `VirtualMachineNonMigratable` | The VM can't be moved by live migration, and the reason is in the `message` field of the condition. | Read the `message` of the condition. If it's about the CPU, use the `Discovery`, `Model`, or `Features` types in the VM class |
+| `VirtualMachineDisksShouldBeMigrating` | The VM can be moved, and its local disks are moved along with it | — |
+
+Moving disks along with a VM is available only in the EE edition, so the `VirtualMachineDisksShouldBeMigrating` reason appears only there. In the CE edition, a VM with disks in storage available from one node gets the `VirtualMachineDisksNotMigratable` reason.
+
+#### Specifics of the Migratable condition
+
+A few specifics of the condition that matter when planning maintenance and reading the status:
+
+- The `Migratable` condition describes not only the VM but the cluster itself. If you remove the required label from the only suitable node without changing the VM parameters, the condition still becomes `False`. When a suitable node appears, the condition returns to `True`.
+
+- When a node is made unschedulable, the VM stays capable of migrating. Cordoning, rebooting, and node maintenance happen on their own, so the condition stays `True` and only the reason changes to `VirtualMachineWaitingForMigrationTarget`. Otherwise, planned maintenance of a neighboring node would turn a CPU or memory change into a VM restart. In the CE edition, such changes require a reboot in any case.
+
+- The `True` value means that the VM is capable of migrating, not that it's ready to migrate right now. Before a migration, look at the reason. The `VirtualMachineMigratable` reason means there's a node to migrate to, and `VirtualMachineWaitingForMigrationTarget` means there's no suitable node at this moment. The `d8_virtualization_virtualmachine_migratable` metric carries the same answer in the `reason` label, so a dashboard that filters VMs only by value counts waiting VMs together with those ready to migrate.
+
+- A migration started with the `VirtualMachineWaitingForMigrationTarget` reason doesn't wait for a node indefinitely. If the target pod can't be scheduled within five minutes, the operation fails, and the `Completed` condition of the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource gets the `TargetUnschedulable` reason. If maintenance drags on, restart the migration.
+
+- A stopped VM has no such condition, because the capability to migrate is computed only for a running VM. During the downtime, the disks could have moved to different storage and a device could have been detached.
+
+- In the CE edition, placement changes are taken into account after the VM restarts. While the VM runs, it uses the parameters it was started with, and the condition describes exactly those. New `nodeSelector`, `affinity`, or VM class values get into the calculation only after a restart. In the EE edition, such changes apply without a restart and get into the condition calculation right away.
+
+- Local disks don't prevent migration, but a node is still needed. In the EE edition, a VM with local disks moves along with them, so the condition stays `True` with the `VirtualMachineDisksShouldBeMigrating` reason. But if no cluster node matches its placement rules, the condition is `False`, because there's nowhere to move the disks along with the VM.
+
+#### Starting a live migration
+
+A migration is started by the `Evict` operation, which you create manually or with a `d8` command.
+
+{{< tabs name="vm-live-migrate" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Before starting the migration, check the current status of the virtual machine:
+
+```bash
+d8 k get vm
+```
+
+Example output:
+
+```console {.nowrap-default}
+NAME       PHASE     UPTIME   NODE           IPADDRESS     AGE
+linux-vm   Running   79m      virtlab-pt-1   10.66.10.14   79m
+```
+
+At this moment it runs on the `virtlab-pt-1` node.
+
+To migrate a virtual machine from one node to another, taking its placement requirements into account, use the following command:
+
+```bash
+d8 v migrate -n <NAMESPACE> <VM_NAME> [--force] [--target-node-name string]
+```
+
+Running this command creates a VirtualMachineOperations resource.
+
+The `--force` flag activates the [AutoConverge](#migrations-with-insufficient-network-bandwidth) mechanism when migrating a virtual machine. This mechanism automatically reduces the load on the virtual machine CPU (throttles it) if the migration has to be sped up to complete successfully, even when the VM memory transfer is too slow. Use this flag if a standard migration can't complete because of high VM activity.
+
+To place the virtual machine on a specific target node, specify the name of that node in the `--target-node-name` option. For example, if the virtual machine has to be placed on the `production-1` node:
+
+```bash
+d8 v migrate -n project-1 linux-vm --target-node-name production-1
+```
+
+Under the hood, a virtual machine operation is created with the specific node selector `kubernetes.io/hostname: production-1`, where `production-1` is the node name.
+
+You can also start a migration by manually creating a [VirtualMachineOperation](cr.html#virtualmachineoperation) (`vmop`) resource of the `Migrate` type:
+
+```yaml
+d8 k create -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  generateName: migrate-linux-vm-
+  namespace: project-1
+spec:
+  # Virtual machine name.
+  virtualMachineName: linux-vm
+  # Operation for migration.
+  type: Migrate
+  # Defines the virtual machine migration operation.
+  migrate:
+    nodeSelector:
+      # You can also set any suitable node selector.
+      kubernetes.io/hostname: production-1
+  # Allow CPU throttling by the AutoConverge mechanism to guarantee that the migration completes.
+  force: true
+EOF
+```
+
+> To prevent the virtual machine from becoming unschedulable, the node selector must not conflict with other placement rules, such as the virtual machine affinity, node selectors, and the node selector rules of the virtual machine class.
+
+> Targeted migration to a specific node isn't available in the Community Edition.
+>
+> If you don't need to specify target node parameters, you can omit the `migrate` field or evict the virtual machine to another suitable node using the `d8 v evict` command or by creating a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource of the `Evict` type.
+
+To track the virtual machine migration right after the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource is created, run the following command:
+
+```bash
+d8 k get vm -w
+```
+
+Example output:
+
+```console {.nowrap-default}
+NAME       PHASE       UPTIME   NODE           IPADDRESS     AGE
+linux-vm   Running     79m      virtlab-pt-1   10.66.10.14   79m
+linux-vm   Migrating   79m      virtlab-pt-1   10.66.10.14   79m
+linux-vm   Migrating   79m      virtlab-pt-1   10.66.10.14   79m
+linux-vm   Running     79m      virtlab-pt-2   10.66.10.14   79m
+```
+
+You can interrupt any live migration while it's in the `Pending` or `InProgress` phase by deleting the corresponding VirtualMachineOperations resource.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the virtual machine you need from the list and click the ellipsis button.
+1. In the menu that opens, select **Migrate**.
+1. In the **Virtual machine migration** window that opens, select the mode:
+   - **Migrate to an arbitrary node**: The scheduler picks the target node.
+   - **Migrate to a selected node**: You pick the node manually in the **Nodes available for migration** field (the list contains only nodes that match the placement parameters of the VM and its class).
+1. Enable additional options if required:
+   - **Migrate disks**: Move the disks along with the VM (used when changing storage).
+   - **Force (throttle guest CPU)**: Apply AutoConverge so that the migration completes even when network bandwidth is insufficient.
+1. The window shows the current migration policy of the VM, for example "VM migration policy: PreferSafe".
+1. Click **Migrate** or cancel the operation with **Cancel**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Configuring the migration policy
+
+The migration policy determines when to use the AutoConverge mechanism (CPU throttling) to guarantee that a migration completes.
+
+The AutoConverge mechanism helps a migration complete even with low network bandwidth, which makes a successful operation highly likely. However, it throttles the virtual machine CPU, which can affect the performance of applications running on the virtual machine.
+
+The AutoConverge mechanism works in two stages:
+
+1. **Throttling the virtual machine CPU**
+
+   The hypervisor gradually lowers the CPU frequency of the source virtual machine. This reduces the rate at which new dirty pages appear. The higher the load on the virtual machine, the stronger the throttling.
+
+1. **Automatic migration completion**
+
+   As soon as the data transfer rate exceeds the memory change rate, the final synchronization starts and the virtual machine switches to the new node.
+
+To configure the migration policy, use the [`.spec.liveMigrationPolicy` parameter](cr.html#virtualmachine-v1alpha2-spec-livemigrationpolicy) in the virtual machine configuration. Allowed values:
+
+- `AlwaysSafe`: The migration always runs without CPU throttling (AutoConverge isn't used). Suitable when maximum virtual machine performance matters, but it requires high network bandwidth.
+- `PreferSafe` (used as the default policy): The migration runs without CPU throttling (AutoConverge isn't used). However, you can start a migration with CPU throttling using a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource with the `type=Migrate` and `force=true` parameters.
+- `AlwaysForced`: The migration always uses AutoConverge, that is, the CPU is throttled when required. This guarantees that the migration completes even on a poor network, but it can reduce virtual machine performance.
+- `PreferForced`: The migration uses AutoConverge, that is, the CPU is throttled when required. However, you can start a migration without CPU throttling using a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource with the `type=Migrate` and `force=false` parameters.
+
+#### Migrations with insufficient network bandwidth
+
+During a live migration of a virtual machine, the network bandwidth may not be enough to transfer data faster than it changes in the virtual machine memory. In that case, the number of dirty pages keeps growing and the migration may not complete within the timeout.
+
+The AutoConverge mechanism, configured through the [migration policy](#configuring-the-migration-policy), solves this problem.
+
+To tell that the network bandwidth isn't enough for a live migration of a virtual machine, check the charts in **Namespace / Virtual Machine** → **VM Status details** → **Live migration memory metrics**:
+
+- **Processed memory rate** is lower than **Dirty memory rate**;
+- **Remaining memory rate** doesn't decrease for a long time.
+
+This means the network has become the bottleneck for the migration.
+
+Here is an example of a situation where the migration can't complete because of insufficient network bandwidth. Inside the virtual machine, memory changes continuously with stress-ng.
+
+![](./images/livemigration-example.png)
+
+Here is an example of migrating the same virtual machine with the `--force` flag of the `d8 v migrate` command (which enables the AutoConverge mechanism). You can clearly see that the CPU frequency is lowered in stages to reduce the rate of memory content changes.
+
+![](./images/livemigration-example-autoconverge.png)
+
+If the network limits the migration speed, you can do the following:
+
+1. Wait until the operation fails because of a timeout.
+
+1. Cancel the current migration operation by deleting the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource, where `<VMOP_NAME>` is the name of that resource:
+
+   ```bash
+   d8 k delete vmop <VMOP_NAME>
+   ```
+
+1. Restart the migration with the `--force` flag to enable the AutoConverge mechanism. Using the `--force` flag has to match the current [virtual machine migration policy](#configuring-the-migration-policy).
+
+#### Migrations started by the system
+
+The module starts some migrations itself, by creating a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource of the `Evict` type. The prefix of the resource name shows what caused such a migration:
+
+| What caused the migration                                                       | Resource name prefix    |
+|---------------------------------------------------------------------------------|-------------------------|
+| A virtual machine firmware update                                                 | `firmware-update-`      |
+| Load redistribution in the cluster                                                | `evacuation-`           |
+| Putting a node into maintenance mode (node drain)                                 | `evacuation-`           |
+| A change in the [VM placement parameters](#placing-vms-on-nodes), not available in CE | `nodeplacement-update-` |
+| A change of the core count or memory size without a restart                       | `hotplug-resources-`    |
+| Moving disks to another storage                                                   | `volume-migration-`     |
+
+{{< tabs name="vmop-list" >}}
+
+{{% tab name="Using the CLI" %}}
+
+The migration has completed successfully when the resource moves to the `Completed` phase. The other phases are described in the [`.status.phase`](cr.html#virtualmachineoperation-v1alpha2-status-phase) field.
+
+To view the active operations, run the following command:
+
+```bash
+d8 k get vmop
+```
+
+Example output:
+
+```console {.nowrap-default}
+NAME                    PHASE       PROGRESS   TYPE    VIRTUALMACHINE   AGE
+firmware-update-fnbk2   Completed   100%       Evict   linux-vm         1m
+```
+
+To cancel a migration, delete the corresponding resource.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. Go to the **Operations** tab.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Live VM migration on a placement parameter change
+
+When the placement rules of a running machine change, the module moves it to a suitable node with a live migration.
+
+{{< alert level="warning" >}}
+The feature isn't available in the CE edition.
+{{< /alert >}}
+
+The following example shows the migration mechanism in a cluster with two node groups, `green` and `blue`. Suppose a virtual machine (VM) initially runs on a node of the `green` group, and its configuration has no placement restrictions.
+
+First, add a requirement to be placed in the `green` group to the VM specification:
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: green
+```
+
+After you save the changes, the VM keeps running on the current node, because the `nodeSelector` condition is already met.
+
+Now change the requirement to the `blue` group:
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: blue
+```
+
+The current node from the `green` group no longer meets the new conditions. The module creates a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource of the `Evict` type and starts a live migration of the VM to an available node of the `blue` group.
+
+Example output:
+
+```console {.nowrap-default}
+NAME                         PHASE       PROGRESS   TYPE    VIRTUALMACHINE   AGE
+nodeplacement-update-dabk4   Completed   100%       Evict   linux-vm         1m
+```
+
+### Collecting debug information
+
+If a machine doesn't behave as expected, collect its state and the state of the related resources into a single archive.
+
+{{< alert level="warning" >}}
+The `collect-debug-info` command requires `d8` v0.27.0 or later.
+{{< /alert >}}
+
+{{< tabs name="vm-debug" >}}
+
+{{% tab name="Using the CLI" %}}
+
+The `collect-debug-info` command collects diagnostic data about a VM and all related resources into a single compressed archive.
+
+The command collects the following information:
+
+- the virtual machine configuration;
+- operations on the virtual machine;
+- migration information;
+- block devices;
+- related PVCs and PVs;
+- pods related to the VM, including their logs (the last 10000 lines);
+- events for all related resources;
+- the XML configuration of the VM domain.
+
+The command result is written to a compressed archive (tar.gz) that goes to stdout. To save the archive, redirect the output to a file.
+
+Usage example:
+
+```bash
+# Collect debug information for the 'linux-vm' virtual machine
+d8 v collect-debug-info linux-vm > debug-info.tar.gz
+
+# Collect debug information for a VM with the namespace specified
+d8 v collect-debug-info linux-vm -n mynamespace > debug-info.tar.gz
+
+# Collect debug information for a VM with the full name specified (name.namespace)
+d8 v collect-debug-info linux-vm.mynamespace > debug-info.tar.gz
+```
+
+> **Important:** The command can't print data directly to the terminal. Be sure to redirect the output to a file, otherwise the command fails.
+
+After the command runs, you get the `debug-info.tar.gz` archive, which contains all the collected data in YAML format (for resources) and text files (for logs). You can send this archive to technical support to analyze problems.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. Go to the **Diagnostics** tab.
+1. The **VM pods** block shows the pods of the virtual machine, their phase, and the node they're placed on.
+1. In the **VM pod logs** block, you can view the pod logs, filter the lines with a regular expression, and set the number of last lines.
+1. To download the archive with diagnostic data, click **Download diagnostic data**.
+
+Current and completed operations on the VM are shown on the **Operations** tab: for each operation, the date, the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource name, the type (**Start**, **Stop**, and others), the status, the progress, and the message are shown; you can limit the list to the **Day**, **Week**, or **Month** period. Events are shown on the **Events** tab, and resource consumption charts on the **Monitoring** tab.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+## Virtual machine networking
+
+Every virtual machine gets an address in the main cluster network and, if needed, connects to additional networks. This section describes how to manage the addresses of a machine, open access to its applications, and attach additional interfaces.
+
+### IP addresses of VMs
+
+Two resources describe the address of a machine in the main cluster network, the cluster-wide address lease and the address reserved for the project.
+
+{{< tabs name="vmip-list" >}}
+
+{{% tab name="Using the CLI" %}}
+
+The [`.spec.settings.virtualMachineCIDRs`](admin_guide.html#network-settings) block in the module settings defines the subnets that machines get IP addresses from. All addresses of a subnet are available except the first and the last one.
+
+The [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease) (`vmipl`) resource is a cluster-wide resource that manages leases of IP addresses from the shared pool specified in `virtualMachineCIDRs`.
+
+To view the list of IP address leases (`vmipl`), run the following command:
+
+```bash
+d8 k get vmipl
+```
+
+Example output:
+
+```console {.nowrap-default}
+NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+```
+
+The [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) (`vmip`) resource is a project resource responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or on explicit request.
+
+An address is assigned to a machine when the resource moves to the `Attached` phase. The other phases are described in the [`.status.phase`](cr.html#virtualmachineipaddress-v1alpha2-status-phase) field.
+
+By default, the module assigns an address to the machine itself and keeps it assigned until the machine is deleted. To view the assigned address, run the following command:
+
+```bash
+d8 k get vmip
+```
+
+Example output:
+
+```console {.nowrap-default}
+NAME             ADDRESS       STATUS     VM         AGE
+linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
+```
+
+The algorithm for automatically assigning an IP address to a virtual machine looks like this:
+
+- The user creates a virtual machine named `<VM_NAME>`.
+- The module controller automatically creates a [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource named `<VM_NAME>-<HASH>` to request an IP address and bind it to the virtual machine.
+- For this [VirtualMachineIPAddress](cr.html#virtualmachineipaddress), a [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease) lease resource is created, which picks a random IP address from the shared pool.
+- As soon as the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource is created, the virtual machine gets the assigned IP address.
+
+After the machine is deleted, the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource is deleted too, but the address itself stays assigned to the project for a while, and you can request it again.
+
+All parameters of these resources are described in [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) and [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease).
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **IP addresses**.
+1. The list shows the resource name, status, address, type (`Auto` or `Static`), the virtual machine that uses the address, and the resource age.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Assigning a specific IP address
+
+Instead of a random address from the pool, you can give a machine an address you choose in advance.
+
+{{< tabs name="vmip-static" >}}
+
+{{% tab name="Using the CLI" %}}
+
+1. Create a [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource:
+
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualMachineIPAddress
+   metadata:
+     name: linux-vm-custom-ip
+   spec:
+     staticIP: 10.66.20.77
+     type: Static
+   EOF
+   ```
+
+1. Create a new virtual machine or modify an existing one, and specify the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource you need explicitly in the specification:
+
+   ```yaml
+   spec:
+     virtualMachineIPAddressName: linux-vm-custom-ip
+   ```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **IP addresses**.
+1. Click **Create**.
+1. In the **Create resource** window that opens, enter the resource name in the **Name** field.
+1. On the **Configuration** tab, select `Static` in the **Type** field, and specify the address you need in the **Static IP address** field.
+1. Click **Apply**.
+1. Specify the name of the created resource in the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter of the virtual machine.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Keeping an IP address in the project
+
+To keep the automatically allocated IP address of a virtual machine from being deleted along with the virtual machine itself, do the following.
+
+Get the name of the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource for the given virtual machine:
+
+```bash
+d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
+```
+
+Example output:
+
+```console
+linux-vm-7prpx
+```
+
+Remove the `.metadata.ownerReferences` block from the resource you found:
+
+```bash
+d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
+
+# Or make the same changes by editing the resource.
+
+d8 k edit vmip linux-vm-7prpx
+```
+
+After the virtual machine is deleted, the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource is preserved and you can reuse it in a newly created virtual machine:
+
+```yaml
+spec:
+  virtualMachineIPAddressName: linux-vm-7prpx
+```
+
+Even if the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource is deleted, the IP address stays leased to the current project or namespace for another 10 minutes. So you can claim it again on request:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineIPAddress
+metadata:
+  name: linux-vm-custom-ip
+spec:
+  staticIP: 10.66.20.77
+  type: Static
+EOF
+```
+
+### Accessing applications on a virtual machine
+
+You can reach a virtual machine directly by its IP address, but this approach has limitations. You have to know the address in advance, it can change when the machine is recreated, and you can't reach a group of machines at once. Kubernetes services solve all of these tasks.
+
+A service gives a machine or a group of machines a permanent name that hides their addresses, and distributes requests evenly among them. The name is formed as `<SERVICE_NAME>.<NAMESPACE>.svc.<CLUSTER_NAME>`, and within the same namespace the short form `<SERVICE_NAME>` is enough.
+
+Which service type to choose depends on the task:
+
+- `Headless`: Direct access to specific machines inside the cluster without a single entry point.
+- `ClusterIP`: A single internal address with balancing between machines.
+- `NodePort`: External access through a port on the cluster nodes.
+- `LoadBalancer`: External access through an external load balancer.
+
+{{< alert level="info" >}}
+If a connection to the VM from a cluster node doesn't go through, check the `NetworkPolicy` in the project. The policy may deny traffic to the machine.
+{{< /alert >}}
+
+A machine gets into a service by labels. Assign the machine the label that the service looks for:
+
+{{< tabs name="vm-labels" >}}
+
+{{% tab name="Using the CLI" %}}
 
 ```bash
 d8 k label vm linux-vm app=nginx
@@ -2738,32 +3285,35 @@ d8 k label vm linux-vm app=nginx
 
 Example output:
 
-```txt
+```console
 virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
-How to add labels and annotations to VMs in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the desired VM from the list and click on its name.
-- Go to the "Meta" tab.
-- You can add labels in the "Labels" section.
-- You can add annotations in the "Annotations" section.
-- Click "Add" in the desired section.
-- In the pop-up window, you can set the "Key" and "Value" of the key.
-- To confirm the key parameters, click the "Enter" button.
-- Click the "Save" button that appears.
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. Go to the **Meta** tab.
+1. Click **Add** in the **Labels** or **Annotations** section.
+1. In the window that opens, set the key and the value, then press **Enter**.
+1. Click the **Save** button that appears.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 #### Headless service
 
-A headless service allows you to easily route requests within a cluster without the need for load balancing. Instead, it simply returns all IP addresses of virtual machines connected to this service.
+A headless service doesn't allocate an IP address of its own, but returns the addresses of the machines themselves. This way you reach a specific machine by its DNS name without setting up a separate entry point for it. Even for a single machine, this is more convenient than a fixed address, because the name doesn't change when the machine is recreated.
 
-Even if you use a headless service for only one virtual machine, it is still useful. By using a DNS name, you can access the machine without depending on its current IP address. This simplifies management and configuration because other applications within the cluster can use this DNS name to connect instead of using a specific IP address, which may change.
+{{< tabs name="svc-headless" >}}
 
-Example of creating a headless service:
+{{% tab name="Using the CLI" %}}
 
-```yaml
+```bash
 d8 k apply -f - <<EOF
 apiVersion: v1
 kind: Service
@@ -2773,18 +3323,41 @@ metadata:
 spec:
   clusterIP: None
   selector:
-    # Label by which the service determines which virtual machine to direct traffic to.
+    # The label the service uses to select virtual machines.
     app: nginx
 EOF
 ```
 
-After creation, the VM or VM group can be accessed by name: `http.default.svc`
+After creation, you can reach the machine by the `http.default.svc` name.
 
-#### ClusterIP service
+{{% /tab %}}
 
-ClusterIP is a standard service type that provides an internal IP address for accessing the service within the cluster. This IP address is used to route traffic between different components of the system. ClusterIP allows virtual machines to interact with each other through a predictable and stable IP address, which simplifies internal communication within the cluster.
+{{% tab name="Using the web interface" %}}
 
-Example ClusterIP configuration:
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Network** → **Services**.
+1. Click **Create**.
+1. In the form that opens, enter the service name in the **Name** field.
+1. In the **Type** field, select `Headless`.
+1. In the **Workload selector** block, mark the virtual machines you need, and their labels go into the service selector.
+1. In the **Ports** block, set the **Port** and **Target port** values.
+1. Click **Create**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Service of the ClusterIP type
+
+A service of this type gives the machine application a stable address inside the cluster.
+
+{{< tabs name="svc-clusterip" >}}
+
+{{% tab name="Using the CLI" %}}
+
+`ClusterIP` is the standard service type that provides an internal IP address for accessing the service inside the cluster. This IP address is used to route traffic between different system components. `ClusterIP` lets virtual machines interact with each other through a predictable and stable IP address, which simplifies internal communication in the cluster.
+
+Here is an example of a `ClusterIP` configuration:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -2794,23 +3367,35 @@ metadata:
   name: http
 spec:
   selector:
-    # Label by which the service determines which virtual machine to route traffic to.
+    # The label the service uses to decide which virtual machine to route traffic to.
     app: nginx
 EOF
 ```
 
-How to perform the operation in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Network" → "Services" section.
-- In the window that opens, configure the service settings.
-- Click on the "Create" button.
+{{% tab name="Using the web interface" %}}
 
-#### Publish virtual machine services using a service with the NodePort type
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Network** → **Services**.
+1. In the window that opens, configure the service.
+1. Click **Create**.
 
-`NodePort` is an extension of the `ClusterIP` service that provides access to the service through a specified port on all nodes in the cluster. This makes the service accessible from outside the cluster through a combination of the node's IP address and port.
+{{% /tab %}}
 
-NodePort is suitable for scenarios where direct access to the service from outside the cluster is required without using a external load balancer.
+{{< /tabs >}}
+
+#### Service of the NodePort type
+
+A service of this type opens the machine application on a port of every cluster node.
+
+{{< tabs name="svc-nodeport" >}}
+
+{{% tab name="Using the CLI" %}}
+
+`NodePort` is an extension of the `ClusterIP` service that provides access to the service through a specified port on all cluster nodes. This makes the service reachable from outside the cluster through the combination of a node IP address and a port.
+
+`NodePort` suits scenarios where you need direct access to the service from outside the cluster without an external load balancer.
 
 Create the following service:
 
@@ -2823,7 +3408,7 @@ metadata:
 spec:
   type: NodePort
   selector:
-    # label by which the service determines which virtual machine to direct traffic to
+    # The label the service uses to decide which virtual machine to route traffic to.
     app: nginx
   ports:
     - protocol: TCP
@@ -2835,13 +3420,36 @@ EOF
 
 ![](images/lb-nodeport.png)
 
-In this example, a service with the type `NodePort` will be created that opens external port 31880 on all nodes in your cluster. This port will forward incoming traffic to internal port 80 on the virtual machine where the Nginx application is running.
+In this example, a service of the `NodePort` type is created, which opens external port 31880 on all nodes of your cluster. This port routes incoming traffic to internal port 80 of the virtual machine where the Nginx application runs.
 
-If you do not explicitly specify the `nodePort` value, an arbitrary port will be assigned to the service, which can be viewed in the service status immediately after its creation.
+If you don't specify the `nodePort` value explicitly, an arbitrary port is assigned to the service, and you can see it in the service status right after creation.
 
-#### Publishing virtual machine services using a service with the LoadBalancer service type
+{{% /tab %}}
 
-`LoadBalancer` is a type of service that automatically creates an external load balancer with a static IP address. This balancer distributes incoming traffic among virtual machines, ensuring the service's availability from the Internet.
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Network** → **Services**.
+1. Click **Create**.
+1. In the form that opens, enter the service name in the **Name** field.
+1. In the **Type** field, select `NodePort`.
+1. In the **Workload selector** block, mark the virtual machines you need.
+1. In the **Ports** block, set the **Port**, **Target port**, and, if required, **Node port** values.
+1. Click **Create**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Service of the LoadBalancer type
+
+A service of this type gives the application an external address through a load balancer.
+
+{{< tabs name="svc-lb" >}}
+
+{{% tab name="Using the CLI" %}}
+
+`LoadBalancer` is a service type that automatically creates an external load balancer with a permanent IP address. This balancer distributes incoming traffic among virtual machines, making the service available from the internet.
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -2852,7 +3460,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    # label by which the service determines which virtual machine to direct traffic to
+    # The label the service uses to decide which virtual machine to route traffic to
     app: nginx
   ports:
     - protocol: TCP
@@ -2863,13 +3471,37 @@ EOF
 
 ![](images/lb-loadbalancer.png)
 
-#### Publish virtual machine services using Ingress
+{{% /tab %}}
 
-`Ingress` allows you to manage incoming HTTP/HTTPS requests and route them to different servers within your cluster. This is the most appropriate method if you want to use domain names and SSL termination to access your virtual machines.
+{{% tab name="Using the web interface" %}}
 
-To publish a virtual machine service through `Ingress`, you must create the following resources:
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Network** → **Services**.
+1. Click **Create**.
+1. In the form that opens, enter the service name in the **Name** field.
+1. In the **Type** field, select `LoadBalancer`.
+1. In the **Workload selector** block, mark the virtual machines you need.
+1. In the **Ports** block, set the **Port** and **Target port** values.
+1. Click **Create**.
+1. The external address of the service is shown in the service list, in the **External IP** column.
 
-An internal service to bind to `Ingress`. Example:
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Publishing VM services with Ingress
+
+Ingress opens the machine application by a domain name and handles TLS termination.
+
+{{< tabs name="svc-ingress" >}}
+
+{{% tab name="Using the CLI" %}}
+
+`Ingress` lets you manage incoming HTTP/HTTPS requests and route them to different servers within your cluster. This is the most suitable method if you want to use domain names and SSL termination to access your virtual machines.
+
+To publish a virtual machine service through `Ingress`, create the following resources:
+
+An internal service to bind with `Ingress`. Example:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -2879,7 +3511,7 @@ metadata:
   name: linux-vm-nginx
 spec:
   selector:
-    # label by which the service determines which virtual machine to direct traffic to
+    # the label the service uses to decide which virtual machine to route traffic to
     app: nginx
   ports:
     - protocol: TCP
@@ -2913,388 +3545,867 @@ EOF
 
 ![](images/lb-ingress.png)
 
-How to publish a VM service using Ingress in the web interface:
+{{% /tab %}}
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Network" → "Ingresses" section.
-- Click the "Create Ingress" button.
-- In the window that opens, configure the service settings.
-- Click the "Create" button.
+{{% tab name="Using the web interface" %}}
 
-### Live virtual machine migration
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Network** → **Ingresses**.
+1. Click **Create**.
+1. In the **Create Ingress** form that opens, enter the resource name in the **Name** field, and select the controller class (`spec.ingressClassName`) in the **Ingress Class** field.
+1. In the **Rules** block, click **Add rule (host)** and describe the host and the routing paths to the service you need.
+1. If HTTPS is required, click **Add certificate** in the **TLS certificates** block and specify the secret with the certificate; set the **Default backend** if required.
+1. Click **Create**.
 
-Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in managing virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
+{{% /tab %}}
 
-#### How live migration works
+{{< /tabs >}}
 
-The live migration process consists of several steps:
+### Additional network interfaces
 
-1. A new VM is created on the target node in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
+Besides the main cluster network, a machine can connect to additional networks, both project and cluster ones.
 
-1. The entire RAM of the VM is copied to the target node over the network. This is called primary transfer.
+{{< alert level="warning" >}}
+To work with additional networks, the `sdn` module has to be enabled.
+{{< /alert >}}
 
-1. While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages, and the hypervisor marks them.
+{{< tabs name="vm-networks" >}}
 
-1. After the initial transfer, only the modified pages are sent again. This process is repeated over several cycles:
+{{% tab name="Using the CLI" %}}
 
-   - The higher the load on the VM, the more "dirty" pages appear, and the longer the migration takes.
-   - With good network bandwidth, the amount of unsynchronized data gradually decreases.
+Virtual machines can be connected to additional networks, either project ones (Network) or cluster ones (ClusterNetwork).
 
-1. When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
+To do this, list the networks you need in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) block. If this block isn't set (which is the default), the VM uses only the main cluster network.
 
-   - The remaining memory changes are transferred to the target node.
-   - The state of the CPU, devices, and open connections are synchronized.
-   - The VM is started on the new node, and the source copy is deleted.
+> You don't have to specify the main cluster network (`type: Main`) in [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks). If you don't need a connection to the main cluster network, you can use only additional networks (`Network` or `ClusterNetwork`).
+>
+> However, if the main network is specified, it has to be first in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) list.
 
-Until the VM switches to the new node (step 5), the VM on the source node continues to operate normally and provide services to users.
+Specifics and important points of working with additional network interfaces:
 
-![Migration](./images/migration.png)
+- the order of networks in [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) determines the order in which interfaces are attached inside the virtual machine;
+- adding or removing an additional network (`Network` or `ClusterNetwork`) on a running VM applies without a reboot. The ACPI indexes of existing interfaces are preserved when adding or removing, so interface names in the guest OS stay stable;
+- adding or removing the main network (`type: Main`) still requires a VM reboot, because it's bound to the main network interface of the pod and can't be changed on a running pod;
+- to preserve the order of network interfaces inside the guest operating system, add new networks to the end of the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) list and don't change the order of existing ones;
+- network security policies (NetworkPolicy) don't apply to additional network interfaces;
+- the network parameters (IP addresses, gateways, DNS, and so on) for additional networks are configured manually from inside the guest OS (for example, with Cloud-Init), unless IPAM is configured for the network (for details, see [IPAM for additional network interfaces](#ipam-for-additional-network-interfaces)).
 
-#### Requirements and limitations
+> When configuring network interfaces in the guest OS, use stable identifiers (predictable `enpXsY` names or binding by MAC address) instead of `ethX` names, as described in [Network interface naming in the guest OS](#network-interface-naming-in-the-guest-os).
 
-For successful live migration, certain requirements must be met. Failure to meet these requirements can lead to limitations and issues during migration.
+> On a Linux guest system with several interfaces in the same subnet, the ARP flux problem can occur, where the kernel answers ARP requests through an arbitrary interface rather than the one the request arrived on, which leads to an unstable connection and packet loss because of an incorrect MAC address in the router caches.
+>
+> To fix this, set the parameters that make the system answer requests strictly through the interface with the target IP and use the correct source address:
+>
+> ```bash
+> sysctl -w net.ipv4.conf.all.arp_ignore=1
+> sysctl -w net.ipv4.conf.all.arp_announce=2
+> ```
+>
+> Example for cloud-init:
+>
+> ```yaml
+> write_files:
+> - path: /etc/sysctl.d/90-arp-strict.conf
+> content: |
+> net.ipv4.conf.all.arp_ignore=1
+> net.ipv4.conf.all.arp_announce=2
+> ```
+>
+> The parameter values are described in the [IP sysctl documentation](https://docs.kernel.org/networking/ip-sysctl.html).
 
-- Disk availability: All disks attached to the VM must be accessible on the target node, otherwise migration will be impossible. For network storage (NFS, Ceph, etc.), this requirement is usually met automatically, as disks are accessible on all cluster nodes. For local storage, the situation is different: the storage system must be available on the target node to create a new local volume. If local storage exists only on the source node, migration cannot be performed.
+Here is an example of connecting a VM to the main cluster network and the `user-net` project network:
 
-- Disk hot-plugging and hot-unplugging: Once a migration starts preparing its target, disks can be neither attached to a VM via the VirtualMachineBlockDeviceAttachment resource nor detached by deleting one. An attachment stays in the `Pending` phase with the `BlockedByMigration` reason in the `Attached` condition, and a deleted one stays in the `Terminating` phase, until the migration completes. While the migration is still queued and no target has been created yet — for example, when it is parked on the project quota — both attaching and detaching work as usual. Conversely, if an attach or detach request has already been sent, the migration waits for it to complete: the VirtualMachineOperation stays in the `Pending` phase with the `WaitingForBlockDeviceAttachment` reason, and fails if the request does not complete within 5 minutes.
-
-- Network bandwidth: Network speed is critical for live migration. With low bandwidth, the number of memory synchronization iterations increases, VM downtime during the final stage of migration increases, and in the worst case, migration may not complete due to a timeout. To manage the migration process, configure the live migration policy [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the virtual machine settings. For network problems, use the AutoConverge mechanism (see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section).
-
-- Kernel versions on nodes: For stable live migration operation, all cluster nodes must use the same Linux kernel version. Differences in kernel versions can lead to incompatible interfaces, system calls, and resource handling features, which can disrupt the virtual machine migration process.
-
-- CPU compatibility: CPU compatibility depends on the CPU type specified in the virtual machine class. When using the `Host` type, migration is only possible between nodes with similar CPU types: migration between nodes with Intel and AMD processors does not work, and it also does not work between different CPU generations due to differences in instruction sets. When using the `HostPassthrough` type, the VM can only migrate to a node with exactly the same processor as on the source node. To ensure migration compatibility between nodes with different processors, use the `Discovery`, `Model`, or `Features` types in the virtual machine class.
-
-- Migration execution time: A completion timeout is set for live migration, which is calculated using the formula: `Completion timeout = 800 seconds × (Memory size in GiB + Disk size in GiB (if Block Migration is used))`. If migration does not complete within this time, the operation is considered failed and is canceled automatically. For example, for a virtual machine with 4 GiB of memory and 20 GiB of disk, the timeout will be `800 seconds × (4 GiB + 20 GiB) = 19200 seconds (320 minutes or ~5.3 hours)`. With low network speed or high load on the VM, migration may not complete within the allotted time.
-
-#### How to tell whether a VM can be migrated
-
-The `type: Migratable` condition of a VM shows whether the VM can be moved by live migration. It accounts both for the VM itself (disks, attached devices, CPU type) and for the state of the cluster (whether there is a node to move it to). The `True` value answers whether the move is possible, not whether the VM would move at this very moment, so read the reason along with the value.
-
-An overview of all VMs:
-
-```bash
-d8 k get vm -o wide
+```yaml
+spec:
+  networks:
+    - type: Main # If specified, it has to be first
+    - type: Network # Network type (Network \ ClusterNetwork)
+      name: user-net # Network name
 ```
 
-The `MIGRATABLE` column shows the answer, and the condition holds the reason:
+Here is an example of connecting to several networks, including the `corp-net` cluster network:
 
-```bash
-d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Migratable")'
+```yaml
+spec:
+  networks:
+    - type: Main # If specified, it has to be first
+    - type: Network
+      name: user-net
+    - type: ClusterNetwork
+      name: corp-net # Network name
 ```
 
-The most common reasons:
+Here is an example of connecting a VM only to additional networks (without the main cluster network):
 
-| Reason | What it means | What to do |
-| --- | --- | --- |
-| `VirtualMachineMigratable` | The VM can be moved by live migration | — |
-| `VirtualMachineNoMigrationTarget` | The VM is able to migrate, but no other node in the cluster can host it | Check `spec.nodeSelector`, `spec.affinity`, and `spec.tolerations` of the VM and the same parameters of its `VirtualMachineClass` |
-| `VirtualMachineWaitingForMigrationTarget` | The VM is able to migrate and the cluster has nodes matching its placement rules, but none of them can take it right now: the nodes are excluded from scheduling, are not ready, or are not running virtualization | If maintenance is under way, migration becomes possible as soon as such a node is back. Otherwise, check why the nodes are excluded from scheduling and whether virtualization is running on them |
-| `VirtualMachineDisksNotMigratable` | The disks of the VM are in storage that is available on only one node | Move the disks to storage with the `ReadWriteMany` access mode |
-| `VirtualMachineHostDevicesNotMigratable` | The VM has a device attached that cannot be moved to another node | Detach the device and restart the VM |
-| `VirtualMachineNonMigratable` | The VM cannot be moved by live migration; the cause is given in the `message` field of the condition | Read the `message` field of the condition. If the CPU is the cause, use the `Discovery`, `Model`, or `Features` type in the VM class |
-| `VirtualMachineDisksShouldBeMigrating` | The VM can be moved, and its local disks are moved along with it | — |
-
-Moving the disks along with the VM is available in the EE edition only, so the `VirtualMachineDisksShouldBeMigrating` reason appears only there. In the CE edition, a VM whose disks are in storage available on only one node gets the `VirtualMachineDisksNotMigratable` reason.
-
-#### Checking before draining a node
-
-The VMs that will not be able to migrate off a node are better found before maintenance starts, while the node is still open for scheduling:
-
-```bash
-d8 k get vm -o wide | grep <node-name>
+```yaml
+spec:
+  networks:
+    - type: Network
+      name: isolated-net
+    - type: ClusterNetwork
+      name: corp-net
 ```
 
-The VMs with `False` in the `MIGRATABLE` column will have to be stopped when the node is drained. Live migration is not possible for them, and the evacuation will fail.
+You can see the information about the connected networks and their MAC addresses in the VM status:
 
-The value of the column alone is not enough. A VM with `True` and the `VirtualMachineWaitingForMigrationTarget` reason will not move either until a suitable node returns to scheduling, so check the reason for every VM on the node before maintenance:
-
-```bash
-d8 k get vm -o json | jq -r '.items[] | [.metadata.name, (.status.conditions[] | select(.type=="Migratable") | .reason)] | @tsv'
+```yaml
+status:
+  networks:
+    - type: Main
+    - type: Network
+      name: user-net
+      macAddress: aa:bb:cc:dd:ee:01
+    - type: ClusterNetwork
+      name: corp-net
+      macAddress: aa:bb:cc:dd:ee:02
 ```
 
-#### What to know about the Migratable condition
+For each additional network interface, a unique MAC address is created and reserved automatically, which prevents MAC address collisions. The [VirtualMachineMACAddress](cr.html#virtualmachinemacaddress) (`vmmac`) and [VirtualMachineMACAddressLease](cr.html#virtualmachinemacaddresslease) (`vmmacl`) resources are used for this.
 
-A few properties of the condition that matter when planning maintenance and when reading the status:
+A MAC address is generated at random from a pool of allowed ranges.
 
-- The `Migratable` condition describes the cluster as well as the VM. If the only suitable node loses the required label, the condition turns `False` even though the parameters of the VM did not change. Once a suitable node appears, the condition returns to `True`.
+- Ranges: `x2-xx-xx-xx-xx-xx`, `x6-xx-xx-xx-xx-xx`, `xA-xx-xx-xx-xx-xx`, `xE-xx-xx-xx-xx-xx`.
+- The first three octets (OUI) are formed from the cluster UUID, and the last three (NIC) are picked at random from 16 million possible combinations.
 
-- When a node is excluded from scheduling, the VM is still able to migrate. Cordoning, reboots, and node maintenance resolve on their own, so the condition stays `True` and only its reason changes to `VirtualMachineWaitingForMigrationTarget`. Otherwise, planned maintenance of a neighboring node would turn a CPU or memory change into a VM restart. In the CE edition, such changes require a restart in any case.
+The [VirtualMachineMACAddressLease](cr.html#virtualmachinemacaddresslease) (`vmmacl`) resource is a cluster-wide resource that manages leases of MAC addresses from the shared MAC address pool.
 
-- The `True` value means that the VM is able to migrate, not that it is ready to migrate right now. Check the reason before a migration: `VirtualMachineMigratable` means there is a node to migrate to, `VirtualMachineWaitingForMigrationTarget` means there is no suitable node at the moment. The `d8_virtualization_virtualmachine_migratable` metric carries the same answer in its `reason` label, so a dashboard that filters VMs by the value alone counts the waiting VMs among the ones ready to migrate.
-
-- A migration started with the `VirtualMachineWaitingForMigrationTarget` reason does not wait for a node forever. If the target pod cannot be scheduled within five minutes, the operation fails and the `Completed` condition of the `VirtualMachineOperation` resource gets the `TargetUnschedulable` reason. If maintenance takes longer, start the migration again.
-
-- A stopped VM has no such condition, because the ability of a VM to migrate is evaluated only for a running VM. While the VM was down, its disks could have been moved to different storage, and a device could have been detached.
-
-- In the CE edition, placement changes are taken into account after the VM restarts. While the VM is running, it uses the parameters it was started with, and the condition describes exactly those. A new `nodeSelector`, `affinity`, or VM class is taken into account only after a restart. In the EE edition, such changes are applied without a restart and are taken into account right away.
-
-- Local disks do not prevent migration, but a node is still needed. In the EE edition, a VM with local disks is moved together with them, so the condition stays `True` with the `VirtualMachineDisksShouldBeMigrating` reason. But if no node in the cluster matches its placement rules, the condition is `False`, because there is nowhere to move the disks along with the VM.
-
-#### How to perform a live VM migration
-
-Let's look at an example. Before starting the migration, view the current status of the virtual machine:
+To view the list of MAC address leases (`vmmacl`), run the following command:
 
 ```bash
-d8 k get vm
+d8 k get vmmacl
 ```
 
 Example output:
 
-```txt
-NAME                                   PHASE     NODE           IPADDRESS     AGE
-linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+```console {.nowrap-default}
+NAME                    VIRTUALMACHINEMACADDRESS                      STATUS   AGE
+mac-5e-e6-19-22-0f-d8   {"name":"vm-01-fz9cr","namespace":"pr-sdn"}   Bound    45s
+mac-5e-e6-19-29-89-cf   {"name":"vm-01-99qj6","namespace":"pr-sdn"}   Bound    45s
+mac-5e-e6-19-54-f9-be   {"name":"vm-01-5jqxg","namespace":"pr-sdn"}   Bound    45s
 ```
 
-We can see that it is currently running on the `virtlab-pt-1` node.
+The [VirtualMachineMACAddress](cr.html#virtualmachinemacaddress) (`vmmac`) resource is a project resource responsible for reserving leased MAC addresses and binding them to virtual machines.
 
-To migrate a virtual machine from one node to another while taking into account VM placement requirements, use the following command:
+A MAC address is assigned automatically to each additional interface from the shared address pool and stays assigned to the machine until it's deleted.
+
+To check the assigned MAC addresses, run the following command:
 
 ```bash
-d8 v migrate -n <namespace> <vm-name> [--force] [--target-node-name string]
+d8 k get vmmac
 ```
 
-Running this command creates a VirtualMachineOperations resource.
+Example output:
 
-When used during virtual machine migration, the `--force` flag activates a special mechanism called AutoConverge (for more details, see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) when it is necessary to speed up the completion of migration and help it complete successfully, even when the virtual machine memory transfer is too slow. Use this flag if a standard migration cannot complete due to high virtual machine activity.
-
-To place the virtual machine on a specific target node, specify that node’s name using the `--target-node-name` option. For example, if a virtual machine should be placed on the node `production-1`:
-
-```bash
-d8 v migrate -n project-1 linux-vm --target-node-name production-1
+```console {.nowrap-default}
+NAME          ADDRESS             STATUS     VM      AGE
+vm-01-5jqxg   5e:e6:19:54:f9:be   Attached   vm-01   5m42s
+vm-01-99qj6   5e:e6:19:29:89:cf   Attached   vm-01   5m42s
+vm-01-fz9cr   5e:e6:19:22:0f:d8   Attached   vm-01   5m42s
 ```
 
-Under the hood, a virtual machine operation will be created with the specific node selector `kubernetes.io/hostname: production-1`, where `production-1` is the node name.
+When a network is removed from the VM configuration:
 
-You can also start the migration by manually creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) (`vmop`) resource of type `Migrate`:
+- The MAC address of the interface is released.
+- The related [VirtualMachineMACAddress](cr.html#virtualmachinemacaddress) and [VirtualMachineMACAddressLease](cr.html#virtualmachinemacaddresslease) resources are deleted automatically.
+- The allocated `IPAddress` resource is deleted automatically (if IPAM was used).
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, scroll down to the **Networks** section and click **Add**.
+1. In the **Add network** window that opens, specify the network you need in the **Select network** field.
+1. Click **Add**, then click the **Save** button that appears.
+
+To create a project network:
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Network** → **SDN** → **Networks**.
+1. Click **Create**.
+1. In the **Create resource** window that opens, enter the network name in the **Name** field.
+1. On the **Configuration** tab, select the Network class in the **Network class** field, the network type in the **Type** field, and the VLAN ID in the **VLAN** field. Set **Mtu** and the parameters of the **IPAM** block if required.
+1. Click **Apply**.
+1. The created networks are shown in the list with the **Status**, **Type**, **VLAN**, and **Network class** columns.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### IPAM for additional network interfaces
+
+The module can hand out addresses in an additional network itself, if an administrator has configured an address pool for that network.
+
+{{< tabs name="net-ipam" >}}
+
+{{% tab name="Using the CLI" %}}
+
+If IPAM is configured for an additional network [in the `sdn` module](/modules/sdn/) (an IP address pool bound to the network through [`spec.ipam.ipAddressPoolRef`](/modules/sdn/cr.html#clusternetwork-v1alpha1-spec-ipam-ipaddresspoolref)), the `virtualization` module can automatically allocate IP addresses for the additional VM interfaces and deliver them to the guest OS over DHCP.
+
+Two modes are supported:
+
+- **Automatic (DHCP)**: If the [`ipAddressName` field](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) isn't specified in [`.spec.networks[]`](cr.html#virtualmachine-v1alpha2-spec-networks), the controller automatically creates an IPAddress resource (of the `Auto` type) bound to the VM through `ownerReferences`, and passes it to the `sdn` module. The `sdn` module allocates an address from the pool and delivers it to the guest OS over DHCP. The address is preserved across VM reboots and migrations, because it's bound to the VM rather than to the pod. For this mode to work, the DHCP client has to be enabled on the corresponding interface in the guest OS.
+
+- **Static**: If the [`ipAddressName` field](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) is specified in [`.spec.networks[]`](cr.html#virtualmachine-v1alpha2-spec-networks), the controller uses the IPAddress resource provided by the user (of the `Static` type, `network.deckhouse.io/v1alpha1`). The address is defined by the user and doesn't change automatically.
+
+If an additional network has no IPAM pool configured, the IPAM feature isn't enabled, the interface works in L2-only mode, and IP addressing has to be configured manually in the guest OS.
+
+Here is an example VM configuration with automatic IP address allocation for an additional network:
 
 ```yaml
-d8 k create -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  generateName: migrate-linux-vm-
-  namespace: project-1
 spec:
-  # virtual machine name
-  virtualMachineName: linux-vm
-  # operation to evict
-  type: Migrate
-  # Defines the Migrate operation.
-  migrate:
-    nodeSelector:
-      # Additionally, you can set any suitable node selector.
-      kubernetes.io/hostname: production-1
-  # Allow CPU slowdown by AutoConverge mechanism to guarantee that migration will complete.
-  force: true
+  networks:
+    - type: Main
+    - type: ClusterNetwork
+      name: corp-net
+      # ipAddressName isn't specified → automatic mode (DHCP) is used
+```
+
+Here is an example VM configuration with a static IP address for an additional network:
+
+```yaml
+spec:
+  networks:
+    - type: Main
+    - type: ClusterNetwork
+      name: corp-net
+      ipAddressName: my-static-ip # Name of the IPAddress resource (SDN)
+```
+
+Here is an example of a static IPAddress resource configuration:
+
+```yaml
+apiVersion: network.deckhouse.io/v1alpha1
+kind: IPAddress
+metadata:
+  name: my-static-ip
+  namespace: my-namespace
+spec:
+  networkRef:
+    kind: ClusterNetwork
+    name: corp-net
+  type: Static
+  static:
+    ip: 192.168.200.42
+```
+
+The allocated IP address is shown in the VM status:
+
+```yaml
+status:
+  ipAddress: 10.66.10.2                     # IP address of the main network.
+  virtualMachineIPAddressName: vm-01-main-ip # IPAddress name of the main network.
+  networks:
+    - type: Main
+    - type: ClusterNetwork
+      name: corp-net
+      macAddress: 32:a6:a1:0a:92:48
+      virtualMachineMACAddressName: vm-01-rxzd6
+      ipAddress: 192.168.200.4               # IP address of the additional network (from IPAM).
+```
+
+> **Important:** If an IPAM pool is configured for an additional network, don't configure a static IP address on the additional interface in the guest OS manually (through Cloud-Init). Use the automatic (DHCP) or static (`ipAddressName`) mode to avoid address conflicts.
+
+> If an additional network has an IPAM pool but the IPAddress resource isn't allocated yet or is in the `Pending` state (for example, because the address pool is exhausted), the interface is temporarily skipped, the VM starts without it, and the `NetworkReady` condition reports the error. Once an IP address becomes available, the interface is attached automatically on the fly.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Network** → **SDN** → **IP pools**.
+1. Click **Create**.
+1. In the **Create resource** window that opens, enter the pool name in the **Name** field.
+1. On the **Configuration** tab, set the lease lifetime in the **Lease TTL** field, and in the **Pools** block, set the network (**Network**), the address ranges (**Ranges**), and the routes (**Routes**).
+1. Click **Apply**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Configuring the guest OS for interfaces added on the fly
+
+When an additional network interface is attached to an already running VM, the guest OS has to be configured to bring new network interfaces up automatically and request a DHCP lease. By default, Linux doesn't start a DHCP client on interfaces added on the fly.
+
+To make such interfaces configure themselves, use one of the following approaches in the guest OS:
+
+- **NetworkManager** (Ubuntu, RHEL, CentOS): Configures new interfaces with DHCP automatically, if the `network-manager` service is running.
+- **A udev rule** (Alpine and other systems without `network-manager`): Add a udev rule to bring new interfaces up:
+
+  ```yaml
+  write_files:
+    - path: /etc/udev/rules.d/90-hotplug-network.rules
+      content: |
+        SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
+  ```
+
+Interfaces present at VM boot (included in the initial network configuration) don't need any extra setup, because the guest OS configures them at startup through Cloud-Init.
+
+## Snapshots, recovery, and cloning
+
+Snapshots let you capture the current state of a resource for later recovery or cloning. A disk snapshot saves only the data of the selected disk, while a virtual machine snapshot includes the VM parameters and the state of all its disks.
+
+### Consistent snapshots
+
+Snapshots can be consistent or inconsistent. The `requiredConsistency` parameter is responsible for this, and its default value is `true`, which means that a consistent snapshot is required.
+
+A consistent snapshot captures a coherent and integral state of the disk data. You can create such a snapshot when one of the following conditions is met:
+
+- the disk isn't attached to any virtual machine, and then the snapshot is always consistent;
+- the virtual machine is powered off;
+- [`qemu-guest-agent`](#guest-os-agent) is installed and running in the guest OS. When the snapshot is created, it temporarily pauses ("freezes") the file system to keep the data coherent.
+
+An inconsistent snapshot may not reflect a coherent state of the virtual machine disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` isn't installed or isn't running in the guest OS.
+If the snapshot manifest explicitly specifies `requiredConsistency: false` but `qemu-guest-agent` is running, an attempt to freeze the file system is still made so that the snapshot comes out consistent.
+
+QEMU Guest Agent supports hook scripts that prepare applications for a snapshot without stopping services, keeping the state coherent at the application level. Configuring hook scripts is described in [Guest OS agent](#guest-os-agent).
+
+{{< alert level="warning" >}}
+When recovering from such a snapshot, file system integrity problems are possible, because the data state may be incoherent.
+{{< /alert >}}
+
+### Creating disk snapshots
+
+A disk snapshot saves the disk data at the moment of creation and serves as a source for new disks.
+
+{{< tabs name="snap-disk-create" >}}
+
+{{% tab name="Using the CLI" %}}
+
+To create snapshots of virtual disks, use the [VirtualDiskSnapshot](cr.html#virtualdisksnapshot) resource. These snapshots can serve as a data source when creating new disks, for example to clone or recover information.
+
+To guarantee data integrity, you can create a disk snapshot in the following cases:
+
+- The disk isn't attached to any virtual machine.
+- The VM is powered off.
+- The VM is running, but qemu-guest-agent is installed in the guest OS.
+  The file system was successfully frozen (the fsfreeze operation).
+
+If data consistency isn't required (for example, for test scenarios), you can create a snapshot:
+
+- On a running VM without freezing the file system.
+- Even if the disk is attached to an active VM.
+
+To do this, specify the following in the [VirtualDiskSnapshot](cr.html#virtualdisksnapshot) manifest:
+
+```yaml
+spec:
+  requiredConsistency: false
+```
+
+Here is an example manifest for creating a disk snapshot:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDiskSnapshot
+metadata:
+  name: linux-vm-root-snapshot
+spec:
+  requiredConsistency: true
+  virtualDiskName: linux-vm-root
 EOF
 ```
 
-{{< alert level="info" >}}
-To prevent the unschedulable state of a virtual machine, the node selector should not conflict with other placement rules such as virtual machine affinity, node selectors, and virtual machine class node selector rules.
-{{< /alert >}}
-
-{{< alert level="info" >}}
-Targeted migration to a specific node is not available in the Community Edition version.
-
-If you don’t need to specify target node parameters, you can omit the `migrate` field or evict the virtual machine to another suitable node using the `d8 v evict` command or by creating a [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource of type `Evict`.
-{{< /alert >}}
-
-To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
+To view the list of disk snapshots, run the following command:
 
 ```bash
-d8 k get vm -w
+d8 k get vdsnapshot
 ```
 
 Example output:
 
-```txt
-NAME                                  PHASE       NODE           IPADDRESS     AGE
-linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+```console {.nowrap-default}
+NAME                   PHASE     CONSISTENT   AGE
+linux-vm-root-snapshot Ready     true         3m2s
 ```
 
-You can interrupt any live migration while it is in the `Pending` or `InProgress` phase by deleting the corresponding VirtualMachineOperations resource.
+The `CONSISTENT` field with the `true` value means that the snapshot is consistent (`false`). The value is determined automatically from the snapshot creation conditions and can't be changed.
 
-How to perform a live VM migration in the web interface:
+After creation, a [VirtualDiskSnapshot](cr.html#virtualdisksnapshot) can be in the following states (phases):
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the desired virtual machine from the list and click the ellipsis button.
-- Select "Migrate" from the pop-up menu.
-- Confirm or cancel the migration in the pop-up window.
+- `Pending`: Waiting for all dependent resources required to create the snapshot to become ready.
+- `InProgress`: The virtual disk snapshot is being created.
+- `Ready`: The snapshot was created successfully and the virtual disk snapshot is available for use.
+- `Failed`: An error occurred while creating the virtual disk snapshot.
+- `Terminating`: The resource is being deleted.
 
-#### Configuring migration policy
+The [`.status.conditions`](cr.html#virtualdisksnapshot-v1alpha2-status-conditions) block shows the reason for a problem with the resource.
 
-The migration policy determines when to use the AutoConverge mechanism (CPU slowdown) to guarantee migration completion.
+For a full description of the [VirtualDiskSnapshot](cr.html#virtualdisksnapshot) resource configuration parameters, see [the resource documentation](cr.html#virtualdisksnapshot).
 
-The AutoConverge mechanism helps complete migration even with low network bandwidth, guaranteeing that the migration will complete successfully. However, it slows down the virtual machine's CPU, which can affect the performance of applications running on the virtual machine.
+{{% /tab %}}
 
-The AutoConverge mechanism works in two stages:
+{{% tab name="Using the web interface" %}}
 
-1. **Virtual machine CPU slowdown**
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Disk snapshots**.
+1. Click **Create**.
+1. In the **Create resource** window that opens, enter the snapshot name in the **Name** field.
+1. On the **Configuration** tab, select the disk to take the snapshot from in the **Virtual disk name** field.
+1. Enable the **Required consistency** toggle.
+1. Click **Apply**.
+1. The snapshot status is shown in the **Status** column.
 
-   The hypervisor gradually reduces the CPU frequency of the source virtual machine. This reduces the rate at which new "dirty" pages appear. The higher the load on the virtual machine, the greater the slowdown.
+{{% /tab %}}
 
-1. **Automatic migration completion**
+{{< /tabs >}}
 
-   Once the data transfer rate exceeds the memory change rate, final synchronization is started, and the virtual machine switches to the new node.
+### Recovering disks from snapshots
 
-To configure the migration policy, use the [`.spec.liveMigrationPolicy`](/modules/virtualization/cr.html#virtualmachine-v1alpha2-spec-livemigrationpolicy) parameter in the virtual machine configuration. The following options are available:
+A new disk is created from a snapshot, and the original disk stays untouched.
 
-- `AlwaysSafe`: Migration is always performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximum virtual machine performance is important, but it requires high network bandwidth.
-- `PreferSafe` (used as the default policy): Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource with parameters `type=Migrate` and `force=true`.
-- `AlwaysForced`: Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This guarantees migration completion even with poor network, but may reduce virtual machine performance.
-- `PreferForced`: Migration uses AutoConverge, meaning the CPU is slowed down when necessary. However, you can start migration without slowing down the CPU using the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource with parameters `type=Migrate` and `force=false`.
+{{< tabs name="snap-disk-restore" >}}
 
-#### Migration with insufficient network bandwidth
+{{% tab name="Using the CLI" %}}
 
-During live migration of a virtual machine, a situation may arise when network bandwidth is insufficient to transfer data faster than it changes in the virtual machine's memory. In this case, the number of "dirty" pages continues to grow, and the migration may not complete within the timeout.
+To recover a disk from a previously created disk snapshot, specify the corresponding object as the `dataSource`:
 
-To solve this problem, the AutoConverge mechanism is used, which is configured through the [migration policy](#configuring-migration-policy).
-
-To determine whether network bandwidth is insufficient for live migration of a virtual machine, check the graphs in the "Namespace / Virtual Machine" → "VM Status details" → "Live migration memory metrics" section:
-
-- **Processed memory rate** is less than **Dirty memory rate**.
-- **Remaining memory rate** does not decrease for a long time.
-
-This means that the network has become a bottleneck for migration.
-
-Example of a situation where migration cannot be completed due to insufficient network bandwidth: memory is continuously changed inside the virtual machine using stress-ng.
-
-![](./images/livemigration-example.png)
-
-Example of migrating the same virtual machine using the `--force` flag of the `d8 v migrate` command (which enables AutoConverge). The example shows the CPU frequency decreasing step by step to reduce the memory change rate.
-
-![](./images/livemigration-example-autoconverge.png)
-
-If the network limits the migration speed, you can:
-
-1. Wait for the operation to complete with an error due to timeout.
-1. Cancel the current migration operation by deleting the vmop object:
-
-   ```bash
-   d8 k delete vmop <operation-name>
-   ```
-
-   Then restart the migration using the `--force` flag to enable the AutoConverge mechanism. Using the `--force` flag must comply with the current [virtual machine migration policy](#configuring-migration-policy).
-
-#### System-initiated migrations
-
-Migration can be performed automatically by the following system events:
-
-- Updating the "firmware" of a virtual machine.
-- Redistribution of load in the cluster.
-- Transferring a node into maintenance mode (Node drain).
-- When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
-
-The trigger for live migration is the appearance of the VirtualMachineOperations resource with the `Evict` type.
-
-The table shows the VirtualMachineOperations resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
-
-| Type of system event                 | Resource name prefix   |
-|--------------------------------------|------------------------|
-| Firmware update                      | `firmware-update-*`      |
-| Load redistribution in the cluster   | `evacuation-*`           |
-| Node drain                           | `evacuation-*`           |
-| VM placement settings change         | `nodeplacement-update-*` |
-| Disk storage migration               | `volume-migration-*`     |
-
-This resource can be in the following states:
-
-- `Pending`: The operation is pending.
-- `InProgress`: Live migration is in progress.
-- `Completed`: Live migration of the virtual machine has completed successfully.
-- `Failed`: Live migration of the virtual machine has failed.
-
-You can view active operations using the command:
-
-```bash
-d8 k get vmop
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: linux-vm-root
+spec:
+  # Disk storage parameters.
+  persistentVolumeClaim:
+    # Specify a size larger than the value.
+    size: 10Gi
+    # Specify the name of your StorageClass.
+    storageClassName: rv-thin-r2
+  # The source the disk is created from.
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualDiskSnapshot
+      name: linux-vm-root-snapshot
+EOF
 ```
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Disks**.
+1. Click **Create**.
+1. In the form that opens, enter the disk name in the **Disk name** field.
+1. In the **Source** field, select the disk snapshot you want to recover from in the drop-down list.
+1. In the **Size** field, set a size equal to or larger than the size of the original disk.
+1. In the **Storage class** field, select the StorageClass of the original disk.
+1. Click **Create**.
+1. The disk status is shown on its page.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Creating VM snapshots
+
+A virtual machine snapshot is the saved state of a virtual machine at a certain point in time. To create virtual machine snapshots, use the [VirtualMachineSnapshot](cr.html#virtualmachinesnapshot) resource.
+
+{{< alert level="warning" >}}
+Detach all images ([VirtualImage](cr.html#virtualimage)/ClusterVirtualImage) from a virtual machine before taking its snapshot. Disk images aren't saved along with the VM snapshot, and their absence in the cluster during recovery can leave the virtual machine unable to start, in the Pending state, waiting for the image to become available.
+{{< /alert >}}
+
+{{< tabs name="snap-vm-create" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Creating a virtual machine snapshot fails if at least one of the following conditions is met:
+
+- not all dependent devices of the virtual machine are ready;
+- one of the dependent devices is a disk that is being resized.
+
+> **Important:** If the virtual machine has changes pending a restart at the moment the snapshot is taken, the updated configuration goes into the snapshot.
+
+When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static one and saved for recovery.
+
+If you don't need the conversion and the reuse of the old virtual machine IP address, you can set the corresponding policy to `Never`. In that case, the address type is used without conversion (`Auto` or `Static`).
+
+```yaml
+spec:
+  keepIPAddress: Never
+```
+
+Here is an example manifest for creating a virtual machine snapshot:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshot
+metadata:
+  name: linux-vm-snapshot
+spec:
+  virtualMachineName: linux-vm
+  requiredConsistency: true
+  keepIPAddress: Never
+EOF
+```
+
+After the snapshot is created successfully, its status reflects the list of resources saved in the snapshot.
 
 Example output:
 
-```txt
-NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
-firmware-update-fnbk2   Completed   Evict   linux-vm            148m
+```yaml
+status:
+  ...
+  resources:
+  - apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualMachine
+    name: linux-vm
+  - apiVersion: v1
+    kind: Secret
+    name: cloud-init
+  - apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualDisk
+    name: linux-vm-root
 ```
 
-To cancel the migration, delete the corresponding resource.
+{{% /tab %}}
 
-How to view active operations in the web interface:
+{{% tab name="Using the web interface" %}}
 
-1. Go to the "Projects" tab and select the desired project.
-1. Go to the "Virtualization" → "Virtual Machines" section.
-1. Select the required VM from the list and click on its name.
-1. Go to the "Events" tab.
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. Go to the **Snapshots** tab.
+1. Click **Add**.
+1. In the form that opens, enter `linux-vm-snapshot` in the **Snapshot name** field.
+1. Enable the **Integrity guarantee** toggle.
+1. Click **Create**.
+1. The snapshot status is shown on its page.
+1. The created snapshots are listed on the **Snapshots** tab of the virtual machine, with the **Name**, **Status**, **Creation date**, and **Consistent** columns.
 
-#### Live migration of virtual machine when changing placement parameters (not available in CE edition)
+{{% /tab %}}
 
-Let's consider the migration mechanism on the example of a cluster with two node groups (`NodeGroups`): green and blue. Suppose a virtual machine (VM) is initially running on a node in the green group and its configuration contains no placement restrictions.
+{{< /tabs >}}
 
-Step 1: Add the placement parameter
-Let's specify in the VM specification the requirement for placement in the green group :
+### Recovering a VM
+
+Recovery returns a machine and its disks to the state saved in a snapshot.
+
+{{< tabs name="snap-vm-restore" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Recovery is started by a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource of the `restore` type:
 
 ```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: <VMOP_NAME>
 spec:
-  nodeSelector:
-    node.deckhouse.io/group: green
+  type: Restore
+  virtualMachineName: <VM_NAME>
+  restore:
+    mode: DryRun | Strict | BestEffort
+    virtualMachineSnapshotName: <VM_SNAPSHOT_NAME>
 ```
 
-After saving the changes, the VM will continue to run on the current node, since the `nodeSelector` condition is already met.
+You can use one of three modes for this operation:
 
-Step 2: Change the placement parameter
-Let's change the placement requirement to group blue :
+- `DryRun`: A dry run of the recovery operation, needed to check for possible conflicts, which are shown in the resource status (`status.resources`).
+- `Strict`: The strict recovery mode, when the VM has to be recovered exactly as in the snapshot; missing external dependencies can leave the VM in `Pending` after recovery.
+- `BestEffort`: Missing external dependencies ([ClusterVirtualImage](cr.html#clustervirtualimage), [VirtualImage](cr.html#virtualimage)) are ignored and removed from the VM configuration.
 
-```yaml
-spec:
-  nodeSelector:
-    node.deckhouse.io/group: blue
-```
+Recovering a virtual machine from a snapshot is possible only when all of the following conditions are met:
 
-Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
+- The VM being recovered is present in the cluster (the [VirtualMachine](cr.html#virtualmachine) resource exists and its `.metadata.uid` matches the identifier used when the snapshot was created).
+- The disks being recovered (identified by name) either aren't attached to other VMs or are absent from the cluster.
+- The IP address being recovered either isn't taken by another VM or is absent from the cluster.
+- The MAC addresses being recovered either aren't used by other VMs or are absent from the cluster.
 
-### Collecting debug information
+> **Important:** If some resources the VM depends on (for example, [VirtualMachineClass](cr.html#virtualmachineclass), [VirtualImage](cr.html#virtualimage), [ClusterVirtualImage](cr.html#clustervirtualimage)) are absent from the cluster but existed at the moment the snapshot was created, the VM stays in the `Pending` state after recovery.
+> In that case, edit the VM configuration manually and update or remove the missing dependencies.
 
-{{< alert level="warning" >}}
-The `collect-debug-info` command requires `d8` version v0.27.0 or higher.
-{{< /alert >}}
-
-Use `collect-debug-info` to gather diagnostic data about a virtual machine and all related resources into a single compressed archive.
-
-The command collects the following information:
-
-- Virtual machine configuration
-- Virtual machine operations
-- Migration information
-- Block devices
-- Related PVCs and PVs
-- Pods associated with the VM, including their logs (last 10000 lines)
-- Events for all related resources
-- VM domain XML configuration
-
-The command output is written to a compressed archive (tar.gz) that is output to stdout. To save the archive, you must redirect the output to a file.
-
-Usage example:
+To view information about conflicts when recovering a VM from a snapshot, check the resource status:
 
 ```bash
-# Collect debug information for virtual machine 'linux-vm'
-d8 v collect-debug-info linux-vm > debug-info.tar.gz
-
-# Collect debug information for VM with namespace specified
-d8 v collect-debug-info linux-vm -n mynamespace > debug-info.tar.gz
-
-# Collect debug information for VM with full name specified (name.namespace)
-d8 v collect-debug-info linux-vm.mynamespace > debug-info.tar.gz
+d8 k get vmop <VMOP_NAME> -o json | jq '.status.resources'
 ```
 
+> **Important:** Don't cancel a recovery operation from a snapshot, that is, don't delete the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource in the `InProgress` phase, because this can leave the virtual machine being recovered in an inconsistent state.
+
+> When a VM is recovered from a snapshot, the disks related to it are also recovered from the corresponding snapshots, so the disk specification contains the `dataSource` parameter with a reference to the disk snapshot needed.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the virtual machine you need from the list and click the ellipsis button.
+1. In the menu that opens, select **Restore**.
+1. In the **Machine recovery** window that opens, select the snapshot in the **Virtual machine snapshot name** field.
+1. In the **Recovery mode** field, select `Strict` or `BestEffort`.
+1. Click **Restore**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Cloning a VM
+
+A virtual machine clone is created either from an existing VM or from a previously created snapshot of that machine.
+
 {{< alert level="warning" >}}
-The command cannot output data directly to the terminal. You must redirect the output to a file, otherwise the command will fail with an error.
+The cloned VM gets a new IP address for the cluster network and new MAC addresses for the additional network interfaces (if there are any), so after cloning you have to reconfigure the network parameters of the guest OS.
 {{< /alert >}}
 
-After executing the command, you will receive a `debug-info.tar.gz` archive that contains all collected data in YAML format (for resources) and text files (for logs). This archive can be sent to technical support for problem analysis.
+{{< alert level="info" >}}
+Labels aren't copied from the source VM to the clone. This prevents Service traffic (Services select VMs by labels) from being routed to the clone. If the clone has to be part of a Service, add the labels you need after cloning. For example:
+
+```bash
+d8 k label vm <VM_NAME> label-name=label-value
+```
+{{< /alert >}}
+
+Cloning creates a copy of a VM, so the resources of the new VM have to have unique names. The `nameReplacements` and `customization` parameters are used for this:
+
+- `nameReplacements`: Lets you replace the names of existing resources with new ones to avoid conflicts.
+- `customization`: Sets a prefix or a suffix for the names of all cloned VM resources (disks, IP addresses, and so on).
+
+Here is an example of renaming specific resources:
+
+```yaml
+nameReplacements:
+  - from:
+      kind: VirtualMachine
+      name: <OLD_VM_NAME>
+    to:
+      name: <NEW_VM_NAME>
+  - from:
+      kind: VirtualDisk
+      name: <OLD_DISK_NAME>
+    to:
+      name: <NEW_DISK_NAME>
+  ...
+```
+
+As a result, a VM named `<NEW_VM_NAME>` is created, and the specified resources are renamed according to the replacement rules.
+
+Here is an example of adding a prefix or a suffix to all resources:
+
+```yaml
+customization:
+  namePrefix: <PREFIX>
+  nameSuffix: <SUFFIX>
+```
+
+As a result, a VM named `<PREFIX><ORIGINAL_VM_NAME><SUFFIX>` is created, and all resources (disks, IP addresses, and so on) get the prefix and the suffix.
+
+You can use one of three modes for the cloning operation:
+
+- `DryRun`: A test run to check for possible conflicts. The results are shown in the `status.resources` field of the corresponding operation resource.
+- `Strict`: The strict mode, which requires all resources with new names and their dependencies (for example, images) to be present in the VM being cloned.
+- `BestEffort`: The mode in which missing external dependencies (for example, [ClusterVirtualImage](cr.html#clustervirtualimage), [VirtualImage](cr.html#virtualimage)) are automatically removed from the configuration of the VM being cloned.
+
+To view information about the conflicts that arose during cloning, check the status of the operation resource:
+
+```bash
+# For cloning from an existing VM.
+d8 k get vmop <VMOP_NAME> -o json | jq '.status.resources'
+
+# For cloning from a VM snapshot.
+d8 k get vmsop <VMSOP_NAME> -o json | jq '.status.resources'
+```
+
+#### Creating a clone of an existing VM
+
+A clone is assembled from temporary snapshots of a machine, so you don't have to stop it.
+
+{{< tabs name="vm-clone" >}}
+
+{{% tab name="Using the CLI" %}}
+
+A VM is cloned using the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource with the `Clone` operation type.
+
+Cloning is supported both for powered-off and for running virtual machines. When a running VM is cloned, a consistent snapshot is created automatically, and the clone is then built from it.
+
+> Set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned to prevent the clone from starting automatically. This is because the clone inherits the behavior of the parent VM.
+
+Before cloning, prepare the guest OS to avoid conflicts of unique identifiers and network settings.
+
+Linux:
+
+- clear `machine-id` with the `sudo truncate -s 0 /etc/machine-id` command (for systemd) or delete the `/var/lib/dbus/machine-id` file;
+- delete the SSH host keys: `sudo rm -f /etc/ssh/ssh_host_*`;
+- clear the network interface configurations (if static settings are used);
+- clear the Cloud-Init cache (if it's used): `sudo cloud-init clean`.
+
+Windows:
+
+- run generalization with `sysprep` using the `/generalize` parameter, or use tools to clear unique identifiers (SID, hostname, and so on).
+
+To create a VM clone, use the following resource:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: <VMOP_NAME>
+spec:
+  type: Clone
+  virtualMachineName: <name of the VM to be cloned>
+  clone:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customization: {}
+```
+
+The `nameReplacements` and `customization` parameters are configured in the [`.spec.clone`](cr.html#virtualmachineoperation-v1alpha2-spec-clone) block ([general description](#cloning-a-vm) above).
+
+> During cloning, temporary snapshots are created automatically for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After the cloning process finishes, the temporary snapshots are deleted automatically and you won't see them in the resource list. However, the specification of the cloned disks keeps a reference (`dataSource`) to the corresponding snapshot, even though the snapshot itself no longer exists. This is expected behavior and doesn't indicate a problem, because such references are valid: by the time the clone starts, all the necessary data has already been transferred to the new disks.
+
+The following example shows cloning a VM named `database` and the `database-root` disk attached to it.
+
+An example with renaming specific resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: clone-database
+spec:
+  type: Clone
+  virtualMachineName: database
+  clone:
+    mode: Strict
+    nameReplacements:
+      - from:
+          kind: VirtualMachine
+          name: database
+        to:
+          name: database-clone
+      - from:
+          kind: VirtualDisk
+          name: database-root
+        to:
+          name: database-clone-root
+```
+
+As a result, a VM named `database-clone` and a disk named `database-clone-root` are created.
+
+An example with a prefix for all resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: clone-database
+spec:
+  type: Clone
+  virtualMachineName: database
+  clone:
+    mode: Strict
+    customization:
+      namePrefix: clone-
+      nameSuffix: -prod
+```
+
+As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` are created.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the virtual machine you need from the list and click the ellipsis button.
+1. In the menu that opens, select **Clone**.
+1. In the **Machine cloning** window that opens, select the snapshot to create the clone from in the **Virtual machine snapshot name** field. The clone is created from a snapshot, so prepare the snapshot in advance.
+1. In the **Cloning mode** field, select `Strict` or `BestEffort`.
+1. If required, set new names for the clone resources in the **Customization** → **Resource renaming** block, specifying the resource type, the original name, and the new name.
+1. Click **Clone**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+#### Creating a clone from a VM snapshot
+
+A VM is cloned from a snapshot using the [VirtualMachineSnapshotOperation](cr.html#virtualmachinesnapshotoperation) resource with the `CreateVirtualMachine` operation type.
+
+To create a VM clone from a snapshot, use the following resource:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: <VMSOP_NAME>
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: <name of the VM snapshot from which to clone>
+  createVirtualMachine:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customization: {}
+```
+
+The `nameReplacements` and `customization` parameters are configured in the [`.spec.createVirtualMachine`](cr.html#virtualmachinesnapshotoperation-v1alpha2-spec-createvirtualmachine) block ([general description](#cloning-a-vm) above).
+
+To view the list of resources saved in a snapshot, run the following command:
+
+```bash
+d8 k get vmsnapshot <SNAPSHOT_NAME> -o jsonpath='{.status.resources}' | jq
+```
+
+{{< alert level="info" >}}
+When a VM is cloned from a snapshot, the disks related to it are also created from the corresponding snapshots, so the disk specification contains the `dataSource` parameter with a reference to the disk snapshot needed.
+{{< /alert >}}
+
+The following example shows cloning from a VM snapshot named `database-snapshot`, which contains the `database` VM and the `database-root` disk.
+
+An example with renaming specific resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: clone-database-from-snapshot
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: database-snapshot
+  createVirtualMachine:
+    mode: Strict
+    nameReplacements:
+      - from:
+          kind: VirtualMachine
+          name: database
+        to:
+          name: database-clone
+      - from:
+          kind: VirtualDisk
+          name: database-root
+        to:
+          name: database-clone-root
+```
+
+As a result, a VM named `database-clone` and a disk named `database-clone-root` are created.
+
+An example with a prefix for all resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: clone-database-from-snapshot
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: database-snapshot
+  createVirtualMachine:
+    mode: Strict
+    customization:
+      namePrefix: clone-
+      nameSuffix: -prod
+```
+
+As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` are created.
 
 ## Virtual machine pools
 
@@ -3302,13 +4413,24 @@ After executing the command, you will receive a `debug-info.tar.gz` archive that
 Available in the EE and SE+ editions.
 {{< /alert >}}
 
-The [VirtualMachinePool](cr.html#virtualmachinepool) resource maintains a requested number of identical virtual machines and lets you scale them via the `scale` subresource, a HorizontalPodAutoscaler (HPA), or KEDA. Its `virtualMachineTemplate.spec` is an ordinary `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
+The [VirtualMachinePool](cr.html#virtualmachinepool) resource maintains a given number of identical virtual machines and lets you scale them through the `scale` subresource, HorizontalPodAutoscaler (HPA), or KEDA. The `virtualMachineTemplate.spec` field matches the regular `VirtualMachineSpec`, so a replica is no different from a manually created virtual machine.
 
 {{< alert level="warning" >}}
-The `Legacy` osType is not supported in a pool: replicas are told apart by initial provisioning, which these operating systems do not support, so every replica would be a byte-for-byte clone of the same disk — for Windows guests that also means a duplicate SID on the network. A pool template with `osType: Legacy` is rejected. Create such virtual machines individually.
+The `Legacy` OS type isn't supported in a pool, because replicas are differentiated by initialization, which these operating systems don't have, so every replica would be a byte-for-byte copy of one disk, and for Windows guest operating systems that also means the same SID on the network. A pool template with `osType: Legacy` is rejected. Create such virtual machines individually.
 {{< /alert >}}
 
-Create a pool with the desired number of replicas and a template. Each per-replica disk is described once in `virtualDiskTemplates` (reclaim policy, size, data source), and the template's `blockDeviceRefs` references those disks — by name, with `kind: VirtualDisk` — to set the device (boot) order, exactly as in a plain `VirtualMachine`. Every `virtualDiskTemplates` entry must be referenced exactly once (admission enforces this bijection; disk-template names are unique). Alongside the per-replica disks you may list shared read-only images (`VirtualImage`/`ClusterVirtualImage`) — for example a common ISO/CD-ROM attached to every replica — they are not per-replica and need no `virtualDiskTemplates` entry.
+{{< tabs name="pool-create" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Create a pool with the number of replicas you need and a virtual machine template. Pool disks are described in two blocks:
+
+- `virtualDiskTemplates` describes each replica disk once, setting the `reclaim` policy, the size, and the data source.
+- The `blockDeviceRefs` of the template references these disks by name with `kind: VirtualDisk` and sets the device order, that is, the boot order, exactly as in a regular [VirtualMachine](cr.html#virtualmachine).
+
+Every `virtualDiskTemplates` entry has to appear in `blockDeviceRefs` exactly once, otherwise the module rejects the pool. Disk template names are unique.
+
+Besides replica disks, `blockDeviceRefs` can list shared [VirtualImage](cr.html#virtualimage) and [ClusterVirtualImage](cr.html#clustervirtualimage) images, for example a single ISO or CD-ROM for all replicas. Such images are attached read-only, there's one of them for the whole pool, and they don't need an entry in `virtualDiskTemplates`.
 
 ```bash
 d8 k apply -f - <<EOF
@@ -3328,7 +4450,7 @@ spec:
         cores: 2
       memory:
         size: 4Gi
-      # Cloud-init: every replica self-configures on first boot (same for all).
+      # Cloud-init: each replica configures itself at first boot (identically for all).
       provisioning:
         type: UserData
         userData: |
@@ -3337,20 +4459,20 @@ spec:
             - name: cloud
               sudo: ALL=(ALL) NOPASSWD:ALL
               ssh_authorized_keys:
-                - ssh-ed25519 AAAAC3Nz... user@example
-      # Devices and boot order (first = boot). VirtualDisk entries reference
-      # virtualDiskTemplates by name (per-replica, resolved by the controller);
-      # a VirtualImage/ClusterVirtualImage is shared read-only by every replica.
+                - <SSH_PUBLIC_KEY>
+      # Devices and boot order (the first one is bootable). VirtualDisk entries
+      # reference virtualDiskTemplates by name (per-replica, resolved by the controller);
+      # VirtualImage/ClusterVirtualImage is a shared read-only image for all replicas.
       blockDeviceRefs:
         - kind: VirtualDisk
           name: root          # boot disk
         - kind: VirtualDisk
           name: cache
         - kind: ClusterVirtualImage
-          name: tools-iso      # shared CD-ROM attached to every replica
-  # Per-replica disk parameters (reclaim/size/source). Each must be referenced above.
+          name: tools-iso      # shared CD-ROM, attached to every replica
+  # Per-replica disk parameters (reclaim/size/source). Each of them has to be listed above.
   virtualDiskTemplates:
-    # Writable root disk: one per replica, cloned from an image, removed with the replica.
+    # Writable root disk: one per replica, cloned from an image, deleted along with the replica.
     - name: root
       reclaim:
         onScaleDown: Delete
@@ -3362,7 +4484,7 @@ spec:
           objectRef:
             kind: VirtualImage
             name: ubuntu
-    # Reusable cache: survives scale-down and is reattached on scale-up.
+    # Reusable cache: survives a scale-down and is reattached on a scale-up.
     - name: cache
       reclaim:
         onScaleDown: Retain
@@ -3374,20 +4496,38 @@ spec:
 EOF
 ```
 
-Replicas are named `<pool>-<random>`. Disks follow the same scheme: a per-replica (`Delete`) disk is named `<replica>-<template>` (for example `runners-1b2e84-root`), a reusable (`Retain`) disk is named `<pool>-<template>-<random>`. List replicas with `d8 k get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
+Replicas are named `<POOL>-<RANDOM>`. Disks follow the same scheme, and a per-replica disk (`Delete`) is named `<REPLICA>-<TEMPLATE>` (for example, `runners-1b2e84-root`), while a reusable one (`Retain`) gets the `<POOL>-<TEMPLATE>-<RANDOM>` name. To view the replicas, run `d8 k get vm -l vmpool.virtualization.deckhouse.io/pool=runners`.
 
-### Attaching a shared CD-ROM (or any shared image) to every replica
+{{% /tab %}}
 
-Besides the per-replica disks, `blockDeviceRefs` may reference read-only images — a `ClusterVirtualImage` or a `VirtualImage`. Such an image is not per-replica: every replica attaches the same image (for example a common ISO with tools or drivers). Images are not listed in `virtualDiskTemplates` (they have no per-replica state) and are not subject to the bijection.
+{{% tab name="Using the web interface" %}}
 
-Add the image to `blockDeviceRefs` at the position where you want it in the boot order — for an OS-installation ISO, place it before the disk; for a tools CD-ROM, after:
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **VM pools**.
+1. Click **Create**.
+1. In the **Create resource** window that opens, enter the pool name in the **Name** field.
+1. On the **Configuration** tab, set the number of replicas in the **Replicas** field and the replica deletion policy in the **Scale Down Policy** field.
+1. In the **Virtual Disk Templates** block, describe the replica disks, and in the **Virtual Machine Template** block, describe the virtual machine template.
+1. Click **Apply**.
+
+> The pool form is built from the [VirtualMachinePool](cr.html#virtualmachinepool) resource specification, so the field names match the resource parameters. You can paste a ready specification on the **YAML** tab.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Attaching a shared CD-ROM (or any shared image) to all replicas
+
+Besides per-replica disks, `blockDeviceRefs` can reference read-only images, [ClusterVirtualImage](cr.html#clustervirtualimage) or [VirtualImage](cr.html#virtualimage). Such an image is shared, and all replicas attach the same file, for example an ISO with tools or drivers. Images aren't listed in `virtualDiskTemplates` (they have no per-replica state) and aren't part of the bijection.
+
+Add the image to `blockDeviceRefs` at the position you need in the boot order. For an installation ISO, put it before the disk, and for a CD-ROM with tools, after it:
 
 ```yaml
 spec:
   virtualMachineTemplate:
     spec:
       blockDeviceRefs:
-        - kind: VirtualDisk           # Per-replica writable root, boots first.
+        - kind: VirtualDisk           # Writable per-replica root disk, boots first.
           name: root
         - kind: ClusterVirtualImage   # Shared read-only CD-ROM, attached to every replica.
           name: tools-iso
@@ -3403,19 +4543,25 @@ spec:
             name: ubuntu
 ```
 
-The image is attached to existing replicas the same way as any other device — a change to `blockDeviceRefs` applies to a live replica on its next recreation (rotation or scale-up).
+An image is attached to existing replicas the same way as any other device, and a change to `blockDeviceRefs` applies to a live replica the next time it's recreated (rotation or scale-up).
 
-### Scaling
+### Scaling the pool
 
-The pool supports the standard `scale` subresource, which works with manual replica changes and autoscalers.
+The number of replicas in a pool changes either manually or automatically, by an autoscaler.
 
-To change the number of replicas manually, run:
+{{< tabs name="pool-scale" >}}
+
+{{% tab name="Using the CLI" %}}
+
+A pool supports the standard `scale` subresource, compatible with manual replica count changes and with autoscalers.
+
+To change the number of replicas manually, run the following command:
 
 ```bash
 d8 k scale virtualmachinepool/runners -n ci --replicas=8
 ```
 
-The pool publishes `status.selector`, so an HPA reads CPU/memory metrics from the replicas directly without extra wiring:
+The pool publishes `status.selector`, so HPA reads CPU and memory metrics straight from the replicas without extra plumbing:
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -3439,19 +4585,34 @@ spec:
           averageUtilization: 70
 ```
 
-Beyond CPU/memory, the pool also works with custom metrics (`Pods`/`External` via `custom.metrics.k8s.io`/`external.metrics.k8s.io`) and KEDA, for example to scale on an external queue length. With `scaleDownPolicy: Explicit` an autoscaler can only scale up: anonymous scale-down through the `scale` subresource is rejected (remove replicas by name, see below).
+Besides CPU and memory, the pool works with custom metrics (`Pods`/`External` through `custom.metrics.k8s.io`/`external.metrics.k8s.io`) and with KEDA, for example to scale by the length of an external queue. With `scaleDownPolicy: Explicit`, an autoscaler can only increase the number of replicas, an unaddressed scale-down through the `scale` subresource is rejected, and replicas are removed by name.
 
-The `spec.scaleDownPolicy` field selects which replica is removed on anonymous scale-down:
+The `spec.scaleDownPolicy` field determines which replica is deleted on an unaddressed scale-down:
 
-- `NewestFirst`: the youngest replicas are removed first.
-- `OldestFirst`: the oldest replicas are removed first.
-- `Explicit`: anonymous scale-down is rejected; replicas can be removed only by name (see below). Use it when only the caller knows which replica is safe to remove (for example, an idle one).
+- `NewestFirst`: The youngest replicas are deleted first.
+- `OldestFirst`: The oldest replicas are deleted first.
+- `Explicit`: An unaddressed scale-down is forbidden; replicas can be removed only by name. Use it when only the caller knows which replica can be safely removed (for example, an idle one).
 
-### Removing specific replicas
+{{% /tab %}}
 
-By default, when the pool shrinks the controller chooses which replica to remove.
+{{% tab name="Using the web interface" %}}
 
-To remove particular replicas (and shrink the pool by that count), use the `scaleDownWith` subresource:
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **VM pools**.
+1. Select the pool you need from the list and click its name.
+1. On the **Configuration** tab, set the new value in the **Replicas** field.
+1. Click **Apply**.
+1. The scaling progress is shown in the pool list, in the **Status** and **Ready** columns.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Deleting specific replicas
+
+By default, when a pool scales down, the controller picks which replica to delete itself.
+
+To remove exactly the replicas you specify (and scale the pool down by that number), use the `scaleDownWith` subresource:
 
 ```bash
 d8 k create --raw \
@@ -3461,32 +4622,32 @@ d8 k create --raw \
 EOF
 ```
 
-A plain `d8 k delete vm` does not shrink the pool: the controller treats it as a lost replica and creates a replacement.
+A plain `d8 k delete vm` doesn't scale the pool down, because the controller treats it as a lost replica and creates a replacement.
 
-### Reusable disks (`reclaim`)
+### Reusable disks (reclaim)
 
-The `reclaim` policy defines what happens to a replica's disk when the replica is removed from the pool.
+The `reclaim` policy sets what happens to a replica disk when the replica is removed from the pool.
 
-The `reclaim.onScaleDown` field of a `virtualDiskTemplates` entry controls this behavior. `reclaim` is optional; if omitted, the disk defaults to `Delete`.
+The `reclaim.onScaleDown` parameter of a `virtualDiskTemplates` element defines this behavior. `reclaim` is optional; if it isn't set, the disk is treated as `Delete`.
 
-- `Delete` (default): the disk belongs to the virtual machine and is removed with it; nothing survives the replica.
-- `Retain`: the disk belongs to the pool, outlives the replica and is reattached to the next replica on scale-up. Use it for state that is expensive to rebuild and should survive VM recreation, so scaling back up is warm instead of cold.
+- `Delete` (default): The disk belongs to the virtual machine and is deleted along with it; nothing is left after the replica.
+- `Retain`: The disk belongs to the pool, survives the replica, and is reattached to the next one on a scale-up. It suits state that's expensive to recreate and has to survive VM recreation, so that scaling back up is warm rather than cold.
 
-`keep` and `ttl` tune the pool of free `Retain` disks (they apply only to `Retain`):
+`keep` and `ttl` configure the pool of free `Retain` disks (they apply only to `Retain`):
 
-- `keep`: how many recently-freed disks to always keep warm for instant scale-up; these are immune to `ttl`.
-- `ttl`: how long a free disk lives beyond the warm buffer before it is garbage-collected.
+- `keep`: How many recently freed disks to always keep warm for an instant scale-up. `ttl` doesn't apply to them.
+- `ttl`: How long a free disk lives beyond the warm buffer before garbage collection.
 
 Examples:
 
 ```yaml
-# Ephemeral disk: removed with the replica (Delete is the default).
+# Ephemeral disk: deleted along with the replica (Delete by default).
 - name: root
   spec:
     persistentVolumeClaim: { size: 30Gi }
     dataSource: { type: ObjectRef, objectRef: { kind: VirtualImage, name: ubuntu } }
 
-# Reusable disk: keep 3 warm for fast scale-up, collect the rest after 1h idle.
+# Reusable disk: keep 3 warm for a fast scale-up, collect the rest after 1h of idling.
 - name: cache
   reclaim:
     onScaleDown: Retain
@@ -3495,7 +4656,7 @@ Examples:
   spec:
     persistentVolumeClaim: { size: 100Gi }
 
-# Reusable disk kept indefinitely: reused forever, never auto-collected (no ttl).
+# Reusable disk without a limit: always reused, never deleted automatically (no ttl).
 - name: data
   reclaim:
     onScaleDown: Retain
@@ -3503,914 +4664,31 @@ Examples:
     persistentVolumeClaim: { size: 20Gi }
 ```
 
-Invalid combinations are rejected on create/update: `keep`/`ttl` may be set only with `Retain`, and `keep > 0` requires a `ttl` (without a `ttl` nothing is ever collected, so `keep` would do nothing). A `Retain` disk with no `ttl` keeps every freed disk indefinitely; bound it with a `ttl` unless that is what you want.
+Invalid combinations are rejected on creation and modification. The `keep` and `ttl` parameters are allowed only with `Retain`, and `keep > 0` requires `ttl`, because without `ttl` nothing is collected and `keep` has no effect. A `Retain` disk without `ttl` keeps all freed disks indefinitely; limit it with `ttl` if that isn't what you need.
 
-### Notes
+### Pool limitations and specifics
 
-Below are pool limitations and non-obvious behavior to keep in mind in production.
+Here are the limitations and non-obvious pool behaviors worth remembering during operation.
 
-- Removing a `virtualDiskTemplates` entry deletes its disks. For `Retain` disks this destroys reusable data, so remove a template only when you no longer need it.
-- The pool maintains the replica count, not health. An existing but unhealthy VM is not replaced (VM-level restart handles liveness), and a `Stopped` replica is kept, not replaced; only a fully deleted replica is recreated.
-- `Retain` disks are shared across replicas. On scale-up a new replica may reuse another replica's freed disk together with its data; there is no fixed binding between a replica and a disk.
-- Editing a `virtualDiskTemplates[].spec` affects only new disks, except `size`, which grows existing disks (never shrinks). `dataSource`, `storageClassName`, etc. are not re-applied to already-created disks.
-- Each `virtualDiskTemplates` disk is per-replica: every replica gets its own copy. Shared read-only images (`VirtualImage`/`ClusterVirtualImage`, e.g. a common ISO/CD-ROM) can be attached to all replicas by listing them in the template's `blockDeviceRefs`; a writable disk cannot be shared between replicas.
-- Editing the template's `blockDeviceRefs` (reordering, adding or removing a shared image) applies to new replicas; live replicas keep their current devices until they are recreated (rotation or scale-up), like other restart-requiring template changes.
-- Template changes that require a restart take effect only after the replica restarts according to `.spec.disruptions.restartApprovalMode` in the template.
+- Removing an entry from `virtualDiskTemplates` deletes its disks. For `Retain` disks, this destroys reusable data, so remove a template only when it's no longer needed.
+- The pool maintains the number of replicas, not their health. An existing but unhealthy VM isn't recreated, a restart at the VM level brings it back. A `Stopped` replica is preserved rather than replaced, and only a fully deleted replica is recreated.
+- `Retain` disks are shared between replicas. On a scale-up, a new replica can get a freed disk of another replica along with its data; there's no hard binding between a replica and a disk.
+- A change to `virtualDiskTemplates[].spec` affects only new disks, except for `size`, which grows existing ones (shrinking isn't allowed). `dataSource`, `storageClassName`, and the rest don't apply to disks that already exist.
+- Each replica has its own copy of every disk from `virtualDiskTemplates`. A shared read-only image, [VirtualImage](cr.html#virtualimage) or [ClusterVirtualImage](cr.html#clustervirtualimage), for example a single ISO, can be attached to all replicas by listing it in the `blockDeviceRefs` of the template, while a writable disk isn't shared between replicas.
+- An edit to the `blockDeviceRefs` of the template (reordering, adding, or removing a shared image) applies to new replicas; live replicas keep their current devices until they're recreated (rotation or scale-up), as with other template changes that require a restart.
+- Template changes that require a restart apply only after the replica restarts, according to [`.spec.disruptions.restartApprovalMode`](cr.html#virtualmachine-v1alpha2-spec-disruptions-restartapprovalmode) in the template.
 
-## Network configuration
-
-### IP addresses of virtual machines
-
-The `.spec.settings.virtualMachineCIDRs` block in the virtualization module configuration specifies a list of subnets to assign ip addresses to virtual machines (a shared pool of ip addresses). All addresses in these subnets are available for use except the first (network address) and the last (broadcast address).
-
-`VirtualMachineIPAddressLease` (`vmipl`) resource: A cluster resource that manages IP address leases from the shared pool specified in `virtualMachineCIDRs`.
-
-To see a list of IP address leases (`vmipl`), use the command:
-
-```bash
-d8 k get vmipl
-```
-
-Example output:
-
-```txt
-NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
-```
-
-[`VirtualMachineIPAddress`](/modules/virtualization/cr.html#virtualmachineipaddress) (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
-
-After creation, the [`VirtualMachineIPAddress`](/modules/virtualization/cr.html#virtualmachineipaddress) resource can have the following `Phase` values:
-
-- `Pending`: Resource is being created.
-- `Bound`: [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) is bound to the [VirtualMachineIPAddressLease](/modules/virtualization/cr.html#virtualmachineipaddresslease) resource.
-- `Attached`: [VirtualMachineIPAddress](/modules/virtualization/cr.html#virtualmachineipaddress) is attached to the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
-
-By default, an ip address is automatically assigned to a virtual machine from the subnets defined in the module and is assigned to it until it is deleted. You can check the assigned ip address using the command:
-
-```bash
-d8 k get vmip
-```
-
-Example output:
-
-```txt
-NAME              ADDRESS       STATUS     VM          AGE
-linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
-```
-
-The algorithm for automatically assigning an ip address to a virtual machine is as follows:
-
-- The user creates a virtual machine named `<vmname>`.
-- The module controller automatically creates a `vmip` resource named `<vmname>-<hash>` to request an IP address and associate it with the virtual machine.
-- To do this, `vmip` creates a `vmipl` lease resource that selects a random IP address from a shared pool.
-- Once the `vmip` resource is created, the virtual machine receives the assigned IP address.
-
-The virtual machine's IP address is assigned automatically from the subnets defined in the module and remains assigned to the machine until it is deleted. After the virtual machine is deleted, the `vmip` resource is also deleted, but the IP address remains temporarily assigned to the project/namespace and can be re-requested explicitly.
-
-The full description of `vmip` and `vmipl` machine resource configuration parameters can be found at the links:
-
-- [`VirtualMachineIPAddress`](cr.html#virtualmachineipaddress)
-- [`VirtualMachineIPAddressLease`](cr.html#virtualmachineipaddresslease)
-
-#### How to request a required ip address?
-
-Task: request a specific ip address from the `virtualMachineCIDRs` subnets.
-
-Create a `vmip` resource:
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineIPAddress
-metadata:
-  name: linux-vm-custom-ip
-spec:
-  staticIP: 10.66.20.77
-  type: Static
-EOF
-```
-
-Create a new or modify an existing virtual machine and specify the required `vmip` resource explicitly in the specification:
-
-```yaml
-spec:
-  virtualMachineIPAddressName: linux-vm-custom-ip
-```
-
-#### How to save the ip address assigned to the virtual machine?
-
-Objective: to save the ip address issued to a virtual machine for reuse after the virtual machine is deleted.
-
-To ensure that the automatically assigned ip address of a virtual machine is not deleted along with the virtual machine itself, perform the following steps.
-
-Obtain the `vmip` resource name for the specified virtual machine:
-
-```bash
-d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
-
-# linux-vm-7prpx
-```
-
-Remove the `.metadata.ownerReferences` blocks from the resource found:
-
-```bash
-d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
-
-# Alternatively, apply the changes by editing the resource.
-
-d8 k edit vmip linux-vm-7prpx
-```
-
-After the virtual machine is deleted, the `vmip` resource is preserved and can be reused again in the newly created virtual machine:
-
-```yaml
-spec:
-  virtualMachineIPAddressName: linux-vm-7prpx
-```
-
-Even if the `vmip` resource is deleted, IP address remains rented for the current project/namespace for another 10 minutes. Therefore, it is possible to reoccupy it on request:
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineIPAddress
-metadata:
-  name: linux-vm-custom-ip
-spec:
-  staticIP: 10.66.20.77
-  type: Static
-EOF
-```
-
-### Additional network interfaces
+## GPU devices
 
 {{< alert level="warning" >}}
-To work with additional networks, the `sdn` module must be enabled.
+GPU device passthrough is an experimental feature available only in the Enterprise Edition.
 {{< /alert >}}
 
-Virtual machines can be connected to additional networks: project networks (`Network`) or cluster networks (`ClusterNetwork`).
+The virtualization module attaches physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A device is requested by a reference to a `GPUClass` in the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block of the [VirtualMachine](cr.html#virtualmachine) resource.
 
-To do this, specify the desired networks in the configuration section `.spec.networks`. If this block is not specified (which is the default behavior), the VM will use only the main cluster network.
+An administrator prepares the `GPUClass` resources, so ask them which classes are available in the cluster.
 
-{{< alert level="info" >}}
-Specifying the main cluster network (`type: Main`) in `.spec.networks` is optional. If you do not need connectivity to the main cluster network, you can use only additional networks (`Network` or `ClusterNetwork`).
-
-If you specify the main network, it must be the first entry in the `.spec.networks` list.
-{{< /alert >}}
-
-Important considerations when working with additional network interfaces:
-
-- The order of listing networks in `.spec.networks` determines the order in which interfaces are connected inside the virtual machine.
-- Adding or removing an additional network (`Network` or `ClusterNetwork`) on a running VM is applied live without reboot. ACPI indexes of existing interfaces are preserved across add/remove cycles, so interface names in the guest OS stay stable.
-- Adding or removing the main network (`type: Main`) still requires a VM reboot, because it is tied to the pod's primary network interface and cannot be reconfigured on a running pod.
-- To preserve the order of network interfaces inside the guest operating system, it is recommended to add new networks to the end of the `.spec.networks` list (do not change the order of existing ones).
-- Network security policies (NetworkPolicy) do not apply to additional network interfaces.
-- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init), unless IPAM is configured on the network (for details, see ["IPAM for additional network interfaces"](#ipam-for-additional-network-interfaces)).
-
-{{< alert level="info" >}}
-When configuring network interfaces in the guest OS, use stable identifiers (predictable names `enpXsY` or MAC address binding) instead of `ethX` names. For more details, see the [Network interface naming in guest OS](#network-interface-naming-in-guest-os) section.
-{{< /alert >}}
-
-{{< alert level="info" >}}
-On a Linux guest system with multiple interfaces in the same subnet, the ARP Flux issue may occur, where the kernel responds to ARP requests via any arbitrary interface rather than the one the request was received on, leading to unstable connections and packet loss due to an incorrect MAC address in the router's ARP cache.
-
-To resolve this, set the following parameters to force the system to respond to requests strictly via the interface holding the target IP and to use the correct source address:
-
-```bash
-sysctl -w net.ipv4.conf.all.arp_ignore=1
-sysctl -w net.ipv4.conf.all.arp_announce=2
-```
-
-Cloud-init example:
-
-```yaml
-write_files:
-  - path: /etc/sysctl.d/90-arp-strict.conf
-    content: |
-      net.ipv4.conf.all.arp_ignore=1
-      net.ipv4.conf.all.arp_announce=2
-```
-
-For more details, see the [IP sysctl](https://docs.kernel.org/networking/ip-sysctl.html) documentation.
-{{< /alert >}}
-
-Example of connecting a VM to the main cluster network and the project network `user-net`:
-
-```yaml
-spec:
-  networks:
-    - type: Main # If specified, must be first
-    - type: Network # Network type (Network \ ClusterNetwork)
-      name: user-net # Network name
-```
-
-Example of connecting to multiple networks, including the cluster network `corp-net`:
-
-```yaml
-spec:
-  networks:
-    - type: Main # If specified, must be first
-    - type: Network
-      name: user-net
-    - type: ClusterNetwork
-      name: corp-net # Network name
-```
-
-Example of connecting a VM only to additional networks (without the main cluster network):
-
-```yaml
-spec:
-  networks:
-    - type: Network
-      name: isolated-net
-    - type: ClusterNetwork
-      name: corp-net
-```
-
-You can view information about connected networks and their MAC addresses in the VM status:
-
-```yaml
-status:
-  networks:
-    - type: Main
-    - type: Network
-      name: user-net
-      macAddress: aa:bb:cc:dd:ee:01
-    - type: ClusterNetwork
-      name: corp-net
-      macAddress: aa:bb:cc:dd:ee:02
-```
-
-For each additional network interface, a unique MAC address is automatically generated and reserved to avoid collisions. The following resources are used for this: `VirtualMachineMACAddress` (`vmmac`) and `VirtualMachineMACAddressLease` (`vmmacl`).
-
-The MAC address is generated randomly from the allowed ranges:
-
-- Ranges: `x2-xx-xx-xx-xx-xx`, `x6-xx-xx-xx-xx-xx`, `xA-xx-xx-xx-xx-xx`, `xE-xx-xx-xx-xx-xx`.
-- The first three octets (OUI) are formed based on the cluster UUID, the last three (NIC) are chosen randomly from 16 million possible combinations.
-
-`VirtualMachineMACAddressLease` (`vmmacl`) is a cluster resource that manages the lease of MAC addresses from the shared MAC address pool.
-
-To see the list of MAC address leases (`vmmacl`), use the command:
-
-```bash
-d8 k get vmmacl
-```
-
-Example output:
-
-```txt
-NAME                    VIRTUALMACHINEMACADDRESS                      STATUS   AGE
-mac-5e-e6-19-22-0f-d8   {"name":"vm-01-fz9cr","namespace":"pr-sdn"}   Bound    45s
-mac-5e-e6-19-29-89-cf   {"name":"vm-01-99qj6","namespace":"pr-sdn"}   Bound    45s
-mac-5e-e6-19-54-f9-be   {"name":"vm-01-5jqxg","namespace":"pr-sdn"}   Bound    45s
-```
-
-`VirtualMachineMACAddress` (`vmmac`) is a project-level resource that is responsible for reserving leased MAC addresses and binding them to virtual machines.
-
-MAC addresses are automatically assigned to each additional VM interface from the shared address pool and remain assigned until the VM is deleted.
-
-You can check the assigned MAC addresses using the command:
-
-```bash
-d8 k get vmmac
-```
-
-Example output:
-
-```txt
-NAME          ADDRESS             STATUS     VM      AGE
-vm-01-5jqxg   5e:e6:19:54:f9:be   Attached   vm-01   5m42s
-vm-01-99qj6   5e:e6:19:29:89:cf   Attached   vm-01   5m42s
-vm-01-fz9cr   5e:e6:19:22:0f:d8   Attached   vm-01   5m42s
-```
-
-When a network is removed from the VM configuration:
-
-- The MAC address of the interface is released.
-- The associated `VirtualMachineMACAddress` and `VirtualMachineMACAddressLease` resources are automatically deleted.
-- The auto-allocated `IPAddress` (if IPAM was used) is deleted.
-
-### IPAM for additional network interfaces
-
-If the [`sdn`](/modules/sdn/) module has IPAM (IP Address Management) configured for an additional network (a pool of IP addresses bound to the network via [`spec.ipam.ipAddressPoolRef`](/modules/sdn/cr.html#clusternetwork-v1alpha1-spec-ipam-ipaddresspoolref)), the `virtualization` module can automatically allocate IP addresses for additional VM interfaces and deliver them to the guest OS via DHCP.
-
-Two modes are supported:
-
-- **Automatic (DHCP):** If [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) is not specified in `.spec.networks[]`, the controller automatically creates an IPAddress resource (type `Auto`) bound to the VM via `ownerReferences` and passes it to the `sdn` module. The `sdn` module allocates an address from the pool and delivers it to the guest OS via DHCP. The address remains stable across VM restarts and migrations since it is bound to the VM, not the pod. For this mode to work, the guest OS must have a DHCP client enabled on the corresponding interface.
-
-- **Static:** If [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) is specified in `.spec.networks[]`, the controller uses the user-provided IPAddress resource (type `Static`, `network.deckhouse.io/v1alpha1`). The address is determined by the user and is not modified automatically.
-
-If the additional network does not have an IPAM pool configured, the IPAM feature is not enabled — the interface operates in L2-only mode, and IP addressing needs to be configured manually in the guest OS.
-
-Configuration example of a VM with automatic IP allocation on an additional network:
-
-```yaml
-spec:
-  networks:
-    - type: Main
-    - type: ClusterNetwork
-      name: corp-net
-      # ipAddressName is not specified → automatic mode (DHCP) is used
-```
-
-Configuration example of a VM with a static IP on an additional network:
-
-```yaml
-spec:
-  networks:
-    - type: Main
-    - type: ClusterNetwork
-      name: corp-net
-      ipAddressName: my-static-ip # Name of the IPAddress resource (SDN)
-```
-
-Configuration example of a static IPAddress resource:
-
-```yaml
-apiVersion: network.deckhouse.io/v1alpha1
-kind: IPAddress
-metadata:
-  name: my-static-ip
-  namespace: my-namespace
-spec:
-  networkRef:
-    kind: ClusterNetwork
-    name: corp-net
-  type: Static
-  static:
-    ip: 192.168.200.42
-```
-
-The allocated IP address is displayed in the VM status:
-
-```yaml
-status:
-  ipAddress: 10.66.10.2                     # Main network IP.
-  virtualMachineIPAddressName: vm-01-main-ip # Main network IPAddress name.
-  networks:
-    - type: Main
-    - type: ClusterNetwork
-      name: corp-net
-      macAddress: 32:a6:a1:0a:92:48
-      virtualMachineMACAddressName: vm-01-rxzd6
-      ipAddress: 192.168.200.4               # Additional network IP (from IPAM).
-```
-
-{{< alert level="warning" >}}
-If an IPAM pool is configured on an additional network, do not configure a static IP on the additional interface in the guest OS manually (via Cloud-Init). Use the automatic (DHCP) or static (`ipAddressName`) mode instead to avoid address conflicts.
-{{< /alert >}}
-
-{{< alert level="info" >}}
-If an additional network has an IPAM pool but the IPAddress resource is not yet allocated or is in a `Pending` state (for example, due to exhausted address pool), the interface is temporarily skipped — the VM starts without it, and the `NetworkReady` condition reports the error. Once the address becomes available, the interface is attached automatically via the hotplug mechanism.
-{{< /alert >}}
-
-#### Configuring guest OS for hotplug interfaces
-
-When an additional network interface is attached via hotplug (after the VM has already started), the guest OS must be configured to automatically bring up new network interfaces and request a DHCP lease. Linux does not start a DHCP client on hotplugged interfaces by default.
-
-To ensure hotplugged interfaces are configured automatically, use one of the following approaches in the guest OS:
-
-- **NetworkManager** (Ubuntu, RHEL, CentOS): Automatically configures new interfaces with DHCP if the `network-manager` service is running.
-- **udev rule** (Alpine, others without NetworkManager): Add a udev rule to bring up new interfaces:
-
-  ```yaml
-  write_files:
-    - path: /etc/udev/rules.d/90-hotplug-network.rules
-      content: |
-        SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup %k"
-  ```
-
-For interfaces present at VM boot (included in the initial network configuration), no additional configuration is required — the guest OS configures them during startup via Cloud-Init.
-
-## Snapshots
-
-Snapshots allow you to capture the current state of a resource for later recovery or cloning: a disk snapshot saves only the data from the selected disk, while a virtual machine snapshot includes the VM settings and the state of all its disks.
-
-### Consistent snapshots
-
-Snapshots can be consistent or inconsistent; this is controlled by the `requiredConsistency` parameter. By default, `requiredConsistency` is set to `true`, which means a consistent snapshot is required.
-
-A consistent snapshot captures a complete and consistent state of disk data. You can create such a snapshot when one of the following conditions is met:
-
-- The disk is not attached to any virtual machine — the snapshot will always be consistent.
-- The virtual machine is turned off.
-- [`qemu-guest-agent`](#guest-os-agent) is installed and running in the guest OS. When a snapshot is created, it temporarily suspends ("freezes") the file system to ensure consistency.
-
-An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` is not installed or not running in the guest OS.
-If the snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, but `qemu-guest-agent` is running, an attempt will be made to freeze the file system to ensure that the snapshot is consistent.
-
-QEMU Guest Agent supports hook scripts that allow you to prepare applications for snapshot creation without stopping services, ensuring application-level consistency. For more information on configuring hooks scripts, see the [Guest OS agent](#guest-os-agent) section.
-
-{{< alert level="warning" >}}
-When restoring from such a snapshot, file system integrity issues may occur, as the data state may be inconsistent.
-{{< /alert >}}
-
-### Creating disk snapshots
-
-The `VirtualDiskSnapshot` resource is used to create snapshots of virtual disks. These snapshots can serve as a data source when creating new disks, such as for cloning or information recovery.
-
-To ensure data integrity, a disk snapshot can be created in the following cases:
-
-- The disk is not attached to any virtual machine.
-- The VM is powered off.
-- The VM is running, but qemu-guest-agent is installed in the guest OS.
-The file system has been successfully "frozen" (fsfreeze operation).
-
-If data consistency is not required (for example, for test scenarios), a snapshot can be created:
-
-- On a running VM without "freezing" the file system.
-- Even if the disk is attached to an active VM.
-
-To do this, specify in the VirtualDiskSnapshot manifest:
-
-```yaml
-spec:
-  requiredConsistency: false
-```
-
-An example manifest for creating a disk snapshot:
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDiskSnapshot
-metadata:
-  name: linux-vm-root-$(date +%s)
-spec:
-  requiredConsistency: true
-  virtualDiskName: linux-vm-root
-EOF
-```
-
-To view a list of disk snapshots, run the following command:
-
-```bash
-d8 k get vdsnapshot
-```
-
-Example output:
-
-```txt
-NAME                     PHASE     CONSISTENT   AGE
-linux-vm-root-1728027905   Ready     true         3m2s
-```
-
-The `CONSISTENT` field indicates whether the snapshot is consistent (`true`) or not (`false`). This value is determined automatically based on the snapshot creation conditions and cannot be changed.
-
-After creation, `VirtualDiskSnapshot` can be in the following states (phases):
-
-- `Pending` - waiting for all dependent resources required for snapshot creation to be ready.
-- `InProgress` - the process of creating a virtual disk snapshot is in progress.
-- `Ready` - snapshot creation has been successfully completed and the virtual disk snapshot is available for use.
-- `Failed` - an error occurred during the virtual disk snapshot creation process.
-- `Terminating` - the resource is in the process of being deleted.
-
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
-
-A full description of the `VirtualDiskSnapshot` resource configuration parameters for machines can be found at [link](cr.html#virtualdisksnapshot).
-
-How to create a disk image in the web interface:
-
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Disk Images" section.
-- Click "Create Disk Snapshot".
-- In the "Disk Snapshot Name" field, enter a name for the snapshot.
-- On the "Configuration" tab, in the "Disk Name" field, select the disk from which the snapshot will be created.
-- Enable the "Consistency Guarantee" switch.
-- Click the "Create" button.
-- The image status is displayed at the top left, under the snapshot name.
-
-### Recovering disks from snapshots
-
-In order to restore a disk from a previously created disk snapshot, you must specify a corresponding object as `dataSource`:
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: linux-vm-root
-spec:
-  persistentVolumeClaim:
-    size: 10Gi
-    # Substitute your StorageClass name.
-    storageClassName: rv-thin-r2
-  dataSource:
-    type: ObjectRef
-    objectRef:
-      kind: VirtualDiskSnapshot
-      name: linux-vm-root-1728027905
-EOF
-```
-
-How to restore a disk from a previously created snapshot in the web interface:
-
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "VM Disks" section.
-- Click "Create Disk""
-- In the form that opens, enter a name for the disk in the "Disk Name" field.
-- In the "Source" field, make sure the "Snapshots" checkbox is selected.
-- From the drop-down list, select the disk snapshot you want to restore from.
-- In the "Size" field, set a size that is the same or larger than the size of the original disk.
-- In the "StorageClass Name" field, enter the "StorageClass" of the original disk.
-- Click the "Create" button.
-- The disk status is displayed at the top left, under the disk name.
-
-### Creating snapshots of virtual machines
-
-A virtual machine snapshot is a saved state of a virtual machine at a specific point in time. The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
-
-{{< alert level="warning" >}}
-It is recommended to disconnect all images (VirtualImage/ClusterVirtualImage) from the virtual machine before creating its snapshot. Disk images are not saved together with the VM snapshot, and their absence in the cluster during recovery may cause the virtual machine to fail to start and remain in a Pending state while waiting for the images to become available.
-{{< /alert >}}
-
-#### Creating snapshots
-
-Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
-
-- not all dependencies of the virtual machine are ready;
-- there is a disk in the process of resizing among the dependent devices.
-
-{{< alert level="warning" >}}
-If there are pending VM changes awaiting a restart when the snapshot is created, the snapshot will include the updated VM configuration.
-{{< /alert >}}
-
-When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static IP address and saved for recovery.
-
-If you do not want to convert and use the old IP address of the virtual machine, you can set the corresponding policy to `Never`. In this case, the address type without conversion (`Auto` or `Static`) will be used.
-
-```yaml
-spec:
-  keepIPAddress: Never
-```
-
-An example manifest to create a snapshot of a virtual machine:
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineSnapshot
-metadata:
-  name: linux-vm-snapshot
-spec:
-  virtualMachineName: linux-vm
-  requiredConsistency: true
-  keepIPAddress: Never
-EOF
-```
-
-After successfully creating a snapshot, its status will show the list of resources saved in the snapshot.
-
-Output example:
-
-```yaml
-status:
-  ...
-  resources:
-  - apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualMachine
-    name: linux-vm
-  - apiVersion: v1
-    kind: Secret
-    name: cloud-init
-  - apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualDisk
-    name: linux-vm-root
-```
-
-How to create a VM snapshot in the web interface:
-
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- Go to the "Snapshots" tab.
-- Click the "Create" button.
-- In the form that opens, enter `linux-vm-snapshot` in the "Snapshot name" field.
-- On the "Configuration" tab, select `Never` in the "IP address conversion policy" field.
-- Enable the "Consistency Guarantee" switch.
-- In the "Snapshot Storage Class" field, select a class for the disk snapshot.
-- Click the "Create" button.
-- The snapshot status is displayed at the top left, under the snapshot name.
-
-Restore a virtual machine
-
-To restore a VM from a snapshot, use the `VirtualMachineOperation` resource with the `restore` type.
-
-Example:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  name: restore-vm
-spec:
-  type: Restore
-  virtualMachineName: <name of the VM to be restored>
-  restore:
-    mode: DryRun | Strict | BestEffort
-    virtualMachineSnapshotName: <name of the VM snapshot from which to restore>
-```
-
-One of three modes can be used for this operation:
-
-- `DryRun`: Idle run of the restore operation, used to check for possible conflicts, which will be displayed in the resource status (`status.resources`).
-- `Strict`: Strict recovery mode, used when the VM must be restored exactly as captured in the snapshot; missing external dependencies may cause the VM to remain in `Pending` status after recovery.
-- `BestEffort`: Missing external dependencies (`ClusterVirtualImage`, `VirtualImage`) are ignored and removed from the VM configuration.
-
-Restoring a virtual machine from a snapshot is only possible if all the following conditions are met:
-- The VM to be restored exists in the cluster (the `VirtualMachine` resource exists and its `.metadata.uid` matches the identifier used when creating the snapshot).
-- The disks to be restored (identified by name) are either not attached to other VMs or do not exist in the cluster.
-- The IP address to be restored is either not used by any other VM or does not exist in the cluster.
-- The MAC addresses to be restored are either not used by any other VMs or do not exist in the cluster.
-
-{{< alert level="warning" >}}
-If some resources on which the VM depends (for example, `VirtualMachineClass`, `VirtualImage`, `ClusterVirtualImage`) are missing from the cluster but existed when the snapshot was taken, the VM will remain in the `Pending` state after recovery.
-In this case, you must manually edit the VM configuration to update or remove the missing dependencies.
-{{< /alert >}}
-
-You can view information about conflicts when restoring a VM from a snapshot in the resource status:
-
-```bash
-d8 k get vmop <vmop-name> -o json | jq “.status.resources”
-```
-
-{{< alert level="warning" >}}
-It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, which can result in an inconsistent state of the restored virtual machine.
-{{< /alert >}}
-
-{{< alert level="info" >}}
-When restoring a VM from a snapshot, the disks associated with it are also restored from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
-{{< /alert >}}
-
-## Creating a VM clone
-
-You can create a VM clone in two ways: from an existing VM or from a previously created snapshot of that VM.
-
-{{< alert level="warning" >}}
-The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the guest OS network settings after cloning.
-{{< /alert >}}
-
-{{< alert level="info" >}}
-Labels are not copied from the source VM to the clone. This prevents Service traffic (Services select VMs by labels) from being routed to the clone. If the clone should be part of a Service, add the required labels after cloning. For example:
-
-```bash
-d8 k label vm <vm-name> label-name=label-value
-```
-{{< /alert >}}
-
-Cloning creates a copy of a VM, so the resources of the new VM must have unique names. To do this, use the `nameReplacements` and/or `customization` parameters:
-
-- `nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
-- `customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
-
-Example of renaming specific resources:
-
-```yaml
-nameReplacements:
-  - from:
-      kind: VirtualMachine
-      name: <old-vm-name>
-    to:
-      name: <new-vm-name>
-  - from:
-      kind: VirtualDisk
-      name: <old-disk-name>
-    to:
-      name: <new-disk-name>
-  ...
-```
-
-As a result, a VM named `<new-vm-name>` will be created, and the specified resources will be renamed according to the replacement rules.
-
-Example of adding a prefix or suffix to all resources:
-
-```yaml
-customization:
-  namePrefix: <prefix>
-  nameSuffix: <suffix>
-```
-
-As a result, a VM named `<prefix><original-vm-name><suffix>` will be created, and all resources (disks, IP addresses, etc.) will receive the prefix and suffix.
-
-One of three modes can be used for the cloning operation:
-
-- `DryRun`: Test run to check for possible conflicts. The results are displayed in the `status.resources` field of the corresponding operation resource.
-- `Strict`: Strict mode requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
-- `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
-
-Information about conflicts that arose during cloning can be viewed in the operation resource status:
-
-```bash
-# For cloning from an existing VM.
-d8 k get vmop <vmop-name> -o json | jq '.status.resources'
-
-# For cloning from a VM snapshot.
-d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
-```
-
-### Creating a clone from an existing VM
-
-VM cloning is performed using the VirtualMachineOperation resource with the `Clone` operation type.
-
-Cloning is supported for both powered-off and running virtual machines. When cloning a running VM, a consistent snapshot is automatically created, from which the clone is then formed.
-
-{{< alert level="info" >}}
-It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
-{{< /alert >}}
-
-Before cloning, you need to prepare the guest OS to avoid conflicts with unique identifiers and network settings.
-
-Linux:
-
-- Clear the `machine-id` using `sudo truncate -s 0 /etc/machine-id` (for systemd) or delete the `/var/lib/dbus/machine-id` file.
-- Remove SSH host keys: `sudo rm -f /etc/ssh/ssh_host_*`.
-- Clear network interface configuration (if static settings are used).
-- Clear the Cloud-Init cache (if used): `sudo cloud-init clean`.
-
-Windows:
-
-- Run `sysprep` with the `/generalize` option, or use tools to reset unique identifiers (SID, hostname, etc.).
-
-To create a VM clone, use the following resource:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  name: <vmop-name>
-spec:
-  type: Clone
-  virtualMachineName: <name of the VM to be cloned>
-  clone:
-    mode: DryRun | Strict | BestEffort
-    nameReplacements: []
-    customization: {}
-```
-
-The `nameReplacements` and `customization` parameters are configured in the `.spec.clone` block (see [general description](#creating-a-vm-clone) above).
-
-{{< alert level="info" >}}
-During cloning, temporary snapshots are automatically created for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After cloning is complete, the temporary snapshots are automatically deleted, so they are not visible in the resource list. However, the specification of cloned disks still contains a reference (`dataSource`) to the corresponding snapshot, even if the snapshot itself no longer exists. This is expected behavior and does not indicate a problem: such references remain valid because, by the time the clone starts, all necessary data has already been transferred to the new disks.
-{{< /alert >}}
-
-The following example demonstrates cloning a VM named `database` with an attached disk `database-root`:
-
-Example with renaming specific resources:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  name: clone-database
-spec:
-  type: Clone
-  virtualMachineName: database
-  clone:
-    mode: Strict
-    nameReplacements:
-      - from:
-          kind: VirtualMachine
-          name: database
-        to:
-          name: database-clone
-      - from:
-          kind: VirtualDisk
-          name: database-root
-        to:
-          name: database-clone-root
-```
-
-As a result, a VM named `database-clone` and a disk named `database-clone-root` will be created.
-
-Example with using a prefix for all resources:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  name: clone-database
-spec:
-  type: Clone
-  virtualMachineName: database
-  clone:
-    mode: Strict
-    customization:
-      namePrefix: clone-
-      nameSuffix: -prod
-```
-
-As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` will be created.
-
-### Creating a clone from a VM snapshot
-
-Cloning a VM from a snapshot is performed using the VirtualMachineSnapshotOperation resource with the `CreateVirtualMachine` operation type.
-
-To create a VM clone from a snapshot, use the following resource:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineSnapshotOperation
-metadata:
-  name: <vmsop-name>
-spec:
-  type: CreateVirtualMachine
-  virtualMachineSnapshotName: <name of the VM snapshot from which to clone>
-  createVirtualMachine:
-    mode: DryRun | Strict | BestEffort
-    nameReplacements: []
-    customization: {}
-```
-
-The `nameReplacements` and `customization` parameters are configured in the `.spec.createVirtualMachine` block (see [general description](#creating-a-vm-clone) above).
-
-To view the list of resources saved in a snapshot, use the command:
-
-```bash
-d8 k get vmsnapshot <snapshot-name> -o jsonpath='{.status.resources}' | jq
-```
-
-{{< alert level="info" >}}
-When cloning a VM from a snapshot, the disks associated with it are also created from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
-{{< /alert >}}
-
-The following example demonstrates cloning from a VM snapshot named `database-snapshot`, which contains a VM `database` and a disk `database-root`:
-
-Example with renaming specific resources:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineSnapshotOperation
-metadata:
-  name: clone-database-from-snapshot
-spec:
-  type: CreateVirtualMachine
-  virtualMachineSnapshotName: database-snapshot
-  createVirtualMachine:
-    mode: Strict
-    nameReplacements:
-      - from:
-          kind: VirtualMachine
-          name: database
-        to:
-          name: database-clone
-      - from:
-          kind: VirtualDisk
-          name: database-root
-        to:
-          name: database-clone-root
-```
-
-As a result, a VM named `database-clone` and a disk named `database-clone-root` will be created.
-
-Example with using a prefix for all resources:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineSnapshotOperation
-metadata:
-  name: clone-database-from-snapshot
-spec:
-  type: CreateVirtualMachine
-  virtualMachineSnapshotName: database-snapshot
-  createVirtualMachine:
-    mode: Strict
-    customization:
-      namePrefix: clone-
-      nameSuffix: -prod
-```
-
-As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` will be created.
-
-## GPU Devices
-
-{{< alert level="warning" >}}
-GPU device passthrough is an experimental feature. It requires the Enterprise Edition (EE), Kubernetes DRA support, and an external GPU DRA provider that publishes GPUs as DRA resources with `gpu.deckhouse.io` device attributes.
-{{< /alert >}}
-
-The virtualization module can attach physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A GPU is requested by referencing a `GPUClass` through the `.spec.gpus` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource.
-
-GPU device passthrough requires:
-
-- Kubernetes version 1.34 or higher with DRA feature gates required by the cluster configuration.
-- The `GPU` feature gate enabled in the `virtualization` module settings.
-- A GPU DRA provider installed in the cluster that publishes GPUs with `gpu.deckhouse.io` device attributes.
-- A `GPUClass` that selects the GPU, referenced from `.spec.gpus[].gpuClassName`. The GPU module creates a DRA DeviceClass with the same name, which is used to allocate the device.
-
-To enable the module feature gate:
-
-```yaml
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: virtualization
-spec:
-  settings:
-    featureGates:
-      - GPU
-```
-
-To request a GPU device, add `.spec.gpus` to the VM specification:
+To request a GPU device, add the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block to the machine specification:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -4423,60 +4701,27 @@ spec:
     - gpuClassName: nvidia-h100
 ```
 
-The `gpuClassName` field must be the name of an existing `GPUClass` that selects the GPU to attach. To attach several GPUs, add more entries (list order is not significant).
+In the `gpuClassName` parameter, specify the name of an existing `GPUClass` resource. To attach several devices, add more elements to the list, their order doesn't matter. A single machine takes no more than 16 devices.
 
-Changing `.spec.gpus` requires restarting the virtual machine to apply the new configuration.
+A change to the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block applies only after the virtual machine restarts.
 
-## USB Devices
+## USB devices
 
-{{< alert level="warning" >}}
-USB device passthrough is available only in the Deckhouse Virtualization Platform **Enterprise Edition (EE)**.
+{{< alert level="warning">}}
+USB device passthrough is available only in the Deckhouse Platform **Enterprise Edition (EE)**.
 {{< /alert >}}
 
-The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). This section describes how to use USB devices that an administrator has made available in your namespace.
+The virtualization module supports USB device passthrough to virtual machines using DRA (Dynamic Resource Allocation). The physical device is connected to a cluster node, and the virtual machine works with it as if the device were plugged into the machine itself.
 
-USB device passthrough requires:
+An administrator connects the device to a node and makes it available to your namespace. After that, a [USBDevice](cr.html#usbdevice) resource appears in the namespace, and you attach it to a virtual machine. If the device you need isn't in the list, contact the administrator.
 
-- `containerd v2`: Detailed requirements for cluster nodes are described in the [`defaultCRI`](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#clusterconfiguration-defaultcri) parameter.
-- [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) version 1.34 or higher.
-- [Deckhouse Kubernetes Platform (DKP)](https://releases.deckhouse.io/) version 1.75 or higher.
+The administrator takes care of the node and cluster version requirements, so they don't depend on you.
 
-### Overview
+### Project devices (USBDevice)
 
-After an administrator assigns a physical USB device to a namespace, a [USBDevice](/modules/virtualization/cr.html#usbdevice) resource appears in that namespace. You can attach this resource to a virtual machine.
+[USBDevice](cr.html#usbdevice) is a namespaced resource that represents a USB device available for attaching to virtual machines in a given namespace. It appears automatically after an administrator assigns the device to the namespace.
 
-Discovery of devices on nodes, the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) cluster resource, and namespace assignment are described in the [Admin guide](./admin_guide.html#usb-devices).
-
-### Quick Start
-
-The following steps describe the minimal workflow for attaching a USB device to a virtual machine:
-
-1. Verify that a [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in your namespace. If it is not, contact the administrator — they must assign the device to the namespace first (see the [Admin guide](./admin_guide.html#usb-devices)):
-
-   ```bash
-   d8 k get usbdevice -n my-project
-   ```
-
-1. Add the device to the `.spec.usbDevices` field of a [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource:
-
-   ```bash
-   d8 k apply -f - <<EOF
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: VirtualMachine
-   metadata:
-     name: linux-vm
-   spec:
-     # ... other VM settings ...
-     usbDevices:
-       - name: logitech-webcam
-   EOF
-   ```
-
-### USBDevice
-
-[USBDevice](/modules/virtualization/cr.html#usbdevice) is a namespaced resource that represents a USB device available for attachment to virtual machines within a given namespace. It appears automatically after the administrator assigns the device to the namespace.
-
-Example of viewing USB devices in a namespace:
+An example of viewing the USB devices in a namespace:
 
 ```bash
 d8 k get usbdevice -n my-project
@@ -4484,41 +4729,39 @@ d8 k get usbdevice -n my-project
 
 Example output:
 
-```console
-NAME               NODE     MANUFACTURER   PRODUCT              SERIAL       ATTACHED   AGE
-logitech-webcam    node-2   Logitech       Webcam C920         ABC123456   False      10m
+```console {.nowrap-default}
+NAME              NODE     MANUFACTURER   PRODUCT       ATTACHED   AGE
+logitech-webcam   node-2   Logitech       Webcam C920   False      10m
 ```
 
-#### USBDevice Attributes
+The resource keeps the vendor and product identifiers, the bus, the device number, the serial number, the speed, and the rest of the device details in the [`.status.attributes`](cr.html#usbdevice-v1alpha2-status-attributes) block.
 
-The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource exposes detailed information about the physical USB device. These attributes are available in `.status.attributes`:
+#### USBDevice conditions
 
-- `vendorID`: USB vendor ID (hexadecimal format).
-- `productID`: USB product ID (hexadecimal format).
-- `bus`: USB bus number.
-- `deviceNumber`: USB device number on the bus.
-- `serial`: Device serial number.
-- `manufacturer`: Device manufacturer name.
-- `product`: Device product name.
-- `name`: Device name.
+Two conditions in the [`.status.conditions`](cr.html#usbdevice-v1alpha2-status-conditions) block describe the device state.
 
-#### USBDevice Conditions
+The `Ready` condition shows whether the device is ready for use, and takes one of the following reasons:
 
-The [USBDevice](/modules/virtualization/cr.html#usbdevice) resource provides status conditions that reflect its readiness and attachment state. These conditions are available in `.status.conditions`.
+- `Ready`: The device is ready for use.
+- `NotReady`: The device exists but isn't ready.
+- `NotFound`: The device is absent from the node.
 
-- **Ready**: Indicates whether the device is ready to use.
-  - `Ready`: Device is ready to use.
-  - `NotReady`: Device exists but is not ready.
-  - `NotFound`: Device is absent on the host.
+The `Attached` condition shows whether the device is attached to a virtual machine:
 
-- **Attached**: Indicates whether the device is attached to a virtual machine.
-  - `AttachedToVirtualMachine`: Device is attached to a VM.
-  - `Available`: Device is available for attachment.
-  - `NoFreeUSBIPPort`: Device is requested by a VM but cannot be attached because there are no free USBIP ports on the target node. In this case, `Attached=False`.
+- `AttachedToVirtualMachine`: The device is attached to a VM.
+- `Available`: The device is free and can be attached.
+- `DetachedForMigration`: The device is detached for the duration of a VM migration and is attached again on the target node.
+- `NoFreeUSBIPPort`: The device is requested by a virtual machine, but the target node has no free USBIP ports left, so the condition has the `False` status.
 
-### Attaching USB Device to VM
+### Attaching a USB device to a VM
 
-After the [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is available in a namespace, it can be attached to a virtual machine. To attach a USB device to a virtual machine, add the device to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource specification:
+A device is attached to and detached from a machine without stopping it.
+
+{{< tabs name="usb-attach" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Once a [USBDevice](cr.html#usbdevice) resource appears in the namespace, you can attach it to a virtual machine. To do this, add the device to the [`.spec.usbDevices`](cr.html#virtualmachine-v1alpha2-spec-usbdevices) parameter of the [VirtualMachine](cr.html#virtualmachine) resource:
 
 ```bash
 d8 k apply -f - <<EOF
@@ -4533,42 +4776,29 @@ spec:
 EOF
 ```
 
-After creating or updating the VM, the USB device will be attached to the specified virtual machine.
+After the VM is created or updated, the USB device is attached to the specified virtual machine.
 
-{{< alert level="info" >}}
-The USB device is automatically forwarded to the node where the virtual machine is running via the network (USBIP). There is no need to manually place the VM on the same node as the device.
-{{< /alert >}}
+> The USB device is automatically passed through over the network (USBIP) to the node where the virtual machine runs. You don't have to place the VM manually on the same node as the device.
 
-{{< alert level="warning" >}}
-During VM migration, the USB device briefly disconnects and reconnects on the new node when the VM switches to it. If migration fails, the device will remain on the original node.
-{{< /alert >}}
+> **Important:** During a VM migration, the USB device briefly disconnects and reconnects on the new node at the moment the VM switches over. If the migration fails, the device stays on the old node.
 
-USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
+You can attach a USB device to a running VM and detach it without stopping the machine.
 
-For infrastructure requirements, USBIP port limits, and device discovery on nodes, see the [Admin guide](./admin_guide.html#usb-devices).
+Infrastructure requirements, USBIP port limits, and device discovery on nodes are described in the [admin guide](./admin_guide.html#usb-devices).
 
-## Data export
+{{% /tab %}}
 
-You can export virtual machine disks and disk snapshots using the `d8` utility (version 0.20.7 and above). For this function to work, the module [`storage-volume-data-manager`](/modules/storage-volume-data-manager/) must be enabled.
+{{% tab name="Using the web interface" %}}
 
-{{< alert level="warning" >}}
-The disk must not be in use at the time of export. If it is attached to a VM, that VM must be stopped first.
-{{< /alert >}}
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the VM you need from the list and click its name.
+1. On the **Configuration** tab, scroll down to the **USB devices** section and click **Add**.
+1. In the **Attach USB device** window that opens, select the device in the **Select USB device** field and click **Add**.
+1. Click the **Save** button that appears.
 
-Example: export a disk (run on a cluster node):
+The USB devices available in the project are shown in **Virtualization** → **USB devices**: the resource name, status, manufacturer, product, serial number, node, bus, and device number.
 
-```bash
-d8 data export download -n <namespace> vd/<virtual-disk-name> -o file.img
-```
+{{% /tab %}}
 
-Example: export a disk snapshot (run on a cluster node):
-
-```bash
-d8 data export download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
-```
-
-If you are exporting data from a machine other than a cluster node (for example, from your local machine), use the `--publish` flag.
-
-{{< alert level="info" >}}
-To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
-{{< /alert >}}
+{{< /tabs >}}

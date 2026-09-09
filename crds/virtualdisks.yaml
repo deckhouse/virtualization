@@ -502,7 +502,7 @@ spec:
                     Current status of the VirtualDisk resource:
                     * `Pending`: The resource has been created and is on a waiting queue.
                     * `Provisioning`: The resource is being created: copying, downloading, loading data to the PVC, or extending the PVC.
-                    * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+                    * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoints to upload the image are specified in `.status.imageUploadURLs`.
                     * `WaitForFirstConsumer`: Waiting for the virtual machine using the disk to be assigned to the node.
                     * `Ready`: The resource has been created and is ready to use.
                     * `Resizing`: The process of resource resizing is in progress.
@@ -510,7 +510,7 @@ spec:
                     * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
                     * `Exporting`: The child PV of the resource is in the process of exporting.
                     * `Terminating`: The resource is being deleted.
-                    * `Migrating`: The resource is being migrating.
+                    * `Migrating`: The disk is being moved to another storage.
                   enum:
                     - Pending
                     - Provisioning

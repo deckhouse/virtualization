@@ -3,15 +3,17 @@ title: "Admin guide"
 weight: 40
 ---
 
-## Introduction
+This guide describes how to configure the `virtualization` module and manage its cluster-wide resources.
 
-This guide is intended for administrators of Deckhouse Virtualization Platform (DVP) and describes how to create and modify cluster resources.
-
-The administrator also has rights to manage project resources, which are described in the [User guide](./user_guide.html).
+Administrator permissions also cover project resources, which are described in the [user guide](./user_guide.html).
 
 ## Module parameters
 
-The configuration of the `virtualization` module is specified via the ModuleConfig resource in YAML format. The following is an example of a basic configuration:
+You configure the `virtualization` module in the [ModuleConfig](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig) resource. The following example sets the Ingress controller class, the image storage, and the subnet for virtual machines:
+
+{{< tabs name="moduleconfig" >}}
+
+{{% tab name="Using the CLI" %}}
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
@@ -22,7 +24,7 @@ spec:
   enabled: true
   version: 1
   settings:
-    ingressClass: nginx # optional parameter
+    ingressClass: nginx # Optional parameter.
     dvcr:
       storage:
         persistentVolumeClaim:
@@ -33,40 +35,39 @@ spec:
       - 10.66.10.0/24
 ```
 
-How to configure the `virtualization` module in the web interface:
+{{% /tab %}}
 
-- Go to the "System" tab, then to the `Deckhouse` -> "Modules" section.
-- Select the `virtualization` module from the list.
-- In the pop-up window, select the "Configuration" tab.
-- To display the settings, click the "Advanced settings" switch.
-- Configure the settings. The names of the fields on the form correspond to the names of the parameters in YAML.
-- To apply the settings, click the "Save" button.
+{{% tab name="Using the web interface" %}}
 
-### Parameter description
+1. Go to the **System** tab, then to **Deckhouse** → **Modules**.
+1. Select the `virtualization` module from the list.
+1. In the window that opens, select the **Configuration** tab.
+1. To show the settings, click the **Advanced settings** toggle.
+1. Set the parameters. The form field names match the parameter names in YAML.
+1. Click **Save**.
 
-**Enable the module**
+{{% /tab %}}
 
-The module state is controlled through the `.spec.enabled` field. Specify:
+{{< /tabs >}}
 
-- `true`: To enable the module.
-- `false`: To disable the module.
+### Enabling and disabling the module
 
-**Disable the module**
+The [`.spec.enabled`](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig-v1alpha1-spec-enabled) parameter controls the module state. Set it to `true` to enable the module, or to `false` to disable it.
 
-After you disable the `virtualization` module, all services that create and run virtual machines will stop.
-To disable the module, add the `modules.deckhouse.io/allow-disabling` annotation with the value `true`
-to ModuleConfig `virtualization` and set the `spec.enabled` parameter to `false`.
+Disabling the module stops every system component that creates and runs virtual machines (VMs), so the module can't be disabled by default.
+To make it possible, add the `modules.deckhouse.io/allow-disabling` annotation set to `true` to the `virtualization` [ModuleConfig](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig).
 
-Before disabling:
+Before disabling the module, prepare the cluster:
 
-1. Delete all module resources: virtual machines, disks, images, and so on.
-1. Make sure no active resources remain in the cluster:
+1. Delete all module resources, including virtual machines, disks, and images.
+1. Verify that no active resources are left in the cluster:
 
    ```shell
-   d8 k get virtualization
+   d8 k get virtualization -A
+   d8 k get virtualization-cluster
    ```
 
-Edit ModuleConfig `virtualization`:
+Then edit the `virtualization` [ModuleConfig](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig):
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
@@ -83,26 +84,18 @@ spec:
 ```
 
 {{< alert level="danger" >}}
-If module resources are not deleted, disabling the module may result in data loss.
+If the module resources aren't deleted, disabling the module can lead to data loss.
 {{< /alert >}}
 
-**Configuration version**
+### Configuration version
 
-The `.spec.version` parameter defines the version of the configuration schema. The parameter structure may change between versions. The current values are given in the settings section.
+The [`.spec.version`](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig-v1alpha1-spec-version) parameter defines the settings schema version. The parameter structure can change between versions; for the current values, see the [module settings](./configuration.html).
 
-**Deckhouse Virtualization Container Registry (DVCR)**
+### Ingress settings
 
-The `.spec.settings.dvcr.storage` block configures a persistent volume for storing images:
-
-- `.spec.settings.dvcr.storage.persistentVolumeClaim.size`: Volume size (for example, `50G`). To expand the storage, increase the value of the parameter.
-- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `rv-thin-r1`).
-
-**Ingress settings**
-
-The `.spec.settings.ingressClass` parameter defines the Ingress controller class that will be used to upload virtual machine images via the web interface or CLI.
-
-- If the parameter is not specified, the global value from the Deckhouse configuration is used.
-- The parameter is optional and should only be specified when you need to use an Ingress controller different from the global one.
+Virtual machine images are uploaded to the cluster through an [Ingress controller](/modules/ingress-nginx/), whose class is defined by the [`.spec.settings.ingressClass`](configuration.html#parameters-ingressclass) parameter.
+The parameter is optional: if you leave it unset, the module uses the global value from the Deckhouse Platform configuration.
+Set it only when image upload requires a separate Ingress controller.
 
 Example:
 
@@ -112,9 +105,9 @@ spec:
     ingressClass: nginx
 ```
 
-{{< alert level="info">}}
-
-When uploading large virtual machine images (especially over slow connections), it is recommended to increase the Ingress controller worker shutdown timeout. This prevents upload interruption during Ingress controller restart or update.
+{{< alert level="info" >}}
+Large virtual machine images take a long time to upload over a slow connection, and restarting or updating the Ingress controller interrupts the upload.
+To avoid this, increase the worker shutdown timeout in the [IngressNginxController](/modules/ingress-nginx/cr.html#ingressnginxcontroller) resource.
 
 Example:
 
@@ -125,14 +118,15 @@ metadata:
   name: nginx
 spec:
   config:
-    worker-shutdown-timeout: 1800s  # 30 minutes or more if needed
+    worker-shutdown-timeout: 1800s  # 30 minutes or more, if required.
 ```
 
 {{< /alert >}}
 
-**Network settings**
+### Network settings
 
-The `.spec.settings.virtualMachineCIDRs` block specifies subnets in CIDR format (for example, `10.66.10.0/24`). IP addresses for virtual machines are allocated from these ranges automatically or on request.
+The [`.spec.settings.virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) block lists the subnets in CIDR notation from which the module assigns IP addresses to virtual machines, either automatically or on request.
+Specify the subnet start address aligned to the mask, for example `192.168.1.192/27`, not an arbitrary address from the range.
 
 Example:
 
@@ -145,400 +139,64 @@ spec:
       - 10.77.20.0/16
 ```
 
-For each subnet, the first and last IP addresses are reserved by the system and cannot be assigned to virtual machines. For example, for the `10.66.10.0/24` subnet, addresses `10.66.10.0` and `10.66.10.255` are not available for use by VMs.
+The first and the last address of each subnet are reserved and never assigned to virtual machines. For example, in the `10.66.10.0/24` subnet, the `10.66.10.0` and `10.66.10.255` addresses are unavailable.
+
+You can leave the block unset. The module still starts, but you can no longer work with virtual machine addresses:
+
+- You can't create or use the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource.
+- A virtual machine can't request the `Main` network in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) parameter.
+- The [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) parameter of a virtual machine can't be empty.
 
 {{< alert level="warning" >}}
-The subnets in the `.spec.settings.virtualMachineCIDRs` block must not overlap with cluster node subnets, services subnet, or pods subnet (`podCIDR`).
+The subnets in the [`.spec.settings.virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) block must not overlap with the cluster node subnets, the service subnet, or the pod subnet (`podCIDR`).
 
-It is forbidden to delete subnets if addresses from them have already been issued to virtual machines.
+You can't delete a subnet if addresses from it are already assigned to virtual machines. You also can't clear the block once it's set.
 {{< /alert >}}
 
-**Storage class settings for images**
+## Virtual machine image storage
 
-The storage class settings for images are defined in the `.spec.settings.virtualImages` parameter of the module settings.
+The module stores virtual machine images in an internal container image storage (DVCR) that resides on a persistent volume of the cluster. Images travel from there to virtual machine disks, so the size of the volume determines how many images fit into the cluster.
+
+### Size and storage class
+
+Set the volume size and the storage class in the [`.spec.settings.dvcr.storage`](configuration.html#parameters-dvcr-storage) block. To expand the storage, increase the volume size.
+
+{{< alert level="warning" >}}
+After the volume is created, you can't reduce its size or change its storage class.
+{{< /alert >}}
+
+### Storage classes for images and disks
+
+The project owner chooses the storage class for an image or a disk. You can limit that choice and set a default class. The [`.spec.settings.virtualImages`](configuration.html#parameters-virtualimages) block covers images, and the [`.spec.settings.virtualDisks`](configuration.html#parameters-virtualdisks) block covers disks.
 
 Example:
 
 ```yaml
 spec:
-#  ...
   settings:
     virtualImages:
       allowedStorageClassSelector:
         matchNames:
-        - sc-1
-        - sc-2
+          - sc-1
+          - sc-2
       defaultStorageClassName: sc-1
-```
-
-Where:
-
-- `matchNames` (optional): List of the allowed StorageClasses for creating a [VirtualImage](/modules/virtualization/cr.html#virtualimage) that can be explicitly specified in the resource specification.
-- `defaultStorageClassName` (optional): StorageClass used by default when creating a [VirtualImage](/modules/virtualization/cr.html#virtualimage) if the `.spec.persistentVolumeClaim.storageClassName` parameter is not set.
-
-**Storage class settings for disks**
-
-The storage class settings for disks are defined in the `.spec.settings.virtualDisks` parameter of the module settings.
-
-Example:
-
-```yaml
-spec:
-#  ...
-  settings:
     virtualDisks:
       allowedStorageClassSelector:
         matchNames:
-        - sc-1
-        - sc-2
-      defaultStorageClassName: sc-1
+          - sc-3
+      defaultStorageClassName: sc-3
 ```
 
-Where:
-
-- `matchNames` (optional): List of the allowed StorageClass for creating a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) that can be explicitly specified in the resource specification.
-- `defaultStorageClassName` (optional): StorageClass used by default when creating a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
-
-**Security Event Audit**
-
-{{< alert level="warning" >}}
-Not available in CE edition.
-{{< /alert >}}
-
-To enable security event auditing:
-
-1. Enable `log-shipper` and `runtime-audit-engine` modules.
-1. Enable Kubernetes API audit by setting `.spec.settings.apiserver.auditPolicyEnabled: true` in the `control-plane-manager` module.
-1. Set `.spec.settings.audit.enabled: true` in the `virtualization` module:
-
-   ```yaml
-   spec:
-     settings:
-       audit:
-         enabled: true
-   ```
-
-For a complete list of configuration options, see [Configuration](./configuration.html).
-
-Events are collected by the `virtualization-audit-*` pod in the `d8-virtualization` namespace. To forward events to the cluster logging system (e.g., Loki), create a ClusterLoggingConfig:
-
-```yaml
-apiVersion: deckhouse.io/v1alpha1
-kind: ClusterLoggingConfig
-metadata:
-  name: virtualization-audit-logs
-spec:
-  destinationRefs:
-    - d8-loki
-  kubernetesPods:
-    namespaceSelector:
-      matchNames:
-        - d8-virtualization
-    labelSelector:
-      matchLabels:
-        app: virtualization-audit
-  type: KubernetesPods
-```
-
-To view events in Grafana, use a Loki query:
-
-```logql
-{namespace="d8-virtualization", pod=~"virtualization-audit-.*"}
-```
-
-Available fields in the logs:
-- `type`: Event type (Access to VM, VM Management, etc.).
-- `name`: Human-readable description.
-- `request_subject`: Username or ServiceAccount.
-- `datetime`: Event timestamp.
-- `virtualmachine_name`: Affected VM.
-- `source_ip`: Request source IP (for forbidden operations).
-
-### Security events
-
-The audit system logs the following events:
-
-- Access to VM: Connection via console, VNC, or port forward. Includes VM name, OS, versions, storage, and node address.
-- VM Management: Create, update, patch, or delete operations on [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resources.
-- VM Control Operations: Start, stop, restart, migrate, or evict via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
-- Integrity Check: SHA256 verification of VM configuration. Logs when checksum changes.
-- Module Control: Create, update, or delete operations on ModuleConfig.
-- Forbidden Operations: Operations blocked by the platform. Includes user, operation, resource, source IP, and denial reason.
-
-## Images
-
-The ClusterVirtualImage resource is used to load virtual machine images into the intra-cluster storage. After that it can be used to create virtual machine disks. It is available in all cluster namespaces and projects.
-
-The image creation process includes the following steps:
-
-1. The user creates a ClusterVirtualImage resource.
-1. Once created, the image is automatically uploaded from the source specified in the specification to the storage (DVCR).
-1. Once the upload is complete, the resource becomes available for disk creation.
-
-There are different types of images:
-
-- **ISO image**: An installation image used for the initial installation of an operating system (OS). Such images are released by OS vendors and are used for installation on physical and virtual servers.
-- **Preinstalled disk image**: contains an already installed and configured operating system ready for use after the virtual machine is created. You can obtain pre-configured images from the distribution developers' resources or create them manually.
-
-Examples of resources for obtaining virtual machine images:
-
-| Distribution                                                                      | Default user.             |
-| --------------------------------------------------------------------------------- | ------------------------- |
-| [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
-| [AlpineLinux](https://alpinelinux.org/cloud/)                                     | `alpine`                  |
-| [CentOS](https://cloud.centos.org/centos/)                                        | `cloud-user`              |
-| [Debian](https://cdimage.debian.org/images/cloud/)                                | `debian`                  |
-| [Rocky](https://rockylinux.org/download/)                                         | `rocky`                   |
-| [Ubuntu](https://cloud-images.ubuntu.com/)                                        | `ubuntu`                  |
-
-The following preinstalled image formats are supported:
-
-- `qcow2`
-- `raw`
-- `vmdk`
-- `vdi`
-
-Image files can also be compressed with one of the following compression algorithms: `gz`, `xz`.
-
-Once a resource is created, the image type and size are automatically determined, and this information is reflected in the resource status.
-
-The image status shows two sizes:
-
-- `STOREDSIZE` (storage size) — the amount of space the image actually occupies in storage (DVCR or PVC). For images uploaded in a compressed format (for example, `.gz` or `.xz`), this value is smaller than the unpacked size.
-- `UNPACKEDSIZE` (unpacked size) — the image size after unpacking. It is used when creating a disk from the image and defines the minimum disk size that can be created.
-
-{{< alert level="info" >}}
-When creating a disk from an image, set the disk size to `UNPACKEDSIZE` or larger .  
-If the size is not specified, the disk will be created with a size equal to `UNPACKEDSIZE`.
-{{< /alert >}}
-
-Images can be downloaded from various sources, such as HTTP servers where image files are located or container registries. It is also possible to download images directly from the command line using the `curl` utility.
-
-Images can be created from other images and virtual machine disks.
-
-For a full description of the ClusterVirtualImage resource configuration parameters, refer to [Custom Resources](cr.html#clustervirtualimage).
-
-### Creating an image from an HTTP server
-
-In this example, let's create a cluster image.
-
-1. To create a ClusterVirtualImage resource, run the following command:
-
-   ```yaml
-   d8 k apply -f - <<EOF
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: ClusterVirtualImage
-   metadata:
-     name: ubuntu-24-04
-   spec:
-     # Source for creating an image.
-     dataSource:
-       type: HTTP
-       http:
-         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-   EOF
-   ```
-
-1. To verify that the ClusterVirtualImage has been created, run the following command:
-
-   ```bash
-   d8 k get clustervirtualimage ubuntu-24-04
-
-   # A short version of the command.
-   d8 k get cvi ubuntu-24-04
-   ```
-
-   In the output, you should see information about the resource:
-
-   ```console
-   NAME           PHASE   CDROM   PROGRESS   AGE
-   ubuntu-24-04   Ready   false   100%       23h
-   ```
-
-Once created, the ClusterVirtualImage resource can be in one of the following states (phases):
-
-- `Pending`: Waiting for all dependent resources required for image creation to be ready.
-- `WaitForUserUpload`: Waiting for the user to upload the image (this phase is present only for `type=Upload`).
-- `Provisioning`: The image is being created.
-- `Ready`: The image has been created and is ready for use.
-- `Failed`: An error occurred when creating the image.
-- `Terminating`: The image is being deleted. It may "get stuck" in this state if it is still connected to the virtual machine.
-- `ImageLost`: The image is missing in DVCR. The resource cannot be used.
-
-As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. Once it is in the `Ready` phase, the `.spec` block contents **cannot be changed**.
-
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
-
-You can trace the image creation process by adding the `-w` key to the command used for verification of the created resource:
-
-```bash
-d8 k get cvi ubuntu-24-04 -w
-```
-
-Example output:
-
-```console
-NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-24-04   Provisioning   false              4s
-ubuntu-24-04   Provisioning   false   0.0%       4s
-ubuntu-24-04   Provisioning   false   28.2%      6s
-ubuntu-24-04   Provisioning   false   66.5%      8s
-ubuntu-24-04   Provisioning   false   100.0%     10s
-ubuntu-24-04   Provisioning   false   100.0%     16s
-ubuntu-24-04   Ready          false   100%       18s
-```
-
-You can get additional information about the downloaded image from the description of the ClusterVirtualImage resource.
-To check on the description, run the following command:
-
-```bash
-d8 k describe cvi ubuntu-24-04
-```
-
-How to create an image from an HTTP server in the web interface:
-
-- Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
-- Click "Create Image", then select "Load data from link (HTTP)" from the drop-down menu.
-- Enter the image name in the "Image Name" field.
-- Specify the link to the image in the "URL" field.
-- Click "Create".
-- Wait until the image status changes to `Ready`.
-
-### Creating an image from a container registry
-
-An image stored in a container registry has a certain format. Let's look at an example:
-
-1. First, download the image locally:
-
-   ```bash
-   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
-   ```
-
-1. Next, create a `Dockerfile` with the following contents:
-
-   ```Dockerfile
-   FROM scratch
-   COPY ubuntu2404.img /disk/ubuntu2404.img
-   ```
-
-1. Build the container image. The example below uses [docker.com](https://www.docker.com/) as the container registry. You need an account on the service and a properly configured environment:
-
-   ```bash
-   docker build -t docker.io/<username>/ubuntu2404:latest
-   ```
-
-   Where `username` is the username you specified during registration on [docker.com](https://www.docker.com/).
-
-1. Upload the created image to the container registry:
-
-   ```bash
-   docker push docker.io/<username>/ubuntu2404:latest
-   ```
-
-1. To use this image, create a resource as an example:
-
-   ```yaml
-   d8 k apply -f - <<EOF
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: ClusterVirtualImage
-   metadata:
-     name: ubuntu-2404
-   spec:
-     dataSource:
-       type: ContainerImage
-       containerImage:
-         image: docker.io/<username>/ubuntu2404:latest
-   EOF
-   ```
-
-How to create an image from the container registry in the web interface:
-
-- Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
-- Click "Create Image", then select "Load data from container image" from the drop-down list.
-- Enter the image name in the "Image Name" field.
-- Specify the link to the image in the "Image in Container Registry" field.
-- Click "Create".
-- Wait until the image changes to the `Ready` status.
-
-### Uploading an image via CLI
-
-1. To upload an image using CLI, first create the following resource as shown below with the ClusterVirtualImage example:
-
-   ```yaml
-   d8 k apply -f - <<EOF
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: ClusterVirtualImage
-   metadata:
-     name: some-image
-   spec:
-     dataSource:
-       type: Upload
-   EOF
-   ```
-
-   Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for uploading the image.
-
-1. There are two options available for uploading: from a cluster node and from an arbitrary node outside the cluster:
-
-   ```bash
-   d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
-   ```
-
-   Example output:
-
-   ```console
-   {
-     "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
-     "inCluster":"http://10.222.165.239/upload"
-   }
-   ```
-
-   Where:
-
-   - `inCluster`: A URL used to download the image from one of the cluster nodes.
-   - `external`: A URL used in all other cases.
-
-1. As an example, download the Cirros image:
-
-   ```bash
-   curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-   ```
-
-1. Upload the image using the following command:
-
-   ```bash
-   curl https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm --progress-bar -T cirros.img | cat
-   ```
-
-1. After the upload is complete, the image should have been created and entered the `Ready` phase:
-   To verify this, run the following command:
-
-   ```bash
-   d8 k get cvi some-image
-   ```
-
-   Example output:
-
-   ```console
-   NAME         PHASE   CDROM   PROGRESS   AGE
-   some-image   Ready   false   100%       1m
-   ```
-
-How to perform the operation in the web interface:
-
-- Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
-- Click "Create Image", then select "Upload from Computer" from the drop-down menu.
-- Enter the image name in the "Image Name" field.
-- In the "Upload File" field, click the "Select a file on your computer" link.
-- Select the file in the file manager that opens.
-- Click the "Create" button.
-- Wait until the image changes to `Ready` status.
+Both blocks work the same way and both are optional. The `allowedStorageClassSelector.matchNames` parameter lists the classes allowed in the [VirtualImage](cr.html#virtualimage) and [VirtualDisk](cr.html#virtualdisk) specification, and `defaultStorageClassName` sets the class for resources where the [`.spec.persistentVolumeClaim.storageClassName`](cr.html#virtualdisk-v1alpha2-spec-persistentvolumeclaim-storageclassname) parameter isn't set.
 
 ### Cleaning up image storage
 
-Over time, the creation and deletion of ClusterVirtualImage, VirtualImage, and VirtualDisk resources leads to the accumulation
-of outdated images in the intra-cluster storage. Scheduled garbage collection is implemented to keep the storage up to
-date, but this feature is disabled by default.
+When images and disks are deleted from the cluster, their data remains in DVCR for some time. To keep the storage from filling up with stale data, the module runs garbage collection on a schedule.
+By default, it runs daily at 02:00. To set your own schedule, use the [`.spec.settings.dvcr.gc.schedule`](configuration.html#parameters-dvcr-gc-schedule) parameter in the `virtualization` [ModuleConfig](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig):
+
+{{< tabs name="dvcr-gc" >}}
+
+{{% tab name="Using the CLI" %}}
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
@@ -554,17 +212,17 @@ spec:
   # ...
 ```
 
-While garbage collection is running, the storage is switched to read-only mode, and all resources created during this time will wait for the cleanup to finish.
+While garbage collection is running, the storage works in read-only mode, so creating images and disks is postponed until it completes.
 
-To check for outdated images in the storage, you can run the following command:
+To see how much space is occupied and which data will be removed during the next collection, run:
 
 ```bash
 d8 k -n d8-virtualization exec deploy/dvcr -- dvcr-cleaner gc check
 ```
 
-It prints information about the storage status and a list of outdated images that can be deleted.
+Example output:
 
-```console
+```console {.nowrap-default}
 Found 2 cvi, 5 vi, 1 vd manifests in registry
 Found 1 cvi, 5 vi, 11 vd resources in cluster
   Total     Used    Avail     Use%
@@ -576,24 +234,302 @@ VirtualDisk            default              debian-10-root
 VirtualImage           default              ubuntu-2404
 ```
 
-## Virtual machine classes
+{{% /tab %}}
 
-The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
+{{% tab name="Using the web interface" %}}
 
-During installation, a single VirtualMachineClass `generic` resource is automatically created. It represents a universal CPU type based on the older, but widely supported, Nehalem architecture. This enables running VMs on any nodes in the cluster and allows live migration.
+1. Go to the **System** tab, then to **Deckhouse** → **Modules**.
+1. Select the `virtualization` module from the list.
+1. In the window that opens, on the **Configuration** tab, enable the **Advanced settings** toggle.
+1. In the **Disk and ISO image storage** block, set the schedule in the **Cleanup schedule in Cron format** field.
+1. Click **Save**.
 
-The administrator can modify the parameters of the `generic` VirtualMachineClass resource (except for the `.spec.cpu` section) or delete this resource.
+{{% /tab %}}
+
+{{< /tabs >}}
+
+## Images
+
+An image holds the contents of a disk that project owners use to create virtual machine disks. A cluster image, [ClusterVirtualImage](cr.html#clustervirtualimage), is available in every namespace and project of the cluster, so an image uploaded once serves all projects at once.
+
+An image appears in the cluster in three steps:
+
+1. The administrator creates a [ClusterVirtualImage](cr.html#clustervirtualimage) resource and specifies a data source in it.
+1. The module downloads the image from that source to the internal storage (DVCR).
+1. The downloaded image becomes available for creating disks.
+
+The image source can be an HTTP server hosting the image file, a container image registry, or a file on your computer that you upload from the command line. You can also create an image from another image, from a virtual machine disk, or from a disk snapshot.
+
+The `PHASE` column in the `d8 k get cvi` output shows the progress of image creation; for its values, see the [`.status.phase`](cr.html#clustervirtualimage-v1alpha2-status-phase) field. To follow the creation in real time, add the `-w` flag. If an image stays not ready for a long time, check the [`.status.conditions`](cr.html#clustervirtualimage-v1alpha2-status-conditions) block and the `d8 k describe cvi` output for the reason.
+
+Until an image reaches the `Ready` phase, you can change its `.spec` block, and the download restarts after each change. For a ready image, the `.spec` block can no longer be changed. For all image parameters, see [ClusterVirtualImage](cr.html#clustervirtualimage).
+
+### Image types and formats
+
+There are two types of images:
+
+- **ISO image**: An installation image used for the initial installation of an operating system (OS). OS vendors publish such images and use them to install the OS on physical and virtual servers.
+- **Disk image with a preinstalled system**: Contains an OS that is already installed and configured, and is ready to work as soon as the virtual machine (VM) is created. Distribution vendors publish such images, or you can build them yourself.
+
+Distribution vendors publish ready-made images with a preinstalled system. The following table lists their download pages and the users configured in those images by default:
+
+<a id="image-resources-table"></a>
+
+| Distribution                                                                      | Default user |
+| --------------------------------------------------------------------------------- | ------------ |
+| [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`  |
+| [AlpineLinux](https://alpinelinux.org/cloud/)                                     | `alpine`     |
+| [AltLinux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/)                   | `altlinux`   |
+| [AstraLinux](https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit/) | `astra`      |
+| [CentOS](https://cloud.centos.org/centos/)                                        | `cloud-user` |
+| [Debian](https://cdimage.debian.org/images/cloud/)                                | `debian`     |
+| [Rocky](https://rockylinux.org/download/)                                         | `rocky`      |
+| [Ubuntu](https://cloud-images.ubuntu.com/)                                        | `ubuntu`     |
+
+The module accepts image files in the following formats:
+
+- `qcow2`
+- `raw`
+- `vmdk`
+- `vdi`
+- `vhd`
+- `vhdx`
+
+You can provide an image compressed with `gz`, `xz`, or `zst`. The module unpacks it during the upload.
+
+The module detects the image type and size on its own and records them in the resource status. There are two sizes, and both appear in the `d8 k get cvi -o wide` output:
+
+- `STOREDSIZE`: The space the image occupies in the storage. For an image uploaded in a compressed form, it's smaller than the unpacked size. Use this column to estimate how much space the images take in DVCR.
+- `UNPACKEDSIZE`: The size of the image after unpacking. It defines the minimum size of a disk that can be created from this image.
 
 {{< alert level="info" >}}
-
-It is not recommended to use the `generic` VirtualMachineClass for running workloads in production environments, since this class corresponds to a CPU with the smallest feature set.
-
-After all nodes are configured and added to the cluster, it is recommended to create at least one VirtualMachineClass resource of the `Discovery` type. This ensures that the best available CPU configuration compatible with all CPUs in your cluster is selected, allows virtual machines to make full use of CPU capabilities, and enables seamless migration between nodes. For the `Discovery` type, the instruction set is fixed when the resource is created and does not change when nodes are added to or removed from the cluster.
-
-For a configuration example, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example).
+When creating a disk from an image, specify a size no smaller than the `UNPACKEDSIZE` value.
+If you don't specify a size, the disk is created with exactly the unpacked size of the image.
 {{< /alert >}}
 
-To list all VirtualMachineClass resources, run the following command:
+### Creating a cluster image from an HTTP server
+
+The simplest way to create an image is to provide a link to a file hosted on an HTTP server.
+
+{{< tabs name="cvi-http" >}}
+
+{{% tab name="Using the CLI" %}}
+
+1. Create a [ClusterVirtualImage](cr.html#clustervirtualimage) resource:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: ClusterVirtualImage
+   metadata:
+     name: ubuntu-24-04
+   spec:
+     # Source for the image.
+     dataSource:
+       type: HTTP
+       http:
+         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+   EOF
+   ```
+
+1. Verify that the image is created:
+
+   ```bash
+   d8 k get clustervirtualimage ubuntu-24-04
+
+   # Short form of the command.
+   d8 k get cvi ubuntu-24-04
+   ```
+
+   Example output:
+
+   ```console
+   NAME           PHASE   CDROM   PROGRESS   AGE
+   ubuntu-24-04   Ready   false   100%       23h
+   ```
+
+To make the module verify the downloaded file against a checksum, add the [`checksum`](cr.html#clustervirtualimage-v1alpha2-spec-datasource-http-checksum) block to the source. If the file doesn't match any of the specified checksums, the image moves to the `Failed` phase.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **System** tab, then to **Virtualization** → **Cluster images**.
+1. Click **Create**, then select **By link** in the **Source** block.
+1. In the **Image name** field, enter the image name.
+1. In the **URL** field, specify the link to the image.
+1. Click **Create**.
+1. Wait until the image reaches the **Ready** state.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Creating a cluster image from a container image registry
+
+The module can pull an image from an external container image registry, but the disk file must be located in the container image under the `/disk` path. The following steps show how to prepare such a container image and create a cluster image from it.
+
+{{< tabs name="cvi-registry" >}}
+
+{{% tab name="Using the CLI" %}}
+
+1. Download the image file to your local machine:
+
+   ```bash
+   curl -L https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img -o ubuntu2404.img
+   ```
+
+1. Create a `Dockerfile` with the following contents:
+
+   ```Dockerfile
+   FROM scratch
+   COPY ubuntu2404.img /disk/ubuntu2404.img
+   ```
+
+1. Build the container image. The example uses the [docker.com](https://www.docker.com/) registry, which requires an account and a configured environment:
+
+   ```bash
+   docker build -t docker.io/<USERNAME>/ubuntu2404:latest
+   ```
+
+   Where `<USERNAME>` is the username you specified when registering in the registry.
+
+1. Push the built container image to the registry:
+
+   ```bash
+   docker push docker.io/<USERNAME>/ubuntu2404:latest
+   ```
+
+1. Create a [ClusterVirtualImage](cr.html#clustervirtualimage) resource that points to the container image:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: ClusterVirtualImage
+   metadata:
+     name: ubuntu-2404
+   spec:
+     dataSource:
+       type: ContainerImage
+       containerImage:
+         image: docker.io/<USERNAME>/ubuntu2404:latest
+   EOF
+   ```
+
+The module works only with registries that have TLS enabled. If the registry uses its own certificate authority, provide the certificate chain in the [`caBundle`](cr.html#clustervirtualimage-v1alpha2-spec-datasource-containerimage-cabundle) parameter, and take the credentials for a private registry from the secret specified in the `imagePullSecret` parameter.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **System** tab, then to **Virtualization** → **Cluster images**.
+1. Click **Create**, then select **From registry** in the **Source** block.
+1. In the **Image name** field, enter the image name.
+1. In the **Image in container registry** field, specify the link to the image.
+1. Click **Create**.
+1. Wait until the image reaches the **Ready** state.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+### Uploading a cluster image from the command line
+
+If the image file is on your computer, upload it directly. The module creates a temporary upload endpoint for this and waits for the data.
+
+{{< tabs name="cvi-upload" >}}
+
+{{% tab name="Using the CLI" %}}
+
+1. Create a [ClusterVirtualImage](cr.html#clustervirtualimage) resource with the `Upload` source:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: ClusterVirtualImage
+   metadata:
+     name: some-image
+   spec:
+     # Image source settings.
+     dataSource:
+       type: Upload
+   EOF
+   ```
+
+   The resource moves to the `WaitForUserUpload` phase and is ready to accept the file. Start the upload within 10 minutes, otherwise the resource moves to the `Failed` phase and you have to create it again.
+
+1. Get the addresses that accept the file:
+
+   ```bash
+   d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}" | jq
+   ```
+
+   Example output:
+
+   ```console {.nowrap-default}
+   {
+     "external":"https://virtualization.example.com/upload/<SECRET_URL>",
+     "inCluster":"http://10.222.165.239/upload"
+   }
+   ```
+
+   Use the `inCluster` address if you upload the file from one of the cluster nodes, and `external` in all other cases.
+
+1. Upload the file to the selected address. The example first downloads the Cirros image and then sends it to the cluster:
+
+   ```bash
+   curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+   curl https://virtualization.example.com/upload/<SECRET_URL> --progress-bar -T cirros.img | cat
+   ```
+
+   Where `<SECRET_URL>` is the last part of the address from the previous step.
+
+1. Verify that the image has reached the `Ready` phase:
+
+   ```bash
+   d8 k get cvi some-image
+   ```
+
+   Example output:
+
+   ```console
+   NAME         PHASE   CDROM   PROGRESS   AGE
+   some-image   Ready   false   100%       1m
+   ```
+
+You can also verify the uploaded file against a checksum. To do this, specify the [`checksum`](cr.html#clustervirtualimage-v1alpha2-spec-datasource-upload-checksum) block in the data source.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **System** tab, then to **Virtualization** → **Cluster images**.
+1. Click **Create**, then select **Upload** in the **Source** block.
+1. In the **Image name** field, enter the image name.
+1. In the **Upload file** block, drag the file to the highlighted area or click **select on your computer**.
+1. Select the file in the file manager that opens.
+1. Click **Create**.
+1. Wait until the image reaches the **Ready** state.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+## Virtual machine classes
+
+A virtual machine (VM) class defines what the project owner doesn't configure: the virtual CPU model, the allowed combinations of cores and memory, and the nodes where a VM can run. These rules are described by the [VirtualMachineClass](cr.html#virtualmachineclass) resource, which you use to control how project workloads are distributed across cluster nodes.
+
+On the initial installation, the module creates the `generic` class with the Nehalem CPU model. This model is old but supported by any modern CPU, so VMs of this class start on any cluster node and migrate between nodes without restrictions.
+
+{{< alert level="info" >}}
+The `generic` class matches a CPU with the smallest instruction set, so it isn't suitable for production workloads.
+
+Once all nodes are added to the cluster and configured, create at least one class with the `Discovery` CPU type. The module selects an instruction set available on all nodes at once, so virtual machines can make fuller use of the CPUs while still being able to migrate between nodes. The instruction set is fixed when the resource is created and doesn't change as nodes are added or removed.
+
+For an example of such a class, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example).
+{{< /alert >}}
+
+Classes exist at the cluster level. To list them, run the following command:
 
 ```bash
 d8 k get virtualmachineclass
@@ -602,12 +538,13 @@ d8 k get virtualmachineclass
 Example output:
 
 ```console
-NAME               PHASE   AGE
-generic            Ready   6d1h
+NAME      PHASE   ISDEFAULT   AGE
+generic   Ready               6d1h
 ```
 
-Make sure to specify the VirtualMachineClass resource in the virtual machine configuration.
-The following is an example of specifying a class in the VM specification:
+In any class, you can change everything except the [`.spec.cpu`](cr.html#virtualmachineclass-v1alpha3-spec-cpu) block, because the CPU model is fixed when the resource is created. You can both modify and delete the `generic` class, but it won't be created again, because the module adds it only on the initial installation.
+
+The project owner specifies the class in the [`.spec.virtualMachineClassName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineclassname) parameter of a virtual machine:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -615,92 +552,110 @@ kind: VirtualMachine
 metadata:
   name: linux-vm
 spec:
-  virtualMachineClassName: generic # VirtualMachineClass resource name.
-  ...
+  virtualMachineClassName: generic # Name of the VirtualMachineClass resource.
+  # ...
 ```
 
 ### Default VirtualMachineClass
 
-For convenience, you can assign a default VirtualMachineClass. This class will be used in the `spec.virtualMachineClassName` field if it is not specified in the virtual machine manifest.
+You can designate one of the classes as the default. The module inserts its name into the [`.spec.virtualMachineClassName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineclassname) parameter if the project owner doesn't specify a class.
 
-The default VirtualMachineClass is set via the `virtualmachineclass.virtualization.deckhouse.io/is-default-class` annotation. There can be only one default class in the cluster. To change the default class, remove the annotation from one class and add it to another.
+The default class is marked with the `virtualmachineclass.virtualization.deckhouse.io/is-default-class` annotation set to `true`. A cluster can have only one such class, so to designate a new one, first remove the annotation from the current one.
 
-It is not recommended to set the annotation on the `generic` class, since the annotation may be removed during an update. It is recommended to create your own class and assign it as the default.
+Don't add the annotation to the `generic` class, because a module update can remove it. Create your own class and designate it as the default instead.
 
-Example output of the class list without a default class:
+1. Check which classes exist in the cluster:
 
-```console
-$ d8 k get vmclass
+   ```bash
+   d8 k get vmclass
+   ```
 
-NAME                                    PHASE   ISDEFAULT   AGE
-generic                                 Ready               1d
-host-passthrough-custom                 Ready               1d
-```
+   Example output with no default class:
 
-Example command of assigning the default class:
+   ```console {.nowrap-default}
+   NAME                      PHASE   ISDEFAULT   AGE
+   generic                   Ready               1d
+   host-passthrough-custom   Ready               1d
+   ```
 
-```shell
-d8 k annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
-virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
-```
+1. Designate the default class:
 
-After assigning the default class, the output will be:
+   ```bash
+   d8 k annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+   ```
 
-```console
-$ d8 k get vmclass
+1. Verify that the annotation is set:
 
-NAME                                    PHASE   ISDEFAULT   AGE
-generic                                 Ready               1d
-host-passthrough-custom                 Ready   true        1d
-```
+   ```bash
+   d8 k get vmclass
+   ```
 
-When creating a VM without specifying the `spec.virtualMachineClassName` field, it will be set to `host-passthrough-custom`.
+   Example output:
+
+   ```console {.nowrap-default}
+   NAME                      PHASE   ISDEFAULT   AGE
+   generic                   Ready               1d
+   host-passthrough-custom   Ready   true        1d
+   ```
+
+From now on, virtual machines created without a class get the `host-passthrough-custom` class.
 
 ### VirtualMachineClass settings
 
-The VirtualMachineClass resource structure is as follows:
+A class consists of three blocks, each responsible for its own group of settings:
+
+{{< tabs name="vmclass-create" >}}
+
+{{% tab name="Using the CLI" %}}
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
-  name: <vmclass-name>
-  # (optional) Set class as a default.
+  name: <VMCLASS_NAME>
+  # The annotation designates the class as the default one. It's optional.
   # annotations:
   #   virtualmachineclass.virtualization.deckhouse.io/is-default-class: "true"
 spec:
-  # The section describes virtual processor parameters for virtual machines.
-  # This block cannot be changed after the resource has been created.
+  # Virtual CPU parameters. The block is required and can't be changed after the resource is created.
   cpu: ...
 
-  # (optional) Describes the rules for allocating virtual machines between nodes.
-  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
+  # Rules for placing virtual machines on nodes. The block is optional.
+  # Changes apply to all VMs of this class.
   nodeSelector: ...
 
-  # (optional) Describes the sizing policy for configuring virtual machine resources.
-  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
+  # Resource allocation policy for virtual machines. The block is optional.
+  # Changes apply to all VMs of this class.
   sizingPolicies: ...
 ```
 
-How to configure VirtualMachineClass in the web interface:
+Where `<VMCLASS_NAME>` is the name of the class you're creating.
 
-- Go to the "System" tab, then to the "Virtualization" -> "VM Classes" section.
-- Click the "Create" button.
-- In the window that opens, enter a name for the VM class in the "Name" field.
+{{% /tab %}}
 
-Next, let's take a closer look at the setting blocks.
+{{% tab name="Using the web interface" %}}
 
-#### vCPU settings
+1. Go to the **System** tab, then to **Virtualization** → **VM classes**.
+1. Click **Create**.
+1. In the form that opens, enter the VM class name in the **Name** field.
 
-The `.spec.cpu` block allows you to specify or configure the vCPU for the VM.
+{{% /tab %}}
+
+{{< /tabs >}}
+
+The blocks are described separately in the following sections.
+
+#### Virtual processor
+
+The [`.spec.cpu`](cr.html#virtualmachineclass-v1alpha3-spec-cpu) block defines the CPU that the guest OS sees. It also determines which nodes a VM can migrate between.
 
 {{< alert level="warning" >}}
-Settings in the `.spec.cpu` block cannot be changed after the VirtualMachineClass resource is created.
+The [`.spec.cpu`](cr.html#virtualmachineclass-v1alpha3-spec-cpu) block can't be changed after the resource is created. To use a different CPU, create a new class.
 {{< /alert >}}
 
-Examples of the `.spec.cpu` block settings:
+The following examples cover each CPU type.
 
-- A class with a vCPU with the required set of processor instructions. In this case, use `type: Features` to specify the required set of supported instructions for the processor:
+- A set of CPU instructions required for a VM. Set with the `Features` type:
 
   ```yaml
   spec:
@@ -710,13 +665,13 @@ Examples of the `.spec.cpu` block settings:
       type: Features
   ```
 
-  How to configure vCPU in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+  To configure the vCPU in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
 
-  - In the "CPU Settings" block, select `Features` in the "Type" field.
-  - In the "Required set of supported instructions" field, select the instructions you need for the processor.
-  - To create a VM class, click the "Create" button.
+  1. In the **CPU settings** block, select `Features` in the **Type** field.
+  1. In the **Required set of supported instructions** field, select the instructions you need.
+  1. Click **Create**.
 
-- A class with a universal vCPU for a given set of nodes. In this case, use `type: Discovery`:
+- A universal CPU for a given set of nodes. Set with the `Discovery` type:
 
   ```yaml
   spec:
@@ -729,15 +684,16 @@ Examples of the `.spec.cpu` block settings:
       type: Discovery
   ```
 
-  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+  To do the same in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
 
-  - In the "CPU Settings" block, select `Discovery` in the "Type" field.
-  - Click "Add" in the "Conditions for creating a universal processor" -> "Labels and expressions" block.
-  - In the pop-up window, you can set the "Key", "Operator" and "Value" of the key that corresponds to the `spec.cpu.discovery.nodeSelector` settings.
-  - To confirm the key parameters, click the "Enter" button.
-  - To create a VM class, click the "Create" button.
+  1. In the **CPU settings** block, select `Discovery` in the **Type** field.
+  1. Click **Add** in the **Conditions for creating a universal CPU** → **Labels and expressions** block.
+  1. Set **Key**, **Operator**, and **Value**. They correspond to the [`.spec.cpu.discovery.nodeSelector`](cr.html#virtualmachineclass-v1alpha3-spec-cpu-discovery-nodeselector) parameter.
+  1. Press **Enter** to confirm the key parameters.
+  1. Click **Create**.
 
-- The vmclass with `type: Host` uses a virtual vCPU that matches the platform node's vCPU instruction set as closely as possible, ensuring high performance and functionality. It also guarantees compatibility with live migration for nodes with similar vCPU types. For example, it is not possible to migrate a virtual machine between nodes with Intel and AMD processors. This also applies to processors of different generations, as their instruction sets may differ.
+- A CPU close to the node CPU. Set with the `Host` type. The guest OS gets almost the full instruction set of the node, so performance is higher than with a fixed model.
+  A VM of this class migrates only between nodes with similar CPUs. For example, migration between nodes with Intel and AMD CPUs isn't possible, and neither is migration between CPU generations with different instruction sets.
 
   ```yaml
   spec:
@@ -745,12 +701,12 @@ Examples of the `.spec.cpu` block settings:
       type: Host
   ```
 
-  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+  To do the same in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
 
-  - In the "CPU Settings" block, select `Host` in the "Type" field.
-  - To create a VM class, click the "Create" button.
+  1. In the **CPU settings** block, select `Host` in the **Type** field.
+  1. Click **Create**.
 
-- A vmclass with `type: HostPassthrough` uses a physical CPU of the platform node without modification. A virtual machine using this class can only be migrated to a node that has a CPU that exactly matches the CPU of the source node.
+- The node CPU without changes. Set with the `HostPassthrough` type. A VM of this class migrates only to a node whose CPU exactly matches the CPU of the source node.
 
   ```yaml
   spec:
@@ -758,16 +714,19 @@ Examples of the `.spec.cpu` block settings:
       type: HostPassthrough
   ```
 
-  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+  To do the same in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
 
-  - In the "CPU Settings" block, select `HostPassthrough` in the "Type" field.
-  - To create a VM class, click the "Create" button.
+  1. In the **CPU settings** block, select `HostPassthrough` in the **Type** field.
+  1. Click **Create**.
 
-- To create a vCPU of a specific CPU with a predefined instruction set, use `type: Model`. To get a list of supported CPU names for the cluster node, run the command in advance:
+- A specific CPU model with a known instruction set. Set with the `Model` type.
+  First, check which models the target node supports:
 
   ```bash
-  d8 k get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model.node.virtualization.deckhouse.io")) | .key | split("/")[1]' -r
+  d8 k get nodes <NODE_NAME> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model.node.virtualization.deckhouse.io")) | .key | split("/")[1]' -r
   ```
+
+  Where `<NODE_NAME>` is the name of a cluster node.
 
   Example output:
 
@@ -788,7 +747,7 @@ Examples of the `.spec.cpu` block settings:
   Westmere-IBRS
   ```
 
-  After that specify the following in the VirtualMachineClass resource specification:
+  Then specify the selected model in the class specification:
 
   ```yaml
   spec:
@@ -797,116 +756,170 @@ Examples of the `.spec.cpu` block settings:
       type: Model
   ```
 
-  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+  To do the same in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
 
-  - In the "CPU Settings" block, select `Model` in the "Type" field.
-  - Select the required processor model in the "Model" field.
-  - To create a VM class, click the "Create" button.
+  1. In the **CPU settings** block, select `Model` in the **Type** field.
+  1. In the **Model** field, select the CPU model.
+  1. Click **Create**.
 
-#### Placement settings
+#### vCPU Discovery configuration example
 
-The `.spec.nodeSelector` block is optional. It allows you to specify the nodes that will host VMs using this vmclass:
+The following example shows how to choose the processor types in a cluster with heterogeneous nodes.
+
+![VirtualMachineClass configuration example](./images/vmclass-examples.png)
+
+The example below uses a cluster of four nodes. Two nodes labeled `group=blue` are equipped with the "CPU X" processor with three instruction sets, and the other two labeled `group=green` have the newer "CPU Y" processor with four sets.
+
+{{< alert level="info" >}}
+A CPU instruction set is every command the processor can execute, from addition to memory operations. The set determines which programs run and how fast, and it differs between CPU generations.
+{{< /alert >}}
+
+Three classes suit such a cluster:
+
+- `universal`: VMs start on any node and migrate between all four. The module takes the instruction set common to both processors, so compatibility is maximal, while some capabilities of "CPU Y" stay unused.
+- `cpuX`: VMs start only on nodes with "CPU X" and migrate between them, using all instructions of that processor.
+- `cpuY`: The same for nodes with "CPU Y".
+
+The classes for such a cluster look as follows:
 
 ```yaml
-  spec:
-    nodeSelector:
-      matchExpressions:
-        - key: node.deckhouse.io/group
-          operator: In
-          values:
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: universal
+spec:
+  cpu:
+    # An empty discovery means that all cluster nodes are taken into account.
+    discovery: {}
+    type: Discovery
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: cpuX
+spec:
+  cpu:
+    discovery:
+      nodeSelector:
+        matchExpressions:
+          - key: group
+            operator: In
+            values: ["blue"]
+    type: Discovery
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: cpuY
+spec:
+  cpu:
+    discovery:
+      nodeSelector:
+        matchExpressions:
+          - key: group
+            operator: In
+            values: ["green"]
+    type: Discovery
+```
+
+#### Placement across nodes
+
+The optional [`.spec.nodeSelector`](cr.html#virtualmachineclass-v1alpha3-spec-nodeselector) block limits the set of nodes where virtual machines of this class run. Nodes are selected by labels:
+
+```yaml
+spec:
+  nodeSelector:
+    matchExpressions:
+      - key: node.deckhouse.io/group
+        operator: In
+        values:
           - green
 ```
 
 {{< alert level="warning" >}}
-Since changing the `.spec.nodeSelector` parameter affects all virtual machines using this `VirtualMachineClass`, consider the following:
+A change to the [`.spec.nodeSelector`](cr.html#virtualmachineclass-v1alpha3-spec-nodeselector) block affects all virtual machines of the class at once. Those running on nodes that no longer match the new conditions have to be moved:
 
-- For the Enterprise edition, this may cause virtual machines to be migrated to new destination nodes if the current nodes do not meet placement requirements.
-- For the Community edition, this may cause virtual machines to restart according to the automatic change application policy set in the `.spec.disruptions.restartApprovalMode` parameter.
+- In the Enterprise Edition, the module migrates such VMs to suitable nodes.
+- In the Community Edition, the VMs are restarted, and the restart time depends on the [`.spec.disruptions.restartApprovalMode`](cr.html#virtualmachine-v1alpha2-spec-disruptions-restartapprovalmode) parameter of the virtual machine, which defaults to `Manual` and requires the project owner's approval.
 {{< /alert >}}
 
-How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+To do the same in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
 
-- Click "Add" in the "VM scheduling conditions on nodes" -> "Labels and expressions" block.
-- In the pop-up window, you can set the "Key", "Operator" and "Value" of the key that corresponds to the `spec.nodeSelector` settings.
-- To confirm the key parameters, click the "Enter" button.
-- To create a VM class, click the "Create" button.
+1. Click **Add** in the **Conditions for scheduling VMs on nodes** → **Labels and expressions** block.
+1. Set **Key**, **Operator**, and **Value**. They correspond to the [`.spec.nodeSelector`](cr.html#virtualmachineclass-v1alpha3-spec-nodeselector) parameter.
+1. Press **Enter** to confirm the key parameters.
+1. Click **Create**.
 
-#### Sizing policy settings
+#### Sizing policy
 
-The `.spec.sizingPolicy` block allows you to set sizing policies for virtual machine resources that use vmclass.
+The [`.spec.sizingPolicies`](cr.html#virtualmachineclass-v1alpha3-spec-sizingpolicies) block defines which combinations of cores, core fraction, and memory are allowed for virtual machines of this class.
 
 {{< alert level="warning" >}}
-Changes in the `.spec.sizingPolicy` block can also affect virtual machines. For virtual machines whose sizing policy will not meet the new policy requirements, the `SizingPolicyMatched` condition in the `.status.conditions` block will be false (`status: False`).
+Changes to the [`.spec.sizingPolicies`](cr.html#virtualmachineclass-v1alpha3-spec-sizingpolicies) block affect existing virtual machines.
+For virtual machines that no longer meet the new requirements, the `SizingPolicyMatched` condition in the [`.status.conditions`](cr.html#virtualmachineclass-v1alpha2-status-conditions) block gets the `False` status.
 
-When configuring `sizingPolicy`, be sure to consider the [CPU topology](./user_guide.html#automatic-cpu-topology-configuration) for virtual machines.
+When defining policies, take the [CPU topology](./user_guide.html#cpu-topologies) of virtual machines into account.
 {{< /alert >}}
 
-The `cores` block is mandatory and specifies the range of cores to which the rule described in the same block applies.
+A policy consists of a list of rules, each applying to its own range of cores. The range is set in the required `cores` block, and ranges of different rules must not overlap, otherwise the module rejects the class.
 
-The ranges [min; max] for the cores parameter must be strictly sequential and non-overlapping.
-
-Correct structure (the ranges follow one another without intersections):
+A valid structure, where the ranges follow one another without overlapping:
 
 ```yaml
 - cores:
     min: 1
-    max: 4...
-
+    max: 4
+  # ...
 - cores:
-    min: 5   # Start of next range = (previous max + 1)
+    min: 5 # The next range starts one above the previous max.
     max: 8
 ```
 
-Invalid option (overlapping values):
+An invalid structure, where the value `4` falls into two ranges at once:
 
 ```yaml
 - cores:
     min: 1
-    max: 4...
-
+    max: 4
+  # ...
 - cores:
-    min: 4   # Error: Value 4 is already included in the previous range
+    min: 4
     max: 8
 ```
 
-{{< alert level="warning" >}}
-Rule: Each new range must start with a value that immediately follows the max of the previous range.
-{{< /alert >}}
+The module doesn't forbid gaps between ranges, but a virtual machine whose number of cores falls outside every range is left without a policy. For this reason, start each range with the value that follows the `max` of the previous one.
 
-Additional requirements can be specified for each range of cores:
+Within a range, you set the requirements for memory and for the core fraction:
 
-1. Memory — specify:
+- `memory`: The minimum and maximum amount of memory. Set either for the whole range or per core, in the nested `memory.perCore` block.
+- `coreFractions`: The list of allowed core fractions, for example `[25, 50, 100]` for 25%, 50%, and 100%. If the project owner sets the `coreFraction` parameter of a virtual machine explicitly, the value must come from this list.
+- `defaultCoreFraction`: The core fraction that a virtual machine gets if `coreFraction` isn't set in it. The value must be in the `coreFractions` list. If the parameter isn't specified, 100% applies.
 
-    - Either minimum and maximum memory for all cores in the range,
-    - Either the minimum and maximum memory per core (`memory.perCore`).
+A rule with neither `memory` nor `coreFractions` doesn't limit anything, so set at least one of them.
 
-2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage). If the `coreFraction` parameter is explicitly specified in the virtual machine specification, its value must be from this list.
+In the Enterprise Edition, you can set the `defaultCoreFraction` parameter to `Auto`. In that case, the core fraction for VMs without an explicit `coreFraction` is chosen by [vertical autoscaling](./user_guide.html#automatic-corefraction-auto). `Auto` is a mode, not a share of a core, so it must not appear in the `coreFractions` list.
 
-3. Default core fraction value (`defaultCoreFraction`) — specifies which core fraction will be used by default for this range of cores if the `coreFraction` parameter is not explicitly specified in the virtual machine specification. This value must be present in the `coreFractions` list. If `defaultCoreFraction` is not set, the default value of `100%` is applied.
+```yaml
+spec:
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 8
+      coreFractions: [10, 25, 50, 100]
+      defaultCoreFraction: Auto
+```
 
-   In the Enterprise Edition, `defaultCoreFraction` can also be set to `Auto`. Virtual machines that do not specify `coreFraction` explicitly then get their core fraction picked automatically (see [Automatic coreFraction](./user_guide.html#automatic-corefraction-auto)). Unlike a percentage, `Auto` is a mode rather than a share of a core, so it must not be listed in `coreFractions`. It is only accepted while the `VerticalVirtualMachineAutoscaler` and `HotplugCPUAndMemoryWithInPlaceResize` feature gates are enabled: otherwise such a class would make its virtual machines impossible to create.
+The `Auto` value is accepted only when both capabilities are available:
 
-   ```yaml
-   spec:
-     sizingPolicies:
-       - cores:
-           min: 1
-           max: 8
-         coreFractions: [10, 25, 50, 100]
-         defaultCoreFraction: Auto
-   ```
+- Vertical autoscaling of virtual machines, which is enabled automatically in the Enterprise Edition when the [`vertical-pod-autoscaler`](/modules/vertical-pod-autoscaler/) module is enabled.
+- Changing the number of cores and the amount of memory without a restart, which is enabled by the `HotplugCPUAndMemoryWithInPlaceResize` feature in the [`.spec.settings.featureGates`](configuration.html#parameters-featuregates) parameter of the module.
 
-{{< alert level="warning" >}}
-Important: For each range of cores, be sure to specify:
+If at least one of them is unavailable, the module rejects the creation of such a class.
 
-- Either memory (or `memory.perCore`),
-- Either coreFractions,
-- Or both parameters at the same time.
-{{< /alert >}}
+The following examples show how the amount of memory depends on the number of cores:
 
-Examples of memory volume dependency on the number of cores:
-
-- When using the `memory` parameter, the allowed memory volume is fixed for the entire range of cores and does not depend on their number:
+- The `memory` parameter sets the same limits for the whole range of cores:
 
   ```yaml
   - cores:
@@ -917,9 +930,9 @@ Examples of memory volume dependency on the number of cores:
       max: 8Gi
   ```
 
-  In this example, for any virtual machine with 1 to 4 cores, you can choose any memory volume from 2 to 8 GB — regardless of the number of cores. Memory does not depend on the number of cores in the range.
+  A virtual machine with any number of cores from 1 to 4 gets from 2 to 8 GiB of memory, and the number of cores doesn't affect these limits.
 
-- When using the `memory.perCore` parameter, the allowed memory volume is calculated as the product of the number of cores multiplied by the specified memory range per core:
+- The `memory.perCore` parameter sets the limits per core, and the resulting limits are the product of that value and the number of cores:
 
   ```yaml
   - cores:
@@ -931,62 +944,57 @@ Examples of memory volume dependency on the number of cores:
         max: 2Gi
   ```
 
-  In this case:
-  - For a virtual machine with 1 core: from 1×1 GiB = 1 GiB to 1×2 GiB = 2 GiB of memory
-  - For a virtual machine with 2 cores: from 2×1 GiB = 2 GiB to 2×2 GiB = 4 GiB of memory
-  - For a virtual machine with 3 cores: from 3×1 GiB = 3 GiB to 3×2 GiB = 6 GiB of memory
-  - For a virtual machine with 4 cores: from 4×1 GiB = 4 GiB to 4×2 GiB = 8 GiB of memory
+  With such a policy, the allowed amount of memory grows with the number of cores:
 
-  Thus, when using `memory.perCore`, the allowed memory volume automatically scales proportionally to the number of cores, providing more flexible and fair resource distribution.
+  - 1 core: From 1 to 2 GiB.
+  - 2 cores: From 2 to 4 GiB.
+  - 3 cores: From 3 to 6 GiB.
+  - 4 cores: From 4 to 8 GiB.
 
-- Examples of using the `memory.step` parameter for memory discretization:
+- The `memory.step` parameter limits the allowed memory values to a grid, so that the project owner can't choose arbitrary amounts.
 
-  The `step` parameter defines the memory size discretization step. It allows you to limit available memory values to specific increments, which simplifies resource management and prevents setting arbitrary values.
+  Together with `memory.min` and `memory.max`, the step is counted from the minimum:
 
-  - Example with `memory.min` and `memory.max` with a 1 GB step:
+  ```yaml
+  - cores:
+      min: 1
+      max: 4
+    memory:
+      min: 2Gi
+      max: 8Gi
+      step: 1Gi
+  ```
 
-    ```yaml
-    - cores:
-        min: 1
-        max: 4
-      memory:
-        min: 2Gi
-        max: 8Gi
-        step: 1Gi
-    ```
+  Only the values 2, 3, 4, 5, 6, 7, and 8 GiB are allowed; 2.5 or 7.5 GiB can't be set.
 
-    In this case, only the following memory values are available: 2 GB, 3 GB, 4 GB, 5 GB, 6 GB, 7 GB, 8 GB. You cannot set, for example, 2.5 GB or 7.5 GB.
+  Together with `memory.perCore`, the step is counted from the memory per core, and the resulting value is then multiplied by the number of cores:
 
-  - Example with `memory.perCore` and step:
+  ```yaml
+  - cores:
+      min: 1
+      max: 4
+    memory:
+      perCore:
+        min: 1Gi
+        max: 2Gi
+      step: 512Mi
+  ```
 
-    ```yaml
-    - cores:
-        min: 1
-        max: 4
-      memory:
-        perCore:
-          min: 1Gi
-          max: 2Gi
-        step: 512Mi
-    ```
+  Per core, 1, 1.5, and 2 GiB are allowed, so the resulting amount depends on the number of cores:
 
-    In this case, for each virtual machine, available memory values are calculated taking into account the step:
-    - For 1 core: 1 GB, 1.5 GB, 2 GB
-    - For 2 cores: 2 GB, 3 GB, 4 GB
-    - For 3 cores: 3 GB, 4.5 GB, 6 GB
-    - For 4 cores: 4 GB, 6 GB, 8 GB
+  - 1 core: 1, 1.5, or 2 GiB.
+  - 2 cores: 2, 3, or 4 GiB.
+  - 3 cores: 3, 4.5, or 6 GiB.
+  - 4 cores: 4, 6, or 8 GiB.
 
-    Note that the step is applied to the total memory volume, not to the memory per core.
-
-Here is an example of a policy with similar settings:
+An example of a policy that covers ranges from 1 to 248 cores:
 
 ```yaml
 spec:
   sizingPolicies:
-    # For a range of 1–4 cores, it is possible to use 1–8 GB of RAM in 512Mi increments,
-    # i.e., 1 GB, 1.5 GB, 2 GB, 2.5 GB, etc.
-    # No dedicated cores are allowed.
-    # All `corefraction` options are available.
+    # For 1-4 cores, from 1 to 8 GiB of memory is available with a 512 MiB step,
+    # that is, 1 GiB, 1.5 GiB, 2 GiB, 2.5 GiB, and so on.
+    # All core fractions are available.
     - cores:
         min: 1
         max: 4
@@ -995,11 +1003,10 @@ spec:
         max: 8Gi
         step: 512Mi
       coreFractions: [5, 10, 20, 50, 100]
-      defaultCoreFraction: 50  # Default value for the 1–4 core range
-    # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
-    # i.e., 5 GB, 6 GB, 7 GB, etc.
-    # No dedicated cores are allowed.
-    # Some `corefraction` options are available.
+      defaultCoreFraction: 50 # Default core fraction for the 1-4 core range.
+    # For 5-8 cores, from 5 to 16 GiB of memory is available with a 1 GiB step,
+    # that is, 5 GiB, 6 GiB, 7 GiB, and so on.
+    # Core fractions are limited to three values.
     - cores:
         min: 5
         max: 8
@@ -1008,10 +1015,9 @@ spec:
         max: 16Gi
         step: 1Gi
       coreFractions: [20, 50, 100]
-      defaultCoreFraction: 100  # Default value for the 5–8 core range
-    # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
-    # You can use dedicated cores if needed.
-    # Some `corefraction` options are available.
+      defaultCoreFraction: 100 # Default core fraction for the 5-8 core range.
+    # For 9-16 cores, from 9 to 32 GiB of memory is available with a 1 GiB step.
+    # Core fractions are limited to two values.
     - cores:
         min: 9
         max: 16
@@ -1020,9 +1026,8 @@ spec:
         max: 32Gi
         step: 1Gi
       coreFractions: [50, 100]
-    # For the range of 17–248 cores, it is possible to use 1–2 GB of RAM per core.
-    # Only the dedicated cores are available for use.
-    # The only available `corefraction` parameter is 100%.
+    # For 17-248 cores, from 1 to 2 GiB of memory is available per core.
+    # The core fraction is 100% only.
     - cores:
         min: 17
         max: 248
@@ -1033,40 +1038,34 @@ spec:
       coreFractions: [100]
 ```
 
-How to configure sizing policies in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+To configure sizing policies in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
 
-- Click "Add" in the "Resource allocation rules for virtual machines" block.
-- In the "PU" block, enter `1` in the "Min" field.
-- In the "CPU" block, enter `4` in the "Max" field.
-- In the "CPU" block, select the values `5%`, `10%`, `20%`, `50%`, `100%` in order in the "Allow setting core fractions" field.
-- In the "Memory" block, set the switch to "Amount per core".
-- In the "Memory" block, enter `1` in the "Min" field.
-- In the "Memory" block, enter `8` in the "Max" field.
-- In the "Memory" block, enter `1` in the "Sampling step" field.
-- You can add more ranges using the "Add" button.
-- To create a VM class, click the "Create" button.
+1. Click **Add** in the **Resource allocation rules for virtual machines** block.
+1. In the **CPU** block, enter `1` in the **Min** field and `4` in the **Max** field.
+1. In the **CPU** block, in the **Allow setting core fractions** field, select the values `5%`, `10%`, `20%`, `50%`, `100%` in order.
+1. In the **Memory** block, set the toggle to **Amount per 1 core**.
+1. In the **Memory** block, enter `1` in the **Min** field and `8` in the **Max** field.
+1. In the **Memory** block, enter `1` in the **Discretization step** field.
+1. Add other ranges with the **Add** button, if required.
+1. Click **Create**.
 
 ### CPU oversubscription
 
-CPU oversubscription is the practice of allocating more virtual cores to virtual machines than there are physical cores available on the hypervisor node. This allows for more efficient use of cluster computational resources, as not all VMs run at full capacity simultaneously.
+Oversubscription lets you give the virtual machines on a node more virtual cores than the node physically has. This makes sense because VMs rarely load the CPU at the same time and at full capacity.
 
-Oversubscription is managed using the `coreFraction` parameter, which is set in VirtualMachineClass through the sizing policy (`sizingPolicies`). The parameter defines the guaranteed minimum share of computational power per VM core (for example, `coreFraction: 20%` means the VM is guaranteed 20% of the core's power but can use up to 100% when free resources are available). The administrator sets the allowed `coreFractions` values and `defaultCoreFraction` (the default value if the user does not specify `coreFraction`).
+The degree of oversubscription is controlled by the `coreFraction` parameter of a virtual machine, and you define its allowed values in the sizing policy of the class. The parameter defines the share of a core's capacity guaranteed to a VM. For example, with `coreFraction: 20%`, a VM always gets a fifth of a core, and it can take a whole core when the node has spare resources.
 
-{{< alert level="info">}}
-If the `coreFractions` parameter is not set in VirtualMachineClass (or multiple values are set), users can manage oversubscription themselves by specifying `coreFraction` when creating VMs.
+{{< alert level="info" >}}
+If the `coreFractions` list isn't set in the class or contains several values, the project owner chooses the degree of oversubscription by specifying `coreFraction` when creating a VM.
 {{< /alert >}}
 
-When planning VM placement, the sum of guaranteed resources is considered: `Σ(cores × coreFraction / 100)` for all VMs on the node. If this sum exceeds the number of physical cores, the VM will not be started on that node.
+When placing a VM on a node, the module sums the guaranteed shares of all VMs on that node using the `Σ(cores × coreFraction / 100)` formula. If the sum exceeds the number of physical cores, the VM doesn't start on that node.
 
-Example: A node with 4 physical cores, 5 VMs with `cores: 2` and `coreFraction: 20%`:
+Consider a node with 4 physical cores and 5 VMs, each with 2 cores and `coreFraction: 20%`. The guaranteed load is `5 × 2 × 0.2 = 2` cores, with 10 virtual cores on 4 physical ones, which is an oversubscription of 2.5 to 1. All five VMs fit on the node, because 2 cores is less than the available 4.
 
-- Guaranteed resources: 5 × 2 × 0.2 = 2 CPU
-- Virtual cores: 10 on 4 physical (oversubscription ratio 2.5:1)
-- All VMs can be placed, as 2 CPU < 4 CPU
+#### Fixed oversubscription
 
-Example 1: Hard-coded oversubscription
-
-The administrator hard-codes the oversubscription level — the user cannot change it:
+A list with a single value leaves the project owner no choice, and you define the degree of oversubscription for all VMs of the class:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -1082,15 +1081,15 @@ spec:
         perCore:
           min: 1Gi
           max: 8Gi
-      coreFractions: [20]  # Only one value
+      coreFractions: [20] # The only allowed value.
       defaultCoreFraction: 20
 ```
 
-For all VMs of this class, `coreFraction: 20%` is hard-coded, ensuring a fixed oversubscription ratio of 5:1.
+All VMs of this class get 20% of a core each, which gives an oversubscription of 5 to 1.
 
-Example 2: Flexible configuration
+#### Oversubscription chosen by the project owner
 
-Users can choose from multiple values:
+A list with several values leaves the choice to the project owner:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -1110,92 +1109,37 @@ spec:
       defaultCoreFraction: 20
 ```
 
-Users can select `coreFraction` from the list; if not specified, the value 20% is applied.
+The project owner selects `coreFraction` from the list, and if they don't, the VM gets 20%.
 
-### vCPU Discovery configuration example
+## Node maintenance and VM fault tolerance
 
-![VirtualMachineClass configuration example](./images/vmclass-examples.png)
+This section covers the tools that help virtual machines (VMs) survive node maintenance and node failure. Some of them work on their own, others require your action.
 
-Let's imagine that we have a cluster of four nodes. Two of these nodes labeled `group=blue` have a "CPU X" processor with three instruction sets, and the other two nodes labeled `group=green` have a newer "CPU Y" processor with four instruction sets.
+### VM migration and node maintenance
 
-To optimally utilize the resources of this cluster, it is recommended that you create three additional virtual machine classes (VirtualMachineClass):
+Live migration moves a running virtual machine from one node to another without shutting it down. It's needed in three situations:
 
-- `universal`: This class will allow virtual machines to run on all nodes in the platform and migrate between them. It will use the instruction set for the lowest CPU model to ensure the greatest compatibility.
-- `cpuX`: This class will be for virtual machines that should only run on nodes with a "CPU X" processor. VMs will be able to migrate between these nodes using the available "CPU X" instruction sets.
-- `cpuY`: This class is for VMs that should only run on nodes with a "CPU Y" processor. VMs will be able to migrate between these nodes using the available "CPU Y" instruction sets.
-
-{{< alert level="info" >}}
-A CPU instruction set is a list of all the instructions that a processor can execute, such as addition, subtraction, or memory operations. They determine what operations are possible, affect program compatibility and performance, and can vary from one generation of processors to the next.
-{{< /alert >}}
-
-Resource configuration examples for a given cluster:
-
-```yaml
----
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: universal
-spec:
-  cpu:
-    discovery: {}
-    type: Discovery
-  sizingPolicies: { ... }
----
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: cpuX
-spec:
-  cpu:
-    discovery:
-      nodeSelector:
-        matchExpressions:
-          - key: group
-            operator: In
-            values: ["blue"]
-    type: Discovery
-  sizingPolicies: { ... }
----
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: cpuY
-spec:
-  cpu:
-    discovery:
-      nodeSelector:
-        matchExpressions:
-          - key: group
-            operator: In
-            values: ["green"]
-    type: Discovery
-  sizingPolicies: { ... }
-```
-
-## Reliability mechanisms
-
-### Migration and maintenance mode
-
-Virtual machine migration is an important feature in virtualized infrastructure management. It allows you to move running virtual machines from one physical node to another without shutting them down. Virtual machine migration is required for a number of tasks and scenarios:
-
-- Load balancing: Moving virtual machines between nodes allows you to evenly distribute the load on servers, ensuring that resources are utilized in the best possible way.
-- Node maintenance: Virtual machines can be moved from nodes that need to be taken out of service to perform routine maintenance or software upgrade.
-- Upgrading a virtual machine firmware: The migration allows you to upgrade the firmware of virtual machines without interrupting their operation.
+- Load balancing, to distribute VMs evenly across nodes.
+- Node maintenance or update, to free the node from VMs.
+- Virtual machine firmware update, which would otherwise require a restart.
 
 {{< alert level="warning" >}}
-Live migration has the following limitations:
+Live migration is limited in speed and in the number of concurrent moves:
 
-- By default, each node prepares and transfers the memory of only one virtual machine at a time, and accepts the memory of only one incoming migration at a time.
-- The total number of concurrent migrations in the cluster cannot exceed the number of nodes where running virtual machines is permitted.
-- The bandwidth for a single migration is limited to 5 Gbps.
+- A node prepares and sends the memory of only one VM at a time, and accepts only one incoming migration at a time.
+- This also sets the cluster limit: no more concurrent migrations than there are nodes allowed to run virtual machines.
+- The transfer rate of a single migration is limited to 640 MiB/s, which is about 5 Gbit/s.
 {{< /alert >}}
 
-#### Start migration of an arbitrary machine
+#### Moving a selected VM to another node
 
-The following is an example of migrating a selected virtual machine.
+The following steps show how to move a selected VM to another node.
 
-1. Before starting the migration, check the current status of the virtual machine:
+{{< tabs name="vm-migrate" >}}
+
+{{% tab name="Using the CLI" %}}
+
+1. Check which node the VM currently runs on:
 
    ```bash
    d8 k get vm
@@ -1203,16 +1147,16 @@ The following is an example of migrating a selected virtual machine.
 
    Example output:
 
-   ```console
-   NAME                                   PHASE     NODE           IPADDRESS     AGE
-   linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+   ```console {.nowrap-default}
+   NAME       PHASE     UPTIME   NODE           IPADDRESS     AGE
+   linux-vm   Running   79m      virtlab-pt-1   10.66.10.14   79m
    ```
 
-   We can see that it is currently running on the `virtlab-pt-1` node.
+   The VM runs on the `virtlab-pt-1` node.
 
-1. To migrate a virtual machine from one node to another taking into account the virtual machine placement requirements, the VirtualMachineOperation (`vmop`) resource with the `Evict` type is used. Create this resource following the example:
+1. Create a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource with the `Evict` type. The module selects a new node for the VM, respecting its placement requirements:
 
-   ```yaml
+   ```bash
    d8 k create -f - <<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualMachineOperation
@@ -1221,12 +1165,12 @@ The following is an example of migrating a selected virtual machine.
    spec:
      # Virtual machine name.
      virtualMachineName: linux-vm
-     # An operation for the migration.
+     # Operation for the migration.
      type: Evict
    EOF
    ```
 
-1. Immediately after creating the `vmop` resource, run the following command:
+1. Right after creating the resource, follow the migration progress:
 
    ```bash
    d8 k get vm -w
@@ -1234,34 +1178,41 @@ The following is an example of migrating a selected virtual machine.
 
    Example output:
 
-   ```console
-   NAME                                   PHASE       NODE           IPADDRESS     AGE
-   linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-   linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-   linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-   linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+   ```console {.nowrap-default}
+   NAME       PHASE       UPTIME   NODE           IPADDRESS     AGE
+   linux-vm   Running     79m      virtlab-pt-1   10.66.10.14   79m
+   linux-vm   Migrating   79m      virtlab-pt-1   10.66.10.14   79m
+   linux-vm   Migrating   79m      virtlab-pt-1   10.66.10.14   79m
+   linux-vm   Running     79m      virtlab-pt-2   10.66.10.14   79m
    ```
 
-1. If you need to abort the migration, delete the corresponding `vmop` resource while it is in the `Pending` or `InProgress` phase.
+   The VM keeps its IP address during the move; only the node in the `NODE` column changes.
 
-How to start VM migration in the web interface:
+1. To interrupt the migration, delete the created resource while it's in the `Pending` or `InProgress` phase.
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
-- Select the desired virtual machine from the list and click the ellipsis button.
-- Select `Migrate` from the pop-up menu.
-- Confirm or cancel the migration in the pop-up window.
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **Projects** tab and select the project you need.
+1. Go to **Virtualization** → **Virtual machines**.
+1. Select the virtual machine from the list and click the ellipsis button.
+1. In the menu that opens, select **Migrate**.
+1. In the **Virtual machine migration** window, select **Migrate to an arbitrary node** or **Migrate to a selected node** and specify the node in the **Nodes available for migration** field.
+1. If required, enable **Migrate disks** to move the VM disks along with the VM, and **Force (slow down guest CPU)** to make sure the migration completes for an actively running VM.
+1. Click **Migrate**, or cancel the operation with **Cancel**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 #### Dedicated migration network
 
-By default, live migration traffic flows over the node's default network and competes with workload traffic. You can also route it over a dedicated VLAN provisioned by the [`sdn`](/modules/sdn/) module.
+By default, live migration traffic goes over the main node network and competes for bandwidth with workloads. You can route it through a dedicated VLAN provided by the [`sdn`](/modules/sdn/) module.
 
-Prerequisites:
+This requires the [`sdn`](/modules/sdn/) module to be enabled and a [SystemNetwork](/modules/sdn/cr.html#systemnetwork) resource to be created and in the `Ready` state.
 
-- The `sdn` module is enabled.
-- A [SystemNetwork](/modules/sdn/cr.html#systemnetwork) resource exists and is in the `Ready` state.
-
-To enable the feature, set `spec.settings.liveMigration.network` on the `virtualization` ModuleConfig: use `type: SystemNetwork` and specify the name of the prepared `SystemNetwork` under `systemNetwork.name`. Once configured, every VM migration in the cluster runs over the specified `SystemNetwork` VLAN.
+To route the traffic to the dedicated network, set the [`.spec.settings.liveMigration.network`](configuration.html#parameters-livemigration-network) block in the `virtualization` ModuleConfig. Specify `type: SystemNetwork` in it and the name of the prepared network in the `systemNetwork.name` field. After that, all migrations in the cluster go over the VLAN of that network.
 
 ```yaml
 spec:
@@ -1273,200 +1224,274 @@ spec:
           name: migration-net
 ```
 
-To route migration traffic back over the default node network, remove the `network` block (it is the implicit default when unset).
+To return migration traffic to the main node network, delete the `network` block. When it isn't set, the node network is used by default.
+
+To create a system network in the web interface:
+
+1. Go to the **System** tab, then to **Network** → **SDN** → **System networks**.
+1. Click **Create**.
+1. In the **Create resource** window that opens, enter the network name in the **Name** field.
+1. On the **Configuration** tab, select the type (`VLAN`, `Access`, or `SRIOVVirtualFunction`) in the **Type** field, the underlay network in the **Underlay network** field, and the VLAN identifier in the **VLAN** block. Set the **IPAM** block parameters, if required.
+1. Click **Apply**.
+1. Review the created networks in the list, which shows the **Status**, **Type**, **Underlay network**, **VLAN ID**, and **IP pool** columns.
+
+Beforehand, create a network class (VLAN ID ranges and parent network interfaces of nodes) and an underlay network (participating network interfaces of nodes and the **Dedicated** or **Shared** mode) in the **Network** → **SDN** → **Network classes** and **Underlay networks** sections.
+
+#### Checking VMs before node maintenance
+
+It's better to find the VMs that won't be able to migrate off a node before maintenance starts, before the node is made unschedulable:
+
+```bash
+d8 k get vm -o wide | grep <NODE_NAME>
+```
+
+VMs with the `False` value in the `MIGRATABLE` column have to be stopped when the node is drained. Live migration isn't possible for them, and the evacuation fails.
+
+The column value alone isn't enough. A VM with the `True` value and the `VirtualMachineWaitingForMigrationTarget` reason won't move anywhere either, until a suitable node returns to scheduling, so before maintenance, look at the reasons for all VMs on the node:
+
+```bash
+d8 k get vm -o json | jq -r '.items[] | [.metadata.name, (.status.conditions[] | select(.type=="Migratable") | .reason)] | @tsv'
+```
 
 #### Maintenance mode
 
-When working on nodes with virtual machines running, there is a risk of disrupting their performance. To avoid this, you can put a node into the maintenance mode and migrate the virtual machines to other free nodes.
+Work on a node that runs virtual machines can disrupt them. To prevent this, switch the node to maintenance mode, and the module moves the VMs to other nodes.
 
-To do this, run the following command:
+{{< tabs name="node-drain" >}}
 
-```bash
-d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-data
-```
+{{% tab name="Using the CLI" %}}
 
-Where `<nodename>` is a node scheduled for maintenance, which needs to be freed from all resources (including system resources).
-
-If you need to evict only virtual machines off the node, run the following command:
+To free the node from all resources, including system ones, run:
 
 ```bash
-d8 k drain <nodename> --pod-selector vm.kubevirt.internal.virtualization.deckhouse.io/name --delete-emptydir-data
+d8 k drain <NODE_NAME> --ignore-daemonsets --delete-emptydir-data
 ```
 
-After running the `d8 k drain` command, the node will enter maintenance mode and no virtual machines will be able to start on it.
-
-To take it out of maintenance mode, stop the `drain` command (Ctrl+C), then execute:
+To evict only virtual machines from the node, add a label selector:
 
 ```bash
-d8 k uncordon <nodename>
+d8 k drain <NODE_NAME> --pod-selector vm.kubevirt.internal.virtualization.deckhouse.io/name --delete-emptydir-data
 ```
 
-![A diagram showing the migration of virtual machines from one node to another](./images/drain.png)
+Where `<NODE_NAME>` is the name of the node scheduled for maintenance.
 
-How to perform the operation in the web interface:
+After the command runs, the node switches to maintenance mode, and virtual machines can't be started on it.
 
-- Go to the "System”"tab, then to the "Nodes" section -> "Nodes of all groups".
-- Select the desired node from the list and click the "Cordon + Drain" button.
-- To remove it from maintenance mode, click the "Uncordon" button.
+To return the node to service, stop the `drain` command with `Ctrl+C`, and then run:
+
+```bash
+d8 k uncordon <NODE_NAME>
+```
+
+![Diagram of virtual machine migration to another node](./images/drain.png)
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **System** tab, then to **Nodes**.
+1. Select the node from the list, click the ellipsis button, and select **Cordon + Drain** in the menu that opens.
+1. To take the node out of maintenance mode, select **Uncordon** in the same menu.
+
+{{% /tab %}}
+
+{{< /tabs >}}
 
 #### Restarting virtual machines during node maintenance
 
-A virtual machine cannot always be moved to another node by live migration. It may be pinned to the node by its placement rules or use a device passed through from the node. The `Migratable` condition in the VM status explains why. Such a VM keeps running and holds the node, so the maintenance cannot be completed until the VM is restarted.
+A virtual machine can't always be moved to another node by live migration. It can be pinned to the node by placement rules or use a device passed through from the node. The `Migratable` condition in the VM status shows the reason. Such a VM keeps running and holds the node, so maintenance can't complete until the VM is restarted.
 
-When the module finds such a VM while the node is entering maintenance mode, it adds the `virtualization.deckhouse.io/virtualmachines-restart-required` annotation to the node. To allow the restart, add the following annotation to the node:
+When the module finds such a VM while switching the node to maintenance mode, it adds the `virtualization.deckhouse.io/virtualmachines-restart-required` annotation to the node. To allow the restart, add the matching annotation to the node:
 
 ```bash
-d8 k annotate node <nodename> virtualization.deckhouse.io/virtualmachines-restart-approved=""
+d8 k annotate node <NODE_NAME> virtualization.deckhouse.io/virtualmachines-restart-approved=""
 ```
 
-Here, `<nodename>` is the node that is entering maintenance mode.
+Where `<NODE_NAME>` is the name of the node being switched to maintenance mode.
 
-Only the VMs that cannot be moved by live migration are restarted. The guest operating system shuts down gracefully, and then the VM starts again according to its run policy (`runPolicy`). Each restart creates a VirtualMachineOperation resource named `node-maintenance-restart-*`. A restart interrupts the applications running inside the VM, so agree on it with the project owners.
+Only the VMs that can't be moved by live migration are restarted. The guest OS shuts down gracefully, after which the VM starts according to the [`.spec.runPolicy`](cr.html#virtualmachine-v1alpha2-spec-runpolicy) run policy. For each restart, a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource named `node-maintenance-restart-*` is created. A restart interrupts the applications inside the VM, so coordinate it with the project owners.
 
-The approval never applies to a VM that can be moved by live migration (including a VM that has no suitable target node at the moment). Such a VM is live migrated as soon as a suitable node appears.
+The approval doesn't apply to VMs that can be moved by live migration, including those with no suitable node at the moment. Such VMs are moved by live migration as soon as a suitable node appears.
 
-You can add the approval in advance, when planning the maintenance. Until the node enters maintenance mode, the annotation has no effect. The module removes both annotations once the node is released, so each approval covers a single maintenance of a single node.
+You can grant the approval in advance, while planning the work. Until the node is switched to maintenance mode, the annotation has no effect. The module removes both annotations once the node is free, so one approval covers one maintenance of one node.
 
-The module acts on the eviction of VMs from the node. If the eviction stops on timeout (the [`spec.nodeDrainTimeoutSecond`](/modules/node-manager/cr.html#nodegroup-v1-spec-nodedraintimeoutsecond) parameter of the NodeGroup resource, 10 minutes by default), the eviction is not retried. An approval added after that causes no restart, and the node has to be released manually.
+The module reacts to VM eviction from a node. If eviction stopped on timeout (the [`.spec.nodeDrainTimeoutSecond`](/modules/node-manager/cr.html#nodegroup-v1-spec-nodedraintimeoutsecond) parameter of the [NodeGroup](/modules/node-manager/cr.html#nodegroup) resource, 10 minutes by default), eviction isn't retried. An approval granted after that doesn't trigger a restart, and you have to free the node manually.
 
-The restart releases the node, but it does not guarantee that the VM starts on another node right away: the restriction that prevents live migration usually prevents the VM from starting on another node as well. In this case, the VM stays in the `Pending` phase, and its `Running` condition shows the reason returned by the scheduler. The maintenance can continue: the VM starts as soon as a suitable node appears, including after the node returns to service with the `d8 k uncordon` command.
+A restart frees the node but doesn't guarantee that the VM starts on another one right away. The limitation that prevents live migration usually prevents the start on another node as well. In that case, the VM stays in the `Pending` phase, and the `Running` condition reports the reason received from the scheduler. Maintenance can continue meanwhile. The VM starts as soon as a suitable node appears, including after the node returns to service with `d8 k uncordon`.
 
-VM owners see the same information in the `EvictionRequired` condition of the VM status. While the node is only being prepared for maintenance, the condition is a warning. Once the eviction has started, the condition shows what happens to the VM: a live migration, a restart by the platform, or waiting on the node if no restart is allowed.
+The VM owner sees the same information in the `EvictionRequired` condition of the VM status. While the node is only being prepared for maintenance, the condition is a warning. Once eviction starts, the condition shows what happens to the VM: a move by live migration, a restart by the module, or a wait if the restart isn't approved.
 
 #### Shutting down and rebooting a node with virtual machines
 
-Running virtual machines postpone the shutdown and reboot of their node. The module automatically adds the `pod.deckhouse.io/inhibit-node-shutdown` label to virtual machine pods, and DKP delays the node shutdown based on this label (the mechanism is available in the EE edition and is described in the [`node-manager` module documentation](/modules/node-manager/)). No extra steps are required to enable it.
+Running virtual machines postpone the shutdown and reboot of their node. The module labels their workloads with `pod.deckhouse.io/inhibit-node-shutdown`, and Deckhouse Platform uses this label to delay the node shutdown. The mechanism is available in the Enterprise Edition, is described in the [`node-manager` module documentation](/modules/node-manager/), and doesn't need to be enabled.
 
-If a shutdown or reboot has been requested for a node that still runs virtual machines:
+If a shutdown or reboot is requested on a node that still runs virtual machines:
 
 - The node shutdown is postponed for up to three days.
-- A message listing the pods that hold the shutdown back is periodically printed to the node console.
+- A message about the workloads holding the shutdown is periodically printed to the node console.
 
-On nodes running the shutdown delay mechanism, the `GracefulShutdownPostpone` condition is always present and always has the `True` status, including when there are no virtual machines on the node and no shutdown has been requested. What is actually happening with the node is shown by the condition reason:
+On nodes where the delay mechanism works, the `GracefulShutdownPostpone` condition is always present and always has the `True` status, even when there are no virtual machines on the node and nobody requested a shutdown. What actually happens to the node is shown by the reason in the `reason` field of this condition:
 
 - `WaitingForShutdownSignal`: The mechanism is active and waiting for a node shutdown request.
-- `PodsWithLabelAreRunningOnNode`: A node shutdown has been requested and postponed because virtual machines are still running on the node.
-- `NoRunningPodsWithLabel`: No virtual machines are left on the node, and the shutdown proceeds (the condition status changes to `False`).
+- `PodsWithLabelAreRunningOnNode`: A node shutdown is requested and postponed, because virtual machines are still running on the node.
+- `NoRunningPodsWithLabel`: No virtual machines are left on the node and the shutdown continues; the condition status changes to `False`.
 
-To find out the reason, run the following command:
+To check the reason, run the following command:
 
 ```bash
-d8 k get node <nodename> -o jsonpath='{range .status.conditions[?(@.type=="GracefulShutdownPostpone")]}{.reason}{"\n"}{end}'
+d8 k get node <NODE_NAME> -o jsonpath='{range .status.conditions[?(@.type=="GracefulShutdownPostpone")]}{.reason}{"\n"}{end}'
 ```
 
-The shutdown delay does not move virtual machines to other nodes, it only keeps the node from powering off. Therefore, before any work that requires shutting down or rebooting a node, free it from virtual machines:
+The shutdown delay doesn't move virtual machines to other nodes, it only keeps the node from shutting down. For this reason, free the node from virtual machines before any work that requires a shutdown or a reboot:
 
-- If the machines can be migrated (the `Migratable` condition has the `True` status), put the node into maintenance mode with the `d8 k drain` command as described above.
-- If a machine cannot be migrated (the `Migratable` condition has the `False` status, for example, because of local disks or host devices passed through), stop it with the `d8 v stop <vmname>` command and start it with `d8 v start <vmname>` once the work is complete.
+- If the VMs can be migrated, that is, the `Migratable` condition has the `True` status, switch the node to maintenance mode with `d8 k drain`.
+- If a VM can't be migrated, that is, the `Migratable` condition has the `False` status because of local disks or devices passed through from the node, stop it with `d8 v stop <VM_NAME>`, and start it with `d8 v start <VM_NAME>` once the work is done.
 
-  Stopping is only accepted for the `Manual` and `AlwaysOnUnlessStoppedManually` run policies. Check the policy of the machine:
-
-  ```bash
-  d8 k -n <namespace> get vm <vmname> -o jsonpath='{.spec.runPolicy}'
-  ```
-
-  With the `AlwaysOn` policy the request is refused with the `NotApplicableForVirtualMachineRunPolicy` reason. Switch the policy first, and restore the original value once the work is complete:
+  Stopping is available only for the `Manual` and `AlwaysOnUnlessStoppedManually` run policies. Check the VM policy:
 
   ```bash
-  d8 k -n <namespace> patch vm <vmname> --type merge -p '{"spec":{"runPolicy":"AlwaysOnUnlessStoppedManually"}}'
+  d8 k -n <NAMESPACE> get vm <VM_NAME> -o jsonpath='{.spec.runPolicy}'
   ```
 
-Instead of stopping such VMs manually, you can [let the platform restart them](#restarting-virtual-machines-during-node-maintenance) for the duration of the maintenance. The run policy needs no changes then.
+  With the `AlwaysOn` policy, the stop command is rejected with the `NotApplicableForVirtualMachineRunPolicy` reason. In that case, change the policy first, and restore the previous value once the work is done:
 
-Otherwise, the node will not shut down. Two alerts report this. The `D8VirtualizationVirtualMachineHoldsNodeMaintenance` alert lists the VMs that hold the node and wait for a decision from the administrator. The `D8VirtualizationNodeEvacuationStuck` alert fires when a VM was evicted from the node but has neither migrated nor restarted for 15 minutes.
+  ```bash
+  d8 k -n <NAMESPACE> patch vm <VM_NAME> --type merge -p '{"spec":{"runPolicy":"AlwaysOnUnlessStoppedManually"}}'
+  ```
 
-### VM Rebalancing
+  Where `<NAMESPACE>` is the project namespace, and `<VM_NAME>` is the virtual machine name.
 
-The platform allows you to automatically manage the placement of running virtual machines in the cluster. To enable this feature, activate the `descheduler` module.
+Instead of stopping VMs manually, you can [let the module restart such VMs](#restarting-virtual-machines-during-node-maintenance) for the duration of the node maintenance. The run policy doesn't have to be changed in that case.
 
-Live migration of virtual machines between cluster nodes is used for rebalancing.
+If you do none of this, the node doesn't shut down. Two alerts report this situation. The `D8VirtualizationVirtualMachineHoldsNodeMaintenance` alert lists the VMs that hold the node and wait for an administrator's decision. The `D8VirtualizationNodeEvacuationStuck` alert fires if a VM was evicted from a node but neither migrated nor restarted within 15 minutes.
 
-After the module is enabled, the system automatically monitors the distribution of virtual machines and maintains optimal node utilization. The main features of the module are:
+### VM rebalancing
 
-- Load balancing: The system monitors CPU reservation on each node. If more than 80% of CPU resources are reserved on a node, some virtual machines will be automatically migrated to less-loaded nodes. This helps avoid overloads and ensures stable VM operation.
-- Correct placement: The system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
+Over time, the distribution of virtual machines across nodes stops being even. The [`descheduler`](/modules/descheduler/) module restores the balance by moving VMs with live migration, without interrupting them. Enable this module, and the distribution is maintained without your involvement.
 
-Rebalancing covers only the VMs that can leave their node by live migration. A VM that cannot be live migrated — for example, one with a passed-through device — is never moved by rebalancing, because the only other way off the node is a restart. Such a VM is restarted solely during [node maintenance](#restarting-virtual-machines-during-node-maintenance) and only with the permission of an administrator.
+{{< tabs name="descheduler" >}}
+
+{{% tab name="Using the CLI" %}}
+
+Rebalancing solves two tasks:
+
+- It evens out the load. The module tracks how much CPU is reserved on each node and, when a node reserves more than 80%, moves some VMs to less loaded nodes.
+- It restores correct placement. The module checks whether the current node meets the VM requirements and the rules of mutual VM placement. For example, if the rules forbid keeping certain VMs on the same node, the extra ones are moved.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **System** tab, then to **Configuration** → **Deschedulers**.
+1. Click **Create**.
+1. In the **Create resource** window that opens, enter the resource name in the **Name** field.
+1. On the **Configuration** tab, in the **Strategies** block, enable the strategies you need. The **Low node utilization (balancing)** strategy moves VMs from overloaded nodes, while **Inter-Pod Anti-Affinity violations** and **Node Affinity violations** restore correct placement.
+1. Click **Apply**.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+The created resources and the strategies enabled in them appear in the list of the section.
+
+Rebalancing covers only the VMs that can leave their node by live migration. A VM that can't be live migrated, for example one with a passed-through device, is never moved by rebalancing, because the only other way off the node is a restart. Such a VM is restarted only during [node maintenance](#restarting-virtual-machines-during-node-maintenance) and only with the permission of an administrator.
 
 ### ColdStandby
 
-ColdStandby provides a mechanism to recover a virtual machine from a failure on a node it was running on.
+The ColdStandby mechanism returns a virtual machine to service after the failure of the node it was running on.
 
-The following requirements must be met for this mechanism to work:
+For the mechanism to work, meet two requirements:
 
-- The virtual machine startup policy (`.spec.runPolicy`) must be set to one of the following values: `AlwaysOnUnlessStoppedManually`, `AlwaysOn`.
-- The [Fencing mechanism](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/040-node-manager/cr.html#nodegroup-v1-spec-fencing-mode) must be enabled on nodes running the virtual machines.
+- The [`.spec.runPolicy`](cr.html#virtualmachine-v1alpha2-spec-runpolicy) run policy of the virtual machine must be set to `AlwaysOnUnlessStoppedManually` or `AlwaysOn`.
+- The [Fencing](/modules/node-manager/cr.html#nodegroup-v1-spec-fencing-mode) mechanism must be enabled on the nodes that run virtual machines.
 
-If the Fencing mechanism is not enabled, ColdStandby does not work: when a node becomes unavailable, the virtual machine is not started on another node. It stays on the current one and resumes operation together with it.
+Without Fencing, the mechanism doesn't work. An unavailable VM doesn't move in that case, but stays on the failed node and resumes together with it.
 
-Let's see how it works on the example:
+Here's the recovery sequence, using a cluster of three nodes, `master`, `workerA`, and `workerB`, where Fencing is enabled on both worker nodes and the `linux-vm` VM runs on `workerA`:
 
-1. A cluster consists of three nodes: `master`, `workerA`, and `workerB`. The worker nodes have the Fencing mechanism enabled. The `linux-vm` virtual machine is running on the `workerA` node.
-1. A problem occurs on the `workerA` node (power outage, no network connection, etc.).
-1. The controller checks the node availability and finds that `workerA` is unavailable.
-1. The controller removes the `workerA` node from the cluster.
-1. The `linux-vm` virtual machine is started on another suitable node (`workerB`).
+1. The `workerA` node fails, for example because of a power or network loss.
+1. The controller checks node availability and finds that `workerA` doesn't respond.
+1. The controller removes `workerA` from the cluster.
+1. The `linux-vm` VM starts on another suitable node, `workerB` in this example.
 
 ![ColdStandBy mechanism diagram](./images/coldstandby.png)
 
 ## USB devices
 
 {{< alert level="warning" >}}
-USB device passthrough is available only in the Deckhouse Virtualization Platform **Enterprise Edition (EE)**.
+USB device passthrough is available only in Deckhouse Platform **Enterprise Edition (EE)**.
 {{< /alert >}}
 
-USB device passthrough is handled by the `virtualization-dra` DaemonSet. Its pods require the following kernel modules on the node:
+USB device passthrough to virtual machines (VMs) is handled by the `virtualization-dra` system component, which needs three kernel modules on the node:
 
 - `usbip_core`
 - `usbip_host`
 - `vhci_hcd`
 
-The module tries to make these kernel modules available on every node automatically. A node where all three modules are present gets the `virtualization.deckhouse.io/usbip=true` label, and the `virtualization-dra` pod is scheduled only on labeled nodes. If the modules are no longer available on a node, the label is removed and the pod is evicted from it.
+The module loads them on the nodes itself. A node where all three modules are available gets the `virtualization.deckhouse.io/usbip=true` label, and the `virtualization-dra` component runs only on such nodes. If the kernel modules stop being available, the label is removed and the component is deleted from the node.
 
-To check which nodes are ready for USB device passthrough:
+To see which nodes are ready for USB device passthrough, run the following command:
 
 ```bash
 d8 k get nodes -l virtualization.deckhouse.io/usbip=true
 ```
+
+Example output:
 
 ```console
 NAME     STATUS   ROLES    AGE   VERSION
 node-1   Ready    worker   10d   v1.34.1
 ```
 
-To check that the pods are running:
+To verify that the component is actually running on these nodes, run the following command:
 
 ```bash
 d8 k -n d8-virtualization get pods -l app=virtualization-dra -o wide
 ```
 
-If a node is missing from the output, the required kernel modules could not be made available on it, so USB devices connected to that node are not discovered. In this case, provide the kernel modules on the node yourself: install them from a package of your operating system, or build them for the running kernel. The kernel modules are picked up automatically, and the node is labeled within a few minutes.
+A node missing from the output failed to load the kernel modules, and USB devices on that node aren't detected. Install the kernel modules yourself from your operating system package, or build them for the kernel in use. The module detects them on its own and assigns the label to the node within a few minutes.
 
-### How it works
+### Path of a USB device from a node to a VM
 
-USB device passthrough follows a defined lifecycle — from device discovery on a node to making the device available in a project namespace:
+A USB device travels from the node to a virtual machine in four steps:
 
-1. The DRA driver discovers USB devices on cluster nodes and publishes them to the Kubernetes API as ResourceSlices. The module controller creates [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources from that data.
+1. The DRA driver detects USB devices on the nodes and publishes information about them to the Kubernetes API as a [ResourceSlice](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/). The module controller creates [NodeUSBDevice](cr.html#nodeusbdevice) resources from this data.
 
-1. An administrator assigns a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource by setting the `.spec.assignedNamespace` field. This makes the device available in that namespace.
+1. The administrator assigns a namespace to the [NodeUSBDevice](cr.html#nodeusbdevice) resource by setting the [`.spec.assignedNamespace`](cr.html#nodeusbdevice-v1alpha2-spec-assignednamespace) parameter. This makes the device available in that namespace.
 
-1. After the namespace is assigned, the module controller automatically creates a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource in that namespace.
+1. Once the namespace is assigned, the module controller creates a [USBDevice](cr.html#usbdevice) resource in it.
 
-1. A user attaches the [USBDevice](/modules/virtualization/cr.html#usbdevice) to a virtual machine by adding it to the `.spec.usbDevices` field of the [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) resource. For details, see the [User guide](./user_guide.html#usb-devices).
+1. The project owner attaches the [USBDevice](cr.html#usbdevice) device to a virtual machine by adding it to the [`.spec.usbDevices`](cr.html#virtualmachine-v1alpha2-spec-usbdevices) parameter of the [VirtualMachine](cr.html#virtualmachine) resource.
 
-### Quick start
+### Discovered devices (NodeUSBDevice)
 
-The following steps describe the minimal workflow for making a USB device available in a namespace:
+The [NodeUSBDevice](cr.html#nodeusbdevice) resource describes a physical USB device detected on a node. The resource exists at the cluster level, so you see all detected devices in a single list:
 
-1. Connect the USB device to a cluster node that is ready for USB device passthrough (see above).
+```bash
+d8 k get nodeusbdevice
+```
 
-1. Verify that a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource has been created:
+Example output:
 
-   ```bash
-   d8 k get nodeusbdevice
-   ```
+```console {.nowrap-default}
+NAME              NODE     READY   ASSIGNED   ATTACHED   NAMESPACE    AGE
+usb-flash-drive   node-1   True    False      False                   10m
+logitech-webcam   node-2   True    True       True       my-project   15m
+```
 
-1. Assign a namespace to the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) by setting the `.spec.assignedNamespace` field:
+The conditions in the [`.status.conditions`](cr.html#nodeusbdevice-v1alpha2-status-conditions) block reflect the readiness of the device and its state. The `Ready` and `Attached` conditions match the [USBDevice conditions](./user_guide.html#usbdevice-conditions), and the `Assigned` condition shows whether a namespace is assigned to the device:
+
+- `Available`: No namespace is assigned.
+- `InProgress`: A namespace is assigned and the [USBDevice](cr.html#usbdevice) resource is being created.
+- `Assigned`: The [USBDevice](cr.html#usbdevice) resource is created and the device is available in the namespace.
+
+#### Assigning a namespace to a USB device
+
+Until a namespace is assigned to a device, the project owner doesn't see it. To make the device available in a project, follow these steps.
+
+1. Connect the USB device to a node that is ready for passthrough and wait for a [NodeUSBDevice](cr.html#nodeusbdevice) resource to appear.
+
+1. Assign the namespace with the [`.spec.assignedNamespace`](cr.html#nodeusbdevice-v1alpha2-spec-assignednamespace) parameter:
 
    ```bash
    d8 k apply -f - <<EOF
@@ -1479,120 +1504,169 @@ The following steps describe the minimal workflow for making a USB device availa
    EOF
    ```
 
-1. Verify that a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource has been created in the target namespace:
+1. Verify that a [USBDevice](cr.html#usbdevice) resource appears in the namespace:
 
    ```bash
    d8 k get usbdevice -n my-project
    ```
 
-After that, a user can attach the device to a virtual machine. See [Attaching USB Device to VM](./user_guide.html#attaching-usb-device-to-vm) in the User guide.
-
-### NodeUSBDevice
-
-[NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) reflects the state of a physical USB device detected on a cluster node. It is a cluster-wide resource that represents a physical USB device on a node.
-
-Example of viewing all discovered USB devices:
-
-```bash
-d8 k get nodeusbdevice
-```
-
-Example output:
-
-```console
-NAME                 NODE           READY   ASSIGNED   NAMESPACE   AGE
-usb-flash-drive      node-1         True    False                  10m
-logitech-webcam      node-2         True    True       my-project  15m
-```
-
-#### NodeUSBDevice conditions
-
-The status of a [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource is represented by a set of conditions that describe its availability and assignment state. These conditions are available in `.status.conditions`:
-
-- **Ready**: Indicates whether the device is ready to use.
-  - `Ready`: Device is ready to use.
-  - `NotReady`: Device exists but is not ready.
-  - `NotFound`: Device is absent on the host.
-
-- **Assigned**: Indicates whether a namespace is assigned to the device.
-  - `Assigned`: Namespace is assigned and USBDevice resource is created.
-  - `Available`: No namespace is assigned for the device.
-  - `InProgress`: Device connection to namespace is in progress.
-
-#### Assigning a namespace
-
-Before a USB device can be attached to a virtual machine, it must be exposed to a specific namespace. To make a USB device available in a specific namespace, set the `.spec.assignedNamespace` parameter of the [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resource:
-
-```bash
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: NodeUSBDevice
-metadata:
-  name: logitech-webcam
-spec:
-  assignedNamespace: my-project
-EOF
-```
-
-After assigning the namespace, a corresponding [USBDevice](/modules/virtualization/cr.html#usbdevice) resource is automatically created in the specified namespace.
+After that, the project owner attaches the device to a virtual machine.
 
 ### Viewing USB device details
 
-To view detailed information about a USB device:
+Full details about a device and its current state are available in the resource status.
+
+{{< tabs name="usb-view" >}}
+
+{{% tab name="Using the CLI" %}}
+
+The device identifiers, its location, and the current conditions are stored in the resource status:
 
 ```bash
-d8 k describe nodeusbdevice <device-name>
+d8 k get nodeusbdevice <DEVICE_NAME> -o yaml
+```
+
+Where `<DEVICE_NAME>` is the name of the [NodeUSBDevice](cr.html#nodeusbdevice) resource.
+
+To get only the device attributes, query the fields you need directly:
+
+```bash
+d8 k get nodeusbdevice <DEVICE_NAME> \
+  -o jsonpath='{.status.attributes.manufacturer}{" "}{.status.attributes.product}{" ("}{.status.attributes.vendorID}{":"}{.status.attributes.productID}{")\n"}'
 ```
 
 Example output:
 
 ```console
-Name:         logitech-webcam
-Namespace:
-Labels:       <none>
-Annotations:  <none>
-API Version:  virtualization.deckhouse.io/v1alpha2
-Kind:         NodeUSBDevice
-Metadata:
-  Creation Timestamp:  2024-01-15T10:30:00Z
-  Generation:          1
-  UID:                 abc123-def456-ghi789
-Spec:
-  Assigned Namespace:  my-project
-Status:
-  Node Name:           node-2
-  Attributes:
-    Bus:               1
-    Device Number:     2
-    Manufacturer:      Logitech
-    Name:              Webcam C920
-    Product:           Webcam C920
-    Product ID:        082d
-    Serial:            ABC123456
-    Vendor ID:         046d
-  Conditions:
-    Type:              Ready
-    Status:            True
-    Reason:            Ready
-    Message:           Device is ready to use
-    Type:              Assigned
-    Status:            True
-    Reason:            Assigned
-    Message:           Namespace is assigned for the device
-  Observed Generation: 1
+Logitech Webcam C920 (046d:082d)
 ```
 
-{{< alert level="info" >}}
-If a USB device is physically disconnected from the node, the `Attached` condition becomes `False`.
-Both [USBDevice](/modules/virtualization/cr.html#usbdevice) and [NodeUSBDevice](/modules/virtualization/cr.html#nodeusbdevice) resources update their status conditions to indicate that the device is no longer present on the host.
-{{< /alert >}}
+> When a device is physically disconnected from the node, the `Attached` condition gets the `False` value, and the `Ready` condition gets the `NotFound` reason. The same is reflected in the status of the [USBDevice](cr.html#usbdevice) resource in the project namespace.
+
+{{% /tab %}}
+
+{{% tab name="Using the web interface" %}}
+
+1. Go to the **System** tab, then to **Virtualization** → **Node USB devices**.
+1. Review the list, which shows the device status, manufacturer, product, serial number, node, bus, device number, and assigned namespace.
+
+{{% /tab %}}
+
+{{< /tabs >}}
+
+The project owner sees the devices assigned to their project in the **Virtualization** → **USB devices** section of that project.
 
 ### Requirements and limitations
 
-USB device passthrough has several operational requirements and limitations that must be considered before use:
+When planning USB device passthrough, consider the following requirements and limitations:
 
-- The DRA driver must be installed on nodes where USB devices are to be discovered (see kernel modules and the `virtualization-dra` DaemonSet above).
-- USB devices are forwarded to the VM node over the network using USBIP. The VM does not need to run on the same node where the device is physically connected. When connecting over the network, the following limitations on the number of devices and hub selection apply:
-  - Node can attach at most 16 USB devices: up to 8 on the USB 2.0 hub and up to 8 on the USB 3.0 hub.
-  - Hub is determined by the device speed and cannot be changed. A device that operates at USB 2.0 speed cannot be attached to the USB 3.0 hub, and vice versa.
-- USB devices support hot-plug — they can be attached to and detached from a running VM without stopping it.
+- A node where USB devices must be detected has to carry the `virtualization.deckhouse.io/usbip=true` label and run containerd version 2, otherwise the `virtualization-dra` component doesn't start there.
+- A device is passed to a virtual machine over the network using USBIP, so the VM can run on a node other than the one the device is physically connected to.
+- Only a device that reports the USB 2.0 speed (480 Mbps) or a USB 3.x speed (5 Gbps and higher) can be passed through. The module doesn't let you attach a slower device to a VM, for example a mouse or a keyboard at 1.5 or 12 Mbps.
+- A node connects no more than 16 devices, 8 per USB 2.0 hub and 8 per USB 3.0 hub.
+- The hub is selected by the device speed and can't be changed manually. A USB 2.0 device doesn't connect to a USB 3.0 hub, and vice versa.
+- A device can be attached to a running VM and detached from it without stopping the VM.
+
+## GPU devices
+
+{{< alert level="warning" >}}
+GPU device passthrough is an experimental feature available only in the Enterprise Edition.
+{{< /alert >}}
+
+The module attaches physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A project owner requests a device by a reference to a `GPUClass` in the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block of their machine, and you prepare the cluster for this.
+
+To make passthrough work, provide the following:
+
+- [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) 1.34 or later with the DRA feature gates required by your cluster configuration.
+- The `GPU` feature gate in the `virtualization` module settings.
+- A GPU DRA provider installed in the cluster that publishes devices with the `gpu.deckhouse.io` attributes.
+- A `GPUClass` resource that selects devices of the model you need. The GPU module creates a DeviceClass resource with the same name from it, and the device is allocated to a machine through that class.
+
+To enable the feature gate, add it to the module settings:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  settings:
+    featureGates:
+      - GPU
+```
+
+After that, tell the project owners the names of the available `GPUClass` resources. A single machine takes no more than 16 devices, and a change to the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block applies only after the machine restarts.
+## Security event audit
+
+The audit records actions on virtual machines (VMs) and on the module itself, so that you can investigate an incident and reconstruct the sequence of events.
+
+{{< alert level="warning" >}}
+Not available in the CE edition.
+{{< /alert >}}
+
+### Enabling the audit
+
+To enable the security event audit, follow these steps:
+
+1. Enable the [`log-shipper`](/modules/log-shipper/) and [`runtime-audit-engine`](/modules/runtime-audit-engine/) modules.
+1. Enable the Kubernetes API audit by setting [`.spec.settings.apiserver.auditPolicyEnabled`](/modules/control-plane-manager/configuration.html#parameters-apiserver-auditpolicyenabled) to `true` in the [`control-plane-manager`](/modules/control-plane-manager/) module.
+1. Set [`.spec.settings.audit.enabled`](configuration.html#parameters-audit-enabled) to `true` in the `virtualization` module:
+
+   ```yaml
+   spec:
+     settings:
+       audit:
+         enabled: true
+   ```
+
+Until all three conditions are met, the audit component doesn't start in the cluster. For the other parameters, see the [module settings](./configuration.html).
+
+### Event types
+
+The event type is recorded in the `type` field. The audit distinguishes the following types:
+
+- `Access to VM`: A connection to a VM over the console, VNC, or port forwarding. Both the start and the end of the session are recorded.
+- `Manage VM`: Creating, updating, or deleting a [VirtualMachine](cr.html#virtualmachine) resource.
+- `Control VM`: A change of the VM state, including start, stop, restart, migration, and eviction through the [VirtualMachineOperation](cr.html#virtualmachineoperation) resource, as well as a shutdown or restart from the guest OS and an abnormal termination.
+- `Module control`: Creating, updating, disabling, or deleting a [ModuleConfig](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig).
+- `Virtualization control`: Creating or deleting a system component of the module in the `d8-virtualization` namespace.
+- `Integrity check`: A mismatch between the VM configuration checksum and the reference one.
+- `Forbidden operation`: An attempt to perform a forbidden operation.
+
+Regardless of the type, every event contains the same fields:
+
+- `name`: A description of what happened.
+- `datetime`: The time of the event.
+- `request_subject`: The user or ServiceAccount that performed the action.
+- `operation_result`: The result of the operation.
+- `uid`: The identifier of the record in the Kubernetes audit.
+
+Additional fields depend on the event type. For example, VM events contain the `virtual_machine_name` and `virtual_machine_namespace` fields, while forbidden operations report the request source in the `source_ip` field and the denial reason in the `forbid_reason` field.
+
+### Viewing events
+
+Events are collected by the `virtualization-audit` system component in the `d8-virtualization` namespace. To forward them to the cluster logging system, for example to [Loki](/modules/loki/), create a [ClusterLoggingConfig](/modules/log-shipper/cr.html#clusterloggingconfig):
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-logs
+spec:
+  destinationRefs:
+    - d8-loki
+  kubernetesPods:
+    namespaceSelector:
+      matchNames:
+        - d8-virtualization
+    labelSelector:
+      matchLabels:
+        app: virtualization-audit
+  type: KubernetesPods
+```
+
+To view the events in [Grafana](/modules/prometheus/), use a [Loki](/modules/loki/) query:
+
+```logql
+{namespace="d8-virtualization", pod=~"virtualization-audit-.*"}
+```

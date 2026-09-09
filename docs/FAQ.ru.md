@@ -11,7 +11,7 @@ weight: 70
 
 Ниже приведён типовой сценарий установки гостевой ОС Windows из ISO-образа. Перед началом разместите ISO-образ на HTTP-ресурсе, доступном из кластера.
 
-1. Создайте пустой [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) для установки ОС:
+1. Создайте пустой [VirtualDisk](cr.html#virtualdisk) для установки ОС:
 
    ```yaml
    apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -25,7 +25,7 @@ weight: 70
        storageClassName: local-path
    ```
 
-1. Создайте ресурсы [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) для ISO-образа ОС Windows и дистрибутива драйверов `VirtIO`:
+1. Создайте ресурсы [ClusterVirtualImage](cr.html#clustervirtualimage) для ISO-образа ОС Windows и дистрибутива драйверов `VirtIO`:
 
    ```yaml
    apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -110,9 +110,9 @@ weight: 70
 В примере ниже файл ответов:
 
 - задаёт русский язык интерфейса и раскладку;
-- подключает драйверы `VirtIO` для этапа установки (порядок устройств в `blockDeviceRefs` у ресурса [VirtualMachine](/modules/virtualization/cr.html#virtualmachine) должен совпадать с путями в файле);
+- подключает драйверы `VirtIO` для этапа установки (порядок устройств в `blockDeviceRefs` у ресурса [VirtualMachine](cr.html#virtualmachine) должен совпадать с путями в файле);
 - создаёт разметку диска для установки с EFI;
-- создаёт пользователя `cloud` (администратор, пароль `cloud`) и пользователя `user` (пароль `user`).
+- создаёт администратора `cloud` и обычного пользователя `user`.
 
 <details><summary><b>Пример содержимого файла autounattend.xml…</b></summary>
 
@@ -210,7 +210,7 @@ weight: 70
       </ImageInstall>
       <UserData>
         <ProductKey>
-          <Key>VK7JG-NPHTM-C97JM-9MPGT-3V66T</Key>
+          <Key><PRODUCT_KEY></Key>
           <WillShowUI>OnError</WillShowUI>
         </ProductKey>
         <AcceptEula>true</AcceptEula>
@@ -262,7 +262,7 @@ weight: 70
             <DisplayName>cloud</DisplayName>
             <Group>Administrators</Group>
             <Password>
-              <Value>cloud</Value>
+              <Value><ADMIN_PASSWORD></Value>
               <PlainText>true</PlainText>
             </Password>
           </LocalAccount>
@@ -271,7 +271,7 @@ weight: 70
             <DisplayName>user</DisplayName>
             <Group>Users</Group>
             <Password>
-              <Value>user</Value>
+              <Value><USER_PASSWORD></Value>
               <PlainText>true</PlainText>
             </Password>
           </LocalAccount>
@@ -282,7 +282,7 @@ weight: 70
         <Enabled>true</Enabled>
         <LogonCount>1</LogonCount>
         <Password>
-          <Value>cloud</Value>
+          <Value><ADMIN_PASSWORD></Value>
           <PlainText>true</PlainText>
         </Password>
       </AutoLogon>
@@ -304,6 +304,8 @@ weight: 70
 ```
 
 </details>
+
+Вместо `<PRODUCT_KEY>` подставьте ключ продукта Windows, а вместо `<ADMIN_PASSWORD>` и `<USER_PASSWORD>` подставьте пароли создаваемых учётных записей. Windows читает эти пароли из файла в открытом виде, поэтому не оставляйте готовый файл ответов на общедоступном ресурсе.
 
 1. Сохраните файл ответов в `autounattend.xml` (воспользуйтесь примером из блока выше или измените его под свои требования).
 
@@ -356,18 +358,18 @@ Golden image — это предварительно настроенный об
 
 1. Установите и настройте `qemu-guest-agent` (рекомендуется):
 
-  - Для RHEL/CentOS:
+   - Для RHEL/CentOS:
 
-    ```bash
-    yum install -y qemu-guest-agent
-    ```
+     ```bash
+     yum install -y qemu-guest-agent
+     ```
 
-  - Для Debian/Ubuntu:
+   - Для Debian/Ubuntu:
 
-    ```bash
-    apt-get update
-    apt-get install -y qemu-guest-agent
-    ```
+     ```bash
+     apt-get update
+     apt-get install -y qemu-guest-agent
+     ```
 
 1. Включите и запустите сервис:
 
@@ -376,7 +378,7 @@ Golden image — это предварительно настроенный об
    systemctl start qemu-guest-agent
    ```
 
-1. Установите политику запуска ВМ [runPolicy: AlwaysOnUnlessStoppedManually](/modules/virtualization/cr.html#virtualmachine-v1alpha2-spec-runpolicy) — это потребуется, чтобы ВМ можно было выключить.
+1. Задайте машине политику запуска [`AlwaysOnUnlessStoppedManually`](cr.html#virtualmachine-v1alpha2-spec-runpolicy), иначе выключить её не получится.
 
 1. Подготовьте образ. Очистите неиспользуемые блоки файловой системы:
 
@@ -387,18 +389,18 @@ Golden image — это предварительно настроенный об
 
 1. Очистите сетевые настройки:
 
-  - Для RHEL:
+   - Для RHEL:
 
-    ```bash
-    nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
-    rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
-    ```
+     ```bash
+     nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+     rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+     ```
 
-  - Для Debian/Ubuntu:
+   - Для Debian/Ubuntu:
 
-    ```bash
-    rm -f /etc/network/interfaces.d/*
-    ```
+     ```bash
+     rm -f /etc/network/interfaces.d/*
+     ```
 
 1. Очистите системные идентификаторы:
 
@@ -408,13 +410,13 @@ Golden image — это предварительно настроенный об
    ln -s /etc/machine-id /var/lib/dbus/machine-id
    ```
 
-1. Удалите SSH host keys:
+1. Удалите ключи хоста SSH:
 
    ```bash
    rm -f /etc/ssh/ssh_host_*
    ```
 
-1. Очистите systemd journal:
+1. Очистите журнал systemd:
 
    ```bash
    journalctl --vacuum-size=100M --vacuum-time=7d
@@ -422,17 +424,17 @@ Golden image — это предварительно настроенный об
 
 1. Очистите кеш пакетных менеджеров:
 
-  - Для RHEL:
+   - Для RHEL:
 
-    ```bash
-    yum clean all
-    ```
+     ```bash
+     yum clean all
+     ```
 
-  - Для Debian/Ubuntu:
+   - Для Debian/Ubuntu:
 
-    ```bash
-    apt-get clean
-    ```
+     ```bash
+     apt-get clean
+     ```
 
 1. Очистите временные файлы:
 
@@ -453,19 +455,19 @@ Golden image — это предварительно настроенный об
    history -c
    ```
 
-   Для RHEL: выполните сброс и восстановление контекстов SELinux (выберите один из вариантов):
+1. В RHEL сбросьте и восстановите контексты SELinux одним из двух способов.
 
-  - Вариант 1: Проверка и восстановление контекстов немедленно:
+   Восстановите контексты сразу:
 
-    ```bash
-    restorecon -R /
-    ```
+   ```bash
+   restorecon -R /
+   ```
 
-  - Вариант 2: Запланировать `relabel` при следующей загрузке:
+   Либо запланируйте пересчёт контекстов на следующую загрузку:
 
-    ```bash
-    touch /.autorelabel
-    ```
+   ```bash
+   touch /.autorelabel
+   ```
 
 1. Проверьте, что в `/etc/fstab` указаны UUID или `LABEL`, а не имена вида `/dev/sdX`:
 
@@ -493,71 +495,75 @@ Golden image — это предварительно настроенный об
    poweroff
    ```
 
-1. Создайте ресурс [VirtualImage](/modules/virtualization/cr.html#virtualimage), указав исходный ресурс [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) подготовленной ВМ:
+1. Создайте ресурс [VirtualImage](cr.html#virtualimage), указав исходный ресурс [VirtualDisk](cr.html#virtualdisk) подготовленной ВМ:
 
    ```bash
    d8 k apply -f -<<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: <image-name>
-     namespace: <namespace>
+     name: <IMAGE_NAME>
+     namespace: <NAMESPACE>
    spec:
      dataSource:
        type: ObjectRef
        objectRef:
          kind: VirtualDisk
-         name: <source-disk-name>
+         name: <SOURCE_DISK_NAME>
    EOF
    ```
 
-   Либо создайте ресурс [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage), чтобы образ был доступен на уровне кластера для всех проектов:
+   Либо создайте ресурс [ClusterVirtualImage](cr.html#clustervirtualimage), чтобы образ был доступен на уровне кластера для всех проектов:
 
    ```bash
    d8 k apply -f -<<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: ClusterVirtualImage
    metadata:
-     name: <image-name>
+     name: <IMAGE_NAME>
    spec:
      dataSource:
        type: ObjectRef
        objectRef:
          kind: VirtualDisk
-         name: <source-disk-name>
-         namespace: <namespace>
+         name: <SOURCE_DISK_NAME>
+         namespace: <NAMESPACE>
    EOF
    ```
 
-1. Создайте новый ресурс [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) из полученного образа:
+   Здесь `<IMAGE_NAME>` — имя создаваемого образа, `<NAMESPACE>` — неймспейс подготовленной машины, а `<SOURCE_DISK_NAME>` — имя её диска.
+
+1. Создайте новый ресурс [VirtualDisk](cr.html#virtualdisk) из полученного образа:
 
    ```bash
    d8 k apply -f -<<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualDisk
    metadata:
-     name: <vm-disk-name>
-     namespace: <namespace>
+     name: <VM_DISK_NAME>
+     namespace: <NAMESPACE>
    spec:
      dataSource:
        type: ObjectRef
        objectRef:
          kind: VirtualImage
-         name: <image-name>
+         name: <IMAGE_NAME>
    EOF
    ```
 
-После выполнения всех шагов у вас будет Golden image, который можно использовать для быстрого создания новых виртуальных машин с предустановленным программным обеспечением и настройками.
+   Здесь `<VM_DISK_NAME>` — имя диска новой машины.
+
+После этих шагов golden image готов, и из него быстро создаются новые машины с уже установленным программным обеспечением и настройками.
 
 ### Подключение к виртуальной машине
 
 К ВМ можно подключиться через серийную консоль ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) или по VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
 Способы используют разные каналы связи с гостевой ОС и зависят от её настройки.
-Подробнее о подключении описано в разделе [Подключение к виртуальной машине](user_guide.html#подключение-к-виртуальной-машине).
+Подробнее о подключении описано в разделе [Подключение к виртуальной машине](./user_guide.html#подключение-к-виртуальной-машине).
 
 Ниже перечислены типовые ситуации, когда доступен только один из способов подключения.
 
-#### Нет доступа по VNC, но серийная консоль работает
+#### Почему не работает VNC, если серийная консоль доступна?
 
 VNC выводит изображение экрана гостевой ОС и требует поддержки виртуального терминала в ядре.
 Серийная консоль при этом работает независимо от графической подсистемы.
@@ -576,7 +582,7 @@ CONFIG_VT=y
 
 Если в выводе указано `CONFIG_VT is not set`, пересоберите ядро с включённым параметром либо используйте образ ОС с подходящей конфигурацией ядра.
 
-#### Нет доступа по серийной консоли, но VNC работает
+#### Почему не работает серийная консоль, если VNC доступен?
 
 Серийная консоль подключается к порту `ttyS0` в гостевой ОС.
 Если служба `getty` для этого порта не запущена, при подключении через `d8 v console` не появится приглашение ко входу, хотя VNC продолжит работать.
@@ -596,9 +602,9 @@ sudo systemctl enable --now serial-getty@ttyS0.service
 [Cloud-init](https://cloudinit.readthedocs.io/) применяется для первичной настройки гостевой ОС при первом запуске. Конфигурация задаётся в YAML и начинается с директивы `#cloud-config`.
 
 {{< alert level="warning" >}}
-Для образов, рассчитанных на cloud-init (в том числе официальных cloud-образов дистрибутивов), конфигурацию cloud-init нужно передать явно: иначе на части дистрибутивов не поднимается сеть, и ВМ оказывается недоступна по сети даже при подключении основной сети (Main).
+Для образов, рассчитанных на cloud-init (в том числе официальных cloud-образов дистрибутивов), конфигурацию cloud-init нужно передать явно. Иначе на части дистрибутивов не поднимается сеть, и машина остаётся недоступной даже при подключённой основной сети (Main).
 
-Кроме того, в cloud-образах по умолчанию отключена возможность входа в систему — необходимо добавить SSH-ключи для пользователя по умолчанию либо создать нового пользователя с SSH-доступом, иначе доступ к виртуальной машине будет невозможен.
+Кроме того, в cloud-образах по умолчанию отключён вход в систему. Добавьте SSH-ключи пользователю по умолчанию либо создайте нового пользователя с SSH-доступом, иначе к машине не подключиться.
 {{< /alert >}}
 
 #### Обновление и установка пакетов
@@ -607,16 +613,16 @@ sudo systemctl enable --now serial-getty@ttyS0.service
 
 ```yaml
 #cloud-config
-# Обновить списки пакетов
+# Обновить списки пакетов.
 package_update: true
-# Обновить установленные пакеты до последних версий
+# Обновить установленные пакеты до последних версий.
 package_upgrade: true
-# Список пакетов для установки
+# Список пакетов для установки.
 packages:
   - nginx
   - curl
   - htop
-# Команды для выполнения после установки пакетов
+# Команды для выполнения после установки пакетов.
 runcmd:
   - systemctl enable --now nginx.service
 ```
@@ -627,16 +633,22 @@ runcmd:
 
 ```yaml
 #cloud-config
-# Список пользователей для создания
+# Список пользователей для создания.
 users:
-  - name: cloud                    # Имя пользователя
-    passwd: "$6$rounds=4096$saltsalt$..."  # Хеш пароля (SHA-512)
-    lock_passwd: false            # Не блокировать учётную запись
-    sudo: ALL=(ALL) NOPASSWD:ALL  # Права sudo без запроса пароля
-    shell: /bin/bash              # Оболочка по умолчанию
-    ssh-authorized-keys:          # SSH-ключи для доступа
-      - ssh-ed25519 AAAAC3NzaC... your-public-key ...
-# Разрешить аутентификацию по паролю через SSH
+    # Имя пользователя.
+  - name: cloud
+    # Хеш пароля.
+    passwd: "<PASSWORD_HASH>"
+    # Не блокировать учётную запись.
+    lock_passwd: false
+    # Права sudo без запроса пароля.
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    # Оболочка по умолчанию.
+    shell: /bin/bash
+    # SSH-ключи для доступа.
+    ssh-authorized-keys:
+      - <SSH_PUBLIC_KEY>
+# Разрешить аутентификацию по паролю через SSH.
 ssh_pwauth: true
 ```
 
@@ -652,14 +664,18 @@ mkpasswd --method=SHA-512 --rounds=4096
 
 ```yaml
 #cloud-config
-# Список файлов для создания
+# Список файлов для создания.
 write_files:
-  - path: /opt/scripts/start.sh    # Путь к файлу
-    content: |                     # Содержимое файла
+    # Путь к файлу.
+  - path: /opt/scripts/start.sh
+    # Содержимое файла.
+    content: |
       #!/bin/bash
       echo "Starting application"
-    owner: cloud:cloud            # Владелец файла (пользователь:группа)
-    permissions: '0755'           # Права доступа (восьмеричный формат)
+    # Владелец файла, пользователь и группа.
+    owner: cloud:cloud
+    # Права доступа в восьмеричном формате.
+    permissions: '0755'
 ```
 
 #### Настройка диска и файловой системы
@@ -668,21 +684,29 @@ write_files:
 
 ```yaml
 #cloud-config
-# Настройка разметки диска
+# Настройка разметки диска.
 disk_setup:
-  /dev/sdb:                        # Устройство диска
-    table_type: gpt                # Тип таблицы разделов (gpt или mbr)
-    layout: true                   # Автоматически создать разделы
-    overwrite: false               # Не перезаписывать существующие разделы
+  # Устройство диска.
+  /dev/sdb:
+    # Тип таблицы разделов, gpt или mbr.
+    table_type: gpt
+    # Автоматически создать разделы.
+    layout: true
+    # Не перезаписывать существующие разделы.
+    overwrite: false
 
-# Настройка файловых систем
+# Настройка файловых систем.
 fs_setup:
-  - label: data                    # Метка файловой системы
-    filesystem: ext4               # Тип файловой системы
-    device: /dev/sdb1              # Устройство раздела
-    partition: auto                # Автоматически определить раздел
+    # Метка файловой системы.
+  - label: data
+    # Тип файловой системы.
+    filesystem: ext4
+    # Устройство раздела.
+    device: /dev/sdb1
+    # Автоматически определить раздел.
+    partition: auto
 
-# Монтирование файловых систем
+# Монтирование файловых систем.
 mounts:
   # [устройство, точка_монтирования, тип_ФС, опции, dump, pass]
   - ["/dev/sdb1", "/mnt/data", "ext4", "defaults", "0", "2"]
@@ -694,11 +718,13 @@ mounts:
 Настройки, описанные в этом разделе, применяются только для дополнительных сетей. Основная сеть (Main) настраивается автоматически через cloud-init и не требует ручной конфигурации.
 {{< /alert >}}
 
-Если к виртуальной машине подключены дополнительные сети, их необходимо настроить вручную через cloud-init: конфигурационные файлы создаются в `write_files`, применение настроек — в `runcmd`.
+Дополнительные сети настраиваются вручную через cloud-init. Конфигурационные файлы создаёт блок `write_files`, а применяет настройки блок `runcmd`.
 
-Подробнее о подключении дополнительных сетей к виртуальной машине см. в разделе [Дополнительные сетевые интерфейсы](/products/virtualization-platform/documentation/user/resource-management/virtual-machines.html#дополнительные-сетевые-интерфейсы).
+Подробнее о подключении дополнительных сетей к виртуальной машине см. в разделе [Дополнительные сетевые интерфейсы](./user_guide.html#дополнительные-сетевые-интерфейсы).
 
-##### Для systemd-networkd
+{{< tabs name="cloudinit-net" >}}
+
+{{% tab name="systemd-networkd" %}}
 
 Пример `cloud-config` для дистрибутивов, использующих `systemd-networkd` (Debian, CoreOS и др.):
 
@@ -719,7 +745,9 @@ runcmd:
   - systemctl restart systemd-networkd
 ```
 
-##### Для Netplan (Ubuntu)
+{{% /tab %}}
+
+{{% tab name="Netplan (Ubuntu)" %}}
 
 Пример `cloud-config` для Ubuntu и других систем, использующих `Netplan`:
 
@@ -744,7 +772,9 @@ runcmd:
   - netplan apply
 ```
 
-##### Для ifcfg (RHEL/CentOS)
+{{% /tab %}}
+
+{{% tab name="ifcfg (RHEL/CentOS)" %}}
 
 Пример `cloud-config` для RHEL-совместимых дистрибутивов, использующих схему `ifcfg` и `NetworkManager`:
 
@@ -766,7 +796,9 @@ runcmd:
   - nmcli connection up eth1
 ```
 
-##### Для Alpine Linux
+{{% /tab %}}
+
+{{% tab name="Alpine Linux" %}}
 
 Пример `cloud-config` для дистрибутивов, использующих традиционный формат `/etc/network/interfaces` (Alpine и аналоги):
 
@@ -786,9 +818,13 @@ runcmd:
   - /etc/init.d/networking restart
 ```
 
+{{% /tab %}}
+
+{{< /tabs >}}
+
 ### Как использовать Ansible для конфигурирования виртуальных машин?
 
-[Ansible](https://docs.ansible.com/ansible/latest/index.html) — это инструмент автоматизации, который позволяет выполнять задачи на удаленных серверах с использованием протокола SSH. В данном примере мы рассмотрим, как использовать Ansible для управления виртуальными машинами расположенными в проекте `demo-app`.
+[Ansible](https://docs.ansible.com/ansible/latest/index.html) — инструмент автоматизации, который выполняет задачи на удалённых серверах по протоколу SSH. Ниже показано, как управлять с его помощью виртуальными машинами проекта `demo-app`.
 
 В рамках примера предполагается, что:
 
@@ -808,7 +844,7 @@ runcmd:
        # Путь к приватному ключу.
        ansible_ssh_private_key_file: /home/user/.ssh/id_rsa
      hosts:
-       # Название узла в формате <название ВМ>.<название проекта>.
+       # Имя хоста в формате <VM_NAME>.<NAMESPACE>.
        frontend.demo-app:
 
    ```
@@ -843,7 +879,7 @@ ansible -m shell -a "uptime" \
 
 Вместо ручного создания inventory-файла можно использовать команду `d8 v ansible-inventory`, которая автоматически генерирует инвентарь Ansible из виртуальных машин в указанном неймспейсе. Команда совместима с интерфейсом [ansible inventory script](https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#inventory-scripts).
 
-Команда включает в инвентарь только виртуальные машины с назначенными IP-адресами в состоянии `Running`. Имена хостов формируются в формате `<vmname>.<namespace>` (например, `frontend.demo-app`).
+В инвентарь попадают только машины в фазе `Running`, которым назначен IP-адрес. Имена хостов формируются в формате `<VM_NAME>.<NAMESPACE>` (например, `frontend.demo-app`).
 
 1. При необходимости задайте переменные хоста через аннотации (например, пользователя для SSH):
 
@@ -858,7 +894,7 @@ ansible -m shell -a "uptime" \
    ```
 
 {{< alert level="info" >}}
-Конструкция `<(...)` необходима, потому что Ansible ожидает файл или скрипт в качестве источника списка хостов. Простое указание команды в кавычках не сработает — Ansible попытается выполнить строку как скрипт. Конструкция `<(...)` передаёт вывод команды как файл, который Ansible может прочитать.
+Конструкция `<(...)` необходима, потому что Ansible ожидает файл или скрипт в качестве источника списка хостов. Простое указание команды в кавычках не сработает, потому что Ansible попытается выполнить строку как скрипт. Конструкция `<(...)` передаёт вывод команды как файл, который Ansible может прочитать.
 {{< /alert >}}
 
 1. Либо сохраните инвентарь в файл и выполните проверку:
@@ -870,7 +906,7 @@ ansible -m shell -a "uptime" \
 
 ### Как перенаправить трафик на виртуальную машину?
 
-Виртуальная машина функционирует в кластере Kubernetes, поэтому сетевой трафик направляется к ней по аналогии с направлением трафика к подам. Для маршрутизации сетевого трафика на виртуальную машину применяется стандартный механизм Kubernetes — ресурс Service, который выбирает целевые объекты по лейблам (label selector).
+Виртуальная машина работает в кластере Kubernetes, поэтому трафик к ней направляется так же, как к любой другой рабочей нагрузке. За маршрутизацию отвечает стандартный ресурс Kubernetes Service, который выбирает целевые объекты по лейблам.
 
 1. Создайте сервис с требуемыми настройками.
 
@@ -931,7 +967,7 @@ ansible -m shell -a "uptime" \
    Пример вывода:
 
    ```console
-    {"size":"58G","storageClass":"linstor-thick-data-r1"}
+   {"size":"58G","storageClass":"linstor-thick-data-r1"}
    ```
 
 1. Увеличьте `size` через `patch` (подставьте нужное значение):
@@ -967,7 +1003,7 @@ ansible -m shell -a "uptime" \
 
    Пример вывода:
 
-   ```console
+   ```console {.nowrap-default}
    NAME STATUS VOLUME                                    CAPACITY    ACCESS MODES   STORAGECLASS           AGE
    dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
    ```
@@ -975,14 +1011,14 @@ ansible -m shell -a "uptime" \
 ### Как сменить StorageClass у DVCR, если PVC уже создан?
 
 {{< alert level="warning" >}}
-StorageClass хранилища DVCR можно сменить только пересозданием PVC. При этом теряются все ранее загруженные в DVCR образы, то есть существующие ресурсы [ClusterVirtualImage](/modules/virtualization/cr.html#clustervirtualimage) и [VirtualImage](/modules/virtualization/cr.html#virtualimage) фактически перестают соответствовать данным в хранилище.
+StorageClass хранилища DVCR можно сменить только пересозданием PVC. При этом теряются все ранее загруженные в DVCR образы, то есть существующие ресурсы [ClusterVirtualImage](cr.html#clustervirtualimage) и [VirtualImage](cr.html#virtualimage) фактически перестают соответствовать данным в хранилище.
 {{< /alert >}}
 
 Поле [`spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`](configuration.html#parameters-dvcr-storage-persistentvolumeclaim-storageclassname) в ModuleConfig модуля `virtualization` задаёт класс хранения тома хранилища образов виртуальных машин (DVCR). Пока в пространстве имён `d8-virtualization` существует PVC этого тома, изменить поле через API нельзя.
 
-У уже созданного PVC в Kubernetes нельзя сменить `storageClassName`, штатного переноса данных DVCR между классами хранения нет.
+У уже созданного PVC в Kubernetes нельзя сменить `storageClassName`, а штатного переноса данных DVCR между классами хранения нет.
 
-Для того чтобы изменить StorageClass у DVCR, выполните следующие действия:
+Чтобы сменить StorageClass у DVCR, выполните следующие шаги:
 
 1. Остановите DVCR:
 
@@ -996,16 +1032,16 @@ StorageClass хранилища DVCR можно сменить только пе
    d8 k get pvc -n d8-virtualization
    ```
 
-1. Удалите найденный PVC, подставив имя ресурса вместо `<pvc-name>`. Если команда завершается ошибкой из-за недостаточных прав, выполните её от имени `system:sudouser`:
+1. Удалите найденный PVC, подставив имя ресурса вместо `<PVC_NAME>`. Если команда завершается ошибкой из-за недостаточных прав, выполните её от имени `system:sudouser`:
 
    ```shell
-   d8 k --as system:sudouser -n d8-virtualization delete pvc/<pvc-name>
+   d8 k --as system:sudouser -n d8-virtualization delete pvc/<PVC_NAME>
    ```
 
-1. Задайте новый StorageClass в ModuleConfig. Вместо `<storage-class-name>` укажите нужный класс.
+1. Задайте новый StorageClass в ModuleConfig, подставив нужный класс вместо `<STORAGE_CLASS_NAME>`:
 
    ```shell
-   d8 k patch mc virtualization --type merge -p '{"spec":{"settings":{"dvcr":{"storage":{"persistentVolumeClaim":{"storageClassName":"<storage-class-name>"}}}}}}'
+   d8 k patch mc virtualization --type merge -p '{"spec":{"settings":{"dvcr":{"storage":{"persistentVolumeClaim":{"storageClassName":"<STORAGE_CLASS_NAME>"}}}}}}'
    ```
 
    Пример вывода:
@@ -1028,13 +1064,13 @@ StorageClass хранилища DVCR можно сменить только пе
 
    Пример вывода:
 
-   ```console
+   ```console {.nowrap-default}
    NAME   STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS          VOLUMEATTRIBUTESCLASS   AGE
    dvcr   Bound    pvc-b43f2e33-32cc-435a-aa1d-b53df35b030a   100Gi      RWO            linstor-thin-r1-hdd   <unset>                 34s
    ```
 
 {{< alert level="warning" >}}
-Хранилище выбранного StorageClass должно быть доступно на узлах, где запускается DVCR: на system-узлах или на worker-узлах, если в кластере нет system-узлов.
+Хранилище выбранного StorageClass должно быть доступно на узлах, где запускается DVCR, то есть на system-узлах либо на worker-узлах, если system-узлов в кластере нет.
 {{< /alert >}}
 
 ### Как восстановить кластер, если после смены лицензии образы из registry.deckhouse.io не загружаются?
@@ -1051,7 +1087,7 @@ StorageClass хранилища DVCR можно сменить только пе
    metadata:
      name: containerd-dvcr-remove-old-config.sh
    spec:
-     weight: 32 # Должен быть в диапазоне 32–90
+     weight: 32 # Должен быть в диапазоне 32–90.
      nodeGroups: ["*"]
      bundles: ["*"]
      content: |
@@ -1099,4 +1135,4 @@ StorageClass хранилища DVCR можно сменить только пе
    d8 k delete -f containerd-dvcr-remove-old-config.yaml
    ```
 
-Подробнее о миграции см. в статье [Миграция container runtime на containerd v2](/products/virtualization-platform/documentation/admin/platform-management/platform-scaling/node/migrating.html).
+Подробнее о миграции см. в статье [Миграция container runtime на containerd v2](/products/kubernetes-platform/documentation/v1/admin/configuration/platform-scaling/node/migrating.html).
