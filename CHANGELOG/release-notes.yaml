@@ -1,3 +1,41 @@
+- version: v1.11.1
+  date: "2026-09-09"
+  highlights:
+    - en: "The release fixes problems with the disks of virtual machines (VMs). It also patches vulnerabilities in the module."
+      ru: "Релиз устраняет проблемы, связанные с дисками виртуальных машин (ВМ). Также исправлены уязвимости в модуле."
+  fixes:
+    virtual-machines:
+      - en: Attaching and detaching a disk during a migration of a VM now happens after the migration completes.
+        ru: Подключение и отключение диска во время миграции ВМ теперь выполняется после завершения миграции.
+    disks-and-images:
+      - en: A VM now boots from a disk created from a gzip- or xz-compressed image.
+        ru: ВМ теперь загружается с диска, созданного из сжатого образа (gzip, xz).
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-10722
+            - CVE-2026-33818
+            - CVE-2026-39821
+            - CVE-2026-56853
+            - CVE-2026-56854
+            - CVE-2026-56858
+            - CVE-2026-56859
+            - CVE-2026-56860
+            - CVE-2026-56862
+            - CVE-2026-84304
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-10722
+            - CVE-2026-33818
+            - CVE-2026-39821
+            - CVE-2026-56853
+            - CVE-2026-56854
+            - CVE-2026-56858
+            - CVE-2026-56859
+            - CVE-2026-56860
+            - CVE-2026-56862
+            - CVE-2026-84304
 - version: v1.11.0
   date: "2026-08-25"
   highlights:
