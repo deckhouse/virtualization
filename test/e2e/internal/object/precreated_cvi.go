@@ -54,6 +54,13 @@ const (
 	PrecreatedCVICustomEFI  = "v12n-e2e-custom-efi"
 	PrecreatedCVICustomISO  = "v12n-e2e-custom-iso"
 
+	// Shapes that reach a disk by different paths: raw is streamed straight onto a block
+	// device, a compressed one is unpacked first, and a qcow2 also needs a conversion.
+	PrecreatedCVICustomBIOSRaw     = "v12n-e2e-custom-bios-raw"
+	PrecreatedCVICustomBIOSVMDK    = "v12n-e2e-custom-bios-vmdk"
+	PrecreatedCVICustomBIOSRawGzip = "v12n-e2e-custom-bios-raw-gzip"
+	PrecreatedCVICustomBIOSGzip    = "v12n-e2e-custom-bios-gzip"
+
 	// Container image URLs
 	ImageURLContainerImage       = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 	ImageURLLegacyContainerImage = "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest"
@@ -87,6 +94,12 @@ var (
 	ImageURLCustomBIOS = imageURL("/e2e/custom-bios.qcow2")
 	ImageURLCustomEFI  = imageURL("/e2e/custom-efi.qcow2")
 
+	// The same BIOS image as raw, vmdk, gzip-compressed raw and gzip-compressed qcow2.
+	ImageURLCustomBIOSRaw     = imageURL("/e2e/custom-bios.raw")
+	ImageURLCustomBIOSVMDK    = imageURL("/e2e/custom-bios.vmdk")
+	ImageURLCustomBIOSRawGzip = imageURL("/e2e/custom-bios.raw.gz")
+	ImageURLCustomBIOSGzip    = imageURL("/e2e/custom-bios.qcow2.gz")
+
 	// Custom BIOS-only ISO on Selectel (public HTTP), used as an
 	// ISO-format source image (it boots a kernel, not a full userspace).
 	// An EFI-only variant is also published as /e2e/custom-efi.iso.
@@ -106,6 +119,10 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOS, ImageURLCustomBIOS),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomEFI, ImageURLCustomEFI),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomISO, ImageURLCustomISO),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOSRaw, ImageURLCustomBIOSRaw),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOSVMDK, ImageURLCustomBIOSVMDK),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOSRawGzip, ImageURLCustomBIOSRawGzip),
+		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOSGzip, ImageURLCustomBIOSGzip),
 	}
 }
 

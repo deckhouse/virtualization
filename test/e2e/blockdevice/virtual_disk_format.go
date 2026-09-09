@@ -35,6 +35,8 @@ import (
 // VirtualDiskFormat verifies how disk image formats are handled when the source is a
 // precreated ClusterVirtualImage:
 //   - a qcow2 image can back a VirtualDisk, and a VirtualMachine boots from that disk;
+//   - the same holds for a raw image, a vmdk one, a gzip-compressed raw one and a
+//     gzip-compressed qcow2, which reach the volume by different paths;
 //   - an ISO image cannot back a VirtualDisk, so it is consumed as a VirtualImage and a
 //     VirtualMachine boots it as a CD-ROM instead.
 //
@@ -59,6 +61,38 @@ var _ = Describe("VirtualDiskFormat", Label(label.SIGStorage, precheck.PrecheckD
 		// The disk under test is the scenario's main resource, so it lives on the WFFC
 		// storage class.
 		vd := object.NewVDFromCVI("vd-qcow2", f.Namespace().Name, object.PrecreatedCVICustomBIOS,
+			vdbuilder.WithStorageClass(defaultStorageClass()),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
+
+		createVirtualDiskAndRunVM(ctx, f, vd)
+	})
+
+	It("provisions a VirtualDisk from a raw ClusterVirtualImage and runs a VirtualMachine with a ready agent", func() {
+		vd := object.NewVDFromCVI("vd-raw", f.Namespace().Name, object.PrecreatedCVICustomBIOSRaw,
+			vdbuilder.WithStorageClass(defaultStorageClass()),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
+
+		createVirtualDiskAndRunVM(ctx, f, vd)
+	})
+
+	It("provisions a VirtualDisk from a vmdk ClusterVirtualImage and runs a VirtualMachine with a ready agent", func() {
+		vd := object.NewVDFromCVI("vd-vmdk", f.Namespace().Name, object.PrecreatedCVICustomBIOSVMDK,
+			vdbuilder.WithStorageClass(defaultStorageClass()),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
+
+		createVirtualDiskAndRunVM(ctx, f, vd)
+	})
+
+	It("provisions a VirtualDisk from a gzip-compressed raw ClusterVirtualImage and runs a VirtualMachine with a ready agent", func() {
+		vd := object.NewVDFromCVI("vd-raw-gzip", f.Namespace().Name, object.PrecreatedCVICustomBIOSRawGzip,
+			vdbuilder.WithStorageClass(defaultStorageClass()),
+			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
+
+		createVirtualDiskAndRunVM(ctx, f, vd)
+	})
+
+	It("provisions a VirtualDisk from a gzip-compressed qcow2 ClusterVirtualImage and runs a VirtualMachine with a ready agent", func() {
+		vd := object.NewVDFromCVI("vd-qcow2-gzip", f.Namespace().Name, object.PrecreatedCVICustomBIOSGzip,
 			vdbuilder.WithStorageClass(defaultStorageClass()),
 			vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))))
 

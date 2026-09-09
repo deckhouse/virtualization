@@ -225,9 +225,19 @@ func processLayer(ctx context.Context,
 				return false, errors.Wrap(err, "Error creating output file's directory")
 			}
 
-			if err := streamDataToFile(tarReader, destFile); err != nil {
+			// The disk file may be compressed: scratch must hold the image, not the archive.
+			diskReaders, err := NewFormatReaders(io.NopCloser(tarReader), 0)
+			if err != nil {
+				return false, errors.Wrap(err, "Could not read disk image header")
+			}
+
+			if err := streamDataToFile(diskReaders.TopReader(), destFile); err != nil {
+				_ = diskReaders.Close()
 				klog.Errorf("Error copying file: %v", err)
 				return false, errors.Wrap(err, "Error copying file")
+			}
+			if err := diskReaders.Close(); err != nil {
+				klog.Errorf("Error closing disk image readers: %v", err)
 			}
 
 			found = true
@@ -382,6 +392,9 @@ func CopyRegistryImageToFile(url, destFile, pathPrefix, accessKey, secKey, certD
 	return info, nil
 }
 
+// Indirected so tests can stand in for a block device.
+var targetFormatOf = util.GetFormat
+
 // processLayerToFile extracts the first file under pathPrefix from the layer and
 // writes it directly to destFile. The disk file's own header is inspected and
 // must already match the target format (raw for a block device, qcow2 for a
@@ -424,7 +437,7 @@ func processLayerToFile(ctx context.Context, src types.ImageSource, layer types.
 		// format (raw for a block device, qcow2 for a file). This is the safety
 		// net for the controller's decision based on VI/CVI status.format:
 		// a mismatch fails the import loudly rather than writing a corrupt disk.
-		targetFormat, err := util.GetFormat(destFile)
+		targetFormat, err := targetFormatOf(destFile)
 		if err != nil {
 			return false, errors.Wrap(err, "Could not determine target format")
 		}

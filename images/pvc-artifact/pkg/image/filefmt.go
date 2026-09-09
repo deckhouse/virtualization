@@ -115,9 +115,14 @@ func CopyKnownHdrs() Headers {
 	return m
 }
 
-// Match performs a check to see if the provided byte slice matches the bytes in our header data
+// Match performs a check to see if the provided byte slice matches the bytes in our header data.
+// A buffer too short to hold the magic would be indexed past its end.
 func (h Header) Match(b []byte) bool {
-	return bytes.Equal(b[h.mgOffset:h.mgOffset+len(h.magicNumber)], h.magicNumber)
+	end := h.mgOffset + len(h.magicNumber)
+	if len(b) < end {
+		return false
+	}
+	return bytes.Equal(b[h.mgOffset:end], h.magicNumber)
 }
 
 // Size uses the Header receiver offset and length fields to extract, from the passed-in file header slice (b),

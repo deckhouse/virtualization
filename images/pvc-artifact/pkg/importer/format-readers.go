@@ -255,16 +255,23 @@ func (fr *FormatReaders) xzReader() (io.Reader, error) {
 // Note: .iso files are not detected here but rather in the Size() function.
 // Note: knownHdrs is passed by reference and modified.
 func (fr *FormatReaders) matchHeader(knownHdrs *image.Headers) (*image.Header, error) {
-	_, err := fr.read(fr.buf) // read current header
-	if err != nil {
+	// A compressed image can be shorter than the buffer, so a short read is not an error.
+	n, err := fr.read(fr.buf)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, err
 	}
-	// append multi-reader so that the header data can be re-read by subsequent readers
-	fr.appendReader(rdrMulti, bytes.NewReader(fr.buf))
+	if n == 0 {
+		return nil, nil
+	}
+	// The multi-reader must own the header: fr.buf is overwritten on the next call, and zstd
+	// and xz read their source lazily.
+	header := make([]byte, n)
+	copy(header, fr.buf[:n])
+	fr.appendReader(rdrMulti, bytes.NewReader(header))
 
 	// loop through known headers until a match
 	for format, kh := range *knownHdrs {
-		if kh.Match(fr.buf) {
+		if kh.Match(fr.buf[:n]) {
 			// delete this header format key so that it's not processed again
 			delete(*knownHdrs, format)
 			return &kh, nil
