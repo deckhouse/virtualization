@@ -3,6 +3,35 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.11.1
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: September 9, 2026.
+</span>
+
+### Highlights
+
+- The release fixes problems with the disks of virtual machines (VMs). It also patches vulnerabilities in the module.
+
+### Fixes
+
+- [vmbda] Attaching and detaching a disk during a migration of a VM now happens after the migration completes.
+- [vd] A VM now boots from a disk created from a gzip- or xz-compressed image.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-10722
+  - CVE-2026-33818
+  - CVE-2026-39821
+  - CVE-2026-56853
+  - CVE-2026-56854
+  - CVE-2026-56858
+  - CVE-2026-56859
+  - CVE-2026-56860
+  - CVE-2026-56862
+  - CVE-2026-84304
+
 ## v1.11.0
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
