@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	migrationprogress "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/progress"
 	migrationservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
@@ -58,6 +59,8 @@ const waitForVMReadyToMigrateTimeout = 5 * time.Minute
 // unschedulable, or a disk that never attaches — otherwise keeps the migration (and the
 // migration slots it holds) alive indefinitely. Healthy targets are prepared within ~1m.
 const prepareTargetTimeout = 5 * time.Minute
+
+const attachmentSettleTimeout = 5 * time.Minute
 
 const (
 	progressMigrationPending   int32 = 0
@@ -276,6 +279,14 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
+	res, wait, err := h.waitForBlockDeviceAttachments(ctx, vmop)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to check block device requests for VMOP: %w", err)
+	}
+	if wait {
+		return res, nil
+	}
+
 	// 7. Check if the vm is migratable.
 	if !h.canExecute(vmop, vm) {
 		// Drive the deadline in canExecute while the operation waits for the VM to
@@ -490,6 +501,97 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 		}
 	}
 	return false, nil
+}
+
+func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, bool, error) {
+	names, err := h.attachmentsInProgress(ctx, vmop)
+	if err != nil {
+		return reconcile.Result{}, false, err
+	}
+
+	if len(names) == 0 {
+		return reconcile.Result{}, false, nil
+	}
+
+	requests := strings.Join(names, ", ")
+	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	waiting := completed.Reason == vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()
+
+	if waiting && !completed.LastTransitionTime.IsZero() &&
+		time.Since(completed.LastTransitionTime.Time) > attachmentSettleTimeout {
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Timed out waiting for block device requests to complete")
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonOperationFailed).
+				Status(metav1.ConditionFalse).
+				Message(fmt.Sprintf("Timed out waiting for block device requests to complete: %s.", requests)),
+			&vmop.Status.Conditions)
+		return reconcile.Result{}, true, nil
+	}
+
+	vmop.Status.Phase = v1alpha2.VMOPPhasePending
+	conditions.SetCondition(
+		completedCond.
+			Reason(vmopcondition.ReasonWaitingForBlockDeviceAttachment).
+			Status(metav1.ConditionFalse).
+			Message(fmt.Sprintf("Waiting for block device requests to complete: %s.", requests)),
+		&vmop.Status.Conditions)
+
+	return reconcile.Result{RequeueAfter: timeElapsedUpdateInterval}, true, nil
+}
+
+func (h LifecycleHandler) attachmentsInProgress(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) ([]string, error) {
+	names, err := h.unappliedVolumeRequests(ctx, vmop)
+	if err != nil {
+		return nil, err
+	}
+
+	vmbdas := &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
+	err = h.client.List(ctx, vmbdas,
+		client.InNamespace(vmop.GetNamespace()),
+		client.MatchingFields{indexer.IndexFieldVMBDAByVM: vmop.Spec.VirtualMachine},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.DeletionTimestamp != nil || vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseInProgress {
+			names = append(names, vmbda.Name)
+		}
+	}
+
+	return names, nil
+}
+
+func (h LifecycleHandler) unappliedVolumeRequests(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) ([]string, error) {
+	kvvm, err := object.FetchObject(
+		ctx,
+		types.NamespacedName{Namespace: vmop.GetNamespace(), Name: vmop.Spec.VirtualMachine},
+		h.client,
+		&virtv1.VirtualMachine{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if kvvm == nil {
+		return nil, nil
+	}
+
+	var names []string
+	for _, vr := range kvvm.Status.VolumeRequests {
+		switch {
+		case vr.AddVolumeOptions != nil:
+			names = append(names, vr.AddVolumeOptions.Name)
+		case vr.RemoveVolumeOptions != nil:
+			names = append(names, vr.RemoveVolumeOptions.Name)
+		}
+	}
+
+	return names, nil
 }
 
 func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool {

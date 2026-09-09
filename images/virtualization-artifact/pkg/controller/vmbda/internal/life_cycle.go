@@ -24,6 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -31,15 +32,18 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type LifeCycleHandler struct {
-	attacher *service.AttachmentService
+	attacher AttachmentService
+	client   client.Client
 }
 
-func NewLifeCycleHandler(attacher *service.AttachmentService) *LifeCycleHandler {
+func NewLifeCycleHandler(attacher AttachmentService, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		attacher: attacher,
+		client:   client,
 	}
 }
 
@@ -244,6 +248,24 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 				Reason(vmbdacondition.NotAttached).
 				Message("Virtual machine block device capacity reached.")
 			return reconcile.Result{}, nil
+		}
+
+		if conditions.HasCondition(vmcondition.TypeMigrating, vm.Status.Conditions) {
+			queued, err := migrationIsQueued(ctx, h.client, vmbda.GetNamespace(), vmbda.Spec.VirtualMachineName)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("check migration state: %w", err)
+			}
+
+			if !queued {
+				log.Info("Cannot hot-plug the block device while the virtual machine is migrating")
+
+				vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmbdacondition.BlockedByMigration).
+					Message(migrationBlockedHotPlugMessage(vmbda))
+				return reconcile.Result{}, nil
+			}
 		}
 
 		if ad.PVCName != "" {

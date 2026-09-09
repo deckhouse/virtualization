@@ -36,4 +36,9 @@ type AttachmentService interface {
 	GetVirtualImage(ctx context.Context, name, namespace string) (*v1alpha2.VirtualImage, error)
 	GetClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error)
 	GetPersistentVolumeClaim(ctx context.Context, ad *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error)
+	IsPVAvailableOnVMNode(ctx context.Context, pvc *corev1.PersistentVolumeClaim, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	IsConflictedAttachment(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (bool, string, error)
+	IsHotPlugged(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	CanHotPlug(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error)
+	HotPlugDisk(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error
 }

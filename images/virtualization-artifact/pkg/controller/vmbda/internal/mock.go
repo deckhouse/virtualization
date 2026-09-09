@@ -22,6 +22,9 @@ var _ AttachmentService = &AttachmentServiceMock{}
 //
 //		// make and configure a mocked AttachmentService
 //		mockedAttachmentService := &AttachmentServiceMock{
+//			CanHotPlugFunc: func(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
+//				panic("mock out the CanHotPlug method")
+//			},
 //			GetClusterVirtualImageFunc: func(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error) {
 //				panic("mock out the GetClusterVirtualImage method")
 //			},
@@ -43,6 +46,18 @@ var _ AttachmentService = &AttachmentServiceMock{}
 //			GetVirtualMachineFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
 //				panic("mock out the GetVirtualMachine method")
 //			},
+//			HotPlugDiskFunc: func(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+//				panic("mock out the HotPlugDisk method")
+//			},
+//			IsConflictedAttachmentFunc: func(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (bool, string, error) {
+//				panic("mock out the IsConflictedAttachment method")
+//			},
+//			IsHotPluggedFunc: func(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+//				panic("mock out the IsHotPlugged method")
+//			},
+//			IsPVAvailableOnVMNodeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+//				panic("mock out the IsPVAvailableOnVMNode method")
+//			},
 //		}
 //
 //		// use mockedAttachmentService in code that requires AttachmentService
@@ -50,6 +65,9 @@ var _ AttachmentService = &AttachmentServiceMock{}
 //
 //	}
 type AttachmentServiceMock struct {
+	// CanHotPlugFunc mocks the CanHotPlug method.
+	CanHotPlugFunc func(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error)
+
 	// GetClusterVirtualImageFunc mocks the GetClusterVirtualImage method.
 	GetClusterVirtualImageFunc func(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error)
 
@@ -71,8 +89,29 @@ type AttachmentServiceMock struct {
 	// GetVirtualMachineFunc mocks the GetVirtualMachine method.
 	GetVirtualMachineFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error)
 
+	// HotPlugDiskFunc mocks the HotPlugDisk method.
+	HotPlugDiskFunc func(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error
+
+	// IsConflictedAttachmentFunc mocks the IsConflictedAttachment method.
+	IsConflictedAttachmentFunc func(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (bool, string, error)
+
+	// IsHotPluggedFunc mocks the IsHotPlugged method.
+	IsHotPluggedFunc func(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+
+	// IsPVAvailableOnVMNodeFunc mocks the IsPVAvailableOnVMNode method.
+	IsPVAvailableOnVMNodeFunc func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+
 	// calls tracks calls to the methods.
 	calls struct {
+		// CanHotPlug holds details about calls to the CanHotPlug method.
+		CanHotPlug []struct {
+			// Ad is the ad argument value.
+			Ad *service.AttachmentDisk
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+			// Kvvm is the kvvm argument value.
+			Kvvm *virtv1.VirtualMachine
+		}
 		// GetClusterVirtualImage holds details about calls to the GetClusterVirtualImage method.
 		GetClusterVirtualImage []struct {
 			// Ctx is the ctx argument value.
@@ -128,7 +167,44 @@ type AttachmentServiceMock struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
+		// HotPlugDisk holds details about calls to the HotPlugDisk method.
+		HotPlugDisk []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Ad is the ad argument value.
+			Ad *service.AttachmentDisk
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+			// Kvvm is the kvvm argument value.
+			Kvvm *virtv1.VirtualMachine
+		}
+		// IsConflictedAttachment holds details about calls to the IsConflictedAttachment method.
+		IsConflictedAttachment []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vmbda is the vmbda argument value.
+			Vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment
+		}
+		// IsHotPlugged holds details about calls to the IsHotPlugged method.
+		IsHotPlugged []struct {
+			// Ad is the ad argument value.
+			Ad *service.AttachmentDisk
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
+		}
+		// IsPVAvailableOnVMNode holds details about calls to the IsPVAvailableOnVMNode method.
+		IsPVAvailableOnVMNode []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Pvc is the pvc argument value.
+			Pvc *corev1.PersistentVolumeClaim
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
+		}
 	}
+	lockCanHotPlug               sync.RWMutex
 	lockGetClusterVirtualImage   sync.RWMutex
 	lockGetKVVM                  sync.RWMutex
 	lockGetKVVMI                 sync.RWMutex
@@ -136,6 +212,50 @@ type AttachmentServiceMock struct {
 	lockGetVirtualDisk           sync.RWMutex
 	lockGetVirtualImage          sync.RWMutex
 	lockGetVirtualMachine        sync.RWMutex
+	lockHotPlugDisk              sync.RWMutex
+	lockIsConflictedAttachment   sync.RWMutex
+	lockIsHotPlugged             sync.RWMutex
+	lockIsPVAvailableOnVMNode    sync.RWMutex
+}
+
+// CanHotPlug calls CanHotPlugFunc.
+func (mock *AttachmentServiceMock) CanHotPlug(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
+	if mock.CanHotPlugFunc == nil {
+		panic("AttachmentServiceMock.CanHotPlugFunc: method is nil but AttachmentService.CanHotPlug was just called")
+	}
+	callInfo := struct {
+		Ad   *service.AttachmentDisk
+		VM   *v1alpha2.VirtualMachine
+		Kvvm *virtv1.VirtualMachine
+	}{
+		Ad:   ad,
+		VM:   vm,
+		Kvvm: kvvm,
+	}
+	mock.lockCanHotPlug.Lock()
+	mock.calls.CanHotPlug = append(mock.calls.CanHotPlug, callInfo)
+	mock.lockCanHotPlug.Unlock()
+	return mock.CanHotPlugFunc(ad, vm, kvvm)
+}
+
+// CanHotPlugCalls gets all the calls that were made to CanHotPlug.
+// Check the length with:
+//
+//	len(mockedAttachmentService.CanHotPlugCalls())
+func (mock *AttachmentServiceMock) CanHotPlugCalls() []struct {
+	Ad   *service.AttachmentDisk
+	VM   *v1alpha2.VirtualMachine
+	Kvvm *virtv1.VirtualMachine
+} {
+	var calls []struct {
+		Ad   *service.AttachmentDisk
+		VM   *v1alpha2.VirtualMachine
+		Kvvm *virtv1.VirtualMachine
+	}
+	mock.lockCanHotPlug.RLock()
+	calls = mock.calls.CanHotPlug
+	mock.lockCanHotPlug.RUnlock()
+	return calls
 }
 
 // GetClusterVirtualImage calls GetClusterVirtualImageFunc.
@@ -399,5 +519,165 @@ func (mock *AttachmentServiceMock) GetVirtualMachineCalls() []struct {
 	mock.lockGetVirtualMachine.RLock()
 	calls = mock.calls.GetVirtualMachine
 	mock.lockGetVirtualMachine.RUnlock()
+	return calls
+}
+
+// HotPlugDisk calls HotPlugDiskFunc.
+func (mock *AttachmentServiceMock) HotPlugDisk(ctx context.Context, ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+	if mock.HotPlugDiskFunc == nil {
+		panic("AttachmentServiceMock.HotPlugDiskFunc: method is nil but AttachmentService.HotPlugDisk was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Ad   *service.AttachmentDisk
+		VM   *v1alpha2.VirtualMachine
+		Kvvm *virtv1.VirtualMachine
+	}{
+		Ctx:  ctx,
+		Ad:   ad,
+		VM:   vm,
+		Kvvm: kvvm,
+	}
+	mock.lockHotPlugDisk.Lock()
+	mock.calls.HotPlugDisk = append(mock.calls.HotPlugDisk, callInfo)
+	mock.lockHotPlugDisk.Unlock()
+	return mock.HotPlugDiskFunc(ctx, ad, vm, kvvm)
+}
+
+// HotPlugDiskCalls gets all the calls that were made to HotPlugDisk.
+// Check the length with:
+//
+//	len(mockedAttachmentService.HotPlugDiskCalls())
+func (mock *AttachmentServiceMock) HotPlugDiskCalls() []struct {
+	Ctx  context.Context
+	Ad   *service.AttachmentDisk
+	VM   *v1alpha2.VirtualMachine
+	Kvvm *virtv1.VirtualMachine
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Ad   *service.AttachmentDisk
+		VM   *v1alpha2.VirtualMachine
+		Kvvm *virtv1.VirtualMachine
+	}
+	mock.lockHotPlugDisk.RLock()
+	calls = mock.calls.HotPlugDisk
+	mock.lockHotPlugDisk.RUnlock()
+	return calls
+}
+
+// IsConflictedAttachment calls IsConflictedAttachmentFunc.
+func (mock *AttachmentServiceMock) IsConflictedAttachment(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (bool, string, error) {
+	if mock.IsConflictedAttachmentFunc == nil {
+		panic("AttachmentServiceMock.IsConflictedAttachmentFunc: method is nil but AttachmentService.IsConflictedAttachment was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment
+	}{
+		Ctx:   ctx,
+		Vmbda: vmbda,
+	}
+	mock.lockIsConflictedAttachment.Lock()
+	mock.calls.IsConflictedAttachment = append(mock.calls.IsConflictedAttachment, callInfo)
+	mock.lockIsConflictedAttachment.Unlock()
+	return mock.IsConflictedAttachmentFunc(ctx, vmbda)
+}
+
+// IsConflictedAttachmentCalls gets all the calls that were made to IsConflictedAttachment.
+// Check the length with:
+//
+//	len(mockedAttachmentService.IsConflictedAttachmentCalls())
+func (mock *AttachmentServiceMock) IsConflictedAttachmentCalls() []struct {
+	Ctx   context.Context
+	Vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment
+	}
+	mock.lockIsConflictedAttachment.RLock()
+	calls = mock.calls.IsConflictedAttachment
+	mock.lockIsConflictedAttachment.RUnlock()
+	return calls
+}
+
+// IsHotPlugged calls IsHotPluggedFunc.
+func (mock *AttachmentServiceMock) IsHotPlugged(ad *service.AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if mock.IsHotPluggedFunc == nil {
+		panic("AttachmentServiceMock.IsHotPluggedFunc: method is nil but AttachmentService.IsHotPlugged was just called")
+	}
+	callInfo := struct {
+		Ad    *service.AttachmentDisk
+		VM    *v1alpha2.VirtualMachine
+		Kvvmi *virtv1.VirtualMachineInstance
+	}{
+		Ad:    ad,
+		VM:    vm,
+		Kvvmi: kvvmi,
+	}
+	mock.lockIsHotPlugged.Lock()
+	mock.calls.IsHotPlugged = append(mock.calls.IsHotPlugged, callInfo)
+	mock.lockIsHotPlugged.Unlock()
+	return mock.IsHotPluggedFunc(ad, vm, kvvmi)
+}
+
+// IsHotPluggedCalls gets all the calls that were made to IsHotPlugged.
+// Check the length with:
+//
+//	len(mockedAttachmentService.IsHotPluggedCalls())
+func (mock *AttachmentServiceMock) IsHotPluggedCalls() []struct {
+	Ad    *service.AttachmentDisk
+	VM    *v1alpha2.VirtualMachine
+	Kvvmi *virtv1.VirtualMachineInstance
+} {
+	var calls []struct {
+		Ad    *service.AttachmentDisk
+		VM    *v1alpha2.VirtualMachine
+		Kvvmi *virtv1.VirtualMachineInstance
+	}
+	mock.lockIsHotPlugged.RLock()
+	calls = mock.calls.IsHotPlugged
+	mock.lockIsHotPlugged.RUnlock()
+	return calls
+}
+
+// IsPVAvailableOnVMNode calls IsPVAvailableOnVMNodeFunc.
+func (mock *AttachmentServiceMock) IsPVAvailableOnVMNode(ctx context.Context, pvc *corev1.PersistentVolumeClaim, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if mock.IsPVAvailableOnVMNodeFunc == nil {
+		panic("AttachmentServiceMock.IsPVAvailableOnVMNodeFunc: method is nil but AttachmentService.IsPVAvailableOnVMNode was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Pvc   *corev1.PersistentVolumeClaim
+		Kvvmi *virtv1.VirtualMachineInstance
+	}{
+		Ctx:   ctx,
+		Pvc:   pvc,
+		Kvvmi: kvvmi,
+	}
+	mock.lockIsPVAvailableOnVMNode.Lock()
+	mock.calls.IsPVAvailableOnVMNode = append(mock.calls.IsPVAvailableOnVMNode, callInfo)
+	mock.lockIsPVAvailableOnVMNode.Unlock()
+	return mock.IsPVAvailableOnVMNodeFunc(ctx, pvc, kvvmi)
+}
+
+// IsPVAvailableOnVMNodeCalls gets all the calls that were made to IsPVAvailableOnVMNode.
+// Check the length with:
+//
+//	len(mockedAttachmentService.IsPVAvailableOnVMNodeCalls())
+func (mock *AttachmentServiceMock) IsPVAvailableOnVMNodeCalls() []struct {
+	Ctx   context.Context
+	Pvc   *corev1.PersistentVolumeClaim
+	Kvvmi *virtv1.VirtualMachineInstance
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Pvc   *corev1.PersistentVolumeClaim
+		Kvvmi *virtv1.VirtualMachineInstance
+	}
+	mock.lockIsPVAvailableOnVMNode.RLock()
+	calls = mock.calls.IsPVAvailableOnVMNode
+	mock.lockIsPVAvailableOnVMNode.RUnlock()
 	return calls
 }

@@ -61,6 +61,14 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 						return true
 					}
 
+					oldMigrating, oldFound := conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectOld.Status.Conditions)
+					newMigrating, newFound := conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectNew.Status.Conditions)
+					if oldFound != newFound ||
+						oldMigrating.Status != newMigrating.Status ||
+						oldMigrating.Reason != newMigrating.Reason {
+						return true
+					}
+
 					return w.hasBlockDeviceAttachmentChanges(e.ObjectOld, e.ObjectNew)
 				},
 			},
