@@ -254,9 +254,17 @@ func (r *Resource[T, ST]) JSONPatchOpsForLabels() []patch.JSONPatchOperation {
 // jsonPatchOpsForMetadataMap builds JSON Patch operations for a metadata map field
 // (labels or annotations). When the field is absent on the current object, a JSON Patch
 // "replace" is rejected by the API server because RFC 6902 requires the target location
-// to exist, so "add" is used to create the field. The "test" operation preserves the
-// optimistic lock against concurrent modifications between read and patch.
+// to exist, so "add" is used to create the field — and for the same reason no "test" is
+// emitted then: a "test" against the missing path fails and the API server rejects the
+// whole patch (seen on VMOPs created by controllers without any labels). When the field
+// exists, the "test" operation preserves the optimistic lock against concurrent
+// modifications between read and patch.
 func jsonPatchOpsForMetadataMap(path string, current, changed map[string]string) []patch.JSONPatchOperation {
+	if current == nil {
+		return []patch.JSONPatchOperation{
+			patch.NewJSONPatchOperation(patch.PatchAddOp, path, changed),
+		}
+	}
 	op := patch.PatchReplaceOp
 	if len(current) == 0 {
 		op = patch.PatchAddOp

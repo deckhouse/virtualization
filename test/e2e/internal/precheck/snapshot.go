@@ -23,18 +23,18 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
 const (
-	snapshotModuleName         = "snapshot-controller"
-	snapshotModuleCheckEnvName = "SNAPSHOT_PRECHECK"
+	snapshotModuleCheckEnvName   = "SNAPSHOT_PRECHECK"
+	deprecatedSnapshotModuleName = "snapshot-controller"
 )
 
-// snapshotPrecheck implements Precheck interface for snapshot-controller module.
+var snapshotRequiredModules = []string{"state-snapshotter", "storage-foundation"}
+
+// snapshotPrecheck implements Precheck interface for the CSI snapshot machinery.
 type snapshotPrecheck struct{}
 
 func (s *snapshotPrecheck) Label() string {
@@ -43,22 +43,18 @@ func (s *snapshotPrecheck) Label() string {
 
 func (s *snapshotPrecheck) Run(ctx context.Context, f *framework.Framework) error {
 	if !isCheckEnabled(snapshotModuleCheckEnvName) {
-		_, _ = GinkgoWriter.Write([]byte("snapshot-controller module check is disabled.\n"))
+		_, _ = GinkgoWriter.Write([]byte("snapshot modules check is disabled.\n"))
 		return nil
 	}
 
-	if !IsModuleEnabledByConfig(ctx, f, snapshotModuleName) {
-		return fmt.Errorf("%s=no to disable this precheck: snapshot-controller module should be enabled", snapshotModuleCheckEnvName)
+	if err := RequireModuleDisabled(ctx, f, deprecatedSnapshotModuleName); err != nil {
+		return fmt.Errorf("%s=no to disable this precheck: %w", snapshotModuleCheckEnvName, err)
 	}
 
-	// Check snapshot-controller module status
-	snapshotModule := &dv1alpha1.Module{}
-	err := f.GenericClient().Get(ctx, client.ObjectKey{Name: snapshotModuleName}, snapshotModule)
-	if err != nil {
-		return fmt.Errorf("%s=no to disable this precheck: failed to check snapshot-controller module status: %w", snapshotModuleCheckEnvName, err)
-	}
-	if snapshotModule.Status.Phase != modulePhaseReady {
-		return fmt.Errorf("%s=no to disable this precheck: snapshot-controller module should be ready; current status: %s", snapshotModuleCheckEnvName, snapshotModule.Status.Phase)
+	for _, moduleName := range snapshotRequiredModules {
+		if err := RequireModuleReady(ctx, f, moduleName); err != nil {
+			return fmt.Errorf("%s=no to disable this precheck: %w", snapshotModuleCheckEnvName, err)
+		}
 	}
 
 	// Check that at least one VolumeSnapshotClass exists

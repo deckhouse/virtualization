@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	podobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/pod"
 	pvcobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/pvc"
@@ -43,9 +44,17 @@ import (
 )
 
 const (
-	populatorPVCSize       = "64Mi"
-	populatorDVCRPVCSize   = "256Mi"
-	populatorWaitTimeout   = 3 * time.Minute
+	populatorPVCSize = "64Mi"
+	// populatorDVCRPVCSize must fit the unpacked custom image (~35Mi
+	// virtual size) plus filesystem overhead; the image content itself is
+	// irrelevant to the DVCR population path.
+	populatorDVCRPVCSize = "64Mi"
+	// The whole spec runs under this deadline, and the slowest of them has the
+	// provisioner take a CSI snapshot of the source volume and restore a new one
+	// from it. On DRBD under a parallel run that pair of operations alone can
+	// take minutes, so the deadline matches the suite's longest wait rather
+	// than the three minutes it used to allow.
+	populatorWaitTimeout   = 10 * time.Minute
 	populatorPollInterval  = 2 * time.Second
 	snapshotStorageAPI     = "snapshot.storage.k8s.io"
 	populatorSourcePVCName = "source"
@@ -56,7 +65,7 @@ const (
 	populationStrategyDVCR         = "dvcr"
 )
 
-var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
+var _ = Describe("Populator", Label(label.SIGStorage, precheck.PrecheckDefaultStorageClass, precheck.PrecheckSnapshot), func() {
 	var (
 		f  *framework.Framework
 		sc string
@@ -68,9 +77,7 @@ var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, preche
 		DeferCleanup(f.After)
 
 		defaultSC := framework.GetConfig().StorageClass.DefaultStorageClass
-		if defaultSC == nil {
-			Skip("StorageClass is not configured")
-		}
+		Expect(defaultSC).NotTo(BeNil(), "default StorageClass not found")
 		sc = defaultSC.Name
 	})
 
@@ -146,7 +153,7 @@ var _ = Describe("Populator", Label(precheck.PrecheckDefaultStorageClass, preche
 
 	It("creates target PVC from DVCR", func(ctx SpecContext) {
 		cvi := &v1alpha2.ClusterVirtualImage{}
-		Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: object.PrecreatedCVIAlpineBIOS}, cvi)).To(Succeed())
+		Expect(f.GenericClient().Get(ctx, crclient.ObjectKey{Name: object.PrecreatedCVICustomBIOS}, cvi)).To(Succeed())
 		Expect(cvi.Status.Target.RegistryURL).NotTo(BeEmpty())
 
 		target := newPopulatorPVCWithSize("target-dvcr", f.Namespace().Name, sc, populatorDVCRPVCSize, map[string]string{

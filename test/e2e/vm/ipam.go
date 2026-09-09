@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -39,13 +37,16 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
+	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
-	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
+var _ = Describe("IPAM", Label(label.SIGCompute, precheck.NoPrecheck), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -88,7 +89,7 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 
 	Context("vmip with type Static", func() {
 		It("Creates vmip with type Static", func() {
-			By("Create an intermediate vmip to allocate a new ip address")
+			By("Create an intermediate vmip to learn the pool subnet")
 			intermediate := object.NewVirtualMachineIPAddress("vmip-intermediate", f.Namespace().Name, vmipoption.WithTypeAuto())
 			err := f.CreateWithDeferredDeletion(ctx, intermediate)
 			Expect(err).NotTo(HaveOccurred())
@@ -99,15 +100,39 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 			By("Delete the intermediate vmip and check that the lease is released")
 			err = f.Delete(ctx, intermediate)
 			Expect(err).NotTo(HaveOccurred())
-			lease = WaitForLeaseToBeReleased(ctx, f, lease.Name)
+			WaitForLeaseToBeReleased(ctx, f, lease.Name)
 
-			By("Reuse the released lease with a static vmip")
+			// The dance below deletes a lease and reclaims its IP, which requires
+			// the IP to stay exclusively ours: leases are cluster-scoped and named
+			// after the IP, so a parallel suite grabbing the freed address would
+			// recreate the lease mid-wait. Auto allocation hands out the lowest
+			// free addresses, so an address high in the intermediate's subnet is
+			// safe from concurrent auto claims.
+			staticAddress := highPoolAddress(ctx, f, intermediate.Status.Address)
+			staticLeaseName := ipAddressToLeaseName(staticAddress)
+
+			By("Allocate the address with a static vmip")
 			vmipStatic := object.NewVirtualMachineIPAddress(
 				"vmip-static",
 				f.Namespace().Name,
-				vmipoption.WithTypeStatic(intermediate.Status.Address),
+				vmipoption.WithTypeStatic(staticAddress),
 			)
 
+			err = f.CreateWithDeferredDeletion(ctx, vmipStatic)
+			Expect(err).NotTo(HaveOccurred())
+			WaitToBeBound(ctx, f, vmipStatic.Name)
+
+			By("Delete the static vmip and check that the lease is released")
+			err = f.Delete(ctx, vmipStatic)
+			Expect(err).NotTo(HaveOccurred())
+			lease = WaitForLeaseToBeReleased(ctx, f, staticLeaseName)
+
+			By("Reuse the released lease with another static vmip")
+			vmipStatic = object.NewVirtualMachineIPAddress(
+				"vmip-one-more-static",
+				f.Namespace().Name,
+				vmipoption.WithTypeStatic(staticAddress),
+			)
 			err = f.CreateWithDeferredDeletion(ctx, vmipStatic)
 			Expect(err).NotTo(HaveOccurred())
 			WaitToBeBound(ctx, f, vmipStatic.Name)
@@ -117,9 +142,9 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			vmipStatic = object.NewVirtualMachineIPAddress(
-				"vmip-one-more-static",
+				"vmip-third-static",
 				f.Namespace().Name,
-				vmipoption.WithTypeStatic(intermediate.Status.Address),
+				vmipoption.WithTypeStatic(staticAddress),
 			)
 			err = f.CreateWithDeferredDeletion(ctx, vmipStatic)
 			Expect(err).NotTo(HaveOccurred())
@@ -138,21 +163,32 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			var vmObs vmobs.Observer
 			By("Create vm with static ip", func() {
-				vd := object.NewVDFromCVI("vd-with-static-ip", f.Namespace().Name, object.PrecreatedCVIAlpineBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse("400Mi"))))
+				vd := object.NewVDFromCVI("vd-with-static-ip", f.Namespace().Name, object.PrecreatedCVICustomBIOS, vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))))
 				err := f.CreateWithDeferredDeletion(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 
-				vm = object.NewMinimalVM("vm-with-static-ip", f.Namespace().Name, vmbuilder.WithIpAddress(vmipStatic.Name), vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
-					Kind: v1alpha2.VirtualDiskKind,
-					Name: vd.Name,
-				}))
+				vm = object.NewMinimalVM("vm-with-static-ip", f.Namespace().Name,
+					vmbuilder.WithIpAddress(vmipStatic.Name),
+					// The custom image has no cloud-init; the guest agent is
+					// baked into the image, so no provisioning is needed.
+					vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+						Kind: v1alpha2.VirtualDiskKind,
+						Name: vd.Name,
+					}))
 				err = f.CreateWithDeferredDeletion(ctx, vm)
 				Expect(err).NotTo(HaveOccurred())
+
+				// The VM uses generateName, so its name is known only after creation;
+				// an observer armed earlier would watch an empty name and never match.
+				vmObs = vmobs.StartObserver(ctx, f, vm)
+				vmObs.Never(vmobs.BeFailed())
 			})
 
 			By("Wait virtual machine to be running", func() {
-				util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+				err := vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("Verify vmip attached to vm", func() {
@@ -170,11 +206,14 @@ var _ = Describe("IPAM", Label(precheck.NoPrecheck), func() {
 				Expect(vm.Status.IPAddress).To(Equal(vmipStatic.Status.Address))
 
 				expectAddr := fmt.Sprintf("%s/32", vmipStatic.Status.Address)
-				Eventually(func(g Gomega) {
-					result, err := f.SSHCommand(vm.Name, vm.Namespace, "ip -brief -4 address show eth0")
+				// EXCEPTION: this is a guest-side wait (ip over SSH), not a Kubernetes
+				// resource, so there is nothing to observe via an Observer. The custom
+				// custom image has no cloud user, so log in as root.
+				eventually.UntilAssertion(func(g Gomega) {
+					result, err := f.SSHCommand(vm.Name, vm.Namespace, "ip -4 addr show eth0", framework.WithSSHUser("root"))
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(result).Should(ContainSubstring(expectAddr))
-				}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+				}, framework.ShortTimeout)
 			})
 		})
 	})
@@ -212,35 +251,106 @@ func ExpectToBeBound(g Gomega, vmip *v1alpha2.VirtualMachineIPAddress, lease *v1
 	g.Expect(lease.Spec.VirtualMachineIPAddressRef.Namespace).To(Equal(vmip.Namespace), "lease spec.VirtualMachineIPAddressRef.Namespace is not equal")
 }
 
+// WaitToBeBound observes the vmip and the lease it derives through watches
+// until both report the Bound state, and returns the settled objects.
 func WaitToBeBound(ctx context.Context, f *framework.Framework, vmipName string) (*v1alpha2.VirtualMachineIPAddress, *v1alpha2.VirtualMachineIPAddressLease) {
-	var vmip *v1alpha2.VirtualMachineIPAddress
-	var lease *v1alpha2.VirtualMachineIPAddressLease
-
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
-		var err error
-		vmip, err = f.VirtClient().VirtualMachineIPAddresses(f.Namespace().Name).Get(ctx, vmipName, metav1.GetOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
 
-		lease, err = f.VirtClient().VirtualMachineIPAddressLeases().Get(ctx, ipAddressToLeaseName(vmip.Status.Address), metav1.GetOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
+	namespace := f.Namespace().Name
+	vmipObs, err := observer.New[*v1alpha2.VirtualMachineIPAddress](
+		ctx,
+		f.VirtClient().VirtualMachineIPAddresses(namespace),
+		vmipName, namespace,
+	)
+	Expect(err).NotTo(HaveOccurred(), "failed to start observer for vmip %s/%s", namespace, vmipName)
+	defer vmipObs.Stop()
 
-		ExpectToBeBound(g, vmip, lease)
-	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+	err = vmipObs.WaitFor(vmipBound(), framework.ShortTimeout)
+	Expect(err).NotTo(HaveOccurred(), "vmip %s/%s should become bound", namespace, vmipName)
+
+	vmip, err := f.VirtClient().VirtualMachineIPAddresses(namespace).Get(ctx, vmipName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	leaseName := ipAddressToLeaseName(vmip.Status.Address)
+	leaseObs, err := observer.New[*v1alpha2.VirtualMachineIPAddressLease](
+		ctx,
+		f.VirtClient().VirtualMachineIPAddressLeases(),
+		leaseName, "",
+	)
+	Expect(err).NotTo(HaveOccurred(), "failed to start observer for lease %s", leaseName)
+	defer leaseObs.Stop()
+
+	err = leaseObs.WaitFor(leaseBound(), framework.ShortTimeout)
+	Expect(err).NotTo(HaveOccurred(), "lease %s should become bound", leaseName)
+
+	lease, err := f.VirtClient().VirtualMachineIPAddressLeases().Get(ctx, leaseName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Re-assert the settled pair with the detailed cross-object checks (labels,
+	// back-references) and their rich failure messages.
+	ExpectToBeBound(Default, vmip, lease)
 
 	return vmip, lease
 }
 
-func WaitForLeaseToBeReleased(ctx context.Context, f *framework.Framework, leaseName string) *v1alpha2.VirtualMachineIPAddressLease {
-	var lease *v1alpha2.VirtualMachineIPAddressLease
+// vmipBound reports the vmip has settled in the Bound state with a fresh
+// Bound condition and an allocated address.
+func vmipBound() observer.Predicate[*v1alpha2.VirtualMachineIPAddress] {
+	return func(vmip *v1alpha2.VirtualMachineIPAddress) (bool, error) {
+		boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
+		return boundCondition.Status == metav1.ConditionTrue &&
+			boundCondition.Reason == vmipcondition.Bound.String() &&
+			boundCondition.ObservedGeneration == vmip.Generation &&
+			vmip.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseBound &&
+			vmip.Status.Address != "", nil
+	}
+}
 
+// leaseBound reports the lease has settled in the Bound state with a fresh
+// Bound condition.
+func leaseBound() observer.Predicate[*v1alpha2.VirtualMachineIPAddressLease] {
+	return func(lease *v1alpha2.VirtualMachineIPAddressLease) (bool, error) {
+		boundCondition, _ := conditions.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+		return boundCondition.Status == metav1.ConditionTrue &&
+			boundCondition.Reason == vmiplcondition.Bound.String() &&
+			boundCondition.ObservedGeneration == lease.Generation &&
+			lease.Status.Phase == v1alpha2.VirtualMachineIPAddressLeasePhaseBound, nil
+	}
+}
+
+// leaseReleased reports the lease has settled in the Released state with a
+// fresh Bound=False/Released condition.
+func leaseReleased() observer.Predicate[*v1alpha2.VirtualMachineIPAddressLease] {
+	return func(lease *v1alpha2.VirtualMachineIPAddressLease) (bool, error) {
+		boundCondition, _ := conditions.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+		return boundCondition.Status == metav1.ConditionFalse &&
+			boundCondition.Reason == vmiplcondition.Released.String() &&
+			boundCondition.ObservedGeneration == lease.Generation &&
+			lease.Status.Phase == v1alpha2.VirtualMachineIPAddressLeasePhaseReleased, nil
+	}
+}
+
+// WaitForLeaseToBeReleased observes the lease through a watch until it reports
+// the Released state, and returns the settled object.
+func WaitForLeaseToBeReleased(ctx context.Context, f *framework.Framework, leaseName string) *v1alpha2.VirtualMachineIPAddressLease {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
-		var err error
-		lease, err = f.VirtClient().VirtualMachineIPAddressLeases().Get(ctx, leaseName, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		ExpectToBeReleased(g, lease)
-	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+
+	leaseObs, err := observer.New[*v1alpha2.VirtualMachineIPAddressLease](
+		ctx,
+		f.VirtClient().VirtualMachineIPAddressLeases(),
+		leaseName, "",
+	)
+	Expect(err).NotTo(HaveOccurred(), "failed to start observer for lease %s", leaseName)
+	defer leaseObs.Stop()
+
+	err = leaseObs.WaitFor(leaseReleased(), framework.ShortTimeout)
+	Expect(err).NotTo(HaveOccurred(), "lease %s should be released", leaseName)
+
+	lease, err := f.VirtClient().VirtualMachineIPAddressLeases().Get(ctx, leaseName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Re-assert the settled object with the rich failure messages.
+	ExpectToBeReleased(Default, lease)
 
 	return lease
 }
@@ -248,3 +358,46 @@ func WaitForLeaseToBeReleased(ctx context.Context, f *framework.Framework, lease
 func ipAddressToLeaseName(ipAddress string) string {
 	return "ip-" + strings.ReplaceAll(ipAddress, ".", "-")
 }
+
+// highPoolAddress returns an address near the top of the pool the given address
+// belongs to, free of any lease, for the spec to claim statically. The e2e pool
+// is a /24, so the address stays inside it.
+func highPoolAddress(ctx context.Context, f *framework.Framework, poolAddress string) string {
+	GinkgoHelper()
+
+	parts := strings.Split(poolAddress, ".")
+	Expect(parts).To(HaveLen(4), "expected an IPv4 pool address, got %q", poolAddress)
+	prefix := strings.Join(parts[:3], ".")
+
+	// A fixed address would not do. Leases are cluster-scoped, named after the
+	// address, and outlive the namespace that held them: a released lease sits
+	// around for minutes. Back-to-back runs of this spec would then pick the very
+	// same address and the second one would wait out its timeout on a lease that
+	// still belongs to the first one's namespace. So take the highest address the
+	// cluster currently has no lease for at all.
+	leases, err := f.VirtClient().VirtualMachineIPAddressLeases().List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred(), "failed to list VirtualMachineIPAddressLeases")
+
+	taken := make(map[string]struct{}, len(leases.Items))
+	for _, lease := range leases.Items {
+		taken[lease.Name] = struct{}{}
+	}
+
+	for octet := highPoolAddressLast; octet >= highPoolAddressFirst; octet-- {
+		address := fmt.Sprintf("%s.%d", prefix, octet)
+		if _, held := taken[ipAddressToLeaseName(address)]; !held {
+			return address
+		}
+	}
+
+	Fail(fmt.Sprintf("no free address left in %s.%d-%d to claim statically", prefix, highPoolAddressFirst, highPoolAddressLast))
+	return ""
+}
+
+// The band of the pool this spec claims from. It sits above the addresses auto
+// allocation hands out (it starts from the lowest free one), so a concurrent
+// suite cannot take one of these from under the spec.
+const (
+	highPoolAddressFirst = 200
+	highPoolAddressLast  = 250
+)

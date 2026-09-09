@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -353,6 +354,50 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 	})
 
+	It("patches disks together with volumes so the merged template stays self-consistent", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		setDisks := func(kvvm *virtv1.VirtualMachine, names ...string) *virtv1.VirtualMachine {
+			disks := make([]virtv1.Disk, 0, len(names))
+			for _, name := range names {
+				disks = append(disks, virtv1.Disk{Name: name})
+			}
+			kvvm.Spec.Template.Spec.Domain.Devices.Disks = disks
+			return kvvm
+		}
+
+		vm := newVM()
+		// The in-cluster KVVM carries a disk whose volume is gone (the state a
+		// volumes-only patch used to create when it raced a concurrent hotplug
+		// persist: the kubevirt webhook denies every follow-up volumes-only patch
+		// of such a template). The desired template is self-consistent; patching
+		// volumes and disks together must repair the pair.
+		kvvmInCluster := setDisks(newKVVMWithVolume(targetPVC, &migrationStrategy, "target-node"), "rootdisk", "vd-hotplug")
+		kvvmi := newKVVMIWithVolume(sourcePVC)
+		desiredKVVM := setDisks(newKVVMWithVolume(sourcePVC, nil, "source-node"), "rootdisk")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+				return desiredKVVM.DeepCopy(), nil
+			},
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].Name).To(Equal("rootdisk"))
+		Expect(updatedKVVM.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1),
+			"disks must be patched together with volumes, or the merged template keeps a disk without a volume")
+		Expect(updatedKVVM.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal("rootdisk"))
+	})
+
 	It("does not revert diverged volumes when no migration strategy is set (e.g. hotplug mid-attach)", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()
 
@@ -608,5 +653,46 @@ var _ = Describe("destinationsMatch", func() {
 		vmi := kvvmi(map[string]string{"root": "src"}, nil)
 		vmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{{VolumeName: "root", DestinationPVCInfo: nil}}
 		Expect(destinationsMatch(vmi, built(map[string]string{"root": "src"}))).To(BeTrue())
+	})
+})
+
+var _ = Describe("affinityMergeValue", func() {
+	// The regression this guards: a JSON merge patch treats an absent key as
+	// "leave unchanged". Rendering *corev1.Affinity directly omits a nil
+	// nodeAffinity, so a stale source-PV node pinning survives on the KVVM
+	// template during volume migration and pins the migration target pod to the
+	// source node. affinityMergeValue must emit an explicit null instead.
+	It("returns nil for a nil affinity so the whole field is cleared", func() {
+		Expect(affinityMergeValue(nil)).To(BeNil())
+	})
+
+	It("emits an explicit null nodeAffinity when only podAntiAffinity is set", func() {
+		aff := &corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{TopologyKey: "kubernetes.io/hostname"}},
+			},
+		}
+		b, err := json.Marshal(affinityMergeValue(aff))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).To(ContainSubstring(`"nodeAffinity":null`))
+		Expect(string(b)).To(ContainSubstring(`"podAntiAffinity":`))
+	})
+
+	It("keeps a non-nil nodeAffinity so a non-migrating VM stays pinned to its replica node", func() {
+		aff := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+						MatchExpressions: []corev1.NodeSelectorRequirement{{
+							Key: "storage.deckhouse.io/sds-replicated-volume-hostname", Operator: corev1.NodeSelectorOpIn, Values: []string{"node-1"},
+						}},
+					}},
+				},
+			},
+		}
+		b, err := json.Marshal(affinityMergeValue(aff))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).To(ContainSubstring("node-1"))
+		Expect(string(b)).NotTo(ContainSubstring(`"nodeAffinity":null`))
 	})
 })

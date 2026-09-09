@@ -17,9 +17,25 @@ limitations under the License.
 package object
 
 const (
+	Mi64           = 64 * 1024 * 1024
 	Mi256          = 256 * 1024 * 1024
 	Mi512          = 512 * 1024 * 1024
 	DefaultVMClass = "generic-for-e2e"
+
+	// Sizing for VirtualMachines booting the custom guest image. The image is a
+	// BusyBox/musl userspace on a monolithic kernel: it boots and runs its baked-in
+	// guest agent within 64Mi, and a single core at 5% (50m) is enough for it.
+	// Below 64Mi the firmware does not even reach the bootloader and the VM is
+	// powered off right after start.
+	CustomImageVMCoreFraction = "5%"
+	CustomImageVMMemory       = "64Mi"
+
+	// The EFI flavor needs more, and not because of the image: OVMF is a full
+	// DXE stack (its own heap, page tables, GOP framebuffer, SMM) and that
+	// working set lives before the kernel starts. Measured floor is between
+	// 128Mi (does not boot) and 160Mi (boots); 192Mi keeps a margin over it.
+	// Prefer the BIOS flavor wherever the firmware is not what the spec exercises.
+	CustomImageEFIVMMemory = "192Mi"
 
 	iperf3Script = `#!/bin/bash
 cat > /etc/init.d/iperf3 <<-"EOF"

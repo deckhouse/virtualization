@@ -117,6 +117,19 @@ type Observer[T Object] interface {
 	Stop()
 }
 
+// Option configures an Observer at construction time.
+type Option[T Object] func(*observer[T])
+
+// WithDescriber sets a formatter rendering a compact summary of an observed
+// state. WaitFor appends the summary of the last observed state to its timeout
+// error, so a spec that waits out its deadline reports what the resource was
+// stuck on instead of a bare "timed out".
+func WithDescriber[T Object](describe func(T) string) Option[T] {
+	return func(o *observer[T]) {
+		o.describe = describe
+	}
+}
+
 // New starts a watch via w and observes events for the resource identified by
 // (name, namespace). The returned Observer is already running; the caller must
 // invoke Stop to release the underlying watch.
@@ -128,6 +141,7 @@ func New[T Object](
 	parentCtx context.Context,
 	w Watcher,
 	name, namespace string,
+	opts ...Option[T],
 ) (Observer[T], error) {
 	if w == nil {
 		return nil, errors.New("observer: watcher is nil")
@@ -143,10 +157,15 @@ func New[T Object](
 	o := &observer[T]{
 		name:              name,
 		namespace:         namespace,
+		watcher:           w,
+		ctx:               ctx,
 		listeners:         make(map[chan T]struct{}),
 		invariantViolated: make(chan struct{}),
 		stop:              make(chan struct{}),
 		done:              make(chan struct{}),
+	}
+	for _, opt := range opts {
+		opt(o)
 	}
 
 	go o.run(wi, cancel)
@@ -157,6 +176,12 @@ func New[T Object](
 type observer[T Object] struct {
 	name      string
 	namespace string
+	describe  func(T) string
+
+	// watcher and ctx are kept to re-establish the watch: the API server ends
+	// watches on its own schedule, which must not end the observation.
+	watcher Watcher
+	ctx     context.Context
 
 	mu        sync.Mutex
 	listeners map[chan T]struct{}
@@ -177,7 +202,9 @@ type observer[T Object] struct {
 
 func (o *observer[T]) run(wi watch.Interface, cancel context.CancelFunc) {
 	defer close(o.done)
-	defer wi.Stop()
+	// Closure, not `defer wi.Stop()`: wi is replaced whenever the watch is
+	// re-established, and the deferred call must release the current one.
+	defer func() { wi.Stop() }()
 	defer cancel()
 
 	for {
@@ -186,7 +213,19 @@ func (o *observer[T]) run(wi watch.Interface, cancel context.CancelFunc) {
 			return
 		case event, ok := <-wi.ResultChan():
 			if !ok {
-				return
+				// The API server ends watches on its own schedule (and more
+				// often on a busy cluster), which says nothing about the
+				// resource being observed. Ending the observation here would
+				// fail every wait in flight with "observer stopped before
+				// predicate became true", so the watch is re-established
+				// instead and only a stopped observer or a cancelled context
+				// ends the loop.
+				next, ok := o.rewatch()
+				if !ok {
+					return
+				}
+				wi = next
+				continue
 			}
 			obj, ok := event.Object.(T)
 			if !ok {
@@ -200,6 +239,30 @@ func (o *observer[T]) run(wi watch.Interface, cancel context.CancelFunc) {
 		}
 	}
 }
+
+// rewatch re-establishes the watch after the API server ended it, retrying
+// with a short backoff. It reports false once the observer is stopped or its
+// context is done, which is the only reason to give up.
+func (o *observer[T]) rewatch() (watch.Interface, bool) {
+	for {
+		wi, err := o.watcher.Watch(o.ctx, metav1.ListOptions{})
+		if err == nil {
+			return wi, true
+		}
+
+		select {
+		case <-o.stop:
+			return nil, false
+		case <-o.ctx.Done():
+			return nil, false
+		case <-time.After(rewatchBackoff):
+		}
+	}
+}
+
+// rewatchBackoff paces the retries of a watch the API server has ended and the
+// observer could not immediately restart.
+const rewatchBackoff = time.Second
 
 // broadcast records the latest observation and forwards it to every active
 // WaitFor listener.
@@ -370,13 +433,32 @@ func (o *observer[T]) WaitFor(predicate Predicate[T], timeout time.Duration) err
 				return nil
 			}
 		case <-timer.C:
-			return fmt.Errorf("observer: WaitFor timed out after %s", timeout)
+			return fmt.Errorf("observer: WaitFor timed out after %s%s", timeout, o.describeLatest())
 		case <-o.done:
 			return errors.New("observer: WaitFor: observer stopped before predicate became true")
 		case <-o.invariantViolated:
 			return fmt.Errorf("observer: WaitFor aborted by invariant: %w", o.Err())
 		}
 	}
+}
+
+// describeLatest renders the last observed state through the configured
+// describer, ready to be appended to a timeout error. It returns an empty
+// string when no describer is set or nothing has been observed yet.
+func (o *observer[T]) describeLatest() string {
+	if o.describe == nil {
+		return ""
+	}
+
+	o.mu.Lock()
+	latest := o.latest
+	hasLatest := o.hasLatest
+	o.mu.Unlock()
+
+	if !hasLatest {
+		return "; nothing observed yet"
+	}
+	return "; last observed state: " + o.describe(latest)
 }
 
 func (o *observer[T]) Stop() {

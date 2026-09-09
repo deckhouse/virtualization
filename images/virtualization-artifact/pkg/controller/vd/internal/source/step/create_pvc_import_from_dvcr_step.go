@@ -39,6 +39,7 @@ import (
 )
 
 type StartImportFromDVCRStepStatService interface {
+	CheckPod(pod *corev1.Pod) error
 	GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize
 	GetFormat(pod *corev1.Pod) string
 	GetDVCRImageName(pod *corev1.Pod) string
@@ -85,6 +86,19 @@ func (s StartImportFromDVCRStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 
 	if !podutil.IsPodComplete(s.pod) {
 		return nil, nil
+	}
+
+	// A helper pod can complete in the Succeeded phase while its termination
+	// message carries a provisioning error (e.g. an uploader whose client
+	// aborted the upload mid-stream). Surface it as ProvisioningFailed instead
+	// of tripping over the empty size report below.
+	if err := s.stat.CheckPod(s.pod); err != nil {
+		vd.Status.Phase = v1alpha2.DiskFailed
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningFailed).
+			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+		return &reconcile.Result{}, nil
 	}
 
 	vd.Status.Progress = "50.0%"

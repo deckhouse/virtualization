@@ -55,11 +55,13 @@ import (
 //
 // The source is the small non-bootable test image: nothing boots from it, and
 // the specs only care about the checksum verdict, so a 12 MiB file keeps even
-// the Streebog specs cheap.
+// the Streebog specs cheap - cheap enough for every spec to download and hash
+// its own copy in BeforeEach, instead of sharing one through an Ordered
+// container and serializing the whole suite.
 var _ = Describe("ImageChecksums", Label(
 	label.SIGStorage,
 	precheck.PrecheckDefaultStorageClass,
-), Ordered, func() {
+), func() {
 	var (
 		f *framework.Framework
 
@@ -70,7 +72,7 @@ var _ = Describe("ImageChecksums", Label(
 		imagePath string
 	)
 
-	BeforeAll(func(ctx context.Context) {
+	BeforeEach(func(ctx context.Context) {
 		f = framework.NewFramework("")
 		f.Before()
 		DeferCleanup(f.After)
@@ -120,7 +122,11 @@ var _ = Describe("ImageChecksums", Label(
 		vi.Namespace = f.Namespace().Name
 
 		// BeFailed is expected here, so the invariant the other specs assert is
-		// deliberately not registered on this observer.
+		// deliberately not registered on this observer, and the fail-fast rules
+		// are told to leave the image and its importer pod alone: the Failed
+		// phase is terminal and the pod keeps crash-looping until the cleanup,
+		// so a rule would otherwise fail the spec once its grace elapses.
+		f.ExpectFailure(vi)
 		obs := viobs.StartObserver(ctx, f, vi)
 
 		By("Creating the VirtualImage", func() {
@@ -158,7 +164,10 @@ var _ = Describe("ImageChecksums", Label(
 		vi.Namespace = f.Namespace().Name
 
 		// BeFailed is expected here, so the invariant the other specs assert is
-		// deliberately not registered on this observer.
+		// deliberately not registered on this observer, and the fail-fast rules
+		// are told to leave the image and its uploader pod alone (see the HTTP
+		// mismatch spec above).
+		f.ExpectFailure(vi)
 		obs := viobs.StartObserver(ctx, f, vi)
 
 		By("Creating the VirtualImage", func() {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -76,7 +77,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if sc.DeletionTimestamp != nil {
 		return reconcile.Result{}, r.deleteStorageProfile(ctx, req.Name)
 	}
-	return reconcile.Result{}, r.reconcileStorageProfile(ctx, sc)
+	return r.requeueOnStaleCache(r.reconcileStorageProfile(ctx, sc))
+}
+
+// requeueOnStaleCache retries a stale-cache race with a plain requeue instead
+// of reporting it: the profile was read from the cache, which may lag behind a
+// fresh write (typically this controller's own). An optimistic-concurrency
+// conflict on Update and an "already exists" on Create (the cache still
+// returned NotFound right after the profile was created) are both resolved by
+// the retry, which re-reads the profile, so neither is a reconciler failure.
+func (r *Reconciler) requeueOnStaleCache(err error) (reconcile.Result, error) {
+	if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
+		r.log.Debug("StorageProfile cache is stale, requeuing", logger.SlogErr(err))
+		return reconcile.Result{RequeueAfter: 100 * time.Millisecond}, nil
+	}
+	return reconcile.Result{}, err
 }
 
 func (r *Reconciler) reconcileStorageProfile(ctx context.Context, sc *storagev1.StorageClass) error {

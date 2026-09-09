@@ -12,7 +12,7 @@ inputs:
   d8-version:
     description: deckhouse-cli version to install.
     required: false
-    default: v0.29.24
+    default: v0.33.11
   install-kubectl:
     description: Install kubectl via azure/setup-kubectl.
     required: false

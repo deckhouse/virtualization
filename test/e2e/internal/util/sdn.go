@@ -19,6 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
 )
 
 func ClusterNetworkName(vlanID int) string {
@@ -84,10 +86,52 @@ var IPAddressGVR = schema.GroupVersionResource{
 	Resource: "ipaddresses",
 }
 
+// IPAddressLeaseGVR is the GroupVersionResource for the cluster-scoped SDN
+// IPAddressLease resource.
+var IPAddressLeaseGVR = schema.GroupVersionResource{
+	Group:    "network.deckhouse.io",
+	Version:  "v1alpha1",
+	Resource: "ipaddressleases",
+}
+
+// releaseOrphanedSDNLeases deletes orphaned IPAddressLease objects holding the
+// given static IP. The SDN keeps a lease alive for spec.ttl (1h in the e2e
+// pool) after its IPAddress is deleted so the owner can reclaim the address;
+// an orphaned lease left by a previous e2e run therefore blocks a new Static
+// request for the same IP until the TTL expires. Orphaned leases
+// (status.orphaningTimestamp set) have no live owner, so deleting them is safe.
+// TODO: drop this workaround if the SDN learns to hand an orphaned lease over
+// to a new Static IPAddress requesting the same IP.
+func releaseOrphanedSDNLeases(ctx context.Context, staticIP string) error {
+	leases, err := framework.GetClients().DynamicClient().Resource(IPAddressLeaseGVR).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list SDN IPAddressLeases: %w", err)
+	}
+	for _, lease := range leases.Items {
+		ip, _, _ := unstructured.NestedString(lease.Object, "spec", "ip")
+		if ip != staticIP {
+			continue
+		}
+		orphanedAt, _, _ := unstructured.NestedString(lease.Object, "status", "orphaningTimestamp")
+		if orphanedAt == "" {
+			continue
+		}
+		err = framework.GetClients().DynamicClient().Resource(IPAddressLeaseGVR).Delete(ctx, lease.GetName(), metav1.DeleteOptions{})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("delete orphaned SDN IPAddressLease %s (%s): %w", lease.GetName(), staticIP, err)
+		}
+	}
+	return nil
+}
+
 // CreateSDNIPAddress creates an SDN IPAddress resource (type Static) in the given
 // namespace, referencing the given network with the specified static IP.
 // Uses the dynamic client.
 func CreateSDNIPAddress(ctx context.Context, f *framework.Framework, name, namespace, networkKind, networkName, staticIP string) error {
+	if err := releaseOrphanedSDNLeases(ctx, staticIP); err != nil {
+		return err
+	}
+
 	ipAddr := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "network.deckhouse.io/v1alpha1",
 		"kind":       "IPAddress",
@@ -151,4 +195,30 @@ func ListSDNIPAddresses(ctx context.Context, f *framework.Framework, namespace s
 func DeleteAllSDNIPAddresses(ctx context.Context, f *framework.Framework, namespace string) error {
 	return framework.GetClients().DynamicClient().Resource(IPAddressGVR).Namespace(namespace).
 		DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+}
+
+// UntilSDNIPAddressAllocated waits for the SDN IPAddress to report the
+// expected allocated address, observing the CR through a dynamic watch.
+func UntilSDNIPAddressAllocated(ctx context.Context, name, namespace, expectedAddress string, timeout time.Duration) {
+	GinkgoHelper()
+
+	obs, err := observer.New[*unstructured.Unstructured](
+		ctx,
+		observer.DynamicWatcher(framework.GetClients().DynamicClient(), IPAddressGVR, namespace),
+		name, namespace,
+	)
+	Expect(err).NotTo(HaveOccurred(), "failed to start observer for SDN IPAddress %s/%s", namespace, name)
+	defer obs.Stop()
+
+	err = obs.WaitFor(sdnAddressAllocated(expectedAddress), timeout)
+	Expect(err).NotTo(HaveOccurred(), "SDN IPAddress %s/%s should allocate address %s", namespace, name, expectedAddress)
+}
+
+// sdnAddressAllocated reports the SDN IPAddress CR carries the expected
+// allocated address in its status.
+func sdnAddressAllocated(expectedAddress string) observer.Predicate[*unstructured.Unstructured] {
+	return func(u *unstructured.Unstructured) (bool, error) {
+		address, _, _ := unstructured.NestedString(u.Object, "status", "address")
+		return address == expectedAddress, nil
+	}
 }

@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,6 +41,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -61,13 +62,13 @@ var _ = Describe("CoreFraction", func() {
 
 	Context("GeneralCoreFraction", Label(precheck.HotplugInPlaceResizePrecheck), func() {
 		It("should apply an explicit coreFraction change in-place and update pod CPU requests", func() {
-			t.applyExplicitCoreFractionChange(1, "10%", "50%")
+			t.applyExplicitCoreFractionChange(1, "5%", "10%")
 		})
 	})
 
 	Context("AutoCoreFraction", Label(precheck.HotplugInPlaceResizePrecheck), Label(precheck.PrecheckVerticalPodAutoscaler), func() {
 		It("should autoscale coreFraction from a pinned VPA recommendation", func() {
-			t.autoscaleCoreFractionViaRecommendation(2)
+			t.autoscaleCoreFractionViaRecommendation(1)
 		})
 	})
 })
@@ -83,9 +84,10 @@ func (t *coreFractionTest) applyExplicitCoreFractionChange(cores int, initial, c
 	ctx := context.Background()
 
 	By("Environment preparation")
-	t.generateAlpineResources("vm-core-fraction", cores, initial)
+	t.generateResources("vm-core-fraction", cores, initial)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 	Expect(err).NotTo(HaveOccurred())
+	vmObs := vmobs.StartObserver(ctx, t.Framework, t.VM)
 
 	By("Waiting for VM agent to be ready")
 	util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
@@ -107,7 +109,8 @@ func (t *coreFractionTest) applyExplicitCoreFractionChange(cores int, initial, c
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Waiting until the change is applied in-place without a restart")
-	untilVMCoreFractionApplied(crclient.ObjectKeyFromObject(t.VM), changed, framework.MiddleTimeout)
+	err = vmObs.WaitFor(haveAppliedCoreFraction(changed), framework.MiddleTimeout)
+	Expect(err).NotTo(HaveOccurred())
 	util.ExpectNoVMOperationsForVirtualMachine(ctx, t.Framework, t.VM)
 	util.ExpectVMOnNode(ctx, t.Framework, t.VM, initialNode)
 
@@ -119,9 +122,10 @@ func (t *coreFractionTest) autoscaleCoreFractionViaRecommendation(cores int) {
 	ctx := context.Background()
 
 	By("Environment preparation")
-	t.generateAlpineResources("vm-core-fraction-auto", cores, v1alpha2.CoreFractionAuto)
+	t.generateResources("vm-core-fraction-auto", cores, v1alpha2.CoreFractionAuto)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VD, t.VM)
 	Expect(err).NotTo(HaveOccurred())
+	vmObs := vmobs.StartObserver(ctx, t.Framework, t.VM)
 
 	By("Waiting for VM agent to be ready")
 	util.UntilVMAgentReady(ctx, crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
@@ -144,22 +148,19 @@ func (t *coreFractionTest) autoscaleCoreFractionViaRecommendation(cores int) {
 	t.patchKVVMRecommendationOverride(ctx, recommendationOverrideCPU("20000m", "20000m", "40000m"))
 
 	By("Waiting until the autoscaler raises coreFraction from the recommendation")
+	// The predicate captures the applied value from the very observation that
+	// satisfied it, so the pod check below uses the same coreFraction the wait
+	// saw.
 	var applied string
-	Eventually(func(g Gomega) {
-		g.Expect(t.Framework.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM)).To(Succeed())
-		recommended := sizingpolicy.RecommendedCoreFraction(t.VM)
-		applied = t.VM.Status.Resources.CPU.CoreFraction
-		g.Expect(percent(recommended)).To(BeNumerically(">", percent(initialFraction)),
-			"recommended coreFraction should grow from the pinned recommendation")
-		g.Expect(applied).To(Equal(recommended), "recommended coreFraction should be applied")
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed())
+	err = vmObs.WaitFor(haveRaisedAndAppliedCoreFraction(initialFraction, &applied), framework.MiddleTimeout)
+	Expect(err).NotTo(HaveOccurred(), "recommended coreFraction should grow from the pinned recommendation and be applied")
 
 	By("Checking the pod CPU request follows the applied coreFraction")
 	t.untilPodCPURequest(ctx, expectedCPURequestMilli(cores, applied), framework.MiddleTimeout)
 }
 
-func (t *coreFractionTest) generateAlpineResources(vmName string, cores int, coreFraction string) {
-	t.VD = object.NewVDFromCVI(fmt.Sprintf("vd-%s", vmName), t.Framework.Namespace().Name, object.PrecreatedCVIAlpineBIOS)
+func (t *coreFractionTest) generateResources(vmName string, cores int, coreFraction string) {
+	t.VD = object.NewVDFromCVI(fmt.Sprintf("vd-%s", vmName), t.Framework.Namespace().Name, object.PrecreatedCVICustomBIOS)
 	t.VM = object.NewMinimalVM("", t.Framework.Namespace().Name,
 		vmbuilder.WithName(vmName),
 		vmbuilder.WithCPU(cores, ptr.To(coreFraction)),
@@ -170,8 +171,8 @@ func (t *coreFractionTest) generateAlpineResources(vmName string, cores int, cor
 	)
 }
 
-func vpaGVK() schema.GroupVersionKind {
-	return schema.GroupVersionKind{Group: "autoscaling.k8s.io", Version: "v1", Kind: "VerticalPodAutoscaler"}
+func vpaGVR() schema.GroupVersionResource {
+	return schema.GroupVersionResource{Group: "autoscaling.k8s.io", Version: "v1", Resource: "verticalpodautoscalers"}
 }
 
 func kvvmGVK() schema.GroupVersionKind {
@@ -183,17 +184,19 @@ func kvvmGVK() schema.GroupVersionKind {
 }
 
 // untilVPAExists waits until the autoscaler has created the VM's VPA: same namespace as
-// the VM, name derived from its UID. The VPA type is not in the e2e scheme, so it is read
-// as unstructured via the dynamic REST mapper.
+// the VM, name derived from its UID. The VPA type is not in the e2e scheme, so it is
+// observed as unstructured through a dynamic watch.
 func (t *coreFractionTest) untilVPAExists(ctx context.Context, timeout time.Duration) {
 	GinkgoHelper()
 
-	key := crclient.ObjectKey{Name: commonvm.VerticalPodAutoscalerName(t.VM), Namespace: t.VM.Namespace}
-	Eventually(func(g Gomega) {
-		vpa := &unstructured.Unstructured{}
-		vpa.SetGroupVersionKind(vpaGVK())
-		g.Expect(t.Framework.GenericClient().Get(ctx, key, vpa)).To(Succeed())
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+	vpaName := commonvm.VerticalPodAutoscalerName(t.VM)
+	_, err := observer.WaitForFirst(ctx,
+		observer.DynamicWatcher(framework.GetClients().DynamicClient(), vpaGVR(), t.VM.Namespace),
+		timeout,
+		func(vpa *unstructured.Unstructured) bool {
+			return vpa.GetName() == vpaName
+		})
+	Expect(err).NotTo(HaveOccurred(), "the autoscaler should create VPA %s/%s", t.VM.Namespace, vpaName)
 }
 
 // recommendationOverrideCPU builds the JSON RecommendedPodResources the controller reads
@@ -229,19 +232,29 @@ func (t *coreFractionTest) patchKVVMRecommendationOverride(ctx context.Context, 
 	Expect(t.Framework.ControllerSAClient().Patch(ctx, kvvm, crclient.RawPatch(types.MergePatchType, patch))).To(Succeed())
 }
 
-// untilPodCPURequest waits until the active pod's compute container requests the
-// expected CPU (in millicores).
+// untilPodCPURequest waits until the VM's running virt-launcher pod requests the
+// expected CPU (in millicores) on its compute container. The in-place resize
+// updates the pod object, so the change arrives as a watch event on the same pod.
 func (t *coreFractionTest) untilPodCPURequest(ctx context.Context, expectedMilli int64, timeout time.Duration) {
 	GinkgoHelper()
 
-	Eventually(func(g Gomega) {
-		_, pod, err := util.GetVirtualMachineAndActivePod(ctx, t.Framework, t.VM)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		req, ok := computeContainerCPURequest(pod)
-		g.Expect(ok).To(BeTrue(), "compute container should request CPU")
-		g.Expect(req.MilliValue()).To(Equal(expectedMilli))
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+	_, err := observer.WaitForFirst(ctx,
+		t.Framework.KubeClient().CoreV1().Pods(t.VM.Namespace),
+		timeout,
+		func(pod *corev1.Pod) bool {
+			if pod.Labels["kubevirt.internal.virtualization.deckhouse.io"] != "virt-launcher" ||
+				pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"] != t.VM.Name {
+				return false
+			}
+			if pod.Status.Phase != corev1.PodRunning || pod.DeletionTimestamp != nil {
+				return false
+			}
+			req, ok := computeContainerCPURequest(pod)
+			return ok && req.MilliValue() == expectedMilli
+		})
+	Expect(err).NotTo(HaveOccurred(),
+		"the compute container of the virt-launcher pod of VM %s/%s should request %dm CPU",
+		t.VM.Namespace, t.VM.Name, expectedMilli)
 }
 
 func computeContainerCPURequest(pod *corev1.Pod) (resource.Quantity, bool) {
@@ -269,12 +282,35 @@ func percent(coreFraction string) int {
 	return v
 }
 
-func untilVMCoreFractionApplied(key crclient.ObjectKey, expected string, timeout time.Duration) {
-	GinkgoHelper()
+// haveAppliedCoreFraction reports the VM status carries exactly the given
+// coreFraction.
+func haveAppliedCoreFraction(expected string) vmobs.Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		return vm.Status.Resources.CPU.CoreFraction == expected, nil
+	}
+}
 
-	Eventually(func(g Gomega) {
-		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(vm.Status.Resources.CPU.CoreFraction).To(Equal(expected))
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+// haveRaisedAndAppliedCoreFraction reports the autoscaler recommended a
+// coreFraction above initial and the VM status applied exactly that value.
+// The applied value of the satisfying observation is stored into applied.
+func haveRaisedAndAppliedCoreFraction(initial string, applied *string) vmobs.Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		recommended := sizingpolicy.RecommendedCoreFraction(vm)
+		if recommended == "" || vm.Status.Resources.CPU.CoreFraction != recommended {
+			return false, nil
+		}
+		recommendedPct, err := strconv.Atoi(strings.TrimSuffix(recommended, "%"))
+		if err != nil {
+			return false, fmt.Errorf("malformed recommended coreFraction %q: %w", recommended, err)
+		}
+		initialPct, err := strconv.Atoi(strings.TrimSuffix(initial, "%"))
+		if err != nil {
+			return false, fmt.Errorf("malformed initial coreFraction %q: %w", initial, err)
+		}
+		if recommendedPct <= initialPct {
+			return false, nil
+		}
+		*applied = vm.Status.Resources.CPU.CoreFraction
+		return true, nil
+	}
 }

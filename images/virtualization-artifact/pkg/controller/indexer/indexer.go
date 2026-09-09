@@ -82,6 +82,8 @@ const (
 
 	IndexFieldSNNNIAByNodeName          = "snnnia.status.nodeName"
 	IndexFieldSNNNIABySystemNetworkName = "snnnia.spec.systemNetworkName"
+
+	IndexFieldVMIMByVMI = "vmim.spec.vmiName"
 )
 
 var IndexGetters = []IndexGetter{
@@ -113,6 +115,7 @@ var IndexGetters = []IndexGetter{
 	IndexEventByInvolvedObjectName,
 	IndexEventByInvolvedObjectKind,
 	IndexPVByStorageClass,
+	IndexVMIMByVMI,
 }
 
 var IndexGettersUSB = []IndexGetter{

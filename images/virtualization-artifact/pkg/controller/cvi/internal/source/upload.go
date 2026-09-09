@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	servicestat "github.com/deckhouse/virtualization-controller/pkg/controller/service/stat"
 	serviceuploader "github.com/deckhouse/virtualization-controller/pkg/controller/service/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -146,6 +147,25 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		}
 
 		return reconcile.Result{}, nil
+	case condition.Reason == cvicondition.ProvisioningFailedTerminally.String():
+		// The uploader delivered a terminal verdict (e.g. a checksum mismatch):
+		// re-uploading replays it, so keep the failure and clean the uploader
+		// up instead of leaving it (or recreating it) to wait for an upload.
+		log.Debug("Upload terminally failed: clean up")
+
+		cvi.Status.Phase = v1alpha2.ImageFailed
+		cvi.Status.ImageUploadURLs = nil
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.ProvisioningFailedTerminally).
+			Message(condition.Message)
+
+		_, _, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.AnyTerminating(pod, svc):
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || !exposure.Ensured():
@@ -175,7 +195,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			recordProvisioningFailedEvent(ds.recorder, cvi, err)
-			return reconcile.Result{}, setPhaseConditionFromPodError(cb, cvi, err)
+			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		ds.recorder.Event(
@@ -207,7 +227,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
 			recordProvisioningFailedEvent(ds.recorder, cvi, err)
-			return reconcile.Result{}, setPhaseConditionFromPodError(cb, cvi, err)
+			return reconcile.Result{}, setUploadPhaseConditionFromPodError(cb, cvi, err)
 		}
 
 		cb.
@@ -292,6 +312,22 @@ func setUploadProvisioningPhaseCondition(cb *conditions.ConditionBuilder, cvi *v
 
 func isTransientPodError(err error) bool {
 	return errors.Is(err, servicestat.ErrNotInitialized) || errors.Is(err, servicestat.ErrNotScheduled)
+}
+
+// setUploadPhaseConditionFromPodError is setPhaseConditionFromPodError for the
+// upload flow: the uploader's terminal verdict (e.g. a checksum mismatch) is
+// deterministic, so it gets its own condition reason for later reconciles to
+// recognize without parsing the message.
+func setUploadPhaseConditionFromPodError(cb *conditions.ConditionBuilder, cvi *v1alpha2.ClusterVirtualImage, err error) error {
+	if errors.Is(err, servicestat.ErrProvisioningFailed) && servicestat.IsTerminationMessageError(err) {
+		cvi.Status.Phase = v1alpha2.ImageFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.ProvisioningFailedTerminally).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return nil
+	}
+	return setPhaseConditionFromPodError(cb, cvi, err)
 }
 
 func hasUploadProgress(progress string) bool {

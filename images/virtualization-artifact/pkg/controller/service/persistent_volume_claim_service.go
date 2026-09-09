@@ -388,6 +388,7 @@ func (s *PersistentVolumeClaimService) ensureCloneSnapshot(ctx context.Context, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            snapshotName,
 			Namespace:       target.Namespace,
+			Annotations:     map[string]string{annotations.AnnAllowDelete: "true"},
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Spec: vsv1.VolumeSnapshotSpec{
@@ -410,7 +411,17 @@ func (s *PersistentVolumeClaimService) cleanupCloneSnapshot(ctx context.Context,
 	if snapshotName == "" {
 		return nil
 	}
-	err := s.client.Delete(ctx, &vsv1.VolumeSnapshot{ObjectMeta: metav1.ObjectMeta{Name: snapshotName, Namespace: target.Namespace}})
+	vs, err := object.FetchObject(ctx, types.NamespacedName{Name: snapshotName, Namespace: target.Namespace}, s.client, &vsv1.VolumeSnapshot{})
+	if err != nil {
+		return fmt.Errorf("fetch clone snapshot: %w", err)
+	}
+	if vs == nil {
+		return nil
+	}
+	if err := EnsureVolumeSnapshotDeletable(ctx, s.client, vs); err != nil {
+		return err
+	}
+	err = s.client.Delete(ctx, vs)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}

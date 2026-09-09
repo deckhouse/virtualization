@@ -23,7 +23,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +32,11 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/label"
+	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
+	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
+	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
+	vmbdaobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmbda"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
@@ -45,7 +49,7 @@ const (
 	releaseUpgradeMigratesVMsEnv = "RELEASE_UPGRADE_MIGRATES_VMS"
 )
 
-var _ = Describe("CurrentReleaseSmoke", func() {
+var _ = Describe("CurrentReleaseSmoke", Label(label.SIGCompute), func() {
 	It("should validate current release virtual machines", func() {
 		switch getReleaseTestPhase() {
 		case releaseTestPhasePostUpgrade:
@@ -110,32 +114,63 @@ func runPostUpgradeReleaseSmoke() {
 func (t *currentReleaseSmokeTest) createResources() {
 	ctx := context.Background()
 
+	// Observers are armed before the resources are created, so every phase
+	// transition (including ones that settle quickly) is captured for the
+	// waits below.
 	By("Creating root and hotplug virtual disks")
+	diskObservers := make([]vdobs.Observer, 0, len(t.vms)+len(t.dataDisks))
+	for _, vmScenario := range t.vms {
+		diskObservers = append(diskObservers, vdobs.StartObserver(ctx, t.framework, vmScenario.rootDisk))
+	}
+	for _, diskScenario := range t.dataDisks {
+		diskObservers = append(diskObservers, vdobs.StartObserver(ctx, t.framework, diskScenario.disk))
+	}
 	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.diskObjects()...)).To(Succeed())
 
 	By("Creating virtual machines")
-	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.vmObjects()...)).To(Succeed())
-	if runningVMs := t.initialRunningVMObjects(); len(runningVMs) > 0 {
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, runningVMs...)
+	for _, vmScenario := range t.vms {
+		vmScenario.vmObs = vmobs.StartObserver(ctx, t.framework, vmScenario.vm)
 	}
-	if stoppedVMs := t.initialStoppedVMObjects(); len(stoppedVMs) > 0 {
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineStopped), framework.MiddleTimeout, stoppedVMs...)
+	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.vmObjects()...)).To(Succeed())
+	for _, vmScenario := range t.vms {
+		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineRunning) {
+			err := vmScenario.vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+			Expect(err).NotTo(HaveOccurred(),
+				"VM %s should be Running initially", vmScenario.vm.Name)
+		} else {
+			err := vmScenario.vmObs.WaitFor(vmobs.BeStopped(), framework.MiddleTimeout)
+			Expect(err).NotTo(HaveOccurred(),
+				"VM %s should be Stopped initially", vmScenario.vm.Name)
+		}
 	}
 
 	By("Starting manual-policy virtual machines")
 	for _, vmScenario := range t.manualStartVMs() {
 		util.StartVirtualMachine(ctx, t.framework, vmScenario.vm)
 	}
-	if startedVMs := t.manualStartVMObjects(); len(startedVMs) > 0 {
-		util.UntilObjectPhase(ctx, string(v1alpha2.MachineRunning), framework.LongTimeout, startedVMs...)
+	for _, vmScenario := range t.manualStartVMs() {
+		err := vmScenario.vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred(),
+			"manually started VM %s should be Running", vmScenario.vm.Name)
 	}
 
 	By("Attaching hotplug disks")
+	attachmentObservers := make([]vmbdaobs.Observer, 0, len(t.attachments))
+	for _, attachmentScenario := range t.attachments {
+		attachmentObservers = append(attachmentObservers, vmbdaobs.StartObserver(ctx, t.framework, attachmentScenario.attachment))
+	}
 	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.attachmentObjects()...)).To(Succeed())
-	util.UntilObjectPhase(ctx, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MaxTimeout, t.attachmentObjects()...)
+	for i, obs := range attachmentObservers {
+		err := obs.WaitFor(vmbdaobs.BeAttached(), framework.MaxTimeout)
+		Expect(err).NotTo(HaveOccurred(),
+			"attachment %s should be Attached", t.attachments[i].name)
+	}
 
 	By("Waiting for all disks to become ready after consumers appear")
-	util.UntilObjectPhase(ctx, string(v1alpha2.DiskReady), framework.LongTimeout, t.diskObjects()...)
+	for _, obs := range diskObservers {
+		err := obs.WaitFor(vdobs.BeReady(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func (t *currentReleaseSmokeTest) verifyVMsReady() {
@@ -147,12 +182,15 @@ func (t *currentReleaseSmokeTest) verifyVMsReady() {
 	By("Checking attached disks inside guests")
 	for _, vmScenario := range t.vms {
 		By(fmt.Sprintf("Checking attached disks on %s", vmScenario.vm.Name))
-		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
 	}
 }
 
 func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 	By("Waiting for upgraded virtual machines to be running")
+	// The VMs were created by the pre-upgrade phase and may already be settled
+	// in Running; UntilObjectPhase handles that by checking the current state
+	// before waiting on the watch.
 	util.UntilObjectPhase(context.Background(), string(v1alpha2.MachineRunning), framework.LongTimeout, t.vmObjects()...)
 
 	By("Checking guest access after module upgrade")
@@ -162,7 +200,7 @@ func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 
 	By("Checking attached disks after module upgrade")
 	for _, vmScenario := range t.vms {
-		t.expectAdditionalDiskCount(vmScenario.vm, vmScenario.expectedAdditionalDisks)
+		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
 	}
 }
 
@@ -187,6 +225,16 @@ func (t *currentReleaseSmokeTest) verifyVMsDidNotRestart() {
 func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 	GinkgoHelper()
 
+	// iperf3 is baked into the custom image but nothing starts it at
+	// boot, so the smoke launches the server itself.
+	_, err := t.framework.SSHCommand(
+		t.iperfServer.vm.Name,
+		t.iperfServer.vm.Namespace,
+		"nohup iperf3 -s >/dev/null 2>&1 </dev/null &",
+		framework.WithSSHUser("root"),
+	)
+	Expect(err).NotTo(HaveOccurred(), "failed to start iperf3 server")
+
 	waitForIPerfServerToStart(t.framework, t.iperfServer.vm)
 
 	serverVM := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
@@ -195,10 +243,11 @@ func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 		serverVM.Status.IPAddress,
 		releaseIPerfReportPath,
 	)
-	_, err := t.framework.SSHCommand(
+	_, err = t.framework.SSHCommand(
 		t.iperfClient.vm.Name,
 		t.iperfClient.vm.Namespace,
 		command,
+		framework.WithSSHUser("root"),
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start long-running iperf3 client")
 
@@ -339,16 +388,15 @@ func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
 		err = nsClient.Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(func() error {
-			_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-			return fmt.Errorf("namespace %q is still deleting", namespace)
-		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+		err = observer.WaitForDeleted(context.Background(), nsClient, namespace, "", framework.LongTimeout,
+			func(ctx context.Context) (bool, error) {
+				_, getErr := nsClient.Get(ctx, namespace, metav1.GetOptions{})
+				if k8serrors.IsNotFound(getErr) {
+					return true, nil
+				}
+				return false, getErr
+			})
+		Expect(err).NotTo(HaveOccurred(), "namespace %q must finish deleting", namespace)
 	case !k8serrors.IsNotFound(err):
 		Expect(err).NotTo(HaveOccurred())
 	}

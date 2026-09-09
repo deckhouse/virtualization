@@ -24,14 +24,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+// NewMinimalVM builds a VirtualMachine sized for the custom guest image,
+// the default guest image of the suites: a single core at 5% and 64Mi of
+// memory are enough for it to boot and run the baked-in guest agent. Callers
+// that boot a heavier image (Alpine/Ubuntu/MyOS with cloud-init) must pass
+// their own WithCPU/WithMemory.
 func NewMinimalVM(prefix, namespace string, opts ...vm.Option) *v1alpha2.VirtualMachine {
 	baseOpts := []vm.Option{
 		vm.WithGenerateName(prefix),
 		vm.WithNamespace(namespace),
-		vm.WithCPU(1, ptr.To("20%")),
-		vm.WithMemory(*resource.NewQuantity(Mi512, resource.BinarySI)),
+		vm.WithCPU(1, ptr.To(CustomImageVMCoreFraction)),
+		vm.WithMemory(*resource.NewQuantity(Mi64, resource.BinarySI)),
 		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
-		vm.WithProvisioningUserData(AlpineCloudInit),
 	}
 	baseOpts = append(baseOpts, opts...)
 	return vm.New(baseOpts...)

@@ -140,7 +140,7 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 			}
 			return fmt.Errorf("%w: %w", ErrProvisioningFailed, ErrDVCRNoSpaceImageError)
 		}
-		return fmt.Errorf("%w: Pod %s/%s termination message: %s", ErrProvisioningFailed, pod.Namespace, pod.Name, report.ErrMessage)
+		return terminationMessageError{fmt.Errorf("%w: Pod %s/%s reported: %s", ErrProvisioningFailed, pod.Namespace, pod.Name, report.ErrMessage)}
 	}
 
 	if pod.Status.Phase == corev1.PodFailed {
@@ -148,6 +148,24 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 	}
 
 	return nil
+}
+
+// terminationMessageError marks a CheckPod failure built from the provisioner
+// pod's termination message, keeping the verdict recognizable without any
+// marker text in the user-facing error message.
+type terminationMessageError struct{ err error }
+
+func (e terminationMessageError) Error() string { return e.err.Error() }
+func (e terminationMessageError) Unwrap() error { return e.err }
+
+// IsTerminationMessageError reports whether the error carries a provisioner
+// pod's terminal verdict (a CheckPod ErrProvisioningFailed built from the
+// pod's termination message). Such a failure is deterministic: re-running the
+// provisioner replays the same verdict, so the caller may clean the
+// provisioner up and keep the failure instead of retrying.
+func IsTerminationMessageError(err error) bool {
+	var tmErr terminationMessageError
+	return errors.As(err, &tmErr)
 }
 
 func (s StatService) isDVCRNoSpaceError(terminationMessage string) bool {

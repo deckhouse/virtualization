@@ -39,16 +39,23 @@ tasks:
         ./scripts/precheck-prepare.sh
 
   run:
-    desc: "Run e2e tests"
+    desc: "Run e2e tests in parallel (SEQUENTIAL=true for sequential mode, PROCS to override --procs)"
     deps:
       - kubectl
       - d8
       - precheck:prepare
+    vars:
+      SEQUENTIAL: '{{.SEQUENTIAL | default "false"}}'
+      PROCS: '{{.PROCS | default "24"}}'
     cmds:
       - |
         {{if .STORAGE_CLASS_NAME -}}STORAGE_CLASS_NAME="{{.STORAGE_CLASS_NAME}}" {{end -}}go tool ginkgo -v \
+          {{if ne .SEQUENTIAL "true" -}}
+          -p --procs={{.PROCS}} \
+          {{end -}}
           --race \
-          {{if not .FOCUS -}}
+          --grace-period=1m \
+          {{if and (eq .SEQUENTIAL "true") (not .FOCUS) -}}
           --label-filter="!Slow" \
           {{end -}}
           {{if .LABELS -}}
@@ -56,8 +63,10 @@ tasks:
           {{end -}}
           {{if .TIMEOUT -}}
           --timeout={{ .TIMEOUT }} \
-          {{else -}}
+          {{else if eq .SEQUENTIAL "true" -}}
           --timeout=3h \
+          {{else -}}
+          --timeout=1h \
           {{end -}}
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}" \
@@ -75,27 +84,10 @@ tasks:
       - ./scripts/e2e-fzf {{.CLI_ARGS}}
 
   runp:
-    desc: "Run e2e tests in parallel mode"
-    deps:
-      - kubectl
-      - d8
-      - precheck:prepare
+    desc: "DEPRECATED: alias for 'task run' (which is parallel by default now)"
     cmds:
-      - |
-        {{if .STORAGE_CLASS_NAME -}}STORAGE_CLASS_NAME="{{.STORAGE_CLASS_NAME}}" {{end -}}go tool ginkgo -v \
-          -p --procs=12 \
-          --race \
-          {{if .LABELS -}}
-          --label-filter="{{ .LABELS }}" \
-          {{end -}}
-          {{if .TIMEOUT -}}
-          --timeout={{ .TIMEOUT }} \
-          {{else -}}
-          --timeout=3h \
-          {{end -}}
-          {{if .FOCUS -}}
-          --focus "{{ .FOCUS }}"
-          {{end -}}
+      - 'echo "WARNING: ''task runp'' is deprecated, use ''task run'' instead." >&2'
+      - task: run
 
   cleanup:
     desc: "Cleanup namespaces & resources left from e2e tests"

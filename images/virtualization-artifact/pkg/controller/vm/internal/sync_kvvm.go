@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -405,6 +406,14 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 				return false, fmt.Errorf("apply network readiness sync: %w", err)
 			}
 		}
+		// Attaching a block device does not change the VirtualMachine spec, so a hotplug volume
+		// that fell out of the internal virtual machine would never be rewritten back: without
+		// it the instance and its virtual machine stay apart and the VM cannot migrate at all.
+		if hotplugVolumesOutOfSync(kvvm, kvvmi) {
+			if err := h.updateKVVM(ctx, s); err != nil {
+				return false, fmt.Errorf("restore hotplug volumes of the internal virtual machine: %w", err)
+			}
+		}
 		return true, nil
 	default:
 		// Delay changes propagation to KVVM until user restarts VM.
@@ -610,7 +619,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		class,
 		ipAddress,
 		networkSpec,
-		kvvmi != nil && kvvmi.Status.Phase == virtv1.Running,
+		kvvmi,
 	)
 	if err != nil {
 		return nil, err
@@ -1042,6 +1051,36 @@ func hotplugMigrationQuotaMessage(quota *corev1.ResourceQuota, resourceName core
 		newReq.String(),
 		available.String(),
 	)
+}
+
+// hotplugVolumesOutOfSync reports whether the instance runs a hotplug volume the internal
+// virtual machine does not carry. Volumes being unplugged are not a drift: kubevirt drops
+// them from the instance itself once the detach completes.
+func hotplugVolumesOutOfSync(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) bool {
+	if kvvm == nil || kvvm.Spec.Template == nil || kvvmi == nil {
+		return false
+	}
+
+	unplugging := make(map[string]struct{}, len(kvvm.Status.VolumeRequests))
+	for _, request := range kvvm.Status.VolumeRequests {
+		if request.RemoveVolumeOptions != nil {
+			unplugging[request.RemoveVolumeOptions.Name] = struct{}{}
+		}
+	}
+
+	for _, volume := range kvvmi.Spec.Volumes {
+		if !kvbuilder.IsHotpluggableVolume(volume) {
+			continue
+		}
+		if _, removing := unplugging[volume.Name]; removing {
+			continue
+		}
+		if !slices.ContainsFunc(kvvm.Spec.Template.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == volume.Name }) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {

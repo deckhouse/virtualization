@@ -49,26 +49,6 @@ func (t *currentReleaseSmokeTest) attachmentObjects() []crclient.Object {
 	return objects
 }
 
-func (t *currentReleaseSmokeTest) initialRunningVMObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0, len(t.vms))
-	for _, vmScenario := range t.vms {
-		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineRunning) {
-			objects = append(objects, vmScenario.vm)
-		}
-	}
-	return objects
-}
-
-func (t *currentReleaseSmokeTest) initialStoppedVMObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0, len(t.vms))
-	for _, vmScenario := range t.vms {
-		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineStopped) {
-			objects = append(objects, vmScenario.vm)
-		}
-	}
-	return objects
-}
-
 func (t *currentReleaseSmokeTest) manualStartVMs() []*vmScenario {
 	manualVMs := make([]*vmScenario, 0)
 	for _, vmScenario := range t.vms {
@@ -77,12 +57,4 @@ func (t *currentReleaseSmokeTest) manualStartVMs() []*vmScenario {
 		}
 	}
 	return manualVMs
-}
-
-func (t *currentReleaseSmokeTest) manualStartVMObjects() []crclient.Object {
-	objects := make([]crclient.Object, 0)
-	for _, vmScenario := range t.manualStartVMs() {
-		objects = append(objects, vmScenario.vm)
-	}
-	return objects
 }

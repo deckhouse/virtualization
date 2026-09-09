@@ -3,8 +3,8 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  kubevirt: v1.6.2-v12n.90.1
-  distribution: 3.1.1
+  kubevirt: v1.6.2-v12n.90.2
+  distribution: v3.1.1-v12n.1
 package:
   acl: v2.3.1
   bzip2: bzip2-1.0.8

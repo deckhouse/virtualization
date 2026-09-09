@@ -58,7 +58,7 @@ var _ = Describe("VirtualImageFormat", Label(label.SIGStorage, precheck.Precheck
 	})
 
 	It("boots a VirtualMachine from an iso VirtualImage as a CD-ROM", func() {
-		vi := vibuilder.New(
+		vi := object.NewVI(
 			vibuilder.WithName("vi-iso"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
@@ -71,7 +71,7 @@ var _ = Describe("VirtualImageFormat", Label(label.SIGStorage, precheck.Precheck
 	})
 
 	It("provisions a VirtualDisk from a qcow2 VirtualImage and runs a VirtualMachine with a ready agent", func() {
-		vi := vibuilder.New(
+		vi := object.NewVI(
 			vibuilder.WithName("vi-qcow2"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
@@ -98,10 +98,9 @@ func runVirtualMachineFromImageUntilRunning(ctx context.Context, f *framework.Fr
 
 	blankVD := object.NewBlankVD("vd-blank-for-iso", f.Namespace().Name, defaultStorageClass(), ptr.To(resource.MustParse(vdCreationImageSize)))
 	vm := object.NewMinimalVM("vm-from-vi-", f.Namespace().Name,
-		vmbuilder.WithBootloader(v1alpha2.EFI),
-		vmbuilder.WithCPU(2, ptr.To("100%")),
-		vmbuilder.WithMemory(resource.MustParse("2Gi")),
-		vmbuilder.WithProvisioning(nil),
+		vmbuilder.WithBootloader(v1alpha2.BIOS),
+		vmbuilder.WithCPU(1, ptr.To(object.CustomImageVMCoreFraction)),
+		vmbuilder.WithMemory(resource.MustParse(object.CustomImageVMMemory)),
 		vmbuilder.WithRunPolicy(v1alpha2.AlwaysOnPolicy),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 			Kind:      v1alpha2.ImageDevice,
@@ -121,11 +120,13 @@ func runVirtualMachineFromImageUntilRunning(ctx context.Context, f *framework.Fr
 
 	obs := vmobs.StartObserver(ctx, f, vm)
 	obs.Never(vmobs.BeFailed())
-	// The custom ISO is EFI-bootable, so the firmware must find a boot device;
+	// ImageURLCustomISO publishes the BIOS flavor of the custom ISO, so the VM
+	// boots it under SeaBIOS: the firmware must find a boot device, and
 	// NoBootableDevice would mean the ISO is not bootable.
 	obs.Never(vmobs.HaveNoBootableDevice())
 
 	By("Waiting for the VirtualMachine to be Running", func() {
-		Expect(obs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).To(Succeed())
+		err := obs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
+		Expect(err).NotTo(HaveOccurred())
 	})
 }

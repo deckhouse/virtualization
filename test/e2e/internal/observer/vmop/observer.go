@@ -62,6 +62,25 @@ func StartObserver(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) 
 	return obs
 }
 
+// BeInProgress is satisfied when the VMOP reaches the InProgress phase. A
+// VMOP that has settled in a terminal phase (Completed, Failed, Superseded)
+// can never be in progress anymore, so the predicate reports it as a definite
+// error and WaitFor aborts immediately instead of waiting out the remaining
+// timeout.
+func BeInProgress() Predicate {
+	return func(vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
+		switch vmop.Status.Phase {
+		case v1alpha2.VMOPPhaseInProgress:
+			return true, nil
+		case v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseSuperseded:
+			return false, fmt.Errorf("vmop %s/%s reached terminal phase %s before it could be observed in progress",
+				vmop.Namespace, vmop.Name, vmop.Status.Phase)
+		default:
+			return false, nil
+		}
+	}
+}
+
 // BeCompleted is satisfied when the VMOP reaches the Completed phase. A VMOP
 // that turns Failed or Superseded can never complete anymore, so the predicate
 // reports it as a definite error and WaitFor aborts immediately instead of

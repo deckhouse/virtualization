@@ -253,6 +253,7 @@ func (s *SnapshotService) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMac
 }
 
 func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
+	annotations.AddAnnotation(vs, annotations.AnnAllowDelete, "true")
 	err := s.client.Create(ctx, vs)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
@@ -268,6 +269,11 @@ func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vs *vsv1.Vol
 
 func (s *SnapshotService) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
 	err := s.protection.RemoveProtection(ctx, vs)
+	if err != nil {
+		return err
+	}
+
+	err = EnsureVolumeSnapshotDeletable(ctx, s.client, vs)
 	if err != nil {
 		return err
 	}

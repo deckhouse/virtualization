@@ -27,6 +27,7 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -34,6 +35,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 	const (
 		vmName      = "vm"
 		vmNamespace = "default"
+		prefix      = "vmop-prefix-"
 	)
 
 	newVM := func() *v1alpha2.VirtualMachine {
@@ -56,22 +58,55 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		}
 	}
 
-	It("Retry 10 times expect one migration", func() {
-		prefix := "vmop-prefix-"
+	newRecorder := func() *eventrecord.EventRecorderLoggerMock {
+		recorder := &eventrecord.EventRecorderLoggerMock{}
+		recorder.EventfFunc = func(_ client.Object, _, _, _ string, _ ...interface{}) {}
+		recorder.WithLoggingFunc = func(_ eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
+			return recorder
+		}
+		return recorder
+	}
 
+	getVM := func(fakeClient client.Client) *v1alpha2.VirtualMachine {
+		vm := &v1alpha2.VirtualMachine{}
+		err := fakeClient.Get(context.Background(), client.ObjectKey{Namespace: vmNamespace, Name: vmName}, vm)
+		Expect(err).ToNot(HaveOccurred())
+		return vm
+	}
+
+	listVMOPs := func(fakeClient client.Client) []v1alpha2.VirtualMachineOperation {
+		vmops := v1alpha2.VirtualMachineOperationList{}
+		err := fakeClient.List(context.Background(), &vmops)
+		Expect(err).ToNot(HaveOccurred())
+		return vmops.Items
+	}
+
+	finishVMOPs := func(fakeClient client.Client, phase v1alpha2.VMOPPhase) {
+		for _, vmop := range listVMOPs(fakeClient) {
+			if vmop.Status.Phase == "" {
+				vmop.Status.Phase = phase
+				Expect(fakeClient.Update(context.Background(), &vmop)).To(Succeed())
+			}
+		}
+	}
+
+	kvvmiAnnotation := func(fakeClient client.Client, key string) string {
+		kvvmi := &virtv1.VirtualMachineInstance{}
+		err := fakeClient.Get(context.Background(), client.ObjectKey{Namespace: vmNamespace, Name: vmName}, kvvmi)
+		Expect(err).ToNot(HaveOccurred())
+		return kvvmi.GetAnnotations()[key]
+	}
+
+	It("Retry 10 times expect one migration", func() {
 		fakeClient, err := testutil.NewFakeClientWithObjects(newVM(), newKVVMI())
 		Expect(err).ToNot(HaveOccurred())
 
-		oneShotMigration := NewOneShotMigrationService(fakeClient, prefix)
+		oneShotMigration := NewOneShotMigrationService(fakeClient, newRecorder(), prefix)
 
 		migrateCount := 0
 
 		for i := 0; i < 10; i++ {
-			vm := &v1alpha2.VirtualMachine{}
-			err := fakeClient.Get(context.Background(), client.ObjectKey{Namespace: vmNamespace, Name: vmName}, vm)
-			Expect(err).ToNot(HaveOccurred())
-
-			migrate, err := oneShotMigration.OnceMigrate(testutil.ContextBackgroundWithNoOpLogger(), vm, "key", "value")
+			migrate, err := oneShotMigration.OnceMigrate(testutil.ContextBackgroundWithNoOpLogger(), getVM(fakeClient), "key", "value")
 			Expect(err).ToNot(HaveOccurred())
 			if migrate {
 				migrateCount++
@@ -79,13 +114,74 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		}
 		Expect(migrateCount).To(Equal(1))
 
-		vmops := v1alpha2.VirtualMachineOperationList{}
-		err = fakeClient.List(context.Background(), &vmops)
+		vmops := listVMOPs(fakeClient)
+		Expect(vmops).To(HaveLen(1))
+		Expect(vmops[0].Name).To(HavePrefix(prefix))
+	})
+
+	It("Marks the trigger handled only after the migration completes", func() {
+		fakeClient, err := testutil.NewFakeClientWithObjects(newVM(), newKVVMI())
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(vmops.Items).To(HaveLen(1))
-		vmop := vmops.Items[0]
+		oneShotMigration := NewOneShotMigrationService(fakeClient, newRecorder(), prefix)
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
 
-		Expect(vmop.Name).To(HavePrefix(prefix))
+		migrate, err := oneShotMigration.OnceMigrate(ctx, getVM(fakeClient), "key", "value")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(migrate).To(BeTrue())
+		Expect(kvvmiAnnotation(fakeClient, "key")).To(Equal("old-value"))
+
+		finishVMOPs(fakeClient, v1alpha2.VMOPPhaseCompleted)
+
+		migrate, err = oneShotMigration.OnceMigrate(ctx, getVM(fakeClient), "key", "value")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(migrate).To(BeFalse())
+		Expect(kvvmiAnnotation(fakeClient, "key")).To(Equal("value"))
+		Expect(listVMOPs(fakeClient)).To(HaveLen(1))
+	})
+
+	It("Retries a failed migration and gives up after the attempt limit", func() {
+		fakeClient, err := testutil.NewFakeClientWithObjects(newVM(), newKVVMI())
+		Expect(err).ToNot(HaveOccurred())
+
+		recorder := newRecorder()
+		oneShotMigration := NewOneShotMigrationService(fakeClient, recorder, prefix)
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+
+		for attempt := 1; attempt <= maxMigrationAttempts; attempt++ {
+			migrate, err := oneShotMigration.OnceMigrate(ctx, getVM(fakeClient), "key", "value")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrate).To(BeTrue(), "attempt %d must create a new migration", attempt)
+			Expect(listVMOPs(fakeClient)).To(HaveLen(attempt))
+			finishVMOPs(fakeClient, v1alpha2.VMOPPhaseFailed)
+		}
+
+		migrate, err := oneShotMigration.OnceMigrate(ctx, getVM(fakeClient), "key", "value")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(migrate).To(BeFalse())
+		Expect(listVMOPs(fakeClient)).To(HaveLen(maxMigrationAttempts))
+		Expect(kvvmiAnnotation(fakeClient, "key")).To(Equal("value"))
+		Expect(recorder.EventfCalls()).To(HaveLen(1))
+		Expect(recorder.EventfCalls()[0].Reason).To(Equal(v1alpha2.ReasonWorkloadUpdateFailed))
+	})
+
+	It("Does not count failures of another trigger value", func() {
+		fakeClient, err := testutil.NewFakeClientWithObjects(newVM(), newKVVMI())
+		Expect(err).ToNot(HaveOccurred())
+
+		oneShotMigration := NewOneShotMigrationService(fakeClient, newRecorder(), prefix)
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+
+		for attempt := 1; attempt <= maxMigrationAttempts; attempt++ {
+			migrate, err := oneShotMigration.OnceMigrate(ctx, getVM(fakeClient), "key", "stale-value")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrate).To(BeTrue())
+			finishVMOPs(fakeClient, v1alpha2.VMOPPhaseFailed)
+		}
+
+		migrate, err := oneShotMigration.OnceMigrate(ctx, getVM(fakeClient), "key", "value")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(migrate).To(BeTrue())
+		Expect(listVMOPs(fakeClient)).To(HaveLen(maxMigrationAttempts + 1))
 	})
 })

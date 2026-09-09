@@ -958,6 +958,12 @@ var _ VirtClient = &VirtClientMock{}
 //			VirtualMachinePoolsFunc: func(namespace string) corev1alpha2.VirtualMachinePoolInterface {
 //				panic("mock out the VirtualMachinePools method")
 //			},
+//			VirtualMachineSnapshotOperationsFunc: func(namespace string) corev1alpha2.VirtualMachineSnapshotOperationInterface {
+//				panic("mock out the VirtualMachineSnapshotOperations method")
+//			},
+//			VirtualMachineSnapshotsFunc: func(namespace string) corev1alpha2.VirtualMachineSnapshotInterface {
+//				panic("mock out the VirtualMachineSnapshots method")
+//			},
 //			VirtualMachinesFunc: func(namespace string) corev1alpha2.VirtualMachineInterface {
 //				panic("mock out the VirtualMachines method")
 //			},
@@ -1177,6 +1183,12 @@ type VirtClientMock struct {
 
 	// VirtualMachinePoolsFunc mocks the VirtualMachinePools method.
 	VirtualMachinePoolsFunc func(namespace string) corev1alpha2.VirtualMachinePoolInterface
+
+	// VirtualMachineSnapshotOperationsFunc mocks the VirtualMachineSnapshotOperations method.
+	VirtualMachineSnapshotOperationsFunc func(namespace string) corev1alpha2.VirtualMachineSnapshotOperationInterface
+
+	// VirtualMachineSnapshotsFunc mocks the VirtualMachineSnapshots method.
+	VirtualMachineSnapshotsFunc func(namespace string) corev1alpha2.VirtualMachineSnapshotInterface
 
 	// VirtualMachinesFunc mocks the VirtualMachines method.
 	VirtualMachinesFunc func(namespace string) corev1alpha2.VirtualMachineInterface
@@ -1411,6 +1423,16 @@ type VirtClientMock struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
+		// VirtualMachineSnapshotOperations holds details about calls to the VirtualMachineSnapshotOperations method.
+		VirtualMachineSnapshotOperations []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineSnapshots holds details about calls to the VirtualMachineSnapshots method.
+		VirtualMachineSnapshots []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
 		// VirtualMachines holds details about calls to the VirtualMachines method.
 		VirtualMachines []struct {
 			// Namespace is the namespace argument value.
@@ -1487,6 +1509,8 @@ type VirtClientMock struct {
 	lockVirtualMachineMACAddresses           sync.RWMutex
 	lockVirtualMachineOperations             sync.RWMutex
 	lockVirtualMachinePools                  sync.RWMutex
+	lockVirtualMachineSnapshotOperations     sync.RWMutex
+	lockVirtualMachineSnapshots              sync.RWMutex
 	lockVirtualMachines                      sync.RWMutex
 }
 
@@ -3422,6 +3446,70 @@ func (mock *VirtClientMock) VirtualMachinePoolsCalls() []struct {
 	mock.lockVirtualMachinePools.RLock()
 	calls = mock.calls.VirtualMachinePools
 	mock.lockVirtualMachinePools.RUnlock()
+	return calls
+}
+
+// VirtualMachineSnapshotOperations calls VirtualMachineSnapshotOperationsFunc.
+func (mock *VirtClientMock) VirtualMachineSnapshotOperations(namespace string) corev1alpha2.VirtualMachineSnapshotOperationInterface {
+	if mock.VirtualMachineSnapshotOperationsFunc == nil {
+		panic("VirtClientMock.VirtualMachineSnapshotOperationsFunc: method is nil but VirtClient.VirtualMachineSnapshotOperations was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineSnapshotOperations.Lock()
+	mock.calls.VirtualMachineSnapshotOperations = append(mock.calls.VirtualMachineSnapshotOperations, callInfo)
+	mock.lockVirtualMachineSnapshotOperations.Unlock()
+	return mock.VirtualMachineSnapshotOperationsFunc(namespace)
+}
+
+// VirtualMachineSnapshotOperationsCalls gets all the calls that were made to VirtualMachineSnapshotOperations.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineSnapshotOperationsCalls())
+func (mock *VirtClientMock) VirtualMachineSnapshotOperationsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineSnapshotOperations.RLock()
+	calls = mock.calls.VirtualMachineSnapshotOperations
+	mock.lockVirtualMachineSnapshotOperations.RUnlock()
+	return calls
+}
+
+// VirtualMachineSnapshots calls VirtualMachineSnapshotsFunc.
+func (mock *VirtClientMock) VirtualMachineSnapshots(namespace string) corev1alpha2.VirtualMachineSnapshotInterface {
+	if mock.VirtualMachineSnapshotsFunc == nil {
+		panic("VirtClientMock.VirtualMachineSnapshotsFunc: method is nil but VirtClient.VirtualMachineSnapshots was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineSnapshots.Lock()
+	mock.calls.VirtualMachineSnapshots = append(mock.calls.VirtualMachineSnapshots, callInfo)
+	mock.lockVirtualMachineSnapshots.Unlock()
+	return mock.VirtualMachineSnapshotsFunc(namespace)
+}
+
+// VirtualMachineSnapshotsCalls gets all the calls that were made to VirtualMachineSnapshots.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineSnapshotsCalls())
+func (mock *VirtClientMock) VirtualMachineSnapshotsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineSnapshots.RLock()
+	calls = mock.calls.VirtualMachineSnapshots
+	mock.lockVirtualMachineSnapshots.RUnlock()
 	return calls
 }
 

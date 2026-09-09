@@ -52,7 +52,7 @@ import (
 // WaitingForFirstConsumer forever instead of reporting QuotaExceeded.
 const quotaExhaustedQuotaName = "v12n-e2e-block-pvcs"
 
-var _ = Describe("QuotaExhausted", Ordered, Label(label.SIGStorage, precheck.PrecheckDefaultStorageClass), func() {
+var _ = Describe("QuotaExhausted", Label(label.SIGStorage, precheck.PrecheckDefaultStorageClass), func() {
 	var (
 		f   *framework.Framework
 		ctx context.Context
@@ -61,7 +61,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(label.SIGStorage, precheck.Pre
 		baseVD *v1alpha2.VirtualDisk
 	)
 
-	BeforeAll(func() {
+	BeforeEach(func() {
 		ctx = context.Background()
 		f = framework.NewFramework("")
 		f.Before()
@@ -76,7 +76,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(label.SIGStorage, precheck.Pre
 		// CVI importer Pod run in the user's namespace, which is exactly
 		// what we need to exercise the user-namespace quota path for
 		// CVIs. See ImporterService.GetPodSettingsWithPVC.
-		baseVD = vdbuilder.New(
+		baseVD = object.NewVD(
 			vdbuilder.WithName("vd-quota-source"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			// A bootable image: on a WaitForFirstConsumer StorageClass the
@@ -100,7 +100,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(label.SIGStorage, precheck.Pre
 	})
 
 	It("VirtualDisk reports QuotaExceeded reason on a fresh Ready condition", Label(precheck.PrecheckDefaultStorageClass), func() {
-		vd := vdbuilder.New(
+		vd := object.NewVD(
 			vdbuilder.WithName("vd-quota-cvi"),
 			vdbuilder.WithNamespace(f.Namespace().Name),
 			vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
@@ -135,7 +135,7 @@ var _ = Describe("QuotaExhausted", Ordered, Label(label.SIGStorage, precheck.Pre
 	})
 
 	It("VirtualImage on PVC reports a quota-exceeded ProvisioningFailed Ready condition", Label(precheck.PrecheckDefaultStorageClass), func() {
-		vi := vibuilder.New(
+		vi := object.NewVI(
 			vibuilder.WithName("vi-pvc-quota"),
 			vibuilder.WithNamespace(f.Namespace().Name),
 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
