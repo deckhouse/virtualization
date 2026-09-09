@@ -52,7 +52,7 @@ func NewController(
 		internal.NewBlockDeviceLimiter(blockDeviceService),
 		internal.NewBlockDeviceReadyHandler(attacher),
 		internal.NewVirtualMachineReadyHandler(attacher),
-		internal.NewLifeCycleHandler(attacher),
+		internal.NewLifeCycleHandler(attacher, mgr.GetClient()),
 		internal.NewDeletionHandler(attacher, mgr.GetClient()),
 	)
 

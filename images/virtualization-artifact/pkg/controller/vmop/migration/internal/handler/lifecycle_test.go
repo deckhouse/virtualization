@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
@@ -1420,6 +1421,155 @@ var _ = Describe("LifecycleHandler", func() {
 		}}
 
 		Expect(getMessageByMigrationFailedReason(mig)).To(Equal("No available nodes were found to place the target VM within the timeout period"))
+	})
+
+	Describe("in-flight block device attachments", func() {
+		attachment := func(phase v1alpha2.BlockDeviceAttachmentPhase) *v1alpha2.VirtualMachineBlockDeviceAttachment {
+			vmbda := vmbdabuilder.NewEmpty("vmbda", namespace)
+			vmbdabuilder.ApplyOptions(vmbda,
+				vmbdabuilder.WithVirtualMachineName(name),
+				vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, "vd"),
+			)
+			vmbda.Status.Phase = phase
+
+			return vmbda
+		}
+
+		handle := func(vmop *v1alpha2.VirtualMachineOperation, objs ...client.Object) (*v1alpha2.VirtualMachineOperation, error) {
+			GinkgoHelper()
+			objs = append(objs, newVM(v1alpha2.AlwaysSafeMigrationPolicy))
+			fakeClient, srv = setupEnvironment(vmop, objs...)
+			h := NewLifecycleHandler(
+				fakeClient,
+				service.NewMigrationService(fakeClient, featuregates.Default()),
+				genericservice.NewBaseVMOPService(fakeClient, recorderMock),
+				recorderMock,
+				"",
+			)
+			_, err := h.Handle(ctx, srv.Changed())
+			return srv.Changed(), err
+		}
+
+		kvvmWithVolumeRequest := func(volumeNames ...string) *virtv1.VirtualMachine {
+			kvvm := &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+			for _, volumeName := range volumeNames {
+				kvvm.Status.VolumeRequests = append(kvvm.Status.VolumeRequests, virtv1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &virtv1.AddVolumeOptions{Name: volumeName},
+				})
+			}
+			return kvvm
+		}
+
+		It("postpones the migration while a hot-plug request has not reached the spec yet", func() {
+			// No VMBDA at all: its status is written only after the request has been sent.
+			vmop, err := handle(newVMOPMigrate(), kvvmWithVolumeRequest("vd-hp1"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			completed, ok := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			Expect(ok).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+			Expect(completed.Message).To(ContainSubstring("vd-hp1"))
+		})
+
+		It("does not postpone the migration when the volume request has been applied", func() {
+			vmop, err := handle(newVMOPMigrate(), kvvmWithVolumeRequest())
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			Expect(completed.Reason).NotTo(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+		})
+
+		It("postpones the migration while an unplug request has not reached the spec yet", func() {
+			kvvm := &virtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+			kvvm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+				{RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{Name: "vd-hp1"}},
+			}
+
+			vmop, err := handle(newVMOPMigrate(), kvvm)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+			Expect(completed.Message).To(ContainSubstring("vd-hp1"))
+		})
+
+		It("postpones the migration while a hot-plug request is in progress", func() {
+			vmop, err := handle(newVMOPMigrate(), attachment(v1alpha2.BlockDeviceAttachmentPhaseInProgress))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			completed, ok := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			Expect(ok).To(BeTrue())
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+			Expect(completed.Message).To(ContainSubstring("vmbda"))
+		})
+
+		DescribeTable("does not postpone the migration", func(phases ...v1alpha2.BlockDeviceAttachmentPhase) {
+			var objs []client.Object
+			for _, phase := range phases {
+				objs = append(objs, attachment(phase))
+			}
+
+			vmop, err := handle(newVMOPMigrate(), objs...)
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			Expect(completed.Reason).NotTo(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+		},
+			Entry("when the attachment is already done", v1alpha2.BlockDeviceAttachmentPhaseAttached),
+			Entry("when the attachment is still pending", v1alpha2.BlockDeviceAttachmentPhasePending),
+			Entry("when there are no attachments at all"),
+		)
+
+		It("ignores attachments of other virtual machines", func() {
+			other := attachment(v1alpha2.BlockDeviceAttachmentPhaseInProgress)
+			other.Name = "other"
+			other.Spec.VirtualMachineName = "another-vm"
+
+			vmop, err := handle(newVMOPMigrate(), other)
+			Expect(err).NotTo(HaveOccurred())
+
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			Expect(completed.Reason).NotTo(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+		})
+
+		It("postpones the migration while an attachment is still detaching", func() {
+			// The detach gate lets the unplug through on this very reason, so the two gates resolve
+			// each other instead of deadlocking.
+			terminating := attachment(v1alpha2.BlockDeviceAttachmentPhaseTerminating)
+			terminating.DeletionTimestamp = ptr.To(metav1.NewTime(time.Now()))
+			terminating.Finalizers = []string{v1alpha2.FinalizerVMBDACleanup}
+
+			vmop, err := handle(newVMOPMigrate(), terminating)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+		})
+
+		It("fails the migration once the attachment does not settle in time", func() {
+			vmop := newVMOPMigrate()
+			vmop.Status.Phase = v1alpha2.VMOPPhasePending
+			vmop.Status.Conditions = []metav1.Condition{
+				{
+					Type:               vmopcondition.TypeCompleted.String(),
+					Status:             metav1.ConditionFalse,
+					Reason:             vmopcondition.ReasonWaitingForBlockDeviceAttachment.String(),
+					LastTransitionTime: metav1.NewTime(time.Now().Add(-attachmentSettleTimeout - time.Minute)),
+				},
+			}
+
+			changed, err := handle(vmop, attachment(v1alpha2.BlockDeviceAttachmentPhaseInProgress))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+			Expect(completed.Reason).To(Equal(vmopcondition.ReasonOperationFailed.String()))
+			Expect(completed.Message).To(ContainSubstring("Timed out waiting for block device requests"))
+		})
 	})
 })
 

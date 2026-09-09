@@ -143,6 +143,10 @@ const (
 	// ReasonWaitingForVirtualMachineToBeReadyToMigrate is a ReasonCompleted indicating that the virtual machine is not ready to be migrated.
 	ReasonWaitingForVirtualMachineToBeReadyToMigrate ReasonCompleted = "WaitingForVirtualMachineToBeReadyToMigrate"
 
+	// ReasonWaitingForBlockDeviceAttachment is a ReasonCompleted indicating that the migration is postponed
+	// until an in-flight block device attachment completes.
+	ReasonWaitingForBlockDeviceAttachment ReasonCompleted = "WaitingForBlockDeviceAttachment"
+
 	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
 	ReasonOperationFailed ReasonCompleted = "OperationFailed"
 

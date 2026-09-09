@@ -44,6 +44,7 @@ func NewController(client client.Client, mgr manager.Manager, featureGate featur
 			watcher.NewVMOPWatcher(),
 			watcher.NewMigrationWatcher(),
 			watcher.NewVMWatcher(),
+			watcher.NewVMBDAWatcher(),
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
 			handler.NewDeletionHandler(migration),

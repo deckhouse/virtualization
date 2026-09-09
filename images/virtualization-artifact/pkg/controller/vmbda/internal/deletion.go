@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -74,7 +75,27 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		return reconcile.Result{}, fmt.Errorf("fetch intvirtvm: %w", err)
 	}
 
-	if h.unplug.IsAttached(vm, kvvm, vmbda) {
+	attached := h.unplug.IsAttached(vm, kvvm, vmbda)
+	if !attached && kvvm != nil {
+		attached, err = h.volumeIsInInstance(ctx, vmbda)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("check hot-plugged volumes: %w", err)
+		}
+	}
+
+	if attached {
+		if vm != nil && conditions.HasCondition(vmcondition.TypeMigrating, vm.Status.Conditions) {
+			queued, err := migrationIsQueued(ctx, h.client, vmbda.GetNamespace(), vmbda.Spec.VirtualMachineName)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("check migration state: %w", err)
+			}
+
+			if !queued {
+				h.setTerminatingCondition(vmbda, vmbdacondition.TerminatingBlockedByMigration, migrationBlockedMessage(vmbda))
+				return reconcile.Result{}, nil
+			}
+		}
+
 		h.setTerminatingCondition(vmbda, vmbdacondition.DetachPending, detachPendingMessage(vmbda))
 
 		var res reconcile.Result
@@ -92,12 +113,43 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	return reconcile.Result{}, nil
 }
 
+// volumeIsInInstance reports whether the hot-plugged volume is still present in the underlying
+// virtual machine instance.
+func (h *DeletionHandler) volumeIsInInstance(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (bool, error) {
+	kvvmi, err := object.FetchObject(
+		ctx,
+		types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName},
+		h.client,
+		&virtv1.VirtualMachineInstance{},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	if kvvmi == nil {
+		return false, nil
+	}
+
+	name := kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef)
+	for _, volume := range kvvmi.Spec.Volumes {
+		if volume.Name == name {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func (h *DeletionHandler) setTerminatingCondition(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, reason vmbdacondition.TerminatingReason, message string) {
 	service.SetTerminatingCondition(&vmbda.Status.Conditions, vmbdacondition.TerminatingType, reason, vmbda.Generation, message)
 }
 
 func detachPendingMessage(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) string {
 	return fmt.Sprintf("Waiting for the %s %q to detach from the VirtualMachine %q", vmbda.Spec.BlockDeviceRef.Kind, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.VirtualMachineName)
+}
+
+func migrationBlockedMessage(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) string {
+	return fmt.Sprintf("cannot detach the %s %q from the VirtualMachine %q while it is migrating", vmbda.Spec.BlockDeviceRef.Kind, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.VirtualMachineName)
 }
 
 func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
