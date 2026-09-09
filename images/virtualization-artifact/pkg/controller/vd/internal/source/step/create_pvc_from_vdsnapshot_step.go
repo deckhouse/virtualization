@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -105,7 +106,9 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		return &reconcile.Result{}, nil
 	}
 
-	if _, ok := vdSnapshot.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; ok {
+	// Branch on what captured the snapshot, recorded in its own status — never on the annotations that
+	// pin which mechanism takes a snapshot.
+	if restorer.IsUnifiedDiskCapture(vdSnapshot) {
 		return s.takeFromUnifiedSnapshot(ctx, vd, vdSnapshot)
 	}
 
@@ -301,11 +304,23 @@ func (s CreatePVCFromVDSnapshotStep) unifiedRestoreFailure(ctx context.Context, 
 }
 
 func (s CreatePVCFromVDSnapshotStep) getUnifiedPVCSize(vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*resource.Quantity, error) {
-	if vd.Spec.PersistentVolumeClaim.Size != nil {
-		return vd.Spec.PersistentVolumeClaim.Size, nil
+	if size := vd.Spec.PersistentVolumeClaim.Size; size != nil {
+		// Not just a nil check: the admission webhook rejects a zero size only on create, and the
+		// VirtualDisk may still be patched while it is Pending or Provisioning. A non-positive size would
+		// otherwise reach storage-foundation as storage: "0" and never provision anything.
+		if size.Sign() <= 0 {
+			return nil, fmt.Errorf(
+				"cannot restore into the virtual disk %q: spec.persistentVolumeClaim.size must be greater than 0",
+				vd.Name,
+			)
+		}
+		return size, nil
 	}
 	if vdSnapshot.Status.PersistentVolumeClaimSize == "" {
-		return nil, nil
+		return nil, fmt.Errorf(
+			"cannot determine the size to restore into: the virtual disk %q sets no spec.persistentVolumeClaim.size and the snapshot %q captured no status.persistentVolumeClaimSize",
+			vd.Name, vdSnapshot.Name,
+		)
 	}
 	size, err := resource.ParseQuantity(vdSnapshot.Status.PersistentVolumeClaimSize)
 	if err != nil {

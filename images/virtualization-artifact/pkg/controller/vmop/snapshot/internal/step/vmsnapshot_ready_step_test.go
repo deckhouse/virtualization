@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -171,6 +172,78 @@ var _ = Describe("VMSnapshotReadyStep", func() {
 		It("should proceed when snapshot is ready", func() {
 			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "test-snapshot")
 			snapshot := createVMSnapshot("default", "test-snapshot", "test-secret", true)
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewVMSnapshotReadyStep(fakeClient)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil())
+		})
+	})
+
+	// A snapshot captured by the unified-snapshotter SDK controllers never writes
+	// vmscondition.VirtualMachineSnapshotReadyType (only the core-owned "Ready" condition, on their own
+	// timing) and has no snapshot Secret at all. status.captureState is what marks it as such —
+	// restorer.IsUnifiedCapture, the same discriminator the read side uses.
+	Describe("Unified-snapshotter captured snapshot", func() {
+		createUnifiedVMSnapshot := func(namespace, name string, phase v1alpha2.VirtualMachineSnapshotPhase, boundContentName string) *v1alpha2.VirtualMachineSnapshot {
+			return &v1alpha2.VirtualMachineSnapshot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+				Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "test-vm"},
+				Status: v1alpha2.VirtualMachineSnapshotStatus{
+					CaptureState:             &v1alpha2.UnifiedSnapshotterCaptureState{},
+					Phase:                    phase,
+					BoundSnapshotContentName: boundContentName,
+					// Deliberately no Conditions and no VirtualMachineSnapshotSecretName: the
+					// unified-snapshotter path never populates either.
+				},
+			}
+		}
+
+		It("should return error when the snapshot has not reached Ready yet", func() {
+			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "unified-snapshot")
+			snapshot := createUnifiedVMSnapshot("default", "unified-snapshot", v1alpha2.VirtualMachineSnapshotPhaseInProgress, "")
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewVMSnapshotReadyStep(fakeClient)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("is not ready to use"))
+			Expect(result).NotTo(BeNil())
+		})
+
+		// Binding is asynchronous and transient: restorer.NewManifestReader treats the same condition as
+		// common.ErrQueueing, so this must wait rather than fail the operation.
+		It("should requeue, not fail, when Ready but not yet bound to a SnapshotContent", func() {
+			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "unified-snapshot")
+			snapshot := createUnifiedVMSnapshot("default", "unified-snapshot", v1alpha2.VirtualMachineSnapshotPhaseReady, "")
+
+			var err error
+			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+
+			step = NewVMSnapshotReadyStep(fakeClient)
+			result, err := step.Take(ctx, vmop)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).NotTo(BeNil())
+			Expect(result.RequeueAfter).To(Equal(boundContentRequeueAfter))
+		})
+
+		It("should proceed when Ready and bound, despite no secret and no VirtualMachineSnapshotReadyType condition", func() {
+			vmop := createCloneVMOP("default", "test-vmop", "test-vm", "unified-snapshot")
+			snapshot := createUnifiedVMSnapshot("default", "unified-snapshot", v1alpha2.VirtualMachineSnapshotPhaseReady, "content-1")
 
 			var err error
 			fakeClient, err = testutil.NewFakeClientWithObjects(vmop, snapshot)

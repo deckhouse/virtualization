@@ -52,6 +52,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		unifiedSnapshotterPresent,
 		internal.NewVirtualMachineReadyHandler(snapshotter),
 		internal.NewLifeCycleHandler(recorder, snapshotter, restorer.NewSecretRestorer(mgr.GetClient()), mgr.GetClient()),
 		internal.NewEnsureValidityHandler(),

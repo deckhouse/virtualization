@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -64,20 +63,21 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, errors.New("snapshot is not found")
 	}
 
-	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
-	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
+	manifestReader, err := restorer.NewManifestReader(ctx, s.client, vmSnapshot)
 	if err != nil {
+		if errors.Is(err, common.ErrQueueing) {
+			return &reconcile.Result{RequeueAfter: boundContentRequeueAfter}, nil
+		}
 		return &reconcile.Result{}, err
 	}
 
-	if restorerSecret == nil {
-		return &reconcile.Result{}, errors.New("restorer secret is not found")
-	}
-
-	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, vmop.Spec.Clone.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, vmop.Spec.Clone.Mode, manifestReader, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
+		if errors.Is(err, common.ErrQueueing) {
+			return &reconcile.Result{RequeueAfter: boundContentRequeueAfter}, nil
+		}
 		return &reconcile.Result{}, err
 	}
 
@@ -104,14 +104,14 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	vmop.Status.Resources = statuses
 	if err != nil {
 		if errors.Is(err, common.ErrQueueing) {
-			return &reconcile.Result{}, nil
+			return &reconcile.Result{RequeueAfter: restoreBackstopRequeueAfter}, nil
 		}
 		return &reconcile.Result{}, err
 	}
 
 	for _, status := range statuses {
 		if status.Status != v1alpha2.SnapshotResourceStatusCompleted {
-			return &reconcile.Result{}, nil
+			return &reconcile.Result{RequeueAfter: restoreBackstopRequeueAfter}, nil
 		}
 	}
 

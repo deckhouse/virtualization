@@ -42,7 +42,11 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, fmt.Errorf("expected a VirtualMachineSnapshot but got a %T", obj)
 	}
 
-	return nil, validate.UnifiedSnapshotterAnnotationAvailable(vmSnapshot, v.unifiedSnapshotterPresent)
+	if err := validate.UnifiedSnapshotterAnnotationAvailable(vmSnapshot, v.unifiedSnapshotterPresent); err != nil {
+		return nil, err
+	}
+
+	return nil, validate.SnapshotterAnnotationsExclusive(vmSnapshot)
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
@@ -62,7 +66,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		return nil, fmt.Errorf("VirtualMachineSnapshot is an idempotent resource: specification changes are not available")
 	}
 
-	if err := validate.UnifiedSnapshotterAnnotationImmutable(oldVMSnapshot, newVMSnapshot); err != nil {
+	if err := validate.SnapshotterAnnotationsImmutable(oldVMSnapshot, newVMSnapshot); err != nil {
 		return nil, err
 	}
 

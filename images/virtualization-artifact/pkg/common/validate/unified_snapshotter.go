@@ -24,6 +24,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+// UnifiedSnapshotterAnnotationAvailable rejects pinning an object to the unified mechanism in a cluster
+// where its controllers are not running: nothing would ever take that snapshot.
 func UnifiedSnapshotterAnnotationAvailable(obj metav1.Object, present bool) error {
 	if present {
 		return nil
@@ -36,13 +38,36 @@ func UnifiedSnapshotterAnnotationAvailable(obj metav1.Object, present bool) erro
 	return fmt.Errorf("the %s annotation requires the state-snapshotter module, which is not installed in this cluster", v1alpha2.AnnUseUnifiedSnapshotter)
 }
 
-func UnifiedSnapshotterAnnotationImmutable(oldObj, newObj metav1.Object) error {
-	oldValue, oldOK := oldObj.GetAnnotations()[v1alpha2.AnnUseUnifiedSnapshotter]
-	newValue, newOK := newObj.GetAnnotations()[v1alpha2.AnnUseUnifiedSnapshotter]
+// SnapshotterAnnotationsExclusive rejects an object that pins both mechanisms at once. Neither
+// annotation is required — without them the snapshot follows the cluster default.
+func SnapshotterAnnotationsExclusive(obj metav1.Object) error {
+	annotations := obj.GetAnnotations()
 
-	if oldOK == newOK && oldValue == newValue {
+	_, unified := annotations[v1alpha2.AnnUseUnifiedSnapshotter]
+	_, builtIn := annotations[v1alpha2.AnnUseBuiltInSnapshotter]
+
+	if !unified || !builtIn {
 		return nil
 	}
 
-	return fmt.Errorf("the %s annotation cannot be added, removed or changed: it selects the snapshot mechanism and is set once, at creation", v1alpha2.AnnUseUnifiedSnapshotter)
+	return fmt.Errorf(
+		"the %s and %s annotations are mutually exclusive: both select the snapshot mechanism, so set at most one",
+		v1alpha2.AnnUseUnifiedSnapshotter, v1alpha2.AnnUseBuiltInSnapshotter,
+	)
+}
+
+// SnapshotterAnnotationsImmutable keeps both mechanism-selecting annotations fixed for the life of the
+// object. The mechanism decides how the snapshot is captured and, through the object's own status, how
+// it is later read back — changing the request after the fact would only misdescribe what happened.
+func SnapshotterAnnotationsImmutable(oldObj, newObj metav1.Object) error {
+	for _, annotation := range []string{v1alpha2.AnnUseUnifiedSnapshotter, v1alpha2.AnnUseBuiltInSnapshotter} {
+		oldValue, oldOK := oldObj.GetAnnotations()[annotation]
+		newValue, newOK := newObj.GetAnnotations()[annotation]
+
+		if oldOK != newOK || oldValue != newValue {
+			return fmt.Errorf("the %s annotation cannot be added, removed or changed: it selects the snapshot mechanism and is set once, at creation", annotation)
+		}
+	}
+
+	return nil
 }

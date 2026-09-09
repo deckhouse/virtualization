@@ -85,9 +85,30 @@ func TestReconcile_DeletionTimestampIsANoOp(t *testing.T) {
 	}
 }
 
-func TestReconcile_MissingAnnotationIsANoOp(t *testing.T) {
+// The unified controllers are registered only where UNIFIED_SNAPSHOTTER_PRESENT is set, so an object
+// nobody pinned is theirs: taking a snapshot through them no longer needs an opt-in annotation.
+func TestReconcile_UnpinnedObjectIsTakenOver(t *testing.T) {
 	vds := &v1alpha2.VirtualDiskSnapshot{
 		ObjectMeta: metav1.ObjectMeta{Name: "vds1", Namespace: testNamespace},
+	}
+	r := newTestReconciler(t, vds)
+
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vds1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := getVDS(t, r.Client).Status.Phase; got != v1alpha2.VirtualDiskSnapshotPhasePending {
+		t.Fatalf("expected the reconciler to take an unpinned object over, got phase %q", got)
+	}
+}
+
+// Mirror image of the built-in controller's guard: exactly one of the two drives any object.
+func TestReconcile_BuiltInPinIsANoOp(t *testing.T) {
+	vds := &v1alpha2.VirtualDiskSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "vds1",
+			Namespace:   testNamespace,
+			Annotations: map[string]string{v1alpha2.AnnUseBuiltInSnapshotter: ""},
+		},
 	}
 	r := newTestReconciler(t, vds)
 
@@ -99,7 +120,7 @@ func TestReconcile_MissingAnnotationIsANoOp(t *testing.T) {
 		t.Fatalf("expected a no-op result, got %+v", res)
 	}
 	if getVDS(t, r.Client).Status.Phase != "" {
-		t.Fatal("expected phase to stay empty when the annotation is absent")
+		t.Fatal("expected phase to stay empty for an object pinned to the built-in mechanism")
 	}
 }
 

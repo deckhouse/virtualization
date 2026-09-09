@@ -116,7 +116,8 @@ var _ = Describe("ProcessCloneStep", func() {
 			result, err := step.Take(ctx, vmop)
 
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("restorer secret is not found"))
+			Expect(err.Error()).To(ContainSubstring("restorer secret"))
+			Expect(err.Error()).To(ContainSubstring("is not found"))
 			Expect(result).NotTo(BeNil())
 		})
 	})
@@ -173,7 +174,7 @@ var _ = Describe("ProcessCloneStep", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil())
-			Expect(*result).To(Equal(reconcile.Result{}))
+			Expect(*result).To(Equal(reconcile.Result{RequeueAfter: restoreBackstopRequeueAfter}))
 			Expect(vmop.Status.Resources).NotTo(BeEmpty())
 
 			hasInProgress := false

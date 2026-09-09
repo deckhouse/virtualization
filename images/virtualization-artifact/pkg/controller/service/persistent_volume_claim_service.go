@@ -195,10 +195,10 @@ func (s *PersistentVolumeClaimService) EnsureVolumeRestoreRequest(ctx context.Co
 		return err
 	}
 
-	requested := resource.Quantity{}
-	if size != nil {
-		requested = size.DeepCopy()
+	if size == nil || size.Sign() <= 0 {
+		return fmt.Errorf("cannot create volume restore request %q without a positive requested size", key.Name)
 	}
+	requested := size.DeepCopy()
 
 	vrr := &storagefoundationv1alpha1.VolumeRestoreRequest{
 		ObjectMeta: metav1.ObjectMeta{

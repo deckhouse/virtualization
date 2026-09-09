@@ -5,8 +5,8 @@ package handler
 
 import (
 	"context"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	corev1 "k8s.io/api/core/v1"
 	"sync"
 )
 
@@ -20,7 +20,7 @@ var _ CreateOperationExecutor = &CreateOperationExecutorMock{}
 //
 //		// make and configure a mocked CreateOperationExecutor
 //		mockedCreateOperationExecutor := &CreateOperationExecutorMock{
-//			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+//			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, manifestReader restorer.ManifestReader) error {
 //				panic("mock out the Execute method")
 //			},
 //		}
@@ -31,7 +31,7 @@ var _ CreateOperationExecutor = &CreateOperationExecutorMock{}
 //	}
 type CreateOperationExecutorMock struct {
 	// ExecuteFunc mocks the Execute method.
-	ExecuteFunc func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error
+	ExecuteFunc func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, manifestReader restorer.ManifestReader) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -43,15 +43,15 @@ type CreateOperationExecutorMock struct {
 			VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 			// VirtualMachineSnapshot is the virtualMachineSnapshot argument value.
 			VirtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot
-			// Secret is the secret argument value.
-			Secret *corev1.Secret
+			// ManifestReader is the manifestReader argument value.
+			ManifestReader restorer.ManifestReader
 		}
 	}
 	lockExecute sync.RWMutex
 }
 
 // Execute calls ExecuteFunc.
-func (mock *CreateOperationExecutorMock) Execute(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+func (mock *CreateOperationExecutorMock) Execute(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, manifestReader restorer.ManifestReader) error {
 	if mock.ExecuteFunc == nil {
 		panic("CreateOperationExecutorMock.ExecuteFunc: method is nil but CreateOperationExecutor.Execute was just called")
 	}
@@ -59,17 +59,17 @@ func (mock *CreateOperationExecutorMock) Execute(contextMoqParam context.Context
 		ContextMoqParam                 context.Context
 		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 		VirtualMachineSnapshot          *v1alpha2.VirtualMachineSnapshot
-		Secret                          *corev1.Secret
+		ManifestReader                  restorer.ManifestReader
 	}{
 		ContextMoqParam:                 contextMoqParam,
 		VirtualMachineSnapshotOperation: virtualMachineSnapshotOperation,
 		VirtualMachineSnapshot:          virtualMachineSnapshot,
-		Secret:                          secret,
+		ManifestReader:                  manifestReader,
 	}
 	mock.lockExecute.Lock()
 	mock.calls.Execute = append(mock.calls.Execute, callInfo)
 	mock.lockExecute.Unlock()
-	return mock.ExecuteFunc(contextMoqParam, virtualMachineSnapshotOperation, virtualMachineSnapshot, secret)
+	return mock.ExecuteFunc(contextMoqParam, virtualMachineSnapshotOperation, virtualMachineSnapshot, manifestReader)
 }
 
 // ExecuteCalls gets all the calls that were made to Execute.
@@ -80,13 +80,13 @@ func (mock *CreateOperationExecutorMock) ExecuteCalls() []struct {
 	ContextMoqParam                 context.Context
 	VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 	VirtualMachineSnapshot          *v1alpha2.VirtualMachineSnapshot
-	Secret                          *corev1.Secret
+	ManifestReader                  restorer.ManifestReader
 } {
 	var calls []struct {
 		ContextMoqParam                 context.Context
 		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 		VirtualMachineSnapshot          *v1alpha2.VirtualMachineSnapshot
-		Secret                          *corev1.Secret
+		ManifestReader                  restorer.ManifestReader
 	}
 	mock.lockExecute.RLock()
 	calls = mock.calls.Execute

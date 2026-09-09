@@ -32,6 +32,7 @@ import (
 	vmsopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmsopcondition"
@@ -63,7 +64,7 @@ var _ = Describe("LifecycleHandler", func() {
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger { return recorderMock },
 		}
 		createOperation = &CreateOperationExecutorMock{
-			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, manifestReader restorer.ManifestReader) error {
 				return nil
 			},
 		}
@@ -194,13 +195,13 @@ var _ = Describe("LifecycleHandler", func() {
 	DescribeTable("Checking VMSOP lifecycle handler",
 		func(args vmsopLifecycleArgs) {
 			if args.executeErr != nil {
-				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, manifestReader restorer.ManifestReader) error {
 					return args.executeErr
 				}
 			}
 
 			if args.shouldCompleteAfterExec {
-				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, manifestReader restorer.ManifestReader) error {
 					return nil
 				}
 			}

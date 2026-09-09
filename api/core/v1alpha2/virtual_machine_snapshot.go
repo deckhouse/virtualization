@@ -97,9 +97,10 @@ type VirtualMachineSnapshotStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// The following fields carry state-snapshotter SDK bookkeeping (normative SnapshotAdapter contract,
-	// see github.com/deckhouse/state-snapshotter/pkg/snapshotsdk). Populated only when the resource is
-	// annotated with AnnUseUnifiedSnapshotter and driven by the unified-snapshotter SDK controller;
-	// The previous custom Secret-based snapshot controller neither reads nor writes it.
+	// see github.com/deckhouse/state-snapshotter/pkg/snapshotsdk). Populated only for a resource driven
+	// by the unified-snapshotter SDK controller; the built-in Secret-based snapshot controller neither
+	// reads nor writes them. Their presence is therefore what tells the two mechanisms apart after the
+	// fact, and it is what the restore path relates on.
 
 	// BoundSnapshotContentName is the name of the cluster-scoped SnapshotContent bound to this node.
 	// Written by the state-snapshotter core binder; read-only from the domain controller's perspective.

@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -69,7 +70,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *v1alpha2.Vi
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
-		step.NewEnsurePVCOwnershipStep(pvc, ds.client),
+		step.NewEnsurePVCOwnershipStep(pvc, []string{v1alpha2.FinalizerVDProtection}, ds.client),
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.diskService, ds.pvcService, ds.recorder, ds.client, cb),
@@ -97,7 +98,8 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *v1alpha
 	// A snapshot captured through the unified-snapshotter SDK never gets a bound CSI VolumeSnapshot — its readiness signal is
 	// status.data instead. Mirrors the branch in CreatePVCFromVDSnapshotStep.Take: this check and
 	// that step's must agree, or DatasourceReadyHandler blocks LifeCycleHandler from ever calling Sync.
-	if _, ok := vdSnapshot.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; ok {
+	// Hence the same status-based discriminator on both sides, rather than the capture-side annotations.
+	if restorer.IsUnifiedDiskCapture(vdSnapshot) {
 		if vdSnapshot.Status.Data == nil {
 			return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 		}

@@ -29,6 +29,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -63,14 +64,14 @@ type Reconciler struct {
 	Log       *log.Logger
 }
 
-// SetupWithManager registers the reconciler, gated to objects annotated with
-// v1alpha2.AnnUseUnifiedSnapshotter.
+// SetupWithManager registers the reconciler, gated to the objects the unified mechanism owns — see
+// annotation.DrivenByUnified.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(ControllerName).
 		For(&v1alpha2.VirtualDiskSnapshot{}).
 		WithLogConstructor(logger.NewConstructor(r.Log)).
-		WithEventFilter(annotation.HasUnifiedSnapshotterAnnotation()).
+		WithEventFilter(annotation.ShouldHandle()).
 		Complete(r)
 }
 
@@ -86,7 +87,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if vds.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
-	if _, ok := vds.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; !ok {
+	driven, err := annotation.DrivenByUnifiedVirtualDiskSnapshot(ctx, r.APIReader, vds)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !driven {
 		return ctrl.Result{}, nil
 	}
 
@@ -108,8 +113,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		vds.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed:
 		return ctrl.Result{}, nil
 	case domainPhase == snapshotsdk.PhaseFinished:
-		vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
-		return ctrl.Result{}, r.patchStatus(ctx, vds)
+		return r.finishAsReady(ctx, vds)
 	}
 
 	vd := &v1alpha2.VirtualDisk{}
@@ -210,6 +214,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 					"cannot take a consistent snapshot of virtual disk %q: the virtual machine it is attached to is running and its filesystem is not frozen",
 					vds.Spec.VirtualDiskName))
 			}
+		case errors.Is(err, errMultipleAttachedVirtualMachines):
+			if vds.Spec.RequiredConsistency {
+				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
+					"cannot take a consistent snapshot: %s", err))
+			}
 		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		default:
@@ -257,8 +266,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// state is already durable and final. There is nothing left for us to drive, so we just record
 		// our own status.phase field for observability and stop — requeuing would only poll a decision
 		// that has already been made.
-		vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-		return ctrl.Result{}, r.patchStatus(ctx, vds)
+		return r.finishAsFailed(ctx, vds)
 	case snapshotsdk.CaptureOutcomeCapturing:
 		// Capturing: wait for the core to finish. The status watch wakes us on each leg latch flip;
 		// use requeue as a fallback in case a signal is missed.
@@ -275,15 +283,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhaseFinished).Apply(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
-	// The capture is over, so the consistency question is settled: record the negative answer too. It is
-	// only latched here, at the last possible moment, because the block above sets it the moment the disk is
-	// observed frozen — writing false any earlier would pin a snapshot that simply had not been frozen yet.
-	// Without this status.consistent stays absent, which reads as "unknown" and is indistinguishable from
-	// "not computed".
+	return r.finishAsReady(ctx, vds)
+}
+
+// settleConsistency records the negative answer to the consistency question once the capture reaches a
+// terminal state. It is latched this late on purpose: the planning block sets it to true the moment the
+// disk is observed frozen, so writing false any earlier would pin a snapshot that simply had not been
+// frozen yet. Leaving it absent is not an option either — a terminal VirtualDiskSnapshot never
+// reconciles again, and childrenAreConsistent reads a missing value as inconsistent, which would sink
+// the whole VirtualMachineSnapshot.
+func settleConsistency(vds *v1alpha2.VirtualDiskSnapshot) {
 	if vds.Status.Consistent == nil {
 		vds.Status.Consistent = ptr.To(false)
 	}
+}
+
+func (r *Reconciler) finishAsReady(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (ctrl.Result, error) {
+	settleConsistency(vds)
 	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
+
+	return ctrl.Result{}, r.patchStatus(ctx, vds)
+}
+
+func (r *Reconciler) finishAsFailed(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (ctrl.Result, error) {
+	settleConsistency(vds)
+	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
@@ -297,9 +321,7 @@ func (r *Reconciler) failCapture(ctx context.Context, a *adapter.VirtualDiskSnap
 		return ctrl.Result{}, err
 	}
 
-	vds.Status.Consistent = ptr.To(false)
-	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-	return ctrl.Result{}, r.patchStatus(ctx, vds)
+	return r.finishAsFailed(ctx, vds)
 }
 
 func (r *Reconciler) isConsistent(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
@@ -308,6 +330,7 @@ func (r *Reconciler) isConsistent(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		return false, err
 	}
 
+	// Nothing to freeze: no VirtualMachine holds the disk, or the one that does is stopped.
 	if vm == nil || vm.Status.Phase == v1alpha2.MachineStopped {
 		return true, nil
 	}
@@ -328,18 +351,35 @@ func (r *Reconciler) isConsistent(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	return frozen, nil
 }
 
+var errMultipleAttachedVirtualMachines = errors.New("attached to multiple virtual machines")
+
+// getAttachedVirtualMachine returns the one VirtualMachine the virtual disk is attached to.
+//
+// A nil VirtualMachine means there is nothing to freeze: the disk is attached to none, or the one it
+// names is already gone. Several attached VirtualMachines are reported as
+// errMultipleAttachedVirtualMachines instead — which one to freeze is ambiguous, so the caller decides
+// what that means for the snapshot rather than mistaking it for a disk nobody uses.
 func (r *Reconciler) getAttachedVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk) (*v1alpha2.VirtualMachine, error) {
-	if len(vd.Status.AttachedToVirtualMachines) != 1 {
-		// Not attached, or attached to several machines: there is no single freeze state to read.
+	attached := vd.Status.AttachedToVirtualMachines
+
+	if len(attached) == 0 {
 		return nil, nil
 	}
 
+	if len(attached) > 1 {
+		names := make([]string, 0, len(attached))
+		for _, vm := range attached {
+			names = append(names, vm.Name)
+		}
+		return nil, fmt.Errorf("the virtual disk %q is %w: %s", vd.Name, errMultipleAttachedVirtualMachines, strings.Join(names, ", "))
+	}
+
 	vm := &v1alpha2.VirtualMachine{}
-	err := r.Client.Get(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Status.AttachedToVirtualMachines[0].Name}, vm)
-	switch {
-	case apierrors.IsNotFound(err):
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: attached[0].Name}, vm)
+	if apierrors.IsNotFound(err) {
 		return nil, nil
-	case err != nil:
+	}
+	if err != nil {
 		return nil, err
 	}
 

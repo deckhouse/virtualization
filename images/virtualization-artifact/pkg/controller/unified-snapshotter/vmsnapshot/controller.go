@@ -32,6 +32,7 @@ import (
 	"sort"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,6 +49,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/statuspatch"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
@@ -67,18 +69,19 @@ type Reconciler struct {
 	APIReader client.Reader
 	// Freezer is the same *service.SnapshotService the built-in vmsnapshot/vdsnapshot controllers already
 	// use for guest-agent filesystem freeze/unfreeze.
-	Freezer *service.SnapshotService
-	Log     *log.Logger
+	Freezer  *service.SnapshotService
+	Recorder eventrecord.EventRecorderLogger
+	Log      *log.Logger
 }
 
-// SetupWithManager registers the reconciler, gated to objects annotated with
-// v1alpha2.AnnUseUnifiedSnapshotter.
+// SetupWithManager registers the reconciler, gated to the objects the unified mechanism owns — see
+// annotation.DrivenByUnified.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(ControllerName).
 		For(&v1alpha2.VirtualMachineSnapshot{}).
 		WithLogConstructor(logger.NewConstructor(r.Log)).
-		WithEventFilter(annotation.HasUnifiedSnapshotterAnnotation()).
+		WithEventFilter(annotation.ShouldHandle()).
 		Complete(r)
 }
 
@@ -94,7 +97,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if vms.DeletionTimestamp != nil {
 		return r.reconcileDeletion(ctx, vms)
 	}
-	if _, ok := vms.Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; !ok {
+	if !annotation.DrivenByUnifiedVirtualMachineSnapshot(vms) {
 		// Defensive: the manager-level predicate already filters this, but Reconcile may be invoked
 		// directly (e.g. by an owned-object watch) so re-check before touching this object.
 		return ctrl.Result{}, nil
@@ -158,6 +161,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	if kvvmi != nil {
 		if err := r.Freezer.SyncFSFreezeRequest(ctx, kvvmi); err != nil {
+			r.freezeTrouble(ctx, vms, "sync the guest filesystem freeze request", err)
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		}
 	}
@@ -168,6 +172,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// snapshot whose freeze in fact succeeded.
 	frozen, err := r.Freezer.IsFrozen(kvvmi)
 	if err != nil {
+		r.freezeTrouble(ctx, vms, "read the guest filesystem freeze state", err)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
@@ -428,6 +433,32 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, vms *v1alpha2.Virtua
 	return ctrl.Result{}, r.Client.Update(ctx, vms)
 }
 
+// freezeTrouble reports a guest filesystem freeze round-trip that did not go through.
+//
+// A request the guest agent has not confirmed yet (ErrUntrustedFilesystemFrozenCondition) is the normal
+// in-flight state rather than a fault: the annotation is already set and only Status.FSFreezeStatus has
+// yet to catch up, so the next reconcile settles it. It stays a debug line and never reaches the user's
+// Events — the same way releaseFreeze already treats that sentinel. Escalating it made a snapshot that
+// went on to succeed carry Warning events.
+//
+// Anything else is worth surfacing, but only the log gets the wrapped error: it names the internal
+// instance and its freeze status, which the Event text must not.
+func (r *Reconciler) freezeTrouble(ctx context.Context, vms *v1alpha2.VirtualMachineSnapshot, what string, err error) {
+	log := logger.FromContext(ctx)
+
+	if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+		log.Debug("waiting for the guest agent to confirm the guest filesystem freeze request", "err", err.Error())
+		return
+	}
+
+	log.Error("failed to "+what+", will retry", "err", err.Error())
+	if r.Recorder != nil {
+		r.Recorder.Eventf(vms, corev1.EventTypeWarning, v1alpha2.ReasonVMSnapshottingPending,
+			"Cannot %s of the virtual machine %q. Snapshotting is on hold until the guest agent responds.",
+			what, vms.Spec.VirtualMachineName)
+	}
+}
+
 func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) bool {
 	if kvvmi == nil {
 		return true
@@ -528,8 +559,8 @@ func vdSnapshotNames(refs []v1alpha2.UnifiedSnapshotterChildRef) []string {
 
 // planChildren builds the desired VirtualDiskSnapshot set: one per disk device attached to vm, deriving
 // each a deterministic name so EnsureChildren's create-or-adopt stays idempotent across reconciles. Each
-// child carries AnnUseUnifiedSnapshotter itself, so it is in turn driven by this same SDK-based
-// controller family (vdsnapshot), never by the built-in one.
+// child is driven by this same SDK-based controller family (vdsnapshot), never by the built-in one,
+// because it resolves its mechanism from this parent's captureState.
 func (r *Reconciler) planChildren(vms *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) []snapshotsdk.ChildSpec {
 	specs := make([]snapshotsdk.ChildSpec, 0, len(vm.Status.BlockDeviceRefs))
 	for _, bdr := range vm.Status.BlockDeviceRefs {
@@ -548,13 +579,13 @@ func (r *Reconciler) planChildren(vms *v1alpha2.VirtualMachineSnapshot, vm *v1al
 	return specs
 }
 
+// childObjectMeta carries no mechanism annotation: a child derives its mechanism from this parent's
+// status instead (see common/snapshotter.UseUnifiedForVirtualDiskSnapshot). Stamping it would pin the
+// child to whatever the parent decided at creation time, and the annotations are on their way out.
 func childObjectMeta(vms *v1alpha2.VirtualMachineSnapshot, diskName string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      fmt.Sprintf("%s-%s", diskName, vms.UID),
 		Namespace: vms.Namespace,
-		Annotations: map[string]string{
-			v1alpha2.AnnUseUnifiedSnapshotter: "",
-		},
 	}
 }
 

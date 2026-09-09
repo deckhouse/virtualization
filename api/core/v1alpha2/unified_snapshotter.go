@@ -16,10 +16,13 @@ limitations under the License.
 
 package v1alpha2
 
-// AnnUseUnifiedSnapshotter, when present on a VirtualMachineSnapshot or VirtualDiskSnapshot, routes that
-// object to the unified-snapshotter SDK-based controller instead of the custom Secret-based one. See
-// UnifiedSnapshotterCaptureState.
+// AnnUseUnifiedSnapshotter when present on a VirtualMachineSnapshot or VirtualDiskSnapshot,
+// pins that object to the unified-snapshotter SDK-based controller. See UnifiedSnapshotterCaptureState.
 const AnnUseUnifiedSnapshotter = "virtualization.deckhouse.io/use-unified-snapshotter"
+
+// AnnUseBuiltInSnapshotter when present on a VirtualMachineSnapshot or VirtualDiskSnapshot, pins that
+// object to the built-in Secret-based controller even if the unified mechanism is the default.
+const AnnUseBuiltInSnapshotter = "virtualization.deckhouse.io/use-built-in-snapshotter"
 
 // UnifiedSnapshotterConditionReady is the condition type the unified-snapshotter SDK controller writes
 // into the existing status.conditions of an annotated VirtualMachineSnapshot/VirtualDiskSnapshot,
@@ -162,9 +165,10 @@ type UnifiedSnapshotterDataBinding struct {
 }
 
 // UnifiedSnapshotterCaptureState mirrors state-snapshotter's storage/v1alpha1.CaptureStateStatus
-// (status.captureState): an umbrella with exactly one writer per sub-structure. Present only when the
-// resource is annotated with AnnUseUnifiedSnapshotter and driven by the unified-snapshotter SDK
-// controller; the previous custom Secret-based snapshot controller neither reads nor writes it.
+// (status.captureState): an umbrella with exactly one writer per sub-structure. Present only for a
+// resource driven by the unified-snapshotter SDK controller; the built-in Secret-based snapshot
+// controller neither reads nor writes it. That makes its presence the record of which mechanism
+// actually captured the snapshot, which is what the restore path reads.
 type UnifiedSnapshotterCaptureState struct {
 	// CommonController holds the core-written capture-leg success latches. Single writer: core.
 	CommonController *UnifiedSnapshotterCommonCaptureState `json:"commonController,omitempty"`

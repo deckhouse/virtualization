@@ -49,6 +49,8 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		mgr.GetAPIReader(),
+		unifiedSnapshotterPresent,
 		internal.NewVirtualDiskReadyHandler(freezer),
 		internal.NewLifeCycleHandler(freezer),
 		internal.NewDeletionHandler(freezer),

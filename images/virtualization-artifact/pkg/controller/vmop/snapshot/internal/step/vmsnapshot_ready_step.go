@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,10 +30,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
+
+const boundContentRequeueAfter = 2 * time.Second
 
 type VMSnapshotReadyStep struct {
 	client client.Client
@@ -75,6 +79,22 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	if vmSnapshot == nil {
 		return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not found", vmSnapshotKey.Name)
+	}
+
+	if restorer.IsUnifiedCapture(vmSnapshot) {
+		// Captured by the unified-snapshotter SDK controllers: they never write
+		// vmscondition.VirtualMachineSnapshotReadyType (only the core-owned "Ready" condition, on their
+		// own timing), and there is no snapshot Secret to check either — restorer.IsUnifiedCapture is
+		// the same discriminator NewManifestReader uses on the read side. Status.Phase is this
+		// controller's own deterministic readiness signal, and BoundSnapshotContentName is what
+		// ManifestReader needs downstream.
+		if vmSnapshot.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseReady {
+			return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is not ready to use", vmSnapshot.Name)
+		}
+		if vmSnapshot.Status.BoundSnapshotContentName == "" {
+			return &reconcile.Result{RequeueAfter: boundContentRequeueAfter}, nil
+		}
+		return nil, nil
 	}
 
 	vmSnapshotReadyToUseCondition, exist := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)

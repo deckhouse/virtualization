@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/snapshotter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot/internal/watcher"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -42,12 +43,17 @@ type Watcher interface {
 type Reconciler struct {
 	handlers []Handler
 	client   client.Client
+	// unifiedSnapshotterPresent is the cluster default for the snapshot mechanism: where the
+	// state-snapshotter module is installed, an object nobody pinned belongs to the unified
+	// controllers, not to this one.
+	unifiedSnapshotterPresent bool
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, unifiedSnapshotterPresent bool, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		client:                    client,
+		handlers:                  handlers,
+		unifiedSnapshotterPresent: unifiedSnapshotterPresent,
 	}
 }
 
@@ -63,8 +69,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	if _, ok := vmSnapshot.Changed().Annotations[v1alpha2.AnnUseUnifiedSnapshotter]; ok {
-		// Routed to the unified-snapshotter SDK-based controller.
+	if snapshotter.UseUnifiedForVirtualMachineSnapshot(vmSnapshot.Changed(), r.unifiedSnapshotterPresent) {
+		// Owned by the unified-snapshotter SDK-based controller, which carries the mirror-image guard
+		// over this same expression.
 		return reconcile.Result{}, nil
 	}
 

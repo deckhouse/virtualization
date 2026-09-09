@@ -30,7 +30,7 @@ import (
 )
 
 // EnsurePVCOwnershipStep adopts a target PVC that was created without an ownerReference back to this
-// VirtualDisk.
+// VirtualDisk, and puts the deletion-protection finalizer on it.
 //
 // This is needed for the unified-snapshotter restore path: the PVC materialized for a
 // VolumeRestoreRequest is created out of band by storage-foundation, never by us — see
@@ -39,17 +39,19 @@ import (
 // But other code (our own PersistentVolumeClaimWatcher, and any other controller that walks
 // PVC -> VirtualDisk) expects every VirtualDisk's target PVC to carry a direct ownerReference to it.
 //
-// A no-op whenever the PVC doesn't exist yet, is terminating, or already carries our ownerReference — in
-// particular for every OTHER data source, whose PVC-creation code sets this ownerReference at creation time.
+// A no-op whenever the PVC doesn't exist yet, is terminating, or already carries both — in particular for
+// every OTHER data source, whose PVC-creation code sets ownerReference and finalizer at creation time.
 type EnsurePVCOwnershipStep struct {
-	pvc    *corev1.PersistentVolumeClaim
-	client client.Client
+	pvc        *corev1.PersistentVolumeClaim
+	finalizers []string
+	client     client.Client
 }
 
-func NewEnsurePVCOwnershipStep(pvc *corev1.PersistentVolumeClaim, client client.Client) *EnsurePVCOwnershipStep {
+func NewEnsurePVCOwnershipStep(pvc *corev1.PersistentVolumeClaim, finalizers []string, client client.Client) *EnsurePVCOwnershipStep {
 	return &EnsurePVCOwnershipStep{
-		pvc:    pvc,
-		client: client,
+		pvc:        pvc,
+		finalizers: finalizers,
+		client:     client,
 	}
 }
 
@@ -58,27 +60,50 @@ func (s EnsurePVCOwnershipStep) Take(ctx context.Context, vd *v1alpha2.VirtualDi
 		return nil, nil
 	}
 
-	foreignController := false
+	adopted, foreignController := false, false
 	for _, ref := range s.pvc.OwnerReferences {
 		if ref.Kind == v1alpha2.VirtualDiskKind && ref.UID == vd.UID {
-			return nil, nil
+			adopted = true
+			continue
 		}
 		if ref.Controller != nil && *ref.Controller {
 			foreignController = true
 		}
 	}
 
-	ownerRef := service.MakeControllerOwnerReference(vd)
-	if foreignController {
-		// Only one ownerReference may be the controller, and the apiserver rejects the whole patch otherwise.
-		ownerRef.Controller = nil
-		ownerRef.BlockOwnerDeletion = nil
+	missingFinalizers := s.missingFinalizers()
+	if adopted && len(missingFinalizers) == 0 {
+		return nil, nil
 	}
 
 	patched := s.pvc.DeepCopy()
-	patched.OwnerReferences = append(patched.OwnerReferences, ownerRef)
+	if !adopted {
+		ownerRef := service.MakeControllerOwnerReference(vd)
+		if foreignController {
+			ownerRef.Controller = nil
+			ownerRef.BlockOwnerDeletion = nil
+		}
+		patched.OwnerReferences = append(patched.OwnerReferences, ownerRef)
+	}
+	patched.Finalizers = append(patched.Finalizers, missingFinalizers...)
+
 	if err := s.client.Patch(ctx, patched, client.StrategicMergeFrom(s.pvc)); err != nil {
 		return nil, fmt.Errorf("adopt restored pvc %q: %w", s.pvc.Name, err)
 	}
 	return nil, nil
+}
+
+func (s EnsurePVCOwnershipStep) missingFinalizers() []string {
+	present := make(map[string]struct{}, len(s.pvc.Finalizers))
+	for _, f := range s.pvc.Finalizers {
+		present[f] = struct{}{}
+	}
+
+	var missing []string
+	for _, f := range s.finalizers {
+		if _, ok := present[f]; !ok {
+			missing = append(missing, f)
+		}
+	}
+	return missing
 }

@@ -58,10 +58,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/populator"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/storageprofile"
 	unifiedvdsnapshot "github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/vdsnapshot"
 	unifiedvmsnapshot "github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/vmsnapshot"
-	unifiedvmsop "github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/usbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
@@ -80,6 +80,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
 	"github.com/deckhouse/virtualization-controller/pkg/crd"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	livemigrationcfg "github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -269,6 +270,11 @@ func main() {
 	cfg.ContentType = apiruntime.ContentTypeJSON
 	cfg.NegotiatedSerializer = clientgoscheme.Codecs.WithoutConversion()
 
+	if err = restorer.InitContentClient(cfg); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	leaderElectionNS := os.Getenv(podNamespaceEnv)
 	if leaderElectionNS == "" {
 		leaderElectionNS = "default"
@@ -315,9 +321,13 @@ func main() {
 		},
 		HealthProbeBindAddress: healthProbeBindAddr,
 		// Route unstructured reads through the cache so field-index lookups are served locally
-		// instead of hitting the apiserver.
+		// instead of hitting the apiserver. SnapshotContent is the exception: it is cluster-scoped and
+		// nothing watches it.
 		Client: client.Options{
-			Cache: &client.CacheOptions{Unstructured: true},
+			Cache: &client.CacheOptions{
+				Unstructured: true,
+				DisableFor:   []client.Object{&ssstoragev1alpha1.SnapshotContent{}},
+			},
 		},
 	}
 	if pprofBindAddr != "" {
@@ -525,10 +535,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// unified-snapshotter SDK controllers: drive VirtualMachineSnapshot/VirtualDiskSnapshot/
-	// VirtualMachineSnapshotOperation objects annotated with v1alpha2.AnnUseUnifiedSnapshotter through the
-	// state-snapshotter SDK (github.com/deckhouse/state-snapshotter/pkg/snapshotsdk)
+	// unified-snapshotter SDK controllers: drive VirtualMachineSnapshot/VirtualDiskSnapshot objects
+	// owned by the unified mechanism (see common/snapshotter.UseUnified) through the state-snapshotter SDK
+	// (github.com/deckhouse/state-snapshotter/pkg/snapshotsdk).
 	// Work in parallel with custom Secret-based snapshot controllers registered above.
+	//
+	// Capture only: restoring such a snapshot goes through the built-in VirtualMachineSnapshotOperation
+	// and VirtualMachineOperation controllers, which read its manifests from the captured SnapshotContent
+	// instead of a snapshot Secret (pkg/controller/service/restorer.NewManifestReader).
 	//
 	// Gated on UNIFIED_SNAPSHOTTER_PRESENT flag: unified snapshotter controllers require
 	// state-snapshotter core installed and their CRDs to be present in cluster. These controllers
@@ -539,6 +553,7 @@ func main() {
 			Client:    mgr.GetClient(),
 			APIReader: mgr.GetAPIReader(),
 			Freezer:   service.NewSnapshotService(virtClient, mgr.GetClient(), nil),
+			Recorder:  eventrecord.NewEventRecorderLogger(mgr, unifiedvmsnapshot.ControllerName),
 			Log:       unifiedVMSnapshotLogger,
 		}).SetupWithManager(mgr); err != nil {
 			log.Error(err.Error())
@@ -552,17 +567,6 @@ func main() {
 			Freezer:   service.NewSnapshotService(virtClient, mgr.GetClient(), nil),
 			Log:       unifiedVDSnapshotLogger,
 		}).SetupWithManager(mgr); err != nil {
-			log.Error(err.Error())
-			os.Exit(1)
-		}
-
-		unifiedVMSOPLogger := logger.NewControllerLogger(unifiedvmsop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-		unifiedVMSOPReconciler, err := unifiedvmsop.NewReconciler(cfg, mgr.GetClient(), unifiedVMSOPLogger)
-		if err != nil {
-			log.Error(err.Error())
-			os.Exit(1)
-		}
-		if err = unifiedVMSOPReconciler.SetupWithManager(mgr); err != nil {
 			log.Error(err.Error())
 			os.Exit(1)
 		}

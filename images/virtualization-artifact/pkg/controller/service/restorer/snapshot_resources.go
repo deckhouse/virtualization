@@ -23,7 +23,6 @@ import (
 	"fmt"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,8 +54,7 @@ type SnapshotResourceStatus struct {
 type SnapshotResources struct {
 	uuid           string
 	client         client.Client
-	restorer       *SecretRestorer
-	restorerSecret *corev1.Secret
+	manifestReader ManifestReader
 	vmSnapshot     *v1alpha2.VirtualMachineSnapshot
 	objectHandlers []ObjectHandler
 	statuses       []v1alpha2.SnapshotResourceStatus
@@ -64,34 +62,29 @@ type SnapshotResources struct {
 	kind           v1alpha2.VMOPType
 }
 
-func NewSnapshotResources(client client.Client, kind v1alpha2.VMOPType, mode v1alpha2.SnapshotOperationMode, restorerSecret *corev1.Secret, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
+func NewSnapshotResources(client client.Client, kind v1alpha2.VMOPType, mode v1alpha2.SnapshotOperationMode, manifestReader ManifestReader, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
 	return SnapshotResources{
 		mode:           mode,
 		kind:           kind,
 		uuid:           uuid,
 		client:         client,
-		restorer:       NewSecretRestorer(client),
+		manifestReader: manifestReader,
 		vmSnapshot:     vmSnapshot,
-		restorerSecret: restorerSecret,
 	}
 }
 
 func (r *SnapshotResources) Prepare(ctx context.Context) error {
-	if r.restorerSecret == nil {
-		return fmt.Errorf("restorer secret %q is not found", r.restorerSecret.Name)
-	}
-
-	provisioner, err := r.restorer.RestoreProvisioner(ctx, r.restorerSecret)
+	provisioner, err := r.manifestReader.RestoreProvisioner(ctx)
 	if err != nil {
 		return err
 	}
 
-	vm, err := r.restorer.RestoreVirtualMachine(ctx, r.restorerSecret)
+	vm, err := r.manifestReader.RestoreVirtualMachine(ctx)
 	if err != nil {
 		return err
 	}
 
-	vmip, err := r.restorer.RestoreVirtualMachineIPAddress(ctx, r.restorerSecret)
+	vmip, err := r.manifestReader.RestoreVirtualMachineIPAddress(ctx)
 	if err != nil {
 		return err
 	}
@@ -102,12 +95,12 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		vm.Spec.VirtualMachineIPAddress = ""
 	}
 
-	vmmacs, err := r.restorer.RestoreVirtualMachineMACAddresses(ctx, r.restorerSecret)
+	vmmacs, err := r.manifestReader.RestoreVirtualMachineMACAddresses(ctx)
 	if err != nil {
 		return err
 	}
 
-	macAddressOrder, err := r.restorer.RestoreMACAddressOrder(ctx, r.restorerSecret)
+	macAddressOrder, err := r.manifestReader.RestoreMACAddressOrder(ctx)
 	if err != nil {
 		return err
 	}
@@ -117,7 +110,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		return err
 	}
 
-	vmbdas, err := r.restorer.RestoreVirtualMachineBlockDeviceAttachments(ctx, r.restorerSecret)
+	vmbdas, err := r.manifestReader.RestoreVirtualMachineBlockDeviceAttachments(ctx)
 	if err != nil {
 		return err
 	}
@@ -127,6 +120,13 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		for _, vmmac := range vmmacs {
 			r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineMACAddressHandler(r.client, vmmac, r.uuid))
 			macAddressNamesByAddress[vmmac.Status.Address] = vmmac.Name
+		}
+
+		if len(macAddressOrder) < len(vm.Spec.Networks) {
+			return fmt.Errorf(
+				"captured virtual machine %q declares %d networks in spec but only %d in status: cannot restore the MAC address order",
+				vm.Name, len(vm.Spec.Networks), len(macAddressOrder),
+			)
 		}
 
 		for i := range vm.Spec.Networks {
@@ -329,10 +329,28 @@ func isRetryError(err error) bool {
 	return false
 }
 
-func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot, kind v1alpha2.VMOPType) ([]*v1alpha2.VirtualDisk, error) {
-	vds := make([]*v1alpha2.VirtualDisk, 0, len(vmSnapshot.Status.VirtualDiskSnapshotNames))
+// virtualDiskSnapshotNames returns the names of vmSnapshot's VirtualDiskSnapshot children. The built-in
+// mechanism tracks these in Status.VirtualDiskSnapshotNames. The unified-snapshotter SDK controllers
+// track children generically in Status.ChildrenSnapshotRefs (written by the SDK's EnsureChildren,
+// independent of our own patchStatus's owned-field list).
+func virtualDiskSnapshotNames(vmSnapshot *v1alpha2.VirtualMachineSnapshot) []string {
+	if !IsUnifiedCapture(vmSnapshot) {
+		return vmSnapshot.Status.VirtualDiskSnapshotNames
+	}
+	names := make([]string, 0, len(vmSnapshot.Status.ChildrenSnapshotRefs))
+	for _, ref := range vmSnapshot.Status.ChildrenSnapshotRefs {
+		if ref.APIVersion == v1alpha2.SchemeGroupVersion.String() && ref.Kind == v1alpha2.VirtualDiskSnapshotKind {
+			names = append(names, ref.Name)
+		}
+	}
+	return names
+}
 
-	for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
+func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot, kind v1alpha2.VMOPType) ([]*v1alpha2.VirtualDisk, error) {
+	vdSnapshotNames := virtualDiskSnapshotNames(vmSnapshot)
+	vds := make([]*v1alpha2.VirtualDisk, 0, len(vdSnapshotNames))
+
+	for _, vdSnapshotName := range vdSnapshotNames {
 		vdSnapshotKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vdSnapshotName}
 		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, client, &v1alpha2.VirtualDiskSnapshot{})
 		if err != nil {
@@ -430,18 +448,12 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 	if err := r.client.Get(ctx, vdSnapshotKey, vdSnapshot); err != nil {
 		return fmt.Errorf("failed to get virtual disk snapshot %s: %w", vdSnapshotKey, err)
 	}
-	if vdSnapshot.Status.VolumeSnapshotName == "" {
-		return nil
-	}
 
-	vsKey := types.NamespacedName{Namespace: vd.Namespace, Name: vdSnapshot.Status.VolumeSnapshotName}
-	vs := &vsv1.VolumeSnapshot{}
-	if err := r.client.Get(ctx, vsKey, vs); err != nil {
-		return fmt.Errorf("failed to get volume snapshot %s: %w", vsKey, err)
+	hadOwnerReference, err := r.virtualDiskHadOwnerReference(ctx, vd.Namespace, vdSnapshot)
+	if err != nil {
+		return err
 	}
-
-	_, ok := vs.Annotations[annotations.AnnVirtualDiskHadOwnerReference]
-	if !ok {
+	if !hadOwnerReference {
 		return nil
 	}
 
@@ -461,7 +473,54 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 	return nil
 }
 
+func (r *SnapshotResources) virtualDiskHadOwnerReference(ctx context.Context, namespace string, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (bool, error) {
+	if vdSnapshot.Status.CaptureState != nil {
+		captured, err := CapturedVirtualDisk(ctx, r.client, vdSnapshot)
+		if err != nil {
+			return false, err
+		}
+		return hasVirtualMachineOwner(captured), nil
+	}
+
+	if vdSnapshot.Status.VolumeSnapshotName == "" {
+		return false, nil
+	}
+
+	vsKey := types.NamespacedName{Namespace: namespace, Name: vdSnapshot.Status.VolumeSnapshotName}
+	vs := &vsv1.VolumeSnapshot{}
+	if err := r.client.Get(ctx, vsKey, vs); err != nil {
+		return false, fmt.Errorf("failed to get volume snapshot %s: %w", vsKey, err)
+	}
+
+	_, ok := vs.Annotations[annotations.AnnVirtualDiskHadOwnerReference]
+	return ok, nil
+}
+
+func hasVirtualMachineOwner(vd *v1alpha2.VirtualDisk) bool {
+	if vd == nil {
+		return false
+	}
+	for _, ownerRef := range vd.OwnerReferences {
+		if ownerRef.Kind == v1alpha2.VirtualMachineKind {
+			return true
+		}
+	}
+	return false
+}
+
 func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, client client.Client) error {
+	if vdSnapshot.Status.CaptureState != nil {
+		// Captured by the unified-snapshotter SDK controller: there is no CSI VolumeSnapshot to carry the
+		// source disk's metadata (disk data is restored via VolumeRestoreRequest instead), but the child's
+		// own SnapshotContent holds the VirtualDisk manifest verbatim, so read them straight off it.
+		captured, err := CapturedVirtualDisk(ctx, client, vdSnapshot)
+		if err != nil {
+			return err
+		}
+		addOriginalMetadataFromCapturedDisk(vd, captured)
+		return nil
+	}
+
 	vsKey := types.NamespacedName{
 		Namespace: vdSnapshot.Namespace,
 		Name:      vdSnapshot.Status.VolumeSnapshotName,
@@ -480,6 +539,30 @@ func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapsh
 		setOriginalAnnotations(vd, vs),
 		setOriginalLabels(vd, vs),
 	)
+}
+
+func addOriginalMetadataFromCapturedDisk(vd, captured *v1alpha2.VirtualDisk) {
+	if captured == nil {
+		return
+	}
+
+	if len(captured.Annotations) > 0 && vd.Annotations == nil {
+		vd.Annotations = make(map[string]string, len(captured.Annotations))
+	}
+	for key, value := range captured.Annotations {
+		if _, exists := vd.Annotations[key]; !exists {
+			vd.Annotations[key] = value
+		}
+	}
+
+	if len(captured.Labels) > 0 && vd.Labels == nil {
+		vd.Labels = make(map[string]string, len(captured.Labels))
+	}
+	for key, value := range captured.Labels {
+		if _, exists := vd.Labels[key]; !exists {
+			vd.Labels[key] = value
+		}
+	}
 }
 
 func setOriginalAnnotations(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) error {

@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -91,16 +92,13 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 		return reconcile.Result{}, nil
 	}
 
-	restorerSecretKey := types.NamespacedName{Namespace: vms.Namespace, Name: vms.Status.VirtualMachineSnapshotSecretName}
-	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, h.client, &corev1.Secret{})
+	manifestReader, err := restorer.NewManifestReader(ctx, h.client, vms)
 	if err != nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "The VirtualMachineSnapshot is not ready to be used yet.")
+		if errors.Is(err, common.ErrQueueing) {
+			return reconcile.Result{Requeue: true}, nil
+		}
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, fmt.Sprintf("Failed to access the underlying resources of the VirtualMachineSnapshot %q.", vmsop.Spec.VirtualMachineSnapshotName))
 		return reconcile.Result{}, err
-	}
-
-	if restorerSecret == nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "The VirtualMachineSnapshot is not ready to be used yet.")
-		return reconcile.Result{}, errors.New("virtual machine snapshot secret is nil")
 	}
 
 	hasInProgress, err := h.hasOperationsInProgress(ctx, vmsop)
@@ -113,7 +111,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMa
 		return reconcile.Result{}, nil
 	}
 
-	err = h.opExecutor.Execute(ctx, vmsop, vms, restorerSecret)
+	err = h.opExecutor.Execute(ctx, vmsop, vms, manifestReader)
 	if err != nil {
 		if errors.Is(err, common.ErrQueueing) {
 			return reconcile.Result{Requeue: true}, nil

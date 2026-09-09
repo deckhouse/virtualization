@@ -19,13 +19,12 @@ package handler
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
-
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . CreateOperationExecutor
 
 type CreateOperationExecutor interface {
-	Execute(context.Context, *v1alpha2.VirtualMachineSnapshotOperation, *v1alpha2.VirtualMachineSnapshot, *corev1.Secret) error
+	Execute(context.Context, *v1alpha2.VirtualMachineSnapshotOperation, *v1alpha2.VirtualMachineSnapshot, restorer.ManifestReader) error
 }

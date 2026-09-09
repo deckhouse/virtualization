@@ -19,7 +19,6 @@ package operation
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
@@ -36,8 +35,8 @@ type CreateVirtualMachineOperation struct {
 	client client.Client
 }
 
-func (o CreateVirtualMachineOperation) Execute(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation, vms *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
-	snapshotResources := restorer.NewSnapshotResources(o.client, v1alpha2.VMOPTypeClone, vmsop.Spec.CreateVirtualMachine.Mode, secret, vms, string(vmsop.UID))
+func (o CreateVirtualMachineOperation) Execute(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation, vms *v1alpha2.VirtualMachineSnapshot, manifestReader restorer.ManifestReader) error {
+	snapshotResources := restorer.NewSnapshotResources(o.client, v1alpha2.VMOPTypeClone, vmsop.Spec.CreateVirtualMachine.Mode, manifestReader, vms, string(vmsop.UID))
 
 	err := snapshotResources.Prepare(ctx)
 	if err != nil {
