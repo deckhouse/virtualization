@@ -120,7 +120,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			},
-			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			},
 		}

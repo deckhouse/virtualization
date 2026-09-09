@@ -253,7 +253,7 @@ var _ BlankDataSourceDiskService = &BlankDataSourceDiskServiceMock{}
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -273,7 +273,7 @@ type BlankDataSourceDiskServiceMock struct {
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -300,8 +300,6 @@ type BlankDataSourceDiskServiceMock struct {
 		GetVolumeAndAccessModes []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj client.Object
 			// Sc is the sc argument value.
 			Sc *v1.StorageClass
 		}
@@ -417,23 +415,21 @@ func (mock *BlankDataSourceDiskServiceMock) GetCapacityCalls() []struct {
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("BlankDataSourceDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but BlankDataSourceDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
-		Obj: obj,
 		Sc:  sc,
 	}
 	mock.lockGetVolumeAndAccessModes.Lock()
 	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
 	mock.lockGetVolumeAndAccessModes.Unlock()
-	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+	return mock.GetVolumeAndAccessModesFunc(ctx, sc)
 }
 
 // GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
@@ -442,12 +438,10 @@ func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.
 //	len(mockedBlankDataSourceDiskService.GetVolumeAndAccessModesCalls())
 func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Obj client.Object
 	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
@@ -1097,7 +1091,7 @@ var _ ObjectRefVirtualImageDiskService = &ObjectRefVirtualImageDiskServiceMock{}
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -1114,7 +1108,7 @@ type ObjectRefVirtualImageDiskServiceMock struct {
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1134,8 +1128,6 @@ type ObjectRefVirtualImageDiskServiceMock struct {
 		GetVolumeAndAccessModes []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj client.Object
 			// Sc is the sc argument value.
 			Sc *v1.StorageClass
 		}
@@ -1214,23 +1206,21 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) GetCapacityCalls() []struct {
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *ObjectRefVirtualImageDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *ObjectRefVirtualImageDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("ObjectRefVirtualImageDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but ObjectRefVirtualImageDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
-		Obj: obj,
 		Sc:  sc,
 	}
 	mock.lockGetVolumeAndAccessModes.Lock()
 	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
 	mock.lockGetVolumeAndAccessModes.Unlock()
-	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+	return mock.GetVolumeAndAccessModesFunc(ctx, sc)
 }
 
 // GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
@@ -1239,12 +1229,10 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) GetVolumeAndAccessModes(ctx co
 //	len(mockedObjectRefVirtualImageDiskService.GetVolumeAndAccessModesCalls())
 func (mock *ObjectRefVirtualImageDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Obj client.Object
 	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
@@ -1353,7 +1341,7 @@ var _ ObjectRefClusterVirtualImageDiskService = &ObjectRefClusterVirtualImageDis
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -1370,7 +1358,7 @@ type ObjectRefClusterVirtualImageDiskServiceMock struct {
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1390,8 +1378,6 @@ type ObjectRefClusterVirtualImageDiskServiceMock struct {
 		GetVolumeAndAccessModes []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj client.Object
 			// Sc is the sc argument value.
 			Sc *v1.StorageClass
 		}
@@ -1470,23 +1456,21 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) GetCapacityCalls() []st
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *ObjectRefClusterVirtualImageDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *ObjectRefClusterVirtualImageDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("ObjectRefClusterVirtualImageDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but ObjectRefClusterVirtualImageDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
-		Obj: obj,
 		Sc:  sc,
 	}
 	mock.lockGetVolumeAndAccessModes.Lock()
 	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
 	mock.lockGetVolumeAndAccessModes.Unlock()
-	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+	return mock.GetVolumeAndAccessModesFunc(ctx, sc)
 }
 
 // GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
@@ -1495,12 +1479,10 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) GetVolumeAndAccessModes
 //	len(mockedObjectRefClusterVirtualImageDiskService.GetVolumeAndAccessModesCalls())
 func (mock *ObjectRefClusterVirtualImageDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Obj client.Object
 	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
@@ -1609,7 +1591,7 @@ var _ ObjectRefVirtualDiskSnapshotDiskService = &ObjectRefVirtualDiskSnapshotDis
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -1626,7 +1608,7 @@ type ObjectRefVirtualDiskSnapshotDiskServiceMock struct {
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1646,8 +1628,6 @@ type ObjectRefVirtualDiskSnapshotDiskServiceMock struct {
 		GetVolumeAndAccessModes []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj client.Object
 			// Sc is the sc argument value.
 			Sc *v1.StorageClass
 		}
@@ -1726,23 +1706,21 @@ func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetCapacityCalls() []st
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("ObjectRefVirtualDiskSnapshotDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but ObjectRefVirtualDiskSnapshotDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
-		Obj: obj,
 		Sc:  sc,
 	}
 	mock.lockGetVolumeAndAccessModes.Lock()
 	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
 	mock.lockGetVolumeAndAccessModes.Unlock()
-	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+	return mock.GetVolumeAndAccessModesFunc(ctx, sc)
 }
 
 // GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
@@ -1751,12 +1729,10 @@ func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeAndAccessModes
 //	len(mockedObjectRefVirtualDiskSnapshotDiskService.GetVolumeAndAccessModesCalls())
 func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Obj client.Object
 	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
@@ -1787,7 +1763,7 @@ var _ UploadDataSourceDiskService = &UploadDataSourceDiskServiceMock{}
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -1810,7 +1786,7 @@ type UploadDataSourceDiskServiceMock struct {
 	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1844,8 +1820,6 @@ type UploadDataSourceDiskServiceMock struct {
 		GetVolumeAndAccessModes []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj client.Object
 			// Sc is the sc argument value.
 			Sc *v1.StorageClass
 		}
@@ -1998,23 +1972,21 @@ func (mock *UploadDataSourceDiskServiceMock) GetPersistentVolumeClaimCalls() []s
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *UploadDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *UploadDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("UploadDataSourceDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but UploadDataSourceDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
-		Obj: obj,
 		Sc:  sc,
 	}
 	mock.lockGetVolumeAndAccessModes.Lock()
 	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
 	mock.lockGetVolumeAndAccessModes.Unlock()
-	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+	return mock.GetVolumeAndAccessModesFunc(ctx, sc)
 }
 
 // GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
@@ -2023,12 +1995,10 @@ func (mock *UploadDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context
 //	len(mockedUploadDataSourceDiskService.GetVolumeAndAccessModesCalls())
 func (mock *UploadDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Obj client.Object
 	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
@@ -2871,7 +2841,7 @@ var _ HTTPDataSourceDiskService = &HTTPDataSourceDiskServiceMock{}
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -2894,7 +2864,7 @@ type HTTPDataSourceDiskServiceMock struct {
 	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -2928,8 +2898,6 @@ type HTTPDataSourceDiskServiceMock struct {
 		GetVolumeAndAccessModes []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj client.Object
 			// Sc is the sc argument value.
 			Sc *v1.StorageClass
 		}
@@ -3082,23 +3050,21 @@ func (mock *HTTPDataSourceDiskServiceMock) GetPersistentVolumeClaimCalls() []str
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *HTTPDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *HTTPDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("HTTPDataSourceDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but HTTPDataSourceDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
-		Obj: obj,
 		Sc:  sc,
 	}
 	mock.lockGetVolumeAndAccessModes.Lock()
 	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
 	mock.lockGetVolumeAndAccessModes.Unlock()
-	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+	return mock.GetVolumeAndAccessModesFunc(ctx, sc)
 }
 
 // GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
@@ -3107,12 +3073,10 @@ func (mock *HTTPDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.C
 //	len(mockedHTTPDataSourceDiskService.GetVolumeAndAccessModesCalls())
 func (mock *HTTPDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Obj client.Object
 	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
@@ -3761,7 +3725,7 @@ var _ RegistryDataSourceDiskService = &RegistryDataSourceDiskServiceMock{}
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -3784,7 +3748,7 @@ type RegistryDataSourceDiskServiceMock struct {
 	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -3818,8 +3782,6 @@ type RegistryDataSourceDiskServiceMock struct {
 		GetVolumeAndAccessModes []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Obj is the obj argument value.
-			Obj client.Object
 			// Sc is the sc argument value.
 			Sc *v1.StorageClass
 		}
@@ -3972,23 +3934,21 @@ func (mock *RegistryDataSourceDiskServiceMock) GetPersistentVolumeClaimCalls() [
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *RegistryDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *RegistryDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *v1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("RegistryDataSourceDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but RegistryDataSourceDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}{
 		Ctx: ctx,
-		Obj: obj,
 		Sc:  sc,
 	}
 	mock.lockGetVolumeAndAccessModes.Lock()
 	mock.calls.GetVolumeAndAccessModes = append(mock.calls.GetVolumeAndAccessModes, callInfo)
 	mock.lockGetVolumeAndAccessModes.Unlock()
-	return mock.GetVolumeAndAccessModesFunc(ctx, obj, sc)
+	return mock.GetVolumeAndAccessModesFunc(ctx, sc)
 }
 
 // GetVolumeAndAccessModesCalls gets all the calls that were made to GetVolumeAndAccessModes.
@@ -3997,12 +3957,10 @@ func (mock *RegistryDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx conte
 //	len(mockedRegistryDataSourceDiskService.GetVolumeAndAccessModesCalls())
 func (mock *RegistryDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Obj client.Object
 	Sc  *v1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Obj client.Object
 		Sc  *v1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()

@@ -86,7 +86,7 @@ func (c *rwoImmediateStorageClassPrecheck) Run(ctx context.Context, f *framework
 		}
 		return obj.StorageProfile, nil
 	})
-	_, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, sc, sc)
+	_, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, sc)
 	if err != nil {
 		return fmt.Errorf("%s=no to disable this precheck: resolve access mode for StorageClass %q: %w", rwoImmediateStorageClassPrecheckEnvName, sc.Name, err)
 	}

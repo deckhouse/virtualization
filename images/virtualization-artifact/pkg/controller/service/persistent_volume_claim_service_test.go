@@ -53,7 +53,7 @@ func newTestPVCService(c client.Client) *PersistentVolumeClaimService {
 
 type testVolumeModeGetter struct{}
 
-func (testVolumeModeGetter) GetVolumeAndAccessModes(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (testVolumeModeGetter) GetVolumeAndAccessModes(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 }
 

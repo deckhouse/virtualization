@@ -95,8 +95,8 @@ func (s DiskService) PersistentVolumeClaim() *PersistentVolumeClaimService {
 	return s.pvc
 }
 
-func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
-	return s.volumeAndAccessModesGetter.GetVolumeAndAccessModes(ctx, obj, sc)
+func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+	return s.volumeAndAccessModesGetter.GetVolumeAndAccessModes(ctx, sc)
 }
 
 // GetPVCImporterPod returns the pod that writes into the prime PVC, or nil when

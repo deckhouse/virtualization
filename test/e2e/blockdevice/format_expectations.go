@@ -180,7 +180,7 @@ func storageClassVolumeMode(ctx context.Context, f *framework.Framework, scName 
 
 	sc := storageClassByName(ctx, f, scName)
 	modeGetter := volumemode.NewVolumeAndAccessModesGetter(f.GenericClient(), storageProfileGetter(f))
-	mode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, sc, sc)
+	mode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, sc)
 	Expect(err).NotTo(HaveOccurred(), "failed to resolve volume mode for StorageClass %q", sc.Name)
 	return mode
 }

@@ -404,11 +404,9 @@ func createTargetStorageClassCopy(ctx context.Context, f *framework.Framework, k
 }
 
 func getTargetStorageClass(ctx context.Context, f *framework.Framework, storageClass *storagev1.StorageClass) (string, error) {
-	// GetVolumeAndAccessModes needs no nil object.
-	notEmptyVD := &v1alpha2.VirtualDisk{}
 	modeGetter := volumemode.NewVolumeAndAccessModesGetter(f.GenericClient(), getStorageProfile(f))
 
-	volumeMode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, notEmptyVD, storageClass)
+	volumeMode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, storageClass)
 	if err != nil {
 		return "", err
 	}
@@ -438,7 +436,7 @@ func getTargetStorageClass(ctx context.Context, f *framework.Framework, storageC
 			continue
 		}
 
-		nextVolumeMode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, notEmptyVD, &sc)
+		nextVolumeMode, _, err := modeGetter.GetVolumeAndAccessModes(ctx, &sc)
 		if err != nil {
 			GinkgoWriter.Printf("Skipping storage class %s: cannot get volume mode: %s\n", sc.Name, err)
 			continue

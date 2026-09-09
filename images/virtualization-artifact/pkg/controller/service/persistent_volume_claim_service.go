@@ -77,7 +77,7 @@ type PersistentVolumeClaimService struct {
 }
 
 type VolumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
 // NewPersistentVolumeClaimService constructs a PersistentVolumeClaimService
@@ -190,7 +190,7 @@ func (s *PersistentVolumeClaimService) EnsureVolumeRestoreRequest(ctx context.Co
 		return fmt.Errorf("storage class %q not found", storageClassName)
 	}
 
-	volumeMode, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, owner, sc)
+	volumeMode, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, sc)
 	if err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func (s *PersistentVolumeClaimService) newTargetPVC(ctx context.Context, key typ
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("storage class %q not found", storageClassName)
 	}
 
-	volumeMode, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, owner, sc)
+	volumeMode, accessMode, err := modeGetter.GetVolumeAndAccessModes(ctx, sc)
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, err
 	}

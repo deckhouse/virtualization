@@ -37,7 +37,7 @@ var ErrStorageProfileNotFound = errors.New("storage profile not found")
 
 //go:generate go tool moq -rm -out mock.go . VolumeAndAccessModesGetter
 type VolumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
 func NewVolumeAndAccessModesGetter(client client.Client, storageProfileGetter func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error)) VolumeAndAccessModesGetter {
@@ -56,29 +56,20 @@ type volumeAndAccessModesGetter struct {
 	storageProfileGetter func(ctx context.Context, name string) (*storagev1alpha1.StorageProfile, error)
 }
 
-func (s volumeAndAccessModesGetter) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
-	if obj == nil {
-		return "", "", errors.New("object is nil")
-	}
+func (s volumeAndAccessModesGetter) GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if sc == nil {
 		return "", "", errors.New("storage class is nil")
 	}
 
-	// Priority: object > storage class > storage profile.
+	// Priority: storage class > storage profile.
+	var accessMode corev1.PersistentVolumeAccessMode
+	var volumeMode corev1.PersistentVolumeMode
 
-	// 1. Get modes from annotations on the object.
-	accessMode, _ := s.parseAccessMode(obj)
-	volumeMode, _ := s.parseVolumeMode(obj)
-
-	if accessMode != "" && volumeMode != "" {
-		return volumeMode, accessMode, nil
-	}
-
-	// 2. Get modes from annotations on the storage class.
-	if m, exists := s.parseAccessMode(sc); accessMode == "" && exists {
+	// 1. Get modes from annotations on the storage class.
+	if m, exists := s.parseAccessMode(sc); exists {
 		accessMode = m
 	}
-	if m, exists := s.parseVolumeMode(sc); volumeMode == "" && exists {
+	if m, exists := s.parseVolumeMode(sc); exists {
 		volumeMode = m
 	}
 
@@ -86,7 +77,7 @@ func (s volumeAndAccessModesGetter) GetVolumeAndAccessModes(ctx context.Context,
 		return volumeMode, accessMode, nil
 	}
 
-	// 3. Get modes from storage profile.
+	// 2. Get modes from storage profile.
 	storageProfile, err := s.storageProfileGetter(ctx, sc.Name)
 	if err != nil {
 		return "", "", fmt.Errorf("get storage profile: %w", err)

@@ -67,7 +67,7 @@ var _ = Describe("Blank", func() {
 		}
 
 		svc = &BlankDataSourceDiskServiceMock{
-			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 				return *pvc.Spec.VolumeMode, pvc.Spec.AccessModes[0], nil
 			},
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {

@@ -156,7 +156,7 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 	if currentStorageClass == nil {
 		return fmt.Errorf("source storage class %q not found", currentStorageClassName)
 	}
-	currentMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, newVD, currentStorageClass)
+	currentMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, currentStorageClass)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 	if desiredStorageClass == nil {
 		return fmt.Errorf("target storage class %q not found", desiredStorageClassName)
 	}
-	desiredMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, newVD, desiredStorageClass)
+	desiredMode, _, err := v.modeGetter.GetVolumeAndAccessModes(ctx, desiredStorageClass)
 	if err != nil {
 		return err
 	}

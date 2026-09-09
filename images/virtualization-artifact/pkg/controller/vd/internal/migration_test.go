@@ -66,7 +66,7 @@ type fakeVolumeAndAccessModesGetter struct {
 	shouldError bool
 }
 
-func (m *fakeVolumeAndAccessModesGetter) GetVolumeAndAccessModes(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (m *fakeVolumeAndAccessModesGetter) GetVolumeAndAccessModes(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if m.shouldError {
 		return "", "", fmt.Errorf("mock error")
 	}

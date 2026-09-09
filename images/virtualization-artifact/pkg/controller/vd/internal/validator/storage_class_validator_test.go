@@ -106,7 +106,7 @@ var _ = Describe("StorageClassValidator", func() {
 		baseSCService := basevc.NewBaseStorageClassService(fakeClient)
 		vdSCService := service.NewVirtualDiskStorageClassService(baseSCService, config.VirtualDiskStorageClassSettings{})
 		modeGetter = &volumemode.VolumeAndAccessModesGetterMock{
-			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			},
 		}
@@ -205,7 +205,7 @@ var _ = Describe("StorageClassValidator", func() {
 	)
 
 	It("should fail migration if volume modes differ", func() {
-		modeGetter.GetVolumeAndAccessModesFunc = func(ctx context.Context, obj client.Object, storageClass *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+		modeGetter.GetVolumeAndAccessModesFunc = func(ctx context.Context, storageClass *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 			if storageClass.Name == scName {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			}

@@ -120,7 +120,7 @@ var _ = Describe("HTTPDataSource", func() {
 			},
 			CleanUpFunc:            func(_ context.Context, _ supplements.Generator) (bool, string, error) { return false, "", nil },
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, string, error) { return false, "", nil },
-			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 				return corev1.PersistentVolumeFilesystem, corev1.ReadWriteOnce, nil
 			},
 		}

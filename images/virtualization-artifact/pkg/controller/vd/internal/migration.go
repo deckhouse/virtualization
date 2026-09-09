@@ -534,7 +534,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		return nil
 	}
 
-	volumeMode, accessMode, err := h.modeGetter.GetVolumeAndAccessModes(ctx, vd, targetStorageClass)
+	volumeMode, accessMode, err := h.modeGetter.GetVolumeAndAccessModes(ctx, targetStorageClass)
 	if err != nil {
 		return fmt.Errorf("get volume and access modes: %w", err)
 	}
