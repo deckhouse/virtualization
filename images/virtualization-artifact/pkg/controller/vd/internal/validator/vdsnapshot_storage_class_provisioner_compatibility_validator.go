@@ -21,9 +21,13 @@ import (
 	"fmt"
 	"reflect"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -81,7 +85,7 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 		return nil
 	}
 
-	scName, err := commonvd.ResolveStorageClassName(ctx, vd, v.scService)
+	scName, err := v.resolveTargetStorageClassName(ctx, vd)
 	if err != nil {
 		return err
 	}
@@ -103,4 +107,48 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 	}
 
 	return nil
+}
+
+// resolveTargetStorageClassName resolves the storage class the disk will actually be
+// provisioned on. When the disk names no storage class itself, the provisioning step
+// defaults to the snapshot's storage class, not the module/cluster default — so the
+// validator must follow the same precedence to avoid rejecting legitimate restores.
+func (v *VirtualDiskSnapshotStorageClassValidator) resolveTargetStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
+	scName, err := commonvd.ResolveStorageClassName(ctx, vd, nil)
+	if err != nil || scName != "" {
+		return scName, err
+	}
+
+	scName, err = v.snapshotStorageClassName(ctx, vd)
+	if err != nil || scName != "" {
+		return scName, err
+	}
+
+	return commonvd.ResolveStorageClassName(ctx, vd, v.scService)
+}
+
+func (v *VirtualDiskSnapshotStorageClassValidator) snapshotStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
+	vdSnapshotKey := types.NamespacedName{Namespace: vd.Namespace, Name: vd.Spec.DataSource.ObjectRef.Name}
+	vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, v.client, &v1alpha2.VirtualDiskSnapshot{})
+	if err != nil {
+		return "", err
+	}
+	if vdSnapshot == nil || vdSnapshot.Status.VolumeSnapshotName == "" {
+		return "", nil
+	}
+
+	vsKey := types.NamespacedName{Namespace: vd.Namespace, Name: vdSnapshot.Status.VolumeSnapshotName}
+	vs, err := object.FetchObject(ctx, vsKey, v.client, &vsv1.VolumeSnapshot{})
+	if err != nil {
+		return "", err
+	}
+	if vs == nil {
+		return "", nil
+	}
+
+	scName := vs.Annotations[annotations.AnnStorageClassName]
+	if scName == "" {
+		scName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+	}
+	return scName, nil
 }
