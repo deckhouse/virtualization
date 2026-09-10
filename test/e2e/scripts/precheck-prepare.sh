@@ -34,7 +34,7 @@ elif [ -n "${LABELS:-}" ]; then
   CMD+=(--label-filter "$LABELS")
 fi
 
-# Run with suppressed stdout, but show stderr.
-"${CMD[@]}" 2>&1 > /dev/null
+# Suppress stdout, keep stderr.
+"${CMD[@]}" > /dev/null
 
 echo "Precheck prepare completed"

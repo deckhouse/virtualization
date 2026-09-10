@@ -18,6 +18,7 @@ package framework
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"regexp"
@@ -29,8 +30,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework/failfast"
@@ -272,22 +273,33 @@ func (f *Framework) DeferDelete(objs ...client.Object) {
 	f.objectsToDelete = append(f.objectsToDelete, objs...)
 }
 
+// ~26s in total: outlasts the API pauses seen under the suite's load.
+var deleteBackoff = wait.Backoff{Duration: 2 * time.Second, Factor: 1.5, Jitter: 0.1, Steps: 6}
+
 func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
-	// 1. Send deletion request for objects.
+	var errs []error
+
+	// 1. Send every deletion request first: the namespace is last and must not be skipped.
+	accepted := make([]client.Object, 0, len(objs))
 	for _, obj := range objs {
-		err := f.client.Delete(ctx, obj)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return err
+		err := retry.OnError(deleteBackoff,
+			// Retry everything but NotFound; the backoff ignores ctx, so stop once it is done.
+			func(err error) bool { return !k8serrors.IsNotFound(err) && ctx.Err() == nil },
+			func() error { return f.client.Delete(ctx, obj) },
+		)
+		switch {
+		case err == nil:
+			accepted = append(accepted, obj)
+		case !k8serrors.IsNotFound(err):
+			errs = append(errs, fmt.Errorf("delete %q: %w", client.ObjectKeyFromObject(obj), err))
 		}
 	}
 
-	// 2. Wait for the objects to be deleted.
-	for _, obj := range objs {
-		key := types.NamespacedName{
-			Namespace: obj.GetNamespace(),
-			Name:      obj.GetName(),
-		}
+	// 2. Wait only for the objects whose deletion was accepted.
+	for _, obj := range accepted {
+		key := client.ObjectKeyFromObject(obj)
 
+		var lastErr error
 		err := wait.PollUntilContextTimeout(ctx, time.Second, LongTimeout, true, func(ctx context.Context) (bool, error) {
 			err := f.client.Get(ctx, key, obj)
 			switch {
@@ -296,15 +308,17 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 			case k8serrors.IsNotFound(err):
 				return true, nil
 			default:
-				return false, err
+				// Keep polling through API errors; the timeout decides.
+				lastErr = err
+				return false, nil
 			}
 		})
 		if err != nil {
-			return fmt.Errorf("object %q not deleted in time: %w", key, err)
+			errs = append(errs, fmt.Errorf("object %q not deleted in time: %w", key, errors.Join(err, lastErr)))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // CreateWithDeferredDeletion creates one or more Kubernetes resources and

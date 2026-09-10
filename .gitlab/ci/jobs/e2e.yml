@@ -89,13 +89,12 @@ include:
   variables:
     E2E_SCRIPT_DIR: $CI_PROJECT_DIR/.github/scripts/bash/e2e
     E2E_CONFIG: $CI_PROJECT_DIR/test/e2e/default_config.yaml
-    # Below the ginkgo default of 24: at full parallelism the apiserver load
-    # CFS-throttles the pool master (8 vCPU at coreFraction 50%, so ~4 cores)
-    # into freezes long enough for etcd requests to time out. The flake border
-    # measured around 16. Nightly keeps the Taskfile default.
-    PROCS: "14"
-    # after_script gets 5 minutes by default; the cleanup below does not fit.
-    RUNNER_AFTER_SCRIPT_TIMEOUT: 30m
+    # Below the ginkgo default of 24: more parallelism gets the single-master pool
+    # cluster's apiserver killed by kubelet. Nightly keeps the Taskfile default.
+    PROCS: "10"
+    # Must cover the five bounded steps below (5 x 10m), or `release` never runs
+    # and the lease stays busy behind a dead job.
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 55m
   script:
     # NOT in before_script: the upstream Setup.gitlab-ci.yml before_script owns
     # `werf cr login` for every job, and overriding it would leave `crane` in
@@ -151,13 +150,20 @@ include:
       export DOCKER_CONFIG="$CI_PROJECT_DIR/.docker-e2e"
       mkdir -p "$DOCKER_CONFIG"
       printf '%s' "$MODULES_REGISTRY_PASSWORD" | crane auth login "${MODULES_REGISTRY%%/*}" -u "$MODULES_REGISTRY_LOGIN" --password-stdin
-    # Hand the cluster back ready to use; on any cleanup failure it goes back
-    # dirty (the default of E2E_POOL_STATE in the lease template). Both steps
-    # are bounded so that `release` still fits in the 30m after_script budget:
-    # a cleanup hanging on Terminating namespaces used to eat all of it and the
-    # lease stayed busy behind a dead job.
+    # Hand the cluster back ready to use; on any failure it goes back dirty (the
+    # lease template default). Order matters: drop the gates main rejects while the
+    # MR's module can still admit the change, roll the tag back, wait for the module
+    # on main, then set main's own gates - that call needs the module's webhook.
     - |
-      if timeout 20m task -d test/e2e cleanup && v12n_tag=main timeout 5m task -d test/e2e checkout-to-mpo; then
+      if timeout 10m task -d test/e2e cleanup &&
+        timeout 10m bash "$E2E_SCRIPT_DIR/patch-virtualization-feature-gates.sh" "$MODULES_MODULE_TAG" main &&
+        v12n_tag=main timeout 10m task -d test/e2e checkout-to-mpo &&
+        timeout 10m bash -c 'source "$E2E_SCRIPT_DIR/wait-virtualization-ready.sh"
+          d8_queue
+          virtualization_ready
+          kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 300s
+          virt_handler_ready' &&
+        timeout 10m bash "$E2E_SCRIPT_DIR/patch-virtualization-feature-gates.sh" main; then
         export E2E_POOL_STATE=free
       fi
     - !reference [.e2e_pool, release]

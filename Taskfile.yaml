@@ -216,7 +216,9 @@ tasks:
         # lint:shellcheck points directly at that folder (no find scan).
         EXPLICIT=".github/scripts/bash/e2e/*.sh
         .gitlab/ci/scripts/bash/*.sh
+        .gitlab/ci/scripts/bash/e2e/*.sh
         .gitlab/ci/scripts/bash/lib/*.sh
+        test/e2e/scripts/*.sh
         api/scripts/update-codegen.sh
         images/virtualization-artifact/hack/args.sh
         images/virtualization-artifact/hack/dlv.sh
