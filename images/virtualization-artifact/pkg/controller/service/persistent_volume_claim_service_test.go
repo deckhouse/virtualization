@@ -266,6 +266,34 @@ func TestPVCServiceCreateTargetPicksVolumeSnapshotStrategyWhenPossible(t *testin
 	}
 }
 
+func TestPVCServiceCreateTargetFromVSPinsToSnapshotSourceNode(t *testing.T) {
+	ctx := context.Background()
+	vd := diskImportTestVD()
+	sc := diskImportStorageClass()
+	c := fake.NewClientBuilder().WithScheme(diskImportTestScheme(t)).WithObjects(sc).Build()
+	svc := newTestPVCService(c)
+	target := newTestTargetPVC(vd, sc, resource.MustParse("1Gi"))
+	source := &vsv1.VolumeSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "vs-01",
+			Namespace:   vd.Namespace,
+			Annotations: map[string]string{annotations.AnnVirtualDiskOriginalSelectedNode: "node-1"},
+		},
+	}
+
+	if _, err := svc.CreateTargetFromVS(ctx, client.ObjectKeyFromObject(target), sc.Name, ptr.To(resource.MustParse("1Gi")), vd, source, testVolumeModeGetter{}, nil); err != nil {
+		t.Fatalf("CreateTargetFromVS failed: %v", err)
+	}
+
+	created := &corev1.PersistentVolumeClaim{}
+	if err := c.Get(ctx, client.ObjectKeyFromObject(target), created); err != nil {
+		t.Fatalf("target pvc not found: %v", err)
+	}
+	if got := created.Annotations[SelectedNodeAnnotation]; got != "node-1" {
+		t.Fatalf("target pvc is not pinned to the snapshot source node: %q", got)
+	}
+}
+
 func TestPVCServiceWaitForImportSmartCloneMarksSucceededAndCleansSnapshot(t *testing.T) {
 	ctx := context.Background()
 	vd := diskImportTestVD()

@@ -154,6 +154,12 @@ func (s *PersistentVolumeClaimService) CreateTargetFromVS(ctx context.Context, k
 	}
 	target.Spec.DataSource = &corev1.TypedLocalObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: source.Name}
 	target.Spec.DataSourceRef = &corev1.TypedObjectReference{APIGroup: ptr.To("snapshot.storage.k8s.io"), Kind: "VolumeSnapshot", Name: source.Name}
+	if selectedNode := source.Annotations[annotations.AnnVirtualDiskOriginalSelectedNode]; selectedNode != "" {
+		if target.Annotations == nil {
+			target.Annotations = make(map[string]string)
+		}
+		target.Annotations[selectedNodeAnnotation] = selectedNode
+	}
 	if nodePlacement != nil {
 		if err := provisioner.KeepNodePlacementTolerations(nodePlacement, &target); err != nil {
 			return corev1.PersistentVolumeClaim{}, fmt.Errorf("keep node placement: %w", err)

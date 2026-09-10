@@ -30,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -75,7 +76,7 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*re
 		return nil, fmt.Errorf("is wffc: %w", err)
 	}
 
-	if wffc {
+	if wffc && s.pvc.Annotations[service.SelectedNodeAnnotation] == "" {
 		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		s.cb.
 			Status(metav1.ConditionFalse).

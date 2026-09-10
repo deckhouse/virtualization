@@ -259,6 +259,11 @@ const (
 	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
 	// AnnVirtualDiskOriginalSize is the annotation for storing original VirtualDisk requested PVC size.
 	AnnVirtualDiskOriginalSize = AnnAPIGroupV + "/vd-original-size"
+	// AnnVirtualDiskOriginalSelectedNode stores the node the snapshotted PVC was bound to (its
+	// volume.kubernetes.io/selected-node). A PVC restored from the snapshot on a WaitForFirstConsumer
+	// storage class is pinned to that node, because node-local CSI drivers restore a snapshot only on
+	// the node holding it, regardless of where the consuming pod gets scheduled.
+	AnnVirtualDiskOriginalSelectedNode = AnnAPIGroupV + "/vd-original-selected-node"
 	// AnnVirtualDiskHadOwnerReference is the annotation on VolumeSnapshot set to "true" when the source VirtualDisk had an owner reference at snapshot time; absent otherwise.
 	AnnVirtualDiskHadOwnerReference = AnnAPIGroupV + "/vd-had-owner-reference"
 	// AnnVMOPUID is an annotation on vmop that represents name of VMOP.
