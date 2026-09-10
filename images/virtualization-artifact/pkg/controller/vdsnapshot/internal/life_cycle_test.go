@@ -30,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 )
@@ -141,6 +142,20 @@ var _ = Describe("LifeCycle handler", func() {
 			Entry("from VirtualDisk spec size", "20Gi", "10Gi", "20Gi"),
 			Entry("from PVC requested size when VirtualDisk spec size is omitted", "", "10Gi", "10Gi"),
 		)
+
+		It("stores the selected node of the pvc in volume snapshot annotations", func() {
+			pvc.Annotations = map[string]string{service.SelectedNodeAnnotation: "node-1"}
+
+			snapshotter.CreateVolumeSnapshotFunc = func(_ context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
+				Expect(vs.Annotations[annotations.AnnVirtualDiskOriginalSelectedNode]).To(Equal("node-1"))
+				return vs, nil
+			}
+
+			h := NewLifeCycleHandler(snapshotter)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+		})
 
 		It("The volume snapshot has failed", func() {
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
