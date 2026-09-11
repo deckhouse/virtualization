@@ -58,4 +58,6 @@ const (
 	FinalizerMACAddressLeaseCleanup = "virtualization.deckhouse.io/vmmacl-cleanup"
 	FinalizerNodeUSBDeviceCleanup   = "virtualization.deckhouse.io/nodeusbdevice-cleanup"
 	FinalizerUSBDeviceCleanup       = "virtualization.deckhouse.io/usbdevice-cleanup"
+	FinalizerNodePCIDeviceCleanup   = "virtualization.deckhouse.io/nodepcidevice-cleanup"
+	FinalizerPCIDeviceCleanup       = "virtualization.deckhouse.io/pcidevice-cleanup"
 )

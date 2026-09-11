@@ -134,6 +134,11 @@ type VirtualMachineSpec struct {
 	// Devices are referenced by name of USBDevice resource in the same namespace.
 	// +kubebuilder:validation:MaxItems:=8
 	USBDevices []USBDeviceSpecRef `json:"usbDevices,omitempty"`
+	// List of PCI devices to attach to the virtual machine.
+	// Devices are referenced by name of PCIDevice resource in the same namespace.
+	// All devices must reside on the same node; changing the list requires a restart of the virtual machine.
+	// +kubebuilder:validation:MaxItems:=8
+	PCIDevices []PCIDeviceSpecRef `json:"pciDevices,omitempty"`
 	// List of GPU devices to attach to the virtual machine.
 	// Each entry references a GPUClass by name; list order is not significant.
 	// This feature requires the GPU feature gate.
@@ -422,6 +427,8 @@ type VirtualMachineStatus struct {
 	Networks  []NetworksStatus `json:"networks,omitempty"`
 	// List of USB devices attached to the virtual machine.
 	USBDevices []USBDeviceStatusRef `json:"usbDevices,omitempty"`
+	// List of PCI devices attached to the virtual machine.
+	PCIDevices []PCIDeviceStatusRef `json:"pciDevices,omitempty"`
 }
 
 type VirtualMachineStats struct {
@@ -624,6 +631,22 @@ type GPUDeviceSpec struct {
 	// +kubebuilder:validation:MaxLength:=253
 	// +kubebuilder:validation:Pattern:=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	GPUClassName string `json:"gpuClassName"`
+}
+
+// PCIDeviceSpecRef references a PCI device by name.
+type PCIDeviceSpecRef struct {
+	// The name of PCIDevice resource in the same namespace.
+	Name string `json:"name"`
+}
+
+// PCIDeviceStatusRef represents the status of a PCI device attached to the virtual machine.
+type PCIDeviceStatusRef struct {
+	// The name of PCIDevice resource.
+	Name string `json:"name"`
+	// The PCI device is attached to the virtual machine.
+	Attached bool `json:"attached"`
+	// PCI device is ready to use.
+	Ready bool `json:"ready"`
 }
 
 // USBDeviceStatusRef represents the status of a USB device attached to the virtual machine.

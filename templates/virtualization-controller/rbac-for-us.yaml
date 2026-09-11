@@ -338,6 +338,8 @@ rules:
   - virtualmachinepools
   - nodeusbdevices
   - usbdevices
+  - nodepcidevices
+  - pcidevices
   verbs:
   - create
   - delete
@@ -367,6 +369,8 @@ rules:
   - virtualmachinepools/finalizers
   - nodeusbdevices/finalizers
   - usbdevices/finalizers
+  - nodepcidevices/finalizers
+  - pcidevices/finalizers
   - virtualmachineipaddresses/status
   - virtualmachineipaddressleases/status
   - virtualmachinemacaddresses/status
@@ -385,6 +389,8 @@ rules:
   - virtualmachinepools/status
   - nodeusbdevices/status
   - usbdevices/status
+  - nodepcidevices/status
+  - pcidevices/status
   verbs:
   - patch
   - update

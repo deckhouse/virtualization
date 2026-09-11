@@ -1,0 +1,77 @@
+{{- if eq (include "virtualization-dra.isEnabled" .) "true"}}
+apiVersion: deckhouse.io/v1alpha1
+kind: NodeGroupConfiguration
+metadata:
+  name: virtualization-install-vfio-modules
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  bundles:
+    - '*'
+  nodeGroups:
+    - '*'
+  weight: 31
+  content: |
+    # Copyright 2026 Flant JSC
+    #
+    # Licensed under the Apache License, Version 2.0 (the "License");
+    # you may not use this file except in compliance with the License.
+    # You may obtain a copy of the License at
+    #
+    #     http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+
+    vfio_label_key="virtualization.deckhouse.io/vfio"
+    vfio_modules_conf="/etc/modules-load.d/d8-virtualization-vfio.conf"
+
+    # Accepts a kubectl label argument: "key=value" to set the label or "key-" to remove it.
+    vfio_set_node_label() {
+      local label="$1"
+
+      local kubeconfig="/etc/kubernetes/kubelet.conf"
+      if [[ ! -f "$kubeconfig" ]]; then
+        return 0
+      fi
+
+      local node
+      node="$(bb-d8-node-name)"
+
+      local attempt=0
+      local max_attempts=3
+      until bb-kubectl --kubeconfig "$kubeconfig" label --overwrite=true node "$node" "$label"; do
+        attempt=$(( attempt + 1 ))
+        if [ "$attempt" -gt "$max_attempts" ]; then
+          bb-log-error "failed to set label $label on node $node after $max_attempts attempts"
+          return 1
+        fi
+        echo "Waiting for setting label $label on node $node (attempt $attempt of $max_attempts)..."
+        sleep 5
+      done
+    }
+
+    vfio_iommu_enabled() {
+      [[ -d /sys/kernel/iommu_groups ]] && [[ -n "$(ls -A /sys/kernel/iommu_groups 2>/dev/null)" ]]
+    }
+
+    if ! vfio_iommu_enabled; then
+      bb-log-warning "IOMMU is not enabled on this node (empty /sys/kernel/iommu_groups); PCI passthrough is unavailable. Enable VT-d/AMD-Vi in BIOS and intel_iommu=on or amd_iommu=on in the kernel cmdline."
+      vfio_set_node_label "${vfio_label_key}-"
+      return 0
+    fi
+
+    # vfio-pci ships with every mainstream kernel; modprobe is idempotent,
+    # so a concurrent load by another module (e.g. GPU) is harmless.
+    if ! modprobe vfio-pci; then
+      bb-log-warning "failed to load the vfio-pci kernel module; PCI passthrough is unavailable."
+      vfio_set_node_label "${vfio_label_key}-"
+      return 0
+    fi
+
+    bb-sync-file "${vfio_modules_conf}" - <<< "vfio-pci"
+
+    vfio_set_node_label "${vfio_label_key}=true"
+{{- end }}

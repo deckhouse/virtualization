@@ -72,6 +72,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
 		watcher.NewUSBDeviceWatcher(mgr.GetClient()),
+		watcher.NewPCIDeviceWatcher(mgr.GetClient()),
 		watcher.NewResourceClaimTemplateWatcher(featuregates.Default()),
 		watcher.NewVMIPWatcher(),
 		watcher.NewVirtualMachineClassWatcher(),

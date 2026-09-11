@@ -23,10 +23,12 @@ func (t Type) String() string {
 }
 
 const (
-	TypeIPAddressReady                      Type = "VirtualMachineIPAddressReady"
-	TypeMACAddressReady                     Type = "VirtualMachineMACAddressReady"
-	TypeClassReady                          Type = "VirtualMachineClassReady"
-	TypeBlockDevicesReady                   Type = "BlockDevicesReady"
+	TypeIPAddressReady    Type = "VirtualMachineIPAddressReady"
+	TypeMACAddressReady   Type = "VirtualMachineMACAddressReady"
+	TypeClassReady        Type = "VirtualMachineClassReady"
+	TypeBlockDevicesReady Type = "BlockDevicesReady"
+	// TypePCIDevicesReady indicates whether every PCIDevice referenced by the virtual machine exists and is ready.
+	TypePCIDevicesReady                     Type = "PCIDevicesReady"
 	TypeRunning                             Type = "Running"
 	TypeMigrating                           Type = "Migrating"
 	TypeMigratable                          Type = "Migratable"
@@ -124,6 +126,17 @@ const (
 	ReasonMACAddressReady        MacAddressReadyReason = "VirtualMachineMACAddressReady"
 	ReasonMACAddressNotReady     MacAddressReadyReason = "VirtualMachineMACAddressNotReady"
 	ReasonMACAddressNotAvailable MacAddressReadyReason = "VirtualMachineMACAddressNotAvailable"
+)
+
+type PCIDevicesReadyReason string
+
+func (r PCIDevicesReadyReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonPCIDevicesReady    PCIDevicesReadyReason = "PCIDevicesReady"
+	ReasonPCIDevicesNotReady PCIDevicesReadyReason = "PCIDevicesNotReady"
 )
 
 type BlockDevicesReadyReason string

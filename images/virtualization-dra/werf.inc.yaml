@@ -46,3 +46,8 @@ shell:
       echo "Build go-usbip binary"
       {{- $_ := set $ "ProjectName" (list .ImageName "go-usbip" | join "/") }}
       {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/go-usbip ./cmd/usb/go-usbip`) | nindent 6 }}
+
+    - |
+      echo "Build virtualization-dra-pci binary"
+      {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-dra-pci" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-dra-pci ./cmd/pci/dra`) | nindent 6 }}

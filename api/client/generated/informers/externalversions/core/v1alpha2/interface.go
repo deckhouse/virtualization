@@ -26,8 +26,12 @@ import (
 type Interface interface {
 	// ClusterVirtualImages returns a ClusterVirtualImageInformer.
 	ClusterVirtualImages() ClusterVirtualImageInformer
+	// NodePCIDevices returns a NodePCIDeviceInformer.
+	NodePCIDevices() NodePCIDeviceInformer
 	// NodeUSBDevices returns a NodeUSBDeviceInformer.
 	NodeUSBDevices() NodeUSBDeviceInformer
+	// PCIDevices returns a PCIDeviceInformer.
+	PCIDevices() PCIDeviceInformer
 	// USBDevices returns a USBDeviceInformer.
 	USBDevices() USBDeviceInformer
 	// VirtualDisks returns a VirtualDiskInformer.
@@ -76,9 +80,19 @@ func (v *version) ClusterVirtualImages() ClusterVirtualImageInformer {
 	return &clusterVirtualImageInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// NodePCIDevices returns a NodePCIDeviceInformer.
+func (v *version) NodePCIDevices() NodePCIDeviceInformer {
+	return &nodePCIDeviceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // NodeUSBDevices returns a NodeUSBDeviceInformer.
 func (v *version) NodeUSBDevices() NodeUSBDeviceInformer {
 	return &nodeUSBDeviceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// PCIDevices returns a PCIDeviceInformer.
+func (v *version) PCIDevices() PCIDeviceInformer {
+	return &pCIDeviceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // USBDevices returns a USBDeviceInformer.

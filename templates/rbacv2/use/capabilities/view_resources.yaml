@@ -22,6 +22,7 @@ rules:
       - virtualmachines
       - virtualmachinesnapshots
       - usbdevices
+      - pcidevices
       {{- if ne .Values.global.deckhouseEdition "CE" }}
       - virtualmachinepools
       {{- end }}

@@ -64,6 +64,7 @@ type VirtualMachineState interface {
 	ReadWriteOnceVirtualDisks(ctx context.Context) ([]*v1alpha2.VirtualDisk, error)
 	PVNodeAffinityTerms(ctx context.Context) (terms, stayingTerms []corev1.NodeSelectorTerm, err error)
 	USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error)
+	PCIDevicesByName(ctx context.Context) (map[string]*v1alpha2.PCIDevice, error)
 	USBDevicesByName(ctx context.Context) (map[string]*v1alpha2.USBDevice, error)
 }
 
@@ -788,6 +789,24 @@ func (s *state) getNodeNameFromLVMVolumeGroup(ctx context.Context, name string) 
 
 	nodeName, _, _ := unstructured.NestedString(lvg.Object, "spec", "local", "nodeName")
 	return nodeName, nil
+}
+
+func (s *state) PCIDevicesByName(ctx context.Context) (map[string]*v1alpha2.PCIDevice, error) {
+	pciDevicesByName := make(map[string]*v1alpha2.PCIDevice)
+	for _, pciDeviceRef := range s.vm.Current().Spec.PCIDevices {
+		pciDevice, err := object.FetchObject(ctx, types.NamespacedName{
+			Name:      pciDeviceRef.Name,
+			Namespace: s.vm.Current().GetNamespace(),
+		}, s.client, &v1alpha2.PCIDevice{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to get PCI device %q: %w", pciDeviceRef.Name, err)
+		}
+		if pciDevice == nil {
+			continue
+		}
+		pciDevicesByName[pciDeviceRef.Name] = pciDevice
+	}
+	return pciDevicesByName, nil
 }
 
 func (s *state) USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error) {

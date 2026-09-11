@@ -258,6 +258,7 @@ func ApplyVirtualMachineSpec(
 	setExtraPVCsAnnotation(kvvm)
 
 	kvvm.SetGPUDevices(vm.Name, vm.Spec.GPUs)
+	kvvm.SetPCIDevices(vm.Spec.PCIDevices)
 
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err

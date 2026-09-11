@@ -32,8 +32,16 @@ func (c *FakeVirtualizationV1alpha2) ClusterVirtualImages() v1alpha2.ClusterVirt
 	return newFakeClusterVirtualImages(c)
 }
 
+func (c *FakeVirtualizationV1alpha2) NodePCIDevices() v1alpha2.NodePCIDeviceInterface {
+	return newFakeNodePCIDevices(c)
+}
+
 func (c *FakeVirtualizationV1alpha2) NodeUSBDevices() v1alpha2.NodeUSBDeviceInterface {
 	return newFakeNodeUSBDevices(c)
+}
+
+func (c *FakeVirtualizationV1alpha2) PCIDevices(namespace string) v1alpha2.PCIDeviceInterface {
+	return newFakePCIDevices(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) USBDevices(namespace string) v1alpha2.USBDeviceInterface {

@@ -42,6 +42,8 @@ function source::settings {
                               "ClusterVirtualImage"
                               "NodeUSBDevice"
                               "USBDevice"
+                              "NodePCIDevice"
+                              "PCIDevice"
                               "VirtualMachinePool")
 
     # shellcheck source=/dev/null

@@ -1,0 +1,250 @@
+{{- $priorityClassName := include "priorityClassName" . }}
+{{- define "virtualization-dra-pci_resources" }}
+cpu: 10m
+memory: 25Mi
+{{- end }}
+
+{{- if eq (include "virtualization-dra.isEnabled" .) "true" }}
+
+{{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: virtualization-dra-pci
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-dra-pci" "workload-resource-policy.deckhouse.io" "every-node")) | nindent 2 }}
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: DaemonSet
+    name: virtualization-dra-pci
+  updatePolicy:
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
+  resourcePolicy:
+    containerPolicies:
+    - containerName: virtualization-dra-pci
+      minAllowed:
+        {{- include "virtualization-dra-pci_resources" . | nindent 8 }}
+      maxAllowed:
+        cpu: 20m
+        memory: 25Mi
+{{- end }}
+
+{{- if eq (include "d8.securityPolicyException.isEnabled" .) "true" }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicyException
+metadata:
+  name: virtualization-dra-pci-ds
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
+spec:
+  securityContext:
+    runAsUser:
+      allowedValues:
+        - 0
+      metadata:
+        description: |
+          Allow virtualization-dra-pci container to run as root user (UID 0).
+          The PCI passthrough DRA component requires root privileges to rebind PCI devices via sysfs.
+
+    runAsNonRoot:
+      allowedValue: false
+      metadata:
+        description: |
+          Allow containers to run as root user (non-root disabled).
+          The PCI passthrough DRA component requires root privileges to access kernel-level resources.
+
+    allowPrivilegeEscalation:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privilege escalation.
+          The PCI passthrough DRA component requires privilege escalation to access kernel-level system calls.
+
+    privileged:
+      allowedValue: true
+      metadata:
+        description: |
+          Allow privileged mode for the virtualization-dra-pci DaemonSet.
+          The PCI passthrough DRA component requires privileged access to rebind PCI devices between kernel drivers and vfio-pci.
+
+    capabilities:
+      allowedValues:
+        add:
+          - SYS_ADMIN
+          - SYS_RAWIO
+          - SYS_RESOURCE
+          - MKNOD
+        drop:
+          - ALL
+      metadata:
+        description: |
+          Allow the PCI passthrough DRA component to make privileged syscalls to bind/unbind PCI devices via sysfs
+          and to expose VFIO device nodes to containers.
+
+    seccompProfile:
+      allowedValues:
+        - RuntimeDefault
+        - Unconfined
+      metadata:
+        description: |
+          Unconfined profile allows the PCI passthrough DRA component to make privileged syscalls to bind/unbind PCI devices via sysfs.
+
+  network:
+    hostNetwork:
+      allowedValue: true
+      metadata:
+        description: |
+          The PCI passthrough DRA component runs in the same host-network daemon family as virtualization-dra. Architectural feature.
+    hostPorts:
+      - port: {{ include "virtualization_dra_pci.health_port" . }}
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort {{ include "virtualization_dra_pci.health_port" . }} for health check service.
+            The PCI passthrough DRA component requires hostNetwork and the health check service should be accessible via hostPort.
+
+  # Allow mounting host directories.
+  volumes:
+    types:
+      allowedValues:
+        - hostPath
+      metadata:
+        description: |
+          Allow hostPath volume type for the virtualization-dra-pci DaemonSet.
+          The PCI passthrough DRA component requires access to the host filesystem to publish kubelet plugin sockets and VFIO device nodes.
+    hostPath:
+      allowedValues:
+        - path: /var/lib/kubelet/plugins
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/lib/kubelet/plugins hostPath volume.
+        - path: /var/lib/kubelet/plugins_registry
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/lib/kubelet/plugins_registry hostPath volume.
+        - path: /var/run
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to /var/run hostPath volume.
+        - path: /dev/vfio
+          readOnly: false
+          metadata:
+            description: |
+              Allow read-write access to the /dev/vfio hostPath volume: VFIO group device nodes
+              appear on the host after the pod starts, so the directory itself is bind-mounted.
+{{- end }}
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: virtualization-dra-pci
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-dra-pci")) | nindent 2 }}
+spec:
+  selector:
+    matchLabels:
+      app: virtualization-dra-pci
+  template:
+    metadata:
+      labels:
+        app: virtualization-dra-pci
+        security.deckhouse.io/security-policy-exception: virtualization-dra-pci-ds
+    spec:
+      {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
+      {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      {{- include "helm_lib_module_pod_security_context_run_as_user_root" . | nindent 6 }}
+      imagePullSecrets:
+        - name: virtualization-module-registry
+      serviceAccountName: virtualization-dra
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+        virtualization.deckhouse.io/containerd-version: "v2" # required for start NRI hooks. Label is added by nodegroupconfiguration-detect-containerd-version.sh
+        virtualization.deckhouse.io/vfio: "true" # required for IOMMU and the vfio-pci kernel module. Label is added by nodegroupconfiguration-vfio.sh
+      containers:
+        - name: virtualization-dra-pci
+          # Rebinding PCI devices between kernel drivers via sysfs requires a privileged container.
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - SYS_RAWIO
+                - SYS_RESOURCE
+                - MKNOD
+              drop:
+                - ALL
+            privileged: true
+            readOnlyRootFilesystem: true
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seccompProfile:
+              type: Unconfined
+          image: {{ include "helm_lib_module_image" (list . "virtualizationDraPci") }}
+          imagePullPolicy: "IfNotPresent"
+          args:
+            - --healthz-port={{ include "virtualization_dra_pci.health_port" . }}
+            {{- if eq (include "moduleLogLevel" .) "debug" }}
+            - --log-level=debug
+            - --log-debug-verbosity=10
+            - -v=10
+            {{- end }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
+              {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+              {{- include "virtualization-dra-pci_resources" . | nindent 14 }}
+              {{- end }}
+          ports:
+            - containerPort: {{ include "virtualization_dra_pci.health_port" . }}
+              name: health
+              protocol: TCP
+          readinessProbe:
+            grpc:
+              port: {{ include "virtualization_dra_pci.health_port" . }}
+              service: liveness
+            failureThreshold: 3
+            periodSeconds: 10
+          livenessProbe:
+            grpc:
+              port: {{ include "virtualization_dra_pci.health_port" . }}
+              service: liveness
+            failureThreshold: 3
+            periodSeconds: 10
+          volumeMounts:
+            - name: plugins-registry
+              mountPath: /var/lib/kubelet/plugins_registry
+            - name: plugins
+              mountPath: /var/lib/kubelet/plugins
+            - name: var-run
+              mountPath: /var/run
+            - name: dev-vfio
+              mountPath: /dev/vfio
+      volumes:
+        - name: plugins-registry
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry
+        - name: plugins
+          hostPath:
+            path: /var/lib/kubelet/plugins
+        - name: var-run
+          hostPath:
+            path: /var/run
+        - name: dev-vfio
+          hostPath:
+            path: /dev/vfio
+{{- end }}

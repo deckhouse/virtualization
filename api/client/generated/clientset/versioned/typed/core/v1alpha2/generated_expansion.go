@@ -20,7 +20,11 @@ package v1alpha2
 
 type ClusterVirtualImageExpansion interface{}
 
+type NodePCIDeviceExpansion interface{}
+
 type NodeUSBDeviceExpansion interface{}
+
+type PCIDeviceExpansion interface{}
 
 type USBDeviceExpansion interface{}
 

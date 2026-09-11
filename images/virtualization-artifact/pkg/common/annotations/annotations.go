@@ -366,6 +366,9 @@ const (
 	// AnnUSBClaimSpecHash provides a const for annotation with hash of the rendered USB ResourceClaimTemplate spec.
 	AnnUSBClaimSpecHash = AnnAPIGroup + "/usb-claim-spec-hash"
 
+	// AnnPCIClaimSpecHash provides a const for annotation with hash of the rendered PCI ResourceClaimTemplate spec.
+	AnnPCIClaimSpecHash = AnnAPIGroup + "/pci-claim-spec-hash"
+
 	// AnnUSBDeviceGroup is the annotation for device group in ResourceClaimTemplate.
 	AnnUSBDeviceGroup = "usb.virtualization.deckhouse.io/device-group"
 	// AnnUSBDeviceUser is the annotation for device user (owner) in ResourceClaimTemplate.

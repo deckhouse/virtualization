@@ -18,6 +18,7 @@ rules:
       - virtualmachineipaddressleases
       - virtualmachinemacaddressleases
       - nodeusbdevices
+      - nodepcidevices
     verbs:
       - get
       - list

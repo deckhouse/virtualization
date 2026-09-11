@@ -99,6 +99,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&NodeUSBDeviceList{},
 		&USBDevice{},
 		&USBDeviceList{},
+		&NodePCIDevice{},
+		&NodePCIDeviceList{},
+		&PCIDevice{},
+		&PCIDeviceList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

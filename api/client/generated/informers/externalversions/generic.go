@@ -56,8 +56,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=virtualization.deckhouse.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithResource("clustervirtualimages"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().ClusterVirtualImages().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("nodepcidevices"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().NodePCIDevices().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("nodeusbdevices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().NodeUSBDevices().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("pcidevices"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().PCIDevices().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("usbdevices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().USBDevices().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualdisks"):

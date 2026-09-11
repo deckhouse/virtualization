@@ -82,6 +82,7 @@ func (v *VMSpecComparator) comparators() []VMSpecFieldComparator {
 		vmSpecFieldComparator(compareProvisioning),
 		vmSpecFieldComparator(compareNetworks),
 		vmSpecFieldComparator(compareUSBDevices),
+		vmSpecFieldComparator(comparePCIDevices),
 		vmSpecFieldComparator(compareGPUDevices),
 	}
 }

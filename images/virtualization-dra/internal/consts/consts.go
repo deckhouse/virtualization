@@ -27,6 +27,7 @@ const (
 
 const (
 	VirtualizationDraUSBDriverName = "virtualization-usb"
+	VirtualizationDraPCIDriverName = "virtualization-pci"
 )
 
 const (

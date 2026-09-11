@@ -1,0 +1,15 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
+import:
+  - image: {{ .ModuleNamePrefix }}virtualization-dra-builder
+    add: /out/virtualization-dra-pci
+    to: /app/virtualization-dra-pci
+    after: install
+imageSpec:
+  config:
+    user: 64535
+    workingDir: "/app"
+    entrypoint: ["/app/virtualization-dra-pci"]

@@ -4,5 +4,5 @@ firmware:
   spice-server: v0.15.2
   edk2: stable202411
 core:
-  kubevirt: v1.6.2-v12n.104
+  kubevirt: v1.6.2-v12n.105
   distribution: v3.1.1-v12n.1

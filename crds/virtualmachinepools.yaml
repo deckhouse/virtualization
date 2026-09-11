@@ -1417,6 +1417,26 @@ spec:
                             - Generic
                             - Legacy
                           type: string
+                        pciDevices:
+                          description: |-
+                            List of PCI devices to attach to the virtual machine.
+                            Devices are referenced by name of PCIDevice resource in the same namespace.
+                            All devices must reside on the same node; changing the list requires a restart of the virtual machine.
+                          items:
+                            description:
+                              PCIDeviceSpecRef references a PCI device by
+                              name.
+                            properties:
+                              name:
+                                description:
+                                  The name of PCIDevice resource in the same
+                                  namespace.
+                                type: string
+                            required:
+                              - name
+                            type: object
+                          maxItems: 8
+                          type: array
                         priorityClassName:
                           description:
                             PriorityClassName [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as

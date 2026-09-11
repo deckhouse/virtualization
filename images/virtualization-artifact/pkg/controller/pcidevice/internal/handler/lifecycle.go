@@ -1,0 +1,281 @@
+/*
+Copyright 2026 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package handler
+
+import (
+	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+
+	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/pcidevice/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/nodepcidevicecondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/pcidevicecondition"
+)
+
+const (
+	nameLifecycleHandler            = "LifecycleHandler"
+	resourceClaimTemplateNameSuffix = "-template"
+)
+
+func ResourceClaimTemplateName(pciDeviceName string) string {
+	return pciDeviceName + resourceClaimTemplateNameSuffix
+}
+
+func NewLifecycleHandler(client client.Client) *LifecycleHandler {
+	return &LifecycleHandler{
+		client: client,
+	}
+}
+
+type LifecycleHandler struct {
+	client client.Client
+}
+
+func (h *LifecycleHandler) Name() string {
+	return nameLifecycleHandler
+}
+
+func (h *LifecycleHandler) Handle(ctx context.Context, s state.PCIDeviceState) (reconcile.Result, error) {
+	if s.PCIDevice().IsEmpty() {
+		return reconcile.Result{}, nil
+	}
+
+	if err := h.syncReady(ctx, s); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := h.ensureResourceClaimTemplate(ctx, s); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := h.syncAttached(ctx, s); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (h *LifecycleHandler) syncReady(ctx context.Context, s state.PCIDeviceState) error {
+	current := s.PCIDevice().Current()
+	changed := s.PCIDevice().Changed()
+
+	nodePCIDevice, err := s.NodePCIDevice(ctx)
+	if err != nil {
+		return err
+	}
+
+	if nodePCIDevice == nil {
+		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, pcidevicecondition.NotFound, "The PCI device is no longer present on its node.", nil)
+		return nil
+	}
+
+	if !equality.Semantic.DeepEqual(changed.Status.Attributes, nodePCIDevice.Status.Attributes) || changed.Status.NodeName != nodePCIDevice.Status.NodeName {
+		changed.Status.Attributes = nodePCIDevice.Status.Attributes
+		changed.Status.NodeName = nodePCIDevice.Status.NodeName
+	}
+
+	readyCondition := meta.FindStatusCondition(nodePCIDevice.Status.Conditions, string(nodepcidevicecondition.ReadyType))
+	if readyCondition == nil {
+		setReadyCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, pcidevicecondition.NotReady, "Waiting for the PCI device readiness to be determined.", nil)
+		return nil
+	}
+
+	var reason pcidevicecondition.ReadyReason
+	var status metav1.ConditionStatus
+
+	switch readyCondition.Reason {
+	case string(nodepcidevicecondition.Ready):
+		reason = pcidevicecondition.Ready
+		status = metav1.ConditionTrue
+	case string(nodepcidevicecondition.NotReady):
+		reason = pcidevicecondition.NotReady
+		status = metav1.ConditionFalse
+	case string(nodepcidevicecondition.NotFound):
+		reason = pcidevicecondition.NotFound
+		status = metav1.ConditionFalse
+	default:
+		reason = pcidevicecondition.NotReady
+		status = metav1.ConditionFalse
+	}
+
+	setReadyCondition(current, &changed.Status.Conditions, status, reason, readyCondition.Message, &readyCondition.LastTransitionTime)
+
+	return nil
+}
+
+func (h *LifecycleHandler) ensureResourceClaimTemplate(ctx context.Context, s state.PCIDeviceState) error {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifecycleHandler))
+	pciDevice := s.PCIDevice().Current()
+
+	if pciDevice.Status.Attributes.Name == "" {
+		log.Debug("PCIDevice has no attributes name yet, skipping ResourceClaimTemplate")
+		return nil
+	}
+
+	templateName := ResourceClaimTemplateName(pciDevice.Name)
+	template := &resourcev1.ResourceClaimTemplate{}
+	key := types.NamespacedName{Name: templateName, Namespace: pciDevice.Namespace}
+	desiredSpec := buildResourceClaimTemplateSpec(pciDevice)
+
+	err := h.client.Get(ctx, key, template)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get ResourceClaimTemplate: %w", err)
+	}
+
+	if !apierrors.IsNotFound(err) {
+		if !claimTemplateUpToDate(template, desiredSpec) {
+			if err := h.client.Delete(ctx, template); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete outdated ResourceClaimTemplate: %w", err)
+			}
+
+			template = buildResourceClaimTemplate(pciDevice, templateName, desiredSpec)
+
+			if err := h.client.Create(ctx, template); err != nil {
+				if isAlreadyExistsResourceClaimTemplateError(err, templateName) {
+					log.Debug("ResourceClaimTemplate already exists during recreate", "template", templateName)
+					return nil
+				}
+				return fmt.Errorf("failed to recreate ResourceClaimTemplate: %w", err)
+			}
+
+			log.Info("recreated ResourceClaimTemplate for PCIDevice", "template", templateName)
+		}
+		return nil
+	}
+
+	template = buildResourceClaimTemplate(pciDevice, templateName, desiredSpec)
+
+	if err := h.client.Create(ctx, template); err != nil {
+		if isAlreadyExistsResourceClaimTemplateError(err, templateName) {
+			log.Debug("ResourceClaimTemplate already exists during create", "template", templateName)
+			return nil
+		}
+		return fmt.Errorf("failed to create ResourceClaimTemplate: %w", err)
+	}
+
+	log.Info("created ResourceClaimTemplate for PCIDevice", "template", templateName)
+	return nil
+}
+
+func (h *LifecycleHandler) syncAttached(ctx context.Context, s state.PCIDeviceState) error {
+	current := s.PCIDevice().Current()
+	changed := s.PCIDevice().Changed()
+
+	referencingVMs, err := s.VirtualMachinesReferencingDevice(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to find VirtualMachines referencing PCIDevice: %w", err)
+	}
+
+	if len(referencingVMs) == 0 {
+		setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionFalse, pcidevicecondition.Available, "Device is available for attachment to a virtual machine.")
+		return nil
+	}
+
+	message := fmt.Sprintf("Device is attached to %d VirtualMachines.", len(referencingVMs))
+	if len(referencingVMs) == 1 {
+		message = fmt.Sprintf("Device is attached to VirtualMachine %s/%s.", referencingVMs[0].Namespace, referencingVMs[0].Name)
+	}
+	setAttachedCondition(current, &changed.Status.Conditions, metav1.ConditionTrue, pcidevicecondition.AttachedToVirtualMachine, message)
+
+	return nil
+}
+
+func isAlreadyExistsResourceClaimTemplateError(err error, templateName string) bool {
+	if apierrors.IsAlreadyExists(err) {
+		return true
+	}
+
+	errText := err.Error()
+	return strings.Contains(errText, "resourceclaimtemplates.resource.k8s.io") && strings.Contains(errText, templateName) && strings.Contains(errText, "already exists")
+}
+
+func buildResourceClaimTemplate(pciDevice *v1alpha2.PCIDevice, name string, spec resourcev1.ResourceClaimTemplateSpec) *resourcev1.ResourceClaimTemplate {
+	return &resourcev1.ResourceClaimTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            name,
+			Namespace:       pciDevice.Namespace,
+			Annotations:     map[string]string{annotations.AnnPCIClaimSpecHash: claimSpecHash(spec)},
+			OwnerReferences: []metav1.OwnerReference{service.MakeControllerOwnerReference(pciDevice)},
+		},
+		Spec: spec,
+	}
+}
+
+// claimTemplateUpToDate prefers the spec-hash annotation over comparing the
+// stored spec directly: API-server defaulting could make the stored spec
+// permanently differ from the rendered one and loop delete/recreate.
+// Templates created before the annotation existed fall back to DeepEqual and
+// migrate to the hash on their next legitimate recreation.
+func claimTemplateUpToDate(template *resourcev1.ResourceClaimTemplate, desiredSpec resourcev1.ResourceClaimTemplateSpec) bool {
+	storedHash, ok := template.Annotations[annotations.AnnPCIClaimSpecHash]
+	if !ok {
+		return reflect.DeepEqual(template.Spec, desiredSpec)
+	}
+	return storedHash == claimSpecHash(desiredSpec)
+}
+
+func claimSpecHash(spec resourcev1.ResourceClaimTemplateSpec) string {
+	// Marshalling a plain API struct cannot fail; on the impossible failure both
+	// sides hash the same empty payload, so the comparison still converges.
+	raw, _ := json.Marshal(&spec)
+	hash := md5.Sum(raw)
+	return hex.EncodeToString(hash[:])
+}
+
+func buildResourceClaimTemplateSpec(pciDevice *v1alpha2.PCIDevice) resourcev1.ResourceClaimTemplateSpec {
+	attributes := pciDevice.Status.Attributes
+	selectorDeviceName := attributes.Name
+	if selectorDeviceName == "" {
+		selectorDeviceName = pciDevice.Name
+	}
+
+	return resourcev1.ResourceClaimTemplateSpec{
+		Spec: resourcev1.ResourceClaimSpec{
+			Devices: resourcev1.DeviceClaim{
+				Requests: []resourcev1.DeviceRequest{{
+					Name: "req-" + pciDevice.Name,
+					Exactly: &resourcev1.ExactDeviceRequest{
+						Count:           1,
+						AllocationMode:  resourcev1.DeviceAllocationModeExactCount,
+						DeviceClassName: "pci-devices.virtualization.deckhouse.io",
+						Selectors: []resourcev1.DeviceSelector{{
+							CEL: &resourcev1.CELDeviceSelector{Expression: fmt.Sprintf(`device.attributes["virtualization-pci"].name == %s`, strconv.Quote(selectorDeviceName))},
+						}},
+					},
+				}},
+			},
+		},
+	}
+}

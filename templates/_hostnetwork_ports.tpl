@@ -20,6 +20,9 @@ Port map:
   virtualization-dra:
   4107       virtualization-dra: gRPC liveness and readiness probes.
   4280       virtualization-dra: USB/IP daemon (--usbipd-port flag).
+
+  virtualization-dra-pci:
+  4108       virtualization-dra-pci: gRPC liveness and readiness probes.
 */ -}}
 
 {{- /* virt-handler */ -}}
@@ -36,3 +39,6 @@ Port map:
 {{- /* virtualization-dra */ -}}
 {{- define "virtualization_dra.health_port" -}}4107{{- end -}}
 {{- define "virtualization_dra.usbipd_port" -}}4280{{- end -}}
+
+{{- /* virtualization-dra-pci */ -}}
+{{- define "virtualization_dra_pci.health_port" -}}4108{{- end -}}

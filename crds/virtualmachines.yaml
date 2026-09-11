@@ -1092,6 +1092,23 @@ spec:
                         type: string
                         description: |
                           The name of USBDevice resource in the same namespace.
+                pciDevices:
+                  type: array
+                  maxItems: 8
+                  description: |
+                    List of PCI devices to attach to the virtual machine.
+                    Devices are referenced by name of PCIDevice resource in the same namespace.
+                    All devices must reside on the same node; changing the list requires a restart of the virtual machine.
+                  items:
+                    type: object
+                    required:
+                      - name
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                        description: |
+                          The name of PCIDevice resource in the same namespace.
                 gpus:
                   type: array
                   maxItems: 16
@@ -1504,6 +1521,29 @@ spec:
                         type: boolean
                         description: |
                           USB device is attached via hot plug connection.
+                pciDevices:
+                  type: array
+                  description: |
+                    List of PCI devices attached to the virtual machine.
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - attached
+                      - ready
+                    properties:
+                      name:
+                        type: string
+                        description: |
+                          The name of PCIDevice resource.
+                      attached:
+                        type: boolean
+                        description: |
+                          The PCI device is attached to the virtual machine.
+                      ready:
+                        type: boolean
+                        description: |
+                          PCI device is ready to use.
                 networks:
                   type: array
                   description: |

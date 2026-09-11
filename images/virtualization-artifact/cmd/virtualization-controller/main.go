@@ -54,7 +54,10 @@ import (
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodemaintenance"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/nodepcidevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/pcidevice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/pciresourceslice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/populator"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -499,6 +502,24 @@ func main() {
 
 	usbdeviceLogger := logger.NewControllerLogger(usbdevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = usbdevice.NewController(ctx, mgr, virtClient, usbdeviceLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	nodepcideviceLogger := logger.NewControllerLogger(nodepcidevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = nodepcidevice.NewController(ctx, mgr, nodepcideviceLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	pciResourceSliceLogger := logger.NewControllerLogger(pciresourceslice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = pciresourceslice.NewController(ctx, mgr, pciResourceSliceLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	pcideviceLogger := logger.NewControllerLogger(pcidevice.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = pcidevice.NewController(ctx, mgr, pcideviceLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

@@ -39,6 +39,7 @@ const (
 	IndexFieldVMByVI             = "spec.blockDeviceRefs.VirtualImage"
 	IndexFieldVMByCVI            = "spec.blockDeviceRefs.ClusterVirtualImage"
 	IndexFieldVMByUSBDevice      = "spec.usbDevices.name"
+	IndexFieldVMByPCIDevice      = "spec.pciDevices.name"
 	IndexFieldVMByNode           = "status.node"
 	IndexFieldVMByNetwork        = "spec.networks.Network.name"
 	IndexFieldVMByClusterNetwork = "spec.networks.ClusterNetwork.name"
@@ -79,6 +80,8 @@ const (
 	IndexFieldPVByStorageClass                 = "spec.storageClassName"
 	IndexFieldUSBDeviceByName                  = "metadata.name"
 	IndexFieldNodeUSBDeviceByAssignedNamespace = "spec.assignedNamespace"
+	IndexFieldPCIDeviceByName                  = "metadata.name"
+	IndexFieldNodePCIDeviceByAssignedNamespace = "spec.assignedNamespace"
 
 	IndexFieldResourceSliceByPoolName = "spec.pool.name"
 	IndexFieldResourceSliceByDriver   = "spec.driver"
@@ -126,6 +129,9 @@ var IndexGettersUSB = []IndexGetter{
 	IndexVMByUSBDevice,
 	IndexUSBDeviceByName,
 	IndexNodeUSBDeviceByAssignedNamespace,
+	IndexVMByPCIDevice,
+	IndexPCIDeviceByName,
+	IndexNodePCIDeviceByAssignedNamespace,
 	IndexResourceSliceByPoolName,
 	IndexResourceSliceByDriver,
 }
@@ -308,6 +314,47 @@ func IndexNodeUSBDeviceByAssignedNamespace() (obj client.Object, field string, e
 			return nil
 		}
 		return []string{nodeUSBDevice.Spec.AssignedNamespace}
+	}
+}
+
+func IndexVMByPCIDevice() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByPCIDevice, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
+		if !ok || vm == nil {
+			return nil
+		}
+
+		seen := make(map[string]struct{})
+		var result []string
+
+		for _, ref := range vm.Spec.PCIDevices {
+			if _, exists := seen[ref.Name]; !exists {
+				seen[ref.Name] = struct{}{}
+				result = append(result, ref.Name)
+			}
+		}
+
+		return result
+	}
+}
+
+func IndexPCIDeviceByName() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.PCIDevice{}, IndexFieldPCIDeviceByName, func(object client.Object) []string {
+		pciDevice, ok := object.(*v1alpha2.PCIDevice)
+		if !ok || pciDevice == nil {
+			return nil
+		}
+		return []string{pciDevice.Name}
+	}
+}
+
+func IndexNodePCIDeviceByAssignedNamespace() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.NodePCIDevice{}, IndexFieldNodePCIDeviceByAssignedNamespace, func(object client.Object) []string {
+		nodePCIDevice, ok := object.(*v1alpha2.NodePCIDevice)
+		if !ok || nodePCIDevice == nil {
+			return nil
+		}
+		return []string{nodePCIDevice.Spec.AssignedNamespace}
 	}
 }
 

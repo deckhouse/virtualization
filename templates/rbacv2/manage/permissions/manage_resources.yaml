@@ -25,6 +25,7 @@ rules:
       - virtualization.deckhouse.io
     resources:
       - nodeusbdevices
+      - nodepcidevices
     verbs:
       - update
       - patch

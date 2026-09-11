@@ -34,3 +34,17 @@ const (
 	AttrDevicePath   = "devicePath"
 	AttrUsbAddress   = "usbAddress"
 )
+
+const (
+	AttrDeviceID   = "deviceID"
+	AttrClass      = "class"
+	AttrIOMMUGroup = "iommuGroup"
+	AttrDriver     = "driver"
+)
+
+// Standard Kubernetes device attributes (k8s.io/dynamic-resource-allocation/deviceattribute).
+// pciBusID and numaNode constants are not yet available in the vendored library version.
+const (
+	AttrStandardPCIBusID = "resource.kubernetes.io/pciBusID"
+	AttrStandardNUMANode = "resource.kubernetes.io/numaNode"
+)
