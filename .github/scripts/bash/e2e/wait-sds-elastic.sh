@@ -186,6 +186,40 @@ elastic_blockdevices_ready() {
   return 1
 }
 
+# Namespace of the Rook/Ceph cluster that sds-elastic runs.
+ELASTIC_CEPH_NS="${ELASTIC_CEPH_NS:-d8-sds-elastic}"
+
+# Runs a ceph CLI command inside the first mon pod: sds-elastic deploys no toolbox, so
+# the mon's own keyring and the mon list from its environment are used instead.
+elastic_ceph() {
+  local mon
+  local mon_host
+
+  mon="$(kubectl -n "${ELASTIC_CEPH_NS}" get pods -l app=rook-ceph-mon -o name 2>/dev/null | head -n1)"
+  [ -n "${mon}" ] || return 1
+  mon_host="$(kubectl -n "${ELASTIC_CEPH_NS}" exec "${mon}" -c mon -- printenv ROOK_CEPH_MON_HOST 2>/dev/null)"
+  [ -n "${mon_host}" ] || return 1
+
+  kubectl -n "${ELASTIC_CEPH_NS}" exec "${mon}" -c mon -- \
+    ceph -n mon. -k /etc/ceph/keyring-store/keyring -m "${mon_host}" "$@"
+}
+
+# Archives Ceph crash reports when they are the only thing keeping the cluster out of
+# HEALTH_OK. Several mgr modules (dashboard, restful, rook, diskprediction_local) crash
+# within the first seconds of the first mgr start and never again, yet
+# RECENT_MGR_MODULE_CRASH stays raised for hours, so the readiness wait would time out
+# on a perfectly healthy cluster. Any other health check is left alone: it points at a
+# real problem that archiving would only hide.
+elastic_archive_crash_reports() {
+  local ec_name="$1"
+
+  kubectl get ec "${ec_name}" -o json 2>/dev/null |
+    jq -e '(.status.health.checks // []) | length > 0 and all(.name | IN("RECENT_CRASH", "RECENT_MGR_MODULE_CRASH"))' >/dev/null 2>&1 || return 0
+
+  echo "[INFO] Ceph is kept out of HEALTH_OK only by crash reports, archiving them"
+  elastic_ceph crash archive-all || echo "[WARN] Could not archive Ceph crash reports, will retry on the next attempt"
+}
+
 # Waits until the ElasticCluster reaches phase Ready and Ceph reports HEALTH_OK.
 # Rook cluster bring-up (mon/mgr/osd) on nested VMs is slow: with several OSDs per node
 # plus occasional sds-node-configurator restarts a full bring-up can take ~50 min, so the
@@ -204,6 +238,10 @@ elastic_cluster_ready() {
       echo "[SUCCESS] ElasticCluster ${ec_name} is Ready (${health})"
       kubectl get ec "$ec_name" -o wide
       return 0
+    fi
+
+    if [[ "$health" == "HEALTH_WARN" ]]; then
+      elastic_archive_crash_reports "$ec_name"
     fi
 
     echo "[INFO] Wait 15s for ElasticCluster ${ec_name} (phase=${phase:-<none>}, health=${health:-<none>}) (attempt ${i}/${count})"
