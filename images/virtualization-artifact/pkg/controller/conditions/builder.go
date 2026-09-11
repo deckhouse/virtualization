@@ -18,6 +18,7 @@ package conditions
 
 import (
 	"time"
+	"unicode/utf8"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -150,9 +151,32 @@ func (c *ConditionBuilder) Reason(reason Stringer) *ConditionBuilder {
 	return c
 }
 
+// maxMessageLen is the limit the CRDs put on a condition message, taken from
+// metav1.Condition. A message assembled from data the user controls — a secret
+// type, a parser error quoting the payload it choked on — has no length of its
+// own, and once the message goes over the limit the API server rejects the whole
+// status update, not just the message.
+const maxMessageLen = 32768
+
 func (c *ConditionBuilder) Message(msg string) *ConditionBuilder {
-	c.message = msg
+	c.message = TruncateMessage(msg)
 	return c
+}
+
+// TruncateMessage shortens msg to maxMessageLen bytes, cutting on a rune boundary
+// so the result stays valid UTF-8, and marks that something was cut off.
+func TruncateMessage(msg string) string {
+	if len(msg) <= maxMessageLen {
+		return msg
+	}
+
+	const ellipsis = "..."
+	cut := maxMessageLen - len(ellipsis)
+	for cut > 0 && !utf8.RuneStart(msg[cut]) {
+		cut--
+	}
+
+	return msg[:cut] + ellipsis
 }
 
 func (c *ConditionBuilder) Generation(generation int64) *ConditionBuilder {
