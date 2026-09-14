@@ -26,7 +26,12 @@ import (
 
 const (
 	defaultImageBaseURL = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru"
-	imageBaseURLEnv     = "E2E_IMAGE_BASE_URL"
+	// The nightly pipeline points this at a mirror of the default storage: the nginx
+	// behind https://e2e-test-images.e2e.virtlab.flant.com (deployment "share" in the
+	// e2e-test-images namespace of the parent e2e-cluster). Files get there by hand, so
+	// a new image below must also be copied to the mirror, or the nightly suite fails in
+	// the precreated CVI precheck.
+	imageBaseURLEnv = "E2E_IMAGE_BASE_URL"
 )
 
 const (

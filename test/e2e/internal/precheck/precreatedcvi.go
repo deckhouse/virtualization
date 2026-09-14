@@ -18,7 +18,9 @@ package precheck
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -36,6 +38,8 @@ import (
 const (
 	precreatedCVIPrecheckEnvName = "PRECREATED_CVI_PRECHECK"
 )
+
+var imageURLClient = &http.Client{Timeout: 30 * time.Second}
 
 // precreatedCVIPrecheck implements Precheck interface for precreated ClusterVirtualImages.
 // This is a common precheck that creates or verifies precreated CVIs for the e2e suite.
@@ -84,27 +88,27 @@ func (p *precreatedCVIPrecheck) validateCleanupEnv() error {
 func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Framework, cvis []*v1alpha2.ClusterVirtualImage) error {
 	k8sClient := f.GenericClient()
 
+	var toCreate []*v1alpha2.ClusterVirtualImage
 	for _, cvi := range cvis {
 		existing := &v1alpha2.ClusterVirtualImage{}
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: cvi.GetName()}, existing)
 
 		if err == nil {
-			if existing.Status.Phase == v1alpha2.ImageLost {
+			// Neither phase recovers on its own: a lost DVCR image stays lost, and a failed
+			// import is not retried, so a rerun on the same cluster would wait out the
+			// readiness timeout on the leftover of the previous run.
+			if existing.Status.Phase == v1alpha2.ImageLost || existing.Status.Phase == v1alpha2.ImageFailed {
 				_, _ = fmt.Fprintf(GinkgoWriter,
-					"CVI %q exists but its DVCR image is lost, recreating it...\n",
-					cvi.GetName())
+					"CVI %q exists but is %s, recreating it...\n",
+					cvi.GetName(), existing.Status.Phase)
 
 				if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete lost CVI %q: %w", cvi.GetName(), err)
+					return fmt.Errorf("failed to delete CVI %q: %w", cvi.GetName(), err)
 				}
 
 				util.UntilObjectsDeleted(ctx, framework.ShortTimeout, existing)
 
-				err = k8sClient.Create(ctx, cvi)
-				if err != nil && !k8serrors.IsAlreadyExists(err) {
-					return fmt.Errorf("failed to recreate lost CVI %q: %w", cvi.GetName(), err)
-				}
-
+				toCreate = append(toCreate, cvi)
 				continue
 			}
 
@@ -121,13 +125,49 @@ func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Fra
 			return fmt.Errorf("failed to get CVI %q: %w", cvi.GetName(), err)
 		}
 
-		// CVI not found, create it
+		toCreate = append(toCreate, cvi)
+	}
+
+	// A CVI whose image URL is dead never becomes Ready, and that shows up only as the
+	// readiness timeout below. Refuse all such images at once, before anything is created.
+	var errs []error
+	for _, cvi := range toCreate {
+		errs = append(errs, checkImageURL(ctx, cvi))
+	}
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
+
+	for _, cvi := range toCreate {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Creating CVI %q\n", cvi.GetName())
 
-		err = k8sClient.Create(ctx, cvi)
+		err := k8sClient.Create(ctx, cvi)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create CVI %q: %w", cvi.GetName(), err)
 		}
+	}
+	return nil
+}
+
+func checkImageURL(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error {
+	src := cvi.Spec.DataSource.HTTP
+	if src == nil {
+		return nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, src.URL, nil)
+	if err != nil {
+		return fmt.Errorf("CVI %q: %w", cvi.GetName(), err)
+	}
+
+	resp, err := imageURLClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("CVI %q: image is not available: %w", cvi.GetName(), err)
+	}
+	_ = resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("CVI %q: image %s is not available: HTTP %d", cvi.GetName(), src.URL, resp.StatusCode)
 	}
 	return nil
 }
