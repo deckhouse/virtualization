@@ -31,7 +31,7 @@ const (
 // +kubebuilder:object:root=true
 // +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: NodeUSBDevice, metadata: {name: example-usb}, spec: {assignedNamespace: workloads}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
-// +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={nusb},singular=nodeusbdevice
+// +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={nusb},singular=nodeusbdevice
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Node",type=string,JSONPath=`.status.nodeName`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`

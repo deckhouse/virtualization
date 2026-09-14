@@ -12,7 +12,7 @@ spec:
   group: virtualization.deckhouse.io
   names:
     categories:
-      - virtualization
+      - virtualization-cluster
     kind: NodeUSBDevice
     listKind: NodeUSBDeviceList
     plural: nodeusbdevices

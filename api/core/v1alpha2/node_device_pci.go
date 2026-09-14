@@ -31,7 +31,7 @@ const (
 // +kubebuilder:object:root=true
 // +crd-enricher:deckhouse:documentation:examples={apiVersion: virtualization.deckhouse.io/v1alpha2, kind: NodePCIDevice, metadata: {name: example-pci}, spec: {assignedNamespace: workloads}}
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
-// +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={npci},singular=nodepcidevice
+// +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={npci},singular=nodepcidevice
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Node",type=string,JSONPath=`.status.nodeName`
 // +kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.status.attributes.pciAddress`
