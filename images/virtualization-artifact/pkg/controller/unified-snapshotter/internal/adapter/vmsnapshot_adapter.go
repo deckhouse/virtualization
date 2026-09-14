@@ -41,12 +41,13 @@ var _ snapshotsdk.SnapshotAdapter = (*VirtualMachineSnapshotAdapter)(nil)
 
 func (a *VirtualMachineSnapshotAdapter) Object() client.Object { return a.VMS }
 
-// SourceRef identifies the live VirtualMachine this snapshot captures (spec.virtualMachineName).
+// SourceRef identifies the live VirtualMachine this snapshot captures, from whichever of the two
+// mutually exclusive spec shapes is set (spec.virtualMachineName or the core-written spec.sourceRef).
 func (a *VirtualMachineSnapshotAdapter) SourceRef() snapshotsdk.SourceRef {
 	return snapshotsdk.SourceRef{
 		APIVersion: v1alpha2.SchemeGroupVersion.String(),
 		Kind:       v1alpha2.VirtualMachineKind,
-		Name:       a.VMS.Spec.VirtualMachineName,
+		Name:       a.VMS.SourceVirtualMachineName(),
 	}
 }
 

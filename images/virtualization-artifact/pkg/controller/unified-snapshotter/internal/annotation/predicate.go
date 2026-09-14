@@ -54,6 +54,11 @@ func DrivenByUnifiedVirtualDiskSnapshot(ctx context.Context, reader client.Reade
 // safe direction — a filtered-out object would never be reconsidered.
 func ShouldHandle() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		return snapshotter.UseUnified(obj, unifiedIsDefault)
+		switch o := obj.(type) {
+		case *v1alpha2.VirtualMachineSnapshot, *v1alpha2.VirtualDiskSnapshot:
+			return snapshotter.UseUnified(o, unifiedIsDefault)
+		}
+
+		return false
 	})
 }

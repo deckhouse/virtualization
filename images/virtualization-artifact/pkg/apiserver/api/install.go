@@ -27,10 +27,12 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/record"
 
+	snapshotstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/snapshot/storage"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	vmpoolstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/restore"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/subresources"
@@ -63,7 +65,12 @@ func init() {
 	)
 }
 
-func Build(store *storage.VirtualMachineStorage, poolStorage *vmpoolstorage.VirtualMachinePoolStorage) genericapiserver.APIGroupInfo {
+func Build(
+	store *storage.VirtualMachineStorage,
+	poolStorage *vmpoolstorage.VirtualMachinePoolStorage,
+	vmSnapshotStorage *snapshotstorage.VirtualMachineSnapshotStorage,
+	vdSnapshotStorage *snapshotstorage.VirtualDiskSnapshotStorage,
+) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resourcesV1alpha2 := map[string]rest.Storage{
 		"virtualmachines":                     store,
@@ -79,6 +86,13 @@ func Build(store *storage.VirtualMachineStorage, poolStorage *vmpoolstorage.Virt
 		"virtualmachines/addresourceclaim":    store.AddResourceClaimREST(),
 		"virtualmachines/removeresourceclaim": store.RemoveResourceClaimREST(),
 		"virtualmachines/scale":               store.ScaleREST(),
+
+		// Restore boundary: the state-snapshotter core delegates a snapshot subtree it does not own to
+		// "subresources.<domain group>", which for our snapshot kinds is exactly this API group.
+		"virtualmachinesnapshots":                                 vmSnapshotStorage,
+		"virtualmachinesnapshots/manifests-with-data-restoration": vmSnapshotStorage.ManifestsWithDataRestorationREST(),
+		"virtualdisksnapshots":                                    vdSnapshotStorage,
+		"virtualdisksnapshots/manifests-with-data-restoration":    vdSnapshotStorage.ManifestsWithDataRestorationREST(),
 	}
 	// Enterprise-only resources (e.g. virtualmachinepools/scaledownwith) are added
 	// only in paid editions; poolStorage is nil in CE, leaving the map untouched.
@@ -94,6 +108,7 @@ func Install(
 	proxyCertManager certmanager.CertificateManager,
 	virtCli kubeclient.Client,
 	recorder record.EventRecorder,
+	restoreCompiler *restore.Compiler,
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
@@ -110,6 +125,11 @@ func Install(
 	// is installed only when the feature gate is on, and the controller self-gates;
 	// with no CRD the endpoint simply resolves to NotFound.
 	poolStorage := vmpoolstorage.NewStorage(virtCli)
-	info := Build(vmStorage, poolStorage)
+	info := Build(
+		vmStorage,
+		poolStorage,
+		snapshotstorage.NewVirtualMachineSnapshotStorage(virtCli, restoreCompiler),
+		snapshotstorage.NewVirtualDiskSnapshotStorage(virtCli, restoreCompiler),
+	)
 	return server.InstallAPIGroup(&info)
 }

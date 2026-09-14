@@ -366,7 +366,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 		var attachedVMs []v1alpha2.AttachedVirtualMachine
 		if kind == v1alpha2.VMOPTypeRestore {
 			attachedVMs = []v1alpha2.AttachedVirtualMachine{
-				{Name: vmSnapshot.Spec.VirtualMachineName, Mounted: true},
+				{Name: vmSnapshot.SourceVirtualMachineName(), Mounted: true},
 			}
 		}
 
@@ -376,7 +376,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 				APIVersion: v1alpha2.Version,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      vdSnapshot.Spec.VirtualDiskName,
+				Name:      vdSnapshot.SourceVirtualDiskName(),
 				Namespace: vdSnapshot.Namespace,
 			},
 			Spec: v1alpha2.VirtualDiskSpec{

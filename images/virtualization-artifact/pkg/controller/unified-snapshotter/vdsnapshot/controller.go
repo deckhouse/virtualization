@@ -54,6 +54,10 @@ import (
 const (
 	requeueAfter   = 2 * time.Second
 	ControllerName = "virtualdisk-snapshot-controller"
+
+	// reasonInvalidSource is the terminal domain reason for a snapshot whose spec does not resolve to a
+	// capturable source object.
+	reasonInvalidSource = "InvalidSource"
 )
 
 // Reconciler drives VirtualDiskSnapshot capture through the state-snapshotter SDK.
@@ -94,7 +98,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if !driven {
 		return ctrl.Result{}, nil
 	}
-
 	if vds.Status.Phase == "" {
 		vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
 		if err := r.patchStatus(ctx, vds); err != nil {
@@ -116,12 +119,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.finishAsReady(ctx, vds)
 	}
 
+	// An unresolvable source is failed only here, AFTER the switch above: failing it earlier pre-empted the
+	// Pending bootstrap, so an object the cluster default hands to this controller never got a phase, and
+	// it bypassed finishAsFailed. Mirrors the same ordering in the vmsnapshot controller.
+	vdName := vds.SourceVirtualDiskName()
+	if vdName == "" {
+		return r.failCapture(ctx, a, vds, reasonInvalidSource, fmt.Sprintf(
+			"spec.sourceRef must reference a %s %s", v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualDiskKind))
+	}
+
 	vd := &v1alpha2.VirtualDisk{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: vds.Spec.VirtualDiskName}, vd); err != nil {
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: vdName}, vd); err != nil {
 		if apierrors.IsNotFound(err) {
+			// Waited on indefinitely, mirroring the VirtualMachine wait in the vmsnapshot controller: nothing
+			// is frozen at this point, so the wait holds nothing hostage, and it absorbs the apply ordering
+			// race of a snapshot and its disk landing in one manifest set. Per the SDK a non-terminal
+			// "waiting for X" stays in Planning and reports itself through DomainCaptureStatus rather than
+			// failing; the reason is what makes it machine-readable, since conditions here are core-owned.
 			if perr := sdk.DomainCaptureStatus(a).
 				Phase(snapshotsdk.PhasePlanning).
-				Message(fmt.Sprintf("source VirtualDisk %q not found; waiting", vds.Spec.VirtualDiskName)).
+				Reason(snapshotsdk.Reason(vdscondition.WaitingForTheVirtualDisk)).
+				Message(fmt.Sprintf("The VirtualDisk %q does not exist. Waiting for it to appear; snapshotting will continue on its own.", vdName)).
 				Apply(ctx); perr != nil {
 				return ctrl.Result{}, perr
 			}
@@ -212,9 +230,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			if vds.Spec.RequiredConsistency {
 				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
 					"cannot take a consistent snapshot of virtual disk %q: the virtual machine it is attached to is running and its filesystem is not frozen",
-					vds.Spec.VirtualDiskName))
+					vds.SourceVirtualDiskName()))
 			}
 		case errors.Is(err, errMultipleAttachedVirtualMachines):
+			// A disk attached to several running machines cannot be frozen unambiguously, so a consistency
+			// mandate cannot be honored.
 			if vds.Spec.RequiredConsistency {
 				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
 					"cannot take a consistent snapshot: %s", err))

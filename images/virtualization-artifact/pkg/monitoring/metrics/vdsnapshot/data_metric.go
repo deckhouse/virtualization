@@ -39,6 +39,6 @@ func newDataMetric(vds *v1alpha2.VirtualDiskSnapshot) *dataMetric {
 		Namespace:   vds.Namespace,
 		UID:         string(vds.UID),
 		Phase:       vds.Status.Phase,
-		VirtualDisk: vds.Spec.VirtualDiskName,
+		VirtualDisk: vds.SourceVirtualDiskName(),
 	}
 }

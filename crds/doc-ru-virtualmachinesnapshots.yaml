@@ -22,8 +22,22 @@ spec:
 
                     - виртуальная машина выключена;
                     - виртуальная машина с агентом, операция заморозки прошла успешно.
+                sourceRef:
+                  description: |-
+                    Ссылка на виртуальную машину, для которой будет создан снимок.
+
+                    Взаимоисключающий параметр с `virtualMachineName`.
+                  properties:
+                    apiVersion:
+                      description: apiVersion исходного объекта.
+                    kind:
+                      description: Kind исходного объекта.
+                    name:
+                      description: Имя исходного объекта.
                 virtualMachineName:
-                  description: Имя виртуальной машины для создания снимка.
+                  description: |-
+                    Имя виртуальной машины для создания снимка.
+                    Взаимоисключающий параметр с `sourceRef`.
             status:
               properties:
                 boundSnapshotContentName:

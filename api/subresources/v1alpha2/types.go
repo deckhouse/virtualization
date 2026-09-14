@@ -198,3 +198,41 @@ type VirtualMachinePoolScaleDownWith struct {
 
 	DryRun []string `json:"dryRun,omitempty"`
 }
+
+// VirtualMachineSnapshot is the subresource-group stand-in for the core VirtualMachineSnapshot. It
+// carries no spec/status: the aggregated apiserver only needs the parent resource to exist so its
+// manifests-with-data-restoration subresource can be installed under it.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineSnapshot struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+}
+
+// VirtualDiskSnapshot is the subresource-group stand-in for the core VirtualDiskSnapshot. See
+// VirtualMachineSnapshot.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualDiskSnapshot struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+}
+
+// SnapshotManifestsWithDataRestoration carries the query parameters of the manifests-with-data-restoration subresource.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type SnapshotManifestsWithDataRestoration struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// TargetNamespace is the namespace the caller intends to apply the returned objects into. Only the
+	// snapshot's own namespace is answerable, so the accepted values are empty and that namespace;
+	// anything else is refused.
+	//
+	// It is a slice because a query may repeat the key, and reading only the first value would let a
+	// foreign namespace ride along behind an acceptable one.
+	TargetNamespace []string `json:"targetNamespace,omitempty"`
+}

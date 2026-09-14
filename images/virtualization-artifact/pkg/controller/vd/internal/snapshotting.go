@@ -64,7 +64,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDis
 	}
 
 	for _, vdSnapshot := range vdSnapshots {
-		if vdSnapshot.Spec.VirtualDiskName != vd.Name {
+		if vdSnapshot.SourceVirtualDiskName() != vd.Name {
 			continue
 		}
 

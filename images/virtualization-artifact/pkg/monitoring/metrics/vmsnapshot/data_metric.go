@@ -39,6 +39,6 @@ func newDataMetric(vms *v1alpha2.VirtualMachineSnapshot) *dataMetric {
 		Namespace:      vms.Namespace,
 		UID:            string(vms.UID),
 		Phase:          vms.Status.Phase,
-		VirtualMachine: vms.Spec.VirtualMachineName,
+		VirtualMachine: vms.SourceVirtualMachineName(),
 	}
 }

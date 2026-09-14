@@ -69,7 +69,7 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}()
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName != vm.Name {
+		if vmSnapshot.SourceVirtualMachineName() != vm.Name {
 			continue
 		}
 

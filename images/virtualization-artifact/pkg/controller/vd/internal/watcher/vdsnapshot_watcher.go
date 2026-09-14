@@ -69,7 +69,7 @@ func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Co
 func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (requests []reconcile.Request) {
 	// 1. Need to reconcile the virtual disk from which the snapshot was taken.
 	vd, err := object.FetchObject(ctx, types.NamespacedName{
-		Name:      vdSnapshot.Spec.VirtualDiskName,
+		Name:      vdSnapshot.SourceVirtualDiskName(),
 		Namespace: vdSnapshot.Namespace,
 	}, w.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
@@ -78,7 +78,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	}
 
 	if vd != nil {
-		if vd.Name == vdSnapshot.Spec.VirtualDiskName {
+		if vd.Name == vdSnapshot.SourceVirtualDiskName() {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      vd.Name,

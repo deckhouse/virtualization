@@ -404,6 +404,21 @@ func (s *SnapshotService) removeAnnFSFreezeRequest(ctx context.Context, kvvmi *v
 	return nil
 }
 
+// DiscardFSFreezeRequest retires a filesystem request the guest never honored.
+//
+// SyncFSFreezeRequest clears the request annotation only once status.fsFreezeStatus agrees with it, so a
+// freeze the guest agent never confirms stays pending indefinitely — and every later round-trip, the one
+// on the unfreeze path included, keeps failing with ErrUntrustedFilesystemFrozenCondition. A caller that
+// has decided to stop waiting calls this, so an abandoned request does not wedge the guest's next
+// freeze/unfreeze cycle. A nil instance has nothing to retire.
+func (s *SnapshotService) DiscardFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+	if kvvmi == nil {
+		return nil
+	}
+
+	return s.removeAnnFSFreezeRequest(ctx, kvvmi)
+}
+
 func (s *SnapshotService) SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 	if kvvmi == nil {
 		return nil

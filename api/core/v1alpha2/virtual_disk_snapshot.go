@@ -44,9 +44,12 @@ type VirtualDiskSnapshotList struct {
 	Items           []VirtualDiskSnapshot `json:"items"`
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.virtualDiskName) != has(self.sourceRef)",message="exactly one of spec.virtualDiskName or spec.sourceRef must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualDisk' && self.sourceRef.apiVersion == 'virtualization.deckhouse.io/v1alpha2')",message="spec.sourceRef must reference a VirtualDisk of virtualization.deckhouse.io/v1alpha2"
 type VirtualDiskSnapshotSpec struct {
-	VirtualDiskName     string `json:"virtualDiskName"`
-	RequiredConsistency bool   `json:"requiredConsistency"`
+	VirtualDiskName     string                           `json:"virtualDiskName,omitempty"`
+	SourceRef           *UnifiedSnapshotterSpecSourceRef `json:"sourceRef,omitempty"`
+	RequiredConsistency bool                             `json:"requiredConsistency"`
 }
 
 type VirtualDiskSnapshotStatus struct {

@@ -186,7 +186,7 @@ func capturedVirtualDiskFrom(ctx context.Context, downloader manifestDownloader,
 		return nil, err
 	}
 	for _, m := range manifests {
-		if !m.is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualDiskKind) {
+		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualDiskKind) {
 			continue
 		}
 		vd := &v1alpha2.VirtualDisk{}
@@ -262,7 +262,7 @@ func (u *unifiedManifestReader) RestoreVirtualMachine(ctx context.Context) (*v1a
 		return nil, err
 	}
 	for _, m := range manifests {
-		if !m.is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineKind) {
+		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineKind) {
 			continue
 		}
 		vm := &v1alpha2.VirtualMachine{}
@@ -290,7 +290,7 @@ func (u *unifiedManifestReader) RestoreProvisioner(ctx context.Context) (*corev1
 		return nil, err
 	}
 	for _, m := range manifests {
-		if !m.is("v1", "Secret") {
+		if !m.Is("v1", "Secret") {
 			continue
 		}
 		secret := &corev1.Secret{}
@@ -333,7 +333,7 @@ func (u *unifiedManifestReader) RestoreVirtualMachineIPAddress(ctx context.Conte
 		return nil, err
 	}
 	for _, m := range manifests {
-		if !m.is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineIPAddressKind) {
+		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineIPAddressKind) {
 			continue
 		}
 		vmip := &v1alpha2.VirtualMachineIPAddress{}
@@ -372,7 +372,7 @@ func (u *unifiedManifestReader) RestoreVirtualMachineMACAddresses(ctx context.Co
 	}
 	var vmmacs []*v1alpha2.VirtualMachineMACAddress
 	for _, m := range manifests {
-		if !m.is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineMACAddressKind) {
+		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineMACAddressKind) {
 			continue
 		}
 		vmmac := &v1alpha2.VirtualMachineMACAddress{}
@@ -413,7 +413,7 @@ func (u *unifiedManifestReader) RestoreVirtualMachineBlockDeviceAttachments(ctx 
 	}
 	var vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment
 	for _, m := range manifests {
-		if !m.is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineBlockDeviceAttachmentKind) {
+		if !m.Is(v1alpha2.SchemeGroupVersion.String(), v1alpha2.VirtualMachineBlockDeviceAttachmentKind) {
 			continue
 		}
 		vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}

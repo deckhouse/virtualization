@@ -44,10 +44,15 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 			mgr.GetCache(),
 			&v1alpha2.VirtualMachineSnapshot{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) []reconcile.Request {
+				name := vmSnapshot.SourceVirtualMachineName()
+				// Empty name leads to the infinite requeue.
+				if name == "" {
+					return nil
+				}
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
-							Name:      vmSnapshot.Spec.VirtualMachineName,
+							Name:      name,
 							Namespace: vmSnapshot.Namespace,
 						},
 					},

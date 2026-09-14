@@ -34,12 +34,13 @@ var _ snapshotsdk.SnapshotAdapter = (*VirtualDiskSnapshotAdapter)(nil)
 
 func (a *VirtualDiskSnapshotAdapter) Object() client.Object { return a.VDS }
 
-// SourceRef identifies the live VirtualDisk this snapshot captures (spec.virtualDiskName).
+// SourceRef identifies the live VirtualDisk this snapshot captures, from whichever of the two mutually
+// exclusive spec shapes is set (spec.virtualDiskName or the core-written spec.sourceRef).
 func (a *VirtualDiskSnapshotAdapter) SourceRef() snapshotsdk.SourceRef {
 	return snapshotsdk.SourceRef{
 		APIVersion: v1alpha2.SchemeGroupVersion.String(),
 		Kind:       v1alpha2.VirtualDiskKind,
-		Name:       a.VDS.Spec.VirtualDiskName,
+		Name:       a.VDS.SourceVirtualDiskName(),
 	}
 }
 

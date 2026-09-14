@@ -55,11 +55,21 @@ type VirtualMachineSnapshotList struct {
 	Items           []VirtualMachineSnapshot `json:"items"`
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.virtualMachineName) != has(self.sourceRef)",message="exactly one of spec.virtualMachineName or spec.sourceRef must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualMachine' && self.sourceRef.apiVersion == 'virtualization.deckhouse.io/v1alpha2')",message="spec.sourceRef must reference a VirtualMachine of virtualization.deckhouse.io/v1alpha2"
 type VirtualMachineSnapshotSpec struct {
 	// Name of the virtual machine to take a snapshot of.
+	// Mutually exclusive with `sourceRef`.
 	//
 	// +kubebuilder:validation:MinLength=1
-	VirtualMachineName string `json:"virtualMachineName"`
+	// +optional
+	VirtualMachineName string `json:"virtualMachineName,omitempty"`
+	// Reference to the virtual machine to take a snapshot of.
+	//
+	// Mutually exclusive with `virtualMachineName`.
+	//
+	// +optional
+	SourceRef *UnifiedSnapshotterSpecSourceRef `json:"sourceRef,omitempty"`
 	// Create a snapshot of a virtual machine only if it is possible to freeze the machine through the agent.
 	//
 	// If set to `true`, the virtual machine snapshot will be created only in the following cases:

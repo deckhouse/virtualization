@@ -100,7 +100,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	}
 
 	vd := &v1alpha2.VirtualDisk{}
-	err = s.client.Get(ctx, types.NamespacedName{Name: vds.Spec.VirtualDiskName, Namespace: vds.Namespace}, vd)
+	err = s.client.Get(ctx, types.NamespacedName{Name: vds.SourceVirtualDiskName(), Namespace: vds.Namespace}, vd)
 	if err != nil {
 		return &reconcile.Result{}, err
 	}

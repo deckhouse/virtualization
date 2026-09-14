@@ -176,3 +176,56 @@ type UnifiedSnapshotterCaptureState struct {
 	// domain controller, via the SDK.
 	DomainSpecificController *UnifiedSnapshotterDomainCaptureState `json:"domainSpecificController,omitempty"`
 }
+
+// UnifiedSnapshotterSpecSourceRef is the light, spec-side reference to the live object a snapshot
+// captures.
+// Namespace is implicit (always the snapshot's own namespace).
+type UnifiedSnapshotterSpecSourceRef struct {
+	// API version of the source object.
+	//
+	// +kubebuilder:validation:MinLength=1
+	APIVersion string `json:"apiVersion"`
+	// Kind of the source object.
+	//
+	// +kubebuilder:validation:MinLength=1
+	Kind string `json:"kind"`
+	// Name of the source object.
+	//
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
+// SourceVirtualMachineName resolves the source VirtualMachine's name from whichever of the two mutually
+// exclusive spec shapes is set: spec.virtualMachineName, or the generic spec.sourceRef the
+// state-snapshotter core writes.
+//
+// The empty return is a programming-error guard, not a user-input path: both CRDs carry a CEL rule
+// pinning sourceRef's kind and apiVersion.
+func (vms *VirtualMachineSnapshot) SourceVirtualMachineName() string {
+	if vms == nil {
+		return ""
+	}
+	if vms.Spec.SourceRef == nil {
+		return vms.Spec.VirtualMachineName
+	}
+	if vms.Spec.SourceRef.Kind != VirtualMachineKind || vms.Spec.SourceRef.APIVersion != SchemeGroupVersion.String() {
+		return ""
+	}
+	return vms.Spec.SourceRef.Name
+}
+
+// SourceVirtualDiskName resolves the source VirtualDisk's name from either spec shape. See
+// VirtualMachineSnapshot.SourceVirtualMachineName on why the empty return is not a reachable user-input
+// path, and on what it used to cause when it was.
+func (vds *VirtualDiskSnapshot) SourceVirtualDiskName() string {
+	if vds == nil {
+		return ""
+	}
+	if vds.Spec.SourceRef == nil {
+		return vds.Spec.VirtualDiskName
+	}
+	if vds.Spec.SourceRef.Kind != VirtualDiskKind || vds.Spec.SourceRef.APIVersion != SchemeGroupVersion.String() {
+		return ""
+	}
+	return vds.Spec.SourceRef.Name
+}

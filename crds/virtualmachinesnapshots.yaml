@@ -81,15 +81,48 @@ spec:
                     - When the virtual machine is powered off.
                     - When the virtual machine has an agent, and the freeze operation was successful.
                   type: boolean
+                sourceRef:
+                  description: |-
+                    Reference to the virtual machine to take a snapshot of.
+
+                    Mutually exclusive with `virtualMachineName`.
+                  properties:
+                    apiVersion:
+                      description: API version of the source object.
+                      minLength: 1
+                      type: string
+                    kind:
+                      description: Kind of the source object.
+                      minLength: 1
+                      type: string
+                    name:
+                      description: Name of the source object.
+                      minLength: 1
+                      type: string
+                  required:
+                    - apiVersion
+                    - kind
+                    - name
+                  type: object
                 virtualMachineName:
-                  description: Name of the virtual machine to take a snapshot of.
+                  description: |-
+                    Name of the virtual machine to take a snapshot of.
+                    Mutually exclusive with `sourceRef`.
                   minLength: 1
                   type: string
               required:
                 - keepIPAddress
                 - requiredConsistency
-                - virtualMachineName
               type: object
+              x-kubernetes-validations:
+                - message:
+                    exactly one of spec.virtualMachineName or spec.sourceRef must
+                    be set
+                  rule: has(self.virtualMachineName) != has(self.sourceRef)
+                - message: spec.sourceRef must reference a VirtualMachine of virtualization.deckhouse.io/v1alpha2
+                  rule:
+                    "!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualMachine'
+                    && self.sourceRef.apiVersion == 'virtualization.deckhouse.io/v1alpha2')"
             status:
               properties:
                 boundSnapshotContentName:

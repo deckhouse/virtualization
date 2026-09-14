@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	storagev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
+	snapshotterv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
+	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -42,6 +45,9 @@ func newTestScheme(t *testing.T) *apiruntime.Scheme {
 		clientgoscheme.AddToScheme,
 		v1alpha2.AddToScheme,
 		storagev1alpha1.AddToScheme,
+		snapshotterv1alpha1.AddToScheme,
+		storagev1alpha1.AddToScheme,
+		foundationv1alpha1.AddToScheme,
 	} {
 		if err := f(scheme); err != nil {
 			t.Fatal(err)
@@ -225,5 +231,74 @@ func TestPatchStatus_OnlyTouchesOwnedFields(t *testing.T) {
 	}
 	if got.Status.CaptureState == nil || got.Status.CaptureState.CommonController == nil || got.Status.CaptureState.CommonController.ManifestCaptured == nil || !*got.Status.CaptureState.CommonController.ManifestCaptured {
 		t.Fatal("expected the core-owned captureState.commonController to survive the domain controller's own status patch untouched")
+	}
+}
+
+// A disk attached to several running machines cannot be frozen unambiguously, so a consistency mandate
+// cannot be honored.
+func TestReconcile_MultipleAttachedVirtualMachines(t *testing.T) {
+	coreOwner := metav1.OwnerReference{
+		APIVersion: "state-snapshotter.deckhouse.io/v1alpha1",
+		Kind:       "Snapshot",
+		Name:       "namespace-snapshot",
+		UID:        "snap-uid",
+	}
+
+	tests := []struct {
+		name       string
+		owners     []metav1.OwnerReference
+		wantFailed bool
+	}{
+		{
+			name:       "asked for by a user",
+			wantFailed: true,
+		},
+		{
+			name:       "planned by the core for a namespace snapshot",
+			owners:     []metav1.OwnerReference{coreOwner},
+			wantFailed: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vd := &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "vd1", Namespace: testNamespace},
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{PersistentVolumeClaim: "pvc1"},
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
+						{Name: "vm1"}, {Name: "vm2"},
+					},
+				},
+			}
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "pvc1", Namespace: testNamespace},
+				Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound},
+			}
+			vds := &v1alpha2.VirtualDiskSnapshot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vds1", Namespace: testNamespace,
+					Annotations:     map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""},
+					OwnerReferences: tt.owners,
+				},
+				Spec: v1alpha2.VirtualDiskSnapshotSpec{
+					VirtualDiskName:     "vd1",
+					RequiredConsistency: true,
+				},
+				Status: v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhasePending},
+			}
+			r := newTestReconciler(t, vd, pvc, vds)
+
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vds1"}}); err != nil {
+				t.Fatal(err)
+			}
+
+			got := getVDS(t, r.Client)
+			failed := got.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed
+			if failed != tt.wantFailed {
+				d := got.Status.CaptureState.DomainSpecificController
+				t.Fatalf("failed = %v, want %v (phase %q, reason %q, message %q)",
+					failed, tt.wantFailed, got.Status.Phase, d.Reason, d.Message)
+			}
+		})
 	}
 }

@@ -29,7 +29,7 @@ func IndexVMSnapshotByVM() (obj client.Object, field string, extractValue client
 			return nil
 		}
 
-		return []string{vmSnapshot.Spec.VirtualMachineName}
+		return []string{vmSnapshot.SourceVirtualMachineName()}
 	}
 }
 

@@ -29,6 +29,6 @@ func IndexVDSnapshotByVD() (obj client.Object, field string, extractValue client
 			return nil
 		}
 
-		return []string{vdSnapshot.Spec.VirtualDiskName}
+		return []string{vdSnapshot.SourceVirtualDiskName()}
 	}
 }

@@ -29,13 +29,19 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-// errManifestTargetNotReady signals that a resource referenced by the VirtualMachine (its VMIP, a VMMAC,
-// the provisioner Secret, or a VMBDA) does not exist
-var errManifestTargetNotReady = errors.New("a resource referenced for manifest capture does not exist")
+// errSourceNotReady signals that a resource referenced by the VirtualMachine (one of its disks, its VMIP,
+// a VMMAC, the provisioner Secret, or a VMBDA) does not exist
+var errSourceNotReady = errors.New("a resource referenced by the virtual machine does not exist")
 
-func manifestTargetNotReady(kind, name string) error {
-	return fmt.Errorf("%w: %s %q", errManifestTargetNotReady, kind, name)
+func sourceNotReady(kind, name string) error {
+	return fmt.Errorf("%w: %s %q", errSourceNotReady, kind, name)
 }
+
+// errInvalidSourceSpec signals a VirtualMachine spec that can never produce a capturable target set — a
+// provisioning ref pointing at a kind that is not a Secret, say. Unlike errSourceNotReady it will not
+// resolve by waiting, so the caller fails the capture instead of holding it in Planning; and unlike a bare
+// API error it must not be retried, so it is a distinct sentinel rather than a plain fmt.Errorf.
+var errInvalidSourceSpec = errors.New("the virtual machine spec cannot be captured")
 
 // planManifestTargets builds the full manifest-capture target set for vm, mirroring the resource list the
 // old (non-SDK) mechanism stores in its snapshot secret (see SecretRestorer.Store in
@@ -97,7 +103,7 @@ func (r *Reconciler) planVMIPTarget(ctx context.Context, vms *v1alpha2.VirtualMa
 	vmip := &v1alpha2.VirtualMachineIPAddress{}
 	if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: name}, vmip); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, manifestTargetNotReady(v1alpha2.VirtualMachineIPAddressKind, name)
+			return nil, sourceNotReady(v1alpha2.VirtualMachineIPAddressKind, name)
 		}
 		return nil, err
 	}
@@ -128,7 +134,7 @@ func (r *Reconciler) planVMMACTargets(ctx context.Context, vm *v1alpha2.VirtualM
 		vmmac := &v1alpha2.VirtualMachineMACAddress{}
 		if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: n.VirtualMachineMACAddressName}, vmmac); err != nil {
 			if apierrors.IsNotFound(err) {
-				return nil, manifestTargetNotReady(v1alpha2.VirtualMachineMACAddressKind, n.VirtualMachineMACAddressName)
+				return nil, sourceNotReady(v1alpha2.VirtualMachineMACAddressKind, n.VirtualMachineMACAddressName)
 			}
 			return nil, err
 		}
@@ -154,12 +160,12 @@ func (r *Reconciler) planProvisionerSecretTarget(ctx context.Context, vm *v1alph
 	switch p.Type {
 	case v1alpha2.ProvisioningTypeUserDataRef:
 		if p.UserDataRef == nil || p.UserDataRef.Kind != v1alpha2.UserDataRefKindSecret {
-			return nil, fmt.Errorf("virtual machine %q: provisioning userDataRef must reference a Secret", vm.Name)
+			return nil, fmt.Errorf("%w: virtual machine %q: provisioning userDataRef must reference a Secret", errInvalidSourceSpec, vm.Name)
 		}
 		secretName = p.UserDataRef.Name
 	case v1alpha2.ProvisioningTypeSysprepRef:
 		if p.SysprepRef == nil || p.SysprepRef.Kind != v1alpha2.SysprepRefKindSecret {
-			return nil, fmt.Errorf("virtual machine %q: provisioning sysprepRef must reference a Secret", vm.Name)
+			return nil, fmt.Errorf("%w: virtual machine %q: provisioning sysprepRef must reference a Secret", errInvalidSourceSpec, vm.Name)
 		}
 		secretName = p.SysprepRef.Name
 	default:
@@ -170,7 +176,7 @@ func (r *Reconciler) planProvisionerSecretTarget(ctx context.Context, vm *v1alph
 	secret := &corev1.Secret{}
 	if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: secretName}, secret); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, manifestTargetNotReady("Secret", secretName)
+			return nil, sourceNotReady("Secret", secretName)
 		}
 		return nil, err
 	}
@@ -195,7 +201,7 @@ func (r *Reconciler) planVMBDATargets(ctx context.Context, vm *v1alpha2.VirtualM
 		vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
 		if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: bdr.VirtualMachineBlockDeviceAttachmentName}, vmbda); err != nil {
 			if apierrors.IsNotFound(err) {
-				return nil, manifestTargetNotReady(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bdr.VirtualMachineBlockDeviceAttachmentName)
+				return nil, sourceNotReady(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bdr.VirtualMachineBlockDeviceAttachmentName)
 			}
 			return nil, err
 		}

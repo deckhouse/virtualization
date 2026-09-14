@@ -25,9 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	storagev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
+	snapshotterv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
+	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -39,6 +43,10 @@ func newTestScheme(t *testing.T) *apiruntime.Scheme {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		v1alpha2.AddToScheme,
+		virtv1.AddToScheme,
+		snapshotterv1alpha1.AddToScheme,
+		storagev1alpha1.AddToScheme,
+		foundationv1alpha1.AddToScheme,
 	} {
 		if err := f(scheme); err != nil {
 			t.Fatal(err)
@@ -132,8 +140,8 @@ func TestPlanVMIPTargetNotFound(t *testing.T) {
 	r := newTestReconciler(t)
 
 	_, err := r.planVMIPTarget(context.Background(), vms, vm)
-	if !errors.Is(err, errManifestTargetNotReady) {
-		t.Fatalf("expected errManifestTargetNotReady, got %v", err)
+	if !errors.Is(err, errSourceNotReady) {
+		t.Fatalf("expected errSourceNotReady, got %v", err)
 	}
 }
 
@@ -171,8 +179,8 @@ func TestPlanVMMACTargetsNotFound(t *testing.T) {
 	r := newTestReconciler(t)
 
 	_, err := r.planVMMACTargets(context.Background(), vm)
-	if !errors.Is(err, errManifestTargetNotReady) {
-		t.Fatalf("expected errManifestTargetNotReady, got %v", err)
+	if !errors.Is(err, errSourceNotReady) {
+		t.Fatalf("expected errSourceNotReady, got %v", err)
 	}
 }
 
@@ -269,8 +277,8 @@ func TestPlanProvisionerSecretTarget(t *testing.T) {
 		r := newTestReconciler(t)
 
 		_, err := r.planProvisionerSecretTarget(context.Background(), vm)
-		if !errors.Is(err, errManifestTargetNotReady) {
-			t.Fatalf("expected errManifestTargetNotReady, got %v", err)
+		if !errors.Is(err, errSourceNotReady) {
+			t.Fatalf("expected errSourceNotReady, got %v", err)
 		}
 	})
 }
@@ -309,8 +317,8 @@ func TestPlanVMBDATargetsNotFound(t *testing.T) {
 	r := newTestReconciler(t)
 
 	_, err := r.planVMBDATargets(context.Background(), vm)
-	if !errors.Is(err, errManifestTargetNotReady) {
-		t.Fatalf("expected errManifestTargetNotReady, got %v", err)
+	if !errors.Is(err, errSourceNotReady) {
+		t.Fatalf("expected errSourceNotReady, got %v", err)
 	}
 }
 

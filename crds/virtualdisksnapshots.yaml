@@ -34,14 +34,43 @@ spec:
           properties:
             spec:
               type: object
-              required:
-                - virtualDiskName
+              x-kubernetes-validations:
+                - rule: has(self.virtualDiskName) != has(self.sourceRef)
+                  message: exactly one of spec.virtualDiskName or spec.sourceRef must be set
+                - rule:
+                    "!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualDisk' &&
+                    self.sourceRef.apiVersion == 'virtualization.deckhouse.io/v1alpha2')"
+                  message: spec.sourceRef must reference a VirtualDisk of virtualization.deckhouse.io/v1alpha2
               properties:
                 virtualDiskName:
                   type: string
                   minLength: 1
                   description: |
                     Virtual disk name the snapshot is created for.
+                    Mutually exclusive with `sourceRef`.
+                sourceRef:
+                  type: object
+                  required:
+                    - apiVersion
+                    - kind
+                    - name
+                  properties:
+                    apiVersion:
+                      type: string
+                      minLength: 1
+                      description: API version of the source object.
+                    kind:
+                      type: string
+                      minLength: 1
+                      description: Kind of the source object.
+                    name:
+                      type: string
+                      minLength: 1
+                      description: Name of the source object.
+                  description: |
+                    Reference to the virtual disk to take a snapshot of.
+
+                    Mutually exclusive with `virtualDiskName`.
                 requiredConsistency:
                   type: boolean
                   default: true

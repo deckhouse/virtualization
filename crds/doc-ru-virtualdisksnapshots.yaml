@@ -13,6 +13,19 @@ spec:
                 virtualDiskName:
                   description: |
                     Имя виртуального диска, для которого будет создан снимок.
+                    Взаимоисключающий параметр с `sourceRef`.
+                sourceRef:
+                  description: |
+                    Ссылка на виртуальный диск, для которого будет создан снимок.
+
+                    Взаимоисключающий параметр с `virtualDiskName`.
+                  properties:
+                    apiVersion:
+                      description: apiVersion исходного объекта.
+                    kind:
+                      description: Kind исходного объекта.
+                    name:
+                      description: Имя исходного объекта.
                 requiredConsistency:
                   description: |
                     Создавать снимок диска подключённой виртуальной машины только в том случае, если возможно заморозить её через агента.

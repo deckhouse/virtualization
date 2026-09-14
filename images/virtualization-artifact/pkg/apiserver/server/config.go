@@ -26,10 +26,12 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/restore"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -100,12 +102,18 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
+	restoreCompiler, err := newRestoreCompiler(c.Rest)
+	if err != nil {
+		return nil, err
+	}
+
 	err = api.Install(vmInformer.Lister(),
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,
 		virtCli,
 		recorder,
+		restoreCompiler,
 	)
 	if err != nil {
 		return nil, err
@@ -116,6 +124,23 @@ func (c Config) Complete() (*Server, error) {
 		genericServer,
 		proxyCertManager,
 	), nil
+}
+
+// newRestoreCompiler builds the compiler behind the manifests-with-data-restoration subresource.
+func newRestoreCompiler(cfg *rest.Config) (*restore.Compiler, error) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha2.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+	reader, err := ctrlclient.New(cfg, ctrlclient.Options{Scheme: scheme})
+	if err != nil {
+		return nil, fmt.Errorf("build snapshot reader client: %w", err)
+	}
+	fetcher, err := restore.NewContentFetcher(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return restore.NewCompiler(reader, fetcher), nil
 }
 
 // newEventRecorder builds a recorder that reports events on virtual machines. The broadcaster

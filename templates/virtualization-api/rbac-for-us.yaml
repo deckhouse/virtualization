@@ -69,6 +69,19 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachinesnapshots
+  - virtualdisksnapshots
+  verbs:
+  - get
+- apiGroups:
+  - subresources.state-snapshotter.deckhouse.io
+  resources:
+  - snapshotcontents/manifests-download
+  verbs:
+  - get
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachines
