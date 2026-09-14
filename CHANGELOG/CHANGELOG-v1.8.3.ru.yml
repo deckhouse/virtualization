@@ -1,0 +1,8 @@
+vm:
+  fixes:
+  - summary: Исправлена ​​проблема, из-за которой блокировалась миграция виртуальных
+      машин для виртуальных машин с дополнительными сетевыми интерфейсами.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2427
+  - summary: Исправлено дублирование сервисных модулей (`d8v-hp-*`) при горячем отключении
+      дисков от виртуальных машин.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2422
