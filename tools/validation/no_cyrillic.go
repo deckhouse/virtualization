@@ -28,6 +28,10 @@ var skipSelfRe = regexp.MustCompile(`no_cyrillic(_test)?.go$`)
 var skipVexRe = regexp.MustCompile(`known_vulnerabilities.vex$`)
 var skipSecurityEventsRe = regexp.MustCompile(`templates/security-events\.yaml$`)
 
+// The security threat model is written in Russian on purpose: it follows the RBPO
+// methodology and cites the FSTEC BDU catalogue, both of which are Russian sources.
+var skipThreatModelRe = regexp.MustCompile(`(^|/)virtualization-threat-model\.md$`)
+
 func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (exitCode int) {
 	fmt.Printf("Run 'no cyrillic' validation ...\n")
 
@@ -96,6 +100,11 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 
 			if skipSecurityEventsRe.MatchString(fileName) {
 				msgs.Add(NewSkip(fileName, "security events template"))
+				continue
+			}
+
+			if skipThreatModelRe.MatchString(fileName) {
+				msgs.Add(NewSkip(fileName, "threat model"))
 				continue
 			}
 

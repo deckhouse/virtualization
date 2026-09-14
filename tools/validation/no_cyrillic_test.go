@@ -94,3 +94,18 @@ func Test_found_msg(t *testing.T) {
 	}
 
 }
+
+func Test_skip_threat_model(t *testing.T) {
+	for _, name := range []string{
+		"virtualization-threat-model.md",
+		"docs/virtualization-threat-model.md",
+	} {
+		if !skipThreatModelRe.MatchString(name) {
+			t.Errorf("Should skip '%s'", name)
+		}
+	}
+
+	if skipThreatModelRe.MatchString("docs/threat-model-notes.md") {
+		t.Errorf("Should not skip a file that only resembles the threat model")
+	}
+}
