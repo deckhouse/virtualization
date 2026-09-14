@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/deckhouse/virtualization-dra/internal/cdi"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 )
 
@@ -59,7 +60,7 @@ func (d *Device) GetName(nodeName string) string {
 	hash := sha1.Sum([]byte(unhashed))
 	hashedString := hex.EncodeToString(hash[:])
 
-	return fmt.Sprintf("usb-%s", hashedString)
+	return cdi.USBDeviceNamePrefix + hashedString
 }
 
 func (d *Device) Validate() error {

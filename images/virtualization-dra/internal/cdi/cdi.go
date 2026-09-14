@@ -18,6 +18,7 @@ package cdi
 
 import (
 	"fmt"
+	"strings"
 
 	drapbv1 "k8s.io/kubelet/pkg/apis/dra/v1beta1"
 	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
@@ -31,6 +32,10 @@ const (
 	cdiVendor           = "dra.virtualization.deckhouse.io"
 	cdiCommonDeviceName = "common"
 )
+
+// USBDeviceNamePrefix is the prefix every USB device name carries; it is stripped
+// before the name goes into an environment variable name.
+const USBDeviceNamePrefix = "usb-"
 
 // Manager writes and removes CDI spec files so the container runtime can inject device nodes and env into pods.
 // DRA returns CDI device names to the kubelet; runtime resolves them using these specs.
@@ -109,10 +114,15 @@ func (cdi *manager) CreateClaimSpecFile(claimUID string, devices PreparedDevices
 	}
 
 	for _, device := range devices {
+		name, ok := strings.CutPrefix(device.DeviceName, USBDeviceNamePrefix)
+		if !ok {
+			return fmt.Errorf("device name %q does not start with %q", device.DeviceName, USBDeviceNamePrefix)
+		}
+
 		claimEdits := cdiapi.ContainerEdits{
 			ContainerEdits: &cdispec.ContainerEdits{
 				Env: []string{
-					fmt.Sprintf("%s_%s_RESOURCE_CLAIM=%s", cdi.cdiEnvPrefix, device.DeviceName[4:], claimUID),
+					fmt.Sprintf("%s_%s_RESOURCE_CLAIM=%s", cdi.cdiEnvPrefix, name, claimUID),
 				},
 			},
 		}
