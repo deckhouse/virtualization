@@ -51,6 +51,7 @@ if [[ "${audit_image_skip}" == "true" ]]; then
   SKIP_IMAGES+=("virtualizationAudit")
 fi
 SKIP_IMAGES+=("virtualizationDraUsb")
+SKIP_IMAGES+=("virtualizationDraPci")
 
 is_skipped_image() {
   local img="$1"
