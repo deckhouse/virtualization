@@ -114,12 +114,16 @@ var gzipMagic = []byte{0x1f, 0x8b}
 // MIME-Version header before giving up on reading it as a MIME archive.
 const mimeSearchLimit = 4096
 
-// maxQuotedLen bounds how much of the payload is echoed back in a message: user
-// data can be kilobytes long, and messages end up in conditions and events.
-const maxQuotedLen = 48
+// yamlLineRe matches the position go-yaml reports for a syntax error. The error
+// text itself may carry the payload, the line number never does.
+var yamlLineRe = regexp.MustCompile(`yaml: line (\d+):`)
 
-// ValidateUserData reports what looks wrong with a cloud-init user data payload.
-// Every finding is a warning; an empty result means nothing was found.
+// ValidateUserData reports what looks wrong with a cloud-init user data
+// payload. Every finding is a warning; an empty result means nothing was found.
+//
+// No warning carries bytes of the payload: user data may come from a secret, and
+// the warnings end up in the virtual machine status and in events, which a role
+// granting nothing but view can read, while the secret itself stays out of reach.
 func ValidateUserData(data []byte) []string {
 	// Nothing to inspect in a compressed payload without decompressing it.
 	if bytes.HasPrefix(data, gzipMagic) {
@@ -156,18 +160,16 @@ func ValidateUserData(data []byte) []string {
 		}
 	}
 
-	line := firstLine(text)
-
-	if templateHeaderRe.MatchString(line) {
+	if templateHeaderRe.MatchString(text) {
 		return []string{fmt.Sprintf(
-			"user data starts with %s, and cloud-init reads a template header only when it is spelled exactly %q, so it will ignore the payload",
-			quote(line), headerJinja,
+			"user data starts with a template header, and cloud-init reads one only when it is spelled exactly %q, so it will ignore the payload",
+			headerJinja,
 		)}
 	}
 
 	return []string{fmt.Sprintf(
-		"user data starts with %s instead of a cloud-init header, so cloud-init will ignore it; expected one of: %s",
-		quote(line), strings.Join(knownHeaders, ", "),
+		"user data does not start with a cloud-init header, so cloud-init will ignore it; expected one of: %s",
+		strings.Join(knownHeaders, ", "),
 	)}
 }
 
@@ -177,8 +179,8 @@ func validateCloudConfig(text string) []string {
 	var config map[string]any
 	if err := yaml.Unmarshal([]byte(text), &config); err != nil {
 		return []string{fmt.Sprintf(
-			"user data is not a valid cloud-config, so cloud-init will refuse it: %s",
-			firstLine(err.Error()),
+			"user data is not a valid cloud-config, so cloud-init will refuse it%s",
+			parseFailure(err),
 		)}
 	}
 	return nil
@@ -191,11 +193,21 @@ func validateArchive(text, header string) []string {
 	var entries []any
 	if err := yaml.Unmarshal([]byte(text), &entries); err != nil {
 		return []string{fmt.Sprintf(
-			"user data declares %s but is not a list of entries, so cloud-init will refuse it: %s",
-			header, firstLine(err.Error()),
+			"user data declares %s but is not a list of entries, so cloud-init will refuse it%s",
+			header, parseFailure(err),
 		)}
 	}
 	return nil
+}
+
+// parseFailure describes a parser error, as a tail to append to a message. Only
+// the line number is kept, when go-yaml reports one: the rest of the error may
+// quote the payload.
+func parseFailure(err error) string {
+	if match := yamlLineRe.FindStringSubmatch(err.Error()); match != nil {
+		return fmt.Sprintf(" (YAML error at line %s)", match[1])
+	}
+	return ""
 }
 
 func head(s string, n int) string {
@@ -203,18 +215,4 @@ func head(s string, n int) string {
 		return s[:n]
 	}
 	return s
-}
-
-func firstLine(s string) string {
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		s = s[:i]
-	}
-	return strings.TrimRight(s, "\r")
-}
-
-func quote(s string) string {
-	if len(s) > maxQuotedLen {
-		return fmt.Sprintf("%q...", s[:maxQuotedLen])
-	}
-	return fmt.Sprintf("%q", s)
 }

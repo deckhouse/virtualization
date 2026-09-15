@@ -19,6 +19,7 @@ package cloudinit
 import (
 	"bytes"
 	"compress/gzip"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -150,10 +151,55 @@ var _ = Describe("ValidateUserData", func() {
 		Expect(warnings[0]).To(ContainSubstring("#cloud-config"))
 	})
 
-	It("truncates the payload quoted in the message", func() {
+	It("keeps the payload out of the message", func() {
 		warnings := ValidateUserData(bytes.Repeat([]byte("a"), 4096))
 
 		Expect(warnings).To(HaveLen(1))
-		Expect(len(warnings[0])).To(BeNumerically("<", 400))
+		Expect(warnings[0]).NotTo(ContainSubstring("aaaa"))
+	})
+
+	It("bounds the message for a payload the parser echoes back", func() {
+		warnings := ValidateUserData([]byte(nestedKeyArchive))
+
+		Expect(warnings).To(HaveLen(1))
+		Expect(len(warnings[0])).To(BeNumerically("<", 512))
+		Expect(warnings[0]).NotTo(ContainSubstring("- - -"))
+	})
+
+	It("reports the line of a syntax error instead of its text", func() {
+		Expect(ValidateUserData([]byte("#cloud-config\nhostname: \"vm\n"))).To(ConsistOf(
+			"user data is not a valid cloud-config, so cloud-init will refuse it (YAML error at line 3)",
+		))
+	})
+
+	It("says nothing more than the error is a parser one when there is no line to report", func() {
+		// A payload that parses as YAML but has the wrong shape: the parser
+		// reports no position for it.
+		warnings := ValidateUserData([]byte("#cloud-config\n- one\n- two\n"))
+
+		Expect(warnings).To(ConsistOf("user data is not a valid cloud-config, so cloud-init will refuse it"))
+	})
+
+	It("does not quote the first line of a payload with no cloud-init header", func() {
+		warnings := ValidateUserData([]byte("secret-hostname: vm\n"))
+
+		Expect(warnings).To(HaveLen(1))
+		Expect(warnings[0]).To(ContainSubstring("cloud-init will ignore it"))
+		Expect(warnings[0]).NotTo(ContainSubstring("secret-hostname"))
+		// The list of expected headers is a constant, so it stays.
+		Expect(warnings[0]).To(ContainSubstring("#cloud-config"))
+	})
+
+	It("does not quote the first line of a misspelled jinja header", func() {
+		warnings := ValidateUserData([]byte("##template: secret\n#cloud-config\nhostname: vm\n"))
+
+		Expect(warnings).To(HaveLen(1))
+		Expect(warnings[0]).To(ContainSubstring("ignore the payload"))
+		Expect(warnings[0]).NotTo(ContainSubstring("##template: secret"))
 	})
 })
+
+// nestedKeyArchive is a payload go-yaml refuses with a message holding the
+// offending value: it prints a mapping key that is not a string with %#v, on a
+// single line, so a payload of a few kilobytes renders as an error of hundreds.
+var nestedKeyArchive = "#cloud-config-archive\n" + strings.Repeat("- ", 1300) + "? " + strings.Repeat("- ", 6900) + "x\n"
