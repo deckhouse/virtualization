@@ -200,6 +200,19 @@ spec:
 {{- end }}
 
 
+{{/*
+  Note on `capabilities.drop: [ALL]` for the privileged containers below.
+
+  It has no effect at runtime. containerd builds the OCI spec by applying the CRI
+  security context first and `oci.WithPrivileged` afterwards; the latter composes
+  `WithAllCurrentCapabilities`, which overwrites bounding/effective/permitted sets with
+  the full capability set. A privileged container therefore always keeps every
+  capability, no matter what `add`/`drop` say.
+
+  It is set only to satisfy the Deckhouse security policy validation, which expects the
+  field to be present. Dropping the capabilities for real requires `privileged: false`
+  plus an explicit list of the capabilities, devices and mounts virt-handler needs.
+*/}}
 {{- define "kubevirt.virt_handler_security_contexts_strategic_patch" -}}
 spec:
   template:
@@ -212,12 +225,22 @@ spec:
           allowPrivilegeEscalation: true
           runAsUser: 0
           runAsGroup: 0
+          # No-op under `privileged: true`, required by the Deckhouse security policy.
+          capabilities:
+            drop:
+              - ALL
           seLinuxOptions:
             level: s0
       - name: virt-launcher-image-holder
         securityContext:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
+          # The container only holds the virt-launcher image on the node, so it needs no
+          # privileges at all. Values are explicit because the security policy rejects an
+          # unset runAsUser/runAsNonRoot pair.
+          runAsUser: 64535
+          runAsGroup: 64535
+          runAsNonRoot: true
           capabilities:
             drop:
               - ALL
@@ -231,6 +254,10 @@ spec:
           allowPrivilegeEscalation: true
           runAsUser: 0
           runAsGroup: 0
+          # No-op under `privileged: true`, required by the Deckhouse security policy.
+          capabilities:
+            drop:
+              - ALL
 {{- end -}}
 
 
