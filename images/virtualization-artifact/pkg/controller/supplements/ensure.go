@@ -72,8 +72,8 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 		imgPull := supGen.ImagePullSecret()
 		imgPullCopier := copier.Secret{
 			Source: types.NamespacedName{
-				Namespace: ds.GetContainerImage().ImagePullSecret.Name,
-				Name:      ds.GetContainerImage().ImagePullSecret.Namespace,
+				Name:      ds.GetContainerImage().ImagePullSecret.Name,
+				Namespace: ds.GetContainerImage().ImagePullSecret.Namespace,
 			},
 			Destination:    imgPull,
 			OwnerReference: podutil.MakeOwnerReference(pod),

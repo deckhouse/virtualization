@@ -18,6 +18,7 @@ package copier
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -56,6 +57,12 @@ func (s Secret) Copy(ctx context.Context, client client.Client) error {
 	srcObj, err := object.FetchObject(ctx, s.Source, client, &corev1.Secret{})
 	if err != nil {
 		return err
+	}
+	// A missing source is a user error (e.g. a Secret referenced by
+	// imagePullSecret was never created), so report it instead of dereferencing
+	// the nil the fetch returns for a NotFound.
+	if srcObj == nil {
+		return fmt.Errorf("the Secret %s/%s not found", s.Source.Namespace, s.Source.Name)
 	}
 
 	_, err = s.Create(ctx, client, srcObj.Data, srcObj.Type)
