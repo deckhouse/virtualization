@@ -71,3 +71,32 @@ func SnapshotterAnnotationsImmutable(oldObj, newObj metav1.Object) error {
 
 	return nil
 }
+
+// ImportModeRequiresUnifiedSnapshotter rejects an import that nothing would ever materialize.
+//
+// spec.mode: Import means the snapshot's content arrives through the manifests-and-children-refs-upload
+// subresource and is assembled by the state-snapshotter core. The built-in Secret-based mechanism has no
+// part in that: pinned to it, or in a cluster where the core is not installed at all, an import-mode
+// object would sit there while `d8 snapshot restore` waited on a bind that never comes. Refusing it at
+// admission turns that silent wait into an answer at the moment the object is created.
+func ImportModeRequiresUnifiedSnapshotter(obj metav1.Object, mode v1alpha2.UnifiedSnapshotterMode, present bool) error {
+	if mode != v1alpha2.UnifiedSnapshotterModeImport {
+		return nil
+	}
+
+	if _, builtIn := obj.GetAnnotations()[v1alpha2.AnnUseBuiltInSnapshotter]; builtIn {
+		return fmt.Errorf(
+			"spec.mode: %s cannot be combined with the %s annotation: an import is assembled by the state-snapshotter module, which the built-in mechanism has no part in",
+			v1alpha2.UnifiedSnapshotterModeImport, v1alpha2.AnnUseBuiltInSnapshotter,
+		)
+	}
+
+	if !present {
+		return fmt.Errorf(
+			"spec.mode: %s requires the state-snapshotter module, which is not installed in this cluster",
+			v1alpha2.UnifiedSnapshotterModeImport,
+		)
+	}
+
+	return nil
+}

@@ -26,6 +26,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	snapshotrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/snapshot/rest"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/nodeapi"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/restore"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -36,6 +37,8 @@ import (
 type VirtualMachineSnapshotStorage struct {
 	virtCli   kubeclient.Client
 	manifests *snapshotrest.ManifestsWithDataRestorationREST
+	download  *snapshotrest.ManifestsDownloadREST
+	upload    *snapshotrest.ManifestsAndChildrenRefsUploadREST
 }
 
 var (
@@ -46,15 +49,25 @@ var (
 	_ rest.SingularNameProvider = &VirtualMachineSnapshotStorage{}
 )
 
-func NewVirtualMachineSnapshotStorage(virtCli kubeclient.Client, compiler *restore.Compiler) *VirtualMachineSnapshotStorage {
+func NewVirtualMachineSnapshotStorage(virtCli kubeclient.Client, compiler *restore.Compiler, nodes *nodeapi.Service) *VirtualMachineSnapshotStorage {
 	return &VirtualMachineSnapshotStorage{
 		virtCli:   virtCli,
 		manifests: snapshotrest.NewManifestsWithDataRestorationREST(v1alpha2.VirtualMachineSnapshotResource, compiler),
+		download:  snapshotrest.NewManifestsDownloadREST(v1alpha2.VirtualMachineSnapshotResource, nodes),
+		upload:    snapshotrest.NewManifestsAndChildrenRefsUploadREST(v1alpha2.VirtualMachineSnapshotResource, nodes),
 	}
 }
 
 func (store VirtualMachineSnapshotStorage) ManifestsWithDataRestorationREST() *snapshotrest.ManifestsWithDataRestorationREST {
 	return store.manifests
+}
+
+func (store VirtualMachineSnapshotStorage) ManifestsDownloadREST() *snapshotrest.ManifestsDownloadREST {
+	return store.download
+}
+
+func (store VirtualMachineSnapshotStorage) ManifestsAndChildrenRefsUploadREST() *snapshotrest.ManifestsAndChildrenRefsUploadREST {
+	return store.upload
 }
 
 func (store VirtualMachineSnapshotStorage) New() runtime.Object {
@@ -100,6 +113,8 @@ func (store VirtualMachineSnapshotStorage) Get(ctx context.Context, name string,
 type VirtualDiskSnapshotStorage struct {
 	virtCli   kubeclient.Client
 	manifests *snapshotrest.ManifestsWithDataRestorationREST
+	download  *snapshotrest.ManifestsDownloadREST
+	upload    *snapshotrest.ManifestsAndChildrenRefsUploadREST
 }
 
 var (
@@ -110,15 +125,25 @@ var (
 	_ rest.SingularNameProvider = &VirtualDiskSnapshotStorage{}
 )
 
-func NewVirtualDiskSnapshotStorage(virtCli kubeclient.Client, compiler *restore.Compiler) *VirtualDiskSnapshotStorage {
+func NewVirtualDiskSnapshotStorage(virtCli kubeclient.Client, compiler *restore.Compiler, nodes *nodeapi.Service) *VirtualDiskSnapshotStorage {
 	return &VirtualDiskSnapshotStorage{
 		virtCli:   virtCli,
 		manifests: snapshotrest.NewManifestsWithDataRestorationREST(v1alpha2.VirtualDiskSnapshotResource, compiler),
+		download:  snapshotrest.NewManifestsDownloadREST(v1alpha2.VirtualDiskSnapshotResource, nodes),
+		upload:    snapshotrest.NewManifestsAndChildrenRefsUploadREST(v1alpha2.VirtualDiskSnapshotResource, nodes),
 	}
 }
 
 func (store VirtualDiskSnapshotStorage) ManifestsWithDataRestorationREST() *snapshotrest.ManifestsWithDataRestorationREST {
 	return store.manifests
+}
+
+func (store VirtualDiskSnapshotStorage) ManifestsDownloadREST() *snapshotrest.ManifestsDownloadREST {
+	return store.download
+}
+
+func (store VirtualDiskSnapshotStorage) ManifestsAndChildrenRefsUploadREST() *snapshotrest.ManifestsAndChildrenRefsUploadREST {
+	return store.upload
 }
 
 func (store VirtualDiskSnapshotStorage) New() runtime.Object {

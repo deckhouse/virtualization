@@ -236,3 +236,22 @@ type SnapshotManifestsWithDataRestoration struct {
 	// foreign namespace ride along behind an acceptable one.
 	TargetNamespace []string `json:"targetNamespace,omitempty"`
 }
+
+// SnapshotManifestsDownload carries the (empty) query parameters of the manifests-download subresource.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type SnapshotManifestsDownload struct {
+	metav1.TypeMeta `json:",inline"`
+}
+
+// SnapshotManifestsAndChildrenRefsUpload carries the (empty) query parameters of the
+// manifests-and-children-refs-upload subresource. Its payload travels in the request body, not the query.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type SnapshotManifestsAndChildrenRefsUpload struct {
+	metav1.TypeMeta `json:",inline"`
+}

@@ -861,3 +861,109 @@ func TestReconcile_UnconfirmedFreezeFailsTheCapture(t *testing.T) {
 		})
 	}
 }
+
+// An import-mode snapshot has no capture to drive, so this controller must not start one: no finalizer,
+// no source lookup, no planning. All it does is report what the core has got to.
+func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
+	tests := []struct {
+		name      string
+		bound     string
+		ready     bool
+		wantPhase v1alpha2.VirtualMachineSnapshotPhase
+	}{
+		{
+			name:      "not bound yet",
+			wantPhase: v1alpha2.VirtualMachineSnapshotPhasePending,
+		},
+		{
+			name:      "bound, being assembled",
+			bound:     "content-1",
+			wantPhase: v1alpha2.VirtualMachineSnapshotPhaseInProgress,
+		},
+		{
+			name:      "the core says the content is ready",
+			bound:     "content-1",
+			ready:     true,
+			wantPhase: v1alpha2.VirtualMachineSnapshotPhaseReady,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vms := &v1alpha2.VirtualMachineSnapshot{
+				ObjectMeta: metav1.ObjectMeta{Name: "vms1", Namespace: testNamespace},
+				Spec:       v1alpha2.VirtualMachineSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
+				Status:     v1alpha2.VirtualMachineSnapshotStatus{BoundSnapshotContentName: tt.bound},
+			}
+			if tt.ready {
+				vms.Status.Conditions = []metav1.Condition{{
+					Type:   v1alpha2.UnifiedSnapshotterConditionReady,
+					Status: metav1.ConditionTrue,
+					Reason: "Imported",
+				}}
+			}
+			r := newFullTestReconciler(t, vms)
+
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{
+				NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			got := getVMS(t, r.Client)
+			if got.Status.Phase != tt.wantPhase {
+				t.Errorf("phase = %q, want %q", got.Status.Phase, tt.wantPhase)
+			}
+			if len(got.Finalizers) != 0 {
+				t.Errorf("finalizers = %v; an import freezes nothing, so it needs no cleanup finalizer", got.Finalizers)
+			}
+			// Consistency is a fact about the capture the archive came from, which this controller
+			// cannot read. Claiming either answer would misdescribe it.
+			if got.Status.Consistent != nil {
+				t.Errorf("consistent = %v, want it left unset on an import", *got.Status.Consistent)
+			}
+			if got.Status.CaptureState != nil {
+				t.Errorf("captureState = %+v; an import must not enter the capture state machine", got.Status.CaptureState)
+			}
+		})
+	}
+}
+
+// The upload subresource is what records an import's children, and the phase mirror must republish them
+// under the name users read (status.virtualDiskSnapshotNames) just as a capture does.
+//
+// The upload lands while the phase is already InProgress and does not move it, so this starts from
+// exactly that state: a reconcile that compared only the phase would return early and publish nothing.
+func TestReconcile_ImportModeRepublishesTheUploadedChildren(t *testing.T) {
+	vms := &v1alpha2.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "vms1", Namespace: testNamespace},
+		Spec:       v1alpha2.VirtualMachineSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
+		Status: v1alpha2.VirtualMachineSnapshotStatus{
+			Phase:                    v1alpha2.VirtualMachineSnapshotPhaseInProgress,
+			BoundSnapshotContentName: "content-1",
+			ChildrenSnapshotRefs: []v1alpha2.UnifiedSnapshotterChildRef{
+				{APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualDiskSnapshotKind, Name: "vds-b"},
+				{APIVersion: v1alpha2.SchemeGroupVersion.String(), Kind: v1alpha2.VirtualDiskSnapshotKind, Name: "vds-a"},
+			},
+		},
+	}
+	r := newFullTestReconciler(t, vms)
+
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got := getVMS(t, r.Client)
+	want := []string{"vds-a", "vds-b"}
+	if len(got.Status.VirtualDiskSnapshotNames) != len(want) {
+		t.Fatalf("virtualDiskSnapshotNames = %v, want %v", got.Status.VirtualDiskSnapshotNames, want)
+	}
+	for i := range want {
+		if got.Status.VirtualDiskSnapshotNames[i] != want[i] {
+			t.Errorf("virtualDiskSnapshotNames = %v, want %v", got.Status.VirtualDiskSnapshotNames, want)
+			break
+		}
+	}
+}

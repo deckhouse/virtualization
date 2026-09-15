@@ -72,6 +72,20 @@ spec:
                     - Always
                     - Never
                   type: string
+                mode:
+                  default: Capture
+                  description: |-
+                    Mode selects the source for the snapshot:
+
+                    * `Capture` (default): the snapshot is taken from the live virtual machine named by
+                      `virtualMachineName` or addressed by `sourceRef`.
+                    * `Import`: the snapshot is reconstructed from an archive, uploaded through the
+                      `manifests-and-children-refs-upload` subresource. Not handy for direct usage,
+                      in most cases you may prefer to upload archives via `d8 snapshot upload` command.
+                  enum:
+                    - Capture
+                    - Import
+                  type: string
                 requiredConsistency:
                   default: true
                   description: |-
@@ -116,9 +130,18 @@ spec:
               type: object
               x-kubernetes-validations:
                 - message:
+                    "spec.mode: Import reconstructs the snapshot from an uploaded
+                    archive and captures nothing, so spec.virtualMachineName and spec.sourceRef
+                    must both be unset"
+                  rule:
+                    "!has(self.mode) || self.mode != 'Import' || (!has(self.virtualMachineName)
+                    && !has(self.sourceRef))"
+                - message:
                     exactly one of spec.virtualMachineName or spec.sourceRef must
-                    be set
-                  rule: has(self.virtualMachineName) != has(self.sourceRef)
+                    be set when spec.mode is Capture
+                  rule:
+                    (has(self.mode) && self.mode == 'Import') || (has(self.virtualMachineName)
+                    != has(self.sourceRef))
                 - message: spec.sourceRef must reference a VirtualMachine of virtualization.deckhouse.io/v1alpha2
                   rule:
                     "!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualMachine'

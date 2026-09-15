@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/rest"
 
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/content"
 )
@@ -34,12 +33,10 @@ type contentFetcher struct {
 
 var _ NodeManifestFetcher = &contentFetcher{}
 
-func NewContentFetcher(cfg *rest.Config) (NodeManifestFetcher, error) {
-	c, err := content.NewClient(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return &contentFetcher{client: c}, nil
+// NewContentFetcher adapts an already-built content client, so the apiserver keeps one transport to the
+// core rather than one per subresource.
+func NewContentFetcher(client *content.Client) NodeManifestFetcher {
+	return &contentFetcher{client: client}
 }
 
 func (f *contentFetcher) NodeBaseManifests(ctx context.Context, contentName string) ([]unstructured.Unstructured, error) {

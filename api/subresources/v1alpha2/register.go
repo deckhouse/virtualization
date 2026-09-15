@@ -67,6 +67,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineSnapshot{},
 		&VirtualDiskSnapshot{},
 		&SnapshotManifestsWithDataRestoration{},
+		&SnapshotManifestsDownload{},
+		&SnapshotManifestsAndChildrenRefsUpload{},
 	)
 	return nil
 }

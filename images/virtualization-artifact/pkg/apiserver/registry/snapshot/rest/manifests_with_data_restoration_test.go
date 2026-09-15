@@ -24,18 +24,19 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/nodeapi"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/restore"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestAPIError_StatusCodes(t *testing.T) {
 	gr := schema.GroupResource{Group: "virtualization.deckhouse.io", Resource: v1alpha2.VirtualMachineSnapshotResource}
-	r := NewManifestsWithDataRestorationREST(v1alpha2.VirtualMachineSnapshotResource, nil)
 
 	tests := []struct {
-		name string
-		err  error
-		want int32
+		name       string
+		err        error
+		want       int32
+		wantReason string
 	}{
 		{
 			name: "not-ready node is retryable",
@@ -52,16 +53,31 @@ func TestAPIError_StatusCodes(t *testing.T) {
 			err:  fmt.Errorf("boom"),
 			want: http.StatusInternalServerError,
 		},
+		// The bind-first 409 must keep the reason `d8 snapshot` retries on, so it cannot be mapped
+		// through a canonical Kubernetes reason on the way out.
+		{
+			name: "a service rejection keeps its own code",
+			err: fmt.Errorf("wrapped: %w", &nodeapi.StatusError{
+				Code:    http.StatusConflict,
+				Reason:  nodeapi.ReasonImportContentNotBound,
+				Message: "waiting for the binder",
+			}),
+			want:       http.StatusConflict,
+			wantReason: nodeapi.ReasonImportContentNotBound,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := r.apiError("vms", tt.err)
+			got := apiError(v1alpha2.VirtualMachineSnapshotResource, "vms", tt.err)
 			var statusErr k8serrors.APIStatus
 			if !errorAs(got, &statusErr) {
 				t.Fatalf("apiError returned %T, want an APIStatus error", got)
 			}
 			if code := statusErr.Status().Code; code != tt.want {
 				t.Errorf("code = %d, want %d (message: %s)", code, tt.want, statusErr.Status().Message)
+			}
+			if tt.wantReason != "" && string(statusErr.Status().Reason) != tt.wantReason {
+				t.Errorf("reason = %q, want %q", statusErr.Status().Reason, tt.wantReason)
 			}
 		})
 	}

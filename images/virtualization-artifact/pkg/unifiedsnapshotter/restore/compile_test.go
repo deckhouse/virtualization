@@ -21,11 +21,13 @@ import (
 	"errors"
 	"testing"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	storagev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -79,7 +81,61 @@ func newCompiler(t *testing.T, manifests NodeManifestFetcher, objs ...apiruntime
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatalf("add v1alpha2 to scheme: %v", err)
 	}
+	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add state-snapshotter storage/v1alpha1 to scheme: %v", err)
+	}
+	objs = append(objs, boundContentsFor(objs)...)
 	return NewCompiler(fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(), manifests)
+}
+
+// boundContentsFor synthesizes the SnapshotContent each supplied snapshot claims to be bound to, with a
+// spec.snapshotRef that points back at it — the shape the core's binder produces, and the only one the
+// compiler accepts. Tests that need the handshake to fail build the content themselves and pass it in;
+// one already present for a given name is left alone.
+func boundContentsFor(objs []apiruntime.Object) []apiruntime.Object {
+	existing := make(map[string]struct{})
+	for _, o := range objs {
+		if content, ok := o.(*storagev1alpha1.SnapshotContent); ok {
+			existing[content.Name] = struct{}{}
+		}
+	}
+
+	var out []apiruntime.Object
+	for _, o := range objs {
+		var name, kind, namespace, contentName string
+		switch snapshot := o.(type) {
+		case *v1alpha2.VirtualMachineSnapshot:
+			name, kind, namespace, contentName = snapshot.Name, v1alpha2.VirtualMachineSnapshotKind, snapshot.Namespace, snapshot.Status.BoundSnapshotContentName
+		case *v1alpha2.VirtualDiskSnapshot:
+			name, kind, namespace, contentName = snapshot.Name, v1alpha2.VirtualDiskSnapshotKind, snapshot.Namespace, snapshot.Status.BoundSnapshotContentName
+		default:
+			continue
+		}
+		if contentName == "" {
+			continue
+		}
+		if _, ok := existing[contentName]; ok {
+			continue
+		}
+		existing[contentName] = struct{}{}
+		out = append(out, boundContent(contentName, kind, namespace, name))
+	}
+	return out
+}
+
+// boundContent builds a SnapshotContent whose spec.snapshotRef names the given snapshot.
+func boundContent(contentName, kind, namespace, name string) *storagev1alpha1.SnapshotContent {
+	return &storagev1alpha1.SnapshotContent{
+		ObjectMeta: metav1.ObjectMeta{Name: contentName},
+		Spec: storagev1alpha1.SnapshotContentSpec{
+			SnapshotRef: &storagev1alpha1.SnapshotSubjectRef{
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
+				Kind:       kind,
+				Namespace:  namespace,
+				Name:       name,
+			},
+		},
+	}
 }
 
 func vmSnapshot(children ...string) *v1alpha2.VirtualMachineSnapshot {
@@ -188,5 +244,46 @@ func TestCompileSubtree_UnsupportedResource(t *testing.T) {
 
 	if _, err := c.CompileSubtree(context.Background(), "virtualmachines", testNamespace, "vm"); err == nil {
 		t.Fatal("expected an error for a resource that is not a snapshot kind")
+	}
+}
+
+// A content a snapshot names but that does not name it back is refused, permanently: without this a
+// tenant who can write status.boundSnapshotContentName could have restore compile from another
+// namespace's captured manifests.
+func TestCompileVirtualMachineSnapshot_RefusesAContentThatDoesNotPointBack(t *testing.T) {
+	manifests := &fakeManifests{byContent: map[string][]unstructured.Unstructured{
+		vmsContent: {obj(v1alpha2.VirtualMachineKind, "vm")},
+	}}
+	c := newCompiler(t, manifests,
+		vmSnapshot(),
+		// Same content name, but bound to a snapshot in another namespace.
+		boundContent(vmsContent, v1alpha2.VirtualMachineSnapshotKind, "other-ns", "vms"),
+	)
+
+	_, err := c.CompileVirtualMachineSnapshot(context.Background(), testNamespace, "vms")
+	if !apierrors.IsForbidden(err) {
+		t.Fatalf("err = %v, want a Forbidden error", err)
+	}
+	if len(manifests.fetched) != 0 {
+		t.Errorf("fetched %v; a refused handshake must not read any manifests", manifests.fetched)
+	}
+}
+
+// A snapshot whose content is missing altogether is an error, not an empty compile.
+func TestCompileVirtualMachineSnapshot_RefusesAMissingContent(t *testing.T) {
+	manifests := &fakeManifests{byContent: map[string][]unstructured.Unstructured{}}
+	vms := vmSnapshot()
+	scheme := apiruntime.NewScheme()
+	if err := v1alpha2.AddToScheme(scheme); err != nil {
+		t.Fatalf("add v1alpha2 to scheme: %v", err)
+	}
+	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add state-snapshotter storage/v1alpha1 to scheme: %v", err)
+	}
+	// Deliberately built without boundContentsFor: the snapshot names a content that does not exist.
+	c := NewCompiler(fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(vms).Build(), manifests)
+
+	if _, err := c.CompileVirtualMachineSnapshot(context.Background(), testNamespace, "vms"); err == nil {
+		t.Fatal("compile succeeded; a snapshot bound to a content that is gone has nothing to compile from")
 	}
 }

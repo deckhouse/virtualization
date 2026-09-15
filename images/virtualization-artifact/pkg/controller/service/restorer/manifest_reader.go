@@ -27,9 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	ssstoragev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/node"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -51,20 +51,26 @@ type ManifestReader interface {
 	RestoreVirtualMachineBlockDeviceAttachments(ctx context.Context) ([]*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
 }
 
-// IsUnifiedCapture reports whether vmSnapshot was captured by the unified-snapshotter SDK controllers
+// IsUnifiedCapture reports whether vmSnapshot's content was produced by the state-snapshotter core
 // rather than by the built-in Secret-based mechanism, and so which of the two ManifestReader
 // implementations can read it back.
+//
+// status.captureState answers that for a capture, and spec.mode answers it for an import. The two are
+// both needed and neither is redundant: an import is materialized from an uploaded payload and never
+// enters the capture state machine, so captureState stays nil on it forever — read alone it would send
+// every imported snapshot down the built-in path, looking for a snapshot Secret that no import creates.
 func IsUnifiedCapture(vmSnapshot *v1alpha2.VirtualMachineSnapshot) bool {
-	return vmSnapshot != nil && vmSnapshot.Status.CaptureState != nil
+	return vmSnapshot != nil && (vmSnapshot.Status.CaptureState != nil || vmSnapshot.IsImport())
 }
 
 // IsUnifiedDiskCapture is IsUnifiedCapture for a VirtualDiskSnapshot: same discriminator, same reason.
 //
 // A unified capture leaves no bound CSI VolumeSnapshot to restore from — the data is referenced by
 // status.data.artifactRef instead — so every restore path that would reach for status.volumeSnapshotName
-// has to branch on this first.
+// has to branch on this first. That is exactly the path `d8 snapshot restore` puts an import on: the
+// manifests it applies point each VirtualDisk at its own VirtualDiskSnapshot.
 func IsUnifiedDiskCapture(vdSnapshot *v1alpha2.VirtualDiskSnapshot) bool {
-	return vdSnapshot != nil && vdSnapshot.Status.CaptureState != nil
+	return vdSnapshot != nil && (vdSnapshot.Status.CaptureState != nil || vdSnapshot.IsImport())
 }
 
 // NewManifestReader resolves the right ManifestReader for vmSnapshot: the unified-snapshotter SDK's
@@ -121,44 +127,41 @@ func (s snapshotSubject) String() string {
 // verifySnapshotContentBackRef is the anti-spoofing handshake for reading a SnapshotContent addressed by
 // a status.boundSnapshotContentName: the content's spec.snapshotRef must point back at the very resource
 // that named it.
+//
+// The rule itself lives in one place (node.ResolveBoundContent), shared with the three aggregated
+// subresources that read and write the same contents. It must: a second implementation that compared one
+// field fewer would be a way to read another namespace's captured manifests, and the two would drift
+// apart the first time either was edited. Only the wording is this package's own, because these messages
+// end up in a VirtualDisk or VirtualMachineOperation condition a user reads.
 func verifySnapshotContentBackRef(ctx context.Context, c client.Client, contentName string, subject snapshotSubject) error {
-	content := &ssstoragev1alpha1.SnapshotContent{}
-	if err := c.Get(ctx, types.NamespacedName{Name: contentName}, content); err != nil {
-		if apierrors.IsNotFound(err) {
-			return fmt.Errorf(
-				"SnapshotContent %q named by %s status.boundSnapshotContentName does not exist: its captured manifests are gone and the snapshot can no longer be restored",
-				contentName, subject,
-			)
-		}
+	_, err := node.ResolveBoundContent(ctx, c, node.Node{
+		APIVersion:  v1alpha2.SchemeGroupVersion.String(),
+		Kind:        subject.kind,
+		Namespace:   subject.namespace,
+		Name:        subject.name,
+		UID:         subject.uid,
+		ContentName: contentName,
+	})
+	switch {
+	case err == nil:
+		return nil
+	case apierrors.IsNotFound(err):
+		return fmt.Errorf(
+			"SnapshotContent %q named by %s status.boundSnapshotContentName does not exist: its captured manifests are gone and the snapshot can no longer be restored",
+			contentName, subject,
+		)
+	case apierrors.IsForbidden(err):
+		return fmt.Errorf("%s cannot restore from SnapshotContent %q: %w", subject, contentName, err)
+	default:
 		return fmt.Errorf("get SnapshotContent %q bound to %s: %w", contentName, subject, err)
 	}
-
-	ref := content.Spec.SnapshotRef
-	if ref == nil {
-		return fmt.Errorf("SnapshotContent %q has no spec.snapshotRef back-reference to %s", contentName, subject)
-	}
-
-	wantAPIVersion := v1alpha2.SchemeGroupVersion.String()
-	if ref.APIVersion != wantAPIVersion || ref.Kind != subject.kind || ref.Namespace != subject.namespace || ref.Name != subject.name {
-		return fmt.Errorf(
-			"SnapshotContent %q spec.snapshotRef (apiVersion=%q kind=%q %s/%s) does not point back at %s",
-			contentName, ref.APIVersion, ref.Kind, ref.Namespace, ref.Name, subject,
-		)
-	}
-	if ref.UID != "" && subject.uid != "" && ref.UID != subject.uid {
-		return fmt.Errorf(
-			"SnapshotContent %q spec.snapshotRef.uid %q does not match %s uid %q",
-			contentName, ref.UID, subject, subject.uid,
-		)
-	}
-	return nil
 }
 
 // CapturedVirtualDisk returns the VirtualDisk manifest captured under vdSnapshot's own bound
 // SnapshotContent, or (nil, nil) when vdSnapshot was captured by the built-in mechanism and has no such
 // content.
 func CapturedVirtualDisk(ctx context.Context, c client.Client, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDisk, error) {
-	if vdSnapshot == nil || vdSnapshot.Status.CaptureState == nil {
+	if !IsUnifiedDiskCapture(vdSnapshot) {
 		return nil, nil
 	}
 	if vdSnapshot.Status.BoundSnapshotContentName == "" {

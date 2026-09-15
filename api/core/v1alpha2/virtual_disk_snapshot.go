@@ -44,12 +44,42 @@ type VirtualDiskSnapshotList struct {
 	Items           []VirtualDiskSnapshot `json:"items"`
 }
 
-// +kubebuilder:validation:XValidation:rule="has(self.virtualDiskName) != has(self.sourceRef)",message="exactly one of spec.virtualDiskName or spec.sourceRef must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.mode) || self.mode != 'Import' || (!has(self.virtualDiskName) && !has(self.sourceRef))",message="spec.mode: Import reconstructs the snapshot from an uploaded archive and captures nothing, so spec.virtualDiskName and spec.sourceRef must both be unset"
+// +kubebuilder:validation:XValidation:rule="(has(self.mode) && self.mode == 'Import') || (has(self.virtualDiskName) != has(self.sourceRef))",message="exactly one of spec.virtualDiskName or spec.sourceRef must be set when spec.mode is Capture"
 // +kubebuilder:validation:XValidation:rule="!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualDisk' && self.sourceRef.apiVersion == 'virtualization.deckhouse.io/v1alpha2')",message="spec.sourceRef must reference a VirtualDisk of virtualization.deckhouse.io/v1alpha2"
 type VirtualDiskSnapshotSpec struct {
-	VirtualDiskName     string                           `json:"virtualDiskName,omitempty"`
-	SourceRef           *UnifiedSnapshotterSpecSourceRef `json:"sourceRef,omitempty"`
-	RequiredConsistency bool                             `json:"requiredConsistency"`
+	// Mode selects the source for the snapshot:
+	//
+	// * `Capture` (default): the snapshot is taken from the live virtual disk named by
+	//   `virtualDiskName` or addressed by `sourceRef`.
+	// * `Import`: the snapshot is reconstructed from an archive, uploaded through the
+	//   `manifests-and-children-refs-upload` subresource. Not handy for direct usage,
+	//   in most cases you may prefer to upload archives via `d8 snapshot upload` command.
+	//
+	// +kubebuilder:default:="Capture"
+	// +optional
+	Mode UnifiedSnapshotterMode `json:"mode,omitempty"`
+	// Virtual disk name the snapshot is created for.
+	// Mutually exclusive with `sourceRef`.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	VirtualDiskName string `json:"virtualDiskName,omitempty"`
+	// Reference to the virtual disk to take a snapshot of.
+	//
+	// Mutually exclusive with `virtualDiskName`.
+	//
+	// +optional
+	SourceRef *UnifiedSnapshotterSpecSourceRef `json:"sourceRef,omitempty"`
+	// Create a snapshot of a connected virtual machine's disk only if it is possible to freeze the machine through the agent.
+	//
+	// If set to `true`, a virtual disk snapshot will be created when at least one of the following conditions is met:
+	// - The virtual disk is not connected to any virtual machine.
+	// - The virtual disk is connected to a powered-off virtual machine.
+	// - The virtual disk is connected to a virtual machine with an agent, and the freeze operation was successful.
+	//
+	// +kubebuilder:default:=true
+	RequiredConsistency bool `json:"requiredConsistency"`
 }
 
 type VirtualDiskSnapshotStatus struct {

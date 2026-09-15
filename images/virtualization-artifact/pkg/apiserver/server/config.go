@@ -28,9 +28,12 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/content"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/nodeapi"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/restore"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -102,7 +105,7 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
-	restoreCompiler, err := newRestoreCompiler(c.Rest)
+	snapshots, err := newSnapshotServices(c.Rest)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +116,8 @@ func (c Config) Complete() (*Server, error) {
 		proxyCertManager,
 		virtCli,
 		recorder,
-		restoreCompiler,
+		snapshots.compiler,
+		snapshots.nodes,
 	)
 	if err != nil {
 		return nil, err
@@ -126,21 +130,44 @@ func (c Config) Complete() (*Server, error) {
 	), nil
 }
 
-// newRestoreCompiler builds the compiler behind the manifests-with-data-restoration subresource.
-func newRestoreCompiler(cfg *rest.Config) (*restore.Compiler, error) {
+// snapshotServices holds what the three per-node snapshot subresources run on.
+type snapshotServices struct {
+	// compiler backs manifests-with-data-restoration.
+	compiler *restore.Compiler
+	// nodes backs manifests-download and manifests-and-children-refs-upload.
+	nodes *nodeapi.Service
+}
+
+// newSnapshotServices builds them over a single client and a single transport to the core.
+//
+// The client is deliberately uncached: every one of these endpoints decides from a snapshot's status
+// whether to read captured manifests, or to write into them, and a cached read could answer from before
+// the binder or before a mode was settled. It also carries the state-snapshotter scheme, because none of
+// the three trusts a status.boundSnapshotContentName on its own — the SnapshotContent it names has to
+// point back at the snapshot that named it, and that check needs to read the content itself.
+func newSnapshotServices(cfg *rest.Config) (*snapshotServices, error) {
 	scheme := runtime.NewScheme()
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
-	reader, err := ctrlclient.New(cfg, ctrlclient.Options{Scheme: scheme})
-	if err != nil {
-		return nil, fmt.Errorf("build snapshot reader client: %w", err)
+	if err := storagev1alpha1.AddToScheme(scheme); err != nil {
+		return nil, err
 	}
-	fetcher, err := restore.NewContentFetcher(cfg)
+
+	cli, err := ctrlclient.New(cfg, ctrlclient.Options{Scheme: scheme})
+	if err != nil {
+		return nil, fmt.Errorf("build snapshot client: %w", err)
+	}
+
+	core, err := content.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return restore.NewCompiler(reader, fetcher), nil
+
+	return &snapshotServices{
+		compiler: restore.NewCompiler(cli, restore.NewContentFetcher(core)),
+		nodes:    nodeapi.NewService(cli, cli, core),
+	}, nil
 }
 
 // newEventRecorder builds a recorder that reports events on virtual machines. The broadcaster

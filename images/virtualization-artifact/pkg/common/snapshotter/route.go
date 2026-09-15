@@ -58,11 +58,18 @@ func UseUnified(obj metav1.Object, unifiedPresent bool) bool {
 
 // UseUnifiedForVirtualMachineSnapshot routes a VirtualMachineSnapshot. It is the root of a snapshot
 // tree, so there is no parent to inherit from.
+//
+// spec.mode: Import outranks everything below it, pins included. An import is materialized from an
+// uploaded payload by the state-snapshotter core. No support from built-in mechanism for this mode.
+// Pinning with "built-in" annotation is useless for mode: Import.
 func UseUnifiedForVirtualMachineSnapshot(vms *v1alpha2.VirtualMachineSnapshot, unifiedPresent bool) bool {
 	if vms == nil {
 		return unifiedPresent
 	}
 
+	if vms.IsImport() {
+		return true
+	}
 	if pinned, ok := pinnedMechanism(vms); ok {
 		return pinned
 	}
@@ -73,7 +80,8 @@ func UseUnifiedForVirtualMachineSnapshot(vms *v1alpha2.VirtualMachineSnapshot, u
 	return unifiedPresent
 }
 
-// UseUnifiedForVirtualDiskSnapshot routes a VirtualDiskSnapshot.
+// UseUnifiedForVirtualDiskSnapshot routes a VirtualDiskSnapshot. spec.mode: Import outranks everything
+// else here too — see UseUnifiedForVirtualMachineSnapshot.
 //
 // A VirtualDiskSnapshot may be a child of a VirtualMachineSnapshot, and a child must never split from
 // its parent: the two would take a disk twice, through both mechanisms at once. So before falling back
@@ -96,6 +104,9 @@ func UseUnifiedForVirtualDiskSnapshot(ctx context.Context, reader client.Reader,
 		return unifiedPresent, nil
 	}
 
+	if vds.IsImport() {
+		return true, nil
+	}
 	if pinned, ok := pinnedMechanism(vds); ok {
 		return pinned, nil
 	}

@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source/step"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -123,9 +124,15 @@ func validateVirtualDiskSnapshot(ctx context.Context, vi *v1alpha2.VirtualImage,
 		return NewVirtualDiskSnapshotNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	if vdSnapshot.Status.Data != nil {
+	// Both halves of this are refused, and for the same reason: neither a snapshot the state-snapshotter
+	// core captured nor one imported from an archive has a CSI VolumeSnapshot to import an image from —
+	// their data is a VolumeSnapshotContent reached through status.data. Resolved through the shared
+	// discriminator rather than off status.data directly, so an import is recognised before that field is
+	// filled and is refused here instead of falling through to the built-in path, where it would report a
+	// VolumeSnapshot missing that was never supposed to exist.
+	if restorer.IsUnifiedDiskCapture(vdSnapshot) {
 		return NewVirtualDiskSnapshotNotSupportedError(vdSnapshot.Name,
-			"it was captured by the unified snapshotter, and importing an image from such a snapshot is not supported yet")
+			"its data is held by the state-snapshotter module, and importing an image from such a snapshot is not supported yet")
 	}
 
 	vs, err := object.FetchObject(ctx, types.NamespacedName{Name: vdSnapshot.Status.VolumeSnapshotName, Namespace: vdSnapshot.Namespace}, client, &vsv1.VolumeSnapshot{})

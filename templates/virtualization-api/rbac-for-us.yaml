@@ -75,12 +75,35 @@ rules:
   - virtualdisksnapshots
   verbs:
   - get
+# The manifests-and-children-refs-upload subresource records the uploaded node's direct children on the
+# addressed snapshot's own status.
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachinesnapshots/status
+  - virtualdisksnapshots/status
+  verbs:
+  - patch
+# Read-only, and only to check that the SnapshotContent a snapshot's status names points back at that
+# snapshot before its manifests are read or written through.
+- apiGroups:
+  - state-snapshotter.deckhouse.io
+  resources:
+  - snapshotcontents
+  verbs:
+  - get
 - apiGroups:
   - subresources.state-snapshotter.deckhouse.io
   resources:
   - snapshotcontents/manifests-download
   verbs:
   - get
+- apiGroups:
+  - subresources.state-snapshotter.deckhouse.io
+  resources:
+  - snapshotcontents/manifests-upload
+  verbs:
+  - create
 - apiGroups:
   - kubevirt.io
   resources:

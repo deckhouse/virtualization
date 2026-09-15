@@ -19,7 +19,6 @@ package rest
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -74,7 +73,7 @@ func (r *ManifestsWithDataRestorationREST) Connect(ctx context.Context, name str
 
 	objs, err := r.compiler.CompileSubtree(ctx, r.resource, namespace, name)
 	if err != nil {
-		return nil, r.apiError(name, err)
+		return nil, apiError(r.resource, name, err)
 	}
 	if objs == nil {
 		// Never emit "null": the core unmarshals the body into a slice.
@@ -85,17 +84,6 @@ func (r *ManifestsWithDataRestorationREST) Connect(ctx context.Context, name str
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(objs)
 	}), nil
-}
-
-func (r *ManifestsWithDataRestorationREST) apiError(name string, err error) error {
-	if errors.Is(err, restore.ErrSnapshotNotReady) {
-		return k8serrors.NewConflict(subresources.Resource(r.resource), name, err)
-	}
-	var statusErr *k8serrors.StatusError
-	if errors.As(err, &statusErr) {
-		return statusErr
-	}
-	return k8serrors.NewInternalError(err)
 }
 
 // rejectForeignTargetNamespace refuses a request naming a target namespace other than the one the

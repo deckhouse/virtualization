@@ -35,13 +35,38 @@ spec:
             spec:
               type: object
               x-kubernetes-validations:
-                - rule: has(self.virtualDiskName) != has(self.sourceRef)
-                  message: exactly one of spec.virtualDiskName or spec.sourceRef must be set
+                - rule:
+                    "!has(self.mode) || self.mode != 'Import' || (!has(self.virtualDiskName)
+                    && !has(self.sourceRef))"
+                  message:
+                    "spec.mode: Import reconstructs the snapshot from an uploaded archive
+                    and captures nothing, so spec.virtualDiskName and spec.sourceRef must
+                    both be unset"
+                - rule:
+                    (has(self.mode) && self.mode == 'Import') || (has(self.virtualDiskName)
+                    != has(self.sourceRef))
+                  message:
+                    exactly one of spec.virtualDiskName or spec.sourceRef must be set
+                    when spec.mode is Capture
                 - rule:
                     "!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualDisk' &&
                     self.sourceRef.apiVersion == 'virtualization.deckhouse.io/v1alpha2')"
                   message: spec.sourceRef must reference a VirtualDisk of virtualization.deckhouse.io/v1alpha2
               properties:
+                mode:
+                  type: string
+                  enum:
+                    - Capture
+                    - Import
+                  default: Capture
+                  description: |
+                    Mode selects the source for the snapshot:
+
+                    * `Capture` (default): the snapshot is taken from the live virtual disk named by
+                      `virtualDiskName` or addressed by `sourceRef`.
+                    * `Import`: the snapshot is reconstructed from an archive, uploaded through the
+                      `manifests-and-children-refs-upload` subresource. Not handy for direct usage,
+                      in most cases you may prefer to upload archives via `d8 snapshot upload` command.
                 virtualDiskName:
                   type: string
                   minLength: 1

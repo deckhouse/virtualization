@@ -302,3 +302,71 @@ func TestReconcile_MultipleAttachedVirtualMachines(t *testing.T) {
 		})
 	}
 }
+
+// An import-mode snapshot has no disk to capture — spec forbids naming one — so this controller only
+// reports the core's progress. See the vmsnapshot controller test for the shared reasoning.
+func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
+	tests := []struct {
+		name      string
+		bound     string
+		ready     bool
+		wantPhase v1alpha2.VirtualDiskSnapshotPhase
+	}{
+		{
+			name:      "not bound yet",
+			wantPhase: v1alpha2.VirtualDiskSnapshotPhasePending,
+		},
+		{
+			name:      "bound, being assembled",
+			bound:     "content-1",
+			wantPhase: v1alpha2.VirtualDiskSnapshotPhaseInProgress,
+		},
+		{
+			name:      "the core says the content is ready",
+			bound:     "content-1",
+			ready:     true,
+			wantPhase: v1alpha2.VirtualDiskSnapshotPhaseReady,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vds := &v1alpha2.VirtualDiskSnapshot{
+				ObjectMeta: metav1.ObjectMeta{Name: "vds1", Namespace: testNamespace},
+				Spec:       v1alpha2.VirtualDiskSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
+				Status:     v1alpha2.VirtualDiskSnapshotStatus{BoundSnapshotContentName: tt.bound},
+			}
+			if tt.ready {
+				vds.Status.Conditions = []metav1.Condition{{
+					Type:   v1alpha2.UnifiedSnapshotterConditionReady,
+					Status: metav1.ConditionTrue,
+					Reason: "Imported",
+				}}
+			}
+			r := newTestReconciler(t, vds)
+
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{
+				NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vds1"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			got := getVDS(t, r.Client)
+			if got.Status.Phase != tt.wantPhase {
+				t.Errorf("phase = %q, want %q", got.Status.Phase, tt.wantPhase)
+			}
+			if got.Status.Consistent != nil {
+				t.Errorf("consistent = %v, want it left unset on an import", *got.Status.Consistent)
+			}
+			if got.Status.CaptureState != nil {
+				t.Errorf("captureState = %+v; an import must not enter the capture state machine", got.Status.CaptureState)
+			}
+			// These describe the disk as it was at capture time and default a NEW disk cloned from this
+			// snapshot. Nothing reachable from here knows them, and a guess would be read as a fact.
+			if got.Status.StorageClassName != "" || got.Status.PersistentVolumeClaimSize != "" {
+				t.Errorf("storageClassName = %q, persistentVolumeClaimSize = %q; both must stay unset on an import",
+					got.Status.StorageClassName, got.Status.PersistentVolumeClaimSize)
+			}
+		})
+	}
+}

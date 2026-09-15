@@ -46,7 +46,11 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, err
 	}
 
-	return nil, validate.SnapshotterAnnotationsExclusive(vmSnapshot)
+	if err := validate.SnapshotterAnnotationsExclusive(vmSnapshot); err != nil {
+		return nil, err
+	}
+
+	return nil, validate.ImportModeRequiresUnifiedSnapshotter(vmSnapshot, vmSnapshot.Spec.Mode, v.unifiedSnapshotterPresent)
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {

@@ -225,3 +225,57 @@ var _ = Describe("routing a child whose parent is gone", func() {
 		Expect(useUnified).To(BeTrue())
 	})
 })
+
+var _ = Describe("spec.mode: Import", func() {
+	importVMSnapshot := func(annotations ...string) *v1alpha2.VirtualMachineSnapshot {
+		vms := &v1alpha2.VirtualMachineSnapshot{
+			Spec: v1alpha2.VirtualMachineSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
+		}
+		for _, a := range annotations {
+			if vms.Annotations == nil {
+				vms.Annotations = map[string]string{}
+			}
+			vms.Annotations[a] = ""
+		}
+		return vms
+	}
+
+	importVDSnapshot := func(annotations ...string) *v1alpha2.VirtualDiskSnapshot {
+		vds := &v1alpha2.VirtualDiskSnapshot{
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
+		}
+		for _, a := range annotations {
+			if vds.Annotations == nil {
+				vds.Annotations = map[string]string{}
+			}
+			vds.Annotations[a] = ""
+		}
+		return vds
+	}
+
+	It("routes a VirtualMachineSnapshot to the unified mechanism whatever the default is", func() {
+		Expect(UseUnifiedForVirtualMachineSnapshot(importVMSnapshot(), true)).To(BeTrue())
+		Expect(UseUnifiedForVirtualMachineSnapshot(importVMSnapshot(), false)).To(BeTrue())
+	})
+
+	It("routes a VirtualDiskSnapshot to the unified mechanism whatever the default is", func() {
+		Expect(routeDisk(importVDSnapshot(), true)).To(BeTrue())
+		Expect(routeDisk(importVDSnapshot(), false)).To(BeTrue())
+	})
+
+	// Admission refuses this combination, so the requirement here is only that the two controllers agree
+	// and the object is not left to the mechanism that can never materialize it.
+	It("outranks a pin to the built-in mechanism", func() {
+		vms := importVMSnapshot(v1alpha2.AnnUseBuiltInSnapshotter)
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, false)).To(BeTrue())
+
+		Expect(routeDisk(importVDSnapshot(v1alpha2.AnnUseBuiltInSnapshotter), false)).To(BeTrue())
+	})
+
+	// A snapshot in the default Capture mode must be unaffected by any of this.
+	It("leaves a capture-mode snapshot on the existing routing", func() {
+		vms := &v1alpha2.VirtualMachineSnapshot{}
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, false)).To(BeFalse())
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, true)).To(BeTrue())
+	})
+})

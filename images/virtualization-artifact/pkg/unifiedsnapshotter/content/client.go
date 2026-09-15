@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package content is the single transport to the state-snapshotter core's manifests-download subresource.
+// Package content is the single transport to the state-snapshotter core's cluster-scoped SnapshotContent
+// subresources: manifests-download (read) and manifests-upload (write).
 package content
 
 import (
@@ -59,7 +60,12 @@ func (m RawManifest) Is(apiVersion, kind string) bool {
 	return m.APIVersion == apiVersion && m.Kind == kind
 }
 
-func (c *Client) DownloadManifests(ctx context.Context, snapshotContentName string) ([]RawManifest, error) {
+// DownloadManifestsRaw returns the response body of snapshotcontents/<name>/manifests-download exactly
+// as the core sent it: a JSON array of the node's own captured objects, status preserved and namespace
+// made relative. The manifests-download subresource we serve on our own snapshot kinds relays these
+// bytes unchanged, so it must not re-encode them — a round trip through a decoder would reorder keys and
+// drop anything our types do not model.
+func (c *Client) DownloadManifestsRaw(ctx context.Context, snapshotContentName string) ([]byte, error) {
 	data, err := c.restClient.Get().
 		Resource("snapshotcontents").
 		Name(snapshotContentName).
@@ -67,6 +73,14 @@ func (c *Client) DownloadManifests(ctx context.Context, snapshotContentName stri
 		DoRaw(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("download manifests for SnapshotContent %q: %w", snapshotContentName, err)
+	}
+	return data, nil
+}
+
+func (c *Client) DownloadManifests(ctx context.Context, snapshotContentName string) ([]RawManifest, error) {
+	data, err := c.DownloadManifestsRaw(ctx, snapshotContentName)
+	if err != nil {
+		return nil, err
 	}
 
 	var raw []json.RawMessage
@@ -83,4 +97,42 @@ func (c *Client) DownloadManifests(ctx context.Context, snapshotContentName stri
 		manifests = append(manifests, RawManifest{TypeMeta: tm, Raw: r})
 	}
 	return manifests, nil
+}
+
+// manifestsUploadBody is the wire body of snapshotcontents/<name>/manifests-upload. The cluster-scoped
+// content layer takes manifests only: childRefs are an attribute of the namespaced snapshot node and are
+// recorded on that node's own status, never forwarded here.
+type manifestsUploadBody struct {
+	Manifests json.RawMessage `json:"manifests"`
+}
+
+// UploadManifests forwards one node's own manifests to the core's cluster-scoped
+// snapshotcontents/<name>/manifests-upload and returns the core's HTTP status code together with its raw
+// response body, both verbatim.
+//
+// A Kubernetes Status is the core's answer to success and to failure alike, and the caller relays it to
+// its own client unchanged rather than re-deriving one: a second mapping of the same condition would
+// drift from the core's. err is therefore reserved for a transport failure, where no response was
+// obtained at all and there is nothing to relay.
+func (c *Client) UploadManifests(ctx context.Context, snapshotContentName string, manifests json.RawMessage) (int, []byte, error) {
+	body, err := json.Marshal(manifestsUploadBody{Manifests: manifests})
+	if err != nil {
+		return 0, nil, fmt.Errorf("marshal manifests-upload body for SnapshotContent %q: %w", snapshotContentName, err)
+	}
+
+	result := c.restClient.Post().
+		Resource("snapshotcontents").
+		Name(snapshotContentName).
+		SubResource("manifests-upload").
+		SetHeader("Content-Type", runtime.ContentTypeJSON).
+		Body(body).
+		Do(ctx)
+
+	var code int
+	result.StatusCode(&code)
+	raw, rawErr := result.Raw()
+	if code == 0 {
+		return 0, nil, fmt.Errorf("upload manifests for SnapshotContent %q: %w", snapshotContentName, rawErr)
+	}
+	return code, raw, nil
 }

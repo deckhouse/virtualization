@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	vmpoolstorage "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vmpool/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/nodeapi"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/restore"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -87,12 +88,18 @@ func Build(
 		"virtualmachines/removeresourceclaim": store.RemoveResourceClaimREST(),
 		"virtualmachines/scale":               store.ScaleREST(),
 
-		// Restore boundary: the state-snapshotter core delegates a snapshot subtree it does not own to
-		// "subresources.<domain group>", which for our snapshot kinds is exactly this API group.
-		"virtualmachinesnapshots":                                 vmSnapshotStorage,
-		"virtualmachinesnapshots/manifests-with-data-restoration": vmSnapshotStorage.ManifestsWithDataRestorationREST(),
-		"virtualdisksnapshots":                                    vdSnapshotStorage,
-		"virtualdisksnapshots/manifests-with-data-restoration":    vdSnapshotStorage.ManifestsWithDataRestorationREST(),
+		// Snapshot boundary: the state-snapshotter core delegates a snapshot node it does not own to
+		// "subresources.<domain group>", which for our snapshot kinds is exactly this API group. All three
+		// per-node subresources are addressed there: read a node's captured manifests (download), read an
+		// apply-ready subtree (restore), and write a node back in (upload).
+		"virtualmachinesnapshots":                                    vmSnapshotStorage,
+		"virtualmachinesnapshots/manifests-download":                 vmSnapshotStorage.ManifestsDownloadREST(),
+		"virtualmachinesnapshots/manifests-with-data-restoration":    vmSnapshotStorage.ManifestsWithDataRestorationREST(),
+		"virtualmachinesnapshots/manifests-and-children-refs-upload": vmSnapshotStorage.ManifestsAndChildrenRefsUploadREST(),
+		"virtualdisksnapshots":                                       vdSnapshotStorage,
+		"virtualdisksnapshots/manifests-download":                    vdSnapshotStorage.ManifestsDownloadREST(),
+		"virtualdisksnapshots/manifests-with-data-restoration":       vdSnapshotStorage.ManifestsWithDataRestorationREST(),
+		"virtualdisksnapshots/manifests-and-children-refs-upload":    vdSnapshotStorage.ManifestsAndChildrenRefsUploadREST(),
 	}
 	// Enterprise-only resources (e.g. virtualmachinepools/scaledownwith) are added
 	// only in paid editions; poolStorage is nil in CE, leaving the map untouched.
@@ -109,6 +116,7 @@ func Install(
 	virtCli kubeclient.Client,
 	recorder record.EventRecorder,
 	restoreCompiler *restore.Compiler,
+	snapshotNodes *nodeapi.Service,
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
@@ -128,8 +136,8 @@ func Install(
 	info := Build(
 		vmStorage,
 		poolStorage,
-		snapshotstorage.NewVirtualMachineSnapshotStorage(virtCli, restoreCompiler),
-		snapshotstorage.NewVirtualDiskSnapshotStorage(virtCli, restoreCompiler),
+		snapshotstorage.NewVirtualMachineSnapshotStorage(virtCli, restoreCompiler, snapshotNodes),
+		snapshotstorage.NewVirtualDiskSnapshotStorage(virtCli, restoreCompiler, snapshotNodes),
 	)
 	return server.InstallAPIGroup(&info)
 }

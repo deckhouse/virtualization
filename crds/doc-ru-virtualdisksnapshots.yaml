@@ -10,6 +10,15 @@ spec:
           properties:
             spec:
               properties:
+                mode:
+                  description: |
+                    Определяет источник данных для снимка:
+
+                    * `Capture` (по умолчанию) — снимок снимается с существующего виртуального диска, указанного в
+                      `virtualDiskName` или в `sourceRef`.
+                    * `Import` — снимок восстанавливается из архива, который загружается через subresource
+                      `manifests-and-children-refs-upload`. Не предназначен для использования напрямую,
+                      в большинстве случаев загружать архивы удобнее командой `d8 snapshot upload`.
                 virtualDiskName:
                   description: |
                     Имя виртуального диска, для которого будет создан снимок.

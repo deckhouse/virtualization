@@ -34,6 +34,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -45,8 +46,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/statuspatch"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/statuspatch"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 )
@@ -97,6 +98,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	if !driven {
 		return ctrl.Result{}, nil
+	}
+	if vds.IsImport() {
+		return r.reconcileImport(ctx, vds)
 	}
 	if vds.Status.Phase == "" {
 		vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
@@ -316,6 +320,32 @@ func settleConsistency(vds *v1alpha2.VirtualDiskSnapshot) {
 	if vds.Status.Consistent == nil {
 		vds.Status.Consistent = ptr.To(false)
 	}
+}
+
+// reconcileImport reports the progress the core is making on an import-mode snapshot and touches nothing
+// else. See the vmsnapshot controller's reconcileImport for why there is nothing here to drive, and why
+// status.consistent is left alone.
+//
+// status.storageClassName and status.persistentVolumeClaimSize are left alone for the same reason: they
+// mirror the disk as it was at capture time, and the disk that was captured is described by the manifests
+// in the archive, not by anything reachable from here. They exist to default a NEW VirtualDisk cloned
+// from this snapshot; a restore does not need them, because the archive carries the VirtualDisk with its
+// own size and storage class.
+func (r *Reconciler) reconcileImport(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (ctrl.Result, error) {
+	phase := v1alpha2.VirtualDiskSnapshotPhasePending
+	switch {
+	case meta.IsStatusConditionTrue(vds.Status.Conditions, v1alpha2.UnifiedSnapshotterConditionReady):
+		phase = v1alpha2.VirtualDiskSnapshotPhaseReady
+	case vds.Status.BoundSnapshotContentName != "":
+		phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
+	}
+
+	if vds.Status.Phase == phase {
+		return ctrl.Result{}, nil
+	}
+
+	vds.Status.Phase = phase
+	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
 func (r *Reconciler) finishAsReady(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (ctrl.Result, error) {

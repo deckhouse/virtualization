@@ -133,6 +133,33 @@ var _ = Describe("Source validations and helpers", func() {
 			Expect(validateVirtualDiskSnapshot(ctx, vi, client)).To(MatchError("VirtualDiskSnapshot snap not ready"))
 		})
 
+		// Neither kind of state-snapshotter node has a CSI VolumeSnapshot to import from. Both must be
+		// refused as unsupported rather than reported as "not ready", which reads as "wait and it will
+		// work" for something that never will.
+		DescribeTable("refuses a snapshot whose data the state-snapshotter module holds",
+			func(mutate func(*v1alpha2.VirtualDiskSnapshot)) {
+				vdSnapshot := &v1alpha2.VirtualDiskSnapshot{
+					ObjectMeta: metav1.ObjectMeta{Name: "snap", Namespace: vi.Namespace},
+					Status:     v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhaseReady},
+				}
+				mutate(vdSnapshot)
+				client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot).Build()
+
+				err := validateVirtualDiskSnapshot(ctx, vi, client)
+				Expect(err).To(MatchError(ContainSubstring("not supported yet")))
+				Expect(err).NotTo(MatchError(ContainSubstring("not ready")))
+			},
+			Entry("captured by the core", func(vds *v1alpha2.VirtualDiskSnapshot) {
+				vds.Status.CaptureState = &v1alpha2.UnifiedSnapshotterCaptureState{}
+			}),
+			// An import carries no captureState at all, so only spec.mode tells it apart. Read off
+			// status.data instead, this fell through to the built-in path and complained about a
+			// VolumeSnapshot that was never supposed to exist.
+			Entry("imported from an archive", func(vds *v1alpha2.VirtualDiskSnapshot) {
+				vds.Spec.Mode = v1alpha2.UnifiedSnapshotterModeImport
+			}),
+		)
+
 		It("succeeds for ready snapshot and ready volume snapshot", func() {
 			vdSnapshot := &v1alpha2.VirtualDiskSnapshot{
 				ObjectMeta: metav1.ObjectMeta{Name: "snap", Namespace: vi.Namespace},

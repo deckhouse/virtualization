@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -105,7 +106,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		return err
 	}
 
-	vds, err := getVirtualDisks(ctx, r.client, r.vmSnapshot, r.kind)
+	vds, err := getVirtualDisks(ctx, r.client, r.vmSnapshot, vm.Name, r.kind)
 	if err != nil {
 		return err
 	}
@@ -113,6 +114,17 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 	vmbdas, err := r.manifestReader.RestoreVirtualMachineBlockDeviceAttachments(ctx)
 	if err != nil {
 		return err
+	}
+
+	r.confineToSnapshotNamespace(vm, vmip, provisioner)
+	for _, vmmac := range vmmacs {
+		r.confineToSnapshotNamespace(vmmac)
+	}
+	for _, vd := range vds {
+		r.confineToSnapshotNamespace(vd)
+	}
+	for _, vmbda := range vmbdas {
+		r.confineToSnapshotNamespace(vmbda)
 	}
 
 	if len(vmmacs) > 0 && r.kind == v1alpha2.VMOPTypeRestore {
@@ -164,6 +176,43 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 	return nil
 }
 
+// confineToSnapshotNamespace pins objects a restore is about to create to the namespace of the snapshot
+// being restored, ignoring any that were not captured at all.
+//
+// These objects are decoded from captured manifests, and a captured manifest carries the
+// metadata.namespace it had when it was taken. For a snapshot captured in place that is the same
+// namespace it is restored into, so nothing ever noticed; an imported snapshot breaks the coincidence,
+// because it lives wherever the archive was loaded while its manifests still name the namespace the
+// original was captured from. Restoring one then recreated the VirtualMachine back in that original
+// namespace — one the requester may have no access to at all, and one this controller can write to
+// regardless, since it holds cluster-wide credentials.
+//
+// It is the same rule the restore subresource enforces on its own callers: a snapshot is answerable
+// only for its own namespace. assertConfinedToSnapshotNamespace is what keeps a resource added later
+// from quietly escaping it.
+func (r *SnapshotResources) confineToSnapshotNamespace(objs ...client.Object) {
+	for _, obj := range objs {
+		if obj == nil || reflect.ValueOf(obj).IsNil() {
+			continue
+		}
+		obj.SetNamespace(r.vmSnapshot.Namespace)
+	}
+}
+
+// assertConfinedToSnapshotNamespace reports an object a restore would create outside the snapshot's
+// namespace. Nothing should reach it — the objects are pinned as they are read — so it exists for the
+// resource somebody adds later and forgets to pin: it turns a cross-namespace write into a refusal with
+// a name attached, rather than a silent one.
+func (r *SnapshotResources) assertConfinedToSnapshotNamespace(obj client.Object) error {
+	if obj.GetNamespace() == r.vmSnapshot.Namespace {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to restore %s %q into namespace %q: a snapshot restores only into its own namespace, %q",
+		obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), obj.GetNamespace(), r.vmSnapshot.Namespace,
+	)
+}
+
 func (r *SnapshotResources) Override(rules []v1alpha2.NameReplacement) {
 	for _, ov := range r.objectHandlers {
 		ov.Override(rules)
@@ -190,6 +239,14 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.SnapshotRe
 			Name:       obj.GetName(),
 			Status:     v1alpha2.SnapshotResourceStatusCompleted,
 			Message:    obj.GetName() + " is valid for restore",
+		}
+
+		if err := r.assertConfinedToSnapshotNamespace(obj); err != nil {
+			hasErrors = true
+			status.Status = v1alpha2.SnapshotResourceStatusFailed
+			status.Message = err.Error()
+			r.statuses = append(r.statuses, status)
+			continue
 		}
 
 		switch r.kind {
@@ -346,7 +403,10 @@ func virtualDiskSnapshotNames(vmSnapshot *v1alpha2.VirtualMachineSnapshot) []str
 	return names
 }
 
-func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot, kind v1alpha2.VMOPType) ([]*v1alpha2.VirtualDisk, error) {
+// getVirtualDisks builds the VirtualDisks a restore has to create, one per VirtualDiskSnapshot child.
+// vmName is the name of the VirtualMachine being restored, read from its captured manifest: the snapshot
+// does not necessarily know it, because an imported one records no source at all.
+func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vmName string, kind v1alpha2.VMOPType) ([]*v1alpha2.VirtualDisk, error) {
 	vdSnapshotNames := virtualDiskSnapshotNames(vmSnapshot)
 	vds := make([]*v1alpha2.VirtualDisk, 0, len(vdSnapshotNames))
 
@@ -366,7 +426,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 		var attachedVMs []v1alpha2.AttachedVirtualMachine
 		if kind == v1alpha2.VMOPTypeRestore {
 			attachedVMs = []v1alpha2.AttachedVirtualMachine{
-				{Name: vmSnapshot.SourceVirtualMachineName(), Mounted: true},
+				{Name: vmName, Mounted: true},
 			}
 		}
 
@@ -393,9 +453,18 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 			},
 		}
 
+		// Leaves vd.Name alone when the spec already resolved one, and fills it from the captured
+		// manifest otherwise — see AddOriginalMetadata.
 		err = AddOriginalMetadata(ctx, &vd, vdSnapshot, client)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add original metadata: %w", err)
+		}
+
+		if vd.Name == "" {
+			return nil, fmt.Errorf(
+				"cannot tell what the virtual disk captured by %q was called: the snapshot names no source and its captured manifest holds no VirtualDisk",
+				vdSnapshot.Name,
+			)
 		}
 
 		vds = append(vds, &vd)
@@ -474,7 +543,7 @@ func (r *SnapshotResources) setOwnerRefOnVirtualDisk(ctx context.Context, vm *v1
 }
 
 func (r *SnapshotResources) virtualDiskHadOwnerReference(ctx context.Context, namespace string, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (bool, error) {
-	if vdSnapshot.Status.CaptureState != nil {
+	if IsUnifiedDiskCapture(vdSnapshot) {
 		captured, err := CapturedVirtualDisk(ctx, r.client, vdSnapshot)
 		if err != nil {
 			return false, err
@@ -508,11 +577,18 @@ func hasVirtualMachineOwner(vd *v1alpha2.VirtualDisk) bool {
 	return false
 }
 
+// AddOriginalMetadata copies onto vd the metadata the captured disk had, metadata.name included: a
+// restored disk has to come back under the name it was captured as.
+//
+// Only the captured manifest knows that name for an imported snapshot. spec.virtualDiskName and
+// spec.sourceRef are the usual answer, but an import is forbidden to carry either (it captured nothing
+// to point at) and the core publishes no status.sourceRef for it, so the object itself records the
+// original name nowhere. A name already resolved from the spec is left alone.
 func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, client client.Client) error {
-	if vdSnapshot.Status.CaptureState != nil {
-		// Captured by the unified-snapshotter SDK controller: there is no CSI VolumeSnapshot to carry the
-		// source disk's metadata (disk data is restored via VolumeRestoreRequest instead), but the child's
-		// own SnapshotContent holds the VirtualDisk manifest verbatim, so read them straight off it.
+	if IsUnifiedDiskCapture(vdSnapshot) {
+		// Produced by the state-snapshotter core: there is no CSI VolumeSnapshot to carry the source
+		// disk's metadata (disk data is restored via VolumeRestoreRequest instead), but the node's own
+		// SnapshotContent holds the VirtualDisk manifest verbatim, so read them straight off it.
 		captured, err := CapturedVirtualDisk(ctx, client, vdSnapshot)
 		if err != nil {
 			return err
@@ -544,6 +620,10 @@ func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapsh
 func addOriginalMetadataFromCapturedDisk(vd, captured *v1alpha2.VirtualDisk) {
 	if captured == nil {
 		return
+	}
+
+	if vd.Name == "" {
+		vd.Name = captured.Name
 	}
 
 	if len(captured.Annotations) > 0 && vd.Annotations == nil {

@@ -29,11 +29,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -48,9 +50,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/statuspatch"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/statuspatch"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
@@ -110,6 +112,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// Defensive: the manager-level predicate already filters this, but Reconcile may be invoked
 		// directly (e.g. by an owned-object watch) so re-check before touching this object.
 		return ctrl.Result{}, nil
+	}
+	if vms.IsImport() {
+		return r.reconcileImport(ctx, vms)
 	}
 
 	if !controllerutil.ContainsFinalizer(vms, v1alpha2.FinalizerVMSnapshotCleanup) {
@@ -560,6 +565,43 @@ func planningStartedAt(vms *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.Virtua
 		started = vm.CreationTimestamp.Time
 	}
 	return started
+}
+
+// reconcileImport is the whole of this controller's part in an import: it reports the progress the core
+// is making, and touches nothing else.
+//
+// An import-mode snapshot has no capture to drive. Its manifests arrive through the
+// manifests-and-children-refs-upload subresource, its children are recorded there too, and the core's
+// binder assembles the SnapshotContent and decides readiness. There is no source VirtualMachine to read
+// — spec forbids naming one — nothing to freeze, and so nothing to unfreeze either, which is why an
+// import takes no cleanup finalizer.
+//
+// status.consistent is deliberately left alone. Consistency is a fact about the capture this archive came
+// from, recorded in the manifests it carries; spec.requiredConsistency on an import marker is the CRD's
+// default and says nothing about it. Reporting false there would be a claim about the original capture
+// that this controller has no way to make.
+func (r *Reconciler) reconcileImport(ctx context.Context, vms *v1alpha2.VirtualMachineSnapshot) (ctrl.Result, error) {
+	// Pending until the binder binds a SnapshotContent, InProgress while the uploaded payload is being
+	// assembled into it, Ready once the core says the content is. Failed has no mapping on purpose: the
+	// core does not fail an import node, it leaves it unready, and the reason lives in the conditions it
+	// owns.
+	phase := v1alpha2.VirtualMachineSnapshotPhasePending
+	switch {
+	case meta.IsStatusConditionTrue(vms.Status.Conditions, v1alpha2.UnifiedSnapshotterConditionReady):
+		phase = v1alpha2.VirtualMachineSnapshotPhaseReady
+	case vms.Status.BoundSnapshotContentName != "":
+		phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
+	}
+
+	// The children are compared too, not just the phase. They are recorded on status by the upload
+	// subresource, which lands while the phase is already InProgress and does not move it — so a
+	// phase-only comparison would return early here and never republish them under the name users read.
+	if vms.Status.Phase == phase && slices.Equal(vms.Status.VirtualDiskSnapshotNames, vdSnapshotNames(vms.Status.ChildrenSnapshotRefs)) {
+		return ctrl.Result{}, nil
+	}
+
+	vms.Status.Phase = phase
+	return ctrl.Result{}, r.patchStatus(ctx, vms)
 }
 
 func (r *Reconciler) reconcileCaptured(ctx context.Context, vms *v1alpha2.VirtualMachineSnapshot) (ctrl.Result, error) {

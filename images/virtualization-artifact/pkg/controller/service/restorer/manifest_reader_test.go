@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -408,7 +409,8 @@ var _ = Describe("CapturedVirtualDisk", func() {
 			Namespace:  "default",
 			Name:       "someone-elses-vdsnapshot",
 		}), newVDSnapshot(contentName))
-		Expect(err).To(MatchError(ContainSubstring("does not point back at")))
+		Expect(apierrors.IsForbidden(err)).To(BeTrue(), "a back-ref mismatch can never be fixed by retrying: %v", err)
+		Expect(err).To(MatchError(ContainSubstring(`names "someone-elses-vdsnapshot"`)))
 	})
 
 	It("rejects a content that points at the parent VirtualMachineSnapshot instead", func() {
@@ -418,7 +420,8 @@ var _ = Describe("CapturedVirtualDisk", func() {
 			Namespace:  "default",
 			Name:       vdSnapshotName,
 		}), newVDSnapshot(contentName))
-		Expect(err).To(MatchError(ContainSubstring("does not point back at")))
+		Expect(apierrors.IsForbidden(err)).To(BeTrue(), "a back-ref mismatch can never be fixed by retrying: %v", err)
+		Expect(err).To(MatchError(ContainSubstring(`names kind "VirtualMachineSnapshot"`)))
 	})
 
 	It("rejects a content re-pointed at a re-created disk snapshot of the same name", func() {
@@ -429,7 +432,8 @@ var _ = Describe("CapturedVirtualDisk", func() {
 			Name:       vdSnapshotName,
 			UID:        "44444444-4444-4444-4444-444444444444",
 		}), newVDSnapshot(contentName))
-		Expect(err).To(MatchError(ContainSubstring("does not match")))
+		Expect(apierrors.IsForbidden(err)).To(BeTrue(), "a back-ref mismatch can never be fixed by retrying: %v", err)
+		Expect(err).To(MatchError(ContainSubstring(`names uid "44444444-4444-4444-4444-444444444444"`)))
 	})
 })
 
@@ -533,7 +537,8 @@ var _ = Describe("NewManifestReader SnapshotContent back-reference", func() {
 		ref.Name = "someone-elses-snapshot"
 
 		_, err := NewManifestReader(context.Background(), newClient(ref), newVMSnapshot())
-		Expect(err).To(MatchError(ContainSubstring("does not point back at")))
+		Expect(apierrors.IsForbidden(err)).To(BeTrue(), "a back-ref mismatch can never be fixed by retrying: %v", err)
+		Expect(err).To(MatchError(ContainSubstring(`names "someone-elses-snapshot"`)))
 	})
 
 	It("rejects a content bound to a snapshot in another namespace", func() {
@@ -541,7 +546,8 @@ var _ = Describe("NewManifestReader SnapshotContent back-reference", func() {
 		ref.Namespace = "other-tenant"
 
 		_, err := NewManifestReader(context.Background(), newClient(ref), newVMSnapshot())
-		Expect(err).To(MatchError(ContainSubstring("does not point back at")))
+		Expect(apierrors.IsForbidden(err)).To(BeTrue(), "a back-ref mismatch can never be fixed by retrying: %v", err)
+		Expect(err).To(MatchError(ContainSubstring(`names namespace "other-tenant"`)))
 	})
 
 	It("rejects a content re-pointed at a re-created snapshot of the same name", func() {
@@ -549,12 +555,14 @@ var _ = Describe("NewManifestReader SnapshotContent back-reference", func() {
 		ref.UID = "22222222-2222-2222-2222-222222222222"
 
 		_, err := NewManifestReader(context.Background(), newClient(ref), newVMSnapshot())
-		Expect(err).To(MatchError(ContainSubstring("does not match")))
+		Expect(apierrors.IsForbidden(err)).To(BeTrue(), "a back-ref mismatch can never be fixed by retrying: %v", err)
+		Expect(err).To(MatchError(ContainSubstring(`names uid "22222222-2222-2222-2222-222222222222"`)))
 	})
 
 	It("rejects a content with no back-reference at all", func() {
 		_, err := NewManifestReader(context.Background(), newClient(&ssstoragev1alpha1.SnapshotSubjectRef{}), newVMSnapshot())
-		Expect(err).To(MatchError(ContainSubstring("does not point back at")))
+		Expect(apierrors.IsForbidden(err)).To(BeTrue(), "a back-ref mismatch can never be fixed by retrying: %v", err)
+		Expect(err).To(MatchError(ContainSubstring("spec.snapshotRef")))
 	})
 
 	// A named-but-absent content is the end of the road, not a wait: parking the VirtualMachineOperation
@@ -564,4 +572,46 @@ var _ = Describe("NewManifestReader SnapshotContent back-reference", func() {
 		Expect(err).NotTo(MatchError(common.ErrQueueing))
 		Expect(err).To(MatchError(ContainSubstring(`SnapshotContent "content-1" named by VirtualMachineSnapshot default/snapshot`)))
 	})
+})
+
+// The read side has to recognise an import as core-produced content. An import never enters the capture
+// state machine, so status.captureState stays nil on it — read alone it would send every imported
+// snapshot down the built-in path, hunting for a snapshot Secret or a CSI VolumeSnapshot that no import
+// creates. That is precisely the path `d8 snapshot restore` puts an import on.
+var _ = Describe("the unified-content discriminators", func() {
+	DescribeTable("IsUnifiedCapture",
+		func(vmSnapshot *v1alpha2.VirtualMachineSnapshot, want bool) {
+			Expect(IsUnifiedCapture(vmSnapshot)).To(Equal(want))
+		},
+		Entry("nil", nil, false),
+		Entry("a built-in capture", &v1alpha2.VirtualMachineSnapshot{
+			Status: v1alpha2.VirtualMachineSnapshotStatus{VirtualMachineSnapshotSecretName: "secret"},
+		}, false),
+		Entry("a unified capture", &v1alpha2.VirtualMachineSnapshot{
+			Status: v1alpha2.VirtualMachineSnapshotStatus{
+				CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{},
+			},
+		}, true),
+		Entry("an import, which has no captureState at all", &v1alpha2.VirtualMachineSnapshot{
+			Spec: v1alpha2.VirtualMachineSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
+		}, true),
+	)
+
+	DescribeTable("IsUnifiedDiskCapture",
+		func(vdSnapshot *v1alpha2.VirtualDiskSnapshot, want bool) {
+			Expect(IsUnifiedDiskCapture(vdSnapshot)).To(Equal(want))
+		},
+		Entry("nil", nil, false),
+		Entry("a built-in capture", &v1alpha2.VirtualDiskSnapshot{
+			Status: v1alpha2.VirtualDiskSnapshotStatus{VolumeSnapshotName: "vs"},
+		}, false),
+		Entry("a unified capture", &v1alpha2.VirtualDiskSnapshot{
+			Status: v1alpha2.VirtualDiskSnapshotStatus{
+				CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{},
+			},
+		}, true),
+		Entry("an import, which has no captureState at all", &v1alpha2.VirtualDiskSnapshot{
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
+		}, true),
+	)
 })

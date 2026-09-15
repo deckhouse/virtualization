@@ -55,9 +55,21 @@ type VirtualMachineSnapshotList struct {
 	Items           []VirtualMachineSnapshot `json:"items"`
 }
 
-// +kubebuilder:validation:XValidation:rule="has(self.virtualMachineName) != has(self.sourceRef)",message="exactly one of spec.virtualMachineName or spec.sourceRef must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.mode) || self.mode != 'Import' || (!has(self.virtualMachineName) && !has(self.sourceRef))",message="spec.mode: Import reconstructs the snapshot from an uploaded archive and captures nothing, so spec.virtualMachineName and spec.sourceRef must both be unset"
+// +kubebuilder:validation:XValidation:rule="(has(self.mode) && self.mode == 'Import') || (has(self.virtualMachineName) != has(self.sourceRef))",message="exactly one of spec.virtualMachineName or spec.sourceRef must be set when spec.mode is Capture"
 // +kubebuilder:validation:XValidation:rule="!has(self.sourceRef) || (self.sourceRef.kind == 'VirtualMachine' && self.sourceRef.apiVersion == 'virtualization.deckhouse.io/v1alpha2')",message="spec.sourceRef must reference a VirtualMachine of virtualization.deckhouse.io/v1alpha2"
 type VirtualMachineSnapshotSpec struct {
+	// Mode selects the source for the snapshot:
+	//
+	// * `Capture` (default): the snapshot is taken from the live virtual machine named by
+	//   `virtualMachineName` or addressed by `sourceRef`.
+	// * `Import`: the snapshot is reconstructed from an archive, uploaded through the
+	//   `manifests-and-children-refs-upload` subresource. Not handy for direct usage,
+	//   in most cases you may prefer to upload archives via `d8 snapshot upload` command.
+	//
+	// +kubebuilder:default:="Capture"
+	// +optional
+	Mode UnifiedSnapshotterMode `json:"mode,omitempty"`
 	// Name of the virtual machine to take a snapshot of.
 	// Mutually exclusive with `sourceRef`.
 	//

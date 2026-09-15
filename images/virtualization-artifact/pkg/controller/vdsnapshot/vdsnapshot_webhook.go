@@ -50,7 +50,11 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, err
 	}
 
-	return nil, validate.SnapshotterAnnotationsExclusive(vds)
+	if err := validate.SnapshotterAnnotationsExclusive(vds); err != nil {
+		return nil, err
+	}
+
+	return nil, validate.ImportModeRequiresUnifiedSnapshotter(vds, vds.Spec.Mode, v.unifiedSnapshotterPresent)
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {

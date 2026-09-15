@@ -217,7 +217,7 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 		return &reconcile.Result{}, nil
 	}
 
-	storageClassName := vdSnapshot.Status.StorageClassName
+	storageClassName := vdSnapshot.CapturedStorageClassName()
 	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
 		storageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
 	}
@@ -316,15 +316,16 @@ func (s CreatePVCFromVDSnapshotStep) getUnifiedPVCSize(vd *v1alpha2.VirtualDisk,
 		}
 		return size, nil
 	}
-	if vdSnapshot.Status.PersistentVolumeClaimSize == "" {
+	captured := vdSnapshot.CapturedPersistentVolumeClaimSize()
+	if captured == "" {
 		return nil, fmt.Errorf(
-			"cannot determine the size to restore into: the virtual disk %q sets no spec.persistentVolumeClaim.size and the snapshot %q captured no status.persistentVolumeClaimSize",
+			"cannot determine the size to restore into: the virtual disk %q sets no spec.persistentVolumeClaim.size and the snapshot %q records neither status.persistentVolumeClaimSize nor status.data.size",
 			vd.Name, vdSnapshot.Name,
 		)
 	}
-	size, err := resource.ParseQuantity(vdSnapshot.Status.PersistentVolumeClaimSize)
+	size, err := resource.ParseQuantity(captured)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the captured PVC size %q: %w", vdSnapshot.Status.PersistentVolumeClaimSize, err)
+		return nil, fmt.Errorf("failed to parse the captured PVC size %q: %w", captured, err)
 	}
 	return &size, nil
 }
@@ -335,7 +336,7 @@ func (s CreatePVCFromVDSnapshotStep) validateUnifiedStorageClassCompatibility(ct
 	}
 
 	targetSCName := *vd.Spec.PersistentVolumeClaim.StorageClass
-	capturedSCName := vdSnapshot.Status.StorageClassName
+	capturedSCName := vdSnapshot.CapturedStorageClassName()
 	if capturedSCName == "" || capturedSCName == targetSCName {
 		return nil
 	}

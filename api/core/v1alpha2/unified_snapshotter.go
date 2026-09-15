@@ -229,3 +229,77 @@ func (vds *VirtualDiskSnapshot) SourceVirtualDiskName() string {
 	}
 	return vds.Spec.SourceRef.Name
 }
+
+// UnifiedSnapshotterMode mirrors state-snapshotter's storage/v1alpha1.SnapshotMode: how a snapshot
+// object obtains its content. The two values are mutually exclusive content sources — a live cluster
+// (Capture) or an uploaded payload (Import) — and the field is the only thing that tells them apart, so
+// the core keys import mode off it on every snapshot kind, its own and every domain's alike.
+//
+// +kubebuilder:validation:Enum={Capture,Import}
+type UnifiedSnapshotterMode string
+
+const (
+	// UnifiedSnapshotterModeCapture takes the snapshot from the live cluster. The default, and the only
+	// mode the built-in Secret-based mechanism knows.
+	UnifiedSnapshotterModeCapture UnifiedSnapshotterMode = "Capture"
+	// UnifiedSnapshotterModeImport materializes the snapshot from a payload uploaded through the
+	// manifests-and-children-refs-upload subresource (plus, for the data leaves below it, a DataImport).
+	// Nothing is captured from the live cluster, and no live source object has to exist — which is why
+	// spec.virtualMachineName/spec.virtualDiskName and spec.sourceRef are forbidden in this mode.
+	UnifiedSnapshotterModeImport UnifiedSnapshotterMode = "Import"
+)
+
+// IsImport reports whether this VirtualMachineSnapshot is an import target rather than a capture.
+func (vms *VirtualMachineSnapshot) IsImport() bool {
+	return vms != nil && vms.Spec.Mode == UnifiedSnapshotterModeImport
+}
+
+// IsImport reports whether this VirtualDiskSnapshot is an import target rather than a capture.
+func (vds *VirtualDiskSnapshot) IsImport() bool {
+	return vds != nil && vds.Spec.Mode == UnifiedSnapshotterModeImport
+}
+
+// CapturedPersistentVolumeClaimSize resolves the size a VirtualDisk restored from this snapshot should
+// be provisioned with, and CapturedStorageClassName the storage class it should land on. Both return ""
+// when the snapshot records neither — a snapshot that has not finished capturing, or one driven by the
+// built-in mechanism, which keeps this information elsewhere.
+//
+// Each has two sources and prefers the domain one. status.persistentVolumeClaimSize and
+// status.storageClassName are written by this module's capture path and describe the VirtualDisk as its
+// owner declared it. status.data is written by the state-snapshotter core and describes the artifact it
+// actually holds: status.data.size is the bound content's restoreSize, status.data.storageClassName the
+// class that content lives on.
+//
+// The fallback is not redundancy, it is the only answer for an imported snapshot. An import captures
+// nothing, so this module writes neither of its own fields (see the unified-snapshotter vdsnapshot
+// controller's reconcileImport) — but the core fills status.data from the content the payload was
+// materialized into, so the size and class are known there. Without the fallback a VirtualDisk pointed
+// at an imported snapshot could not be provisioned at all, which would leave an imported snapshot
+// restorable only by an archive that happens to carry an explicit size.
+func (vds *VirtualDiskSnapshot) CapturedPersistentVolumeClaimSize() string {
+	if vds == nil {
+		return ""
+	}
+	if vds.Status.PersistentVolumeClaimSize != "" {
+		return vds.Status.PersistentVolumeClaimSize
+	}
+	if vds.Status.Data != nil {
+		return vds.Status.Data.Size
+	}
+	return ""
+}
+
+// CapturedStorageClassName is the storage-class counterpart of CapturedPersistentVolumeClaimSize; see
+// there for why the fallback exists.
+func (vds *VirtualDiskSnapshot) CapturedStorageClassName() string {
+	if vds == nil {
+		return ""
+	}
+	if vds.Status.StorageClassName != "" {
+		return vds.Status.StorageClassName
+	}
+	if vds.Status.Data != nil {
+		return vds.Status.Data.StorageClassName
+	}
+	return ""
+}
