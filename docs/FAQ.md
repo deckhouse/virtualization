@@ -51,7 +51,7 @@ Below is a typical Windows guest OS installation scenario from an ISO image. Bef
          url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
    ```
 
-1. Create a virtual machine:
+1. Create a virtual machine (VM):
 
    ```yaml
    apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -352,7 +352,7 @@ Replace `<PRODUCT_KEY>` with your Windows product key, and `<ADMIN_PASSWORD>` an
 
 #### How to create a golden image for Linux?
 
-A golden image is a pre-configured virtual machine image that can be used to quickly create new VMs with pre-installed software and settings.
+A golden image is a pre-configured virtual machine (VM) image that can be used to quickly create new VMs with pre-installed software and settings.
 
 1. Create a virtual machine, install the required software on it, and perform all necessary configurations.
 
@@ -557,9 +557,9 @@ After completing these steps, you will have a golden image that can be used to q
 
 ### Connecting to a virtual machine
 
-You can connect to a VM via the serial console ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) or VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
+You can connect to a virtual machine (VM) via the serial console ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) or VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
 These methods use different communication channels with the guest OS and depend on its configuration.
-For more details on connecting, see the [Connecting to a virtual machine](./user_guide.html#connecting-to-a-virtual-machine) section.
+Both methods are covered in [Connecting to a virtual machine](./user_guide.html#connecting-to-a-virtual-machine).
 
 The sections below describe common situations where only one connection method works.
 
@@ -654,7 +654,7 @@ ssh_pwauth: true
 
 To generate a password hash for the `passwd` field, run:
 
-```shell
+```bash
 mkpasswd --method=SHA-512 --rounds=4096
 ```
 
@@ -714,13 +714,15 @@ mounts:
 
 #### Configuring network interfaces for additional networks
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 The settings described in this section apply only to additional networks. The main network (Main) is configured automatically via cloud-init and does not require manual configuration.
 {{< /alert >}}
 
-If additional networks are connected to a virtual machine, configure them manually via cloud-init: create configuration files in `write_files` and apply the settings in `runcmd`.
+Additional networks are configured manually via cloud-init. The `write_files` block creates the configuration files, and the `runcmd` block applies the settings.
 
-For more information on connecting additional networks to a virtual machine, see [Additional network interfaces](./user_guide.html#additional-network-interfaces).
+Connecting additional networks to a virtual machine is covered in [Additional network interfaces](./user_guide.html#additional-network-interfaces).
+
+The following examples cover common ways to configure networking in the guest OS:
 
 {{< tabs name="cloudinit-net" >}}
 
@@ -824,7 +826,7 @@ runcmd:
 
 ### How to use Ansible to provision virtual machines?
 
-[Ansible](https://docs.ansible.com/ansible/latest/index.html) is an automation tool for running tasks on remote servers over SSH. This example shows how to use Ansible with virtual machines in the `demo-app` project.
+[Ansible](https://docs.ansible.com/ansible/latest/index.html) is an automation tool for running tasks on remote servers over SSH. This example shows how to use Ansible with virtual machines (VMs) in the `demo-app` project.
 
 The example assumes that:
 
@@ -871,7 +873,7 @@ ansible -m shell -a "uptime" \
 
 ### How to automatically generate inventory for Ansible?
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 The `d8 v ansible-inventory` command requires `d8` v0.27.0 or higher.
 
 The command works only for virtual machines that have the main cluster network (Main) connected.
@@ -960,7 +962,7 @@ The DVCR volume size is set in the `virtualization` module ModuleConfig (`spec.s
 
 1. Check the current DVCR size:
 
-   ```shell
+   ```bash
    d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
    ```
 
@@ -972,7 +974,7 @@ The DVCR volume size is set in the `virtualization` module ModuleConfig (`spec.s
 
 1. Increase `size` using `patch` (set the value you need):
 
-   ```shell
+   ```bash
    d8 k patch mc virtualization \
      --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
    ```
@@ -985,7 +987,7 @@ The DVCR volume size is set in the `virtualization` module ModuleConfig (`spec.s
 
 1. Verify that ModuleConfig shows the new size:
 
-   ```shell
+   ```bash
    d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
    ```
 
@@ -997,7 +999,7 @@ The DVCR volume size is set in the `virtualization` module ModuleConfig (`spec.s
 
 1. Check the current DVCR status:
 
-   ```shell
+   ```bash
    d8 k get pvc dvcr -n d8-virtualization
    ```
 
@@ -1022,25 +1024,25 @@ To change the DVCR StorageClass, perform the following steps:
 
 1. Stop DVCR:
 
-   ```shell
+   ```bash
    d8 k -n d8-virtualization scale deployment dvcr --replicas=0
    ```
 
 1. List PVCs in the `d8-virtualization` namespace and find the PVC for the DVCR volume:
 
-   ```shell
+   ```bash
    d8 k get pvc -n d8-virtualization
    ```
 
 1. Delete the PVC you found. Replace `<PVC_NAME>` with the resource name. If the command fails because of insufficient permissions, run it as `system:sudouser`:
 
-   ```shell
+   ```bash
    d8 k --as system:sudouser -n d8-virtualization delete pvc/<PVC_NAME>
    ```
 
 1. Set the new StorageClass in ModuleConfig, substituting the class you need for `<STORAGE_CLASS_NAME>`:
 
-   ```shell
+   ```bash
    d8 k patch mc virtualization --type merge -p '{"spec":{"settings":{"dvcr":{"storage":{"persistentVolumeClaim":{"storageClassName":"<STORAGE_CLASS_NAME>"}}}}}}'
    ```
 
@@ -1052,13 +1054,13 @@ To change the DVCR StorageClass, perform the following steps:
 
 1. Start DVCR:
 
-   ```shell
+   ```bash
    d8 k -n d8-virtualization scale deployment dvcr --replicas=1
    ```
 
 1. Verify the PVC:
 
-   ```shell
+   ```bash
    d8 k get pvc -n d8-virtualization
    ```
 
@@ -1069,7 +1071,7 @@ To change the DVCR StorageClass, perform the following steps:
    dvcr   Bound    pvc-b43f2e33-32cc-435a-aa1d-b53df35b030a   100Gi      RWO            linstor-thin-r1-hdd   <unset>                 34s
    ```
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 The storage for the chosen StorageClass must be reachable from the nodes where DVCR runs: system nodes, or worker nodes if the cluster has no system nodes.
 {{< /alert >}}
 
@@ -1135,4 +1137,4 @@ Applying a NodeGroupConfiguration (NGC) manifest removes the file on the nodes. 
    d8 k delete -f containerd-dvcr-remove-old-config.yaml
    ```
 
-For more information on migration, see [Migrating container runtime to containerd v2](/products/kubernetes-platform/documentation/v1/admin/configuration/platform-scaling/node/migrating.html).
+The migration procedure is covered in [Migrating container runtime to containerd v2](/products/kubernetes-platform/documentation/v1/admin/configuration/platform-scaling/node/migrating.html).

@@ -15,6 +15,8 @@ You configure the `virtualization` module in the [ModuleConfig](/products/kubern
 
 {{% tab name="Using the CLI" %}}
 
+Apply the manifest with the required parameters:
+
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -62,7 +64,7 @@ Before disabling the module, prepare the cluster:
 1. Delete all module resources, including virtual machines, disks, and images.
 1. Verify that no active resources are left in the cluster:
 
-   ```shell
+   ```bash
    d8 k get virtualization -A
    d8 k get virtualization-cluster
    ```
@@ -94,7 +96,7 @@ The [`.spec.version`](/products/kubernetes-platform/documentation/v1/reference/a
 ### Ingress settings
 
 Virtual machine images are uploaded to the cluster through an [Ingress controller](/modules/ingress-nginx/), whose class is defined by the [`.spec.settings.ingressClass`](configuration.html#parameters-ingressclass) parameter.
-The parameter is optional: if you leave it unset, the module uses the global value from the Deckhouse Platform configuration.
+The parameter is optional: if you leave it unset, the module uses the global value from the Deckhouse Platform (DP) configuration.
 Set it only when image upload requires a separate Ingress controller.
 
 Example:
@@ -125,7 +127,7 @@ spec:
 
 ### Network settings
 
-The [`.spec.settings.virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) block lists the subnets in CIDR notation from which the module assigns IP addresses to virtual machines, either automatically or on request.
+The [`.spec.settings.virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) block lists the subnets in CIDR notation from which DP assigns IP addresses to virtual machines, either automatically or on request.
 Specify the subnet start address aligned to the mask, for example `192.168.1.192/27`, not an arbitrary address from the range.
 
 Example:
@@ -155,7 +157,7 @@ You can't delete a subnet if addresses from it are already assigned to virtual m
 
 ## Virtual machine image storage
 
-The module stores virtual machine images in an internal container image storage (DVCR) that resides on a persistent volume of the cluster. Images travel from there to virtual machine disks, so the size of the volume determines how many images fit into the cluster.
+DP stores virtual machine images in an internal container image storage (DVCR) that resides on a persistent volume of the cluster. Images travel from there to virtual machine disks, so the size of the volume determines how many images fit into the cluster.
 
 ### Size and storage class
 
@@ -191,12 +193,16 @@ Both blocks work the same way and both are optional. The `allowedStorageClassSel
 
 ### Cleaning up image storage
 
-When images and disks are deleted from the cluster, their data remains in DVCR for some time. To keep the storage from filling up with stale data, the module runs garbage collection on a schedule.
-By default, it runs daily at 02:00. To set your own schedule, use the [`.spec.settings.dvcr.gc.schedule`](configuration.html#parameters-dvcr-gc-schedule) parameter in the `virtualization` [ModuleConfig](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig):
+When images and disks are deleted from the cluster, their data remains in DVCR for some time. To keep the storage from filling up with stale data, DP runs garbage collection on a schedule.
+By default, it runs daily at 02:00. To set your own schedule, use the [`.spec.settings.dvcr.gc.schedule`](configuration.html#parameters-dvcr-gc-schedule) parameter in the `virtualization` [ModuleConfig](/products/kubernetes-platform/documentation/v1/reference/api/cr.html#moduleconfig).
+
+While garbage collection is running, the storage works in read-only mode, so creating images and disks is postponed until it completes.
 
 {{< tabs name="dvcr-gc" >}}
 
 {{% tab name="Using the CLI" %}}
+
+Example configuration with a custom schedule:
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
@@ -211,8 +217,6 @@ spec:
         schedule: "0 20 * * *"
   # ...
 ```
-
-While garbage collection is running, the storage works in read-only mode, so creating images and disks is postponed until it completes.
 
 To see how much space is occupied and which data will be removed during the next collection, run:
 
@@ -255,7 +259,7 @@ An image holds the contents of a disk that project owners use to create virtual 
 An image appears in the cluster in three steps:
 
 1. The administrator creates a [ClusterVirtualImage](cr.html#clustervirtualimage) resource and specifies a data source in it.
-1. The module downloads the image from that source to the internal storage (DVCR).
+1. DP downloads the image from that source to the internal storage (DVCR).
 1. The downloaded image becomes available for creating disks.
 
 The image source can be an HTTP server hosting the image file, a container image registry, or a file on your computer that you upload from the command line. You can also create an image from another image, from a virtual machine disk, or from a disk snapshot.
@@ -286,7 +290,7 @@ Distribution vendors publish ready-made images with a preinstalled system. The f
 | [Rocky](https://rockylinux.org/download/)                                         | `rocky`      |
 | [Ubuntu](https://cloud-images.ubuntu.com/)                                        | `ubuntu`     |
 
-The module accepts image files in the following formats:
+DP accepts image files in the following formats:
 
 - `qcow2`
 - `raw`
@@ -295,9 +299,9 @@ The module accepts image files in the following formats:
 - `vhd`
 - `vhdx`
 
-You can provide an image compressed with `gz`, `xz`, or `zst`. The module unpacks it during the upload.
+You can provide an image compressed with `gz`, `xz`, or `zst`. DP unpacks it during the upload.
 
-The module detects the image type and size on its own and records them in the resource status. There are two sizes, and both appear in the `d8 k get cvi -o wide` output:
+DP detects the image type and size on its own and records them in the resource status. There are two sizes, and both appear in the `d8 k get cvi -o wide` output:
 
 - `STOREDSIZE`: The space the image occupies in the storage. For an image uploaded in a compressed form, it's smaller than the unpacked size. Use this column to estimate how much space the images take in DVCR.
 - `UNPACKEDSIZE`: The size of the image after unpacking. It defines the minimum size of a disk that can be created from this image.
@@ -348,7 +352,7 @@ The simplest way to create an image is to provide a link to a file hosted on an 
    ubuntu-24-04   Ready   false   100%       23h
    ```
 
-To make the module verify the downloaded file against a checksum, add the [`checksum`](cr.html#clustervirtualimage-v1alpha2-spec-datasource-http-checksum) block to the source. If the file doesn't match any of the specified checksums, the image moves to the `Failed` phase.
+To make DP verify the downloaded file against a checksum, add the [`checksum`](cr.html#clustervirtualimage-v1alpha2-spec-datasource-http-checksum) block to the source. If the file doesn't match any of the specified checksums, the image moves to the `Failed` phase.
 
 {{% /tab %}}
 
@@ -367,7 +371,7 @@ To make the module verify the downloaded file against a checksum, add the [`chec
 
 ### Creating a cluster image from a container image registry
 
-The module can pull an image from an external container image registry, but the disk file must be located in the container image under the `/disk` path. The following steps show how to prepare such a container image and create a cluster image from it.
+DP can pull an image from an external container image registry, but the disk file must be located in the container image under the `/disk` path. The following steps show how to prepare such a container image and create a cluster image from it.
 
 {{< tabs name="cvi-registry" >}}
 
@@ -416,7 +420,7 @@ The module can pull an image from an external container image registry, but the 
    EOF
    ```
 
-The module works only with registries that have TLS enabled. If the registry uses its own certificate authority, provide the certificate chain in the [`caBundle`](cr.html#clustervirtualimage-v1alpha2-spec-datasource-containerimage-cabundle) parameter, and take the credentials for a private registry from the secret specified in the `imagePullSecret` parameter.
+DP works only with registries that have TLS enabled. If the registry uses its own certificate authority, provide the certificate chain in the [`caBundle`](cr.html#clustervirtualimage-v1alpha2-spec-datasource-containerimage-cabundle) parameter, and take the credentials for a private registry from the secret specified in the `imagePullSecret` parameter.
 
 {{% /tab %}}
 
@@ -435,7 +439,7 @@ The module works only with registries that have TLS enabled. If the registry use
 
 ### Uploading a cluster image from the command line
 
-If the image file is on your computer, upload it directly. The module creates a temporary upload endpoint for this and waits for the data.
+If the image file is on your computer, upload it directly. DP creates a temporary upload endpoint for this and waits for the data.
 
 {{< tabs name="cvi-upload" >}}
 
@@ -524,7 +528,7 @@ On the initial installation, the module creates the `generic` class with the Neh
 {{< alert level="info" >}}
 The `generic` class matches a CPU with the smallest instruction set, so it isn't suitable for production workloads.
 
-Once all nodes are added to the cluster and configured, create at least one class with the `Discovery` CPU type. The module selects an instruction set available on all nodes at once, so virtual machines can make fuller use of the CPUs while still being able to migrate between nodes. The instruction set is fixed when the resource is created and doesn't change as nodes are added or removed.
+Once all nodes are added to the cluster and configured, create at least one class with the `Discovery` CPU type. DP selects an instruction set available on all nodes at once, so virtual machines can make fuller use of the CPUs while still being able to migrate between nodes. The instruction set is fixed when the resource is created and doesn't change as nodes are added or removed.
 
 For an example of such a class, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example).
 {{< /alert >}}
@@ -558,7 +562,7 @@ spec:
 
 ### Default VirtualMachineClass
 
-You can designate one of the classes as the default. The module inserts its name into the [`.spec.virtualMachineClassName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineclassname) parameter if the project owner doesn't specify a class.
+You can designate one of the classes as the default. DP inserts its name into the [`.spec.virtualMachineClassName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineclassname) parameter if the project owner doesn't specify a class.
 
 The default class is marked with the `virtualmachineclass.virtualization.deckhouse.io/is-default-class` annotation set to `true`. A cluster can have only one such class, so to designate a new one, first remove the annotation from the current one.
 
@@ -607,6 +611,8 @@ A class consists of three blocks, each responsible for its own group of settings
 {{< tabs name="vmclass-create" >}}
 
 {{% tab name="Using the CLI" %}}
+
+Describe the class in a VirtualMachineClass resource:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -776,7 +782,7 @@ A CPU instruction set is every command the processor can execute, from addition 
 
 Three classes suit such a cluster:
 
-- `universal`: VMs start on any node and migrate between all four. The module takes the instruction set common to both processors, so compatibility is maximal, while some capabilities of "CPU Y" stay unused.
+- `universal`: VMs start on any node and migrate between all four. DP takes the instruction set common to both processors, so compatibility is maximal, while some capabilities of "CPU Y" stay unused.
 - `cpuX`: VMs start only on nodes with "CPU X" and migrate between them, using all instructions of that processor.
 - `cpuY`: The same for nodes with "CPU Y".
 
@@ -825,7 +831,7 @@ spec:
 
 #### Placement across nodes
 
-The optional [`.spec.nodeSelector`](cr.html#virtualmachineclass-v1alpha3-spec-nodeselector) block limits the set of nodes where virtual machines of this class run. Nodes are selected by labels:
+The optional [`.spec.nodeSelector`](cr.html#virtualmachineclass-v1alpha3-spec-nodeselector) block limits the set of nodes where virtual machines (VMs) of this class run. Nodes are selected by labels:
 
 ```yaml
 spec:
@@ -840,8 +846,8 @@ spec:
 {{< alert level="warning" >}}
 A change to the [`.spec.nodeSelector`](cr.html#virtualmachineclass-v1alpha3-spec-nodeselector) block affects all virtual machines of the class at once. Those running on nodes that no longer match the new conditions have to be moved:
 
-- In the Enterprise Edition, the module migrates such VMs to suitable nodes.
-- In the Community Edition, the VMs are restarted, and the restart time depends on the [`.spec.disruptions.restartApprovalMode`](cr.html#virtualmachine-v1alpha2-spec-disruptions-restartapprovalmode) parameter of the virtual machine, which defaults to `Manual` and requires the project owner's approval.
+- In commercial DP editions, DP migrates such VMs to suitable nodes.
+- In DP Open, the VMs are restarted, and the restart time depends on the [`.spec.disruptions.restartApprovalMode`](cr.html#virtualmachine-v1alpha2-spec-disruptions-restartapprovalmode) parameter of the virtual machine, which defaults to `Manual` and requires the project owner's approval.
 {{< /alert >}}
 
 To do the same in the web interface, in the [VM class creation form](#virtualmachineclass-settings):
@@ -853,7 +859,7 @@ To do the same in the web interface, in the [VM class creation form](#virtualmac
 
 #### Sizing policy
 
-The [`.spec.sizingPolicies`](cr.html#virtualmachineclass-v1alpha3-spec-sizingpolicies) block defines which combinations of cores, core fraction, and memory are allowed for virtual machines of this class.
+The [`.spec.sizingPolicies`](cr.html#virtualmachineclass-v1alpha3-spec-sizingpolicies) block defines which combinations of cores, core fraction, and memory are allowed for virtual machines (VMs) of this class.
 
 {{< alert level="warning" >}}
 Changes to the [`.spec.sizingPolicies`](cr.html#virtualmachineclass-v1alpha3-spec-sizingpolicies) block affect existing virtual machines.
@@ -862,7 +868,7 @@ For virtual machines that no longer meet the new requirements, the `SizingPolicy
 When defining policies, take the [CPU topology](./user_guide.html#cpu-topologies) of virtual machines into account.
 {{< /alert >}}
 
-A policy consists of a list of rules, each applying to its own range of cores. The range is set in the required `cores` block, and ranges of different rules must not overlap, otherwise the module rejects the class.
+A policy consists of a list of rules, each applying to its own range of cores. The range is set in the required `cores` block, and ranges of different rules must not overlap, otherwise DP rejects the class.
 
 A valid structure, where the ranges follow one another without overlapping:
 
@@ -888,7 +894,7 @@ An invalid structure, where the value `4` falls into two ranges at once:
     max: 8
 ```
 
-The module doesn't forbid gaps between ranges, but a virtual machine whose number of cores falls outside every range is left without a policy. For this reason, start each range with the value that follows the `max` of the previous one.
+DP doesn't forbid gaps between ranges, but a virtual machine whose number of cores falls outside every range is left without a policy. For this reason, start each range with the value that follows the `max` of the previous one.
 
 Within a range, you set the requirements for memory and for the core fraction:
 
@@ -898,7 +904,7 @@ Within a range, you set the requirements for memory and for the core fraction:
 
 A rule with neither `memory` nor `coreFractions` doesn't limit anything, so set at least one of them.
 
-In the Enterprise Edition, you can set the `defaultCoreFraction` parameter to `Auto`. In that case, the core fraction for VMs without an explicit `coreFraction` is chosen by [vertical autoscaling](./user_guide.html#automatic-corefraction-auto). `Auto` is a mode, not a share of a core, so it must not appear in the `coreFractions` list.
+In commercial DP editions, you can set the `defaultCoreFraction` parameter to `Auto`. In that case, the core fraction for VMs without an explicit `coreFraction` is chosen by [vertical autoscaling](./user_guide.html#automatic-corefraction-auto). `Auto` is a mode, not a share of a core, so it must not appear in the `coreFractions` list.
 
 ```yaml
 spec:
@@ -912,10 +918,12 @@ spec:
 
 The `Auto` value is accepted only when both capabilities are available:
 
-- Vertical autoscaling of virtual machines, which is enabled automatically in the Enterprise Edition when the [`vertical-pod-autoscaler`](/modules/vertical-pod-autoscaler/) module is enabled.
+- Vertical autoscaling of virtual machines, which is enabled automatically in commercial DP editions when the [`vertical-pod-autoscaler`](/modules/vertical-pod-autoscaler/) module is enabled.
 - Changing the number of cores and the amount of memory without a restart, which is enabled by the `HotplugCPUAndMemoryWithInPlaceResize` feature in the [`.spec.settings.featureGates`](configuration.html#parameters-featuregates) parameter of the module.
 
-If at least one of them is unavailable, the module rejects the creation of such a class.
+If at least one of them is unavailable, DP rejects the creation of such a class.
+
+A new default applies only to the virtual machines created after the change. An existing machine already carries the previous value in its specification, and the value stays there until the project owner sets another one.
 
 The following examples show how the amount of memory depends on the number of cores:
 
@@ -1051,7 +1059,7 @@ To configure sizing policies in the web interface, in the [VM class creation for
 
 ### CPU oversubscription
 
-Oversubscription lets you give the virtual machines on a node more virtual cores than the node physically has. This makes sense because VMs rarely load the CPU at the same time and at full capacity.
+Oversubscription lets you give the virtual machines (VMs) on a node more virtual cores than the node physically has. This makes sense because VMs rarely load the CPU at the same time and at full capacity.
 
 The degree of oversubscription is controlled by the `coreFraction` parameter of a virtual machine, and you define its allowed values in the sizing policy of the class. The parameter defines the share of a core's capacity guaranteed to a VM. For example, with `coreFraction: 20%`, a VM always gets a fifth of a core, and it can take a whole core when the node has spare resources.
 
@@ -1059,7 +1067,7 @@ The degree of oversubscription is controlled by the `coreFraction` parameter of 
 If the `coreFractions` list isn't set in the class or contains several values, the project owner chooses the degree of oversubscription by specifying `coreFraction` when creating a VM.
 {{< /alert >}}
 
-When placing a VM on a node, the module sums the guaranteed shares of all VMs on that node using the `Σ(cores × coreFraction / 100)` formula. If the sum exceeds the number of physical cores, the VM doesn't start on that node.
+When placing a VM on a node, DP sums the guaranteed shares of all VMs on that node using the `Σ(cores × coreFraction / 100)` formula. If the sum exceeds the number of physical cores, the VM doesn't start on that node.
 
 Consider a node with 4 physical cores and 5 VMs, each with 2 cores and `coreFraction: 20%`. The guaranteed load is `5 × 2 × 0.2 = 2` cores, with 10 virtual cores on 4 physical ones, which is an oversubscription of 2.5 to 1. All five VMs fit on the node, because 2 cores is less than the available 4.
 
@@ -1123,7 +1131,7 @@ Live migration moves a running virtual machine from one node to another without 
 - Node maintenance or update, to free the node from VMs.
 - Virtual machine firmware update, which would otherwise require a restart.
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 Live migration is limited in speed and in the number of concurrent moves:
 
 - A node prepares and sends the memory of only one VM at a time, and accepts only one incoming migration at a time.
@@ -1154,7 +1162,7 @@ The following steps show how to move a selected VM to another node.
 
    The VM runs on the `virtlab-pt-1` node.
 
-1. Create a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource with the `Evict` type. The module selects a new node for the VM, respecting its placement requirements:
+1. Create a [VirtualMachineOperation](cr.html#virtualmachineoperation) resource with the `Evict` type. DP selects a new node for the VM, respecting its placement requirements:
 
    ```bash
    d8 k create -f - <<EOF
@@ -1255,7 +1263,7 @@ d8 k get vm -o json | jq -r '.items[] | [.metadata.name, (.status.conditions[] |
 
 #### Maintenance mode
 
-Work on a node that runs virtual machines can disrupt them. To prevent this, switch the node to maintenance mode, and the module moves the VMs to other nodes.
+Work on a node that runs virtual machines can disrupt them. To prevent this, switch the node to maintenance mode, and DP moves the VMs to other nodes.
 
 {{< tabs name="node-drain" >}}
 
@@ -1301,7 +1309,7 @@ d8 k uncordon <NODE_NAME>
 
 A virtual machine can't always be moved to another node by live migration. It can be pinned to the node by placement rules or use a device passed through from the node. The `Migratable` condition in the VM status shows the reason. Such a VM keeps running and holds the node, so maintenance can't complete until the VM is restarted.
 
-When the module finds such a VM while switching the node to maintenance mode, it adds the `virtualization.deckhouse.io/virtualmachines-restart-required` annotation to the node. To allow the restart, add the matching annotation to the node:
+When DP finds such a VM while switching the node to maintenance mode, it adds the `virtualization.deckhouse.io/virtualmachines-restart-required` annotation to the node. To allow the restart, add the matching annotation to the node:
 
 ```bash
 d8 k annotate node <NODE_NAME> virtualization.deckhouse.io/virtualmachines-restart-approved=""
@@ -1313,28 +1321,28 @@ Only the VMs that can't be moved by live migration are restarted. The guest OS s
 
 The approval doesn't apply to VMs that can be moved by live migration, including those with no suitable node at the moment. Such VMs are moved by live migration as soon as a suitable node appears.
 
-You can grant the approval in advance, while planning the work. Until the node is switched to maintenance mode, the annotation has no effect. The module removes both annotations once the node is free, so one approval covers one maintenance of one node.
+You can grant the approval in advance, while planning the work. Until the node is switched to maintenance mode, the annotation has no effect. DP removes both annotations once the node is free, so one approval covers one maintenance of one node.
 
-The module reacts to VM eviction from a node. If eviction stopped on timeout (the [`.spec.nodeDrainTimeoutSecond`](/modules/node-manager/cr.html#nodegroup-v1-spec-nodedraintimeoutsecond) parameter of the [NodeGroup](/modules/node-manager/cr.html#nodegroup) resource, 10 minutes by default), eviction isn't retried. An approval granted after that doesn't trigger a restart, and you have to free the node manually.
+DP reacts to VM eviction from a node. If eviction stopped on timeout (the [`.spec.nodeDrainTimeoutSecond`](/modules/node-manager/cr.html#nodegroup-v1-spec-nodedraintimeoutsecond) parameter of the [NodeGroup](/modules/node-manager/cr.html#nodegroup) resource, 10 minutes by default), eviction isn't retried. An approval granted after that doesn't trigger a restart, and you have to free the node manually.
 
 A restart frees the node but doesn't guarantee that the VM starts on another one right away. The limitation that prevents live migration usually prevents the start on another node as well. In that case, the VM stays in the `Pending` phase, and the `Running` condition reports the reason received from the scheduler. Maintenance can continue meanwhile. The VM starts as soon as a suitable node appears, including after the node returns to service with `d8 k uncordon`.
 
-The VM owner sees the same information in the `EvictionRequired` condition of the VM status. While the node is only being prepared for maintenance, the condition is a warning. Once eviction starts, the condition shows what happens to the VM: a move by live migration, a restart by the module, or a wait if the restart isn't approved.
+The VM owner sees the same information in the `EvictionRequired` condition of the VM status. While the node is only being prepared for maintenance, the condition is a warning. Once eviction starts, the condition shows what happens to the VM: a move by live migration, a restart by DP, or a wait if the restart isn't approved.
 
 #### Shutting down and rebooting a node with virtual machines
 
-Running virtual machines postpone the shutdown and reboot of their node. The module labels their workloads with `pod.deckhouse.io/inhibit-node-shutdown`, and Deckhouse Platform uses this label to delay the node shutdown. The mechanism is available in the Enterprise Edition, is described in the [`node-manager` module documentation](/modules/node-manager/), and doesn't need to be enabled.
+Running virtual machines postpone the shutdown and reboot of their node. DP labels their workloads with `pod.deckhouse.io/inhibit-node-shutdown` and uses this label to delay the node shutdown. The mechanism is available in commercial DP editions, is described in the [`node-manager` module documentation](/modules/node-manager/), and doesn't need to be enabled.
 
 If a shutdown or reboot is requested on a node that still runs virtual machines:
 
 - The node shutdown is postponed for up to three days.
 - A message about the workloads holding the shutdown is periodically printed to the node console.
 
-On nodes where the delay mechanism works, the `GracefulShutdownPostpone` condition is always present and always has the `True` status, even when there are no virtual machines on the node and nobody requested a shutdown. What actually happens to the node is shown by the reason in the `reason` field of this condition:
+On nodes where the delay mechanism works, the `GracefulShutdownPostpone` condition is always present. While the mechanism waits for a shutdown signal or holds the node, the condition has the `True` status, and once there's nothing left to hold, it switches to `False`. What actually happens to the node is shown by the reason in the `reason` field of this condition:
 
 - `WaitingForShutdownSignal`: The mechanism is active and waiting for a node shutdown request.
 - `PodsWithLabelAreRunningOnNode`: A node shutdown is requested and postponed, because virtual machines are still running on the node.
-- `NoRunningPodsWithLabel`: No virtual machines are left on the node and the shutdown continues; the condition status changes to `False`.
+- `NoRunningPodsWithLabel`: No virtual machines are left on the node, there's nothing to hold the shutdown with, and it continues.
 
 To check the reason, run the following command:
 
@@ -1361,7 +1369,7 @@ The shutdown delay doesn't move virtual machines to other nodes, it only keeps t
 
   Where `<NAMESPACE>` is the project namespace, and `<VM_NAME>` is the virtual machine name.
 
-Instead of stopping VMs manually, you can [let the module restart such VMs](#restarting-virtual-machines-during-node-maintenance) for the duration of the node maintenance. The run policy doesn't have to be changed in that case.
+Instead of stopping VMs manually, you can [let DP restart such VMs](#restarting-virtual-machines-during-node-maintenance) for the duration of the node maintenance. The run policy doesn't have to be changed in that case.
 
 If you do none of this, the node doesn't shut down. Two alerts report this situation. The `D8VirtualizationVirtualMachineHoldsNodeMaintenance` alert lists the VMs that hold the node and wait for an administrator's decision. The `D8VirtualizationNodeEvacuationStuck` alert fires if a VM was evicted from a node but neither migrated nor restarted within 15 minutes.
 
@@ -1369,14 +1377,22 @@ If you do none of this, the node doesn't shut down. Two alerts report this situa
 
 Over time, the distribution of virtual machines across nodes stops being even. The [`descheduler`](/modules/descheduler/) module restores the balance by moving VMs with live migration, without interrupting them. Enable this module, and the distribution is maintained without your involvement.
 
+Rebalancing solves two tasks:
+
+- It evens out the load. DP tracks how much CPU is reserved on each node and, when a node reserves more than 80%, moves some VMs to the nodes that reserve less than 50%.
+- It restores correct placement. DP checks whether the current node meets the VM requirements and the rules of mutual VM placement. For example, if the rules forbid keeping certain VMs on the same node, the extra ones are moved.
+
+DP sets the rebalancing parameters itself: with the `descheduler` module enabled, it creates a Descheduler resource named `virtualization` and selects in it only the machines that can be moved by live migration.
+
 {{< tabs name="descheduler" >}}
 
 {{% tab name="Using the CLI" %}}
 
-Rebalancing solves two tasks:
+To view the rebalancing settings, run the following command:
 
-- It evens out the load. The module tracks how much CPU is reserved on each node and, when a node reserves more than 80%, moves some VMs to less loaded nodes.
-- It restores correct placement. The module checks whether the current node meets the VM requirements and the rules of mutual VM placement. For example, if the rules forbid keeping certain VMs on the same node, the extra ones are moved.
+```bash
+d8 k get descheduler virtualization -o yaml
+```
 
 {{% /tab %}}
 
@@ -1395,6 +1411,27 @@ Rebalancing solves two tasks:
 The created resources and the strategies enabled in them appear in the list of the section.
 
 Rebalancing covers only the VMs that can leave their node by live migration. A VM that can't be live migrated, for example one with a passed-through device, is never moved by rebalancing, because the only other way off the node is a restart. Such a VM is restarted only during [node maintenance](#restarting-virtual-machines-during-node-maintenance) and only with the permission of an administrator.
+
+### Diagnosing a slow VM
+
+A slowdown of a virtual machine has two different causes. The guest OS is either busy with its own computations, or waiting for the node to give it processor time. From the outside both cases look the same, as a loaded processor of the machine.
+
+The virtualization metrics tell them apart, so you don't have to log in to the guest system. The "Virtualization VM Happiness" Grafana dashboard shows how long each machine waits for a processor and what it lacks, as well as which nodes are loaded more than the rest.
+
+What to do next depends on which of the causes is confirmed.
+
+- **The machine consumes its entire guaranteed processor share.** Moving it to another node doesn't help, because the same share is guaranteed there. Raise the core fraction [`.spec.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-spec-cpu-corefraction) or reduce the number of virtual cores, so that the guest OS doesn't spread the load across the cores that get no processor time. With the `Auto` value, DP picks the share from actual consumption, so you can't change it manually and have to change the number of cores or set an explicit percentage.
+- **The machine waits for processor time without consuming its guaranteed share.** The node doesn't deliver the declared guarantee, and moving the machine to a less loaded node eliminates the delays.
+
+The guarantee isn't absolute under [CPU oversubscription](#cpu-oversubscription). Processor time is distributed between machines in proportion to their shares, so a machine with a few loaded cores among many competing ones can get less than it's guaranteed.
+
+When freeing up a node, move the machine with the highest consumption rather than the one that has slowed down. Moving the main consumer frees the node resources, while moving the other machines has little effect.
+
+Before a move, [check whether migration is possible](#checking-vms-before-node-maintenance), so that freeing up a node doesn't turn into a restart of a machine. DP in many cases moves a machine held by its storage along with its disks, while a machine with a passed-through device can't be moved by live migration at all.
+
+Make sure as well that the cluster has a suitable node. The [VirtualMachineClass](cr.html#virtualmachineclass) limits the choice to the nodes whose processors match the class. If only the current node is left on that list, migration is impossible under any resource shortage, and what's left is freeing up the node itself by moving the other machines off it, or assigning the machine a class with a wider choice of nodes.
+
+DP measures storage and network latency by comparison with the rest of the cluster rather than against a fixed threshold, because the same disk latency is normal for a replicated volume and indicates a problem for a local one. If the storage is equally slow across the cluster, moving a machine doesn't eliminate the delays.
 
 ### ColdStandby
 
@@ -1418,8 +1455,8 @@ Here's the recovery sequence, using a cluster of three nodes, `master`, `workerA
 
 ## USB devices
 
-{{< alert level="warning" >}}
-USB device passthrough is available only in Deckhouse Platform **Enterprise Edition (EE)**.
+{{< alert level="info" >}}
+USB device passthrough is available in commercial DP editions.
 {{< /alert >}}
 
 USB device passthrough to virtual machines (VMs) is handled by the `virtualization-dra` system component, which needs three kernel modules on the node:
@@ -1428,7 +1465,7 @@ USB device passthrough to virtual machines (VMs) is handled by the `virtualizati
 - `usbip_host`
 - `vhci_hcd`
 
-The module loads them on the nodes itself. A node where all three modules are available gets the `virtualization.deckhouse.io/usbip=true` label, and the `virtualization-dra` component runs only on such nodes. If the kernel modules stop being available, the label is removed and the component is deleted from the node.
+DP loads them on the nodes itself. A node where all three modules are available gets the `virtualization.deckhouse.io/usbip=true` label, and the `virtualization-dra` component runs only on such nodes. If the kernel modules stop being available, the label is removed and the component is deleted from the node.
 
 To see which nodes are ready for USB device passthrough, run the following command:
 
@@ -1449,17 +1486,17 @@ To verify that the component is actually running on these nodes, run the followi
 d8 k -n d8-virtualization get pods -l app=virtualization-dra -o wide
 ```
 
-A node missing from the output failed to load the kernel modules, and USB devices on that node aren't detected. Install the kernel modules yourself from your operating system package, or build them for the kernel in use. The module detects them on its own and assigns the label to the node within a few minutes.
+A node missing from the output failed to load the kernel modules, and USB devices on that node aren't detected. Install the kernel modules yourself from your operating system package, or build them for the kernel in use. DP detects them on its own and assigns the label to the node within a few minutes.
 
 ### Path of a USB device from a node to a VM
 
 A USB device travels from the node to a virtual machine in four steps:
 
-1. The DRA driver detects USB devices on the nodes and publishes information about them to the Kubernetes API as a [ResourceSlice](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/). The module controller creates [NodeUSBDevice](cr.html#nodeusbdevice) resources from this data.
+1. The DRA driver detects USB devices on the nodes and publishes information about them to the Kubernetes API as a [ResourceSlice](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/). DP creates [NodeUSBDevice](cr.html#nodeusbdevice) resources from this data.
 
 1. The administrator assigns a namespace to the [NodeUSBDevice](cr.html#nodeusbdevice) resource by setting the [`.spec.assignedNamespace`](cr.html#nodeusbdevice-v1alpha2-spec-assignednamespace) parameter. This makes the device available in that namespace.
 
-1. Once the namespace is assigned, the module controller creates a [USBDevice](cr.html#usbdevice) resource in it.
+1. Once the namespace is assigned, DP creates a [USBDevice](cr.html#usbdevice) resource in it.
 
 1. The project owner attaches the [USBDevice](cr.html#usbdevice) device to a virtual machine by adding it to the [`.spec.usbDevices`](cr.html#virtualmachine-v1alpha2-spec-usbdevices) parameter of the [VirtualMachine](cr.html#virtualmachine) resource.
 
@@ -1516,6 +1553,10 @@ After that, the project owner attaches the device to a virtual machine.
 
 Full details about a device and its current state are available in the resource status.
 
+{{< alert level="info" >}}
+When a device is physically disconnected from the node, the `Attached` condition gets the `False` value, and the `Ready` condition gets the `NotFound` reason. The same is reflected in the status of the [USBDevice](cr.html#usbdevice) resource in the project namespace.
+{{< /alert >}}
+
 {{< tabs name="usb-view" >}}
 
 {{% tab name="Using the CLI" %}}
@@ -1541,8 +1582,6 @@ Example output:
 Logitech Webcam C920 (046d:082d)
 ```
 
-> When a device is physically disconnected from the node, the `Attached` condition gets the `False` value, and the `Ready` condition gets the `NotFound` reason. The same is reflected in the status of the [USBDevice](cr.html#usbdevice) resource in the project namespace.
-
 {{% /tab %}}
 
 {{% tab name="Using the web interface" %}}
@@ -1562,25 +1601,25 @@ When planning USB device passthrough, consider the following requirements and li
 
 - A node where USB devices must be detected has to carry the `virtualization.deckhouse.io/usbip=true` label and run containerd version 2, otherwise the `virtualization-dra` component doesn't start there.
 - A device is passed to a virtual machine over the network using USBIP, so the VM can run on a node other than the one the device is physically connected to.
-- Only a device that reports the USB 2.0 speed (480 Mbps) or a USB 3.x speed (5 Gbps and higher) can be passed through. The module doesn't let you attach a slower device to a VM, for example a mouse or a keyboard at 1.5 or 12 Mbps.
+- Only a device that reports the USB 2.0 speed (480 Mbps) or a USB 3.x speed (5 Gbps and higher) can be passed through. DP doesn't let you attach a slower device to a VM, for example a mouse or a keyboard at 1.5 or 12 Mbps.
 - A node connects no more than 16 devices, 8 per USB 2.0 hub and 8 per USB 3.0 hub.
 - The hub is selected by the device speed and can't be changed manually. A USB 2.0 device doesn't connect to a USB 3.0 hub, and vice versa.
 - A device can be attached to a running VM and detached from it without stopping the VM.
 
 ## GPU devices
 
-{{< alert level="warning" >}}
-GPU device passthrough is an experimental feature available only in the Enterprise Edition.
+{{< alert level="info" >}}
+GPU device passthrough is an experimental feature available in commercial DP editions.
 {{< /alert >}}
 
-The module attaches physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A project owner requests a device by a reference to a `GPUClass` in the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block of their machine, and you prepare the cluster for this.
+DP attaches physical GPU devices to virtual machines using DRA (Dynamic Resource Allocation). A project owner requests a device by a reference to a `GPUClass` in the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block of their machine, and you prepare the cluster for this.
 
 To make passthrough work, provide the following:
 
 - [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) 1.34 or later with the DRA feature gates required by your cluster configuration.
 - The `GPU` feature gate in the `virtualization` module settings.
-- A GPU DRA provider installed in the cluster that publishes devices with the `gpu.deckhouse.io` attributes.
-- A `GPUClass` resource that selects devices of the model you need. The GPU module creates a DeviceClass resource with the same name from it, and the device is allocated to a machine through that class.
+- The enabled [`gpu`](/modules/gpu/) module in the DRA mode, which is set by the [`dra.enabled` parameter](/modules/gpu/configuration.html#parameters-dra).
+- A `GPUClass` resource that selects devices of the model you need. The `gpu` module creates a DeviceClass resource with the same name from it, and the device is allocated to a machine through that class.
 
 To enable the feature gate, add it to the module settings:
 
@@ -1596,12 +1635,116 @@ spec:
 ```
 
 After that, tell the project owners the names of the available `GPUClass` resources. A single machine takes no more than 16 devices, and a change to the [`.spec.gpus`](cr.html#virtualmachine-v1alpha2-spec-gpus) block applies only after the machine restarts.
+
+## PCI devices
+
+{{< alert level="info" >}}
+PCI device passthrough is available in commercial DP editions.
+{{< /alert >}}
+
+PCI device passthrough lets you attach a physical device of a node to a virtual machine (VM), for example an industrial controller, a hardware security module, a capture card, an FPGA, or an entire network card. In the guest operating system, such a device works under its own driver, so a VM can use the hardware DP doesn't support directly.
+
+A device reaches a machine in two steps. First you assign it to a project namespace, and then the project owner lists the device in the specification of their machine. The device is granted for exclusive use, so it's available in one namespace and to one machine only.
+
+DP switches the device drivers itself, and you don't need to configure them on the node manually. When a machine starts, DP unbinds the device from the regular kernel driver and binds it to the `vfio-pci` driver, and once the machine is stopped, it returns the device to the regular driver. While the machine is running, the node doesn't use the device.
+
+### Node requirements
+
+PCI device passthrough is handled by the `virtualization-dra-pci` system component. It runs only on nodes with containerd version 2 and hardware I/O virtualization enabled. DP checks the nodes itself and assigns the `virtualization.deckhouse.io/vfio=true` label to the suitable ones.
+
+To enable hardware I/O virtualization, turn on `VT-d` on Intel or `AMD-Vi` on AMD in the node BIOS and add the `intel_iommu=on` or `amd_iommu=on` kernel parameter.
+
+To see which nodes are ready for PCI device passthrough, run the following command:
+
+```bash
+d8 k get nodes -l virtualization.deckhouse.io/vfio=true,virtualization.deckhouse.io/containerd-version=v2
+```
+
+Example output:
+
+```console
+NAME     STATUS   ROLES    AGE   VERSION
+node-1   Ready    worker   10d   v1.34.1
+```
+
+A node missing from the output has not been assigned the label. Check the `/sys/kernel/iommu_groups` directory on it. An empty directory means that hardware I/O virtualization is disabled. Enable it and reboot the node, and the label is assigned automatically within a few minutes.
+
+To verify that the component is actually running on these nodes, run the following command:
+
+```bash
+d8 k -n d8-virtualization get pods -l app=virtualization-dra-pci -o wide
+```
+
+### Assigning a namespace to a PCI device
+
+DP detects the devices on the suitable nodes and creates a [NodePCIDevice](cr.html#nodepcidevice) resource for each of them. The component scans the PCI bus at startup and then every five minutes, so a newly installed device appears in the list within a few minutes.
+
+To make a device available to a project, follow these steps.
+
+1. Find the device among the detected ones:
+
+   ```bash
+   d8 k get nodepcidevice
+   ```
+
+   Example output:
+
+   ```console {.nowrap-default}
+   NAME                                            NODE     ADDRESS        READY   ASSIGNED   ATTACHED   NAMESPACE    AGE
+   pci-4f2c0b1e8d9a3c5b7e1f0a2d4c6b8e0f1a3c5d7e    node-1   0000:3b:00.0   True    False      False                   10m
+   pci-9a1b3c5d7e9f0a2b4c6d8e0f1a3b5c7d9e1f0a2b    node-2   0000:65:00.0   True    True       False      my-project   15m
+   ```
+
+   The resource name is a hash of the device parameters and the node name, so look up the device you need by the `NODE` and `ADDRESS` columns. To verify the choice, use the [`.status.attributes`](cr.html#nodepcidevice-v1alpha2-status-attributes) block, which holds the PCI bus address and the vendor and model identifiers. They let you find the same device in the `lspci -nn` output on the node.
+
+1. Assign a namespace with the [`.spec.assignedNamespace`](cr.html#nodepcidevice-v1alpha2-spec-assignednamespace) parameter:
+
+   ```bash
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: NodePCIDevice
+   metadata:
+     name: pci-4f2c0b1e8d9a3c5b7e1f0a2d4c6b8e0f1a3c5d7e
+   spec:
+     assignedNamespace: my-project
+   EOF
+   ```
+
+1. Make sure that a [PCIDevice](cr.html#pcidevice) resource has appeared in the namespace:
+
+   ```bash
+   d8 k get pcidevice -n my-project
+   ```
+
+After that, the project owner attaches the device to their machine by specifying the [PCIDevice](cr.html#pcidevice) resource name in the [`.spec.pciDevices`](cr.html#virtualmachine-v1alpha2-spec-pcidevices) parameter of the [VirtualMachine](cr.html#virtualmachine) resource.
+
+To make the device unavailable to the project, clear the [`.spec.assignedNamespace`](cr.html#nodepcidevice-v1alpha2-spec-assignednamespace) parameter or set a different namespace. The [PCIDevice](cr.html#pcidevice) resource in the previous namespace is deleted.
+
+While the device is listed in a machine specification, the [PCIDevice](cr.html#pcidevice) resource isn't deleted and the machine keeps running. Ask the project owner to remove the device from the specification. If you set a different namespace instead of clearing the parameter, the resource appears in it right away, but the machine of the new project stays in the `Pending` phase while the device is occupied by the previous machine.
+
+### Requirements and limitations for PCI devices
+
+When planning PCI device passthrough, consider the following requirements and limitations:
+
+- Passthrough works in a cluster with [Kubernetes](/products/kubernetes-platform/documentation/v1/reference/supported_versions.html#kubernetes) 1.34 or higher and containerd version 2 on the nodes, and the `DRAResourceClaimDeviceStatus`, `DRADeviceBindingConditions`, and `DRAConsumableCapacity` feature gates have to be enabled in kube-apiserver.
+- DP doesn't detect every device of a node, because the hardware the node itself depends on stays at its disposal. The following devices never appear in the list:
+  - Display adapters, which are passed through as [GPU devices](#gpu-devices).
+  - Devices integrated into the chipset, bridges, memory controllers, and system peripherals.
+  - Network controllers with active interfaces.
+  - Storage controllers whose disks are used by the node.
+  - Devices that share an IOMMU group with any of the above, because a group goes to the VM as a whole.
+- A VM starts only on the node that holds the device attached to it, so all its PCI devices have to be on the same node, otherwise the specification is rejected.
+- A VM with a PCI device can't be moved by live migration, and the `Migratable` condition gets the `VirtualMachineHostDevicesNotMigratable` reason, so such machines have to be stopped before the node is put into maintenance.
+- Devices are attached when the VM starts, so a change to the [`.spec.pciDevices`](cr.html#virtualmachine-v1alpha2-spec-pcidevices) parameter requires its restart.
+- A single device is attached to one VM only, and a VM takes no more than eight devices.
+- A network card that's passed through works around the cluster network subsystem. It doesn't appear in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) parameter, and DP neither assigns nor tracks its IP and MAC addresses.
+
 ## Security event audit
 
 The audit records actions on virtual machines (VMs) and on the module itself, so that you can investigate an incident and reconstruct the sequence of events.
 
-{{< alert level="warning" >}}
-Not available in the CE edition.
+{{< alert level="info" >}}
+Available in commercial DP editions.
 {{< /alert >}}
 
 ### Enabling the audit

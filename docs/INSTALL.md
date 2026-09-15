@@ -20,7 +20,7 @@ The module has no additional restrictions and is compatible with any hardware su
 
 ## Hardware and software requirements
 
-Hardware requirements for the virtualization module match the requirements for the [Deckhouse Kubernetes Platform](/products/kubernetes-platform/guides/production.html#resource-requirements), with an additional requirement: CPU virtualization support on the hosts where virtual machines will be launched.
+Hardware requirements for the virtualization module match the requirements for the [Deckhouse Platform](/products/kubernetes-platform/guides/production.html#resource-requirements) (DP), plus an additional requirement of CPU virtualization support on the hosts where virtual machines will be launched.
 
 ### Additional requirements for virtualization support
 
@@ -43,7 +43,7 @@ On Astra Linux nodes, **Astra Linux platform version 1.8.3 or higher** is requir
 
 ## Supported guest operating systems
 
-The virtualization platform supports operating systems running on `x86` and `x86_64` architectures as guest operating systems. For correct operation in paravirtualization mode, `VirtIO` drivers must be installed to ensure efficient interaction between the virtual machine and the hypervisor.
+DP supports operating systems running on the `x86` and `x86_64` architectures as guest operating systems. For correct operation in paravirtualization mode, `VirtIO` drivers must be installed to ensure efficient interaction between the virtual machine and the hypervisor.
 
 Successful startup of the operating system is determined by the following criteria:
 
@@ -53,9 +53,11 @@ Successful startup of the operating system is determined by the following criter
 
 For Linux family operating systems, it is recommended to use guest OS images with `cloud-init` support, which allows initializing virtual machines after their creation.
 
-For Windows family operating systems, the platform supports initialization with [autounattend](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-automation-overview) installation.
+For Windows family operating systems, DP supports initialization with [autounattend](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-automation-overview) installation.
 
 ## Virtual machine configuration limits
+
+A single virtual machine has the following limits:
 
 - Maximum number of cores supported: `248`.
 - Maximum amount of RAM: `1024 GB`.
@@ -77,19 +79,21 @@ Virtual machine disks are created using PersistentVolume resources. To manage th
 
 ## Installation
 
-1. Deploy the Deckhouse Kubernetes Platform cluster following the [instructions](/products/kubernetes-platform/gs/).
+Virtualization is deployed in several steps:
+
+1. Deploy the Deckhouse Platform cluster following the [instructions](/products/kubernetes-platform/gs/).
 
 1. To store virtual machine data (virtual disks and images), enable one or multiple [supported storages](#supported-storage-systems).
 
 1. Set the default `StorageClass`:
 
-   ```shell
+   ```bash
    # Specify the name of your StorageClass object.
    DEFAULT_STORAGE_CLASS=replicated-storage-class
    sudo -i d8 k patch mc global --type='json' -p='[{"op": "replace", "path": "/spec/settings/defaultClusterStorageClass", "value": "'"$DEFAULT_STORAGE_CLASS"'"}]'
    ```
 
-1. Turn on the [`console`](/modules/console/) module, which will allow you to manage virtualization components through the Deckhouse web UI (available only for users of the Enterprise Edition).
+1. Turn on the [`console`](/modules/console/) module, which will allow you to manage virtualization components through the Deckhouse web UI.
 
 1. Enable the `virtualization` module:
 
@@ -105,7 +109,7 @@ Virtual machine disks are created using PersistentVolume resources. To manage th
 
    Example of module configuration:
 
-   ```yaml
+   ```bash
    d8 k apply -f - <<EOF
    apiVersion: deckhouse.io/v1alpha1
    kind: ModuleConfig
@@ -133,7 +137,7 @@ Virtual machine disks are created using PersistentVolume resources. To manage th
 
    Example output:
 
-   ```txt
+   ```console
    NAME             WEIGHT   SOURCE      PHASE   ENABLED   READY
    virtualization   900      deckhouse   Ready   True      True
    ```
@@ -155,20 +159,20 @@ In this context, worker nodes are nodes that don't have taints preventing regula
 
 What each component is responsible for is described in [Virtualization subsystem](/products/kubernetes-platform/documentation/v1/architecture/virtualization/). The table below lists the components of the virtualization control plane and the nodes where they can be placed. Components are scheduled by priority, and if a suitable node type is available in the cluster, the component lands on it.
 
-| Component name                | Node group                                        | Comment                                                                                                        |
-|-------------------------------|---------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| `virt-operator-*`             | system/master                                     |                                                                                                                |
-| `virt-api-*`                  | master                                            |                                                                                                                |
-| `virt-controller-*`           | system/worker                                     |                                                                                                                |
-| `virt-handler-*`              | All cluster nodes                                 |                                                                                                                |
-| `virtualization-api-*`        | master                                            |                                                                                                                |
-| `virtualization-controller-*` | master                                            |                                                                                                                |
-| `dvcr-*`                      | system                                            | Storage must be available on the node. If there are no system nodes, the component is placed on a worker node. |
-| `virtualization-audit-*`      | master                                            | Available in the EE edition.                                                                                   |
-| `virtualization-dra-*`        | Selected nodes                                    | Available in the EE edition.                                                                                   |
-| `vm-route-forge-*`            | All cluster nodes                                 |                                                                                                                |
+| Component name                | Node group        | Comment                                                                                                        |
+|-------------------------------|-------------------|----------------------------------------------------------------------------------------------------------------|
+| `virt-operator-*`             | system/master     |                                                                                                                |
+| `virt-api-*`                  | master            |                                                                                                                |
+| `virt-controller-*`           | system/worker     |                                                                                                                |
+| `virt-handler-*`              | Nodes with KVM    |                                                                                                                |
+| `virtualization-api-*`        | master            |                                                                                                                |
+| `virtualization-controller-*` | master            |                                                                                                                |
+| `dvcr-*`                      | system            | Storage must be available on the node. If there are no system nodes, the component is placed on a worker node. |
+| `virtualization-audit-*`      | master            | Available in commercial DP editions.                                                                           |
+| `virtualization-dra-*`        | Selected nodes    | Available in commercial DP editions.                                                                           |
+| `vm-route-forge-*`            | All cluster nodes |                                                                                                                |
 
-The `virtualization-dra-*` component runs only on nodes labeled `virtualization.deckhouse.io/usbip`.
+The `virt-handler-*` component runs only on the nodes where DP detected KVM support and set the `virtualization.deckhouse.io/kvm-enabled` label, and the `virtualization-dra-*` component runs only on nodes labeled `virtualization.deckhouse.io/usbip`.
 
 Components used to create and import virtual machine images or disks (they run only for the duration of the creation or import operation):
 
@@ -215,8 +219,8 @@ When considering updates, the module components can be divided into two categori
 
 Updating control plane components does not affect the operation of already running virtual machines, but may cause a brief interruption of established VNC/serial port connections while the control plane component is restarted.
 
-Updates to virtual machine firmware during a platform upgrade may require virtual machines to be migrated to the new "firmware" version.
-The module migrates a machine once, and if the migration fails, the machine owner has to move or reboot it themselves.
+Updates to virtual machine firmware during a DP upgrade may require virtual machines to be migrated to the new "firmware" version.
+DP migrates a machine once, and if the migration fails, the machine owner has to move or reboot it themselves.
 {{< /alert >}}
 
 For information on versions available at the update channels, see the [release channels site](https://releases.deckhouse.io/).
