@@ -1,3 +1,144 @@
+- version: v1.12.0
+  date: "2026-09-16"
+  highlights:
+    - en: PCI devices of cluster nodes can now be attached to virtual machines (EE, experimental).
+      ru: PCI-устройства узлов кластера теперь можно подключать к виртуальным машинам (ВМ) (EE, экспериментальная функциональность).
+    - en: A virtual machine can now be accessed over a SPICE display, with guest sound, USB redirection from the client and a shared clipboard.
+      ru: К ВМ теперь можно подключаться по SPICE — со звуком гостевой системы, пробросом USB-устройств с клиента и общим буфером обмена.
+    - en: Virtual machines and their disks are now included in namespace snapshots, and such a snapshot can be downloaded and uploaded back.
+      ru: ВМ и их диски теперь попадают в снимки неймспейса, а сам снимок можно скачать и загрузить обратно.
+    - en: A node can now be freed by allowing the restart of the virtual machines that cannot be live migrated.
+      ru: Узел теперь можно освободить, разрешив перезапуск ВМ, которые нельзя мигрировать вживую.
+  features:
+    virtual-machines:
+      - en: Added the ability to attach PCI devices of cluster nodes to virtual machines. The functionality is available in the commercial editions of the platform and is experimental. To use it, the cluster must run Kubernetes `1.34` or newer.
+        ru: Добавлена возможность подключать PCI-устройства узлов кластера к виртуальным машинам. Функциональность доступна в коммерческих редакциях платформы и является экспериментальной. Для использования необходимо иметь версию Kubernetes не ниже `1.34`.
+      - en: Added the SPICE display, which gives a virtual machine the guest sound, USB redirection from the client and a shared clipboard.
+        ru: Добавлен дисплей SPICE, дающий ВМ звук гостевой системы, проброс USB-устройств с клиента и общий буфер обмена.
+      - en: A node can now be freed by allowing the restart of the virtual machines that cannot be live migrated.
+        ru: Узел теперь можно освободить, разрешив перезапуск ВМ, которые нельзя мигрировать вживую.
+      - en: Virtual machines and their disks are now included in namespace snapshots and can be restored from them.
+        ru: ВМ и их диски теперь попадают в снимки неймспейса и восстанавливаются из них.
+      - en: A namespace snapshot with virtual machines can be downloaded as an archive and uploaded back.
+        ru: Снимок неймспейса с ВМ можно выгрузить архивом и загрузить обратно.
+      - en: New snapshots of virtual machines and disks are now taken through the `state-snapshotter` module if it is enabled.
+        ru: Новые снимки ВМ и дисков теперь создаются через модуль `state-snapshotter`, если он включён.
+      - en: The `Migratable` condition now reports that a virtual machine has no node to migrate to.
+        ru: Условие `Migratable` теперь сообщает, что для ВМ нет подходящего узла для миграции.
+      - en: Added the `OperationInProgress` condition, which reports the operation being performed on a virtual machine and the failure of the last one.
+        ru: Добавлено условие `OperationInProgress`, сообщающее о выполняемой над ВМ операции и об ошибке последней завершённой.
+      - en: Added the ability to give a virtual machine an emulated Input/Output Memory Management Unit (IOMMU), so that PCI passthrough works inside the guest. The functionality is available in the commercial editions of the platform. To enable it, add `VIOMMU` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
+        ru: Добавлена возможность выдать ВМ эмулируемый Input/Output Memory Management Unit (IOMMU), чтобы внутри гостевой системы работал проброс PCI-устройств. Функциональность доступна в коммерческих редакциях платформы. Для использования необходимо добавить `VIOMMU` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
+    observability:
+      - en: Metrics now tell which node a virtual machine migrates from and which node it migrates to, and the dashboards show how the migrations in progress are going.
+        ru: Метрики теперь сообщают, с какого узла и на какой мигрирует ВМ, а дашборды показывают ход идущих миграций.
+      - en: Added metrics of the launch, shutdown and migration time of a virtual machine and of the disk provisioning time.
+        ru: Добавлены метрики времени запуска, выключения и миграции ВМ, а также времени создания диска.
+      - en: The cluster overview dashboard now also shows the actual CPU, memory and disk space consumption of virtual machines.
+        ru: Дашборд обзора кластера теперь также показывает фактическое потребление CPU, памяти и дискового пространства ВМ.
+      - en: Added the `d8_virtualization_virtualmachine_eviction_required` metric about the state of a virtual machine while its node is taken out of service. The `D8VirtualizationVirtualMachineHoldsNodeMaintenance` alert names a virtual machine that holds such a node.
+        ru: Добавлена метрика `d8_virtualization_virtualmachine_eviction_required` о состоянии ВМ при выводе её узла из эксплуатации. Алерт `D8VirtualizationVirtualMachineHoldsNodeMaintenance` называет ВМ, которая удерживает такой узел.
+      - en: The dashboards now show how many virtual machines cannot migrate and which nodes they run on.
+        ru: Дашборды теперь показывают, сколько ВМ не могут мигрировать и на каких узлах они работают.
+      - en: Live migration now reports how long the virtual machine was actually paused.
+        ru: Живая миграция теперь сообщает, сколько времени ВМ была фактически приостановлена.
+  improvements:
+    virtual-machines:
+      - en: VNC now uses less traffic thanks to a better compression of the picture.
+        ru: VNC теперь потребляет меньше трафика за счёт улучшенного сжатия картинки.
+    disks-and-images:
+      - en: Disks are created from images faster, and a raw image takes several times less space because it is now stored compressed.
+        ru: Диски из образов создаются быстрее, а raw-образ теперь хранится сжатым для экономии места.
+  fixes:
+    virtual-machines:
+      - en: A node no longer waits for a reboot because of a virtual machine pod left on it by a live migration.
+        ru: Узел больше не ждёт перезагрузки из-за пода ВМ, оставшегося на нём после живой миграции.
+      - en: Deleting a virtual machine after its live migration on NFS no longer leaves the machine, its disks and the namespace in `Terminating`.
+        ru: Удаление ВМ после её живой миграции на NFS больше не оставляет ВМ, её диски и неймспейс в состоянии `Terminating`.
+      - en: A [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) of the `Evict` type no longer hangs in `Terminating` after its virtual machine is deleted.
+        ru: Ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) с типом `Evict` больше не зависает в `Terminating` после удаления ВМ.
+      - en: A virtual machine with local disks is no longer reported as non-migratable if its disks can move along with it.
+        ru: ВМ с локальными дисками больше не считается немигрируемой, если её диски переезжают вместе с ней.
+      - en: A virtual machine is no longer left pinned to the node where its local disks used to live.
+        ru: ВМ больше не остаётся привязанной к узлу, на котором располагались её локальные диски.
+      - en: A virtual machine whose disk is available on a single node only is no longer reported as migratable.
+        ru: ВМ с диском, доступным только на одном узле, больше не считается мигрируемой.
+      - en: Automatic rebalancing no longer tries to evict virtual machines that cannot be live migrated.
+        ru: Автоматическая ребалансировка больше не пытается вытеснить ВМ, которые нельзя мигрировать вживую.
+      - en: The annotations of the `descheduler` module set on a virtual machine no longer affect its eviction.
+        ru: Аннотации модуля `descheduler`, проставленные на ВМ, больше не влияют на её вытеснение.
+      - en: The provisioning secret cannot be deleted while a running virtual machine still needs it.
+        ru: Секрет с параметрами инициализации нельзя удалить, пока он нужен работающей ВМ.
+      - en: A virtual machine on an unresponsive node now reports its state as unknown.
+        ru: ВМ на неотвечающем узле теперь сообщает, что её состояние неизвестно.
+      - en: An additional network is now unplugged from the guest as soon as it is removed from a running virtual machine.
+        ru: Дополнительная сеть отключается от гостевой системы сразу после её удаления у работающей ВМ.
+      - en: A virtual machine whose MAC address was re-assigned at creation now starts with all its additional interfaces.
+        ru: ВМ с переназначенным при создании MAC-адресом теперь запускается со всеми дополнительными интерфейсами.
+      - en: A migration now reports at once that it has no suitable node to move the virtual machine to.
+        ru: Миграция сразу сообщает, что для переноса ВМ нет подходящего узла.
+      - en: The event of a failed migration now names the cause.
+        ru: Событие о неудавшейся миграции теперь называет причину.
+    disks-and-images:
+      - en: An interrupted image download now fails the import.
+        ru: Прерванная загрузка образа теперь завершает импорт ошибкой.
+      - en: An interrupted disk import now completes on the next attempt.
+        ru: Прерванный импорт диска теперь завершается со следующей попытки.
+      - en: A large image import no longer loops because the importer runs out of memory.
+        ru: Импорт большого образа больше не зацикливается из-за нехватки памяти у импортера.
+      - en: A failed disk or image import now names the reason instead of staying in `Provisioning` forever.
+        ru: Неудавшийся импорт диска или образа теперь называет причину вместо бесконечного `Provisioning`.
+      - en: An image import blocked by a project quota resumes by itself once the quota is raised.
+        ru: Импорт образа, заблокированный квотой проекта, продолжится сам после её увеличения.
+      - en: Image and disk import and upload now work in Deckhouse projects with an isolated network.
+        ru: Импорт и загрузка образов и дисков теперь работают в проектах Deckhouse с изолированной сетью.
+      - en: A virtual machine can now be restored and cloned from a snapshot even if the default storage class of the cluster uses another CSI driver.
+        ru: ВМ теперь восстанавливается и клонируется из снимка, даже если класс хранения по умолчанию использует другой CSI-драйвер.
+      - en: A virtual machine restored from a snapshot on local storage no longer hangs in `Pending`. All of its volumes now end up on the same node.
+        ru: ВМ, восстановленная из снимка на локальном хранилище, больше не зависает в `Pending`. Все её тома теперь оказываются на одном узле.
+      - en: Restoring a disk with a size of zero or less is now rejected with a clear reason.
+        ru: Восстановление диска нулевого или отрицательного размера теперь отклоняется с понятной причиной.
+    observability:
+      - en: The CPU utilization panel of the cluster overview dashboard no longer reports values about a thousand times lower than the real ones.
+        ru: Панель использования CPU на дашборде обзора кластера больше не показывает значения примерно в тысячу раз ниже реальных.
+      - en: The cluster overview dashboard opens with the default Prometheus data source.
+        ru: Дашборд обзора кластера открывается с источником данных Prometheus по умолчанию.
+      - en: The `D8VirtualizationNodeEvacuationStuck` alert no longer fires while a live migration of a virtual machine is running.
+        ru: Алерт `D8VirtualizationNodeEvacuationStuck` больше не срабатывает во время идущей живой миграции ВМ.
+    module:
+      - en: Setting values that contain YAML-significant characters no longer break the manifests of the module.
+        ru: Значения настроек со спецсимволами YAML больше не ломают манифесты модуля.
+  security:
+    virtual-machines:
+      - en: Virtual machine pods now run with the `RuntimeDefault` seccomp profile. A running machine gets it after a restart or a migration.
+        ru: Поды ВМ теперь работают с профилем seccomp `RuntimeDefault`. Работающая ВМ получает его после перезапуска или миграции.
+    module:
+      - en: Labels and annotations reserved by the module and KubeVirt are no longer propagated from user resources onto internal objects.
+        ru: Лейблы и аннотации, зарезервированные модулем и KubeVirt, больше не переносятся с пользовательских ресурсов на внутренние объекты.
+      - en: The snapshot secret of a virtual machine can now be written by the module only.
+        ru: Секрет снимка ВМ теперь может изменять только модуль.
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-56854
+            - CVE-2026-84304
+            - CVE-2026-84445
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-56854
+            - CVE-2026-84304
+            - CVE-2026-84445
+  breaking:
+    observability:
+      - en: The `d8_virtualization_virtualmachine_migration_start_time_seconds`, `d8_virtualization_virtualmachine_migration_end_time_seconds`, `d8_virtualization_virtualmachine_migration_succeeded` and `d8_virtualization_virtualmachine_migration_failed` metrics moved under the `d8_internal_virtualization_kubevirt_` prefix. Dashboards and alerts that use them require an update, and the same data is now reported by the `d8_virtualization_virtualmachine_migration_info` metric.
+        ru: Метрики `d8_virtualization_virtualmachine_migration_start_time_seconds`, `d8_virtualization_virtualmachine_migration_end_time_seconds`, `d8_virtualization_virtualmachine_migration_succeeded` и `d8_virtualization_virtualmachine_migration_failed` переехали под префикс `d8_internal_virtualization_kubevirt_`. Дашборды и алерты с этими метриками требуют обновления, а те же данные теперь даёт метрика `d8_virtualization_virtualmachine_migration_info`.
+      - en: The `d8_virtualization_virtualmachine_migratable` metric gained the `reason` label and is no longer dropped to zero by a cordon of a neighbouring node, so alerts matching on its value alone change their meaning.
+        ru: Метрика `d8_virtualization_virtualmachine_migratable` получила лейбл `reason` и больше не обнуляется при cordon соседнего узла, поэтому алерты, опирающиеся только на её значение, меняют смысл.
+    disks-and-images:
+      - en: The `virtualdisk.virtualization.deckhouse.io/volume-mode` and `virtualdisk.virtualization.deckhouse.io/access-mode` annotations on a [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) or a [VirtualImage](/modules/virtualization/cr.html#virtualimage) no longer override the volume and access modes of a PersistentVolumeClaim — they are read from the storage class only.
+        ru: Аннотации `virtualdisk.virtualization.deckhouse.io/volume-mode` и `virtualdisk.virtualization.deckhouse.io/access-mode` на ресурсах [VirtualDisk](/modules/virtualization/cr.html#virtualdisk) и [VirtualImage](/modules/virtualization/cr.html#virtualimage) больше не переопределяют режимы тома и доступа PersistentVolumeClaim — они берутся только из класса хранения.
+  upgrade:
+    - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
+      ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
 - version: v1.11.1
   date: "2026-09-09"
   highlights:
