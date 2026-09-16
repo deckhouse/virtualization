@@ -451,13 +451,19 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 			Expect(*roundTrip.Spec.SizingPolicies[0].DefaultCoreFraction).To(Equal(CoreFractionAuto))
 		})
 
+		It("passes a percentage string left in v1alpha2 storage through as is", func() {
+			roundTrip := &VirtualMachineClass{}
+			Expect(roundTrip.ConvertFrom(v2ClassWithDefault(intstr.FromString("5%")))).To(Succeed())
+			Expect(*roundTrip.Spec.SizingPolicies[0].DefaultCoreFraction).To(Equal(DefaultCoreFractionValue("5%")))
+		})
+
 		It("fails on a string that is neither a percentage nor Auto", func() {
 			err := v3ClassWithDefault("auto").ConvertTo(&v1alpha2.VirtualMachineClass{})
 			Expect(err).To(MatchError(ContainSubstring("defaultCoreFraction")))
 		})
 
-		It("fails on a v1alpha2 string other than Auto", func() {
-			err := (&VirtualMachineClass{}).ConvertFrom(v2ClassWithDefault(intstr.FromString("50%")))
+		It("fails on a v1alpha2 string that is neither a percentage nor Auto", func() {
+			err := (&VirtualMachineClass{}).ConvertFrom(v2ClassWithDefault(intstr.FromString("half")))
 			Expect(err).To(MatchError(ContainSubstring("the only allowed string value")))
 		})
 
