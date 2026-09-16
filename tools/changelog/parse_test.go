@@ -45,7 +45,8 @@ func TestBlocksIgnoresWhatIsNotACodeBlock(t *testing.T) {
 	}, {
 		name: "an indented example does not swallow the entry under it",
 		description: "Example:\n\n   " + strings.ReplaceAll(
-			fence("section: vm\ntype: fix\nsummary: example"), "\n", "\n   ") + "\n\n" +
+			fence("section: vm\ntype: fix\nsummary: example"), "\n", "\n   ",
+		) + "\n\n" +
 			fence("section: vd\ntype: fix\nsummary: real"),
 		want: []string{
 			"section: vm\ntype: fix\nsummary: example\n",
