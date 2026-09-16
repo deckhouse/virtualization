@@ -93,7 +93,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualMachineSnapshotWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
 		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
-		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		watcher.NewVirtualDiskWatcher(mgr.GetClient(), r.unifiedSnapshotterPresent),
 		watcher.NewKVVMIWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)

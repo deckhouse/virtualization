@@ -32,18 +32,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/snapshotter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type VirtualDiskWatcher struct {
-	client client.Client
+	client                    client.Client
+	unifiedSnapshotterPresent bool
 }
 
-func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
+func NewVirtualDiskWatcher(client client.Client, unifiedSnapshotterPresent bool) *VirtualDiskWatcher {
 	return &VirtualDiskWatcher{
-		client: client,
+		client:                    client,
+		unifiedSnapshotterPresent: unifiedSnapshotterPresent,
 	}
 }
 
@@ -90,6 +93,14 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.Vi
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
+		// Ignore unified snapshots as values in vdSnapshotNames are not compatible with builtin mechanism
+		// and reconciler will ignore unified snapshots anyway.
+		// It should be safe to ignore here, because there is no support for heterogeneous snapshots, i.e.
+		// when VMSnapshot is builtin but children VDSnapshots are unified.
+		if snapshotter.UseUnifiedForVirtualMachineSnapshot(&vmSnapshot, w.unifiedSnapshotterPresent) {
+			continue
+		}
+
 		for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
 			vdName, ok := strings.CutSuffix(vdSnapshotName, "-"+string(vmSnapshot.UID))
 			if !ok {
