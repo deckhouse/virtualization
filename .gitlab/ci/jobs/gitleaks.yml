@@ -5,7 +5,7 @@
 #   - .github/workflows/gitleaks-scan-on-schedule.yml  (daily full scan)
 #
 # Both GH workflows invoked `deckhouse/modules-actions/gitleaks@v6`. The
-# upstream modules-gitlab-ci@v13.0 `.gitleaks_scan` template provides
+# upstream modules-gitlab-ci@v15.0 `.gitleaks_scan` template provides
 # the same functionality via the GitLab-native gitleaks release binary.
 # The upstream template already exposes three reusable jobs:
 #

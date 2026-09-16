@@ -20,7 +20,7 @@
 # default branch (main) and release-X.Y branches.
 #
 # Direction note (verified against upstream):
-# The upstream modules-gitlab-ci@v13.0 `.translate_and_create_mr` template
+# The upstream modules-gitlab-ci@v15.0 `.translate_and_create_mr` template
 # (templates/Translate_Changelog.gitlab-ci.yml) is hardcoded to the OPPOSITE
 # direction (RU -> EN, globs `v*.ru.yml`) and exposes NO direction variables
 # (only TRANSLATE_CHANGELOG_PATH / TRANSLATE_BASE_BRANCH). This repo has no
@@ -45,11 +45,11 @@
 #
 # We delegate to the upstream GitLab CI template at
 # https://fox.flant.com/deckhouse/3p/deckhouse/modules-gitlab-ci
-# (branch v13.0).
+# (branch v15.0).
 
 include:
   - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
-    ref: "v13.0"
+    ref: "v15.0"
     file: "/templates/Translate_Changelog.gitlab-ci.yml"
 
 # Local job definition that extends the upstream hidden job.
