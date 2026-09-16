@@ -24,6 +24,8 @@ rules:
   - virtualmachinesnapshotoperations
   - usbdevices
   - nodeusbdevices
+  - pcidevices
+  - nodepcidevices
   verbs:
   - get
   - list
@@ -120,6 +122,7 @@ rules:
   - virtualmachineipaddressleases
   - virtualmachinemacaddressleases
   - nodeusbdevices
+  - nodepcidevices
   verbs:
   - get
   - list
@@ -148,6 +151,7 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - nodeusbdevices
+  - nodepcidevices
   verbs:
   - delete
   - deletecollection
