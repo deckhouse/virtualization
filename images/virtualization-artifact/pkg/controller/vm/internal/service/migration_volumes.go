@@ -139,16 +139,6 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, nil
 	}
 
-	// Clear a stale updateVolumesStrategy after a finished migration; kubevirt never
-	// clears it and keeps treating the VM as mid-migration. Volumes-equal guard skips
-	// the mid-completion window; the normalized copy is required for containerdisks.
-	if vmop == nil &&
-		equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmInClusterCopy.Spec.Template.Spec.Volumes) &&
-		!equality.Semantic.DeepEqual(builtKVVM.Spec.UpdateVolumesStrategy, kvvmInClusterCopy.Spec.UpdateVolumesStrategy) {
-		log.Info("clearing stale updateVolumesStrategy on kvvm after migration finished.")
-		return s.patchVolumes(ctx, builtKVVM)
-	}
-
 	readWriteOnceDisks, storageClassChangedDisks, err := s.getDisks(ctx, vmState)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -160,8 +150,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	kvvmSynced := equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes)
 	if kvvmSynced {
 		if !equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Affinity, kvvmInCluster.Spec.Template.Spec.Affinity) {
-			log.Info("kvvm volumes are synced but affinity drifted, re-patch affinity.")
-			return s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
+			return s.patchAffinity(ctx, builtKVVMWithMigrationVolumes)
 		}
 		if vmop != nil && (!readWriteOnceDisksSynced || !storageClassChangedDisksSynced) {
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -357,34 +346,43 @@ func affinityMergeValue(a *corev1.Affinity) any {
 
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) (reconcile.Result, error) {
 	mergePatch := map[string]any{
-		"spec": map[string]any{
-			"updateVolumesStrategy": kvvm.Spec.UpdateVolumesStrategy,
-			"template": map[string]any{"spec": map[string]any{
-				"volumes": kvvm.Spec.Template.Spec.Volumes,
-				// Disks are patched together with volumes to keep the merged object
-				// self-consistent: the builder maintains both arrays in sync, while a
-				// volumes-only patch built from a snapshot that predates a concurrent
-				// hotplug (addvolume) persist would drop the hotplug volume but leave
-				// its disk — the kubevirt webhook then denies the merged object
-				// ("disks[N].Name ... not found") BEFORE the resourceVersion
-				// precondition below is even checked, and the controller retries the
-				// same doomed patch. With disks included the merge is always valid and
-				// a stale snapshot surfaces as the intended 409.
-				"domain": map[string]any{"devices": map[string]any{
-					"disks": kvvm.Spec.Template.Spec.Domain.Devices.Disks,
-				}},
-				// Affinity is patched together with volumes because the migration
-				// target PVCs can resolve to a different node than the source.
-				// affinityMergeValue keeps every sub-field explicit so a merge
-				// patch actually clears a stale nodeAffinity (the source PV's node
-				// pinning) instead of leaking it into the migration target pod.
-				"affinity": affinityMergeValue(kvvm.Spec.Template.Spec.Affinity),
+		"updateVolumesStrategy": kvvm.Spec.UpdateVolumesStrategy,
+		"template": map[string]any{"spec": map[string]any{
+			"volumes": kvvm.Spec.Template.Spec.Volumes,
+			// Disks are patched together with volumes to keep the merged object
+			// self-consistent: the builder maintains both arrays in sync, while a
+			// volumes-only patch built from a snapshot that predates a concurrent
+			// hotplug (addvolume) persist would drop the hotplug volume but leave
+			// its disk — the kubevirt webhook then denies the merged object
+			// ("disks[N].Name ... not found") BEFORE the resourceVersion
+			// precondition below is even checked, and the controller retries the
+			// same doomed patch. With disks included the merge is always valid and
+			// a stale snapshot surfaces as the intended 409.
+			"domain": map[string]any{"devices": map[string]any{
+				"disks": kvvm.Spec.Template.Spec.Domain.Devices.Disks,
 			}},
-		},
+			// Affinity is patched together with volumes because the migration
+			// target PVCs can resolve to a different node than the source.
+			// affinityMergeValue keeps every sub-field explicit so a merge
+			// patch actually clears a stale nodeAffinity (the source PV's node
+			// pinning) instead of leaking it into the migration target pod.
+			"affinity": affinityMergeValue(kvvm.Spec.Template.Spec.Affinity),
+		}},
 	}
-	// Optimistic lock: kubevirt persists hotplug (addvolume) volumes into the same
-	// array concurrently; a stale read would silently drop them. The resourceVersion
-	// precondition makes apiserver reject it with a clean 409 instead.
+	return s.patchKVVMSpec(ctx, kvvm, mergePatch, "The volume migration is detected: patch volumes")
+}
+
+func (s MigrationVolumesService) patchAffinity(ctx context.Context, kvvm *virtv1.VirtualMachine) (reconcile.Result, error) {
+	mergePatch := map[string]any{
+		"template": map[string]any{"spec": map[string]any{
+			"affinity": affinityMergeValue(kvvm.Spec.Template.Spec.Affinity),
+		}},
+	}
+	return s.patchKVVMSpec(ctx, kvvm, mergePatch, "The affinity drifted: patch affinity")
+}
+
+func (s MigrationVolumesService) patchKVVMSpec(ctx context.Context, kvvm *virtv1.VirtualMachine, spec map[string]any, msg string) (reconcile.Result, error) {
+	mergePatch := map[string]any{"spec": spec}
 	if kvvm.ResourceVersion != "" {
 		mergePatch["metadata"] = map[string]any{"resourceVersion": kvvm.ResourceVersion}
 	}
@@ -393,12 +391,10 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 		return reconcile.Result{}, err
 	}
 
-	logger.FromContext(ctx).Info("The volume migration is detected: patch volumes", slog.String("patch", string(patchBytes)))
+	logger.FromContext(ctx).Info(msg, slog.String("patch", string(patchBytes)))
 
 	if err = s.client.Patch(ctx, kvvm, client.RawPatch(types.MergePatchType, patchBytes)); err != nil {
 		if k8serrors.IsConflict(err) {
-			// KVVM moved on (a concurrent kubevirt hotplug persist): re-read on the
-			// next pass instead of retrying blind.
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return reconcile.Result{}, err

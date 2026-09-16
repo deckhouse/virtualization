@@ -107,6 +107,19 @@ var _ = Describe("MigrationVolumesService", func() {
 		}
 	}
 
+	// builtFrom mirrors production MakeKVVMFromVMSpec: the built object starts from a copy of the
+	// KVVM in the cluster, so it inherits every spec field the builder never writes —
+	// updateVolumesStrategy among them, since only ApplyMigrationVolumes ever sets that, and it
+	// does so on a separate copy. A fake handing back a stand-alone KVVM would let a spec observe
+	// a strategy difference the controller can never see.
+	builtFrom := func(inCluster, desired *virtv1.VirtualMachine) func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+		return func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+			built := desired.DeepCopy()
+			built.Spec.UpdateVolumesStrategy = inCluster.Spec.UpdateVolumesStrategy
+			return built, nil
+		}
+	}
+
 	setupState := func(vm *v1alpha2.VirtualMachine, objs ...client.Object) state.VirtualMachineState {
 		allObjects := append([]client.Object{vm}, objs...)
 		fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)
@@ -179,9 +192,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
@@ -208,9 +219,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
@@ -234,9 +243,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
@@ -245,81 +252,13 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		updatedKVVM := &virtv1.VirtualMachine{}
 		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
-		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+		// The revert puts the source claims back; the strategy is not ours to drop. kubevirt
+		// retires it once the migration it describes is finalized (finalizeVolumeMigration).
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(migrationStrategy)))
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim).NotTo(BeNil())
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 		Expect(updatedKVVM.Spec.Template.Spec.Affinity).To(Equal(desiredKVVM.Spec.Template.Spec.Affinity))
-	})
-
-	It("clears a stale migration strategy left on kvvm when volumes already match and no migration is in progress", func() {
-		ctx := testutil.ContextBackgroundWithNoOpLogger()
-		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
-
-		vm := newVM()
-		// A finished migration left updateVolumesStrategy=Migration on KVVM while KVVM
-		// and KVVMI already agree on the volumes. The stale strategy must be cleared.
-		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
-		kvvmi := newKVVMIWithVolume(targetPVC)
-		desiredKVVM := newKVVMWithVolume(targetPVC, nil, "node")
-		vmState := setupState(vm, kvvmInCluster, kvvmi)
-
-		service := NewMigrationVolumesService(
-			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
-			10*time.Second,
-		)
-
-		_, err := service.SyncVolumes(ctx, vmState, false)
-		Expect(err).NotTo(HaveOccurred())
-
-		updatedKVVM := &virtv1.VirtualMachine{}
-		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
-		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
-		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
-		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
-	})
-
-	It("clears a stale migration strategy on a VM with a containerdisk volume despite the pull-policy drift", func() {
-		ctx := testutil.ContextBackgroundWithNoOpLogger()
-		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
-
-		containerDisk := func(policy corev1.PullPolicy) virtv1.Volume {
-			return virtv1.Volume{
-				Name: "cdrom",
-				VolumeSource: virtv1.VolumeSource{
-					ContainerDisk: &virtv1.ContainerDiskSource{Image: "registry.example.com/image:tag", ImagePullPolicy: policy},
-				},
-			}
-		}
-
-		vm := newVM()
-		// The pull policy is defaulted by kubevirt only on the VMI: KVVM and the
-		// desired spec carry an empty one. The stale strategy must still be cleared.
-		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
-		kvvmInCluster.Spec.Template.Spec.Volumes = append(kvvmInCluster.Spec.Template.Spec.Volumes, containerDisk(""))
-		kvvmi := newKVVMIWithVolume(targetPVC)
-		kvvmi.Spec.Volumes = append(kvvmi.Spec.Volumes, containerDisk(corev1.PullIfNotPresent))
-		desiredKVVM := newKVVMWithVolume(targetPVC, nil, "node")
-		desiredKVVM.Spec.Template.Spec.Volumes = append(desiredKVVM.Spec.Template.Spec.Volumes, containerDisk(""))
-		vmState := setupState(vm, kvvmInCluster, kvvmi)
-
-		service := NewMigrationVolumesService(
-			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
-			10*time.Second,
-		)
-
-		_, err := service.SyncVolumes(ctx, vmState, false)
-		Expect(err).NotTo(HaveOccurred())
-
-		updatedKVVM := &virtv1.VirtualMachine{}
-		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
-		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
 	})
 
 	It("force-reverts kvvm to source when kvvm/kvvmi diverged and no migration is in progress", func() {
@@ -338,9 +277,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
@@ -349,9 +286,40 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		updatedKVVM := &virtv1.VirtualMachine{}
 		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
-		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(BeNil())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(migrationStrategy)))
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+	})
+
+	It("keeps the migration strategy when only the affinity drifted", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+		vm := newVM()
+		// A finished migration left the strategy on KVVM, and attaching a disk that lives on
+		// another node moved the affinity. Re-pinning the machine must not take the strategy
+		// down with it: kubevirt tolerates the claim swap the migration already made only
+		// while the strategy is set, so clearing it here reboots a running machine.
+		kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "old-node")
+		kvvmi := newKVVMIWithVolume(targetPVC)
+		desiredKVVM := newKVVMWithVolume(targetPVC, &migrationStrategy, "new-node")
+		vmState := setupState(vm, kvvmInCluster, kvvmi)
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			builtFrom(kvvmInCluster, desiredKVVM),
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(migrationStrategy)))
+		Expect(updatedKVVM.Spec.Template.Spec.Affinity).To(Equal(desiredKVVM.Spec.Template.Spec.Affinity))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
 	})
 
 	It("patches disks together with volumes so the merged template stays self-consistent", func() {
@@ -380,9 +348,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
@@ -412,9 +378,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
@@ -442,9 +406,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
@@ -478,9 +440,7 @@ var _ = Describe("MigrationVolumesService", func() {
 
 		service := NewMigrationVolumesService(
 			vmState.Client(),
-			func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
-				return desiredKVVM.DeepCopy(), nil
-			},
+			builtFrom(kvvmInCluster, desiredKVVM),
 			10*time.Second,
 		)
 
