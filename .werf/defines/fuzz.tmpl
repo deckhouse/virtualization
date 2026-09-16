@@ -1,25 +1,40 @@
 # Fuzz image template for virtualization.
 #
-# Usage from dvcr-artifact and pvc-artifact:
+# Usage:
 #   ---
 #   {{- $_ := set . "FuzzEngine" "go" }}
 #   {{- $_ := set . "FuzzWorkDir" (printf "/src/images/%s" .ImageName) }}
+#   {{- $_ := set . "FuzzFromImage" (printf "%s%s" .ModuleNamePrefix .ImageName) }}
+#   {{- $_ := set . "FuzzPackages" "./..." }}
+#   {{- $_ := set . "FuzzTargetFiles" (list) }}
 #   {{- include "fuzz image" . }}
 #   → image {ModuleNamePrefix}{ImageName}-fuzz
 # Put document separator "---" in werf.inc.yaml before include (not in this template).
 #
-# FuzzEngine and FuzzWorkDir are fixed by the two callers in this repository.
-# dvcr-artifact uses its builder, CGO/libnbd and qemu-img. pvc-artifact uses
-# its regular build stage and pure Go. Both use the repository Taskfile.fuzz.yml.
+# All five knobs are REQUIRED of every caller, the two empty-looking ones
+# included. The dict is shared across the whole render, so a knob left unset
+# does not fall back to a default — it keeps whatever the previously rendered
+# fuzz image put there and silently builds the wrong base or copies a target
+# file into a path this image does not have.
+#
+# FuzzFromImage is the Go build stage to sit on: it has to carry the sources and
+# a resolvable module graph. dvcr-artifact, dvcr and virtualization-dra name
+# their -builder stage; pvc-artifact, virtualization-artifact and virt-artifact
+# name the build image itself. dvcr-artifact additionally needs CGO/libnbd and
+# qemu-img; that stays keyed on the image name below, because it is derived and
+# cannot leak between callers. Everything else is pure Go.
+#
 # Replay/list/run: `task fuzz:*`; task is installed outside the source module graph.
 # Taskfile.fuzz.yml is copied into the selected fuzz workdir as Taskfile.yml.
 {{- define "fuzz image" }}
 {{- if eq (env "WERF_BUILD_FUZZ_IMAGES" "false") "true" }}
-{{- $engine := .FuzzEngine }}
+{{- $engine := required "fuzz image: FuzzEngine must be set by the caller" .FuzzEngine }}
 {{- $prefix := .ModuleNamePrefix | default "" }}
-{{- $fuzzWorkDir := .FuzzWorkDir }}
+{{- $fuzzWorkDir := required "fuzz image: FuzzWorkDir must be set by the caller" .FuzzWorkDir }}
 {{- $isDVCR := eq .ImageName "dvcr-artifact" }}
-{{- $fuzzFromImage := ternary (printf "%s%s-builder" $prefix .ImageName) (printf "%s%s" $prefix .ImageName) $isDVCR }}
+{{- $fuzzFromImage := required "fuzz image: FuzzFromImage must be set by the caller" .FuzzFromImage }}
+{{- $fuzzPackages := required "fuzz image: FuzzPackages must be set by the caller" .FuzzPackages }}
+{{- $fuzzTargetFiles := required "fuzz image: FuzzTargetFiles must be set by the caller, empty list included" .FuzzTargetFiles }}
 {{- $fuzzCGOEnabled := ternary "1" "0" $isDVCR }}
 {{- $fuzzCGOCFlags := ternary "-std=gnu17" "" $isDVCR }}
 image: {{ $prefix }}{{ .ImageName }}-fuzz
@@ -35,12 +50,30 @@ imageSpec:
       GOMODCACHE: "/fuzz/gomod"
       CGO_ENABLED: {{ $fuzzCGOEnabled | quote }}
       CGO_CFLAGS: {{ $fuzzCGOCFlags | quote }}
+      # Scope of `task fuzz:list`. The platform runs that task in this image, so
+      # the narrowing an image needs has to travel with the image.
+      FUZZ_PKGS: {{ $fuzzPackages | quote }}
 git:
   - add: {{ .ModuleDir }}/Taskfile.fuzz.yml
     to: {{ $fuzzWorkDir }}/Taskfile.yml
     stageDependencies:
       install:
         - '**/*'
+{{- /*
+  FuzzTargetFiles places a fuzz target this repository owns into a source tree
+  it does not: the dvcr and virt-artifact images sit on a fork cloned during the
+  build, and a Go fuzz target has to live inside the package it tests. Each entry
+  is {from: path in this repository, to: absolute path in the image}. Renaming
+  the code under test in the fork then breaks this image's build, which is the
+  intended failure mode -- louder than a target that stops covering anything.
+*/}}
+{{- range $fuzzTargetFiles }}
+  - add: {{ $.ModuleDir }}/{{ .from }}
+    to: {{ .to }}
+    stageDependencies:
+      install:
+        - '**/*'
+{{- end }}
 {{- if $isDVCR }}
 import:
   - image: {{ $prefix }}qemu
@@ -133,7 +166,14 @@ shell:
     export GOMODCACHE=/fuzz/gomod
     mkdir -p "${GOMODCACHE}"
 
-    go mod download
+    # A vendored tree resolves from vendor/ and `go mod download` would fetch a
+    # dependency set nothing builds from. Both fork trees vendor; the module's
+    # own images do not.
+    if [ -f vendor/modules.txt ]; then
+      echo "vendored tree, skip go mod download"
+    else
+      go mod download
+    fi
 
     # Install task without adding it to the imported source module. `go get -tool`
     # followed by `go install tool` mutates the dependency graph and builds every
@@ -263,6 +303,8 @@ shell:
     # Build-time regression replay is intentionally orchestrated here rather than
     # exposed as an extra Taskfile command: Taskfile.fuzz.yml is the platform ABI.
     # Use fuzz:list as the only discovery source, just like fuzzing-compliance.
+    export FUZZ_PKGS={{ $fuzzPackages | quote }}
+    echo "fuzz discovery scope: ${FUZZ_PKGS}"
     FUZZ_LIST_LOG=/tmp/fuzz-list.log
     FUZZ_TARGETS_FILE=/tmp/fuzz-targets.txt
     list_rc=0

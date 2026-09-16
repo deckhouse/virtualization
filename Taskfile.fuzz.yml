@@ -2,8 +2,12 @@ version: "3"
 
 tasks:
   fuzz:list:
+    # FUZZ_PKGS narrows discovery, defaulting to the whole module. It exists for
+    # the images that sit on a cloned fork tree: "./..." there is the entire
+    # KubeVirt or distribution source, thousands of test packages, some of which
+    # need a cluster to even build. Callers that do not set it are unaffected.
     cmds:
-      - go test ./... -list '^Fuzz'
+      - go test ${FUZZ_PKGS:-./...} -list '^Fuzz'
 
   fuzz:run:
     cmds:

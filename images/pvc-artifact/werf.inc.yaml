@@ -113,4 +113,7 @@ shell:
 ---
 {{- $_ := set . "FuzzEngine" "go" }}
 {{- $_ := set . "FuzzWorkDir" "/src/images/pvc-artifact" }}
+{{- $_ := set . "FuzzFromImage" (printf "%s%s" .ModuleNamePrefix .ImageName) }}
+{{- $_ := set . "FuzzPackages" "./..." }}
+{{- $_ := set . "FuzzTargetFiles" (list) }}
 {{- include "fuzz image" . }}

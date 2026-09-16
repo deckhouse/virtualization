@@ -80,3 +80,14 @@ shell:
     {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-audit ./cmd/virtualization-audit`) | nindent 4 }}
     {{- end }}
 {{- end }}
+
+# Fuzz image for the cloud-init user data target. The build image above already
+# carries the whole workspace and the downloaded dependencies, and the target is
+# pure Go with no external binary behind it.
+---
+{{- $_ := set . "FuzzEngine" "go" }}
+{{- $_ := set . "FuzzWorkDir" "/src/images/virtualization-artifact" }}
+{{- $_ := set . "FuzzFromImage" (printf "%s%s" .ModuleNamePrefix .ImageName) }}
+{{- $_ := set . "FuzzPackages" "./..." }}
+{{- $_ := set . "FuzzTargetFiles" (list) }}
+{{- include "fuzz image" . }}

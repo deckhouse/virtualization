@@ -73,3 +73,19 @@ shell:
     {{- $_ := set $ "ProjectName" (list .ImageName "dvcr" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" (printf `go build -o /container-registry-binary/registry -ldflags '-s -w -X github.com/distribution/distribution/v3/version.version=%s -X github.com/distribution/distribution/v3/version.revision=%s -X github.com/distribution/distribution/v3/version.mainpkg=github.com/distribution/distribution/v3' ./cmd/dvcr-registry` $baseVersion $version)) | nindent 6 }}
 {{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
+
+# Fuzz image for the authorization decision of the DVCR registry plugin. The
+# builder above carries the cloned distribution fork at /distribution together
+# with the Go toolchain, and the fork vendors its dependencies, so nothing is
+# fetched here. The target itself lives in this repository and werf places it
+# into the plugin's package inside the clone: a Go fuzz target has to be in the
+# package it tests, and that package is in the fork.
+---
+{{- $_ := set . "FuzzEngine" "go" }}
+{{- $_ := set . "FuzzWorkDir" "/distribution" }}
+{{- $_ := set . "FuzzFromImage" (printf "%s%s-builder" .ModuleNamePrefix .ImageName) }}
+{{- $_ := set . "FuzzPackages" "./registry/auth/dvcrk8s/..." }}
+{{- $_ := set . "FuzzTargetFiles" (list (dict
+      "from" "images/dvcr/fuzz/policy_fuzz_test.go"
+      "to"   "/distribution/registry/auth/dvcrk8s/policy_fuzz_test.go")) }}
+{{- include "fuzz image" . }}
