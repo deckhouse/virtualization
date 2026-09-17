@@ -4,8 +4,10 @@ d8-{{ .Chart.Name }}
 
 {{- define "namespace.labels" }}
 prometheus.deckhouse.io/rules-watcher-enabled: "true"
+{{- if eq (include "d8.securityPolicyException.isEnabled" .) "true" }}
 security.deckhouse.io/pod-policy: "restricted"
 security.deckhouse.io/enable-security-policy-check: "true"
+{{- end }}
 {{- end }}
 
 ---

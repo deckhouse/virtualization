@@ -37,6 +37,17 @@ spec:
           Allow privileged mode for the virt-handler.
           Virt-handler component requires privileged access to interact with the KVM subsystem and Linux kernel.
 
+    seccompProfile:
+      allowedValues:
+        - RuntimeDefault
+        - Unconfined
+      metadata:
+        description: |
+          The virt-handler and virt-launcher containers are privileged, and the runtime applies no
+          seccomp profile to a privileged container, so they run unconfined regardless of the value
+          in their securityContext. They declare Unconfined to state that, and the policy has to
+          allow it. RuntimeDefault is allowed for the non-privileged virt-launcher-image-holder.
+
   network:
     hostNetwork:
       allowedValue: true
