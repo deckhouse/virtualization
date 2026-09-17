@@ -44,7 +44,9 @@ import (
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -61,7 +63,11 @@ const vdCreationBlankSize = "64Mi"
 // vdCreationImageSize is the size for image-backed disks in this test. The custom
 // custom image (~47 MiB virtual) grows its root filesystem to the disk on first
 // boot, so 64Mi is enough — 400Mi is no longer needed.
-const vdCreationImageSize = "64Mi"
+const (
+	vdCreationImageSize = "64Mi"
+	// Smaller than vdCreationImageSize, and still large enough that nothing else objects to it.
+	undersizedRestoreSize = "32Mi"
+)
 
 // TODO: LINSTOR thin pool lock contention can stall all storage writes on a node
 // for over a minute without surfacing any error. That makes time-based progress
@@ -386,6 +392,114 @@ var _ = Describe("VirtualDiskCreation", Label(
 			)
 
 			createVirtualDiskAndRunVM(ctx, f, vd, withoutStreamingProgress())
+		})
+
+		// Restoring into less than the source disk used to pass with an admission warning only, and the
+		// controller then provisioned the source size behind the user's back — or, on a
+		// WaitForFirstConsumer class, parked the disk until a consumer that would never fit.
+		It("refuses a restore into a disk smaller than the source", func(ctx context.Context) {
+			baseVD := object.NewVD(
+				vdbuilder.WithName("vd-source-for-undersized-restore"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{URL: object.ImageURLCustomBIOS}),
+				vdbuilder.WithSize(ptr.To(resource.MustParse(vdCreationImageSize))),
+				vdbuilder.WithStorageClass(scPtr),
+			)
+
+			createVirtualDiskAndRunVM(ctx, f, baseVD)
+
+			// Consistency is deliberately not required here: freezing the guest is a separate mechanism
+			// with races of its own, and this spec is about sizes.
+			vdSnapshot := vdsnapshotbuilder.New(
+				vdsnapshotbuilder.WithName("vd-snapshot-for-undersized-restore"),
+				vdsnapshotbuilder.WithNamespace(f.Namespace().Name),
+				vdsnapshotbuilder.WithVirtualDiskName(baseVD.Name),
+				vdsnapshotbuilder.WithRequiredConsistency(false),
+			)
+
+			snapObs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
+			By("Creating VirtualDiskSnapshot", func() {
+				err := f.CreateWithDeferredDeletion(ctx, vdSnapshot)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = snapObs.WaitFor(vdsnapshotobs.BeReady(), framework.LongTimeout)
+				skipIfCSISnapshotFailed(err)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Rejecting a restore that asks for less than the source disk", func() {
+				undersized := object.NewVD(
+					vdbuilder.WithName("vd-undersized-restore"),
+					vdbuilder.WithNamespace(f.Namespace().Name),
+					vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
+					vdbuilder.WithSize(ptr.To(resource.MustParse(undersizedRestoreSize))),
+					vdbuilder.WithStorageClass(scPtr),
+				)
+
+				err := f.GenericClient().Create(ctx, undersized)
+				Expect(err).To(HaveOccurred(), "an undersized restore must not be admitted")
+				Expect(err.Error()).To(ContainSubstring("cannot be restored into"))
+			})
+
+			// A disk created before its snapshot exists reaches the controller unchecked — admission has
+			// no size to compare against yet — so the verdict has to land there as well, before the
+			// PersistentVolumeClaim exists and regardless of the volume binding mode.
+			lateSnapshotName := "vd-snapshot-taken-later"
+			lateRestore := object.NewVD(
+				vdbuilder.WithName("vd-restore-before-snapshot"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDataSourceObjectRef(v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot, lateSnapshotName),
+				vdbuilder.WithSize(ptr.To(resource.MustParse(undersizedRestoreSize))),
+				vdbuilder.WithStorageClass(scPtr),
+			)
+
+			lateRestoreObs := vdobs.StartObserver(ctx, f, lateRestore)
+			By("Admitting a disk whose snapshot does not exist yet", func() {
+				err := f.CreateWithDeferredDeletion(ctx, lateRestore)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			lateSnapshot := vdsnapshotbuilder.New(
+				vdsnapshotbuilder.WithName(lateSnapshotName),
+				vdsnapshotbuilder.WithNamespace(f.Namespace().Name),
+				vdsnapshotbuilder.WithVirtualDiskName(baseVD.Name),
+				vdsnapshotbuilder.WithRequiredConsistency(false),
+			)
+
+			lateSnapObs := vdsnapshotobs.StartObserver(ctx, f, lateSnapshot)
+			By("Taking the snapshot it waits for", func() {
+				err := f.CreateWithDeferredDeletion(ctx, lateSnapshot)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = lateSnapObs.WaitFor(vdsnapshotobs.BeReady(), framework.LongTimeout)
+				skipIfCSISnapshotFailed(err)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Failing the disk instead of provisioning the source size", func() {
+				err := lateRestoreObs.WaitFor(vdobs.BeInPhase(v1alpha2.DiskFailed), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
+
+				failed, err := f.VirtClient().VirtualDisks(f.Namespace().Name).Get(ctx, lateRestore.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(failed.Status.Capacity).To(BeEmpty(), "a refused restore must not be provisioned")
+
+				ready, found := conditions.GetCondition(vdcondition.ReadyType, failed.Status.Conditions)
+				Expect(found).To(BeTrue())
+				Expect(ready.Reason).To(Equal(vdcondition.ProvisioningFailed.String()))
+				Expect(ready.Message).To(ContainSubstring("increase spec.persistentVolumeClaim.size"))
+			})
+
+			By("Provisioning the disk once its size is raised to the source size", func() {
+				restored, err := f.VirtClient().VirtualDisks(f.Namespace().Name).Get(ctx, lateRestore.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				restored.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(vdCreationImageSize))
+				Expect(f.GenericClient().Update(ctx, restored)).To(Succeed())
+
+				err = lateRestoreObs.WaitFor(expectedDiskPhaseBeforeVM(ctx, f, restored), framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 })

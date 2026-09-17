@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -366,6 +367,65 @@ func TestReconcile_ImportModeOnlyMirrorsTheCoreProgress(t *testing.T) {
 			if got.Status.StorageClassName != "" || got.Status.PersistentVolumeClaimSize != "" {
 				t.Errorf("storageClassName = %q, persistentVolumeClaimSize = %q; both must stay unset on an import",
 					got.Status.StorageClassName, got.Status.PersistentVolumeClaimSize)
+			}
+		})
+	}
+}
+
+// A restore refuses to go below the size recorded here, so it has to be the size the disk declares and
+// not the one its claim happens to request: a claim grown to a driver floor, or sized to the capacity of
+// the disk it was cloned from, asks for more than its owner ever did.
+func TestReconcile_MirrorsTheSizeTheDiskDeclares(t *testing.T) {
+	tests := []struct {
+		name     string
+		declared string
+		want     string
+	}{
+		{
+			name:     "declared by the disk",
+			declared: "4Gi",
+			want:     "4Gi",
+		},
+		{
+			name: "nothing declared, so the claim is all there is",
+			want: "4100Mi",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vd := &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "vd1", Namespace: testNamespace},
+				Status:     v1alpha2.VirtualDiskStatus{Target: v1alpha2.DiskTarget{PersistentVolumeClaim: "pvc1"}},
+			}
+			if tt.declared != "" {
+				vd.Spec.PersistentVolumeClaim.Size = ptr.To(resource.MustParse(tt.declared))
+			}
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "pvc1", Namespace: testNamespace},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: ptr.To("sc1"),
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("4100Mi")},
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound},
+			}
+			vds := &v1alpha2.VirtualDiskSnapshot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vds1", Namespace: testNamespace,
+					Annotations: map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""},
+				},
+				Spec:   v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: "vd1"},
+				Status: v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhasePending},
+			}
+			r := newTestReconciler(t, vd, pvc, vds)
+
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vds1"}}); err != nil {
+				t.Fatal(err)
+			}
+
+			if got := getVDS(t, r.Client).Status.PersistentVolumeClaimSize; got != tt.want {
+				t.Fatalf("persistentVolumeClaimSize = %q, want %q", got, tt.want)
 			}
 		})
 	}

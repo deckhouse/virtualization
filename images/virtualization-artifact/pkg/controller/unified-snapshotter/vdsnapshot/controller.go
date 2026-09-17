@@ -43,6 +43,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
@@ -197,8 +198,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		vds.Status.StorageClassName = *sc
 		mirrored = true
 	}
-	if requestedSize, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok && vds.Status.PersistentVolumeClaimSize != requestedSize.String() {
-		vds.Status.PersistentVolumeClaimSize = requestedSize.String()
+	// Mirror what the disk declares, not what its claim happens to request: the two diverge once the
+	// claim was grown past the declaration (a restore rounded up to the driver floor, a clone sized to
+	// the source's capacity), and the restore path fails a disk asking for less than this value.
+	if requestedSize := commonvd.RequestedSize(vd, pvc); requestedSize != "" && vds.Status.PersistentVolumeClaimSize != requestedSize {
+		vds.Status.PersistentVolumeClaimSize = requestedSize
 		mirrored = true
 	}
 	if mirrored {

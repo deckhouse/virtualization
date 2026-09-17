@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -79,31 +79,7 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *v1alpha2.Virt
 		}
 
 	case v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
-		vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
-			Name:      vd.Spec.DataSource.ObjectRef.Name,
-			Namespace: vd.Namespace,
-		}, v.client, &v1alpha2.VirtualDiskSnapshot{})
-		if err != nil {
-			return nil, err
-		}
-
-		if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
-			return nil, nil
-		}
-
-		vs, err := object.FetchObject(ctx, types.NamespacedName{
-			Name:      vdSnapshot.Status.VolumeSnapshotName,
-			Namespace: vdSnapshot.Namespace,
-		}, v.client, &vsv1.VolumeSnapshot{})
-		if err != nil {
-			return nil, err
-		}
-
-		if vs == nil || vs.Status == nil || vs.Status.RestoreSize == nil {
-			return nil, nil
-		}
-
-		unpackedSize = *vs.Status.RestoreSize
+		return nil, v.validateRestoreSize(ctx, vd.Namespace, vd.Spec.DataSource.ObjectRef.Name, vd.Spec.PersistentVolumeClaim.Size)
 	default:
 		return nil, nil
 	}
@@ -186,31 +162,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *v1a
 		}
 
 	case v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
-		vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
-			Name:      newVD.Spec.DataSource.ObjectRef.Name,
-			Namespace: newVD.Namespace,
-		}, v.client, &v1alpha2.VirtualDiskSnapshot{})
-		if err != nil {
-			return nil, err
-		}
-
-		if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
-			return nil, nil
-		}
-
-		vs, err := object.FetchObject(ctx, types.NamespacedName{
-			Name:      vdSnapshot.Status.VolumeSnapshotName,
-			Namespace: vdSnapshot.Namespace,
-		}, v.client, &vsv1.VolumeSnapshot{})
-		if err != nil {
-			return nil, err
-		}
-
-		if vs == nil || vs.Status == nil || vs.Status.RestoreSize == nil {
-			return nil, nil
-		}
-
-		unpackedSize = *vs.Status.RestoreSize
+		return nil, v.validateRestoreSize(ctx, newVD.Namespace, newVD.Spec.DataSource.ObjectRef.Name, newVD.Spec.PersistentVolumeClaim.Size)
 
 	default:
 		return nil, nil
@@ -227,4 +179,35 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *v1a
 	default:
 		return nil, err
 	}
+}
+
+// validateRestoreSize rejects a restore into a disk smaller than the one the snapshot was taken from.
+// The floor is the source disk's, not the driver's: a target between the two is grown to fit and is a
+// supported restore.
+//
+// The provisioning step keeps its own verdict rather than trusting this one: a disk can be created before
+// its snapshot reports a size, and disks admitted before this check existed have to be judged too.
+func (v *PVCSizeValidator) validateRestoreSize(ctx context.Context, namespace, vdSnapshotName string, size *resource.Quantity) error {
+	if size == nil {
+		return nil
+	}
+
+	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
+		Name:      vdSnapshotName,
+		Namespace: namespace,
+	}, v.client, &v1alpha2.VirtualDiskSnapshot{})
+	if err != nil {
+		return err
+	}
+
+	if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
+		return nil
+	}
+
+	floors, err := commonvd.ResolveRestoreFloors(ctx, v.client, vdSnapshot)
+	if err != nil {
+		return err
+	}
+
+	return floors.Validate(size)
 }

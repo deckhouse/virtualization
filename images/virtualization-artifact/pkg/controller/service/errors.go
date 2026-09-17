@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -27,6 +29,16 @@ var (
 	ErrImporterNotRunning          = errors.New("pvc importer is not running")
 	ErrProvisionerUnschedulable    = errors.New("provisioner unschedulable")
 )
+
+// NewInsufficientRestoreSizeError reports a restore into a disk smaller than the one the snapshot was
+// taken from. Both the admission webhook and the provisioning step build the text here, so the user is
+// told about the same floor in the same words twice.
+func NewInsufficientRestoreSizeError(vdSnapshotName string, requested, sourceSize *resource.Quantity) error {
+	return fmt.Errorf(
+		"%w: the VirtualDiskSnapshot %q was taken from a %s disk and cannot be restored into %s; increase spec.persistentVolumeClaim.size to at least %s",
+		ErrInsufficientPVCSize, vdSnapshotName, sourceSize, requested, sourceSize,
+	)
+}
 
 // CoreRange is an inclusive CPU core range allowed by a sizing policy.
 type CoreRange struct {

@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
@@ -80,8 +81,13 @@ func NewCreatePVCFromVDSnapshotStep(
 }
 
 func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
+	if err != nil {
+		return nil, fmt.Errorf("fetch virtual disk snapshot: %w", err)
+	}
+
 	if s.pvc != nil {
-		return nil, nil
+		return s.failStuckUndersizedRestore(ctx, vd, vdSnapshot)
 	}
 
 	s.recorder.Event(
@@ -90,11 +96,6 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		v1alpha2.ReasonDataSourceSyncStarted,
 		"The ObjectRef DataSource import has started",
 	)
-
-	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
-	if err != nil {
-		return nil, fmt.Errorf("fetch virtual disk snapshot: %w", err)
-	}
 
 	if vdSnapshot == nil {
 		vd.Status.Phase = v1alpha2.DiskPending
@@ -146,7 +147,12 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	if storageClassName != "" {
 		vd.Status.StorageClassName = storageClassName
 	}
-	size, err := s.getPVCSize(vd, vs)
+	floors, err := commonvd.RestoreFloorsFrom(vdSnapshot, vs)
+	if err != nil {
+		return nil, err
+	}
+
+	size, err := s.restoreSize(vd, floors)
 	if err != nil {
 		if errors.Is(err, service.ErrInsufficientPVCSize) {
 			vd.Status.Phase = v1alpha2.DiskFailed
@@ -183,6 +189,42 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	vdsupplements.SetPVCName(vd, pvc.Name)
 
 	return nil, nil
+}
+
+// failStuckUndersizedRestore re-judges a restore whose PVC already exists, so disks the old behaviour
+// left parked in WaitForFirstConsumer fail on upgrade instead of awaiting a consumer forever.
+//
+// Only the undersize verdict acts: the checks the creation path runs first (snapshot readiness, storage
+// class compatibility) would move a disk that is merely provisioning into Pending or Failed. A Bound PVC
+// is left alone — tearing a working disk down after the fact is not this step's call.
+func (s CreatePVCFromVDSnapshotStep) failStuckUndersizedRestore(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*reconcile.Result, error) {
+	if vdSnapshot == nil || s.pvc.Status.Phase == corev1.ClaimBound {
+		return nil, nil
+	}
+
+	floors, err := commonvd.ResolveRestoreFloors(ctx, s.client, vdSnapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	sizeErr := floors.Validate(vd.Spec.PersistentVolumeClaim.Size)
+	if sizeErr == nil {
+		return nil, nil
+	}
+
+	vd.Status.Phase = v1alpha2.DiskFailed
+	s.cb.
+		Status(metav1.ConditionFalse).
+		Reason(vdcondition.ProvisioningFailed).
+		Message(service.CapitalizeFirstLetter(sizeErr.Error()) + ".")
+	s.recorder.Event(
+		vd,
+		corev1.EventTypeWarning,
+		v1alpha2.ReasonDataSourceSyncFailed,
+		sizeErr.Error(),
+	)
+
+	return &reconcile.Result{}, nil
 }
 
 // takeFromUnifiedSnapshot clones a VirtualDisk from a VirtualDiskSnapshot captured through the unified
@@ -222,7 +264,20 @@ func (s CreatePVCFromVDSnapshotStep) takeFromUnifiedSnapshot(ctx context.Context
 		storageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
 	}
 
-	size, err := s.getUnifiedPVCSize(vd, vdSnapshot)
+	floors, err := commonvd.RestoreFloorsFrom(vdSnapshot, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	size, err := s.restoreSize(vd, floors)
+	// storage-foundation materializes the claim from the captured artifact and needs the size spelled
+	// out, unlike the CSI provisioner, which reads it off the VolumeSnapshot.
+	if err == nil && size == nil {
+		err = fmt.Errorf(
+			"cannot determine the size to restore into: the virtual disk %q sets no spec.persistentVolumeClaim.size and the snapshot %q records no size of its own",
+			vd.Name, vdSnapshot.Name,
+		)
+	}
 	if err != nil {
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
@@ -303,31 +358,28 @@ func (s CreatePVCFromVDSnapshotStep) unifiedRestoreFailure(ctx context.Context, 
 	return fmt.Sprintf("Restoring the PersistentVolumeClaim failed: %s: %s.", ready.Reason, ready.Message), nil
 }
 
-func (s CreatePVCFromVDSnapshotStep) getUnifiedPVCSize(vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*resource.Quantity, error) {
-	if size := vd.Spec.PersistentVolumeClaim.Size; size != nil {
-		// Not just a nil check: the admission webhook rejects a zero size only on create, and the
-		// VirtualDisk may still be patched while it is Pending or Provisioning. A non-positive size would
-		// otherwise reach storage-foundation as storage: "0" and never provision anything.
-		if size.Sign() <= 0 {
-			return nil, fmt.Errorf(
-				"cannot restore into the virtual disk %q: spec.persistentVolumeClaim.size must be greater than 0",
-				vd.Name,
-			)
-		}
-		return size, nil
-	}
-	captured := vdSnapshot.CapturedPersistentVolumeClaimSize()
-	if captured == "" {
+// restoreSize is the size to provision for a restore, or ErrInsufficientPVCSize when the disk asks for
+// less than the source disk declared.
+func (s CreatePVCFromVDSnapshotStep) restoreSize(vd *v1alpha2.VirtualDisk, floors commonvd.RestoreFloors) (*resource.Quantity, error) {
+	requested := vd.Spec.PersistentVolumeClaim.Size
+
+	// Not just a nil check: the admission webhook rejects a zero size only on create, and the VirtualDisk
+	// may still be patched while it is Pending or Provisioning. A non-positive size would otherwise reach
+	// storage-foundation as storage: "0" and never provision anything.
+	if requested != nil && requested.Sign() <= 0 {
 		return nil, fmt.Errorf(
-			"cannot determine the size to restore into: the virtual disk %q sets no spec.persistentVolumeClaim.size and the snapshot %q records neither status.persistentVolumeClaimSize nor status.data.size",
-			vd.Name, vdSnapshot.Name,
+			"cannot restore into the virtual disk %q: spec.persistentVolumeClaim.size must be greater than 0",
+			vd.Name,
 		)
 	}
-	size, err := resource.ParseQuantity(captured)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse the captured PVC size %q: %w", captured, err)
+
+	if err := floors.Validate(requested); err != nil {
+		return nil, err
 	}
-	return &size, nil
+
+	// May be nil when neither the disk nor the snapshot names a size: the CSI path then lets the
+	// provisioner size the claim from the VolumeSnapshot itself. The unified path cannot, see its caller.
+	return floors.Target(requested), nil
 }
 
 func (s CreatePVCFromVDSnapshotStep) validateUnifiedStorageClassCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot) error {
@@ -378,35 +430,6 @@ func (s CreatePVCFromVDSnapshotStep) storageClassName(vd *v1alpha2.VirtualDisk, 
 		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
 	}
 	return storageClassName
-}
-
-func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (*resource.Quantity, error) {
-	requestedSize := vd.Spec.PersistentVolumeClaim.Size
-	if requestedSize == nil {
-		originalSize := vs.Annotations[annotations.AnnVirtualDiskOriginalSize]
-		if originalSize != "" {
-			size, err := resource.ParseQuantity(originalSize)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse the original size %q: %w", originalSize, err)
-			}
-			requestedSize = &size
-		}
-	}
-
-	if vs.Status == nil || vs.Status.RestoreSize == nil {
-		return requestedSize, nil
-	}
-
-	// RestoreSize is a hard floor imposed by the CSI driver: a snapshot cannot be
-	// restored into a PVC smaller than it (e.g. ceph-rbd rounds the snapshot size
-	// up above the original disk's requested size). Grow the target to it instead
-	// of failing provisioning.
-	restoreSize := *vs.Status.RestoreSize
-	if requestedSize == nil || requestedSize.Cmp(restoreSize) < 0 {
-		return &restoreSize, nil
-	}
-
-	return requestedSize, nil
 }
 
 func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {

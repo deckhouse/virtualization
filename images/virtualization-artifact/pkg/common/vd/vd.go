@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
@@ -229,4 +230,24 @@ func ValidateVirtualImageStorageClassProvisionerCompatibility(ctx context.Contex
 	}
 
 	return nil
+}
+
+// RequestedSize is the size the disk's owner asked for: spec.persistentVolumeClaim.size when set,
+// otherwise what the backing claim requests. Deliberately not the claim's capacity — a driver rounds
+// that up, and both snapshot mechanisms record this as the floor a restore may not go below.
+func RequestedSize(vd *v1alpha2.VirtualDisk, pvc *corev1.PersistentVolumeClaim) string {
+	if vd.Spec.PersistentVolumeClaim.Size != nil {
+		return vd.Spec.PersistentVolumeClaim.Size.String()
+	}
+
+	if pvc == nil {
+		return ""
+	}
+
+	requestedSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+	if requestedSize.IsZero() {
+		return ""
+	}
+
+	return requestedSize.String()
 }
