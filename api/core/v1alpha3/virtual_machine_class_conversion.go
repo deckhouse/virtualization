@@ -29,6 +29,8 @@ import (
 
 var _ conversion.Convertible = &VirtualMachineClass{}
 
+var coreFractionPercent = regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`)
+
 func (src *VirtualMachineClass) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1alpha2.VirtualMachineClass)
 
@@ -114,7 +116,7 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 				v2Policy.CoreFractions = make([]v1alpha2.CoreFractionValue, len(v3Policy.CoreFractions))
 				for j, v3Fraction := range v3Policy.CoreFractions {
 					fractionStr := string(v3Fraction)
-					if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(fractionStr) {
+					if !coreFractionPercent.MatchString(fractionStr) {
 						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("spec.sizingPolicies[%d].coreFractions[%d]: coreFraction must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%), got %q", i, j, fractionStr)
 					}
 					fractionStr = fractionStr[:len(fractionStr)-1]
@@ -137,7 +139,7 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 					v2Fraction := intstr.FromString(fractionStr)
 					v2Policy.DefaultCoreFraction = &v2Fraction
 				} else {
-					if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(fractionStr) {
+					if !coreFractionPercent.MatchString(fractionStr) {
 						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: value must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%) or %q, got %q", i, CoreFractionAuto, fractionStr)
 					}
 					fractionStr = fractionStr[:len(fractionStr)-1]
@@ -243,10 +245,12 @@ func defaultCoreFractionV2ToV3(v2Fraction intstr.IntOrString, policyIndex int) (
 		}
 		return DefaultCoreFractionValue(fmt.Sprintf("%d%%", value)), nil
 	case intstr.String:
-		if v2Fraction.StrVal != string(CoreFractionAuto) {
-			return "", fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: the only allowed string value is %q, got %q", policyIndex, CoreFractionAuto, v2Fraction.StrVal)
+		// A percentage string is the v1alpha3 wire form left in storage by a v1alpha3 client
+		// that wrote before the conversion webhook existed; it is already what v1alpha3 wants.
+		if v2Fraction.StrVal == string(CoreFractionAuto) || coreFractionPercent.MatchString(v2Fraction.StrVal) {
+			return DefaultCoreFractionValue(v2Fraction.StrVal), nil
 		}
-		return CoreFractionAuto, nil
+		return "", fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: the only allowed string value is %q, got %q", policyIndex, CoreFractionAuto, v2Fraction.StrVal)
 	default:
 		return "", fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: unexpected value type", policyIndex)
 	}
