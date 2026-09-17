@@ -1,25 +1,8 @@
-diff --git a/ui/vnc.c b/ui/vnc.c
---- a/ui/vnc.c
-+++ b/ui/vnc.c
-@@ -2134,7 +2134,13 @@
-     vs->features = 0;
-     vs->vnc_encoding = 0;
-     vs->tight->compression = 9;
--    vs->tight->quality = -1; /* Lossless by default */
-+    /* Default to the same quality level the web console asks for, so clients
-+     * that never send a QualityLevel pseudo-encoding are not stuck with
-+     * near-raw tiles. gtk-vnc, behind remote-viewer, drops that encoding
-+     * unless lossy encoding is enabled and even then only offers level 5.
-+     * An explicit level from the client still wins, and none of this has any
-+     * effect unless the server runs with lossy=on. */
-+    vs->tight->quality = 6;
-     vs->absolute = -1;
- 
-     /*
 diff --git a/ui/vnc-enc-tight.c b/ui/vnc-enc-tight.c
+index 9dfe6ae..ce31faa 100644
 --- a/ui/vnc-enc-tight.c
 +++ b/ui/vnc-enc-tight.c
-@@ -88,9 +88,16 @@
+@@ -88,9 +88,16 @@ static const struct {
      { 0,   8,  1, 1 },
      { 0,   10, 1, 1 },
      { 0.1, 10, 1, 1 },
@@ -39,3 +22,22 @@ diff --git a/ui/vnc-enc-tight.c b/ui/vnc-enc-tight.c
      { 0.5, 16, 0, 0 },
  };
  #endif
+diff --git a/ui/vnc.c b/ui/vnc.c
+index 848a335..ad337f3 100644
+--- a/ui/vnc.c
++++ b/ui/vnc.c
+@@ -2131,7 +2131,13 @@ static void set_encodings(VncState *vs, int32_t *encodings, size_t n_encodings)
+     vs->features = 0;
+     vs->vnc_encoding = 0;
+     vc->worker.tight.compression = 9;
+-    vc->worker.tight.quality = -1; /* Lossless by default */
++    /* Default to the same quality level the web console asks for, so clients
++     * that never send a QualityLevel pseudo-encoding are not stuck with
++     * near-raw tiles. gtk-vnc, behind remote-viewer, drops that encoding
++     * unless lossy encoding is enabled and even then only offers level 5.
++     * An explicit level from the client still wins, and none of this has any
++     * effect unless the server runs with lossy=on. */
++    vc->worker.tight.quality = 6;
+     vs->absolute = -1;
+ 
+     /*

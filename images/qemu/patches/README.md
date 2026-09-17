@@ -111,6 +111,21 @@ with the same release: the VNC of a virtual machine is also opened by clients we
 not control, and every one of them that lacks the filter would break the same way. The bytes the
 patch costs buy compatibility with all of them.
 
+## 006-revert-nehalem-ht-feature.patch
+
+Reverts upstream QEMU commit
+[`c6bd2dd63420`](https://github.com/qemu/qemu/commit/c6bd2dd63420), which changed x86 HT reporting
+behavior between QEMU `9.2.0` and `10.2.4`.
+
+Why this patch is kept:
+
+- The upstream change breaks live migration for VMs that use CPU models where HT is not explicitly
+  enabled.
+- In our environment this especially affects older modeled CPUs such as Nehalem, where guest-visible
+  HT reporting changes across QEMU versions.
+- We need to preserve the pre-`c6bd2dd63420` behavior from QEMU `9.2.0` so migration compatibility
+  is not lost when updating to QEMU `10.2.4`.
+
 ## Dropped: 006-spice-stable-update-grid, 007-spice-merge-update-columns
 
 Both patches shaped the update rectangles QEMU hands to SPICE so that the server would start a video

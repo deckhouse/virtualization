@@ -1,15 +1,15 @@
 diff --git a/ui/vnc-enc-tight.c b/ui/vnc-enc-tight.c
-index 41f559e..8fe09d3 100644
+index 9dfe6ae..5076ed7 100644
 --- a/ui/vnc-enc-tight.c
 +++ b/ui/vnc-enc-tight.c
-@@ -1404,11 +1404,14 @@ static int send_sub_rect_nojpeg(VncState *vs, int x, int y, int w, int h,
+@@ -1429,11 +1429,14 @@ static int send_sub_rect_nojpeg(VncState *vs, VncWorker *worker,
      int ret;
  
      if (colors == 0) {
--        if (tight_detect_smooth_image(vs, w, h)) {
--            ret = send_gradient_rect(vs, x, y, w, h);
+-        if (tight_detect_smooth_image(vs, &worker->tight, w, h)) {
+-            ret = send_gradient_rect(vs, worker, x, y, w, h);
 -        } else {
--            ret = send_full_color_rect(vs, x, y, w, h);
+-            ret = send_full_color_rect(vs, worker, x, y, w, h);
 -        }
 +        /* No gradient filter: noVNC, which the web console is built on, does not
 +         * implement it and drops the connection with "Gradient filter not
@@ -18,7 +18,7 @@ index 41f559e..8fe09d3 100644
 +         * Plain full-colour data is understood by every client. Frequently updated
 +         * smooth areas are unaffected: those take the JPEG path in
 +         * send_sub_rect_jpeg and never reach this function. */
-+        ret = send_full_color_rect(vs, x, y, w, h);
++        ret = send_full_color_rect(vs, worker, x, y, w, h);
      } else if (colors == 1) {
-         ret = send_solid_rect(vs);
+         ret = send_solid_rect(vs, worker);
      } else if (colors == 2) {
