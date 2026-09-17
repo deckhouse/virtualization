@@ -98,7 +98,17 @@ variables:
 
   # --- Build/dev tooling (kept from previous root) ---
   GO_VERSION: "1.25.11"
+  # The version lint:go runs, and the one to install locally
+  # (images/virtualization-artifact/Taskfile.init.yaml keeps in sync with it).
   GOLANGCI_LINT_VERSION: "2.11.1"
+  # lint:go runs golangci-lint from this image rather than from a binary
+  # installed on the runner. Pinned by digest on purpose: a tag can be rebuilt,
+  # and a release tarball turned out to deliver a binary whose rules did not
+  # match the version it reported, which made lint:go pass or fail by runner
+  # slot. Built by deckhouse/virtualization/tools/ci-images, which prints the
+  # digest to pin; that project must list this one under its job token
+  # permissions, or the pull is denied.
+  GOLANGCI_LINT_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/golangci-lint:2.11.1@sha256:4e883fc3af75ecdc3aabe413785181fc958d9e4bea17be4f127d06dd0935a90e"
   # Helm v3 + jq are needed by `task validation:helm-templates` (tools/kubeconform).
   # They are not assumed to be on the runner host; lint:helm-templates installs
   # portable binaries from these versions in its before_script.

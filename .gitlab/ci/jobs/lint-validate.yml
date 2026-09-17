@@ -202,104 +202,78 @@ lint:yaml:
 # ---------------------------------------------------------------------------
 # go (golangci-lint across every Go module)
 #
-# Migration of the GitHub Actions `lint_go` job from
-# .github/workflows/dev_module_build.yml. It installs the pinned
-# golangci-lint v${GOLANGCI_LINT_VERSION} (same method/version as the GH job)
-# and runs `golangci-lint run` in every directory that ships a .golangci.yaml,
-# excluding the upstream/vendored modules that GH also skipped:
-#   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
-# NOTE: .github/workflows/dev_module_build.yml also pruned ./test/performance/shatal,
-# but that path never existed (the real module is test/performance/tools/shatal),
-# so shatal was effectively linted there too. The dead prune entry is dropped here
-# and test/performance/tools/shatal is intentionally linted.
+# Runs golangci-lint in every directory that ships a .golangci.yaml, from a
+# pinned image instead of a binary installed on the runner. The install script
+# resolved a version tag to whatever artifact it was served, and a binary
+# reporting the pinned version turned out to enforce rules that release does
+# not have, so the same commit passed or failed depending on the runner slot.
+# GOLANGCI_LINT_IMAGE is referenced by digest: one fixed build, one fixed set
+# of rules. The image is built by deckhouse/virtualization/tools/ci-images.
+#
 # This supersedes the old single-dir `lint:virtualization-controller` job.
 # ---------------------------------------------------------------------------
 
 lint:go:
   stage: lint
   before_script:
-    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh go curl git
-    - |
-      set -e
-      # Install the pinned prebuilt golangci-lint v2 binary.
-      curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-        | sh -s -- -b "$(go env GOPATH)/bin" "v${GOLANGCI_LINT_VERSION}"
-      export PATH="$(go env GOPATH)/bin:${PATH}"
-      golangci-lint --version
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker git
   script:
     - |
       set -e
-      export PATH="$(go env GOPATH)/bin:${PATH}"
+      # DOCKER_CONFIG is per job: `docker login` otherwise writes the shared
+      # ~/.docker/config.json of the runner user, which concurrent jobs race on.
+      DOCKER_CONFIG="$(mktemp -d)"
+      export DOCKER_CONFIG
+      trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+      printf '%s' "$CI_JOB_TOKEN" \
+        | docker login -u gitlab-ci-token --password-stdin "$CI_REGISTRY"
+      docker pull -q "$GOLANGCI_LINT_IMAGE"
 
-      # Isolate golangci-lint per concurrent job on shared runners.
-      # golangci-lint takes a global lock at $TMPDIR/golangci-lint.lock and, by
-      # default, shares its cache dir, so two lint jobs on the same runner
-      # collide ("parallel golangci-lint is running"). CI_CONCURRENT_ID is unique
-      # per executor slot (stable across sequential jobs, so the cache is still
-      # reused), which scopes both the lock and the cache to this job.
-      #
-      # The cache also holds per-package analysis facts, and a slot-scoped cache
-      # otherwise lives forever: a stale entry makes a linter silently miss an
-      # issue on one runner slot while every other slot reports it (seen with
-      # staticcheck SA1019 vs. nolintlint "directive is unused"). Keying the
-      # cache dir on the linter/Go/dependency versions pins its lifetime to
-      # those inputs, and stale keys from this slot are dropped so the
-      # per-runner disk does not grow without bound.
+      # Caches live on the host so they outlive the container, one set per
+      # executor slot (CI_CONCURRENT_ID) to keep concurrent jobs apart. The
+      # golangci-lint cache also holds per-package analysis facts, so it is
+      # scoped to the linter image and the module files on top of that: a
+      # re-pinned image or changed dependencies start from an empty cache
+      # instead of serving facts the previous linter produced. Stale keys from
+      # this slot are dropped so the per-runner disk does not grow without
+      # bound.
       #
       # The dependency part of the key is read from the tracked module files
       # rather than from go.work directly: go.work exists only on main, so
       # `cat go.work go.work.sum` aborted the whole job under `set -e` on every
-      # release-* branch. Hashing whatever `git ls-files` reports keeps the key
-      # meaningful on both layouts (go.work on main, per-module go.mod/go.sum on
-      # release branches) instead of degrading to linter+Go version only.
+      # release-* branch.
       cache_key=$(
         {
-          echo "${GOLANGCI_LINT_VERSION}"
-          go version
+          printf '%s\n' "$GOLANGCI_LINT_IMAGE"
           git ls-files -z 'go.work' 'go.work.sum' 'go.mod' 'go.sum' '*/go.mod' '*/go.sum' \
             | sort -z | xargs -0 -r cat
         } | sha256sum | cut -c1-12
       )
-      export TMPDIR="${TMPDIR:-/tmp}/golangci-lint-${CI_CONCURRENT_ID}"
-      export GOLANGCI_LINT_CACHE="${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}-${cache_key}"
-      mkdir -p "$TMPDIR" "$GOLANGCI_LINT_CACHE"
+      lint_cache="${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}-${cache_key}"
+      go_cache="${HOME}/.cache/ci-go-${CI_CONCURRENT_ID}"
+      mkdir -p "$lint_cache" "$go_cache"
       find "${HOME}/.cache" -maxdepth 1 -type d -name "golangci-lint-${CI_CONCURRENT_ID}-*" \
         ! -name "*-${cache_key}" -exec rm -rf {} +
-      # Unkeyed cache dir left by the previous revision of this job.
-      rm -rf "${HOME}/.cache/golangci-lint-${CI_CONCURRENT_ID}"
 
-      # Directories containing a .golangci.yaml, excluding the same upstream /
-      # vendored modules as .github/workflows/dev_module_build.yml (lint_go):
-      #   images/cdi-cloner/cloner-startup, images/dvcr-artifact.
-      # The GH prune of ./test/performance/shatal was a no-op (path never
-      # existed; real module is test/performance/tools/shatal), so shatal is
-      # intentionally linted here, matching actual current behavior.
-      mapfile -t config_dirs < <(
-        find . \
-          -path ./images/cdi-cloner/cloner-startup -prune -o \
-          -path ./images/dvcr-artifact -prune -o \
-          -type f -name '.golangci.yaml' -not -type l -printf '%h\0' | \
-        xargs -0 -n1 | sort -u
-      )
-      count=${#config_dirs[@]}
-      echo "Found ${count} directories with golangci-lint configurations"
+      # The container runs as the job user: root-owned leftovers in the shared
+      # shell-executor workspace break `git clean` for every later job in the
+      # slot. GOPRIVATE/GIT_CONFIG_* carry the job-token git auth needed by the
+      # kubevirt fork replace in go.work (variables.yml).
+      docker run --rm --platform linux/amd64 \
+        -v "${PWD}:/repo" \
+        -v "${lint_cache}:/lint-cache" \
+        -v "${go_cache}:/go-cache" \
+        -u "$(id -u):$(id -g)" \
+        -w /repo \
+        -e HOME=/tmp \
+        -e GOCACHE=/go-cache/build \
+        -e GOMODCACHE=/go-cache/mod \
+        -e GOLANGCI_LINT_CACHE=/lint-cache \
+        -e GOTOOLCHAIN \
+        -e GOPRIVATE -e GIT_CONFIG_COUNT -e GIT_CONFIG_KEY_0 -e GIT_CONFIG_VALUE_0 \
+        "$GOLANGCI_LINT_IMAGE" \
+        bash .gitlab/ci/scripts/bash/lint-go.sh
 
-      error_count=0
-      for dir in "${config_dirs[@]}"; do
-        echo "------------------------------------------------------------"
-        echo "Linting: ${dir}"
-        pushd "$dir" >/dev/null
-        if ! golangci-lint run; then
-          error_count=$(( error_count + 1 ))
-        fi
-        popd >/dev/null
-      done
-
-      if [ "$error_count" -gt 0 ]; then
-        echo "${error_count} directory/directories failed golangci-lint"
-        exit 1
-      fi
-      echo "All golangci-lint checks passed"
   rules:
     - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/go/'
       when: never
