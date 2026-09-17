@@ -51,7 +51,7 @@ weight: 70
          url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
    ```
 
-1. Создайте виртуальную машину:
+1. Создайте виртуальную машину (ВМ):
 
    ```yaml
    apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -352,7 +352,7 @@ weight: 70
 
 #### Как создать golden image для Linux?
 
-Golden image — это предварительно настроенный образ виртуальной машины, который можно использовать для быстрого создания новых ВМ с уже установленным программным обеспечением и настройками.
+Golden image — это предварительно настроенный образ виртуальной машины (ВМ), который можно использовать для быстрого создания новых ВМ с уже установленным программным обеспечением и настройками.
 
 1. Создайте виртуальную машину, установите на неё необходимое программное обеспечение и выполните все требуемые настройки.
 
@@ -557,9 +557,9 @@ Golden image — это предварительно настроенный об
 
 ### Подключение к виртуальной машине
 
-К ВМ можно подключиться через серийную консоль ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) или по VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
+К виртуальной машине (ВМ) можно подключиться через серийную консоль ([`d8 v console`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-console)) или по VNC ([`d8 v vnc`](/products/kubernetes-platform/documentation/v1/cli/d8/reference/#d8-v-vnc)).
 Способы используют разные каналы связи с гостевой ОС и зависят от её настройки.
-Подробнее о подключении описано в разделе [Подключение к виртуальной машине](./user_guide.html#подключение-к-виртуальной-машине).
+Оба способа описаны в разделе [«Подключение к виртуальной машине»](./user_guide.html#подключение-к-виртуальной-машине).
 
 Ниже перечислены типовые ситуации, когда доступен только один из способов подключения.
 
@@ -654,7 +654,7 @@ ssh_pwauth: true
 
 Чтобы получить хеш пароля для поля `passwd`, выполните команду:
 
-```shell
+```bash
 mkpasswd --method=SHA-512 --rounds=4096
 ```
 
@@ -714,13 +714,15 @@ mounts:
 
 #### Настройка сетевых интерфейсов для дополнительных сетей
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 Настройки, описанные в этом разделе, применяются только для дополнительных сетей. Основная сеть (Main) настраивается автоматически через cloud-init и не требует ручной конфигурации.
 {{< /alert >}}
 
 Дополнительные сети настраиваются вручную через cloud-init. Конфигурационные файлы создаёт блок `write_files`, а применяет настройки блок `runcmd`.
 
-Подробнее о подключении дополнительных сетей к виртуальной машине см. в разделе [Дополнительные сетевые интерфейсы](./user_guide.html#дополнительные-сетевые-интерфейсы).
+Подключение дополнительных сетей к виртуальной машине описано в разделе [«Дополнительные сетевые интерфейсы»](./user_guide.html#дополнительные-сетевые-интерфейсы).
+
+Ниже приведены примеры для распространённых способов настройки сети в гостевой ОС:
 
 {{< tabs name="cloudinit-net" >}}
 
@@ -824,7 +826,7 @@ runcmd:
 
 ### Как использовать Ansible для конфигурирования виртуальных машин?
 
-[Ansible](https://docs.ansible.com/ansible/latest/index.html) — инструмент автоматизации, который выполняет задачи на удалённых серверах по протоколу SSH. Ниже показано, как управлять с его помощью виртуальными машинами проекта `demo-app`.
+[Ansible](https://docs.ansible.com/ansible/latest/index.html) — инструмент автоматизации, который выполняет задачи на удалённых серверах по протоколу SSH. Ниже показано, как управлять с его помощью виртуальными машинами (ВМ) проекта `demo-app`.
 
 В рамках примера предполагается, что:
 
@@ -871,7 +873,7 @@ ansible -m shell -a "uptime" \
 
 ### Как автоматически сгенерировать inventory для Ansible?
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 Для использования команды `d8 v ansible-inventory` требуется версия `d8` v0.27.0 или выше.
 
 Команда работает только для виртуальных машин, у которых подключена основная сеть кластера (Main).
@@ -960,7 +962,7 @@ ansible -m shell -a "uptime" \
 
 1. Проверьте текущий размер DVCR:
 
-   ```shell
+   ```bash
    d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
    ```
 
@@ -972,7 +974,7 @@ ansible -m shell -a "uptime" \
 
 1. Увеличьте `size` через `patch` (подставьте нужное значение):
 
-   ```shell
+   ```bash
    d8 k patch mc virtualization \
      --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
    ```
@@ -985,7 +987,7 @@ ansible -m shell -a "uptime" \
 
 1. Убедитесь, что в ModuleConfig отображается новый размер:
 
-   ```shell
+   ```bash
    d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
    ```
 
@@ -997,7 +999,7 @@ ansible -m shell -a "uptime" \
 
 1. Проверьте текущее состояние DVCR:
 
-   ```shell
+   ```bash
    d8 k get pvc dvcr -n d8-virtualization
    ```
 
@@ -1022,25 +1024,25 @@ StorageClass хранилища DVCR можно сменить только пе
 
 1. Остановите DVCR:
 
-   ```shell
+   ```bash
    d8 k -n d8-virtualization scale deployment dvcr --replicas=0
    ```
 
 1. Выведите список PVC в неймспейсе `d8-virtualization` и найдите PVC тома DVCR:
 
-   ```shell
+   ```bash
    d8 k get pvc -n d8-virtualization
    ```
 
 1. Удалите найденный PVC, подставив имя ресурса вместо `<PVC_NAME>`. Если команда завершается ошибкой из-за недостаточных прав, выполните её от имени `system:sudouser`:
 
-   ```shell
+   ```bash
    d8 k --as system:sudouser -n d8-virtualization delete pvc/<PVC_NAME>
    ```
 
 1. Задайте новый StorageClass в ModuleConfig, подставив нужный класс вместо `<STORAGE_CLASS_NAME>`:
 
-   ```shell
+   ```bash
    d8 k patch mc virtualization --type merge -p '{"spec":{"settings":{"dvcr":{"storage":{"persistentVolumeClaim":{"storageClassName":"<STORAGE_CLASS_NAME>"}}}}}}'
    ```
 
@@ -1052,13 +1054,13 @@ StorageClass хранилища DVCR можно сменить только пе
 
 1. Запустите DVCR:
 
-   ```shell
+   ```bash
    d8 k -n d8-virtualization scale deployment dvcr --replicas=1
    ```
 
 1. Проверьте PVC:
 
-   ```shell
+   ```bash
    d8 k get pvc -n d8-virtualization
    ```
 
@@ -1069,7 +1071,7 @@ StorageClass хранилища DVCR можно сменить только пе
    dvcr   Bound    pvc-b43f2e33-32cc-435a-aa1d-b53df35b030a   100Gi      RWO            linstor-thin-r1-hdd   <unset>                 34s
    ```
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 Хранилище выбранного StorageClass должно быть доступно на узлах, где запускается DVCR, то есть на system-узлах либо на worker-узлах, если system-узлов в кластере нет.
 {{< /alert >}}
 
@@ -1135,4 +1137,4 @@ StorageClass хранилища DVCR можно сменить только пе
    d8 k delete -f containerd-dvcr-remove-old-config.yaml
    ```
 
-Подробнее о миграции см. в статье [Миграция container runtime на containerd v2](/products/kubernetes-platform/documentation/v1/admin/configuration/platform-scaling/node/migrating.html).
+Порядок миграции описан в разделе [«Миграция container runtime на containerd v2»](/products/kubernetes-platform/documentation/v1/admin/configuration/platform-scaling/node/migrating.html).
