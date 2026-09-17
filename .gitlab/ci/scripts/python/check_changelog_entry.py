@@ -56,10 +56,20 @@ import urllib.request
 from pathlib import Path
 
 
+# Anchor both fences to the start of a line (MULTILINE): upstream
+# deckhouse/changelog-action extracts blocks with a real Markdown lexer
+# (marked, GFM), which only treats a fence at column 0 as a code block and
+# never mis-joins an indented example fence with a real one. Without the
+# anchors a naive DOTALL match starting at an indented ```changes fence would
+# swallow everything up to the next line-start backticks, capturing garbage.
 CHANGES_BLOCK_RE = re.compile(
-    r"```changes\s*\n(.*?)\n```",
-    re.DOTALL,
+    r"^```changes[ \t]*\n(.*?)\n```",
+    re.DOTALL | re.MULTILINE,
 )
+# HTML comments (e.g. the ```changes example shipped in the MR template) are
+# opaque html tokens to the upstream Markdown lexer and are never scanned for
+# fenced blocks. Mirror that by stripping them before searching.
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 KEY_VALUE_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
 # Types accepted in a ```changes block, matching deckhouse/changelog-action@v2.6.0
 # (the GitHub pipeline this was migrated from): feature, fix, chore, docs.
@@ -250,6 +260,7 @@ def main() -> int:
     allowed_sections = load_allowed_sections(sections_path)
 
     description = fetch_mr_description(api_base, project_id, mr_iid, token)
+    description = HTML_COMMENT_RE.sub("", description)
     blocks = CHANGES_BLOCK_RE.findall(description)
 
     if not blocks:
