@@ -755,8 +755,10 @@ func (h *SyncKvvmHandler) detectSpecChanges(
 	// with the current VM spec (maybe edited by the user).
 	specChanges := vmchange.NewVMSpecComparator(h.featureGate).Compare(lastSpec, currentSpec)
 
-	log.Info(fmt.Sprintf("detected VM changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
-	log.Info(fmt.Sprintf("detected VM changes JSON: %s", specChanges.ToJSON()))
+	if !specChanges.IsEmpty() {
+		log.Info("Detected VM changes", "disruptive", specChanges.IsDisruptive(), "actionType", specChanges.ActionType())
+		log.Debug("Detected VM changes", "changes", specChanges.ToJSON())
+	}
 
 	return specChanges
 }
@@ -766,8 +768,10 @@ func (h *SyncKvvmHandler) detectClassSpecChanges(ctx context.Context, currentCla
 
 	specChanges := vmchange.CompareClassSpecs(currentClassSpec, lastClassSpec)
 
-	log.Info(fmt.Sprintf("detected VMClass changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
-	log.Info(fmt.Sprintf("detected VMClass changes JSON: %s", specChanges.ToJSON()))
+	if !specChanges.IsEmpty() {
+		log.Info("Detected VMClass changes", "disruptive", specChanges.IsDisruptive(), "actionType", specChanges.ActionType())
+		log.Debug("Detected VMClass changes", "changes", specChanges.ToJSON())
+	}
 
 	return specChanges
 }
