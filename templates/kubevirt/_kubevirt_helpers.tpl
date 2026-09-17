@@ -227,12 +227,22 @@ spec:
           allowPrivilegeEscalation: true
           runAsUser: 0
           runAsGroup: 0
+          # The security policy exception matches a container only when runAsNonRoot is set
+          # explicitly: an unset field never equals the allowed value.
+          runAsNonRoot: false
           # No-op under `privileged: true`, required by the Deckhouse security policy.
           capabilities:
             drop:
               - ALL
           seLinuxOptions:
             level: s0
+          # The value is irrelevant in practice: the runtime never applies a seccomp profile to a
+          # privileged container (containerd returns early from generateSeccompSpecOpts when
+          # privileged is set), so the container runs unconfined whatever is written here. The field
+          # is present only because the Deckhouse security policy rejects a container without an
+          # explicit profile, and Unconfined is what actually happens on the node.
+          seccompProfile:
+            type: Unconfined
       - name: virt-launcher-image-holder
         securityContext:
           readOnlyRootFilesystem: true
@@ -256,10 +266,20 @@ spec:
           allowPrivilegeEscalation: true
           runAsUser: 0
           runAsGroup: 0
+          # The security policy exception matches a container only when runAsNonRoot is set
+          # explicitly: an unset field never equals the allowed value.
+          runAsNonRoot: false
           # No-op under `privileged: true`, required by the Deckhouse security policy.
           capabilities:
             drop:
               - ALL
+          # The value is irrelevant in practice: the runtime never applies a seccomp profile to a
+          # privileged container (containerd returns early from generateSeccompSpecOpts when
+          # privileged is set), so the container runs unconfined whatever is written here. The field
+          # is present only because the Deckhouse security policy rejects a container without an
+          # explicit profile, and Unconfined is what actually happens on the node.
+          seccompProfile:
+            type: Unconfined
 {{- end -}}
 
 
