@@ -18,8 +18,11 @@ package importer
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var malformedImageSizes = []string{
@@ -78,15 +81,61 @@ func TestResizeImageRejectsMalformedImageSize(t *testing.T) {
 	}
 }
 
+// fuzzImageSizeSeeds are the shapes an operator or a controller could put into
+// IMPORTER_IMAGE_SIZE: every suffix family resource.Quantity knows, fractions,
+// exponents, signs, the int64 boundary, and the near misses of each.
+var fuzzImageSizeSeeds = []string{
+	"1Gi", "500M", "0",
+	"1", "1k", "1Ki", "1Ti", "1Pi", "1Ei",
+	"1e3", "1E3", "1.5Gi", "0.5", ".5", "5.",
+	"-1Gi", "+1Gi",
+	"9223372036854775807", "9223372036854775808", "1e999",
+	"", " ", "1Mi ", "1GI", "1Gib", "0x10", "1_000",
+	"Inf", "NaN",
+	"\uff11Gi",      // fullwidth digit
+	"1\u0413\u0431", // a Cyrillic unit
+	"1\u200bGi",     // zero-width space inside the number
+}
+
 func FuzzParseImageSize(f *testing.F) {
-	for _, imageSize := range append([]string{"1Gi", "500M", "0"}, malformedImageSizes...) {
+	for _, imageSize := range append(fuzzImageSizeSeeds, malformedImageSizes...) {
 		f.Add(imageSize)
 	}
 
 	f.Fuzz(func(t *testing.T, imageSize string) {
+		if len(imageSize) > 64<<10 {
+			t.Skip("oversized input")
+		}
+
 		quantity, err := parseImageSize(imageSize)
-		if err == nil {
-			_ = quantity.String()
+		if err != nil {
+			// The value comes from the environment; the error has to name it.
+			if !strings.Contains(err.Error(), fmt.Sprintf("%q", imageSize)) {
+				t.Fatalf("image size %q: error does not name the offending value: %v", imageSize, err)
+			}
+			return
+		}
+
+		// Above int64 resource.Quantity is on its own: "1e21" prints as "1e21"
+		// but Value() is 0, the same number written out in digits prints as
+		// "1", and 1e19 has a negative Value(). The importer sizes the target
+		// through Value(), so that range is recorded in FUZZING.md rather than
+		// asserted here.
+		if quantity.Sign() < 0 || quantity.Cmp(*resource.NewQuantity(math.MaxInt64, resource.DecimalSI)) > 0 {
+			return
+		}
+		if quantity.Value() < 0 {
+			t.Fatalf("image size %q: non-negative quantity %s has Value() %d", imageSize, quantity.String(), quantity.Value())
+		}
+
+		// An accepted size must survive its own canonical form: the importer
+		// logs and compares quantities through String().
+		again, err := parseImageSize(quantity.String())
+		if err != nil {
+			t.Fatalf("image size %q: canonical form %q is rejected: %v", imageSize, quantity.String(), err)
+		}
+		if again.Cmp(quantity) != 0 {
+			t.Fatalf("image size %q: canonical form %q parses to %s, not %s", imageSize, quantity.String(), again.String(), quantity.String())
 		}
 	})
 }

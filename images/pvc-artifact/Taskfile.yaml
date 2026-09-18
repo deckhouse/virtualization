@@ -2,6 +2,10 @@ version: "3"
 
 silent: true
 
+vars:
+  FUZZ_LOCAL_IMAGE: "pvc-artifact-fuzz:local"
+  FUZZ_LOCAL_GOCACHE_VOLUME: "pvc-artifact-fuzz-gocache"
+
 tasks:
   test:unit:
     desc: "Run go unit tests"
@@ -41,3 +45,57 @@ tasks:
     cmds:
       - task: lint
       - task: test:unit
+
+  # Local dev loop (fuzz:local:*). The module is Linux-only and ships as amd64, so
+  # everything here runs in a linux/amd64 container built from fuzz.Dockerfile. On an
+  # arm64 host that container is emulated and noticeably slow. Inside the container the
+  # tasks are the platform ABI ones from the repository-root Taskfile.fuzz.yml, the same
+  # file the -fuzz image mounts as its Taskfile, so nothing is duplicated here.
+  fuzz:local:image:
+    desc: "Build the linux/amd64 fuzz image (emulated, and slow, on an arm64 host)"
+    cmds:
+      - docker build --platform=linux/amd64 -f fuzz.Dockerfile -t {{.FUZZ_LOCAL_IMAGE}} .
+
+  fuzz:local:list:
+    desc: "List the fuzz targets inside the linux/amd64 image"
+    cmds:
+      - task: _fuzz:local:docker
+        vars: { CMD: "fuzz:list" }
+
+  fuzz:local:seeds:
+    desc: "Replay the seed corpus of every target inside the linux/amd64 image"
+    cmds:
+      - task: _fuzz:local:docker
+        vars:
+          CMD: "fuzz:replay"
+          ENV: "-e FUZZ_PKG=./pkg/... -e FUZZ_TARGET=Fuzz.*"
+
+  fuzz:local:run:
+    desc: "Fuzz one target inside the linux/amd64 image (FUZZ_PKG, FUZZ_TARGET, FUZZ_TIME, FUZZ_WORKERS)"
+    cmds:
+      # FUZZ_TIME is a local-only bound: fuzz:run takes no -fuzztime by contract, so the
+      # limit is handed to go test through GOFLAGS instead of changing that task.
+      - task: _fuzz:local:docker
+        vars:
+          CMD: "fuzz:run"
+          ENV: >-
+            -e "FUZZ_PKG=${FUZZ_PKG:?set FUZZ_PKG, for example ./pkg/image}"
+            -e "FUZZ_TARGET=${FUZZ_TARGET:?set FUZZ_TARGET, for example FuzzQemuImgInfo}"
+            -e "FUZZ_WORKERS=${FUZZ_WORKERS:-4}"
+            -e "GOFLAGS=-fuzztime=${FUZZ_TIME:-60s}"
+
+  _fuzz:local:docker:
+    desc: "Run an ABI task from the repository-root Taskfile.fuzz.yml in the linux/amd64 fuzz image"
+    internal: true
+    cmds:
+      # The repository is mounted for Taskfile.fuzz.yml and the staging stub, the host
+      # module cache read-only so nothing is fetched from inside the container (see
+      # fuzz.Dockerfile). GOCACHE is a named volume so the discovered corpus survives the run.
+      - |
+        docker run --rm --platform=linux/amd64 \
+          -v "$(git rev-parse --show-toplevel)":/src \
+          -v "$(go env GOMODCACHE)":/gomodcache:ro \
+          -v {{.FUZZ_LOCAL_GOCACHE_VOLUME}}:/gocache \
+          {{.ENV}} \
+          {{.FUZZ_LOCAL_IMAGE}} \
+          task -t /src/Taskfile.fuzz.yml -d /src/images/pvc-artifact {{.CMD}}

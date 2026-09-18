@@ -1,0 +1,113 @@
+# Build only images whose names end in -fuzz, on demand: a run takes 15-45
+# minutes, because the -fuzz install stage replays the whole corpus on top of a
+# long builder chain.
+#
+# build_fuzz_release is the counterpart of build_fuzz_main on the default branch:
+# .main matches only $CI_DEFAULT_BRANCH, so here the job extends .release instead
+# and fires on a push to release-X.Y. The upstream body derives
+# FUZZ_S3_BRANCH_SLUG from CI_COMMIT_REF_SLUG, so this branch replays and reports
+# under release-1-10 and never reads main's corpus.
+
+.fuzz_source_auth:
+  script:
+    - |
+      if [[ -n "${SOURCE_REPO_SSH_KEY}" ]]; then
+        if [[ -z "${SSH_AUTH_SOCK}" ]]; then
+          eval "$(ssh-agent -s)" >/dev/null
+          trap 'kill -3 ${SSH_AGENT_PID}' ERR EXIT HUP INT QUIT TERM
+        fi
+        source_repo_key="${SOURCE_REPO_SSH_KEY}"
+        if [[ -f "${source_repo_key}" ]]; then
+          source_repo_key="$(cat "${source_repo_key}")"
+        fi
+        printf '%b\n' "${source_repo_key}" | ssh-add -
+      else
+        echo "SOURCE_REPO_SSH_KEY is not set: private mirror dependencies may fail."
+      fi
+
+# The job keeps WERF_REPO instead of taking the upstream `.build_fuzz_dev` body,
+# which unsets it and leaves the registry cache read-only. Fuzz images sit on a
+# long builder chain, so without the stage storage shared with build_dev every
+# run rebuilds that chain from scratch and then throws the result away.
+#
+# The upstream body also hardcodes FUZZ_S3_BRANCH_SLUG=main, which is right for
+# an MR into main and wrong here: the corpus is tied to the code that produced
+# it, and pvc-artifact on this branch is even a differently named Go module, so
+# main's corpus entries never match its packages. An MR has no corpus of its own,
+# so the slug is derived from the MR target branch the same way GitLab builds
+# CI_COMMIT_REF_SLUG. Until the external platform has filled that prefix the
+# replay runs on the committed seeds only. No build report is uploaded from an
+# MR run.
+build_fuzz_dev:
+  extends:
+    - .build_fuzz
+    - .dev
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_BUILD_FUZZ_IMAGES: "true"
+    WERF_VIRTUAL_MERGE: "0"
+    VAULT_AUTH_ROLE: ${MODULES_MODULE_NAME}
+    WERF_REPO: ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}
+  # Overrides the `when: always` rule .dev brings in. allow_failure keeps a
+  # skipped (or failed) on-demand fuzz build from blocking the MR.
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+    - when: never
+  script:
+    - !reference [.fuzz_source_auth, script]
+    - |
+      SOURCE_REPO=${SOURCE_REPO#git@}
+      SOURCE_REPO=${SOURCE_REPO//://}
+      export SOURCE_REPO=https://gitlab-ci-token:${CI_JOB_TOKEN}@${SOURCE_REPO}
+    - |
+      set -euo pipefail
+
+      if [[ -z "${FUZZ_S3_ENDPOINT:-}" || -z "${FUZZ_S3_ACCESS_KEY:-}" || -z "${FUZZ_S3_SECRET_KEY:-}" ]]; then
+        echo "Fuzz S3 secrets are not set (required for in-image corpus sync)"
+        exit 1
+      fi
+
+      unset WERF_FINAL_IMAGES_ONLY
+
+      export FUZZ_S3_REPOSITORY="${CI_PROJECT_NAME}"
+      FUZZ_S3_BRANCH_SLUG="$(printf '%s' "${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_COMMIT_REF_NAME}}" \
+        | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-63)"
+      export FUZZ_S3_BRANCH_SLUG
+      echo "MR fuzz build: stages shared with ${WERF_REPO}"
+      echo "Corpus replay path prefix: anomaloys-materials/${FUZZ_S3_REPOSITORY}/${FUZZ_S3_BRANCH_SLUG}/"
+
+      FUZZ_IMAGES="$(werf config list | grep -- '-fuzz$' || true)"
+      if [[ -z "${FUZZ_IMAGES}" ]]; then
+        echo "No fuzz images found"
+        exit 1
+      fi
+
+      echo "Building fuzz images:"
+      echo "${FUZZ_IMAGES}"
+
+      # shellcheck disable=SC2086
+      werf build ${FUZZ_IMAGES} \
+        --parallel=true --parallel-tasks-limit=10
+
+# The corpus is read-only for the pipeline: the build downloads
+# anomaloys-materials/<project>/<slug>/ and the only upload is the build report
+# under build-reports/<project>/<slug>/, which the external fuzzing platform
+# reads to find the images. The corpus itself is written by that platform.
+build_fuzz_release:
+  extends:
+    - .build_fuzz_main
+    - .release
+  needs:
+    - job: set_vars
+      artifacts: true
+  variables:
+    WERF_BUILD_FUZZ_IMAGES: "true"
+    WERF_VIRTUAL_MERGE: "0"
+    VAULT_AUTH_ROLE: ${MODULES_MODULE_NAME}
+  script:
+    - !reference [.fuzz_source_auth, script]
+    - !reference [.build_fuzz_main, script]

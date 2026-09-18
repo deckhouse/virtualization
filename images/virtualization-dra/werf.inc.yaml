@@ -42,3 +42,15 @@ shell:
       echo "Build go-usbip binary"
       {{- $_ := set $ "ProjectName" (list .ImageName "go-usbip" | join "/") }}
       {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/go-usbip ./cmd/usb/go-usbip`) | nindent 6 }}
+
+# Fuzz image for the USB/IP protocol decoders and the daemon request handling.
+# The builder above carries the workspace and the downloaded dependencies; the
+# targets are pure Go and drive the daemon over an in-memory connection, so no
+# USB device, sysfs or network is involved.
+---
+{{- $_ := set . "FuzzEngine" "go" }}
+{{- $_ := set . "FuzzWorkDir" "/src/images/virtualization-dra" }}
+{{- $_ := set . "FuzzFromImage" (printf "%s%s-builder" .ModuleNamePrefix .ImageName) }}
+{{- $_ := set . "FuzzPackages" "./..." }}
+{{- $_ := set . "FuzzTargetFiles" (list) }}
+{{- include "fuzz image" . }}

@@ -125,3 +125,18 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
+
+# Fuzz image for the dvcr importer and uploader targets. The builder already
+# contains the module and the native libnbd toolchain, so the fuzz image only
+# adds the corpus and the task runner. The module root sits at /src on this
+# branch: the src-artifact adds images/dvcr-artifact itself, not the whole
+# repository. The shared template also imports the relocated qemu tools; no
+# target built here calls them, but they come from the same cached chain as
+# build_dev and the registry targets that do need them are not on this branch.
+---
+{{- $_ := set . "FuzzEngine" "go" }}
+{{- $_ := set . "FuzzWorkDir" "/src" }}
+{{- $_ := set . "FuzzFromImage" (printf "%s%s-builder" .ModuleNamePrefix .ImageName) }}
+{{- $_ := set . "FuzzPackages" "./..." }}
+{{- $_ := set . "FuzzTargetFiles" (list) }}
+{{- include "fuzz image" . }}

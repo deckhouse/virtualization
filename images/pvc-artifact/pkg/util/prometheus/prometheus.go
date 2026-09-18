@@ -17,8 +17,10 @@ limitations under the License.
 package prometheus
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -107,37 +109,53 @@ func (r *ProgressReader) SetNextReader(reader io.ReadCloser, final bool) {
 	r.final = final
 }
 
+// metricsAddr is fixed: the port is part of the importer Pod spec.
+const metricsAddr = ":8443"
+
 // StartPrometheusEndpoint starts an http server providing a prometheus endpoint using the passed
 // in directory to store the self signed certificates that will be generated before starting the
 // http server.
 func StartPrometheusEndpoint(certsDirectory string) {
+	if _, err := startPrometheusEndpoint(certsDirectory, metricsAddr); err != nil {
+		klog.Error(err.Error())
+	}
+}
+
+// startPrometheusEndpoint takes the listen address and hands the listener back,
+// so a test can bind a free port and learn which one. Binding here rather than
+// in the goroutine also means a port already in use is reported, not swallowed.
+func startPrometheusEndpoint(certsDirectory, addr string) (net.Listener, error) {
 	certBytes, keyBytes, err := cert.GenerateSelfSignedCertKey("cloner_target", nil, nil)
 	if err != nil {
-		klog.Error("Error generating cert for prometheus")
-		return
+		return nil, fmt.Errorf("error generating cert for prometheus: %w", err)
 	}
 
 	certFile := path.Join(certsDirectory, "tls.crt")
 	if err = os.WriteFile(certFile, certBytes, 0o600); err != nil {
-		klog.Error("Error writing cert file")
-		return
+		return nil, fmt.Errorf("error writing cert file: %w", err)
 	}
 
 	keyFile := path.Join(certsDirectory, "tls.key")
 	if err = os.WriteFile(keyFile, keyBytes, 0o600); err != nil {
-		klog.Error("Error writing key file")
-		return
+		return nil, fmt.Errorf("error writing key file: %w", err)
+	}
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("error listening on %s for prometheus: %w", addr, err)
 	}
 
 	go func() {
 		server := &http.Server{
-			Addr:              ":8443",
 			ReadHeaderTimeout: 10 * time.Second,
 			Handler:           promhttp.Handler(),
 		}
 
-		if err := server.ListenAndServeTLS(certFile, keyFile); err != nil {
-			return
+		err := server.ServeTLS(listener, certFile, keyFile)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
+			klog.Errorf("prometheus endpoint stopped serving: %v", err)
 		}
 	}()
+
+	return listener, nil
 }

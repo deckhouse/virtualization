@@ -153,3 +153,16 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $binsDependencies.binaries | join " " }}" -o /relocate
+
+# Fuzz image for the pure-Go pvc importer and image parsing targets. The
+# pvc-artifact build stage already contains the full workspace and downloaded
+# dependencies; its fuzz targets stub external qemu execution. The module root
+# sits at /src on this branch: the src-artifact adds images/pvc-artifact itself,
+# not the whole repository.
+---
+{{- $_ := set . "FuzzEngine" "go" }}
+{{- $_ := set . "FuzzWorkDir" "/src" }}
+{{- $_ := set . "FuzzFromImage" (printf "%s%s" .ModuleNamePrefix .ImageName) }}
+{{- $_ := set . "FuzzPackages" "./..." }}
+{{- $_ := set . "FuzzTargetFiles" (list) }}
+{{- include "fuzz image" . }}

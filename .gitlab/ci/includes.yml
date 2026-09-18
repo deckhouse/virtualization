@@ -43,6 +43,10 @@ include:
       # context templates (upstream `.build` / `.deploy` bake in `rules:` that
       # would otherwise override it).
       - "/templates/Build.gitlab-ci.yml"
+      # Build_Fuzz_Images.gitlab-ci.yml provides `.build_fuzz` (Vault-backed
+      # FUZZ_S3_* secrets) and the dev/main build bodies consumed by
+      # jobs/build-fuzz.yml.
+      - "/templates/Build_Fuzz_Images.gitlab-ci.yml"
       - "/templates/Deploy.gitlab-ci.yml"
       # Validation/scanning jobs extend these upstream templates.
       - "/templates/CVE_Scan.gitlab-ci.yml"
@@ -83,6 +87,7 @@ include:
   - local: ".gitlab/ci/jobs/test-scripts-python.yml"
   - local: ".gitlab/ci/jobs/test-d8v-cli.yml"
   - local: ".gitlab/ci/jobs/build-dev.yml"
+  - local: ".gitlab/ci/jobs/build-fuzz.yml"
   - local: ".gitlab/ci/jobs/build-prod.yml"
   # No deploy-dev.yml: the DEV registry has no release channels (only tags),
   # so a dev tag is just built (build_dev_tags) and never crane-copied into
