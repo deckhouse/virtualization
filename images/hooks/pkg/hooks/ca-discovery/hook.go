@@ -68,7 +68,7 @@ var configModuleCommonCA = &pkg.HookConfig{
 		},
 	},
 
-	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
+	Queue: settings.ModuleQueue,
 }
 
 func handlerModuleCommonCA(_ context.Context, input *pkg.HookInput) error {
