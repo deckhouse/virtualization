@@ -19,13 +19,16 @@ package handler
 import (
 	"context"
 	"errors"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
@@ -94,10 +97,12 @@ var _ = Describe("TestFirmwareHandler", func() {
 				Kind:       "Deployment",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      virtControllerName,
-				Namespace: virtControllerNamespace,
+				Name:       virtControllerName,
+				Namespace:  virtControllerNamespace,
+				Generation: 1,
 			},
 			Spec: appsv1.DeploymentSpec{
+				Replicas: ptr.To(int32(1)),
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
@@ -110,9 +115,12 @@ var _ = Describe("TestFirmwareHandler", func() {
 				},
 			},
 		}
+		deploy.Status.ObservedGeneration = deploy.Generation
 		deploy.Status.Replicas = 1
+		deploy.Status.UpdatedReplicas = 1
 		if ready {
 			deploy.Status.ReadyReplicas = 1
+			deploy.Status.AvailableReplicas = 1
 		}
 
 		return deploy
@@ -160,6 +168,87 @@ var _ = Describe("TestFirmwareHandler", func() {
 		_, err := h.Handle(ctx, vm)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(migrationCalled).To(BeTrue())
+	})
+
+	DescribeTable("should wait for virt-controller rollout before migrating",
+		func(setupDeployment func(*appsv1.Deployment)) {
+			vm := newVMNeedMigrate()
+			deploy := newVirtController(true, firmwareImage)
+			setupDeployment(deploy)
+			fakeClient = setupFirmwareEnvironment(vm, deploy)
+
+			migrationCalled := false
+			h := NewFirmwareHandler(fakeClient, &firmwareMigrationStub{
+				onceMigrate: func(context.Context, *v1alpha2.VirtualMachine, string, string) (bool, error) {
+					migrationCalled = true
+					return true, nil
+				},
+			}, firmwareImage, virtControllerNamespace, virtControllerName, false)
+
+			result, err := h.Handle(ctx, vm)
+			Expect(err).NotTo(HaveOccurred(), "waiting for rollout should not fail reconciliation")
+			Expect(migrationCalled).To(BeFalse(), "migration must wait for the updated controller replicas")
+			Expect(result).To(Equal(reconcile.Result{RequeueAfter: time.Minute}), "rollout readiness should be checked again")
+		},
+		Entry("the new template still has the previous generation's ready status", func(deploy *appsv1.Deployment) {
+			deploy.Generation++
+		}),
+		Entry("the new generation is observed but only old replicas are ready", func(deploy *appsv1.Deployment) {
+			deploy.Status.UpdatedReplicas = 0
+		}),
+		Entry("only part of an HA deployment is updated", func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.To(int32(3))
+			deploy.Status.Replicas = 3
+			deploy.Status.UpdatedReplicas = 2
+			deploy.Status.ReadyReplicas = 3
+			deploy.Status.AvailableReplicas = 3
+		}),
+		Entry("an old replica remains alongside the updated replica", func(deploy *appsv1.Deployment) {
+			deploy.Status.Replicas = 2
+			deploy.Status.ReadyReplicas = 2
+			deploy.Status.AvailableReplicas = 2
+		}),
+		Entry("the requested number of replicas has not been reached", func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.To(int32(3))
+		}),
+		Entry("the updated replica is ready but not yet available", func(deploy *appsv1.Deployment) {
+			deploy.Status.AvailableReplicas = 0
+		}),
+		Entry("no replicas have been created", func(deploy *appsv1.Deployment) {
+			deploy.Status = appsv1.DeploymentStatus{ObservedGeneration: deploy.Generation}
+		}),
+		Entry("the deployment is scaled to zero", func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.To(int32(0))
+			deploy.Status = appsv1.DeploymentStatus{ObservedGeneration: deploy.Generation}
+		}),
+	)
+
+	It("should resume migration once the new virt-controller generation finishes rolling out", func() {
+		vm := newVMNeedMigrate()
+		deploy := newVirtController(true, firmwareImage)
+		deploy.Generation++
+		fakeClient = setupFirmwareEnvironment(vm, deploy)
+
+		migrationCalls := 0
+		h := NewFirmwareHandler(fakeClient, &firmwareMigrationStub{
+			onceMigrate: func(context.Context, *v1alpha2.VirtualMachine, string, string) (bool, error) {
+				migrationCalls++
+				return true, nil
+			},
+		}, firmwareImage, virtControllerNamespace, virtControllerName, false)
+
+		_, err := h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred(), "waiting for the new generation should not fail")
+		Expect(migrationCalls).To(BeZero(), "the previous generation's ready status must not trigger migration")
+
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(deploy), deploy)).To(Succeed(), "fetch deployment before updating its status")
+		deploy.Status.ObservedGeneration = deploy.Generation
+		Expect(fakeClient.Status().Update(ctx, deploy)).To(Succeed(), "report the completed rollout")
+
+		result, err := h.Handle(ctx, vm)
+		Expect(err).NotTo(HaveOccurred(), "migration should resume after rollout completes")
+		Expect(migrationCalls).To(Equal(1), "the firmware migration service should be called after rollout")
+		Expect(result).To(Equal(reconcile.Result{}), "a completed rollout should not delay migration")
 	})
 
 	It("should skip migration when firmware update is disabled", func() {
@@ -260,6 +349,25 @@ var _ = Describe("TestFirmwareHandler", func() {
 			Entry("deployment is not ready", newVirtController(false, firmwareImage), false),
 			Entry("deployment is ready but image differs", newVirtController(true, "other-image"), false),
 			Entry("deployment is ready and image matches", newVirtController(true, firmwareImage), true),
+		)
+
+		DescribeTable("should accept a completed rollout with the requested replica count",
+			func(replicas *int32, expectedReplicas int32) {
+				deploy := newVirtController(true, firmwareImage)
+				deploy.Spec.Replicas = replicas
+				deploy.Status.Replicas = expectedReplicas
+				deploy.Status.UpdatedReplicas = expectedReplicas
+				deploy.Status.ReadyReplicas = expectedReplicas
+				deploy.Status.AvailableReplicas = expectedReplicas
+				fakeClient = setupFirmwareEnvironment(newVMNeedMigrate(), deploy)
+				h := NewFirmwareHandler(fakeClient, nil, firmwareImage, virtControllerNamespace, virtControllerName, false)
+
+				ready, err := h.isVirtControllerUpToDate(ctx)
+				Expect(err).NotTo(HaveOccurred(), "checking a completed rollout should succeed")
+				Expect(ready).To(BeTrue(), "all requested replicas are updated, ready and available")
+			},
+			Entry("HA deployment", ptr.To(int32(3)), int32(3)),
+			Entry("default replica count", (*int32)(nil), int32(1)),
 		)
 	})
 

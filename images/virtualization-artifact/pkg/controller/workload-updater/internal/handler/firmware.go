@@ -24,6 +24,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -112,7 +113,17 @@ func (h *FirmwareHandler) isVirtControllerUpToDate(ctx context.Context) (ready b
 		return false, err
 	}
 
-	if deploy.Status.ReadyReplicas != deploy.Status.Replicas {
+	// The template can already contain the new image while status still describes the previous rollout.
+	if deploy.Status.ObservedGeneration < deploy.Generation {
+		return false, nil
+	}
+
+	desiredReplicas := ptr.Deref(deploy.Spec.Replicas, 1)
+	if desiredReplicas == 0 ||
+		deploy.Status.Replicas != desiredReplicas ||
+		deploy.Status.UpdatedReplicas != desiredReplicas ||
+		deploy.Status.ReadyReplicas != desiredReplicas ||
+		deploy.Status.AvailableReplicas != desiredReplicas {
 		return false, nil
 	}
 
