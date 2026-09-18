@@ -44,6 +44,7 @@ import (
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -61,6 +62,7 @@ const (
 	// to be deleted is released: neither the virt-launcher Pod deletion nor the volume detach
 	// triggers the VirtualDisk reconciliation.
 	finalizeMigrationRequeueAfter = 5 * time.Second
+	quotaOverrideRequeueAfter     = 30 * time.Second
 
 	targetPVCRole = "target"
 	sourcePVCRole = "source"
@@ -92,11 +94,11 @@ func (h MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		return reconcile.Result{}, nil
 	}
 
-	if !commonvd.VolumeMigrationEnabled(h.gate, vd) {
-		return reconcile.Result{}, nil
-	}
-
 	log, ctx := logger.GetHandlerContext(ctx, migrationHandlerName)
+
+	if !commonvd.VolumeMigrationEnabled(h.gate, vd) {
+		return h.removeQuotaOverrideLabel(ctx, vd)
+	}
 
 	expectedAction, err := h.getAction(ctx, vd, log)
 	if err != nil {
@@ -112,6 +114,20 @@ func (h MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		log.Info("Migration action")
 	}
 
+	result, err := h.handleAction(ctx, vd, expectedAction)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	quotaResult, err := h.removeQuotaOverrideLabel(ctx, vd)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconciler.MergeResults(result, quotaResult), nil
+}
+
+func (h MigrationHandler) handleAction(ctx context.Context, vd *v1alpha2.VirtualDisk, expectedAction action) (reconcile.Result, error) {
 	switch expectedAction {
 	case none:
 		h.handleNone(ctx, vd)
@@ -790,11 +806,6 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	}
 	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
-	// Remove quota override label from target PVC.
-	if err := object.RemoveLabel(ctx, h.client, targetPVC, annotations.QuotaExcludeLabel); err != nil && !k8serrors.IsNotFound(err) {
-		return reconcile.Result{}, fmt.Errorf("remove quota override label from target PVC: %w", err)
-	}
-
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		vd.Status.StorageClassName = *sc
 	}
@@ -806,6 +817,42 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
 	return reconcile.Result{}, nil
+}
+
+func (h MigrationHandler) removeQuotaOverrideLabel(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+	if commonvd.IsMigrating(vd) {
+		return reconcile.Result{}, nil
+	}
+
+	if vd.Status.Target.PersistentVolumeClaim == "" {
+		return reconcile.Result{}, nil
+	}
+
+	pvc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, h.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if pvc == nil {
+		return reconcile.Result{}, nil
+	}
+	if _, found := pvc.Labels[annotations.QuotaExcludeLabel]; !found {
+		return reconcile.Result{}, nil
+	}
+
+	err = object.RemoveLabel(ctx, h.client, pvc, annotations.QuotaExcludeLabel)
+	switch {
+	case err == nil, k8serrors.IsNotFound(err):
+		return reconcile.Result{}, nil
+	case k8serrors.IsForbidden(err):
+		logger.FromContext(ctx).Warn("Cannot remove the quota override label from the PersistentVolumeClaim, will retry",
+			logger.SlogErr(err),
+			slog.String("pvc.name", pvc.Name),
+			slog.String("pvc.namespace", pvc.Namespace),
+		)
+		return reconcile.Result{RequeueAfter: quotaOverrideRequeueAfter}, nil
+	default:
+		return reconcile.Result{}, fmt.Errorf("remove quota override label from the PersistentVolumeClaim %q: %w", pvc.Name, err)
+	}
 }
 
 func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachineOperation, error) {

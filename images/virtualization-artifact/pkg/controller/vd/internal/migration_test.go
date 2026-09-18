@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -26,16 +27,20 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -901,6 +906,45 @@ var _ = Describe("MigrationHandler", func() {
 				_, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
 				Expect(found).To(BeFalse())
 			})
+
+			It("should complete migration when the quota rejects the target claim", func() {
+				sourcePVC := newEmptyPVC("source-pvc", "default")
+				withOwner(sourcePVC, vd)
+				targetPVC := newLabeledPVC("target-pvc", "default")
+				withOwner(targetPVC, vd)
+				targetPVC.Status = corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound}
+
+				migrationHandler = NewMigrationHandler(
+					fake.NewClientBuilder().WithScheme(scheme).WithObjects(sourcePVC, targetPVC).
+						WithInterceptorFuncs(interceptor.Funcs{
+							Patch: func(ctx context.Context, cl client.WithWatch, obj client.Object, p client.Patch, opts ...client.PatchOption) error {
+								if obj.GetName() == "target-pvc" {
+									return k8serrors.NewForbidden(
+										schema.GroupResource{Resource: "persistentvolumeclaims"},
+										obj.GetName(),
+										errors.New("exceeded quota: storage-quota"),
+									)
+								}
+								return cl.Patch(ctx, obj, p, opts...)
+							},
+						}).Build(),
+					scValidator, modeGetter, featuregates.Default(),
+				)
+
+				_, err := migrationHandler.handleComplete(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
+				Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal("target-pvc"))
+
+				_, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+				Expect(found).To(BeFalse())
+
+				// The label is left in place and removed by a later reconcile.
+				result, err := migrationHandler.removeQuotaOverrideLabel(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(Equal(quotaOverrideRequeueAfter))
+			})
 		})
 	})
 
@@ -1124,9 +1168,83 @@ var _ = Describe("MigrationHandler", func() {
 			Expect(pvc.DeletionTimestamp).To(BeNil())
 		})
 	})
+
+	Describe("removeQuotaOverrideLabel", func() {
+		var quotaErr error
+
+		BeforeEach(func() {
+			quotaErr = k8serrors.NewForbidden(
+				schema.GroupResource{Resource: "persistentvolumeclaims"},
+				"target-pvc",
+				errors.New("exceeded quota: storage-quota, requested: requests.storage=50Gi, used: requests.storage=2500Gi, limited: requests.storage=2500Gi"),
+			)
+
+			vd.Status.Target.PersistentVolumeClaim = "target-pvc"
+			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
+				SourcePVC: "source-pvc",
+				TargetPVC: "target-pvc",
+			}
+
+			targetPVC := newEmptyPVC("target-pvc", "default")
+			withOwner(targetPVC, vd)
+			targetPVC.Labels = map[string]string{annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue}
+			Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+		})
+
+		It("should remove the label from the claim the disk points to", func() {
+			result, err := migrationHandler.removeQuotaOverrideLabel(ctx, vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.IsZero()).To(BeTrue())
+
+			pvc := &corev1.PersistentVolumeClaim{}
+			Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "target-pvc", Namespace: "default"}, pvc)).To(Succeed())
+			Expect(pvc.Labels).NotTo(HaveKey(annotations.QuotaExcludeLabel))
+		})
+
+		It("should keep the label while the migration is in progress", func() {
+			vd.Status.MigrationState.StartTimestamp = metav1.Now()
+
+			result, err := migrationHandler.removeQuotaOverrideLabel(ctx, vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.IsZero()).To(BeTrue())
+
+			pvc := &corev1.PersistentVolumeClaim{}
+			Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "target-pvc", Namespace: "default"}, pvc)).To(Succeed())
+			Expect(pvc.Labels).To(HaveKey(annotations.QuotaExcludeLabel))
+		})
+
+		It("should requeue instead of failing when the quota rejects the patch", func() {
+			migrationHandler = NewMigrationHandler(
+				fake.NewClientBuilder().WithScheme(scheme).WithObjects(newLabeledPVC("target-pvc", "default")).
+					WithInterceptorFuncs(interceptor.Funcs{
+						Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
+							return quotaErr
+						},
+					}).Build(),
+				scValidator, modeGetter, featuregates.Default(),
+			)
+
+			result, err := migrationHandler.removeQuotaOverrideLabel(ctx, vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(quotaOverrideRequeueAfter))
+		})
+
+		It("should do nothing when the claim is gone", func() {
+			vd.Status.Target.PersistentVolumeClaim = "no-such-pvc"
+
+			result, err := migrationHandler.removeQuotaOverrideLabel(ctx, vd)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.IsZero()).To(BeTrue())
+		})
+	})
 })
 
-//nolint:unparam // test helper
+func newLabeledPVC(name, namespace string) *corev1.PersistentVolumeClaim {
+	pvc := newEmptyPVC(name, namespace)
+	pvc.Labels = map[string]string{annotations.QuotaExcludeLabel: annotations.QuotaExcludeValue}
+	return pvc
+}
+
 func newEmptyPVC(name, namespace string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
