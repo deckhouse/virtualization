@@ -14,13 +14,14 @@ import (
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
+const secretName = "virtualization-audit-tls"
+
 var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CN:            settings.AuditCertCN,
-	TLSSecretName: "virtualization-audit-tls",
+	TLSSecretName: secretName,
 	Namespace:     settings.ModuleNamespace,
 	SANs: tlscertificate.DefaultSANs([]string{
 		"localhost",
@@ -53,8 +54,10 @@ var genSelfSignedTLS = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.Ho
 			return nil
 		}
 
+		settings.ReissueBrokenTLSPair(input, secretName)
+
 		return tlscertificate.GenSelfSignedTLS(conf)(ctx, input)
 	}
 }
 
-var _ = registry.RegisterFunc(tlscertificate.GenSelfSignedTLSConfig(conf), genSelfSignedTLS(conf))
+var _ = settings.RegisterTLSHookFunc(conf, genSelfSignedTLS(conf))

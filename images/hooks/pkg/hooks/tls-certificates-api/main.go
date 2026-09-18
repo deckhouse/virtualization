@@ -17,17 +17,17 @@ limitations under the License.
 package tls_certificates_api
 
 import (
-	"context"
 	"fmt"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
-	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
+const secretName = "virtualization-api-tls"
+
 var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CN:            settings.APICertCN,
-	TLSSecretName: "virtualization-api-tls",
+	TLSSecretName: secretName,
 	Namespace:     settings.ModuleNamespace,
 	SANs: tlscertificate.DefaultSANs([]string{
 		"localhost",
@@ -42,14 +42,7 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.cert", settings.ModuleName),
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
-	BeforeHookCheck: func(input *pkg.HookInput) bool {
-		canRun, err := settings.CanRunWithModuleConfig(context.Background(), input)
-		if err != nil {
-			input.Logger.Error("Check module config before API TLS hook", "error", err)
-			return false
-		}
-		return canRun
-	},
+	BeforeHookCheck:      settings.TLSBeforeHookCheck("API", secretName),
 }
 
-var _ = tlscertificate.RegisterInternalTLSHookEM(conf)
+var _ = settings.RegisterTLSHook(conf)

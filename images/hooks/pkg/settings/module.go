@@ -20,4 +20,5 @@ package settings
 const (
 	ModuleNamespace string = "d8-virtualization"
 	ModuleName      string = "virtualization"
+	ModuleQueue     string = "modules/" + ModuleName
 )
