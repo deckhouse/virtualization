@@ -28,6 +28,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,6 +50,43 @@ import (
 )
 
 const disableInPlaceResizeAnn = "kubevirt.internal.virtualization.deckhouse.io/disable-in-place-resize"
+
+// disableInPlaceResizeOnKVVMI switches KubeVirt's in-place CPU/memory resize off for the
+// running instance of the VM, so a resource change is applied through a live migration
+// instead. KubeVirt reads the switch from the internal VirtualMachineInstance alone
+// (InPlaceResizeEnabledOnVMI), and the module no longer propagates
+// kubevirt.internal.virtualization.deckhouse.io/* annotations from the VirtualMachine down
+// to the internal objects, so the test writes it there itself. The internal API group only
+// admits the module's own ServiceAccounts, so the patch goes through the impersonating
+// client. The annotation lives on the instance, so it has to be set on the running VM and
+// would not survive a restart: every caller sets it right before changing the resources.
+func disableInPlaceResizeOnKVVMI(ctx context.Context, f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	kvvmi := &unstructured.Unstructured{}
+	kvvmi.SetGroupVersionKind(kvvmiGVK())
+	kvvmi.SetNamespace(vm.Namespace)
+	kvvmi.SetName(vm.Name)
+
+	patch, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]any{
+				disableInPlaceResizeAnn: "true",
+			},
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(f.ControllerSAClient().Patch(ctx, kvvmi, crclient.RawPatch(types.MergePatchType, patch))).To(Succeed(),
+		"in-place resize should be disabled on the internal VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+}
+
+func kvvmiGVK() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   "internal.virtualization.deckhouse.io",
+		Version: "v1",
+		Kind:    "InternalVirtualizationVirtualMachineInstance",
+	}
+}
 
 var _ = Describe("HotplugCPU", Label(label.SIGCompute), func() {
 	var (
@@ -124,7 +163,7 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 
 	By("Environment preparation")
 	vmName := fmt.Sprintf("vm-%d-%d-quota-migrate", initialCores, changedCores)
-	t.generateResources(vmName, initialCores, true)
+	t.generateResources(vmName, initialCores)
 
 	quota := &corev1.ResourceQuota{
 		ObjectMeta: metav1.ObjectMeta{
@@ -162,8 +201,11 @@ func (t *cpuHotplugTest) applyCPUCoreChangeWithQuotaBlockedMigration(initialCore
 
 	skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
 
+	By("Disabling in-place resize so the change goes through a live migration")
+	disableInPlaceResizeOnKVVMI(ctx, t.Framework, t.VM)
+
 	By("Applying CPU core changes")
-	patch, err := json.Marshal([]map[string]interface{}{{
+	patch, err := json.Marshal([]map[string]any{{
 		"op":    "replace",
 		"path":  "/spec/cpu/cores",
 		"value": changedCores,
@@ -216,7 +258,7 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	if liveMigration {
 		vmName += "-migrate"
 	}
-	t.generateResources(vmName, initialCores, liveMigration)
+	t.generateResources(vmName, initialCores)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -244,6 +286,9 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 
 	if liveMigration {
 		skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
+
+		By("Disabling in-place resize so the change goes through a live migration")
+		disableInPlaceResizeOnKVVMI(ctx, t.Framework, t.VM)
 	}
 
 	By("Applying CPU core changes")
@@ -283,11 +328,11 @@ func (t *cpuHotplugTest) applyCPUCoreChange(initialCores, changedCores int, live
 	t.untilGuestCPUCount(changedCores, framework.MiddleTimeout)
 }
 
-func (t *cpuHotplugTest) generateResources(vmName string, cores int, disableInPlaceResize bool) {
-	t.generateResourcesWithRestartApproval(vmName, cores, disableInPlaceResize, v1alpha2.Automatic)
+func (t *cpuHotplugTest) generateResources(vmName string, cores int) {
+	t.generateResourcesWithRestartApproval(vmName, cores, v1alpha2.Automatic)
 }
 
-func (t *cpuHotplugTest) generateResourcesWithRestartApproval(vmName string, cores int, disableInPlaceResize bool, restartApprovalMode v1alpha2.RestartApprovalMode) {
+func (t *cpuHotplugTest) generateResourcesWithRestartApproval(vmName string, cores int, restartApprovalMode v1alpha2.RestartApprovalMode) {
 	vdName := fmt.Sprintf("vd-%s-root", vmName)
 	t.VD = object.NewVDFromCVI(vdName, t.Framework.Namespace().Name, object.PrecreatedCVICustomBIOS,
 		vdbuilder.WithSize(ptr.To(resource.MustParse(vdCustomImageSize))),
@@ -310,9 +355,6 @@ func (t *cpuHotplugTest) generateResourcesWithRestartApproval(vmName string, cor
 			},
 		),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
-	}
-	if disableInPlaceResize {
-		opts = append(opts, vmbuilder.WithAnnotation(disableInPlaceResizeAnn, "true"))
 	}
 
 	t.VM = vmbuilder.New(opts...)

@@ -139,7 +139,7 @@ func (t *memoryHotplugTest) requireRestartToDecreaseMemory(initialMemory, change
 	if liveMigration {
 		vmName += "-migrate"
 	}
-	t.generateResourcesWithRestartApproval(vmName, initialMemory, liveMigration, v1alpha2.Manual)
+	t.generateResourcesWithRestartApproval(vmName, initialMemory, v1alpha2.Manual)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -161,6 +161,11 @@ func (t *memoryHotplugTest) requireRestartToDecreaseMemory(initialMemory, change
 	initialGuestMemorySize, err := t.getGuestMemorySize()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(initialGuestMemorySize).To(Equal(int(initialQuantity.Value())))
+
+	if liveMigration {
+		By("Disabling in-place resize so the change goes through a live migration")
+		disableInPlaceResizeOnKVVMI(ctx, t.Framework, t.VM)
+	}
 
 	By("Applying memory decrease")
 	patch, err := json.Marshal([]map[string]interface{}{{
@@ -200,7 +205,7 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 	if liveMigration {
 		vmName += "-migrate"
 	}
-	t.generateResources(vmName, initialMemory, liveMigration)
+	t.generateResources(vmName, initialMemory)
 	err := t.Framework.CreateWithDeferredDeletion(ctx, t.VM, t.VD)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -230,6 +235,9 @@ func (t *memoryHotplugTest) applyMemoryChange(initialMemory, changedMemory strin
 
 	if liveMigration {
 		skipIfDisksAreNotLiveMigratable(ctx, t.Framework, t.VD)
+
+		By("Disabling in-place resize so the change goes through a live migration")
+		disableInPlaceResizeOnKVVMI(ctx, t.Framework, t.VM)
 	}
 
 	By("Applying memory size changes")
@@ -322,11 +330,11 @@ func skipIfDisksAreNotLiveMigratable(ctx context.Context, f *framework.Framework
 	Skip(fmt.Sprintf("skip: PVC %s/%s is not ReadWriteMany, hotplug via live migration needs a live-migratable VMI", pvc.Namespace, pvc.Name))
 }
 
-func (t *memoryHotplugTest) generateResources(vmName, memSize string, disableInPlaceResize bool) {
-	t.generateResourcesWithRestartApproval(vmName, memSize, disableInPlaceResize, v1alpha2.Automatic)
+func (t *memoryHotplugTest) generateResources(vmName, memSize string) {
+	t.generateResourcesWithRestartApproval(vmName, memSize, v1alpha2.Automatic)
 }
 
-func (t *memoryHotplugTest) generateResourcesWithRestartApproval(vmName, memSize string, disableInPlaceResize bool, restartApprovalMode v1alpha2.RestartApprovalMode) {
+func (t *memoryHotplugTest) generateResourcesWithRestartApproval(vmName, memSize string, restartApprovalMode v1alpha2.RestartApprovalMode) {
 	memSizeQuantity := resource.MustParse(memSize)
 
 	vdName := fmt.Sprintf("vd-%s-root", vmName)
@@ -352,9 +360,6 @@ func (t *memoryHotplugTest) generateResourcesWithRestartApproval(vmName, memSize
 			},
 		),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
-	}
-	if disableInPlaceResize {
-		opts = append(opts, vmbuilder.WithAnnotation(disableInPlaceResizeAnn, "true"))
 	}
 
 	t.VM = vmbuilder.New(opts...)
