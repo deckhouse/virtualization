@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework/failfast"
 )
 
@@ -282,10 +283,29 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 	// 1. Send every deletion request first: the namespace is last and must not be skipped.
 	accepted := make([]client.Object, 0, len(objs))
 	for _, obj := range objs {
+		objToDelete := obj
+
+		// Handle namespace: it may be managed by the parent Project that should be deleted.
+		if _, ok := obj.(*corev1.Namespace); ok {
+			nsKey := client.ObjectKeyFromObject(obj)
+			err := f.client.Get(ctx, nsKey, obj)
+			if err == nil && obj.GetLabels()["heritage"] == "multitenancy-manager" {
+				objToDelete = &v1alpha2.Project{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "deckhouse.io/v1alpha2",
+						Kind:       "Project",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: obj.GetName(),
+					},
+				}
+			}
+		}
+
 		err := retry.OnError(deleteBackoff,
 			// Retry everything but NotFound; the backoff ignores ctx, so stop once it is done.
 			func(err error) bool { return !k8serrors.IsNotFound(err) && ctx.Err() == nil },
-			func() error { return f.client.Delete(ctx, obj) },
+			func() error { return f.client.Delete(ctx, objToDelete) },
 		)
 		switch {
 		case err == nil:
