@@ -1,5 +1,5 @@
 - version: v1.12.0
-  date: "2026-09-16"
+  date: "2026-09-21"
   highlights:
     - en: PCI devices of cluster nodes can now be attached to virtual machines (commercial editions, experimental).
       ru: PCI-устройства узлов кластера теперь можно подключать к виртуальным машинам (ВМ) (коммерческие редакции, экспериментальная функциональность).
@@ -21,8 +21,6 @@
         ru: Условие `Migratable` теперь сообщает, что для ВМ нет подходящего узла для миграции.
       - en: Added the `OperationInProgress` condition, which reports the operation being performed on a virtual machine and the failure of the last one.
         ru: Добавлено условие `OperationInProgress`, сообщающее о выполняемой над ВМ операции и об ошибке последней завершённой.
-      - en: Added the ability to give a virtual machine an emulated Input/Output Memory Management Unit (IOMMU), so that PCI passthrough works inside the guest. The functionality is available in the commercial editions of the platform. To enable it, add `VIOMMU` to `.spec.settings.featureGates` in the ModuleConfig of the `virtualization` module.
-        ru: Добавлена возможность выдать ВМ эмулируемый Input/Output Memory Management Unit (IOMMU), чтобы внутри гостевой системы работал проброс PCI-устройств. Функциональность доступна в коммерческих редакциях платформы. Для использования необходимо добавить `VIOMMU` в `.spec.settings.featureGates` ModuleConfig модуля `virtualization`.
     observability:
       - en: Metrics now tell which node a virtual machine migrates from and which node it migrates to, and the dashboards show how the migrations in progress are going.
         ru: Метрики теперь сообщают, с какого узла и на какой мигрирует ВМ, а дашборды показывают ход идущих миграций.
