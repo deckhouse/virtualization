@@ -122,7 +122,11 @@ func (h *USBDeviceAttachHandler) Handle(ctx context.Context, s state.VirtualMach
 				return reconcile.Result{}, err
 			}
 
-			log.Error("failed to get ResourceClaimTemplate", "error", err, "usbDevice", deviceName)
+			// The template follows the USBDevice: it is not there yet right after
+			// the device is assigned to the namespace, and it is gone once the
+			// assignment is revoked while the VM still references the device.
+			// Both are ordinary states, not failures.
+			log.Info("ResourceClaimTemplate for the USB device does not exist yet, the device stays detached", "usbDevice", deviceName)
 			nextStatusRefs = append(nextStatusRefs, h.buildDetachedStatus(nil, deviceName, isReady))
 			continue
 		}
