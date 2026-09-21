@@ -18,7 +18,6 @@ package precheck
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -88,88 +87,95 @@ func (p *precreatedCVIPrecheck) validateCleanupEnv() error {
 func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Framework, cvis []*v1alpha2.ClusterVirtualImage) error {
 	k8sClient := f.GenericClient()
 
-	var toCreate []*v1alpha2.ClusterVirtualImage
 	for _, cvi := range cvis {
+		// The HEAD request both checks that the source is reachable and tells the size
+		// of the file behind the URL, which is what the CVI remembers about its source.
+		sourceSize, probeErr := probeHTTPSource(ctx, cvi)
+
 		existing := &v1alpha2.ClusterVirtualImage{}
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: cvi.GetName()}, existing)
-
-		if err == nil {
-			// Neither phase recovers on its own: a lost DVCR image stays lost, and a failed
-			// import is not retried, so a rerun on the same cluster would wait out the
-			// readiness timeout on the leftover of the previous run.
-			if existing.Status.Phase == v1alpha2.ImageLost || existing.Status.Phase == v1alpha2.ImageFailed {
-				_, _ = fmt.Fprintf(GinkgoWriter,
-					"CVI %q exists but is %s, recreating it...\n",
-					cvi.GetName(), existing.Status.Phase)
-
-				if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete CVI %q: %w", cvi.GetName(), err)
-				}
-
-				util.UntilObjectsDeleted(ctx, framework.ShortTimeout, existing)
-
-				toCreate = append(toCreate, cvi)
-				continue
-			}
-
-			// CVI already exists, verify it's ready
+		switch {
+		case err == nil && !isStale(existing, cvi, sourceSize):
 			if existing.Status.Phase != v1alpha2.ImageReady {
-				_, _ = fmt.Fprintf(GinkgoWriter,
-					"CVI %q exists but not ready (phase: %s), waiting...\n",
-					cvi.GetName(), existing.Status.Phase)
+				_, _ = fmt.Fprintf(GinkgoWriter, "CVI %q exists but not ready (phase: %s), waiting...\n", cvi.GetName(), existing.Status.Phase)
 			}
 			continue
-		}
-
-		if !k8serrors.IsNotFound(err) {
+		case err == nil:
+			if probeErr != nil {
+				return probeErr
+			}
+			_, _ = fmt.Fprintf(GinkgoWriter, "CVI %q is stale (phase %s, recorded source size %q, current %q), recreating it...\n",
+				cvi.GetName(), existing.Status.Phase, existing.GetAnnotations()[annSourceSize], sourceSize)
+			if err := k8sClient.Delete(ctx, existing); err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete CVI %q: %w", cvi.GetName(), err)
+			}
+			util.UntilObjectsDeleted(ctx, framework.ShortTimeout, existing)
+		case !k8serrors.IsNotFound(err):
 			return fmt.Errorf("failed to get CVI %q: %w", cvi.GetName(), err)
 		}
 
-		toCreate = append(toCreate, cvi)
-	}
-
-	// A CVI whose image URL is dead never becomes Ready, and that shows up only as the
-	// readiness timeout below. Refuse all such images at once, before anything is created.
-	var errs []error
-	for _, cvi := range toCreate {
-		errs = append(errs, checkImageURL(ctx, cvi))
-	}
-	if err := errors.Join(errs...); err != nil {
-		return err
-	}
-
-	for _, cvi := range toCreate {
+		if probeErr != nil {
+			return probeErr
+		}
+		if sourceSize != "" {
+			cvi.SetAnnotations(map[string]string{annSourceSize: sourceSize})
+		}
 		_, _ = fmt.Fprintf(GinkgoWriter, "Creating CVI %q\n", cvi.GetName())
-
-		err := k8sClient.Create(ctx, cvi)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
+		if err := k8sClient.Create(ctx, cvi); err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create CVI %q: %w", cvi.GetName(), err)
 		}
 	}
 	return nil
 }
 
-func checkImageURL(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error {
+// annSourceSize records, on a precreated CVI, the Content-Length of the file it
+// was imported from, so a later run notices that the file behind the same URL
+// was replaced.
+const annSourceSize = "e2e.virtualization.deckhouse.io/source-size"
+
+// isStale reports that the existing precreated CVI cannot serve the suite: a lost
+// DVCR image and a failed import never recover, and a different source URL or a
+// different size of the file behind it means the image is no longer the one the
+// suite expects. An unknown size ("") is not compared.
+func isStale(existing, desired *v1alpha2.ClusterVirtualImage, sourceSize string) bool {
+	if existing.Status.Phase == v1alpha2.ImageLost || existing.Status.Phase == v1alpha2.ImageFailed {
+		return true
+	}
+	want := desired.Spec.DataSource.HTTP
+	if want == nil {
+		return false
+	}
+	have := existing.Spec.DataSource.HTTP
+	if have == nil || have.URL != want.URL {
+		return true
+	}
+	return sourceSize != "" && existing.GetAnnotations()[annSourceSize] != sourceSize
+}
+
+// probeHTTPSource checks that the image behind the CVI's HTTP source is
+// available and returns its Content-Length. A CVI without an HTTP source yields
+// an empty size and no error.
+func probeHTTPSource(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (string, error) {
 	src := cvi.Spec.DataSource.HTTP
 	if src == nil {
-		return nil
+		return "", nil
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, src.URL, nil)
 	if err != nil {
-		return fmt.Errorf("CVI %q: %w", cvi.GetName(), err)
+		return "", fmt.Errorf("CVI %q: %w", cvi.GetName(), err)
 	}
 
 	resp, err := imageURLClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("CVI %q: image is not available: %w", cvi.GetName(), err)
+		return "", fmt.Errorf("CVI %q: image is not available: %w", cvi.GetName(), err)
 	}
 	_ = resp.Body.Close()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("CVI %q: image %s is not available: HTTP %d", cvi.GetName(), src.URL, resp.StatusCode)
+		return "", fmt.Errorf("CVI %q: image %s is not available: HTTP %d", cvi.GetName(), src.URL, resp.StatusCode)
 	}
-	return nil
+	return resp.Header.Get("Content-Length"), nil
 }
 
 func (p *precreatedCVIPrecheck) waitForCVIsReady(ctx context.Context, cvis []*v1alpha2.ClusterVirtualImage) {

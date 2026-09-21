@@ -184,7 +184,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 			sourceNode := vmC.Status.Node
 			startedAt := time.Now().UTC()
 
-			updateVMPlacement(ctx, f, vmC.Name, func(vm *v1alpha2.VirtualMachine) {
+			updateVMSpec(ctx, f, vmC.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.Affinity = antiAffinityToVM("vm-a")
 			})
 
@@ -216,7 +216,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 			vmC = getVirtualMachine(ctx, f, vmC.Name)
 			startedAt := time.Now().UTC()
 
-			updateVMPlacement(ctx, f, vmC.Name, func(vm *v1alpha2.VirtualMachine) {
+			updateVMSpec(ctx, f, vmC.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.Affinity = affinityToVM("vm-a")
 			})
 
@@ -275,7 +275,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 			sourceNode = vmNodeSelector.Status.Node
 			Expect(sourceNode).NotTo(BeEmpty())
 
-			updateVMPlacement(ctx, f, vmNodeSelector.Name, func(vm *v1alpha2.VirtualMachine) {
+			updateVMSpec(ctx, f, vmNodeSelector.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.NodeSelector = map[string]string{affinityHostnameLabelKey: sourceNode}
 			})
 
@@ -290,7 +290,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 
 			vmNodeSelector = getVirtualMachine(ctx, f, vmNodeSelector.Name)
 			startedAt := time.Now().UTC()
-			updateVMPlacement(ctx, f, vmNodeSelector.Name, func(vm *v1alpha2.VirtualMachine) {
+			updateVMSpec(ctx, f, vmNodeSelector.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.NodeSelector = map[string]string{affinityHostnameLabelKey: targetNode}
 			})
 
@@ -358,7 +358,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 			sourceNode = vmNodeAffinity.Status.Node
 			Expect(sourceNode).NotTo(BeEmpty())
 
-			updateVMPlacement(ctx, f, vmNodeAffinity.Name, func(vm *v1alpha2.VirtualMachine) {
+			updateVMSpec(ctx, f, vmNodeAffinity.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.Affinity = nodeAffinityForNode(sourceNode)
 			})
 
@@ -373,7 +373,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", Label(label.SIGCompute, 
 
 			vmNodeAffinity = getVirtualMachine(ctx, f, vmNodeAffinity.Name)
 			startedAt := time.Now().UTC()
-			updateVMPlacement(ctx, f, vmNodeAffinity.Name, func(vm *v1alpha2.VirtualMachine) {
+			updateVMSpec(ctx, f, vmNodeAffinity.Name, func(vm *v1alpha2.VirtualMachine) {
 				vm.Spec.Affinity = nodeAffinityForNode(targetNode)
 			})
 
@@ -623,10 +623,10 @@ func getVirtualMachine(ctx context.Context, f *framework.Framework, name string)
 	return vm
 }
 
-// updateVMPlacement mutates the VM spec through mutate and updates it,
+// updateVMSpec mutates the VM spec through mutate and updates it,
 // re-getting and retrying on conflict: the controller patches running VMs
 // (e.g. status/metadata bookkeeping) concurrently with the test.
-func updateVMPlacement(ctx context.Context, f *framework.Framework, name string, mutate func(*v1alpha2.VirtualMachine)) {
+func updateVMSpec(ctx context.Context, f *framework.Framework, name string, mutate func(*v1alpha2.VirtualMachine)) {
 	GinkgoHelper()
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
