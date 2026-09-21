@@ -820,7 +820,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (namespace) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "expr": "sum by (namespace) (\n  sum by (namespace, name) (\n    max by (namespace, name, core) (\n      rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n)",
           "format": "time_series",
           "hide": false,
           "instant": true,
@@ -835,7 +835,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (namespace) (d8_virtualization_virtualmachine_os_memory_total_bytes - d8_virtualization_virtualmachine_os_memory_potentially_free_bytes{namespace=~\"$namespace\"})",
+          "expr": "sum by (namespace) (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"}\n    - d8_virtualization_virtualmachine_os_memory_potentially_free_bytes{namespace=~\"$namespace\"}\n  )\n)",
           "hide": false,
           "instant": true,
           "legendFormat": "Memory",
@@ -849,7 +849,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum (\nkube_resourcequota{namespace=~\"$namespace\", resource=\"requests.storage\", type=\"used\"}\n) or sum(d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"})\n",
+          "expr": "sum (\nkube_resourcequota{namespace=~\"$namespace\", resource=\"requests.storage\", type=\"used\"}\n) or sum(\n  max by (namespace, name) (\n    d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n  )\n)\n",
           "hide": false,
           "instant": true,
           "legendFormat": "Storage",
@@ -1086,6 +1086,34 @@
               {
                 "id": "unit",
                 "value": "bytes"
+              },
+              {
+                "id": "noValue",
+                "value": "-"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #MemoryChangeRate"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Memory change rate"
+              },
+              {
+                "id": "unit",
+                "value": "binBps"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "description",
+                "value": "How fast the guest operating system changes the contents of its memory, the 90th percentile over the selected time range. The higher this rate, the longer a live migration of this machine takes. A rate below 1 MB/s is reported as zero."
               },
               {
                 "id": "noValue",
@@ -1501,7 +1529,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "expr": "sum by (namespace, name) (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1547,7 +1575,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval])\n- on(name) group_left()\nsum by(name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval]))\n\n",
+          "expr": "max by (namespace, name) (\n  rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n)\n-\nsum by (namespace, name) (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)",
           "format": "table",
           "hide": true,
           "instant": true,
@@ -1563,7 +1591,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (d8_virtualization_virtualmachine_memory_size_bytes{namespace=~\"$namespace\"})",
+          "expr": "max by (namespace, name) (d8_virtualization_virtualmachine_memory_size_bytes{namespace=~\"$namespace\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1578,7 +1606,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})",
+          "expr": "max by (namespace, name) (d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1593,11 +1621,11 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (d8_virtualization_virtualmachine_os_memory_total_bytes - d8_virtualization_virtualmachine_os_memory_potentially_free_bytes{namespace=~\"$namespace\"})",
+          "expr": "max by (namespace, name) ((\n    d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"}\n    - d8_virtualization_virtualmachine_os_memory_potentially_free_bytes{namespace=~\"$namespace\"}\n))",
           "format": "table",
           "hide": false,
           "instant": true,
-          "legendFormat": "Read IOPs",
+          "legendFormat": "Memory used",
           "range": false,
           "refId": "MemoryOSUsage"
         },
@@ -1623,7 +1651,22 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
+          "expr": "max by (namespace, name) (\n  quantile_over_time(0.9, d8_virtualization_virtualmachine_dirty_rate_bytes_per_second{namespace=~\"$namespace\"}[$__range])\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "Memory change rate",
+          "range": false,
+          "refId": "MemoryChangeRate"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1638,7 +1681,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
+          "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1653,7 +1696,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=~\"$namespace\"}[$__rate_interval])*8)",
+          "expr": "sum by (namespace, name) (\n  max by (namespace, name, network) (\n    rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n) * 8",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1668,7 +1711,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=~\"$namespace\"}[$__rate_interval])*8)",
+          "expr": "sum by (namespace, name) (\n  max by (namespace, name, network) (\n    rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n) * 8",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1767,6 +1810,7 @@
                 "Value #MemoryConfigured",
                 "Value #MemoryOSUsage",
                 "Value #MemoryHypervisorOverhead",
+                "Value #MemoryChangeRate",
                 "Value #BlockDeviceReadIOPS",
                 "Value #BlockDeviceWriteIOPS",
                 "Value #NetworkBandwidthRX",
@@ -1785,18 +1829,19 @@
             "includeByName": {},
             "indexByName": {
               "Value #Agent": 2,
-              "Value #BlockDeviceReadIOPS": 12,
-              "Value #BlockDeviceWriteIOPS": 13,
+              "Value #BlockDeviceReadIOPS": 13,
+              "Value #BlockDeviceWriteIOPS": 14,
               "Value #CPUCurrentCores": 7,
               "Value #CPUGuaranteedCores": 8,
               "Value #CPUOSUsage": 6,
-              "Value #DisksAttached": 16,
+              "Value #DisksAttached": 17,
+              "Value #MemoryChangeRate": 12,
               "Value #MemoryConfigured": 10,
               "Value #MemoryCurrent": 9,
               "Value #MemoryOSUsage": 11,
-              "Value #NetworkBandwidthRX": 14,
-              "Value #NetworkBandwidthTX": 15,
-              "Value #SnapshotCount": 17,
+              "Value #NetworkBandwidthRX": 15,
+              "Value #NetworkBandwidthTX": 16,
+              "Value #SnapshotCount": 18,
               "virtualmachineclass": 5,
               "name": 0,
               "node": 4,
@@ -2665,7 +2710,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
+              "expr": "sum by (name) (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "OS Usage / {{ name }} ",
@@ -2678,10 +2723,10 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval])\n- on(name) group_left()\nsum by(name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval]))\n\n",
+              "expr": "sum by (name) (\n  max by (namespace, name) (\n    rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)\n-\nsum by (name) (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)",
               "hide": false,
               "instant": false,
-              "legendFormat": "Hypervisor overhead",
+              "legendFormat": "Hypervisor overhead / {{ name }} ",
               "range": true,
               "refId": "HyperVisorOverhead"
             },
@@ -2717,7 +2762,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
+              "expr": "sum (\n  sum by (namespace, name) (\n    max by (namespace, name, core) (\n      rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "Steal cores",
@@ -2743,7 +2788,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
+              "expr": "sum (\n  sum by (namespace, name) (\n    max by (namespace, name, core) (\n      rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "Total",
@@ -3112,7 +3157,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_memory_size_bytes{namespace=~\"$namespace\"}\n    )\n) ",
+              "expr": "sum by (namespace) (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_memory_size_bytes{namespace=~\"$namespace\"}\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "Configured memory",
@@ -3125,7 +3170,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (name) (d8_virtualization_virtualmachine_os_memory_total_bytes - d8_virtualization_virtualmachine_os_memory_potentially_free_bytes{namespace=~\"$namespace\"})",
+              "expr": "max by (namespace, name) ((\n    d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"}\n    - d8_virtualization_virtualmachine_os_memory_potentially_free_bytes{namespace=~\"$namespace\"}\n))",
               "hide": false,
               "instant": false,
               "legendFormat": "OS Usage / {{ name }} ",
@@ -3138,7 +3183,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"})\n",
+              "expr": "sum (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"}\n  )\n)\n",
               "hide": false,
               "instant": false,
               "legendFormat": "Total",
@@ -3151,7 +3196,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (d8_virtualization_virtualmachine_memory_min_size_bytes{namespace=~\"$namespace\"})",
+              "expr": "sum (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_memory_min_size_bytes{namespace=~\"$namespace\"}\n  )\n)",
               "hide": true,
               "instant": false,
               "legendFormat": "OS minimum",
@@ -3186,6 +3231,143 @@
             }
           ],
           "title": "Memory usage total",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "How fast the guest operating systems change the contents of their memory. Live migration copies memory while the guest keeps changing it, so the higher this rate, the longer a migration takes. The rate is sampled over one second on every scrape, so short bursts can be missed, and a rate below 1 MB/s is reported as zero.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepAfter",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "noValue": "-",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "binBps"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 30
+          },
+          "id": 112,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "max by (namespace, name) (\n  d8_virtualization_virtualmachine_dirty_rate_bytes_per_second{namespace=~\"$namespace\"}\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{ name }}",
+              "range": true,
+              "refId": "MemoryChangeRate"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_dirty_rate_bytes_per_second{namespace=~\"$namespace\"}\n  )\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Total",
+              "range": true,
+              "refId": "MemoryChangeRateTotal"
+            }
+          ],
+          "title": "Memory change rate",
           "type": "timeseries"
         }
       ],
@@ -3489,7 +3671,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "count by (namespace, name) (\n    label_replace(\n        d8_virtualization_virtualdisksnapshot_info{namespace=~\"$namespace\"}, \n        \"name\", \n        \"$1\", \n        \"virtualdisk\", \n        \"(.+)\"\n    )\n) * on(namespace, name) group_left() (\n    d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"} == 1\n)",
+              "expr": "label_replace(\n    count by (namespace, virtualdisk) (\n        max by (namespace, name, virtualdisk) (\n            d8_virtualization_virtualdisksnapshot_info{namespace=~\"$namespace\"}\n        )\n    ),\n    \"name\",\n    \"$1\",\n    \"virtualdisk\",\n    \"(.+)\"\n) * on(namespace, name) group_left() (\n    max by (namespace, name) (\n        d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}\n    ) == 1\n)",
               "format": "table",
               "hide": false,
               "instant": true,
@@ -3823,7 +4005,7 @@
               "disableTextWrap": false,
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum (d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=~\"$namespace\", type!=\"cloudinit\"})",
+              "expr": "sum (\n  max by (namespace, name, mount_point) (\n    d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=~\"$namespace\", type!=\"cloudinit\", mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"}\n  )\n)",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -3839,7 +4021,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum (d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=~\"$namespace\", type!=\"cloudinit\"})",
+              "expr": "sum (\n  max by (namespace, name, mount_point) (\n    d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=~\"$namespace\", type!=\"cloudinit\", mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"}\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "Used",
@@ -3986,7 +4168,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum by (namespace, name) (d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=~\"$namespace\", type!=\"cloudinit\"})",
+              "expr": "sum by (namespace, name) (\n  max by (namespace, name, mount_point) (\n    d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=~\"$namespace\", type!=\"cloudinit\", mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"}\n  )\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "{{ name }}",
@@ -4103,7 +4285,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
+              "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -4205,7 +4387,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
+              "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -4307,7 +4489,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace, name) (\n    rate(d8_virtualization_virtualmachine_block_device_read_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    /\n    clamp_min(rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]), 0.0001)\n)",
+              "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_read_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n  /\n  clamp_min(\n    max by (namespace, name, block_device_name) (\n      rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    ),\n    0.0001\n  )\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -4409,7 +4591,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace, name) (\n    rate(d8_virtualization_virtualmachine_block_device_write_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    /\n    clamp_min(rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]), 0.0001)\n    )",
+              "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_write_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n  /\n  clamp_min(\n    max by (namespace, name, block_device_name) (\n      rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    ),\n    0.0001\n  )\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -4511,7 +4693,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_read_traffic_bytes_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
+              "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_read_traffic_bytes_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -4613,7 +4795,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_write_traffic_bytes_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
+              "expr": "sum by (namespace, name) (\n  max by (namespace, name, block_device_name) (\n    rate(d8_virtualization_virtualmachine_block_device_write_traffic_bytes_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n  )\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -4765,7 +4947,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n) * 8",
               "instant": false,
               "legendFormat": "RX bps {{ name }}",
               "range": true,
@@ -4777,7 +4959,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n) * 8",
               "hide": false,
               "instant": false,
               "legendFormat": "TX bps {{ name }}",
@@ -4902,7 +5084,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_packets_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_receive_packets_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n)",
               "instant": false,
               "legendFormat": "RX pps",
               "nullValueMode": "null",
@@ -4915,7 +5097,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_packets_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_transmit_packets_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "TX pps",
@@ -5041,7 +5223,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_packets_dropped_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_receive_packets_dropped_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n)",
               "instant": false,
               "legendFormat": "RX {{ name }}",
               "nullValueMode": "null",
@@ -5054,7 +5236,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "avg by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_packets_dropped_total{namespace=~\"$namespace\",  network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_transmit_packets_dropped_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "TX {{ name }}",
@@ -5180,7 +5362,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_errors_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_receive_errors_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n)",
               "instant": false,
               "legendFormat": "RX {{ name }}",
               "nullValueMode": "null",
@@ -5193,7 +5375,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_errors_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
+              "expr": "max by (network, namespace, name) (\n  rate(d8_virtualization_virtualmachine_network_transmit_errors_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "TX {{ name }}",

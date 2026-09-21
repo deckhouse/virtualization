@@ -66,7 +66,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 1
       },
@@ -133,8 +133,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 9,
-        "x": 6,
+        "w": 6,
+        "x": 4,
         "y": 1
       },
       "id": 122,
@@ -179,6 +179,74 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
+      "description": "Sum of vCPU cores configured in active VMs (excluding Stopped and Pending), regardless of coreFraction. This is what the guest OS sees and also the CPU limit of the launcher pod.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 10,
+        "y": 1
+      },
+      "id": 200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum (\n  max by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n  and on (namespace, name)\n  (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"Stopped|Pending\"}\n    ) == 1\n  )\n)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Cores in VMs",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
       "description": "Total memory allocated to running VMs including runtime overhead and migration overhead",
       "fieldConfig": {
         "defaults": {
@@ -201,8 +269,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 5,
-        "x": 15,
+        "w": 6,
+        "x": 13,
         "y": 1
       },
       "id": 123,
@@ -269,8 +337,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
+        "w": 5,
+        "x": 19,
         "y": 1
       },
       "id": 124,
@@ -341,7 +409,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
+        "w": 2,
         "x": 0,
         "y": 5
       },
@@ -413,8 +481,8 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 3,
+        "w": 2,
+        "x": 2,
         "y": 5
       },
       "id": 140,
@@ -459,145 +527,6 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "Sum of vCPU cores configured in active VMs (excluding Stopped and Pending), regardless of coreFraction. This is what the guest OS sees and also the CPU limit of the launcher pod.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 3,
-        "x": 6,
-        "y": 5
-      },
-      "id": 200,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "10.4.19",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "sum (\n  max by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n  and on (namespace, name)\n  (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"Stopped|Pending\"}\n    ) == 1\n  )\n)",
-          "format": "time_series",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "Cores in VMs",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "description": "Requested cores divided by configured cores, in percent: how much of the vCPU capacity is actually guaranteed. Weighted by VM size, so large VMs count more.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 3,
-        "x": 9,
-        "y": 5
-      },
-      "id": 201,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "10.4.19",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "100 *\nsum (\n  (\n    max by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n    *\n    max by (namespace, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n    / 100\n  )\n  and on (namespace, name)\n  (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"Stopped|Pending\"}\n    ) == 1\n  )\n)\n/\nsum (\n  max by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n  and on (namespace, name)\n  (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"Stopped|Pending\"}\n    ) == 1\n  )\n)",
-          "format": "time_series",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "Avg coreFraction",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
       "description": "Guest CPU time against requested cores (cores * coreFraction). Values above 100% are not an error: the pod requests cores*coreFraction but its CPU limit is the full core count, so a VM may burst up to 100/coreFraction percent while the node has spare CPU. Read it as how far the guarantee is off the real load: yellow once the VMs burn more than was requested, orange from 2x and red from 3x, where they run mostly on whatever the node has spare. Low values mean cores are requested and idle. With coreFraction 100% request equals limit, so such projects cannot go above 100% at all.",
       "fieldConfig": {
         "defaults": {
@@ -634,7 +563,7 @@
       "gridPos": {
         "h": 3,
         "w": 3,
-        "x": 12,
+        "x": 4,
         "y": 5
       },
       "id": 202,
@@ -679,6 +608,155 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
+      "description": "Requested cores divided by configured cores, in percent: how much of the vCPU capacity is actually guaranteed. Weighted by VM size, so large VMs count more.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 7,
+        "y": 5
+      },
+      "id": 201,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 *\nsum (\n  (\n    max by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n    *\n    max by (namespace, name) (d8_virtualization_virtualmachine_cpu_core_fraction{namespace=~\"$namespace\"})\n    / 100\n  )\n  and on (namespace, name)\n  (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"Stopped|Pending\"}\n    ) == 1\n  )\n)\n/\nsum (\n  max by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n  and on (namespace, name)\n  (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\", phase!~\"Stopped|Pending\"}\n    ) == 1\n  )\n)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Avg coreFraction",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "description": "Steal share of an average machine: for every VM, the share of its vCPU time spent waiting for a physical core, then averaged over machines, so a small VM counts as much as a large one. The dashed Cluster line on the steal charts is the same time weighted by vCPU, so it reads lower when the large VMs are the calm ones.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 10,
+        "y": 5
+      },
+      "id": 207,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * avg (\n  sum by (namespace, name) (\n    max by (namespace, name, core) (\n      rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n  / max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Avg steal",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
       "description": "Guest memory in use against configured memory size. Only VMs reporting guest metrics are counted on both sides, so VMs without qemu-guest-agent do not drag the number down; with no such VM at all the panel shows no data. Low values mean memory is requested and left unused; high values are the goal, not a risk, because the guest counts page cache as used. Unlike Memory allocated, the requested side is not doubled during migration: the guest is one, the second copy is a cluster cost.",
       "fieldConfig": {
         "defaults": {
@@ -705,8 +783,8 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 5,
-        "x": 15,
+        "w": 6,
+        "x": 13,
         "y": 5
       },
       "id": 203,
@@ -785,8 +863,8 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 4,
-        "x": 20,
+        "w": 5,
+        "x": 19,
         "y": 5
       },
       "id": 204,
@@ -1167,6 +1245,46 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #CPUSteal"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Steal avg"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #CPUStealPct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Steal %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
           }
         ]
       },
@@ -1252,6 +1370,36 @@
           "intervalFactor": 1,
           "legendFormat": "__auto",
           "refId": "CPUUsedPct"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "expr": "100 * avg by (namespace) (\n  sum by (namespace, name) (\n    max by (namespace, name, core) (\n      rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n  / max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "__auto",
+          "refId": "CPUSteal"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "expr": "100 * sum by (namespace) (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)\n/ sum by (namespace) (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n  and on (namespace, name) max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n  )\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "__auto",
+          "refId": "CPUStealPct"
         },
         {
           "datasource": {
@@ -1448,6 +1596,8 @@
                 "Value #ActiveVMCount",
                 "Value #CPUGuaranteedCores",
                 "Value #CPUUsedPct",
+                "Value #CPUSteal",
+                "Value #CPUStealPct",
                 "Value #MemoryConfigured",
                 "Value #MemUsedPct",
                 "Value #SvcLBCount",
@@ -1470,22 +1620,24 @@
             "excludeByName": {},
             "includeByName": {},
             "indexByName": {
-              "namespace": 0,
-              "Value #TotalVMCount": 1,
               "Value #ActiveVMCount": 2,
+              "Value #CPUGuaranteedCores": 5,
+              "Value #CPUSteal": 7,
+              "Value #CPUStealPct": 8,
+              "Value #CPUUsedPct": 6,
+              "Value #MemUsedPct": 10,
+              "Value #MemoryConfigured": 9,
               "Value #MigratingVMS": 3,
               "Value #NonMigratableVMs": 4,
-              "Value #CPUGuaranteedCores": 5,
-              "Value #CPUUsedPct": 6,
-              "Value #MemoryConfigured": 7,
-              "Value #MemUsedPct": 8,
-              "Value #VDCount": 9,
-              "Value #StorageCapacity": 10,
-              "Value #VDSnapshotCount": 11,
-              "Value #VICount": 12,
-              "Value #VMSnapshotCount": 13,
-              "Value #SvcLBCount": 14,
-              "Value #SvcNodePortCount": 15
+              "Value #StorageCapacity": 12,
+              "Value #SvcLBCount": 16,
+              "Value #SvcNodePortCount": 17,
+              "Value #TotalVMCount": 1,
+              "Value #VDCount": 11,
+              "Value #VDSnapshotCount": 13,
+              "Value #VICount": 14,
+              "Value #VMSnapshotCount": 15,
+              "namespace": 0
             },
             "renameByName": {}
           }
@@ -1782,6 +1934,46 @@
                     ]
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #CPUSteal"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Steal avg"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value #CPUStealPct"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Steal %"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  }
+                ]
               }
             ]
           },
@@ -1932,6 +2124,36 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
+              "expr": "100 * avg by (node) (\n  sum by (namespace, name, node) (\n    max by (namespace, name, node, core) (\n      rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n  / max by (namespace, name, node) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "CPUSteal"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "100 * sum by (node) (\n  max by (namespace, name, node, core) (\n    rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)\n/ sum by (node) (\n  max by (namespace, name, node) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n  and on (namespace, name, node) max by (namespace, name, node) (\n    d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n  )\n)",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "refId": "CPUStealPct"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
               "expr": "max by (node) (kube_node_status_allocatable{resource=\"memory\"})\n-\n(\n  sum by (node) (\n    max by (node, namespace, name) (\n      d8_virtualization_virtualmachine_configuration_memory_size_bytes{namespace=~\"$namespace\"}\n      + d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes\n    )\n  )\n  or\n  max by (node) (kube_node_status_allocatable{resource=\"memory\"}) * 0\n)",
               "format": "table",
               "hide": false,
@@ -1976,6 +2198,8 @@
                     "Value #NonMigratableVMs",
                     "Value #UnderMaintenance",
                     "Value #FreeCPU",
+                    "Value #CPUSteal",
+                    "Value #CPUStealPct",
                     "Value #FreeMemory",
                     "Value #Unschedulable"
                   ]
@@ -1987,15 +2211,17 @@
               "options": {
                 "excludeByName": {},
                 "indexByName": {
+                  "Value #CPUSteal": 8,
+                  "Value #CPUStealPct": 9,
                   "Value #FreeCPU": 7,
-                  "Value #FreeMemory": 8,
+                  "Value #FreeMemory": 10,
                   "Value #InboundMigrations": 3,
                   "Value #MigratableVMs": 4,
                   "Value #NonMigratableVMs": 5,
                   "Value #OutboundMigrations": 2,
                   "Value #RunningVMs": 1,
                   "Value #UnderMaintenance": 6,
-                  "Value #Unschedulable": 9,
+                  "Value #Unschedulable": 11,
                   "node": 0
                 },
                 "renameByName": {}
@@ -3797,6 +4023,332 @@
           ],
           "title": "Actual CPU usage in % relative to requested resources",
           "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "How much of the vCPU time the virtual machines of a node spent waiting for a physical core, in percent of the vCPU given to them. It grows when the node is oversubscribed: the guests get slow while their own CPU usage looks low. The same number in cores is in the node table. In the legend, Cluster weighs the machines by vCPU while Average node gives every node the same weight. Stopped machines stay out of both sides of the ratio: they report vCPU but no steal.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Average node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 51
+          },
+          "id": 205,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "mean"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "100 * sum by (node) (\n  max by (namespace, name, node, core) (\n    rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)\n/ sum by (node) (\n  max by (namespace, name, node) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n  and on (namespace, name, node) max by (namespace, name, node) (\n    d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n  )\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{node}}",
+              "range": true,
+              "refId": "Steal"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "100 * sum (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)\n/ sum (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n  and on (namespace, name) max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n  )\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Cluster",
+              "range": true,
+              "refId": "StealTotal"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "100 * avg (\n  sum by (node) (\n    max by (namespace, name, node, core) (\n      rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n  / sum by (node) (\n    max by (namespace, name, node) (\n      d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n    )\n    and on (namespace, name, node) max by (namespace, name, node) (\n      d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n    )\n  )\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Average node",
+              "range": true,
+              "refId": "StealAvg"
+            }
+          ],
+          "title": "CPU steal by node",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "The same shortage of physical CPU, split by project: how much of the vCPU time the machines of a project spent waiting, in percent. The same number in cores is in the project table. In the legend, Cluster weighs the machines by vCPU while Average project gives every project the same weight. Stopped machines stay out of both sides of the ratio: they report vCPU but no steal.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 1,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Average project"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 51
+          },
+          "id": 206,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "mean"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "100 * sum by (namespace) (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)\n/ sum by (namespace) (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n  and on (namespace, name) max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n  )\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{namespace}}",
+              "range": true,
+              "refId": "Steal"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "100 * sum (\n  max by (namespace, name, core) (\n    rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n  )\n)\n/ sum (\n  max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n  )\n  and on (namespace, name) max by (namespace, name) (\n    d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n  )\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Cluster",
+              "range": true,
+              "refId": "StealTotal"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "100 * avg (\n  sum by (namespace) (\n    max by (namespace, name, core) (\n      rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval])\n    )\n  )\n  / sum by (namespace) (\n    max by (namespace, name) (\n      d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n    )\n    and on (namespace, name) max by (namespace, name) (\n      d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}\n    )\n  )\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Average project",
+              "range": true,
+              "refId": "StealAvg"
+            }
+          ],
+          "title": "CPU steal by namespace",
+          "type": "timeseries"
         }
       ],
       "title": "CPU details",
@@ -5195,6 +5747,6 @@
   "timezone": "browser",
   "title": "Virtualization Overview",
   "uid": "cdwp4qk7mz8g0d",
-  "version": 7,
+  "version": 11,
   "weekStart": ""
 }
