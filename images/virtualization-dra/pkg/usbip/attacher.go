@@ -18,6 +18,7 @@ package usbip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -31,6 +32,10 @@ import (
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip/protocol"
 )
+
+// ErrPortAlreadyDetached is returned by Detach when the vhci port holds no
+// device any more, e.g. the exporting node took the device back.
+var ErrPortAlreadyDetached = errors.New("port is already detached")
 
 func NewUSBAttacher() USBAttacher {
 	return &usbAttacher{}
@@ -87,7 +92,7 @@ func (a *usbAttacher) Detach(rhport int) error {
 			vstatus := protocol.DeviceStatus(idev.status)
 			if vstatus == protocol.VDeviceStatusNull {
 				slog.Info("Port is already detached", slog.Int("rhport", rhport))
-				return fmt.Errorf("port is already detached")
+				return ErrPortAlreadyDetached
 			}
 
 			break

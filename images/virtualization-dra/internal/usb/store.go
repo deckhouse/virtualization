@@ -65,6 +65,7 @@ func NewAllocationStore(ctx context.Context, nodeName string, cdiManager cdi.Man
 		usbipAllocatedDevicesCount: make(map[string]int),
 		resourceClaimAllocations:   make(map[types.UID][]string),
 		usbipInfoGetter:            usbip.NewUSBAttacher(),
+		usbBinder:                  usbip.NewUSBBinder(),
 	}
 
 	store.subscribeToDeviceChanges(ctx)
@@ -88,6 +89,7 @@ type AllocationStore struct {
 
 	usbGateway      usbgateway.USBGateway
 	usbipInfoGetter usbip.AttachInfoGetter
+	usbBinder       usbip.USBBinder
 	monitor         libusb.Monitor
 	kubeClient      kubernetes.Interface
 
@@ -219,6 +221,12 @@ func (s *AllocationStore) Prepare(ctx context.Context, claim *resourcev1.Resourc
 				return nil, fmt.Errorf("requested device is not allocatable: %v", result.Device)
 			}
 
+			if usbGatewayEnabled {
+				if err := s.reclaimExportedDevice(result.Device, usbDevice.BusID); err != nil {
+					return nil, err
+				}
+			}
+
 			containerEditsOptions = newContainerEditsOptions(&usbDevice, s.nodeName).withUserGroup(claim)
 			usbDeviceInfos = append(usbDeviceInfos, usbDeviceInfo{
 				DeviceName: result.Device,
@@ -261,6 +269,29 @@ func (s *AllocationStore) Prepare(ctx context.Context, claim *resourcev1.Resourc
 	}
 
 	return devices, nil
+}
+
+// reclaimExportedDevice takes a local device back from a remote USBIP consumer.
+// A device requested on its own node may still be exported to the node a VM is
+// migrating away from: that export is released only when the source pod's claim
+// is unprepared, a minute after the switch, and QEMU on this node cannot claim a
+// device bound to usbip-host. The remote gateway steals a device from any local
+// driver when it exports it, so the local claim does the same in reverse.
+func (s *AllocationStore) reclaimExportedDevice(deviceName, busID string) error {
+	bound, err := s.usbBinder.IsBound(busID)
+	if err != nil {
+		return fmt.Errorf("failed to check whether device %s (%s) is exported: %w", deviceName, busID, err)
+	}
+	if !bound {
+		return nil
+	}
+
+	s.log.Info("Device is exported to another node, reclaiming it for the local claim", slog.String("device", deviceName), slog.String("busID", busID))
+	if err := s.usbBinder.Unbind(busID); err != nil {
+		return fmt.Errorf("failed to reclaim exported device %s (%s): %w", deviceName, busID, err)
+	}
+
+	return nil
 }
 
 func (s *AllocationStore) getUsbGatewayUsbDevice(busID string) *Device {

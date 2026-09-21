@@ -18,6 +18,7 @@ package usbgateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -106,8 +107,11 @@ func (c *USBGatewayController) Detach(deviceName string) error {
 	} else {
 		log.Info("Detaching USB device")
 		err = c.usbIP.Detach(entry.Rhport)
-		if err != nil {
+		if err != nil && !errors.Is(err, usbip.ErrPortAlreadyDetached) {
 			return fmt.Errorf("failed to detach device %s: %w", deviceName, err)
+		}
+		if err != nil {
+			log.Info("USB device was already taken back by its node, only unexporting")
 		}
 	}
 
