@@ -690,9 +690,45 @@ func isVolumeMigrating(vd *v1alpha2.VirtualDisk) bool {
 	return cond.Reason != vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()
 }
 
+// isVolumeReverting reports whether the disk migration is being reverted and waits for the
+// KVVM to release its target claim.
+func isVolumeReverting(vd *v1alpha2.VirtualDisk) bool {
+	if vd.Status.MigrationState.StartTimestamp.IsZero() || !vd.Status.MigrationState.EndTimestamp.IsZero() {
+		return false
+	}
+
+	cond, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+
+	return cond.Reason == vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()
+}
+
+// anyVolumeReverting reports whether any disk of the VM is reverting its migration.
+func anyVolumeReverting(vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) bool {
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind != v1alpha2.DiskDevice {
+			continue
+		}
+		if vd := vdsByName[bd.Name]; vd != nil && isVolumeReverting(vd) {
+			return true
+		}
+	}
+	return false
+}
+
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
 	bootOrder := uint(1)
 	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
+
+	// KubeVirt reverts a volume migration only as a whole set: a KVVM that mixes
+	// reverted and still-migrating disks is rejected until every disk is back on
+	// its source. Once one disk of the round is reverting, pin none of them, but
+	// keep the migration strategy: without it KubeVirt reports the claim swap as
+	// a non-live-updatable change and raises RestartRequired, which an automatic
+	// restart approval turns into a reboot in the middle of the revert.
+	if anyVolumeReverting(vm, vdsByName) {
+		kvvm.SetUpdateVolumesStrategy(ptr.To(virtv1.UpdateVolumesStrategyMigration))
+		return nil
+	}
 
 	for _, bd := range vm.Status.BlockDeviceRefs {
 		if bd.Kind != v1alpha2.DiskDevice {

@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 var _ = Describe("MigrationVolumesService", func() {
@@ -451,6 +452,60 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
 		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(migrationStrategy)))
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(targetPVC))
+	})
+
+	It("force-reverts kvvm to source while the round is being reverted even without the migration strategy", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		const (
+			dataSourcePVC = "data-source"
+			dataTargetPVC = "data-target"
+		)
+
+		// The migration failed and both disks wait for their target claims to be
+		// released. The strategy is gone from the KVVM, which has one disk back on
+		// the source while the other and the whole KVVMI still hold the targets.
+		// KubeVirt reverts the KVVMI only once KVVM is back on the complete source
+		// set with the migration strategy, and the vd-controller waits for that.
+		vm := newVM()
+		vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{
+			{Kind: v1alpha2.DiskDevice, Name: "root"},
+			{Kind: v1alpha2.DiskDevice, Name: "data"},
+		}
+		newRevertingVD := func(name, target string) *v1alpha2.VirtualDisk {
+			vd := &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			}
+			vd.Status.MigrationState.StartTimestamp = metav1.Now()
+			vd.Status.MigrationState.TargetPVC = target
+			vd.Status.Conditions = []metav1.Condition{{
+				Type:   vdcondition.MigratingType.String(),
+				Status: metav1.ConditionTrue,
+				Reason: vdcondition.MigratingWaitForTargetVolumeReleaseReason.String(),
+			}}
+			return vd
+		}
+		kvvmInCluster := appendVolume(newKVVMWithVolume(sourcePVC, nil, "node"), "datadisk", dataTargetPVC)
+		kvvmi := newKVVMIWithVolume(targetPVC)
+		kvvmi.Spec.Volumes = append(kvvmi.Spec.Volumes, appendVolume(newKVVMWithVolume(targetPVC, nil, "node"), "datadisk", dataTargetPVC).Spec.Template.Spec.Volumes[1])
+		desiredKVVM := appendVolume(newKVVMWithVolume(sourcePVC, nil, "node"), "datadisk", dataSourcePVC)
+		vmState := setupState(vm, kvvmInCluster, kvvmi, newRevertingVD("root", targetPVC), newRevertingVD("data", dataTargetPVC))
+
+		service := NewMigrationVolumesService(
+			vmState.Client(),
+			builtFrom(kvvmInCluster, desiredKVVM),
+			10*time.Second,
+		)
+
+		_, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedKVVM := &virtv1.VirtualMachine{}
+		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+		// The builder keeps the migration strategy on the reverting set.
+		Expect(updatedKVVM.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(virtv1.UpdateVolumesStrategyMigration)))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(2))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+		Expect(updatedKVVM.Spec.Template.Spec.Volumes[1].PersistentVolumeClaim.ClaimName).To(Equal(dataSourcePVC))
 	})
 })
 

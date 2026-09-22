@@ -644,6 +644,66 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 		Entry("migration in progress",
 			vdcondition.MigratingInProgressReason.String(), targetPVC),
 	)
+
+	It("should pin every disk of the round back to its source once one disk is reverting", func() {
+		const (
+			otherDisk      = "other-disk"
+			otherSourcePVC = "pvc-other-source"
+			otherTargetPVC = "pvc-other-target"
+		)
+		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
+		kvvm.Resource.Spec.Template.Spec.Volumes = append(kvvm.Resource.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: GenerateVDDiskName(otherDisk),
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: otherSourcePVC},
+					Hotpluggable:                      true,
+				},
+			},
+		})
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = append(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks,
+			virtv1.Disk{Name: GenerateVDDiskName(otherDisk)})
+		vm := &v1alpha2.VirtualMachine{
+			Status: v1alpha2.VirtualMachineStatus{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+					{Kind: v1alpha2.DiskDevice, Name: diskName, Hotplugged: true},
+					{Kind: v1alpha2.DiskDevice, Name: otherDisk, Hotplugged: true},
+				},
+			},
+		}
+		newVD := func(name, source, target, reason string) *v1alpha2.VirtualDisk {
+			return &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmNamespace, UID: types.UID(name), Generation: 1},
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{PersistentVolumeClaim: source},
+					Conditions: []metav1.Condition{{
+						Type:               vdcondition.MigratingType.String(),
+						Status:             metav1.ConditionTrue,
+						ObservedGeneration: 1,
+						Reason:             reason,
+					}},
+					MigrationState: v1alpha2.VirtualDiskMigrationState{
+						SourcePVC:      source,
+						TargetPVC:      target,
+						StartTimestamp: metav1.Now(),
+					},
+				},
+			}
+		}
+		// One disk of the round is already reverting while the other still reports progress.
+		vds := map[string]*v1alpha2.VirtualDisk{
+			diskName:  newVD(diskName, sourcePVC, targetPVC, vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()),
+			otherDisk: newVD(otherDisk, otherSourcePVC, otherTargetPVC, vdcondition.MigratingInProgressReason.String()),
+		}
+
+		err := ApplyMigrationVolumes(kvvm, vm, vds)
+		Expect(err).NotTo(HaveOccurred())
+		// The strategy stays so KubeVirt treats the swap back as a migration revert.
+		Expect(kvvm.Resource.Spec.UpdateVolumesStrategy).To(HaveValue(Equal(virtv1.UpdateVolumesStrategyMigration)))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(2))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[1].PersistentVolumeClaim.ClaimName).To(Equal(otherSourcePVC))
+	})
 })
 
 var _ = Describe("cleanupRemovedStaticDisks", func() {

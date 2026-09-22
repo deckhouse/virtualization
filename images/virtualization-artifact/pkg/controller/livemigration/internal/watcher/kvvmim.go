@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-func NewKVVMIMWatcher() *KVVMIWatcher {
-	return &KVVMIWatcher{}
+func NewKVVMIMWatcher() *KVVMIMWatcher {
+	return &KVVMIMWatcher{}
 }
 
 type KVVMIMWatcher struct{}

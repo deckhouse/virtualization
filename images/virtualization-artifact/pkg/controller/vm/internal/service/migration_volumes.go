@@ -42,6 +42,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -121,8 +122,29 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	migrationRequested := builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy != nil && *builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
 
+	readWriteOnceDisks, storageClassChangedDisks, err := s.getDisks(ctx, vmState)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// A reverting round is patched from the migration build: the source claims
+	// with the migration strategy kept, so KubeVirt takes the claim swap as a
+	// volume migration revert and not as a non-live-updatable change.
+	revertKVVM := builtKVVM
+	if anyDiskReverting(readWriteOnceDisks, storageClassChangedDisks) {
+		revertKVVM = builtKVVMWithMigrationVolumes
+	}
+
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
+		// KubeVirt reverts the KVVMI only once the KVVM holds the complete source
+		// set, and the vd-controller waits for exactly that. The strategy check
+		// below does not cover it: revert regardless of the strategy left on the
+		// KVVM and of any pending vmop.
+		if revertKVVM != builtKVVM && s.shouldPatchVolumes(kvvmInClusterCopy, revertKVVM) {
+			log.Info("The volume migration is being reverted but kvvm/kvvmi diverged, force revert kvvm to source volumes.")
+			return s.patchVolumes(ctx, revertKVVM)
+		}
 		// KVVM holds a dead migration set kubevirt will never sync (e.g. the target
 		// PVC was removed): revert to source. Only when the strategy is still set
 		// (plain divergence like a hotplug mid-attach must sync, not revert) and no
@@ -136,11 +158,6 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		// kubevirt does not sync volumes with kvvmi yet
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
-	}
-
-	readWriteOnceDisks, storageClassChangedDisks, err := s.getDisks(ctx, vmState)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	readWriteOnceDisksSynced := s.areDisksSynced(builtKVVMWithMigrationVolumes, readWriteOnceDisks)
@@ -167,7 +184,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 			log.Info("Virtualmachine is restart required, delay structural volume changes to KVVM.")
 			return reconcile.Result{}, nil
 		}
-		return s.patchVolumes(ctx, builtKVVM)
+		return s.patchVolumes(ctx, revertKVVM)
 	}
 
 	// Check disks in generated KVVM before running kvvmSynced check: detect non-migratable disks and disks with changed storage class.
@@ -259,7 +276,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	// if some volumes is different, we should revert all and sync again in next reconcile
 
 	if s.shouldRevert(kvvmiInCluster, readWriteOnceDisks, storageClassChangedDisks) {
-		return s.patchVolumes(ctx, builtKVVM)
+		return s.patchVolumes(ctx, revertKVVM)
 	}
 
 	return reconcile.Result{}, nil
@@ -663,6 +680,23 @@ func allDisksMigrating(disks map[string]*v1alpha2.VirtualDisk) bool {
 		}
 	}
 	return true
+}
+
+// anyDiskReverting reports whether a disk of the current round is reverting its
+// migration and waits for the target claim to be released.
+func anyDiskReverting(diskSets ...map[string]*v1alpha2.VirtualDisk) bool {
+	for _, disks := range diskSets {
+		for _, d := range disks {
+			if !commonvd.IsMigrating(d) {
+				continue
+			}
+			cond, _ := conditions.GetCondition(vdcondition.MigratingType, d.Status.Conditions)
+			if cond.Reason == vdcondition.MigratingWaitForTargetVolumeReleaseReason.String() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // hasUnfinishedMigration reports whether any not-yet-final VMIM exists for the VMI.
