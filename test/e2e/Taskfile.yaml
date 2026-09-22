@@ -124,7 +124,13 @@ tasks:
         if [ $audit_image_skip == "true" ]; then
           SKIP_IMAGES+=("virtualizationAudit")
         fi
+        # DRA drivers run only on nodes labeled for the matching passthrough
+        # (usbip / vfio). e2e stands carry no such nodes, so their DaemonSets
+        # stay at DESIRED=0 and their images never appear in any pod. Skip both
+        # so the readiness gate does not wait forever on an image that is not
+        # supposed to run here.
         SKIP_IMAGES+=("virtualizationDraUsb")
+        SKIP_IMAGES+=("virtualizationDraPci")
 
         is_skipped_image() {
           local img="$1"
