@@ -3,6 +3,28 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.11.2
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Дата релиза: 22 сентября 2026.
+</span>
+
+### Ключевые изменения
+
+- Модуль снова можно обновить в редакции Deckhouse Platform Open (DP Open). Также исправлены уязвимости в модуле.
+
+### Исправления
+
+- [module] Обновление модуля в редакции DP Open больше не блокирует очередь Deckhouse.
+- [vmclass] Модуль больше не перестаёт работать, если [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) создан во время его установки.
+
+### Безопасность
+
+- [core] Исправлены уязвимости:
+  - CVE-2026-81870
+  - CVE-2026-81871
+  - CVE-2026-84445
+
 ## v1.11.1
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">

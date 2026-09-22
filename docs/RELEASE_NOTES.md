@@ -3,6 +3,28 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.11.2
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: September 22, 2026.
+</span>
+
+### Highlights
+
+- The module can be updated in Deckhouse Platform Open (DP Open) again. The release also patches vulnerabilities in the module.
+
+### Fixes
+
+- [module] Updating the module in DP Open no longer blocks the Deckhouse queue.
+- [vmclass] The module no longer stops working if a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) is created while the module is installing.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-81870
+  - CVE-2026-81871
+  - CVE-2026-84445
+
 ## v1.11.1
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
