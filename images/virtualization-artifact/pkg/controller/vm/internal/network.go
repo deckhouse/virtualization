@@ -351,7 +351,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	}
 
 	var networksStatus []v1alpha2.NetworksStatus
-	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vmmacs) {
+	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vm.Spec.Networks, vmmacs) {
 		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
 			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 				ID:   interfaceSpec.ID,

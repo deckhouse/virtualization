@@ -786,6 +786,17 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC, n.ID)
 	}
 
+	// KubeVirt attaches a pod network interface to a template that carries none
+	// (SetDefaultNetworkInterface), so a machine without the Main network has to reject it.
+	// The switch is the Main network and not the emptiness of the list: keyed on emptiness,
+	// the field would move when an additional network becomes Ready, and that change is not
+	// live-updatable, so KubeVirt would demand a restart instead of hot-plugging.
+	if networkSpec.HasMain() {
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface = nil
+	} else {
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface = ptr.To(false)
+	}
+
 	moveDefaultNetworkToFront(kvvm)
 }
 

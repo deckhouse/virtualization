@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
@@ -66,5 +67,50 @@ var _ = Describe("setNetworksAnnotation", func() {
 		Expect(anno[annotations.AnnNetworksSpec]).NotTo(BeEmpty())
 		Expect(anno[annotations.AnnNetworksSpec]).NotTo(Equal("[]"))
 		Expect(anno).To(HaveKeyWithValue(annotations.AnnTapProvisionByDVPSupported, "true"))
+	})
+})
+
+var _ = Describe("setNetwork", func() {
+	newKVVM := func() *KVVM {
+		return NewEmptyKVVM(namespacedName("test-vm", "test-ns"), KVVMOptions{})
+	}
+
+	It("turns the pod interface autoattach off when no network is asked for", func() {
+		kvvm := newKVVM()
+
+		setNetwork(kvvm, nil)
+
+		devices := kvvm.Resource.Spec.Template.Spec.Domain.Devices
+		Expect(devices.Interfaces).To(BeEmpty())
+		Expect(kvvm.Resource.Spec.Template.Spec.Networks).To(BeEmpty())
+		Expect(devices.AutoattachPodInterface).To(HaveValue(BeFalse()))
+	})
+
+	It("keeps the autoattach off while the additional network of a VM without Main comes and goes", func() {
+		kvvm := newKVVM()
+		additional := network.InterfaceSpecList{
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "net", InterfaceName: "veth_n12345678", ID: 2},
+		}
+
+		setNetwork(kvvm, additional)
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface).To(HaveValue(BeFalse()))
+
+		setNetwork(kvvm, nil)
+
+		devices := kvvm.Resource.Spec.Template.Spec.Domain.Devices
+		Expect(devices.Interfaces).To(HaveLen(1))
+		Expect(devices.Interfaces[0].State).To(Equal(virtv1.InterfaceStateAbsent))
+		Expect(devices.AutoattachPodInterface).To(HaveValue(BeFalse()))
+	})
+
+	It("leaves the autoattach unset for a VM with the Main network", func() {
+		kvvm := newKVVM()
+
+		setNetwork(kvvm, network.InterfaceSpecList{
+			{Type: v1alpha2.NetworksTypeMain, InterfaceName: network.NameDefaultInterface},
+			{Type: v1alpha2.NetworksTypeNetwork, Name: "net", InterfaceName: "veth_n12345678", ID: 2},
+		})
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface).To(BeNil())
 	})
 })

@@ -26,19 +26,26 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMachineMACAddress) InterfaceSpecList {
+// WithImplicitMain writes out the Main network of a virtual machine listing none. Callers
+// that filter the list must default before filtering, or "nothing is Ready" turns back into
+// "nothing was asked for" and the machine lands on the pod network.
+func WithImplicitMain(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+	if len(networks) > 0 {
+		return networks
+	}
+	return []v1alpha2.NetworksSpec{{
+		Type: v1alpha2.NetworksTypeMain,
+		ID:   ptr.To(ReservedMainID),
+	}}
+}
+
+// CreateNetworkSpec builds the interface list for the given networks of the virtual machine.
+// An empty list yields no interface at all, never the Main one.
+func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, networks []v1alpha2.NetworksSpec, vmmacs []*v1alpha2.VirtualMachineMACAddress) InterfaceSpecList {
 	macPool := NewMacAddressPool(vm, vmmacs)
 	var specs InterfaceSpecList
 
-	if len(vm.Spec.Networks) == 0 {
-		specs = append(specs, createMainInterfaceSpec(v1alpha2.NetworksSpec{
-			Type: v1alpha2.NetworksTypeMain,
-			ID:   ptr.To(ReservedMainID),
-		}))
-		return specs
-	}
-
-	for _, net := range vm.Spec.Networks {
+	for _, net := range networks {
 		if net.Type == v1alpha2.NetworksTypeMain {
 			specs = append(specs, createMainInterfaceSpec(net))
 			continue

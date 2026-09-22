@@ -272,6 +272,15 @@ func (s InterfaceSpecList) ToString() (string, error) {
 	return string(data), nil
 }
 
+func (s InterfaceSpecList) HasMain() bool {
+	for _, spec := range s {
+		if spec.Type == v1alpha2.NetworksTypeMain {
+			return true
+		}
+	}
+	return false
+}
+
 func (s InterfaceSpecList) HasOnlyMain() bool {
 	for _, spec := range s {
 		if spec.Type != v1alpha2.NetworksTypeMain {

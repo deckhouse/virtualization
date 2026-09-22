@@ -597,11 +597,11 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 
-	filteredVM, err := filterReadyNetworks(ctx, s.Client(), current)
+	readyNetworks, err := filterReadyNetworks(ctx, s.Client(), current)
 	if err != nil {
 		return nil, err
 	}
-	networkSpec := network.CreateNetworkSpec(filteredVM, vmmacs)
+	networkSpec := network.CreateNetworkSpec(current, readyNetworks, vmmacs)
 	networkSpec, err = network.EnrichWithIPAM(ctx, s.Client(), current.Namespace, current, networkSpec)
 	if err != nil {
 		return nil, err
@@ -1229,12 +1229,21 @@ func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state
 	return h.updateKVVM(ctx, s)
 }
 
-func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (*v1alpha2.VirtualMachine, error) {
-	if c == nil || vm == nil || len(vm.Spec.Networks) == 0 {
-		return vm, nil
+// filterReadyNetworks returns the Ready networks of the virtual machine, the implicit Main
+// network of a machine listing none included. It returns a list rather than a copy of the
+// machine because an empty spec.networks means "nothing was asked for", which defaults back
+// to the Main network - see WithImplicitMain.
+func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) ([]v1alpha2.NetworksSpec, error) {
+	if vm == nil {
+		return nil, nil
 	}
-	kept := make([]v1alpha2.NetworksSpec, 0, len(vm.Spec.Networks))
-	for _, ns := range vm.Spec.Networks {
+	networks := network.WithImplicitMain(vm.Spec.Networks)
+	if c == nil {
+		// Readiness cannot be checked; keep every network rather than strip the machine bare.
+		return networks, nil
+	}
+	kept := make([]v1alpha2.NetworksSpec, 0, len(networks))
+	for _, ns := range networks {
 		ready, err := network.IsNetworkSpecReady(ctx, c, vm.Namespace, ns)
 		if err != nil {
 			return nil, fmt.Errorf("check readiness for network %s: %w", network.SpecKey(ns), err)
@@ -1243,12 +1252,7 @@ func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.Virt
 			kept = append(kept, ns)
 		}
 	}
-	if len(kept) == len(vm.Spec.Networks) {
-		return vm, nil
-	}
-	out := vm.DeepCopy()
-	out.Spec.Networks = kept
-	return out, nil
+	return kept, nil
 }
 
 func hasNetworkChange(changes vmchange.SpecChanges) bool {
@@ -1396,7 +1400,7 @@ func (h *SyncKvvmHandler) resolvePodNetworks(ctx context.Context, s state.Virtua
 	if err != nil {
 		return podNetworks{}, err
 	}
-	filteredVM, err := filterReadyNetworks(ctx, s.Client(), vm)
+	readyNetworks, err := filterReadyNetworks(ctx, s.Client(), vm)
 	if err != nil {
 		return podNetworks{}, err
 	}
@@ -1405,14 +1409,14 @@ func (h *SyncKvvmHandler) resolvePodNetworks(ctx context.Context, s state.Virtua
 		return podNetworks{}, err
 	}
 
-	specs := network.CreateNetworkSpec(filteredVM, vmmacs)
-	specs, err = network.EnrichWithIPAM(ctx, s.Client(), filteredVM.Namespace, filteredVM, specs)
+	specs := network.CreateNetworkSpec(vm, readyNetworks, vmmacs)
+	specs, err = network.EnrichWithIPAM(ctx, s.Client(), vm.Namespace, vm, specs)
 	if err != nil {
 		return podNetworks{}, fmt.Errorf("enrich network spec with IPAM: %w", err)
 	}
 
 	var additional []string
-	for _, netSpec := range filteredVM.Spec.Networks {
+	for _, netSpec := range readyNetworks {
 		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}

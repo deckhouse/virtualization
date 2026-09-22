@@ -110,7 +110,7 @@ var _ = Describe("SyncKvvmHandler network sync across migration pods", func() {
 			targetPodUID: targetNode,
 		}
 
-		desiredSpecList := commonnetwork.CreateNetworkSpec(vm, []*v1alpha2.VirtualMachineMACAddress{mac})
+		desiredSpecList := commonnetwork.CreateNetworkSpec(vm, commonnetwork.WithImplicitMain(vm.Spec.Networks), []*v1alpha2.VirtualMachineMACAddress{mac})
 		var err error
 		desiredSpec, err = desiredSpecList.ToString()
 		Expect(err).NotTo(HaveOccurred())
@@ -229,7 +229,7 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 		kvvmi.Status.NodeName = nodeName
 		kvvmi.Status.ActivePods = map[types.UID]string{podUID: nodeName}
 
-		desiredSpecList := commonnetwork.CreateNetworkSpec(vm, []*v1alpha2.VirtualMachineMACAddress{mac})
+		desiredSpecList := commonnetwork.CreateNetworkSpec(vm, commonnetwork.WithImplicitMain(vm.Spec.Networks), []*v1alpha2.VirtualMachineMACAddress{mac})
 		var err error
 		desiredSpec, err = desiredSpecList.ToString()
 		Expect(err).NotTo(HaveOccurred())
@@ -515,7 +515,7 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 			},
 		}
 
-		attachedSpecList := commonnetwork.CreateNetworkSpec(attachedVM, []*v1alpha2.VirtualMachineMACAddress{mac})
+		attachedSpecList := commonnetwork.CreateNetworkSpec(attachedVM, commonnetwork.WithImplicitMain(attachedVM.Spec.Networks), []*v1alpha2.VirtualMachineMACAddress{mac})
 		var err error
 		attachedSpec, err = attachedSpecList.ToString()
 		Expect(err).NotTo(HaveOccurred())

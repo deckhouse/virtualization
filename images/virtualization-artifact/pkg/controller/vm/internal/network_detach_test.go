@@ -81,8 +81,10 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 
 	// attachedSpecs is the interface list of the virtual machine while it still asks for
 	// the additional network, that is what the pod annotation carries before the detach.
+	attachedVM := newVM(mainNetwork, additionalNetwork)
 	attachedSpecs := commonnetwork.CreateNetworkSpec(
-		newVM(mainNetwork, additionalNetwork),
+		attachedVM,
+		commonnetwork.WithImplicitMain(attachedVM.Spec.Networks),
 		[]*v1alpha2.VirtualMachineMACAddress{mac},
 	)
 
