@@ -1,4 +1,7 @@
-{{- if eq (include "virtualization-dra.isEnabled" .) "true" }}
+# These rules ship in every edition, including CE, where device passthrough does
+# not exist at all. Every alert here is tied to the DaemonSet's own series, so
+# with no DaemonSet in the cluster there is nothing to fire on — including the
+# node-count branch, which is guarded by the DaemonSet explicitly.
 - name: kubernetes.virtualization.dra_state
   rules:
     - alert: D8VirtualizationUSBPassthroughUnavailable
@@ -42,25 +45,29 @@
       # passthrough are a subset of the nodes running virtual machines, so it can only be
       # empty when the second one is too, and then there is nothing to report anyway.
       expr: |
-        max (
-          kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virtualization-dra"}
-          - kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virtualization-dra"}
-        ) > 0
-        or
         (
-          count(kube_node_labels{label_virtualization_deckhouse_io_kvm_enabled="true"})
-          -
+          max (
+            kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virtualization-dra"}
+            - kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virtualization-dra"}
+          ) > 0
+          or
           (
-            count(
-              kube_node_labels{
-                label_virtualization_deckhouse_io_kvm_enabled="true",
-                label_virtualization_deckhouse_io_usbip="true",
-                label_virtualization_deckhouse_io_containerd_version="v2"
-              }
+            count(kube_node_labels{label_virtualization_deckhouse_io_kvm_enabled="true"})
+            -
+            (
+              count(
+                kube_node_labels{
+                  label_virtualization_deckhouse_io_kvm_enabled="true",
+                  label_virtualization_deckhouse_io_usbip="true",
+                  label_virtualization_deckhouse_io_containerd_version="v2"
+                }
+              )
+              or vector(0)
             )
-            or vector(0)
-          )
-        ) > 0
+          ) > 0
+        )
+        and on()
+        count(kube_daemonset_status_desired_number_scheduled{namespace="d8-virtualization", daemonset="virtualization-dra"}) > 0
       # A DaemonSet rolls out one Pod at a time, so on a large cluster a routine update
       # takes longer than the usual 15 minutes. Nothing here has to be handled at night.
       for: 1h
@@ -92,4 +99,3 @@
              - `containerd-version` is not `v2` — the node runs containerd v1, which cannot run the required hooks.
           3. If a node has both labels but the component is still not running there, inspect it:
              `d8 k -n d8-virtualization get pod -l app=virtualization-dra --field-selector=status.phase!=Running -o wide`
-{{- end }}
