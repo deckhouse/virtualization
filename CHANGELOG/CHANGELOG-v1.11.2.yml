@@ -1,0 +1,5 @@
+vmclass:
+  fixes:
+    - summary: "The module no longer stops working if a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) is created while the module is installing."
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/458
+

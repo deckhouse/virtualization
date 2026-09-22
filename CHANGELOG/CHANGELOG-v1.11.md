@@ -1,5 +1,24 @@
 # Changelog v1.11
 
+## v1.11.2
+
+### core
+
+- **chore** (low): Fix fuzzer finding: conntrack sync message may lead to memory over-allocation. ([!418](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/418))
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-84445 ([!445](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/445))
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-81870
+- CVE-2026-81871 ([!494](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/494))
+
+### docs
+
+- **docs** (low): Added release notes v1.11.2. ([!498](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/498))
+
+### vmclass
+
+- **fix** (default): The module no longer stops working if a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) is created while the module is installing. ([!458](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/458))
+
 ## v1.11.1
 
 ### cli
