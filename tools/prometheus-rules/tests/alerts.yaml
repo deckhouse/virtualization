@@ -524,6 +524,22 @@ tests:
               tier: cluster
             exp_annotations: *usbPassthroughDegradedAnnotations
   - interval: 1m
+    # The CE edition ships no device passthrough at all, and the rules ship anyway:
+    # with no DaemonSet in the cluster the node-count branch must not page anybody.
+    name: the USB passthrough alerts stay silent where the component does not exist
+    input_series:
+      - series: kube_node_labels{node="n1", label_virtualization_deckhouse_io_kvm_enabled="true"}
+        values: 1+0x80
+      - series: kube_node_labels{node="n2", label_virtualization_deckhouse_io_kvm_enabled="true"}
+        values: 1+0x80
+    alert_rule_test:
+      - eval_time: 70m
+        alertname: D8VirtualizationNodesWithoutUSBPassthrough
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: D8VirtualizationUSBPassthroughUnavailable
+        exp_alerts: []
+  - interval: 1m
     name: NodesWithoutUSBPassthrough raises a single incident when both branches match
     input_series:
       # One Pod is down and one node lacks the labels at the same time: the two branches of

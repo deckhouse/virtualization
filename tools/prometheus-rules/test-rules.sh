@@ -51,6 +51,18 @@ fi
 cleanup() { rm -f helm-render.yaml rendered-rules.yaml; }
 trap cleanup EXIT
 
+# The rules ship in every edition, while the components they watch do not: the CE
+# bundle drops the directories of the optional ones (see werf.yaml). helm_lib runs
+# only *.tpl files of this directory through `tpl`, so a plain YAML rule cannot
+# reach for a helper that CE does not carry — and the chart cannot fail to render
+# there. Keep the rules free of templating and that stays true by construction.
+if compgen -G "../../monitoring/prometheus-rules/*.tpl" > /dev/null; then
+  echo "Error: the alerting rules must stay plain YAML, these files are templated:"
+  ls -1 ../../monitoring/prometheus-rules/*.tpl
+  echo "A helper called from here may live in a directory the CE bundle drops, and then the whole chart fails to render for CE."
+  exit 1
+fi
+
 echo "==> Rendering the chart"
 helm template virtualization ../.. -f ../kubeconform/fixtures/module-values.yaml --devel > helm-render.yaml
 
