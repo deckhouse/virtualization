@@ -153,7 +153,8 @@ func (r AwaitingRestartToApplyConfigurationReason) String() string {
 }
 
 const (
-	ReasonUnexpectedState       AwaitingRestartToApplyConfigurationReason = "UnexpectedState"
+	ReasonRestartRequired       AwaitingRestartToApplyConfigurationReason = "RestartRequired"
+	LegacyReasonUnexpectedState AwaitingRestartToApplyConfigurationReason = "UnexpectedState"
 	ReasonChangesPendingRestart AwaitingRestartToApplyConfigurationReason = "ChangesPendingRestart"
 	ReasonNoRestartRequired     AwaitingRestartToApplyConfigurationReason = "NoRestartRequired"
 )

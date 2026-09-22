@@ -297,16 +297,16 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		// the virtual machine is in the process of rebooting.
 		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
 		if cond.Status == corev1.ConditionTrue && len(kvvm.Status.StateChangeRequests) == 0 {
-			msg := "Please restart the virtual machine to synchronize its configuration."
+			msg := "Please restart the virtual machine."
 			// Log only on transition: the condition is latched until restart, so
 			// logging every reconcile would spam.
 			prev, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, current.Status.Conditions)
-			if prev.Status != metav1.ConditionTrue || prev.Reason != vmcondition.ReasonUnexpectedState.String() {
+			if prev.Status != metav1.ConditionTrue || prev.Reason != vmcondition.ReasonRestartRequired.String() {
 				log.Info(msg, "kvvmRestartRequiredReason", cond.Reason, "kvvmRestartRequiredMessage", cond.Message)
 			}
 			cbAwaitingRestart.
 				Status(metav1.ConditionTrue).
-				Reason(vmcondition.ReasonUnexpectedState).
+				Reason(vmcondition.ReasonRestartRequired).
 				Message(msg)
 		}
 	}
