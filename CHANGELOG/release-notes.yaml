@@ -124,6 +124,29 @@
   upgrade:
     - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
       ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.11.2
+  date: "2026-09-22"
+  highlights:
+    - en: "Updating the module in Deckhouse Platform Open (DP Open) no longer blocks the Deckhouse queue. The release also patches vulnerabilities in the module."
+      ru: "Обновление модуля в редакции Deckhouse Platform Open (DP Open) больше не блокирует очередь Deckhouse. Также исправлены уязвимости в модуле."
+  fixes:
+    module:
+      - en: Updating the module in DP Open no longer blocks the Deckhouse queue.
+        ru: Обновление модуля в редакции DP Open больше не блокирует очередь Deckhouse.
+      - en: The module no longer stops working if a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) is created while the module is installing.
+        ru: Модуль больше не перестаёт работать, если [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) создан во время его установки.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-81870
+            - CVE-2026-81871
+            - CVE-2026-84445
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-81870
+            - CVE-2026-81871
+            - CVE-2026-84445
 - version: v1.11.1
   date: "2026-09-09"
   highlights:
