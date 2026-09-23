@@ -203,12 +203,16 @@ func (s CreatePVCFromVDSnapshotStep) getPVCSize(vd *v1alpha2.VirtualDisk, vs *vs
 		return requestedSize, nil
 	}
 
-	size, err := service.GetValidatedPVCSize(requestedSize, *vs.Status.RestoreSize)
-	if err != nil {
-		return nil, err
+	// RestoreSize is a hard floor imposed by the CSI driver: a snapshot cannot be
+	// restored into a PVC smaller than it (e.g. ceph-rbd rounds the snapshot size
+	// up above the original disk's requested size). Grow the target to it instead
+	// of failing provisioning.
+	restoreSize := *vs.Status.RestoreSize
+	if requestedSize == nil || requestedSize.Cmp(restoreSize) < 0 {
+		return &restoreSize, nil
 	}
 
-	return &size, nil
+	return requestedSize, nil
 }
 
 func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {
