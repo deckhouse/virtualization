@@ -142,8 +142,8 @@ func TestReconcile_BootstrapsPendingPhase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res != (ctrl.Result{Requeue: true}) {
-		t.Fatalf("expected Requeue, got %+v", res)
+	if res.RequeueAfter == 0 {
+		t.Fatalf("expected RequeueAfter, got %+v", res)
 	}
 	if got := getVDS(t, r.Client).Status.Phase; got != v1alpha2.VirtualDiskSnapshotPhasePending {
 		t.Fatalf("got phase %q, want Pending", got)

@@ -381,7 +381,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 			return false, fmt.Errorf("failed to delete the internal virtual machine instance's pod: %w", err)
 		}
 		return true, nil
-	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
+	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, kvvmi, pod):
 		// KVVM should be updated when VM become stopped.
 		// It is safe to update KVVM at this point in general and also all related resources
 		// can be changed during the restoration process: e.g. VirtualDisks, VMIPs, etc.
@@ -780,9 +780,22 @@ func (h *SyncKvvmHandler) detectClassSpecChanges(ctx context.Context, currentCla
 func (h *SyncKvvmHandler) isVMStopped(
 	vm *v1alpha2.VirtualMachine,
 	kvvm *virtv1.VirtualMachine,
+	kvvmi *virtv1.VirtualMachineInstance,
 	pod *corev1.Pod,
 ) bool {
 	if vm == nil {
+		return false
+	}
+
+	// KVVM status updates with a delay, rewriting spec.template.spec.volumes
+	// during this delay with live instance makes virt-controller tear the
+	// instance down ("restart required because of a volumes update")
+	// and for AlwaysOnUnlessStoppedManually that lost auto-start is unrecoverable.
+	//
+	// Only a live instance counts. An instance that has finished, or is on its way out, is
+	// exactly the window in which a disruptive change waiting for a restart has to reach the
+	// internal virtual machine: the check below sees no pod for it and lets the rewrite through.
+	if isKVVMIAlive(kvvmi) {
 		return false
 	}
 

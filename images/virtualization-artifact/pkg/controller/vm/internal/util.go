@@ -79,6 +79,12 @@ func isKVVMICreated(kvvm *virtv1.VirtualMachine) bool {
 	return kvvm != nil && kvvm.Status.Created
 }
 
+// isKVVMIAlive reports whether the internal virtual machine instance is a machine that is
+// running or on its way up, as opposed to one that has already finished or is being deleted.
+func isKVVMIAlive(kvvmi *virtv1.VirtualMachineInstance) bool {
+	return kvvmi != nil && kvvmi.DeletionTimestamp == nil && !kvvmiCompleted(kvvmi)
+}
+
 func getPhase(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 	if kvvm == nil {
 		return v1alpha2.MachinePending

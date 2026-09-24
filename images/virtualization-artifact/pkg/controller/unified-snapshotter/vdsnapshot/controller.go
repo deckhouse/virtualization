@@ -29,6 +29,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -43,10 +44,12 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/annotation"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/freezelog"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/statuspatch"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -85,7 +88,20 @@ func (r *Reconciler) sdk() snapshotsdk.CaptureSDK {
 	return snapshotsdk.New(r.Client, r.APIReader, snapshotsdk.NewStorageFoundationProvider(r.Client))
 }
 
+// Reconcile drives one VirtualDiskSnapshot, stopping quietly if it is deleted while the work is in
+// flight. See the VirtualMachineSnapshot controller's Reconcile for why the first read's guard is not
+// enough on its own.
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	result, err := r.reconcile(ctx, req)
+	if object.IsGone(err, v1alpha2.SchemeGroupVersion.WithResource(v1alpha2.VirtualDiskSnapshotResource).GroupResource(), req.Name) {
+		logger.FromContext(ctx).Debug("the snapshot was deleted while it was being reconciled; nothing left to do")
+		return ctrl.Result{}, nil
+	}
+
+	return result, err
+}
+
+func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	vds := &v1alpha2.VirtualDiskSnapshot{}
 	if err := r.Client.Get(ctx, req.NamespacedName, vds); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -108,7 +124,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err := r.patchStatus(ctx, vds); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
 	a := &adapter.VirtualDiskSnapshotAdapter{VDS: vds}
@@ -223,10 +239,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if planning && vds.Status.Consistent == nil {
+		// The freeze this disk is captured under belongs to the parent VirtualMachineSnapshot, and the
+		// verdict below is reached once and never revisited. Record what was actually observed — the
+		// machine, the instance and its freeze state — so a disk that reports "running and not frozen"
+		// can be lined up against the parent's own freeze records and the sibling disks' verdicts.
 		consistent, err := r.isConsistent(ctx, vd)
+		observed := r.observedFreezeState(ctx, vd)
+		log := freezelog.For(ctx).With(slog.String("virtualDisk", vd.Name))
+
 		switch {
 		case err == nil:
 			if consistent {
+				log.Info("the disk may be captured consistently",
+					freezelog.Attrs(observed, slog.Bool("requiredConsistency", vds.Spec.RequiredConsistency))...)
 				vds.Status.Consistent = ptr.To(true)
 				// Persist before the SDK calls below: they re-read this object from the API server into
 				// vds, so an unpersisted local field would be silently dropped.
@@ -236,18 +261,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				break
 			}
 			if vds.Spec.RequiredConsistency {
+				log.Error("the guest filesystem is not frozen; failing the capture", freezelog.State(observed)...)
 				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
 					"cannot take a consistent snapshot of virtual disk %q: the virtual machine it is attached to is running and its filesystem is not frozen",
 					vds.SourceVirtualDiskName()))
 			}
+			log.Info("the guest filesystem is not frozen; capturing anyway, no consistency was required",
+				freezelog.State(observed)...)
 		case errors.Is(err, errMultipleAttachedVirtualMachines):
 			// A disk attached to several running machines cannot be frozen unambiguously, so a consistency
 			// mandate cannot be honored.
+			log.Error("the disk is attached to several machines, so no single freeze covers it",
+				logger.SlogErr(err), slog.Bool("requiredConsistency", vds.Spec.RequiredConsistency))
 			if vds.Spec.RequiredConsistency {
 				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
 					"cannot take a consistent snapshot: %s", err))
 			}
 		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+			log.Debug("a freeze request is still in flight; waiting before deciding consistency",
+				freezelog.State(observed)...)
 			return ctrl.Result{RequeueAfter: requeueAfter}, nil
 		default:
 			return ctrl.Result{}, err
@@ -356,6 +388,8 @@ func (r *Reconciler) finishAsReady(ctx context.Context, vds *v1alpha2.VirtualDis
 	settleConsistency(vds)
 	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
 
+	logger.FromContext(ctx).Info("patch VDS phase to VirtualDiskSnapshotPhaseReady",
+		slog.Bool("consistent", vds.Status.Consistent != nil && *vds.Status.Consistent))
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
@@ -363,10 +397,14 @@ func (r *Reconciler) finishAsFailed(ctx context.Context, vds *v1alpha2.VirtualDi
 	settleConsistency(vds)
 	vds.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 
+	logger.FromContext(ctx).Info("patch VDS phase to VirtualDiskSnapshotPhaseFailed")
 	return ctrl.Result{}, r.patchStatus(ctx, vds)
 }
 
 func (r *Reconciler) failCapture(ctx context.Context, a *adapter.VirtualDiskSnapshotAdapter, vds *v1alpha2.VirtualDiskSnapshot, reason, message string) (ctrl.Result, error) {
+	logger.FromContext(ctx).Error("failing the disk capture",
+		slog.String("reason", reason), slog.String("message", message))
+
 	if err := r.sdk().DomainCaptureStatus(a).
 		Phase(snapshotsdk.PhaseFailed).
 		Reason(snapshotsdk.Reason(reason)).
@@ -376,6 +414,22 @@ func (r *Reconciler) failCapture(ctx context.Context, a *adapter.VirtualDiskSnap
 	}
 
 	return r.finishAsFailed(ctx, vds)
+}
+
+// observedFreezeState re-reads the VirtualMachineInstance behind the disk purely so the log can say what
+// the consistency verdict was based on. Failures are swallowed: this must never change the outcome of a
+// capture, and a nil instance is a truthful record of "nothing could be read".
+func (r *Reconciler) observedFreezeState(ctx context.Context, vd *v1alpha2.VirtualDisk) *virtv1.VirtualMachineInstance {
+	vm, err := r.getAttachedVirtualMachine(ctx, vd)
+	if err != nil || vm == nil {
+		return nil
+	}
+
+	kvvmi, err := r.getKVVMI(ctx, vm)
+	if err != nil {
+		return nil
+	}
+	return kvvmi
 }
 
 func (r *Reconciler) isConsistent(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {

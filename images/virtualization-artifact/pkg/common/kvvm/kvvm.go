@@ -47,6 +47,20 @@ func GetRunStrategy(kvvm *virtv1.VirtualMachine) virtv1.VirtualMachineRunStrateg
 	return *kvvm.Spec.RunStrategy
 }
 
+// EnsureRunStrategy patches the internal virtual machine to the desired runStrategy unless it
+// already has it.
+func EnsureRunStrategy(ctx context.Context, c client.Client, kvvm *virtv1.VirtualMachine, desired virtv1.VirtualMachineRunStrategy) error {
+	if kvvm == nil || GetRunStrategy(kvvm) == desired {
+		return nil
+	}
+
+	if err := c.Patch(ctx, kvvm, PatchRunStrategy(desired)); err != nil {
+		return fmt.Errorf("patch internal virtual machine with runStrategy %s: %w", desired, err)
+	}
+
+	return nil
+}
+
 // FindPodByKVVMI returns pod by kvvmi.
 func FindPodByKVVMI(ctx context.Context, c client.Client, kvvmi *virtv1.VirtualMachineInstance) (*corev1.Pod, error) {
 	if kvvmi == nil {

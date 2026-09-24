@@ -195,8 +195,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 				return reconcile.Result{}, err
 			}
 
+			// Consider vd snapshot is lost when it is absent or in Terminating state.
 			switch {
-			case vdSnapshot == nil:
+			case vdSnapshot == nil || vdSnapshot.DeletionTimestamp != nil:
 				lostVDSnapshots = append(lostVDSnapshots, vdSnapshotName)
 			case vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady:
 				log.Error("expected virtual disk snapshot to be ready, please report a bug", "vdSnapshotPhase", vdSnapshot.Status.Phase)

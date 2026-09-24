@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -25,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -155,9 +157,7 @@ var _ = Describe("SnapshotService", func() {
 		)
 
 		DescribeTable("Freeze", func(kvvmi *virtv1.VirtualMachineInstance, specialErr error) {
-			clientMock.UpdateFunc = func(_ context.Context, _ client.Object, _ ...client.UpdateOption) error {
-				return nil
-			}
+			clientMock.PatchFunc = applyAnnotationMergePatch
 			virtClientMock.VirtualMachinesFunc = func(namespace string) v1alpha2clientsetcore.VirtualMachineInterface {
 				return &VirtualMachineInterfaceMock{}
 			}
@@ -532,9 +532,7 @@ var _ = Describe("SnapshotService", func() {
 		)
 
 		DescribeTable("Unfreeze", func(kvvmi *virtv1.VirtualMachineInstance, specialErr error) {
-			clientMock.UpdateFunc = func(_ context.Context, _ client.Object, _ ...client.UpdateOption) error {
-				return nil
-			}
+			clientMock.PatchFunc = applyAnnotationMergePatch
 			virtClientMock.VirtualMachinesFunc = func(namespace string) v1alpha2clientsetcore.VirtualMachineInterface {
 				return &VirtualMachineInterfaceMock{}
 			}
@@ -565,9 +563,7 @@ var _ = Describe("SnapshotService", func() {
 		)
 
 		DescribeTable("SyncFSFreezeRequest", func(kvvmi *virtv1.VirtualMachineInstance, annotationExistsAfterSync bool, specialErr error) {
-			clientMock.UpdateFunc = func(_ context.Context, _ client.Object, _ ...client.UpdateOption) error {
-				return nil
-			}
+			clientMock.PatchFunc = applyAnnotationMergePatch
 			err := snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
 			if kvvmi != nil {
 				_, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]
@@ -646,5 +642,47 @@ func (m *VirtualMachineInterfaceMock) Freeze(ctx context.Context, name string, o
 }
 
 func (m *VirtualMachineInterfaceMock) Unfreeze(ctx context.Context, name string) error {
+	return nil
+}
+
+// applyAnnotationMergePatch stands in for the API server: it checks that the write really is a
+// merge patch over metadata.annotations and applies it to the object, the way a live client
+// refreshes the object from the patched response. A plain no-op would let an Update regression
+// through, since the code under test no longer mutates the object itself.
+func applyAnnotationMergePatch(_ context.Context, obj client.Object, p client.Patch, _ ...client.PatchOption) error {
+	if p.Type() != types.MergePatchType {
+		return fmt.Errorf("expected a merge patch over the annotation, got %s", p.Type())
+	}
+
+	data, err := p.Data(obj)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		Metadata struct {
+			Annotations map[string]*string `json:"annotations"`
+		} `json:"metadata"`
+	}
+	if err = json.Unmarshal(data, &body); err != nil {
+		return err
+	}
+	if len(body.Metadata.Annotations) == 0 {
+		return fmt.Errorf("the patch carries no annotation: %s", data)
+	}
+
+	anns := obj.GetAnnotations()
+	for key, value := range body.Metadata.Annotations {
+		switch {
+		case value == nil:
+			delete(anns, key)
+		case anns == nil:
+			anns = map[string]string{key: *value}
+		default:
+			anns[key] = *value
+		}
+	}
+	obj.SetAnnotations(anns)
+
 	return nil
 }

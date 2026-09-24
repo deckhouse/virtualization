@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -372,17 +373,11 @@ func (s *SnapshotService) annotateWithFSFreezeRequest(ctx context.Context, reque
 		return fmt.Errorf("failed to annotate virtual machine instance; virtual machine instance cannot be nil")
 	}
 
-	if kvvmi.Annotations == nil {
-		kvvmi.Annotations = make(map[string]string)
-	}
-	kvvmi.Annotations[annotations.AnnVMFilesystemRequest] = requestType
-
-	err := s.client.Update(ctx, kvvmi)
-	if err != nil {
-		return err
+	if kvvmi.Annotations[annotations.AnnVMFilesystemRequest] == requestType {
+		return nil
 	}
 
-	return nil
+	return s.patchFSFreezeRequest(ctx, kvvmi, requestType)
 }
 
 func (s *SnapshotService) removeAnnFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
@@ -390,18 +385,32 @@ func (s *SnapshotService) removeAnnFSFreezeRequest(ctx context.Context, kvvmi *v
 		return fmt.Errorf("failed to annotate virtual machine instance; virtual machine instance cannot be nil")
 	}
 
-	if kvvmi.Annotations == nil {
+	if _, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; !ok {
 		return nil
 	}
 
-	delete(kvvmi.Annotations, annotations.AnnVMFilesystemRequest)
+	return s.patchFSFreezeRequest(ctx, kvvmi, nil)
+}
 
-	err := s.client.Update(ctx, kvvmi)
+// patchFSFreezeRequest writes the filesystem request annotation on the instance, setting it to
+// requestType or, for a nil requestType, removing it.
+//
+// It is a merge patch over that single annotation to prevent
+// "the object has been modified" error as the virt-controller
+// may mutate the same KVVMI object during reconcile.
+func (s *SnapshotService) patchFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, requestType any) error {
+	mergePatch, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]any{
+				annotations.AnnVMFilesystemRequest: requestType,
+			},
+		},
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare the filesystem request patch: %w", err)
 	}
 
-	return nil
+	return s.client.Patch(ctx, kvvmi, client.RawPatch(types.MergePatchType, mergePatch))
 }
 
 // DiscardFSFreezeRequest retires a filesystem request the guest never honored.

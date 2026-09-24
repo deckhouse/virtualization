@@ -18,12 +18,14 @@ package object
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -195,4 +197,22 @@ func RemoveLabel(ctx context.Context, cl client.Client, obj client.Object, label
 		return err
 	}
 	return cl.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
+}
+
+// IsGone reports whether err is a NotFound raised for the named object of gr.
+//
+// The object may be gone during Reconcile handling and modifications done in
+// reconcile may return NotFound error. We should ignore it and not enqueue.
+func IsGone(err error, gr schema.GroupResource, name string) bool {
+	var statusErr *k8serrors.StatusError
+	if !errors.As(err, &statusErr) || !k8serrors.IsNotFound(err) {
+		return false
+	}
+
+	details := statusErr.ErrStatus.Details
+
+	return details != nil &&
+		details.Group == gr.Group &&
+		details.Kind == gr.Resource &&
+		details.Name == name
 }
