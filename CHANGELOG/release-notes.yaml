@@ -1,3 +1,22 @@
+- version: v1.12.1
+  date: "2026-09-24"
+  highlights:
+    - en: "Updating the module in Deckhouse Platform Open (DP Open) no longer blocks the Deckhouse queue. The release also patches vulnerabilities in the module."
+      ru: "Обновление модуля в редакции Deckhouse Platform Open (DP Open) больше не блокирует очередь Deckhouse. Также исправлены уязвимости в модуле."
+  fixes:
+    module:
+      - en: Updating the module in DP Open no longer blocks the Deckhouse queue.
+        ru: Обновление модуля в редакции DP Open больше не блокирует очередь Deckhouse.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-81870
+            - CVE-2026-81871
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-81870
+            - CVE-2026-81871
 - version: v1.12.0
   date: "2026-09-21"
   highlights:
