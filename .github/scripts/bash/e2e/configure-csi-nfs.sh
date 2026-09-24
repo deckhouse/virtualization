@@ -77,6 +77,37 @@ nfs_ready() {
   exit 1
 }
 
+# storage_profile_ready waits until the virtualization-controller has created the
+# StorageProfile for the given StorageClass and populated its access modes.
+# The e2e suite's rwo-immediate-sc-precheck resolves the access mode of the default
+# StorageClass from this StorageProfile; without the wait the suite can start before the
+# profile exists and aborts with 'storageprofiles.storage.virtualization.deckhouse.io
+# "<name>" not found'.
+storage_profile_ready() {
+  local sc_name="$1"
+  local count=60
+  local access_modes
+
+  for i in $(seq 1 "${count}"); do
+    access_modes="$(kubectl get storageprofiles.storage.virtualization.deckhouse.io "${sc_name}" -o jsonpath='{.status.claimPropertySets[*].accessModes[*]}' 2>/dev/null || echo "")"
+    if [[ -n "${access_modes}" ]]; then
+      echo "[SUCCESS] StorageProfile ${sc_name} is ready (accessModes: ${access_modes})"
+      return 0
+    fi
+
+    echo "[INFO] Wait 10s for StorageProfile ${sc_name} to be populated (attempt ${i}/${count})"
+    if (( i % 5 == 0 )); then
+      echo "[DEBUG] StorageProfiles:"
+      kubectl get storageprofiles.storage.virtualization.deckhouse.io || echo "[WARNING] Failed to retrieve storageprofiles"
+    fi
+    sleep 10
+  done
+
+  echo "[ERROR] StorageProfile ${sc_name} did not become ready in time"
+  kubectl get storageprofiles.storage.virtualization.deckhouse.io "${sc_name}" -o yaml || true
+  exit 1
+}
+
 if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
   echo "[INFO] Apply csi-nfs ModuleConfig with deckhouse-prod source (stage profile)"
 else
@@ -101,6 +132,9 @@ if [[ "${configure_default_sc}" == "true" ]]; then
 else
   echo "[INFO] Skip default storage class configuration"
 fi
+
+echo "[INFO] Wait for the nfs StorageProfile to be ready"
+storage_profile_ready nfs
 
 echo "[INFO] Show existing storageclasses"
 kubectl get storageclass

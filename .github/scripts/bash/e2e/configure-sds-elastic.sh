@@ -29,15 +29,19 @@ ELASTIC_STORAGE_CLASSES=(nested-ceph-rbd nested-ceph-rbd-r3)
 # (sds-node-configurator, csi-ceph). On the stage profile the modules are absent in
 # the stage registry, so pull them from the deckhouse-prod ModuleSource created by
 # enable-sdn.sh; otherwise use the default deckhouse source.
-apply_module_configs() {
-  local source_field="  source: deckhouse"
+#
+# The modules must be enabled in dependency order. Applying all three ModuleConfigs at
+# once races the admission webhook: it rejects the sds-elastic config ("depends on
+# disabled module(s): csi-ceph, sds-node-configurator") while Deckhouse has not enabled
+# the dependencies yet. So each module is applied and waited for Ready before the module
+# that depends on it is enabled.
+SOURCE_FIELD="  source: deckhouse"
+if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
+  SOURCE_FIELD="  source: deckhouse-prod"
+fi
 
-  if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
-    source_field="  source: deckhouse-prod"
-  fi
-
+apply_sds_node_configurator_mc() {
   kubectl apply -f - <<EOF
----
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -45,8 +49,12 @@ metadata:
 spec:
   enabled: true
   version: 1
-${source_field}
----
+${SOURCE_FIELD}
+EOF
+}
+
+apply_csi_ceph_mc() {
+  kubectl apply -f - <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -54,10 +62,14 @@ metadata:
 spec:
   enabled: true
   version: 1
-${source_field}
+${SOURCE_FIELD}
   settings:
     cephfsEnabled: false
----
+EOF
+}
+
+apply_sds_elastic_mc() {
+  kubectl apply -f - <<EOF
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -65,7 +77,7 @@ metadata:
 spec:
   enabled: true
   version: 1
-${source_field}
+${SOURCE_FIELD}
   settings:
     dataNodes:
       nodeSelector:
@@ -84,15 +96,17 @@ if [ -n "${MODULE_SOURCE_REGISTRY_CFG:-}" ]; then
 else
   echo "[INFO] Apply sds-elastic ModuleConfigs with deckhouse source"
 fi
-apply_module_configs
 
-echo "[INFO] Wait for sds-node-configurator to be ready"
+echo "[INFO] Enable sds-node-configurator and wait for it to be ready"
+apply_sds_node_configurator_mc
 kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
 
-echo "[INFO] Wait for csi-ceph to be ready"
+echo "[INFO] Enable csi-ceph and wait for it to be ready"
+apply_csi_ceph_mc
 kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=600s
 
-echo "[INFO] Wait for sds-elastic to be ready"
+echo "[INFO] Enable sds-elastic and wait for it to be ready"
+apply_sds_elastic_mc
 kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-elastic --timeout=600s
 
 echo "[INFO] Wait for raw block devices to be discovered"

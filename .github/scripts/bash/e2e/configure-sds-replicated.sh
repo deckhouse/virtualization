@@ -23,10 +23,16 @@ source "${SCRIPT_DIR}/wait-sds-replicated.sh"
 d8_queue
 
 kubectl apply -f ../sds-node-configurator/mc.yaml
-kubectl apply -f mc.yaml
 
+# sds-replicated-volume depends on sds-node-configurator. Applying both ModuleConfigs
+# back to back races the admission webhook: it rejects the sds-replicated-volume config
+# ("depends on disabled module(s): sds-node-configurator") while Deckhouse has not yet
+# enabled sds-node-configurator. Wait for the dependency to be Ready before enabling the
+# dependent module.
 echo "[INFO] Wait for sds-node-configurator"
 kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
+
+kubectl apply -f mc.yaml
 
 echo "[INFO] Wait for sds-replicated-volume to be ready"
 sds_replicated_ready
