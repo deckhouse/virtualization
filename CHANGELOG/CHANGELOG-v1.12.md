@@ -1,5 +1,13 @@
 # Changelog v1.12
 
+## v1.12.1
+
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-81870
+- CVE-2026-81871 ([!493](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/493))
+
 ## v1.12.0
 
 ### api
