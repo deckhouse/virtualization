@@ -1712,15 +1712,69 @@ var _ = Describe("canExecute", func() {
 		}
 	}
 
-	// The machine is fine, the cluster just has no node for it right now — and the placement rules
-	// may have been changed a moment ago. Failing here would kill a migration that is about to
-	// become possible, which is exactly what the node placement update does.
-	It("does not fail the operation when the cluster has no migration target yet", func() {
+	const noTargetMessage = "Live migration is not possible: no other node in the cluster can accept this VirtualMachine."
+
+	vmWithNoTarget := func() *v1alpha2.VirtualMachine {
+		vm := vmWithMigratable(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget)
+		vm.Status.Conditions[0].Message = noTargetMessage
+		return vm
+	}
+
+	It("fails the operation with the reason when the machine has no node to migrate to", func() {
 		vmop := &v1alpha2.VirtualMachineOperation{}
 		h := LifecycleHandler{}
 
-		Expect(h.canExecute(vmop, vmWithMigratable(metav1.ConditionFalse, vmcondition.ReasonNoMigrationTarget))).To(BeFalse())
-		Expect(vmop.Status.Phase).ToNot(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(h.canExecute(vmop, vmWithNoTarget())).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		Expect(completed.Reason).To(Equal(vmopcondition.ReasonOperationFailed.String()))
+		Expect(completed.Message).To(ContainSubstring(noTargetMessage))
+	})
+
+	// The node placement update is created once the instance has a target under the new rules, while
+	// the condition of the VirtualMachine may still describe the old ones.
+	It("waits for the machine when the operation applies changed placement rules", func() {
+		vmop := &v1alpha2.VirtualMachineOperation{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{annotations.AnnVMOPWorkloadUpdateNodePlacementSum: "sum"},
+			},
+		}
+		h := LifecycleHandler{}
+
+		Expect(h.canExecute(vmop, vmWithNoTarget())).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+	})
+
+	DescribeTable("waits for the machine when its target depends on other pods",
+		func(affinity *v1alpha2.VMAffinity) {
+			vm := vmWithNoTarget()
+			vm.Spec.Affinity = affinity
+			vmop := &v1alpha2.VirtualMachineOperation{}
+			h := LifecycleHandler{}
+
+			Expect(h.canExecute(vmop, vm)).To(BeFalse())
+			Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+		},
+		Entry("affinity", &v1alpha2.VMAffinity{VirtualMachineAndPodAffinity: &v1alpha2.VirtualMachineAndPodAffinity{}}),
+		Entry("anti-affinity", &v1alpha2.VMAffinity{VirtualMachineAndPodAntiAffinity: &v1alpha2.VirtualMachineAndPodAntiAffinity{}}),
+	)
+
+	It("fails the operation when only the node affinity leaves no target", func() {
+		vm := vmWithNoTarget()
+		vm.Spec.Affinity = &v1alpha2.VMAffinity{NodeAffinity: &corev1.NodeAffinity{}}
+		vmop := &v1alpha2.VirtualMachineOperation{}
+		h := LifecycleHandler{}
+
+		Expect(h.canExecute(vmop, vm)).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+	})
+
+	It("waits for the machine when its target nodes are unavailable for a while", func() {
+		vmop := &v1alpha2.VirtualMachineOperation{}
+		h := LifecycleHandler{}
+
+		Expect(h.canExecute(vmop, vmWithMigratable(metav1.ConditionTrue, vmcondition.ReasonWaitingForMigrationTarget))).To(BeFalse())
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
 	})
 
 	It("fails the operation when the machine itself cannot be migrated", func() {

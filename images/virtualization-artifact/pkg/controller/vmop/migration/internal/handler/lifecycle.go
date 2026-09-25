@@ -642,12 +642,12 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 
 	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
 
-	// Having no node to migrate to describes the cluster at this moment, not the machine: the
-	// placement rules may have just been changed, and the condition still reports the rules the
-	// instance was started with. Failing the operation on that would kill a migration that is
-	// about to become possible, so the operation proceeds and the scheduler has the last word.
+	// A machine with no node to migrate to stays where it is until its placement rules or the nodes
+	// change, so the operation is failed with that reason instead of waiting for the target pod to
+	// time out. Two answers may be stale, and the scheduler keeps the last word for them.
 	hasNoTarget := migratable.Status == metav1.ConditionFalse &&
-		migratable.Reason == vmcondition.ReasonNoMigrationTarget.String()
+		migratable.Reason == vmcondition.ReasonNoMigrationTarget.String() &&
+		(isNodePlacementUpdate(vmop) || hasPodAffinityRules(vm))
 
 	if migratable.Status == metav1.ConditionTrue || hasNoTarget {
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
@@ -690,6 +690,22 @@ func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm 
 			Message(message),
 		&vmop.Status.Conditions)
 	return false
+}
+
+// isNodePlacementUpdate reports whether the operation applies changed placement rules. It is created
+// once the instance has found a target under the new rules, while the condition of the
+// VirtualMachine may still describe the old ones.
+func isNodePlacementUpdate(vmop *v1alpha2.VirtualMachineOperation) bool {
+	_, ok := vmop.GetAnnotations()[annotations.AnnVMOPWorkloadUpdateNodePlacementSum]
+	return ok
+}
+
+// hasPodAffinityRules reports whether the target search depends on other pods. The search is
+// repeated when nodes change, not when those pods leave, so a freed node may be missed for a while.
+func hasPodAffinityRules(vm *v1alpha2.VirtualMachine) bool {
+	affinity := vm.Spec.Affinity
+	return affinity != nil &&
+		(affinity.VirtualMachineAndPodAffinity != nil || affinity.VirtualMachineAndPodAntiAffinity != nil)
 }
 
 func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) error {
