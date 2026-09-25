@@ -123,6 +123,14 @@ spec:
             Allow hostPort {{ include "virtualization_dra.usbipd_port" . }} for usbipd service.
             Virtualization DRA component requires hostNetwork and usbipd service should be accessible via hostPort.
 
+    hostPID:
+      allowedValue: true
+      metadata:
+        description: |
+          Virtualization DRA component needs the host PID namespace to detect
+          block devices held open by host processes (for example Ceph OSDs),
+          so such disks are not offered for PCI passthrough.
+
   # Allow mounting host directories.
   volumes:
     types:
@@ -181,6 +189,7 @@ spec:
       serviceAccountName: virtualization-dra
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
+      hostPID: true
       nodeSelector:
         kubernetes.io/os: linux
         virtualization.deckhouse.io/containerd-version: "v2" # required for start NRI hooks. Label is added by nodegroupconfiguration-detect-containerd-version.sh

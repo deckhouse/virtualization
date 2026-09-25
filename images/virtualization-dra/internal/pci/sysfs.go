@@ -22,6 +22,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -36,13 +39,14 @@ const (
 type sysfs struct {
 	root string
 	proc string
+	stat func(string) (os.FileInfo, error)
 }
 
 func newSysfs(root string) sysfs {
 	if root == "" {
 		root = defaultSysfsRoot
 	}
-	return sysfs{root: root, proc: defaultProcRoot}
+	return sysfs{root: root, proc: defaultProcRoot, stat: os.Stat}
 }
 
 func (s sysfs) devicesDir() string {
@@ -195,7 +199,9 @@ func (s sysfs) blockDevices(address string) ([]string, error) {
 }
 
 // hasBusyBlockDevice reports whether any block device of the PCI device is in
-// use by the host: stacked upon (LVM/RAID/dm holders), mounted, or used as swap.
+// use by the host: stacked upon (LVM/RAID/dm holders), mounted, used as swap,
+// or held open by a process. The last case covers raw-disk consumers such as
+// Ceph OSDs, which leave no trace in holders or mounts.
 func (s sysfs) hasBusyBlockDevice(address string) (bool, error) {
 	names, err := s.blockDevices(address)
 	if err != nil {
@@ -224,7 +230,66 @@ func (s sysfs) hasBusyBlockDevice(address string) (bool, error) {
 			return true, nil
 		}
 	}
+
+	opened, err := s.openedBlockDevices()
+	if err != nil {
+		return false, err
+	}
+	for _, name := range names {
+		number, err := s.blockDeviceNumber(name)
+		if err != nil {
+			return false, err
+		}
+		if _, busy := opened[number]; busy {
+			return true, nil
+		}
+	}
 	return false, nil
+}
+
+// blockDeviceNumber returns the "major:minor" of a block device.
+func (s sysfs) blockDeviceNumber(name string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(s.root, "class", "block", name, "dev"))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+// openedBlockDevices collects "major:minor" numbers of block devices held open
+// by any process. Descriptors are resolved through /proc/<pid>/fd, so a
+// consumer in another mount namespace (a Ceph OSD container opening the raw
+// disk) is matched by device number rather than by path. Requires the host
+// PID namespace; a process that exits mid-scan is skipped.
+func (s sysfs) openedBlockDevices() (map[string]struct{}, error) {
+	entries, err := os.ReadDir(s.proc)
+	if err != nil {
+		return nil, err
+	}
+	opened := make(map[string]struct{})
+	for _, entry := range entries {
+		if _, err := strconv.Atoi(entry.Name()); err != nil {
+			continue
+		}
+		fdDir := filepath.Join(s.proc, entry.Name(), "fd")
+		fds, err := os.ReadDir(fdDir)
+		if err != nil {
+			continue
+		}
+		for _, fd := range fds {
+			info, err := s.stat(filepath.Join(fdDir, fd.Name()))
+			if err != nil || info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
+				continue
+			}
+			stat, ok := info.Sys().(*syscall.Stat_t)
+			if !ok {
+				continue
+			}
+			rdev := uint64(stat.Rdev) //nolint:unconvert // Rdev is not uint64 on every platform
+			opened[fmt.Sprintf("%d:%d", unix.Major(rdev), unix.Minor(rdev))] = struct{}{}
+		}
+	}
+	return opened, nil
 }
 
 // usedBlockDeviceSources collects device paths currently mounted or used as swap.

@@ -22,9 +22,12 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -33,7 +36,21 @@ type fakeBlockDevice struct {
 	hasHolder bool
 	mounted   bool
 	swap      bool
+	opened    bool
 }
+
+// fakeBlockInfo stands in for the os.FileInfo of a /proc/<pid>/fd link that
+// resolves to a block device; tests cannot mknod real device nodes.
+type fakeBlockInfo struct {
+	rdev uint64
+}
+
+func (fakeBlockInfo) Name() string       { return "fd" }
+func (fakeBlockInfo) Size() int64        { return 0 }
+func (fakeBlockInfo) Mode() os.FileMode  { return os.ModeDevice }
+func (fakeBlockInfo) ModTime() time.Time { return time.Time{} }
+func (fakeBlockInfo) IsDir() bool        { return false }
+func (f fakeBlockInfo) Sys() any         { return &syscall.Stat_t{Rdev: f.rdev} }
 
 type fakeDevice struct {
 	address    string
@@ -47,12 +64,13 @@ type fakeDevice struct {
 }
 
 type fakeSysfs struct {
-	root string
-	proc string
+	root   string
+	proc   string
+	opened map[string]uint64
 }
 
 func newFakeSysfs() *fakeSysfs {
-	f := &fakeSysfs{root: GinkgoT().TempDir(), proc: GinkgoT().TempDir()}
+	f := &fakeSysfs{root: GinkgoT().TempDir(), proc: GinkgoT().TempDir(), opened: map[string]uint64{}}
 	Expect(os.WriteFile(filepath.Join(f.proc, "mounts"), nil, 0o644)).To(Succeed())
 	Expect(os.WriteFile(filepath.Join(f.proc, "swaps"), []byte("Filename Type Size Used Priority\n"), 0o644)).To(Succeed())
 	return f
@@ -105,12 +123,20 @@ func (f *fakeSysfs) add(dev fakeDevice) {
 		Expect(os.WriteFile(filepath.Join(netDir, "flags"), []byte(flags+"\n"), 0o644)).To(Succeed())
 	}
 
-	for _, block := range dev.blocks {
+	for i, block := range dev.blocks {
 		realDir := filepath.Join(deviceDir, "nvme", "nvme0", block.name)
 		Expect(os.MkdirAll(filepath.Join(realDir, "holders"), 0o755)).To(Succeed())
 		classBlockDir := filepath.Join(f.root, "class", "block")
 		Expect(os.MkdirAll(classBlockDir, 0o755)).To(Succeed())
 		Expect(os.Symlink(realDir, filepath.Join(classBlockDir, block.name))).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(realDir, "dev"), []byte(fmt.Sprintf("259:%d\n", i)), 0o644)).To(Succeed())
+		if block.opened {
+			fdDir := filepath.Join(f.proc, "4242", "fd")
+			Expect(os.MkdirAll(fdDir, 0o755)).To(Succeed())
+			fdPath := filepath.Join(fdDir, strconv.Itoa(i))
+			Expect(os.WriteFile(fdPath, nil, 0o644)).To(Succeed())
+			f.opened[fdPath] = unix.Mkdev(259, uint32(i))
+		}
 		if block.hasHolder {
 			Expect(os.WriteFile(filepath.Join(realDir, "holders", "dm-0"), nil, 0o644)).To(Succeed())
 		}
@@ -126,6 +152,12 @@ func (f *fakeSysfs) add(dev fakeDevice) {
 func (f *fakeSysfs) discover() map[string]Device {
 	fs := newSysfs(f.root)
 	fs.proc = f.proc
+	fs.stat = func(path string) (os.FileInfo, error) {
+		if rdev, ok := f.opened[path]; ok {
+			return fakeBlockInfo{rdev: rdev}, nil
+		}
+		return os.Stat(path)
+	}
 	devices, err := fs.discoverDevices(slog.Default())
 	Expect(err).ToNot(HaveOccurred())
 	return devices
@@ -185,6 +217,8 @@ var _ = Describe("PCI device discovery", func() {
 			[]fakeBlockDevice{{name: "nvme0n1", hasHolder: true}}, false),
 		Entry("NVMe used as swap is excluded",
 			[]fakeBlockDevice{{name: "nvme0n1", swap: true}}, false),
+		Entry("NVMe held open by a process (Ceph OSD) is excluded",
+			[]fakeBlockDevice{{name: "nvme0n1", opened: true}}, false),
 	)
 
 	It("excludes a root-complex-integrated endpoint on bus 00", func() {
