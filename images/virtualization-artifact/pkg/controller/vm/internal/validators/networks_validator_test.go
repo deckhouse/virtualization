@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -43,6 +44,7 @@ type networkValidatorOpts struct {
 	virtualMachineCIDRs []string
 	objects             []client.Object
 	sdnEnabled          bool
+	sriovEnabled        bool
 }
 
 func newNetworksValidator(t *testing.T, opts networkValidatorOpts) *NetworksValidator {
@@ -53,14 +55,14 @@ func newNetworksValidator(t *testing.T, opts networkValidatorOpts) *NetworksVali
 		builder = builder.WithObjects(opts.objects...)
 	}
 
-	featureGate, _, setFromMap, err := featuregates.New()
-	if err != nil {
-		t.Fatalf("featuregates.New: %v", err)
-	}
-	if opts.sdnEnabled {
-		if err := setFromMap(map[string]bool{string(featuregates.SDN): true}); err != nil {
-			t.Fatalf("setFromMap: %v", err)
-		}
+	// The production gates lock edition-derived features (USB, SRIOV) to their
+	// defaults, so tests build their own unlocked gate with the same keys.
+	featureGate := featuregate.NewFeatureGate()
+	if err := featureGate.Add(map[featuregate.Feature]featuregate.FeatureSpec{
+		featuregates.SDN:   {Default: opts.sdnEnabled, PreRelease: featuregate.Alpha},
+		featuregates.SRIOV: {Default: opts.sriovEnabled, PreRelease: featuregate.Alpha},
+	}); err != nil {
+		t.Fatalf("featureGate.Add: %v", err)
 	}
 
 	return NewNetworksValidator(builder.Build(), featureGate, opts.virtualMachineCIDRs)
@@ -595,4 +597,65 @@ func TestNetworksValidatesExistence(t *testing.T) {
 			t.Fatalf("expected error when adding a missing network")
 		}
 	})
+}
+
+func TestNetworksValidateUnderlayNetwork(t *testing.T) {
+	underlay := func(mutate func(*v1alpha2.NetworksSpec)) v1alpha2.NetworksSpec {
+		n := v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeUnderlayNetwork, Name: "fast"}
+		if mutate != nil {
+			mutate(&n)
+		}
+		return n
+	}
+
+	tests := []struct {
+		name         string
+		network      v1alpha2.NetworksSpec
+		sriovEnabled bool
+		valid        bool
+	}{
+		{"allowed with the SRIOV gate", underlay(nil), true, true},
+		{"rejected without the SRIOV gate", underlay(nil), false, false},
+		{"vlanID in range", underlay(func(n *v1alpha2.NetworksSpec) { n.VLANID = ptr.To(300) }), true, true},
+		{"vlanID below range", underlay(func(n *v1alpha2.NetworksSpec) { n.VLANID = ptr.To(0) }), true, false},
+		{"vlanID above range", underlay(func(n *v1alpha2.NetworksSpec) { n.VLANID = ptr.To(4095) }), true, false},
+		{"ipAddressName rejected", underlay(func(n *v1alpha2.NetworksSpec) { n.IPAddressName = "myip" }), true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := newNetworksValidator(t, networkValidatorOpts{
+				virtualMachineCIDRs: []string{"10.0.0.0/8"},
+				sdnEnabled:          true,
+				sriovEnabled:        tt.sriovEnabled,
+			})
+			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{
+				Networks: []v1alpha2.NetworksSpec{mainNetwork, tt.network},
+			}}
+			_, err := v.ValidateCreate(t.Context(), vm)
+			if tt.valid && err != nil {
+				t.Fatalf("expected valid, got error: %v", err)
+			}
+			if !tt.valid && err == nil {
+				t.Fatal("expected error, got none")
+			}
+		})
+	}
+}
+
+func TestNetworksValidateVLANIDOnNonUnderlay(t *testing.T) {
+	v := newNetworksValidator(t, networkValidatorOpts{
+		virtualMachineCIDRs: []string{"10.0.0.0/8"},
+		sdnEnabled:          true,
+		sriovEnabled:        true,
+	})
+	vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{
+		Networks: []v1alpha2.NetworksSpec{
+			mainNetwork,
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test", VLANID: ptr.To(300)},
+		},
+	}}
+	if _, err := v.ValidateCreate(t.Context(), vm); err == nil {
+		t.Fatal("expected error for vlanID on a ClusterNetwork entry, got none")
+	}
 }

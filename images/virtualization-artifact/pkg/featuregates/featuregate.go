@@ -32,6 +32,7 @@ const (
 	USB                                  featuregate.Feature = "USB"
 	PCI                                  featuregate.Feature = "PCI"
 	VIOMMU                               featuregate.Feature = "VIOMMU"
+	SRIOV                                featuregate.Feature = "SRIOV"
 	GPU                                  featuregate.Feature = "GPU"
 	HotplugCPUWithLiveMigration          featuregate.Feature = "HotplugCPUWithLiveMigration"
 	HotplugMemoryWithLiveMigration       featuregate.Feature = "HotplugMemoryWithLiveMigration"
@@ -67,6 +68,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 		PreRelease:    featuregate.Alpha,
 	},
 	PCI: {
+		Default:       version.GetEdition() == version.EditionEE && kubeapi.HasDRAFeatureGates() && kubeapi.ResourceV1Available(),
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	SRIOV: {
 		Default:       version.GetEdition() == version.EditionEE && kubeapi.HasDRAFeatureGates() && kubeapi.ResourceV1Available(),
 		LockToDefault: true,
 		PreRelease:    featuregate.Alpha,

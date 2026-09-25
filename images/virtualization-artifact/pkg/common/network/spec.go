@@ -87,6 +87,11 @@ func createAdditionalInterfaceSpec(net v1alpha2.NetworksSpec, mac string) Interf
 	if net.IPAddressName != "" {
 		spec.IPAddressNames = []string{net.IPAddressName}
 	}
+	if net.Type == v1alpha2.NetworksTypeUnderlayNetwork {
+		spec.BindingMode = BindingModeVFIOPCI
+		spec.VLANID = net.VLANID
+		spec.VFMAC = mac
+	}
 	return spec
 }
 

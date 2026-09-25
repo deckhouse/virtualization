@@ -751,6 +751,20 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 }
 
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
+	// UnderlayNetwork entries are not tap interfaces: the VF enters the domain as a
+	// host device backed by a DRA resource claim, so they are reconciled separately
+	// and excluded from the interface bookkeeping below.
+	var tapSpec, underlaySpec network.InterfaceSpecList
+	for _, n := range networkSpec {
+		if n.Type == v1alpha2.NetworksTypeUnderlayNetwork {
+			underlaySpec = append(underlaySpec, n)
+			continue
+		}
+		tapSpec = append(tapSpec, n)
+	}
+	kvvm.SetUnderlayNetworkDevices(underlaySpec)
+	networkSpec = tapSpec
+
 	desiredByName := make(map[string]struct{}, len(networkSpec))
 	desiredACPIIndexes := make(map[int]struct{}, len(networkSpec))
 	for _, n := range networkSpec {

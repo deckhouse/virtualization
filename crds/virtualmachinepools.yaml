@@ -1396,6 +1396,11 @@ spec:
                                 type: string
                               virtualMachineMACAddressName:
                                 type: string
+                              vlanID:
+                                description: |-
+                                  VLANID is the VLAN tag to set on the SR-IOV virtual function.
+                                  Only applicable to networks of type UnderlayNetwork.
+                                type: integer
                             required:
                               - type
                             type: object

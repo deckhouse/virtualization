@@ -1033,7 +1033,7 @@ spec:
                   description: |
                     List of network interface configurations. If not specified, the VM uses only the main cluster network (`Main`).
 
-                    The `sdn` module is required only when additional networks (`Network` or `ClusterNetwork`) are specified in `.spec.networks`. If only the main network (`Main`) is specified, the module is not required.
+                    The `sdn` module is required only when additional networks (`Network`, `ClusterNetwork`, or `UnderlayNetwork`) are specified in `.spec.networks`. If only the main network (`Main`) is specified, the module is not required.
                   items:
                     type: object
                     required:
@@ -1053,10 +1053,12 @@ spec:
                           * `Main` — primary network interface that is always present (default network).
                           * `Network` — a subnet at the namespace level.
                           * `ClusterNetwork` — a subnet at the cluster level.
+                          * `UnderlayNetwork` — a physical network (`sdn` module); the interface is attached by passing an SR-IOV virtual function through to the virtual machine.
                         enum:
                           - "Main"
                           - "Network"
                           - "ClusterNetwork"
+                          - "UnderlayNetwork"
                       name:
                         minLength: 1
                         type: string
@@ -1076,6 +1078,14 @@ spec:
                           If specified, the referenced IPAddress is used instead of automatic allocation from the network pool.
 
                           The field is applied only for additional networks that have IPAM configured. For `Main` network and networks without a configured pool, the field is ignored.
+                      vlanID:
+                        type: integer
+                        minimum: 1
+                        maximum: 4094
+                        description: |
+                          VLAN tag to set on the SR-IOV virtual function.
+
+                          The field is applied only for networks of type `UnderlayNetwork`.
                 usbDevices:
                   type: array
                   maxItems: 8

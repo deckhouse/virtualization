@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
@@ -949,6 +950,65 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string, acpiIndex int) {
 
 	if !updated {
 		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = append(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface)
+	}
+}
+
+// underlayClaimRequestName is the request name inside the SDN-owned
+// ResourceClaimTemplate (resourceClaim.spec.devices.requests[].name).
+const underlayClaimRequestName = "nic"
+
+// SetUnderlayNetworkDevices reconciles the pod-level resource claims and the
+// KubeVirt host devices backing UnderlayNetwork entries (SR-IOV VF passthrough).
+// Devices are named with the "un-" prefix; entries with the prefix that are no
+// longer desired are removed, everything else is left untouched.
+func (b *KVVM) SetUnderlayNetworkDevices(specs network.InterfaceSpecList) {
+	templateSpec := &b.Resource.Spec.Template.Spec
+
+	desired := make(map[string]network.InterfaceSpec, len(specs))
+	for _, spec := range specs {
+		desired[network.UnderlayDeviceName(spec.Name)] = spec
+	}
+
+	isStaleUnderlayName := func(name string) bool {
+		if _, wanted := desired[name]; wanted {
+			return false
+		}
+		return strings.HasPrefix(name, network.UnderlayDeviceName(""))
+	}
+	templateSpec.ResourceClaims = slices.DeleteFunc(templateSpec.ResourceClaims, func(claim virtv1.ResourceClaim) bool {
+		return isStaleUnderlayName(claim.Name)
+	})
+	templateSpec.Domain.Devices.HostDevices = slices.DeleteFunc(templateSpec.Domain.Devices.HostDevices, func(dev virtv1.HostDevice) bool {
+		return isStaleUnderlayName(dev.Name)
+	})
+
+	for name, spec := range desired {
+		claim := virtv1.ResourceClaim{
+			PodResourceClaim: corev1.PodResourceClaim{
+				Name:                      name,
+				ResourceClaimTemplateName: ptr.To(network.SDNResourceClaimTemplateName(spec.Name)),
+			},
+		}
+		templateSpec.ResourceClaims = array.SetArrayElem(
+			templateSpec.ResourceClaims, claim,
+			func(v1, v2 virtv1.ResourceClaim) bool {
+				return v1.Name == v2.Name
+			}, true,
+		)
+
+		dev := virtv1.HostDevice{
+			Name: name,
+			ClaimRequest: &virtv1.ClaimRequest{
+				ClaimName:   ptr.To(name),
+				RequestName: ptr.To(underlayClaimRequestName),
+			},
+		}
+		templateSpec.Domain.Devices.HostDevices = array.SetArrayElem(
+			templateSpec.Domain.Devices.HostDevices, dev,
+			func(v1, v2 virtv1.HostDevice) bool {
+				return v1.Name == v2.Name
+			}, true,
+		)
 	}
 }
 

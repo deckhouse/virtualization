@@ -354,9 +354,10 @@ const (
 type LiveMigrationPolicy string
 
 const (
-	NetworksTypeMain           = "Main"
-	NetworksTypeNetwork        = "Network"
-	NetworksTypeClusterNetwork = "ClusterNetwork"
+	NetworksTypeMain            = "Main"
+	NetworksTypeNetwork         = "Network"
+	NetworksTypeClusterNetwork  = "ClusterNetwork"
+	NetworksTypeUnderlayNetwork = "UnderlayNetwork"
 )
 
 type NetworksSpec struct {
@@ -370,6 +371,9 @@ type NetworksSpec struct {
 	// Only applicable to additional networks (Network, ClusterNetwork) with IPAM configured (a pool bound to the network).
 	// Ignored if the network has no pool.
 	IPAddressName string `json:"ipAddressName,omitempty"`
+	// VLANID is the VLAN tag to set on the SR-IOV virtual function.
+	// Only applicable to networks of type UnderlayNetwork.
+	VLANID *int `json:"vlanID,omitempty"`
 }
 
 const (

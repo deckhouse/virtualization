@@ -698,6 +698,11 @@ func (in *NetworksSpec) DeepCopyInto(out *NetworksSpec) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.VLANID != nil {
+		in, out := &in.VLANID, &out.VLANID
+		*out = new(int)
+		**out = **in
+	}
 	return
 }
 

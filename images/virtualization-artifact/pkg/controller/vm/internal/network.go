@@ -360,11 +360,17 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 			continue
 		}
 
+		mac := macAddressesByInterfaceName[interfaceSpec.InterfaceName]
+		if interfaceSpec.Type == v1alpha2.NetworksTypeUnderlayNetwork {
+			// The VF is a host device, not a KVVM interface; the MAC comes from the
+			// assigned pool address that SDN programs on the VF.
+			mac = interfaceSpec.MAC
+		}
 		networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 			ID:                           interfaceSpec.ID,
 			Type:                         interfaceSpec.Type,
 			Name:                         interfaceSpec.Name,
-			MAC:                          macAddressesByInterfaceName[interfaceSpec.InterfaceName],
+			MAC:                          mac,
 			VirtualMachineMACAddressName: vmmacNamesByAddress[interfaceSpec.MAC],
 			IPAddress:                    ipAddressesByName[interfaceSpec.Name],
 		})

@@ -462,6 +462,7 @@ rules:
   resources:
   - networks
   - clusternetworks
+  - underlaynetworks
   verbs:
   - get
   - list

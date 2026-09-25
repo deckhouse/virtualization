@@ -34,6 +34,25 @@ const NameDefaultInterface = "default"
 // into the guest OS.
 const IPAssignmentModeDHCP = "DHCP"
 
+// BindingModeVFIOPCI is the networks-spec bindingMode for SR-IOV VF passthrough:
+// SDN binds the VF to vfio-pci and delivers it via its DRA driver.
+const BindingModeVFIOPCI = "VFIO-PCI"
+
+// SDNResourceClaimTemplateName returns the name of the ResourceClaimTemplate the
+// SDN module maintains for the given UnderlayNetwork in every namespace labeled
+// direct-nic-access.network.deckhouse.io/enabled.
+func SDNResourceClaimTemplateName(underlayNetworkName string) string {
+	return "d8-sdn-" + underlayNetworkName
+}
+
+// UnderlayDeviceName returns the name used for both the pod-level resource claim
+// and the KubeVirt host device of an UnderlayNetwork entry. The "un-" prefix keeps
+// the claims apart from USB/GPU-owned ones, whose garbage collection matches by
+// name prefix.
+func UnderlayDeviceName(networkName string) string {
+	return "un-" + networkName
+}
+
 // WillProvisionInterface reports whether the given additional network interface
 // will be included in networks-spec (i.e. SDN will provision it and report
 // status). This mirrors the skip logic in EnrichWithIPAM:
@@ -48,6 +67,10 @@ const IPAssignmentModeDHCP = "DHCP"
 func WillProvisionInterface(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, netSpec v1alpha2.NetworksSpec) (bool, error) {
 	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return false, nil
+	}
+	if netSpec.Type == v1alpha2.NetworksTypeUnderlayNetwork {
+		// UnderlayNetwork entries are always provisioned by SDN (no IPAM involved).
+		return true, nil
 	}
 	hasPool, err := HasIPAM(ctx, c, namespace, netSpec)
 	if err != nil {
@@ -218,6 +241,15 @@ type InterfaceSpec struct {
 	// static IP on the interface instead of automatic allocation.
 	// At most one name per interface (single-element slice per the SDN annotation format).
 	IPAddressNames []string `json:"ipAddressNames,omitempty"`
+	// BindingMode is how SDN hands the device to the pod. Set to "VFIO-PCI" for
+	// UnderlayNetwork entries (SR-IOV VF passthrough); empty for tap-based entries.
+	BindingMode string `json:"bindingMode,omitempty"`
+	// VLANID is the VLAN tag SDN programs on the SR-IOV VF (UnderlayNetwork entries only).
+	VLANID *int `json:"vlanID,omitempty"`
+	// VFMAC is the MAC address SDN programs on the SR-IOV VF (UnderlayNetwork
+	// entries only). Tap-based entries keep MAC out of the annotation (json:"-" above),
+	// so this is a separate field to avoid changing their wire format.
+	VFMAC string `json:"mac,omitempty"`
 }
 
 type InterfaceStatus struct {

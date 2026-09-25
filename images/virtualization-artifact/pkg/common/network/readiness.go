@@ -31,8 +31,9 @@ import (
 )
 
 var (
-	NetworkGVK        = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "Network"}
-	ClusterNetworkGVK = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "ClusterNetwork"}
+	NetworkGVK         = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "Network"}
+	ClusterNetworkGVK  = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "ClusterNetwork"}
+	UnderlayNetworkGVK = schema.GroupVersionKind{Group: "network.deckhouse.io", Version: "v1alpha1", Kind: "UnderlayNetwork"}
 )
 
 func SpecKey(netSpec v1alpha2.NetworksSpec) string {
@@ -47,10 +48,19 @@ func IsNetworkSpecReady(ctx context.Context, c client.Client, namespace string, 
 	if err != nil || !found {
 		return false, err
 	}
+	if netSpec.Type == v1alpha2.NetworksTypeUnderlayNetwork {
+		// UnderlayNetwork has no Ready condition; InterfacesAvailable reflects
+		// whether the network has usable interfaces on nodes.
+		return isConditionTrue(obj, "InterfacesAvailable")
+	}
 	return isReadyTrue(obj)
 }
 
 func isReadyTrue(obj *unstructured.Unstructured) (bool, error) {
+	return isConditionTrue(obj, "Ready")
+}
+
+func isConditionTrue(obj *unstructured.Unstructured, condType string) (bool, error) {
 	conds, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
 	if err != nil {
 		return false, fmt.Errorf("read status.conditions of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
@@ -67,12 +77,12 @@ func isReadyTrue(obj *unstructured.Unstructured) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("read condition.type of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
 		}
-		if typ != "Ready" {
+		if typ != condType {
 			continue
 		}
 		status, _, err := unstructured.NestedString(condMap, "status")
 		if err != nil {
-			return false, fmt.Errorf("read Ready condition.status of %s/%s: %w", obj.GetKind(), obj.GetName(), err)
+			return false, fmt.Errorf("read %s condition.status of %s/%s: %w", condType, obj.GetKind(), obj.GetName(), err)
 		}
 		return status == string(metav1.ConditionTrue), nil
 	}
@@ -105,6 +115,8 @@ func getNetworkObject(ctx context.Context, c client.Client, namespace string, ne
 	case v1alpha2.NetworksTypeNetwork:
 		obj.SetGroupVersionKind(NetworkGVK)
 		key.Namespace = namespace
+	case v1alpha2.NetworksTypeUnderlayNetwork:
+		obj.SetGroupVersionKind(UnderlayNetworkGVK)
 	default:
 		return nil, false, nil
 	}

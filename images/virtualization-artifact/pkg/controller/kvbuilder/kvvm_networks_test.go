@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -112,5 +113,71 @@ var _ = Describe("setNetwork", func() {
 		})
 
 		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface).To(BeNil())
+	})
+})
+
+var _ = Describe("setNetwork with UnderlayNetwork entries", func() {
+	newKVVM := func() *KVVM {
+		return NewEmptyKVVM(namespacedName("test-vm", "test-ns"), KVVMOptions{})
+	}
+
+	underlaySpec := network.InterfaceSpec{
+		ID:          2,
+		Type:        v1alpha2.NetworksTypeUnderlayNetwork,
+		Name:        "fast",
+		MAC:         "aa:bb:cc:dd:ee:01",
+		BindingMode: network.BindingModeVFIOPCI,
+		VFMAC:       "aa:bb:cc:dd:ee:01",
+	}
+
+	It("creates a resource claim and a host device instead of an interface", func() {
+		kvvm := newKVVM()
+		setNetwork(kvvm, network.InterfaceSpecList{
+			{Type: v1alpha2.NetworksTypeMain, InterfaceName: network.NameDefaultInterface, ID: 1},
+			underlaySpec,
+		})
+
+		templateSpec := kvvm.Resource.Spec.Template.Spec
+		Expect(templateSpec.Domain.Devices.Interfaces).To(HaveLen(1))
+		Expect(templateSpec.Domain.Devices.Interfaces[0].Name).To(Equal(network.NameDefaultInterface))
+
+		Expect(templateSpec.ResourceClaims).To(HaveLen(1))
+		claim := templateSpec.ResourceClaims[0]
+		Expect(claim.Name).To(Equal("un-fast"))
+		Expect(*claim.ResourceClaimTemplateName).To(Equal("d8-sdn-fast"))
+
+		Expect(templateSpec.Domain.Devices.HostDevices).To(HaveLen(1))
+		dev := templateSpec.Domain.Devices.HostDevices[0]
+		Expect(dev.Name).To(Equal("un-fast"))
+		Expect(*dev.ClaimName).To(Equal("un-fast"))
+		Expect(*dev.RequestName).To(Equal("nic"))
+	})
+
+	It("removes the claim and the host device when the entry is gone", func() {
+		kvvm := newKVVM()
+		setNetwork(kvvm, network.InterfaceSpecList{underlaySpec})
+		setNetwork(kvvm, network.InterfaceSpecList{})
+
+		templateSpec := kvvm.Resource.Spec.Template.Spec
+		Expect(templateSpec.ResourceClaims).To(BeEmpty())
+		Expect(templateSpec.Domain.Devices.HostDevices).To(BeEmpty())
+	})
+
+	It("keeps claims and host devices it does not own", func() {
+		kvvm := newKVVM()
+		kvvm.Resource.Spec.Template.Spec.ResourceClaims = []virtv1.ResourceClaim{
+			{PodResourceClaim: corev1.PodResourceClaim{Name: "gpu-claim"}},
+		}
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.HostDevices = []virtv1.HostDevice{
+			{Name: "gpu-dev"},
+		}
+		setNetwork(kvvm, network.InterfaceSpecList{underlaySpec})
+		setNetwork(kvvm, network.InterfaceSpecList{})
+
+		templateSpec := kvvm.Resource.Spec.Template.Spec
+		Expect(templateSpec.ResourceClaims).To(HaveLen(1))
+		Expect(templateSpec.ResourceClaims[0].Name).To(Equal("gpu-claim"))
+		Expect(templateSpec.Domain.Devices.HostDevices).To(HaveLen(1))
+		Expect(templateSpec.Domain.Devices.HostDevices[0].Name).To(Equal("gpu-dev"))
 	})
 })

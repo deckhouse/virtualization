@@ -122,6 +122,16 @@ func (v *NetworksValidator) validateNetworksExist(ctx context.Context, namespace
 			if err != nil {
 				return nil, fmt.Errorf("failed to verify Network %q: %w", n.Name, err)
 			}
+		case v1alpha2.NetworksTypeUnderlayNetwork:
+			obj := &unstructured.Unstructured{}
+			obj.SetGroupVersionKind(commonnetwork.UnderlayNetworkGVK)
+			err := v.client.Get(ctx, types.NamespacedName{Name: n.Name}, obj)
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("UnderlayNetwork %q referenced in spec.networks does not exist", n.Name)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify UnderlayNetwork %q: %w", n.Name, err)
+			}
 		}
 	}
 	return nil, nil
@@ -153,9 +163,39 @@ func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.Network
 		if err := v.validateNetworkID(network); err != nil {
 			return nil, err
 		}
+
+		if err := v.validateUnderlayNetworkFields(network); err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil
+}
+
+// validateUnderlayNetworkFields checks the fields specific to SR-IOV VF
+// passthrough: vlanID makes sense only on an UnderlayNetwork entry, and
+// UnderlayNetwork entries have no platform IPAM, so ipAddressName is rejected.
+func (v *NetworksValidator) validateUnderlayNetworkFields(network v1alpha2.NetworksSpec) error {
+	if network.Type != v1alpha2.NetworksTypeUnderlayNetwork {
+		if network.VLANID != nil {
+			return fmt.Errorf("vlanID is only applicable to networks of type %s, but it is set for network %s", v1alpha2.NetworksTypeUnderlayNetwork, v.getNetworkIdentifier(network))
+		}
+		return nil
+	}
+
+	if !v.featureGate.Enabled(featuregates.SRIOV) {
+		return fmt.Errorf("spec.networks has a network of type %s, this configuration requires the SRIOV feature gate to be enabled", v1alpha2.NetworksTypeUnderlayNetwork)
+	}
+
+	if vlanID := ptr.Deref(network.VLANID, 1); vlanID < 1 || vlanID > 4094 {
+		return fmt.Errorf("vlanID must be between 1 and 4094 for network %s, got %d", v.getNetworkIdentifier(network), vlanID)
+	}
+
+	if network.IPAddressName != "" {
+		return fmt.Errorf("ipAddressName is not applicable to networks of type %s (network %s): the guest OS configures IP addressing on the passed-through interface itself", v1alpha2.NetworksTypeUnderlayNetwork, v.getNetworkIdentifier(network))
+	}
+
+	return nil
 }
 
 func (v *NetworksValidator) validateNetworkName(networkType, networkName string) error {

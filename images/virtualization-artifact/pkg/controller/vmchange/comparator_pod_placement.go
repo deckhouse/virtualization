@@ -17,6 +17,8 @@ limitations under the License.
 package vmchange
 
 import (
+	"fmt"
+	"maps"
 	"reflect"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
@@ -92,7 +94,8 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 	action := ActionRestart
 	if isOnlyNetworkIDAutofillChange(current.Networks, desired.Networks) {
 		action = ActionNone
-	} else if isOnlyNonMainNetworksChanged(current.Networks, desired.Networks) {
+	} else if isOnlyNonMainNetworksChanged(current.Networks, desired.Networks) &&
+		!isUnderlayNetworksChanged(current.Networks, desired.Networks) {
 		action = ActionApplyImmediate
 	}
 
@@ -114,6 +117,30 @@ func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool
 
 func hasMainNetwork(networks []v1alpha2.NetworksSpec) bool {
 	return len(networks) == 0 || network.GetMainNetworkSpec(networks) != nil
+}
+
+// isUnderlayNetworksChanged reports whether the set of UnderlayNetwork entries
+// differs between current and desired. Such entries are backed by an SR-IOV VF
+// host device, which cannot be attached or detached on a running VM, so any
+// change to them requires a restart.
+func isUnderlayNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
+	key := func(n v1alpha2.NetworksSpec) string {
+		vlan := 0
+		if n.VLANID != nil {
+			vlan = *n.VLANID
+		}
+		return fmt.Sprintf("%s/%d/%s", n.Name, vlan, n.VirtualMachineMACAddressName)
+	}
+	underlaySet := func(networks []v1alpha2.NetworksSpec) map[string]struct{} {
+		set := make(map[string]struct{})
+		for _, n := range networks {
+			if n.Type == v1alpha2.NetworksTypeUnderlayNetwork {
+				set[key(n)] = struct{}{}
+			}
+		}
+		return set
+	}
+	return !maps.Equal(underlaySet(current), underlaySet(desired))
 }
 
 func isOnlyNetworkIDAutofillChange(current, desired []v1alpha2.NetworksSpec) bool {
