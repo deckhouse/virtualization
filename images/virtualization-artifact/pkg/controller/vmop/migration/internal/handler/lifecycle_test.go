@@ -1573,6 +1573,98 @@ var _ = Describe("LifecycleHandler", func() {
 	})
 })
 
+var _ = Describe("target preparation timeout", func() {
+	const (
+		name      = "test"
+		namespace = "default"
+	)
+
+	var (
+		ctx          context.Context
+		recorderMock *eventrecord.EventRecorderLoggerMock
+	)
+
+	BeforeEach(func() {
+		ctx = testutil.ContextBackgroundWithNoOpLogger()
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
+	})
+
+	newVMOP := func(reason vmopcondition.ReasonCompleted, age time.Duration) *v1alpha2.VirtualMachineOperation {
+		vmop := vmopbuilder.New(
+			vmopbuilder.WithName(name),
+			vmopbuilder.WithNamespace(namespace),
+			vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+			vmopbuilder.WithVirtualMachine(name),
+		)
+		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+		vmop.Status.Conditions = []metav1.Condition{{
+			Type:               vmopcondition.TypeCompleted.String(),
+			Status:             metav1.ConditionFalse,
+			Reason:             reason.String(),
+			LastTransitionTime: metav1.NewTime(time.Now().Add(-age)),
+		}}
+		return vmop
+	}
+
+	newHandler := func(objs ...client.Object) (*LifecycleHandler, client.Client) {
+		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
+		Expect(err).NotTo(HaveOccurred())
+		return NewLifecycleHandler(fakeClient, service.NewMigrationService(fakeClient, featuregates.Default()), nil, recorderMock, ""), fakeClient
+	}
+
+	completed := func(vmop *v1alpha2.VirtualMachineOperation) metav1.Condition {
+		cond, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		return cond
+	}
+
+	It("cancels the stalled migration and keeps the operation in flight until it is gone", func() {
+		mig := newSimpleMigration("vmop-"+name, name)
+		mig.Finalizers = []string{"keep"}
+		mig.Status.Phase = virtv1.MigrationPreparingTarget
+		h, fakeClient := newHandler(mig)
+		vmop := newVMOP(vmopcondition.ReasonTargetPreparing, prepareTargetTimeout+time.Minute)
+
+		Expect(h.syncOperationComplete(ctx, vmop)).To(Succeed())
+
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+		Expect(completed(vmop).Reason).To(Equal(vmopcondition.ReasonAborting.String()))
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(mig), mig)).To(Succeed())
+		Expect(mig.DeletionTimestamp).NotTo(BeNil(), "the migration must be deleted")
+
+		Expect(h.syncOperationComplete(ctx, vmop)).To(Succeed(), "the migration is still being torn down")
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+		Expect(completed(vmop).Reason).To(Equal(vmopcondition.ReasonAborting.String()))
+	})
+
+	It("fails the operation as aborted once the canceled migration is gone", func() {
+		h, _ := newHandler()
+		vmop := newVMOP(vmopcondition.ReasonAborting, time.Minute)
+
+		Expect(h.syncOperationComplete(ctx, vmop)).To(Succeed())
+
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(completed(vmop).Reason).To(Equal(vmopcondition.ReasonAborted.String()))
+		Expect(completed(vmop).Message).To(Equal("Migration aborted: the target did not become ready in time"))
+	})
+
+	It("fails the operation as aborted with the timeout message when the migration reports the abort", func() {
+		mig := newSimpleMigration("vmop-"+name, name)
+		mig.Status.Phase = virtv1.MigrationFailed
+		mig.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{AbortRequested: true, AbortStatus: virtv1.MigrationAbortSucceeded}
+		h, _ := newHandler(mig)
+		vmop := newVMOP(vmopcondition.ReasonAborting, time.Minute)
+
+		Expect(h.syncOperationComplete(ctx, vmop)).To(Succeed())
+
+		Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+		Expect(completed(vmop).Reason).To(Equal(vmopcondition.ReasonAborted.String()))
+		Expect(completed(vmop).Message).To(Equal("Migration aborted: the target did not become ready in time"))
+	})
+})
+
 var _ = Describe("isTargetPreparationStalled", func() {
 	now := time.Now()
 	condAged := func(reason vmopcondition.ReasonCompleted, age time.Duration) metav1.Condition {

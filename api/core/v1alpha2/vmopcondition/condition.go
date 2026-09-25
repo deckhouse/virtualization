@@ -101,6 +101,10 @@ const (
 	// ReasonTargetPreparing indicates that target pod is being prepared.
 	ReasonTargetPreparing ReasonCompleted = "TargetPreparing"
 
+	// ReasonAborting indicates that the operation is aborting the migration and waits for
+	// the abort to complete.
+	ReasonAborting ReasonCompleted = "Aborting"
+
 	// ReasonSyncing indicates that source and target are synchronizing migration data.
 	ReasonSyncing ReasonCompleted = "Syncing"
 

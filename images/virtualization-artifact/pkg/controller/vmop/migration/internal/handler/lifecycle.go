@@ -50,6 +50,8 @@ const lifecycleHandlerName = "LifecycleHandler"
 
 const timeElapsedUpdateInterval = 10 * time.Second
 
+const messageAbortedTargetNotReady = "Migration aborted: the target did not become ready in time"
+
 // waitForVMReadyToMigrateTimeout fails a migration whose disks never sync instead
 // of waiting for ReadyToMigrate forever. Healthy migrations reach it within ~1m.
 const waitForVMReadyToMigrateTimeout = 5 * time.Minute
@@ -323,6 +325,8 @@ func (h LifecycleHandler) syncOperationCompleteResult(ctx context.Context, vmop 
 
 func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
+	prevCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	aborting := prevCompleted.Reason == vmopcondition.ReasonAborting.String()
 
 	mig, err := h.migration.GetMigration(ctx, vmop)
 	if err != nil {
@@ -359,6 +363,10 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		} else {
 			msg = "Migration failed because the virtual machine is currently not running."
 		}
+		if aborting {
+			completedCond.Reason(vmopcondition.ReasonAborted)
+			msg = messageAbortedTargetNotReady
+		}
 		if msg != "" {
 			completedCond.Message(msg)
 		}
@@ -374,6 +382,9 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 
 		reason := h.getFailedReason(mig)
+		if aborting {
+			reason = vmopcondition.ReasonAborted
+		}
 		if reason == vmopcondition.ReasonFailed {
 			if prev, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions); found {
 				if prev.Reason == vmopcondition.ReasonNotConverging.String() {
@@ -382,6 +393,9 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 			}
 		}
 		msg := h.getFailedMessage(reason, mig)
+		if aborting {
+			msg = messageAbortedTargetNotReady
+		}
 		// The event carries the same message as the condition: it is the only place an operator
 		// looking at the events sees why the migration failed. The event of KubeVirt next to it
 		// names the shutdown of the target pod, which is the consequence rather than the cause.
@@ -421,19 +435,23 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		}
 	}
 
-	prevCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	if isTargetPreparationStalled(reason, prevCompleted, time.Now()) {
+	// The operation stays in flight while the canceled migration is torn down and fails
+	// only once the migration is gone: a final operation with a live target leaves the
+	// target behind for the next operation, which is then refused by the unfinished one.
+	if aborting || isTargetPreparationStalled(reason, prevCompleted, time.Now()) {
 		if err := h.migration.DeleteMigration(ctx, vmop); err != nil {
 			return fmt.Errorf("failed to delete migration stuck preparing target: %w", err)
 		}
-		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Timed out preparing the migration target")
+		if !aborting {
+			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Timed out preparing the migration target, aborting the migration")
+		}
+		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 		vmop.Status.Progress = migrationprogress.FormatPercent(h.calculateMigrationProgress(vmop, mig, reason))
 		conditions.SetCondition(
 			completedCond.
 				Status(metav1.ConditionFalse).
-				Reason(vmopcondition.ReasonOperationFailed).
-				Message("Timed out preparing the migration target."),
+				Reason(vmopcondition.ReasonAborting).
+				Message("Timed out preparing the migration target. The migration is being aborted."),
 			&vmop.Status.Conditions)
 		return nil
 	}

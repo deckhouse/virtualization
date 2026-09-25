@@ -198,6 +198,13 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonTargetPreparing.String():
 			cb.Message("Migration is in progress: preparing the migration target.")
 
+		case vmopcondition.ReasonAborting.String():
+			if commonvmop.IsFinished(vmop) {
+				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
+				return nil
+			}
+			cb.Message(fmt.Sprintf("Migration is being aborted; VirtualMachineOperation: %s.", vmop.Name))
+
 		case vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonSyncing.String(), vmopcondition.ReasonSourceSuspended.String(), vmopcondition.ReasonTargetResumed.String():
 			cb.Message("Migration is in progress: source and target are being synchronized.")
 

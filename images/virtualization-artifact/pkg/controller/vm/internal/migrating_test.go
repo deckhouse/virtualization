@@ -295,6 +295,38 @@ var _ = Describe("MigratingHandler", func() {
 			Expect(cond.Message).To(Equal("Migration is in progress: preparing the migration target."))
 		})
 
+		It("Should report the abort while the vmop is aborting the migration", func() {
+			vm := newVM()
+			kvvmi := newKVVMI(nil)
+			vmop := newVMOP(v1alpha2.VMOPPhaseInProgress, vmopcondition.ReasonAborting.String(), true)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
+			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
+			Expect(exists).To(BeTrue())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Message).To(HavePrefix("Migration is being aborted; VirtualMachineOperation: "))
+		})
+
+		It("Should remove condition when the aborting vmop is finished", func() {
+			vm := newVM()
+			kvvmi := newKVVMI(nil)
+			vmop := newVMOP(v1alpha2.VMOPPhaseFailed, vmopcondition.ReasonAborting.String(), true)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
+
+			reconcile()
+
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+
+			_, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
+			Expect(exists).To(BeFalse())
+		})
+
 		It("Should set active progress message when vmop is in progress with target ready reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
