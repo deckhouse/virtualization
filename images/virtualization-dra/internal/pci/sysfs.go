@@ -103,6 +103,13 @@ func (s sysfs) iommuGroup(address string) (int, error) {
 	return group, nil
 }
 
+// hasResetMethod reports whether the kernel exposes a reset for the device
+// (FLR, PM, bus or ACPI reset); the sysfs "reset" attribute exists only then.
+func (s sysfs) hasResetMethod(address string) bool {
+	_, err := os.Stat(filepath.Join(s.deviceDir(address), "reset"))
+	return err == nil
+}
+
 func (s sysfs) numaNode(address string) int64 {
 	value, err := s.readDeviceFile(address, "numa_node")
 	if err != nil {

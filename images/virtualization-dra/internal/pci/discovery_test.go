@@ -61,6 +61,7 @@ type fakeDevice struct {
 	driver     string
 	netUp      *bool
 	blocks     []fakeBlockDevice
+	noReset    bool
 }
 
 type fakeSysfs struct {
@@ -95,6 +96,9 @@ func (f *fakeSysfs) add(dev fakeDevice) {
 	writeFile("device", "0x"+dev.device)
 	writeFile("class", "0x"+dev.class)
 	writeFile("numa_node", "0")
+	if !dev.noReset {
+		writeFile("reset", "")
+	}
 
 	if dev.iommuGroup >= 0 {
 		groupDir := filepath.Join(f.root, "kernel", "iommu_groups", strconv.Itoa(dev.iommuGroup))
@@ -194,7 +198,30 @@ var _ = Describe("PCI device discovery", func() {
 		Entry("memory controller", "058000"),
 		Entry("bridge", "060400"),
 		Entry("system peripheral", "088000"),
+		Entry("encryption controller (AMD PSP)", "108000"),
+		Entry("non-essential instrumentation", "130000"),
+		Entry("audio device", "040300"),
+		Entry("USB host controller", "0c0330"),
 	)
+
+	DescribeTable("keeps sibling subclasses of a denied subclass",
+		func(class string) {
+			fs := newFakeSysfs()
+			fs.add(fakeDevice{address: "0000:01:00.0", vendor: "10df", device: "e300", class: class, iommuGroup: 1})
+
+			Expect(fs.discover()).To(HaveKey("0000:01:00.0"))
+		},
+		Entry("Fibre Channel", "0c0400"),
+		Entry("InfiniBand", "0c0600"),
+		Entry("video capture", "040000"),
+	)
+
+	It("excludes a device without a reset method", func() {
+		fs := newFakeSysfs()
+		fs.add(fakeDevice{address: "0000:01:00.0", vendor: "10ee", device: "9038", class: "120000", iommuGroup: 1, noReset: true})
+
+		Expect(fs.discover()).To(BeEmpty())
+	})
 
 	DescribeTable("storage controllers follow the block device occupancy",
 		func(blocks []fakeBlockDevice, published bool) {
@@ -260,7 +287,7 @@ var _ = Describe("PCI device discovery", func() {
 	It("discovers a device sharing an IOMMU group only with a bridge", func() {
 		fs := newFakeSysfs()
 		fs.add(fakeDevice{address: "0000:00:1c.0", vendor: "8086", device: "a33c", class: "060400", iommuGroup: 4})
-		fs.add(fakeDevice{address: "0000:04:00.0", vendor: "1912", device: "0014", class: "0c0330", iommuGroup: 4})
+		fs.add(fakeDevice{address: "0000:04:00.0", vendor: "10ee", device: "9038", class: "120000", iommuGroup: 4})
 
 		devices := fs.discover()
 		Expect(devices).To(HaveLen(1))

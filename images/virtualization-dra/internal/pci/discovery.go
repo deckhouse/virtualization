@@ -33,14 +33,30 @@ const (
 	classMemoryController = "05"
 	classBridge           = "06"
 	classSystemPeripheral = "08"
+	classEncryption       = "10"
+	classInstrumentation  = "13"
+
+	subclassAudio         = "0403"
+	subclassUSBController = "0c03"
 )
 
+// deniedClasses holds base classes (2 hex digits) and subclasses (4 hex
+// digits); a device is denied when either prefix of its class code matches.
 var deniedClasses = map[string]struct{}{
 	// Display controllers belong to the GPU module (gpu.deckhouse.io).
 	classDisplay:          {},
 	classMemoryController: {},
 	classBridge:           {},
 	classSystemPeripheral: {},
+	// The platform security processor (AMD PSP/CCP, Intel CSME) backs the host
+	// fTPM, SEV and hardware RNG.
+	classEncryption: {},
+	// Non-essential instrumentation: vendor dummy and reserved functions.
+	classInstrumentation: {},
+	// Integrated audio and USB host controllers are platform functions;
+	// USB devices are passed through individually via usbip instead.
+	subclassAudio:         {},
+	subclassUSBController: {},
 }
 
 // isRootComplexIntegrated reports whether the device sits directly on the
@@ -58,6 +74,21 @@ func baseClass(classCode string) string {
 		return classCode
 	}
 	return classCode[:2]
+}
+
+func subClass(classCode string) string {
+	if len(classCode) < 4 {
+		return classCode
+	}
+	return classCode[:4]
+}
+
+func isDeniedClass(classCode string) bool {
+	if _, denied := deniedClasses[baseClass(classCode)]; denied {
+		return true
+	}
+	_, denied := deniedClasses[subClass(classCode)]
+	return denied
 }
 
 func isBridge(classCode string) bool {
@@ -153,7 +184,12 @@ func (s sysfs) deviceAllowed(device *Device) (bool, error) {
 	if isRootComplexIntegrated(device.Address) {
 		return false, nil
 	}
-	if _, denied := deniedClasses[baseClass(device.ClassCode)]; denied {
+	if isDeniedClass(device.ClassCode) {
+		return false, nil
+	}
+	// Without a reset method vfio-pci cannot return the device to a clean
+	// state between VMs, so its state leaks and the host may never get it back.
+	if !s.hasResetMethod(device.Address) {
 		return false, nil
 	}
 	if baseClass(device.ClassCode) == classNetwork {
