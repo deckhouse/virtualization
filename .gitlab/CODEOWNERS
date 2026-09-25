@@ -1,16 +1,16 @@
 ^[Optional]
 * @dmitry.rakitin
-/.github/ @nikita.korolev @maksim.fedotov
-/.gitlab/ @nikita.korolev @maksim.fedotov
+/.github/ @maksim.fedotov
+/.gitlab/ @maksim.fedotov
 
 /crds/ @pavel.tishkov @vladislav.panfilov @georgy.dauman
 /docs/ @pavel.tishkov @vladislav.panfilov @georgy.dauman
 /openapi/ @pavel.tishkov @vladislav.panfilov @georgy.dauman
 /monitoring/ @pavel.tishkov @dmitry.rakitin
 /test/ @roman.sysoev @daniil.antoshin
-/CHANGELOG/ @nikita.korolev @maksim.fedotov
+/CHANGELOG/ @maksim.fedotov
 
-/images/ @nikita.korolev @maksim.fedotov
+/images/ @maksim.fedotov
 /images/pvc-artifact/ @dmitry.rakitin @yaroslav.borbat @ivan.mikheykin
 /images/virt-artifact/ @dmitry.rakitin @yaroslav.borbat @ivan.mikheykin
 /images/dvcr-artifact/ @dmitry.rakitin @yaroslav.borbat @ivan.mikheykin
@@ -21,5 +21,5 @@
 /images/virtualization-artifact/pkg/controller/vmip/ @dmitry.lopatin @dmitry.rakitin
 /images/virtualization-artifact/pkg/controller/vmiplease/ @dmitry.lopatin @dmitry.rakitin
 
-*werf* @nikita.korolev @maksim.fedotov
-/.werf/ @nikita.korolev @maksim.fedotov
+*werf* @maksim.fedotov
+/.werf/ @maksim.fedotov
