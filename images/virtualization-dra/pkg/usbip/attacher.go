@@ -29,6 +29,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip/protocol"
 )
@@ -36,6 +38,13 @@ import (
 // ErrPortAlreadyDetached is returned by Detach when the vhci port holds no
 // device any more, e.g. the exporting node took the device back.
 var ErrPortAlreadyDetached = errors.New("port is already detached")
+
+const (
+	usbIPTCPKeepAliveIdle     = 10 * time.Second
+	usbIPTCPKeepAliveInterval = 3 * time.Second
+	usbIPTCPKeepAliveCount    = 3
+	usbIPTCPUserTimeout       = 15 * time.Second
+)
 
 func NewUSBAttacher() USBAttacher {
 	return &usbAttacher{}
@@ -205,14 +214,67 @@ func (a *usbAttacher) usbipNetTCPConnect(host, port string) (*net.TCPConn, error
 		return nil, fmt.Errorf("set TCP_NODELAY: %w", err)
 	}
 
-	if err := conn.SetKeepAlive(true); err != nil {
+	// vhci_hcd owns this socket after attach: the kernel blocks in
+	// sock_recvmsg(MSG_WAITALL) with no receive timeout of its own
+	// (https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/drivers/usb/usbip/usbip_common.c#L320)
+	// and raises VDEV_EVENT_ERROR_TCP only once that call fails. On a network
+	// black hole, where the peer vanishes without FIN or RST, there is no
+	// failure to observe: pending URBs stay queued, no rh_port_disconnect()
+	// happens and the guest hangs for as long as the device is unreachable.
+	//
+	// Bound that with socket options, which stay on the socket after its fd is
+	// handed to the kernel:
+	//   - keepalive notices a silent peer on an idle session; with Linux
+	//     defaults (tcp_keepalive_time=7200) the first probe is two hours away;
+	//   - TCP_USER_TIMEOUT covers active USB I/O, where liveness is decided by
+	//     the retransmission timer (tcp_retries2, i.e. minutes), not keepalive.
+	//
+	// TCP_USER_TIMEOUT also wins over the keepalive probe count in
+	// tcp_keepalive_timer(), so the socket fails ~15s after the last received
+	// byte. A blip longer than that now costs a USB disconnect in the guest
+	// instead of freezing the whole VM for the same time.
+	if err := conn.SetKeepAliveConfig(net.KeepAliveConfig{
+		Enable:   true,
+		Idle:     usbIPTCPKeepAliveIdle,
+		Interval: usbIPTCPKeepAliveInterval,
+		Count:    usbIPTCPKeepAliveCount,
+	}); err != nil {
 		if conErr := conn.Close(); conErr != nil {
 			slog.Error("failed to close connection", slog.String("error", conErr.Error()))
 		}
-		return nil, fmt.Errorf("set keepalive: %w", err)
+		return nil, fmt.Errorf("configure TCP keepalive: %w", err)
+	}
+
+	if err := setTCPUserTimeout(conn, usbIPTCPUserTimeout); err != nil {
+		if conErr := conn.Close(); conErr != nil {
+			slog.Error("failed to close connection", slog.String("error", conErr.Error()))
+		}
+		return nil, fmt.Errorf("set TCP user timeout: %w", err)
 	}
 
 	return conn, nil
+}
+
+func setTCPUserTimeout(conn *net.TCPConn, timeout time.Duration) error {
+	rawConn, err := conn.SyscallConn()
+	if err != nil {
+		return fmt.Errorf("get raw connection: %w", err)
+	}
+
+	var socketErr error
+	err = rawConn.Control(func(fd uintptr) {
+		socketErr = unix.SetsockoptInt(
+			int(fd), unix.IPPROTO_TCP, unix.TCP_USER_TIMEOUT, int(timeout.Milliseconds()),
+		)
+	})
+	if err != nil {
+		return fmt.Errorf("access socket: %w", err)
+	}
+	if socketErr != nil {
+		return fmt.Errorf("set socket option: %w", socketErr)
+	}
+
+	return nil
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_attach.c#L120
