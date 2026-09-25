@@ -40,8 +40,7 @@ import (
 
 const nameOperationHandler = "OperationHandler"
 
-// OperationHandler reports what is being done to the virtual machine right now, and what the last
-// thing done to it was.
+// OperationHandler reports what is being done to the virtual machine right now.
 //
 // It is an aggregate. Every operation it reports is described by a resource of its own —
 // VirtualMachineOperation, VirtualMachineSnapshot, VirtualMachineBlockDeviceAttachment — and the
@@ -49,9 +48,10 @@ const nameOperationHandler = "OperationHandler"
 // single question, "is anything happening to this machine", so that a consumer does not have to
 // know which resource to look at.
 //
-// The condition has two states and no third one: True while an operation is being performed, False
-// when the last operation has failed. Nothing is remembered — it is recalculated from the resources
-// that exist at the moment, and a failure is reported for as long as the failed operation is kept.
+// Like Migrating and Snapshotting, the condition is present only while an operation is being
+// performed. The outcome of a finished operation, a failure included, is reported by the operation
+// itself: a machine that has reached the state it was asked for would otherwise keep showing an
+// error nobody has to deal with any more.
 type OperationHandler struct {
 	client client.Client
 }
@@ -90,10 +90,9 @@ func (h *OperationHandler) Name() string {
 	return nameOperationHandler
 }
 
-// observe returns the condition to report, or nil when nothing is known about the operations of the
-// virtual machine. The order of the checks is the order of importance: a running operation matters
-// more than a finished one, and an operation applied to the machine as a whole matters more than an
-// attachment of a single block device.
+// observe returns the condition to report, or nil when nothing is being performed on the virtual
+// machine. The order of the checks is the order of importance: an operation applied to the machine
+// as a whole matters more than an attachment of a single block device.
 func (h *OperationHandler) observe(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (*conditions.ConditionBuilder, error) {
 	vmops, err := s.VMOPs(ctx)
 	if err != nil {
@@ -127,33 +126,7 @@ func (h *OperationHandler) observe(ctx context.Context, s state.VirtualMachineSt
 	if err != nil {
 		return nil, fmt.Errorf("get internal virtual machine: %w", err)
 	}
-	if cb = powerStateRequested(kvvm); cb != nil {
-		return cb, nil
-	}
-
-	// Only a failure outlives the operation that caused it. An operation that has completed, or
-	// that was superseded or is being deleted, leaves nothing behind: a machine nobody touches
-	// reports no condition at all, so its presence always means either work in progress or a
-	// failure to look at. A later operation that finishes cleanly clears the failure of an
-	// earlier one, because only the newest finished operation is reported.
-	if last := lastFinished(vmops); last != nil {
-		if cb = operationFailed(last); cb != nil {
-			return cb, nil
-		}
-	}
-
-	return nil, nil
-}
-
-// lastFinished returns the newest operation that has reached a terminal phase.
-func lastFinished(vmops []*v1alpha2.VirtualMachineOperation) *v1alpha2.VirtualMachineOperation {
-	for i := len(vmops) - 1; i >= 0; i-- {
-		if commonvmop.IsFinished(vmops[i]) {
-			return vmops[i]
-		}
-	}
-
-	return nil
+	return powerStateRequested(kvvm), nil
 }
 
 // snapshotRunning reports a snapshot of the whole machine. A snapshot of a single disk is not
@@ -296,31 +269,8 @@ func operationRunning(vmop *v1alpha2.VirtualMachineOperation) *conditions.Condit
 		Message(fmt.Sprintf("%s; VirtualMachineOperation: %s.", message, vmop.GetName()))
 }
 
-// operationFailed reports an operation that has failed. Any other outcome is not reported at all:
-// a machine that has been restarted successfully is simply a machine nobody is doing anything to.
-func operationFailed(vmop *v1alpha2.VirtualMachineOperation) *conditions.ConditionBuilder {
-	if vmop.Status.Phase != v1alpha2.VMOPPhaseFailed {
-		return nil
-	}
-
-	description := describeOperation(vmop)
-	if description.reason == "" {
-		return nil
-	}
-
-	message := fmt.Sprintf("%s has failed", description.noun)
-	if detail := operationDetail(vmop); detail != "" {
-		message = fmt.Sprintf("%s: %s", message, detail)
-	}
-
-	return conditions.NewConditionBuilder(vmcondition.TypeOperationInProgress).
-		Status(metav1.ConditionFalse).
-		Reason(vmcondition.ReasonOperationFailed).
-		Message(fmt.Sprintf("%s; VirtualMachineOperation: %s.", message, vmop.GetName()))
-}
-
 // operationDetail returns what the operation reports about itself: the migration controller keeps
-// the description of the current step, or of the failure, in the Completed condition.
+// the description of the current step in the Completed condition.
 func operationDetail(vmop *v1alpha2.VirtualMachineOperation) string {
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 	return strings.TrimSuffix(strings.TrimSpace(completed.Message), ".")
@@ -338,8 +288,6 @@ type operationDescription struct {
 	reason vmcondition.OperationInProgressReason
 	// running describes the operation while it is being performed.
 	running string
-	// noun names the operation when its outcome is reported.
-	noun string
 }
 
 func describeOperation(vmop *v1alpha2.VirtualMachineOperation) operationDescription {
@@ -348,25 +296,21 @@ func describeOperation(vmop *v1alpha2.VirtualMachineOperation) operationDescript
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineStarting,
 			running: "The virtual machine is starting",
-			noun:    "Start of the virtual machine",
 		}
 	case v1alpha2.VMOPTypeStop:
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineStopping,
 			running: "The virtual machine is stopping",
-			noun:    "Stop of the virtual machine",
 		}
 	case v1alpha2.VMOPTypeRestart:
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineRestarting,
 			running: "The virtual machine is restarting",
-			noun:    "Restart of the virtual machine",
 		}
 	case v1alpha2.VMOPTypeMigrate:
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineMigrating,
 			running: "The virtual machine is being migrated to another node",
-			noun:    "Migration of the virtual machine",
 		}
 	case v1alpha2.VMOPTypeEvict:
 		return describeEviction(vmop)
@@ -374,13 +318,11 @@ func describeOperation(vmop *v1alpha2.VirtualMachineOperation) operationDescript
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineRestoring,
 			running: "The virtual machine is being restored from a snapshot",
-			noun:    "Restore of the virtual machine",
 		}
 	case v1alpha2.VMOPTypeClone:
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineCloning,
 			running: "The virtual machine is being cloned",
-			noun:    "Clone of the virtual machine",
 		}
 	default:
 		return operationDescription{}
@@ -395,7 +337,6 @@ func describeEviction(vmop *v1alpha2.VirtualMachineOperation) operationDescripti
 		return operationDescription{
 			reason:  vmcondition.ReasonVolumeMigrating,
 			running: "The disks of the virtual machine are being moved to another storage",
-			noun:    "Migration of the disks of the virtual machine",
 		}
 	}
 
@@ -405,25 +346,21 @@ func describeEviction(vmop *v1alpha2.VirtualMachineOperation) operationDescripti
 			return operationDescription{
 				reason:  vmcondition.ReasonFirmwareUpdating,
 				running: "The virtual machine is being migrated to update its firmware",
-				noun:    "Firmware update of the virtual machine",
 			}
 		case strings.HasPrefix(name, commonvmop.NodePlacementUpdatePrefix):
 			return operationDescription{
 				reason:  vmcondition.ReasonNodePlacementUpdating,
 				running: "The virtual machine is being migrated to apply its new node placement",
-				noun:    "Node placement update of the virtual machine",
 			}
 		case strings.HasPrefix(name, commonvmop.HotplugResourcesPrefix):
 			return operationDescription{
 				reason:  vmcondition.ReasonResourcesHotplugging,
 				running: "The virtual machine is being migrated to apply the hot-plugged CPU and memory",
-				noun:    "Hot-plug of CPU and memory of the virtual machine",
 			}
 		default:
 			return operationDescription{
 				reason:  vmcondition.ReasonWorkloadUpdating,
 				running: "The virtual machine is being migrated to update its workload",
-				noun:    "Workload update of the virtual machine",
 			}
 		}
 	}
@@ -431,7 +368,6 @@ func describeEviction(vmop *v1alpha2.VirtualMachineOperation) operationDescripti
 	return operationDescription{
 		reason:  vmcondition.ReasonVirtualMachineEvacuating,
 		running: "The virtual machine is being evicted from its node",
-		noun:    "Eviction of the virtual machine",
 	}
 }
 
