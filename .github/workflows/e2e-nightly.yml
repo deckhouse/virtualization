@@ -241,6 +241,9 @@ jobs:
 
       - name: Send results to channel
         id: render-report
+        # Deliver the report even if chart generation failed (e.g. a failed
+        # pipeline produced no artifacts): the notification must still be sent.
+        if: ${{ !cancelled() }}
         uses: actions/github-script@v8
         env:
           EXPECTED_STORAGE_TYPES: '["replicated","nfs","ceph"]'

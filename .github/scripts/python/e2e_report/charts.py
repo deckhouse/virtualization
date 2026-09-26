@@ -552,7 +552,13 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "messenger-all":
         if not list_report_files(args.reports_dir):
-            raise SystemExit(f'No report files found in "{args.reports_dir}".')
+            # A failed pipeline produces no report artifacts. Still write an empty
+            # manifest and exit 0 so the downstream messenger step can deliver a
+            # "results are missing" report instead of being skipped.
+            print(
+                f'No report files found in "{args.reports_dir}"; writing an empty manifest.',
+                file=sys.stderr,
+            )
         render_messenger_charts(args.reports_dir, args.out_dir, args.manifest)
         if args.debug_json:
             write_debug_json(collect_messenger_debug(args.reports_dir), args.debug_json)
@@ -564,7 +570,13 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "top":
         if not list_report_files(args.reports_dir):
-            raise SystemExit(f'No report files found in "{args.reports_dir}".')
+            # No artifacts (e.g. the pipeline failed before any tests ran): nothing
+            # to chart. Warn and exit 0 so the reporting job is not marked failed.
+            print(
+                f'No report files found in "{args.reports_dir}"; nothing to render.',
+                file=sys.stderr,
+            )
+            return
         files = render_top_describes(args.reports_dir, args.out_dir, args.top_n)
         if args.debug_json:
             write_debug_json(collect_top_debug(args.reports_dir, args.top_n), args.debug_json)

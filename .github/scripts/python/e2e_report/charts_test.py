@@ -345,15 +345,39 @@ class MainDispatchTest(unittest.TestCase):
             self.assertTrue(debug_path.is_file())
             self.assertTrue((chart_out / "nfs-VM-slowest-specs.png").is_file())
 
-    def test_top_with_zero_matching_reports_fails_clearly(self) -> None:
+    def test_top_with_zero_matching_reports_exits_cleanly(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            with self.assertRaisesRegex(SystemExit, "No report files found"):
+            stderr = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
                 charts.main(["top", "--reports-dir", temp_dir])
+            self.assertIn("No report files found", stderr.getvalue())
 
-    def test_messenger_all_with_zero_matching_reports_fails_clearly(self) -> None:
+    def test_messenger_all_with_zero_matching_reports_writes_empty_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            with self.assertRaisesRegex(SystemExit, "No report files found"):
-                charts.main(["messenger-all", "--reports-dir", temp_dir])
+            reports_dir = Path(temp_dir) / "reports"
+            reports_dir.mkdir()
+            manifest_path = Path(temp_dir) / "manifest.json"
+
+            stderr = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                charts.main(
+                    [
+                        "messenger-all",
+                        "--reports-dir",
+                        str(reports_dir),
+                        "--out-dir",
+                        str(Path(temp_dir) / "out"),
+                        "--manifest",
+                        str(manifest_path),
+                    ]
+                )
+
+            self.assertIn("No report files found", stderr.getvalue())
+            self.assertTrue(manifest_path.is_file())
+            self.assertEqual(
+                json.loads(manifest_path.read_text(encoding="utf-8")),
+                {"clusters": {}},
+            )
 
 
 if __name__ == "__main__":

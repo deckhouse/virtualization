@@ -32,7 +32,7 @@ collect_items_json() {
   local resource="$1"
 
   kubectl get "${resource}" -l "${LABEL_SELECTOR}" -o json \
-    | jq -c '.items[] | {name: .metadata.name, created_at: .metadata.creationTimestamp}'
+    | jq -c '.items[] | {name: .metadata.name, created_at: .metadata.creationTimestamp, project: (.metadata.labels["projects.deckhouse.io/project"] // "")}'
 }
 
 should_keep() {
@@ -63,17 +63,36 @@ cleanup_kind() {
   local item
   local name
   local created_at
+  local project
   local decision
 
   echo "[INFO] Process ${kind} with label ${LABEL_SELECTOR}"
   collect_items_json "${kind}" | while read -r item; do
     name="$(echo "${item}" | jq -r '.name')"
     created_at="$(echo "${item}" | jq -r '.created_at')"
+    project="$(echo "${item}" | jq -r '.project')"
     [ -z "${name}" ] && continue
 
     decision="$(should_keep "${created_at}")"
     if [ "${decision}" = "keep" ]; then
       printf "%-63s %22s\n" "[INFO] Keep ${kind}/${name}:" "created_at ${created_at}"
+      continue
+    fi
+
+    # Nested clusters are provisioned as Deckhouse Projects. The project's
+    # controller owns the namespace and recreates it if it is deleted directly,
+    # so deleting the namespace alone leaks the cluster forever. When the item is
+    # backed by a project, delete the project instead: it cascades the namespace
+    # and everything in it.
+    if [ -n "${project}" ]; then
+      printf "%-63s %22s\n" "[INFO] Delete project/${project} (owns ${kind}/${name}):" "created_at ${created_at}"
+      # Deleting the project only triggers teardown and returns before the
+      # namespace and its resources are actually gone — unlike a namespace
+      # delete, which blocks until everything inside is finalized. Fire the
+      # delete, then wait for the namespace to disappear so the resources are
+      # really freed before moving on.
+      kubectl delete projects.deckhouse.io "${project}" --wait=false || true
+      kubectl wait --for=delete "namespace/${name}" --timeout=300s || true
       continue
     fi
 

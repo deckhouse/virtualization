@@ -138,11 +138,22 @@ refresh_resource_state() {
 }
 
 get_vms_candidates() {
+  # Only VMs that actually hold a launcher pod (and thus node resources) are
+  # worth powering off. Skip phases with no running pod: powering them off frees
+  # nothing and they never reach "Stopped" (e.g. a VM stuck "Pending" on a
+  # missing block device), which would otherwise keep the stopped counter from
+  # ever completing and make the wait loop run to its full timeout for nothing.
   kubectl get vm -A -o json | jq -r '
     .items[]
     | select(.metadata.namespace | test("^nightly-e2e-|static-cse") | not)
     | select(.metadata.labels | tostring | test("e2e-cluster/do-not-stop-vm-on-e2e-run") | not)
-    | select(.status.phase != "Stopped")
+    | select(
+        .status.phase == "Running" or
+        .status.phase == "Starting" or
+        .status.phase == "Migrating" or
+        .status.phase == "Pause" or
+        .status.phase == "Degraded"
+      )
     | [.metadata.namespace, .metadata.name, (.spec.memory.size // "0"), (.spec.cpu.cores // 0), (.spec.cpu.coreFraction // "100%")]
     | @tsv
   '
