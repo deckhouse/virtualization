@@ -90,6 +90,17 @@ build_main:
 # runs at the START of script:, AFTER the upstream Setup before_script (werf
 # setup + registry login — neither depends on git HEAD) and BEFORE `werf build`,
 # so werf builds the tag's committed tree under giterminism.
+#
+# `git checkout tags/$BUILD_TAG` replaces the WHOLE working tree, including
+# .gitlab/ci/scripts. Tags older than the GitLab CI migration have no such
+# directory, yet .base_build (referenced below) still runs check-runner-tools.sh
+# from it — which then fails with exit 127. So the helper scripts are stashed to
+# a per-job path under $CI_BUILDS_DIR before the checkout and restored into the
+# checked-out tree after it. The stash is keyed by $CI_JOB_ID because
+# $CI_BUILDS_DIR persists across jobs on a runner (a bare name would let a stale
+# copy nest or two concurrent manual builds collide). The copy lives OUTSIDE the
+# tree werf builds and .gitlab/ is not part of any tag's werf build context, so
+# this does not disturb giterminism.
 build_dev_manual:
   stage: build
   needs: []
@@ -113,8 +124,13 @@ build_dev_manual:
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh curl jq
     - bash .gitlab/ci/scripts/bash/cancel-redundant-pipelines.sh
+    - ci_scripts_stash="${CI_BUILDS_DIR}/.ci-scripts-main-${CI_JOB_ID}"
+    - rm -rf "${ci_scripts_stash}"
+    - cp -a .gitlab/ci/scripts "${ci_scripts_stash}"
     - git fetch --tags --force
     - git checkout "tags/${BUILD_TAG}"
+    - mkdir -p .gitlab/ci/scripts
+    - cp -a "${ci_scripts_stash}/." .gitlab/ci/scripts/
     - !reference [.base_build, script]
 
 # build_release mirrors GitHub dev_module_build.yml `push: [release-*]`: a
