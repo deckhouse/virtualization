@@ -103,6 +103,7 @@ var _ = Describe("MigrationHandler", func() {
 		modeGetter       *fakeVolumeAndAccessModesGetter
 		migrationHandler *MigrationHandler
 		recordedEvents   []recordedEvent
+		recorder         *eventrecord.EventRecorderLoggerMock
 		vd               *v1alpha2.VirtualDisk
 		vm               *v1alpha2.VirtualMachine
 		kvvmi            *virtv1.VirtualMachineInstance
@@ -213,7 +214,7 @@ var _ = Describe("MigrationHandler", func() {
 
 		fakeClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 		recordedEvents = nil
-		recorder := &eventrecord.EventRecorderLoggerMock{
+		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, eventtype, reason, message string) {
 				recordedEvents = append(recordedEvents, recordedEvent{EventType: eventtype, Reason: reason, Message: message})
 			},
@@ -1083,22 +1084,20 @@ var _ = Describe("MigrationHandler", func() {
 				withOwner(targetPVC, vd)
 				targetPVC.Status = corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound}
 
-				migrationHandler = NewMigrationHandler(
-					fake.NewClientBuilder().WithScheme(scheme).WithObjects(sourcePVC, targetPVC).
-						WithInterceptorFuncs(interceptor.Funcs{
-							Patch: func(ctx context.Context, cl client.WithWatch, obj client.Object, p client.Patch, opts ...client.PatchOption) error {
-								if obj.GetName() == "target-pvc" {
-									return k8serrors.NewForbidden(
-										schema.GroupResource{Resource: "persistentvolumeclaims"},
-										obj.GetName(),
-										errors.New("exceeded quota: storage-quota"),
-									)
-								}
-								return cl.Patch(ctx, obj, p, opts...)
-							},
-						}).Build(),
-					scValidator, modeGetter, featuregates.Default(),
-				)
+				quotaClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sourcePVC, targetPVC).
+					WithInterceptorFuncs(interceptor.Funcs{
+						Patch: func(ctx context.Context, cl client.WithWatch, obj client.Object, p client.Patch, opts ...client.PatchOption) error {
+							if obj.GetName() == "target-pvc" {
+								return k8serrors.NewForbidden(
+									schema.GroupResource{Resource: "persistentvolumeclaims"},
+									obj.GetName(),
+									errors.New("exceeded quota: storage-quota"),
+								)
+							}
+							return cl.Patch(ctx, obj, p, opts...)
+						},
+					}).Build()
+				migrationHandler = NewMigrationHandler(quotaClient, quotaClient, recorder, scValidator, modeGetter, featuregates.Default())
 
 				_, err := migrationHandler.handleComplete(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
@@ -1383,15 +1382,13 @@ var _ = Describe("MigrationHandler", func() {
 		})
 
 		It("should requeue instead of failing when the quota rejects the patch", func() {
-			migrationHandler = NewMigrationHandler(
-				fake.NewClientBuilder().WithScheme(scheme).WithObjects(newLabeledPVC("target-pvc", "default")).
-					WithInterceptorFuncs(interceptor.Funcs{
-						Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
-							return quotaErr
-						},
-					}).Build(),
-				scValidator, modeGetter, featuregates.Default(),
-			)
+			quotaClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newLabeledPVC("target-pvc", "default")).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Patch: func(_ context.Context, _ client.WithWatch, _ client.Object, _ client.Patch, _ ...client.PatchOption) error {
+						return quotaErr
+					},
+				}).Build()
+			migrationHandler = NewMigrationHandler(quotaClient, quotaClient, recorder, scValidator, modeGetter, featuregates.Default())
 
 			result, err := migrationHandler.removeQuotaOverrideLabel(ctx, vd)
 			Expect(err).NotTo(HaveOccurred())
