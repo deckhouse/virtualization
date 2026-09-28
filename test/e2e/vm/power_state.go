@@ -265,7 +265,7 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 	t.VI = object.NewVI(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
-		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
+		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVIAlpineBIOS),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 
