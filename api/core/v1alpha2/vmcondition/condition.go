@@ -62,8 +62,8 @@ const (
 
 	// TypeOperationInProgress indicates that an operation is being performed on the virtual machine:
 	// a power state change, a migration, a snapshot, a restore, a clone or a block device hot-plug.
-	// It is False when the last operation has failed, and is absent when nothing is being performed
-	// and the last operation ended without a failure.
+	// It is absent when nothing is being performed; the outcome of a finished operation is reported
+	// by the operation itself.
 	TypeOperationInProgress Type = "OperationInProgress"
 )
 
@@ -416,7 +416,7 @@ const (
 	ReasonBlockDeviceAttaching       OperationInProgressReason = "BlockDeviceAttaching"
 	ReasonBlockDeviceDetaching       OperationInProgressReason = "BlockDeviceDetaching"
 
-	// ReasonOperationFailed is the reason of the only outcome the condition reports. An operation
-	// that has completed, or that was superseded or deleted, leaves no condition behind.
+	// Deprecated: ReasonOperationFailed is no longer set: the condition is present only while an
+	// operation is being performed, and a failure is reported by the operation itself.
 	ReasonOperationFailed OperationInProgressReason = "OperationFailed"
 )

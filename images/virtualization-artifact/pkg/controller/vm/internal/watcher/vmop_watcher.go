@@ -56,9 +56,8 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 				}
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachineOperation]{
-				// A removed operation is the last thing the OperationInProgress condition of the
-				// machine reports, so its removal has to reach the machine: otherwise the outcome of
-				// an operation collected by the garbage collector would be reported forever.
+				// An operation can be removed while it is still being performed, and the machine
+				// has to drop the OperationInProgress condition that reports it.
 				DeleteFunc: func(_ event.TypedDeleteEvent[*v1alpha2.VirtualMachineOperation]) bool {
 					return true
 				},
