@@ -5,7 +5,7 @@ go 1.25.13
 tool github.com/cilium/ebpf/cmd/bpf2go
 
 require (
-	github.com/cilium/cilium v1.17.16
+	github.com/cilium/cilium v1.17.17
 	github.com/cilium/ebpf v0.22.0
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/go-logr/logr v1.4.4
@@ -117,7 +117,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.34.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
-	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5 // indirect
+	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2 // indirect
 	kubevirt.io/api v1.6.2 // indirect
 	kubevirt.io/containerized-data-importer-api v1.60.3-0.20241105012228-50fbed985de9 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
