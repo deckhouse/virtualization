@@ -274,7 +274,7 @@ var _ = Describe("VirtualImageCreation", Label(
 		})
 	*/
 
-	Context("from a VirtualDiskSnapshot", Ordered, Label(precheck.PrecheckSnapshot), func() {
+	Context("from a legacy VirtualDiskSnapshot", Ordered, Label(precheck.PrecheckSnapshot), func() {
 		var vdSnapshot *v1alpha2.VirtualDiskSnapshot
 
 		BeforeAll(func(ctx context.Context) {
@@ -286,6 +286,7 @@ var _ = Describe("VirtualImageCreation", Label(
 				vdsnapshotbuilder.WithNamespace(f.Namespace().Name),
 				vdsnapshotbuilder.WithVirtualDiskName(vd.Name),
 				vdsnapshotbuilder.WithRequiredConsistency(true),
+				vdsnapshotbuilder.WithAnnotation(v1alpha2.AnnUseBuiltInSnapshotter, "true"),
 			)
 
 			snapObs := vdsnapshotobs.StartObserver(ctx, f, vdSnapshot)
