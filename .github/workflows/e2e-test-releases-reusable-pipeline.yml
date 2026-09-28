@@ -458,6 +458,14 @@ jobs:
         uses: ./.github/actions/use-nested-kubeconfig
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+
+      - name: Approve gated module releases
+        # storage-foundation and its state-snapshotter dependency ship their
+        # latest release behind a manual-approval gate, so the ModuleRelease
+        # stays Pending and the module keeps the old version until approved.
+        # Storage setup needs the latest version, so approve them first.
+        run: bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh"
+
       - name: Configure replicated storage
         id: storage-replicated-setup
         if: ${{ inputs.storage_type == 'replicated' || inputs.storage_type == 'mixed' }}
