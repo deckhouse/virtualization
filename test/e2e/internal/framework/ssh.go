@@ -17,14 +17,18 @@ limitations under the License.
 package framework
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
+	"github.com/deckhouse/virtualization/test/e2e/internal/executor"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 )
 
@@ -94,12 +98,21 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	})
 
 	if !res.WasSuccess() {
-		err := fmt.Errorf("failed to execute command %s: %s: %s", command, res.Error().Error(), res.StdErr())
+		err := sshCommandError(command, o.timeout, res)
 		skipIfKnownKubeletTLSVerifyFailure(err)
 		return "", err
 	}
 
 	return res.StdOut(), nil
+}
+
+func sshCommandError(command string, timeout time.Duration, res *executor.CMDResult) error {
+	if errors.Is(res.Error(), context.DeadlineExceeded) || strings.Contains(res.Error().Error(), "signal: killed") {
+		return fmt.Errorf("command %q did not complete within %s (killed while connecting or running; stdout: %q, stderr: %q)",
+			command, timeout, strings.TrimSpace(res.StdOut()), strings.TrimSpace(res.StdErr()))
+	}
+
+	return fmt.Errorf("failed to execute command %s: %s: %s", command, res.Error().Error(), res.StdErr())
 }
 
 // knownKubeletTLSVerifyRe matches the transient apiserver->kubelet TLS verification
