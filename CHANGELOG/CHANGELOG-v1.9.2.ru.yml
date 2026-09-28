@@ -1,0 +1,18 @@
+core:
+  fixes:
+  - summary: Исправлено снижение пропускной способности во время динамической миграции
+      работающих виртуальных машин по сравнению с версией 1.8.3.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2541
+module:
+  fixes:
+  - summary: Исправлен медленный импорт и загрузка изображений в DVCR, когда пропускная
+      способность сети не была узким местом.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2552
+  - summary: Обнаруживайте в Debian модули ядра USB/IP, сжатые с помощью xz, и избегайте
+      установки пакетов модулей ядра, специфичных для Ubuntu.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2544
+observability:
+  fixes:
+  - summary: Исправлена ​​потеря событий аудита и ложные оповещения D8LogShipperDestinationErrors
+      во время ротации сертификатов модуля virtualization-audit.
+    pull_request: https://github.com/deckhouse/virtualization/pull/2551
