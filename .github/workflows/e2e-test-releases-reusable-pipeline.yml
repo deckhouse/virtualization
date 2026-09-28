@@ -458,6 +458,14 @@ jobs:
         uses: ./.github/actions/use-nested-kubeconfig
         with:
           kubeconfig: ${{ needs.bootstrap.outputs.kubeconfig }}
+
+      - name: Approve gated module releases
+        # storage-foundation and its state-snapshotter dependency ship their
+        # latest release behind a manual-approval gate, so the ModuleRelease
+        # stays Pending and the module keeps the old version until approved.
+        # Storage setup needs the latest version, so approve them first.
+        run: bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh"
+
       - name: Configure replicated storage
         id: storage-replicated-setup
         if: ${{ inputs.storage_type == 'replicated' || inputs.storage_type == 'mixed' }}
@@ -533,6 +541,14 @@ jobs:
           kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 900s
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
+
+      # The nfs StorageProfile is an embedded resource of the virtualization
+      # module, so it can only be waited on now, with the module Ready, and must
+      # come before maintenance mode stops its reconciliation. The e2e suite's
+      # precheck resolves the default StorageClass access mode from it.
+      - name: Wait for the nfs StorageProfile to be ready
+        if: ${{ inputs.storage_type == 'nfs' || inputs.storage_type == 'mixed' }}
+        run: bash "${E2E_SCRIPT_DIR}/wait-storage-profile.sh" nfs
 
       # Only now, with the module Ready, its webhook can validate each gate as an
       # addition and reject the ones this cluster does not admit.
