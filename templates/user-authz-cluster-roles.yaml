@@ -26,6 +26,9 @@ rules:
   - nodeusbdevices
   - pcidevices
   - nodepcidevices
+  {{- if ne .Values.global.deckhouseEdition "CE" }}
+  - virtualmachinepools
+  {{- end }}
   verbs:
   - get
   - list
