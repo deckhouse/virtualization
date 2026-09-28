@@ -104,7 +104,7 @@ func NewController(
 		internal.NewResizingHandler(recorder, disk),
 		internal.NewDeletionHandler(sources, mgr.GetClient()),
 		internal.NewInUseHandler(mgr.GetClient()),
-		internal.NewMigrationHandler(mgr.GetClient(), scService, disk, featuregates.Default()),
+		internal.NewMigrationHandler(mgr.GetClient(), mgr.GetAPIReader(), recorder, scService, disk, featuregates.Default()),
 		internal.NewProtectionHandler(),
 	)
 

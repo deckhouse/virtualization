@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,6 +45,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -51,6 +53,19 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
+
+type recordedEvent struct {
+	EventType string
+	Reason    string
+	Message   string
+}
+
+func haveEvent(eventType, reason string) gomegatypes.GomegaMatcher {
+	return ContainElement(SatisfyAll(
+		HaveField("EventType", eventType),
+		HaveField("Reason", reason),
+	))
+}
 
 type fakeStorageClassValidator struct {
 	allowedStorageClasses    map[string]bool
@@ -87,6 +102,7 @@ var _ = Describe("MigrationHandler", func() {
 		scValidator      *fakeStorageClassValidator
 		modeGetter       *fakeVolumeAndAccessModesGetter
 		migrationHandler *MigrationHandler
+		recordedEvents   []recordedEvent
 		vd               *v1alpha2.VirtualDisk
 		vm               *v1alpha2.VirtualMachine
 		kvvmi            *virtv1.VirtualMachineInstance
@@ -196,7 +212,17 @@ var _ = Describe("MigrationHandler", func() {
 		}
 
 		fakeClient = fake.NewClientBuilder().WithScheme(scheme).Build()
-		migrationHandler = NewMigrationHandler(fakeClient, scValidator, modeGetter, featuregates.Default())
+		recordedEvents = nil
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, eventtype, reason, message string) {
+				recordedEvents = append(recordedEvents, recordedEvent{EventType: eventtype, Reason: reason, Message: message})
+			},
+			EventfFunc: func(_ client.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+				recordedEvents = append(recordedEvents, recordedEvent{EventType: eventtype, Reason: reason, Message: fmt.Sprintf(messageFmt, args...)})
+			},
+		}
+		// The fake client serves as the API reader too: it has no cache to go stale.
+		migrationHandler = NewMigrationHandler(fakeClient, fakeClient, recorder, scValidator, modeGetter, featuregates.Default())
 	})
 
 	Describe("getAction", func() {
@@ -818,6 +844,7 @@ var _ = Describe("MigrationHandler", func() {
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
 				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
 				Expect(vd.Status.MigrationState.Message).To(Equal("Migration reverted."))
+				Expect(recordedEvents).To(haveEvent(corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationFailed))
 
 				// Check that migrating condition is removed
 				_, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
@@ -826,6 +853,12 @@ var _ = Describe("MigrationHandler", func() {
 		})
 
 		Context("when target PVC does not exist", func() {
+			BeforeEach(func() {
+				sourcePVC := newEmptyPVC("source-pvc", "default")
+				withOwner(sourcePVC, vd)
+				Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
+			})
+
 			It("should set failed state without error", func() {
 				_, err := migrationHandler.handleRevert(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
@@ -833,6 +866,72 @@ var _ = Describe("MigrationHandler", func() {
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
 				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
 				Expect(vd.Status.MigrationState.Message).To(Equal("Migration reverted."))
+			})
+		})
+
+		// An interrupted handleComplete leaves the status migrating with the source claim already
+		// gone, and the next reconcile picks revert.
+		Context("when the source PVC is already deleted", func() {
+			BeforeEach(func() {
+				vd.Status.Target.PersistentVolumeClaim = "source-pvc"
+
+				targetPVC := newEmptyPVC("target-pvc", "default")
+				targetPVC.Status = corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimBound,
+				}
+				withOwner(targetPVC, vd)
+				Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+			})
+
+			It("should keep the target PVC and complete the migration on it", func() {
+				_, err := migrationHandler.handleRevert(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal("target-pvc"))
+				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
+				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
+				// Without completing, the stale StorageClassName would start the whole migration over.
+				Expect(vd.Status.StorageClassName).To(Equal("allowed-sc"))
+				Expect(recordedEvents).To(haveEvent(corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationLastVolumeKept))
+
+				pvc := &corev1.PersistentVolumeClaim{}
+				Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "target-pvc", Namespace: "default"}, pvc)).To(Succeed())
+				Expect(pvc.DeletionTimestamp.IsZero()).To(BeTrue())
+
+				_, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+				Expect(found).To(BeFalse())
+			})
+		})
+
+		Context("when the source PVC is being deleted", func() {
+			BeforeEach(func() {
+				vd.Status.Target.PersistentVolumeClaim = "source-pvc"
+
+				sourcePVC := newEmptyPVC("source-pvc", "default")
+				withOwner(sourcePVC, vd)
+				sourcePVC.Finalizers = []string{v1alpha2.FinalizerVDProtection}
+				Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
+				Expect(fakeClient.Delete(ctx, sourcePVC)).To(Succeed())
+
+				targetPVC := newEmptyPVC("target-pvc", "default")
+				targetPVC.Status = corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimBound,
+				}
+				withOwner(targetPVC, vd)
+				Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+			})
+
+			It("should keep the target PVC and complete the migration on it", func() {
+				_, err := migrationHandler.handleRevert(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal("target-pvc"))
+				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
+				Expect(recordedEvents).To(haveEvent(corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationLastVolumeKept))
+
+				pvc := &corev1.PersistentVolumeClaim{}
+				Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "target-pvc", Namespace: "default"}, pvc)).To(Succeed())
+				Expect(pvc.DeletionTimestamp.IsZero()).To(BeTrue())
 			})
 		})
 	})
@@ -862,6 +961,12 @@ var _ = Describe("MigrationHandler", func() {
 
 		Context("when target PVC is not bound", func() {
 			BeforeEach(func() {
+				vd.Status.Target.PersistentVolumeClaim = "source-pvc"
+
+				sourcePVC := newEmptyPVC("source-pvc", "default")
+				withOwner(sourcePVC, vd)
+				Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
+
 				targetPVC := newEmptyPVC("target-pvc", "default")
 				withOwner(targetPVC, vd)
 				targetPVC.Status = corev1.PersistentVolumeClaimStatus{
@@ -874,9 +979,72 @@ var _ = Describe("MigrationHandler", func() {
 				_, err := migrationHandler.handleComplete(ctx, vd)
 				Expect(err).NotTo(HaveOccurred())
 
+				Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal("source-pvc"))
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
 				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
 				Expect(vd.Status.MigrationState.Message).To(ContainSubstring("target PVC is not bound"))
+
+				pvc := &corev1.PersistentVolumeClaim{}
+				err = fakeClient.Get(ctx, types.NamespacedName{Name: "target-pvc", Namespace: "default"}, pvc)
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+
+		// Mirror of the revert case: the unbound target claim is the only one left.
+		Context("when target PVC is not bound and the source PVC is already deleted", func() {
+			BeforeEach(func() {
+				targetPVC := newEmptyPVC("target-pvc", "default")
+				withOwner(targetPVC, vd)
+				targetPVC.Status = corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimPending,
+				}
+				Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+			})
+
+			It("should keep the target PVC", func() {
+				_, err := migrationHandler.handleComplete(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal("target-pvc"))
+				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
+				Expect(recordedEvents).To(haveEvent(corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationLastVolumeKept))
+
+				pvc := &corev1.PersistentVolumeClaim{}
+				Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "target-pvc", Namespace: "default"}, pvc)).To(Succeed())
+				Expect(pvc.DeletionTimestamp.IsZero()).To(BeTrue())
+			})
+		})
+
+		// The target claim disappears between the bound check and the source deletion.
+		Context("when the target PVC is deleted while completing", func() {
+			BeforeEach(func() {
+				vd.Status.Target.PersistentVolumeClaim = "source-pvc"
+
+				sourcePVC := newEmptyPVC("source-pvc", "default")
+				withOwner(sourcePVC, vd)
+				Expect(fakeClient.Create(ctx, sourcePVC)).To(Succeed())
+
+				targetPVC := newEmptyPVC("target-pvc", "default")
+				targetPVC.Status = corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimBound,
+				}
+				targetPVC.Finalizers = []string{v1alpha2.FinalizerVDProtection}
+				withOwner(targetPVC, vd)
+				Expect(fakeClient.Create(ctx, targetPVC)).To(Succeed())
+				Expect(fakeClient.Delete(ctx, targetPVC)).To(Succeed())
+			})
+
+			It("should keep the source PVC and set failed state", func() {
+				_, err := migrationHandler.handleComplete(ctx, vd)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal("source-pvc"))
+				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
+				Expect(recordedEvents).To(haveEvent(corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationLastVolumeKept))
+
+				pvc := &corev1.PersistentVolumeClaim{}
+				Expect(fakeClient.Get(ctx, types.NamespacedName{Name: "source-pvc", Namespace: "default"}, pvc)).To(Succeed())
+				Expect(pvc.DeletionTimestamp.IsZero()).To(BeTrue())
 			})
 		})
 
@@ -901,6 +1069,7 @@ var _ = Describe("MigrationHandler", func() {
 				Expect(vd.Status.MigrationState.EndTimestamp).NotTo(BeZero())
 				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
 				Expect(vd.Status.MigrationState.Message).To(Equal("Migration completed."))
+				Expect(recordedEvents).To(haveEvent(corev1.EventTypeNormal, v1alpha2.ReasonVolumeMigrationCompleted))
 
 				// Check that migrating condition is removed
 				_, found := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)

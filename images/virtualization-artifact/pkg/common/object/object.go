@@ -33,8 +33,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 )
 
-func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName, client client.Client, obj T, opts ...client.GetOption) (T, error) {
-	if err := client.Get(ctx, key, obj, opts...); err != nil {
+func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName, reader client.Reader, obj T, opts ...client.GetOption) (T, error) {
+	if err := reader.Get(ctx, key, obj, opts...); err != nil {
 		var empty T
 		if k8serrors.IsNotFound(err) {
 			return empty, nil

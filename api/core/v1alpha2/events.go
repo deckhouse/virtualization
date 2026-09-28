@@ -193,6 +193,19 @@ const (
 	// ReasonVolumeMigrationCannotBeProcessed is event reason indicating that volume migration cannot be processed.
 	ReasonVolumeMigrationCannotBeProcessed = "VolumeMigrationCannotBeProcessed"
 
+	// ReasonVolumeMigrationStarted is event reason indicating that the volume migration has started.
+	ReasonVolumeMigrationStarted = "VolumeMigrationStarted"
+
+	// ReasonVolumeMigrationCompleted is event reason indicating that the volume migration has completed.
+	ReasonVolumeMigrationCompleted = "VolumeMigrationCompleted"
+
+	// ReasonVolumeMigrationFailed is event reason indicating that the volume migration has failed.
+	ReasonVolumeMigrationFailed = "VolumeMigrationFailed"
+
+	// ReasonVolumeMigrationLastVolumeKept is event reason indicating that the volume migration was
+	// finalized on the only PersistentVolumeClaim left, because deleting it would destroy the data.
+	ReasonVolumeMigrationLastVolumeKept = "VolumeMigrationLastVolumeKept"
+
 	// ReasonDeleted is event reason that Object is deleted.
 	ReasonDeleted = "Deleted"
 

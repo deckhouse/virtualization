@@ -48,6 +48,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -68,21 +69,31 @@ const (
 	sourcePVCRole = "source"
 )
 
+// errWouldDeleteLastPersistentVolumeClaim means the other claim of the migration pair is already
+// gone: deleting this one would destroy the only copy of the disk data.
+var errWouldDeleteLastPersistentVolumeClaim = errors.New("the other PersistentVolumeClaim of the migration pair is already deleted")
+
 type storageClassValidator interface {
 	IsStorageClassAllowed(scName string) bool
 	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
 }
 
 type MigrationHandler struct {
-	client      client.Client
+	client client.Client
+	// apiReader reads the migration claims uncached: the code decides whether to delete one claim
+	// by whether the other still exists, and a cache lagging behind a deletion costs the last copy.
+	apiReader   client.Reader
+	recorder    eventrecord.EventRecorderLogger
 	scValidator storageClassValidator
 	modeGetter  volumemode.VolumeAndAccessModesGetter
 	gate        featuregate.FeatureGate
 }
 
-func NewMigrationHandler(client client.Client, storageClassValidator storageClassValidator, modeGetter volumemode.VolumeAndAccessModesGetter, gate featuregate.FeatureGate) *MigrationHandler {
+func NewMigrationHandler(client client.Client, apiReader client.Reader, recorder eventrecord.EventRecorderLogger, storageClassValidator storageClassValidator, modeGetter volumemode.VolumeAndAccessModesGetter, gate featuregate.FeatureGate) *MigrationHandler {
 	return &MigrationHandler{
 		client:      client,
+		apiReader:   apiReader,
+		recorder:    recorder,
 		scValidator: storageClassValidator,
 		modeGetter:  modeGetter,
 		gate:        gate,
@@ -590,6 +601,10 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		StartTimestamp: metav1.Now(),
 	}
 
+	h.recorder.Eventf(vd, corev1.EventTypeNormal, v1alpha2.ReasonVolumeMigrationStarted,
+		"Migration from the PersistentVolumeClaim %q to the PersistentVolumeClaim %q has started.",
+		vd.Status.MigrationState.SourcePVC, vd.Status.MigrationState.TargetPVC)
+
 	cb.Status(metav1.ConditionFalse).
 		Reason(vdcondition.MigratingWaitForTargetReadyReason).
 		Message("Migration started.")
@@ -700,6 +715,27 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 		return reconcile.Result{}, errors.New("cannot revert: the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
 	}
 
+	// The source claim is gone: handleComplete deleted it and was interrupted before it wrote the
+	// result. deleteTargetPersistentVolumeClaim refuses to delete the last claim anyway, but
+	// finalizing there reports the migration as failed and leaves both a stale
+	// status.storageClassName and the quota label on the target. The migration has effectively
+	// happened, so complete it instead.
+	sourcePVC, err := h.getSourcePersistentVolumeClaim(ctx, vd)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if sourcePVC == nil || !sourcePVC.GetDeletionTimestamp().IsZero() {
+		log.Error("The source PersistentVolumeClaim is already deleted, cannot revert. Complete the migration on the target PersistentVolumeClaim instead.",
+			slog.String("pvc.name", vd.Status.MigrationState.SourcePVC),
+			slog.String("pvc.namespace", vd.Namespace),
+		)
+		h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationLastVolumeKept,
+			"Cannot revert the migration: the source PersistentVolumeClaim %q is already deleted. Completing the migration on the target PersistentVolumeClaim %q instead.",
+			vd.Status.MigrationState.SourcePVC, vd.Status.MigrationState.TargetPVC)
+
+		return h.handleComplete(ctx, vd)
+	}
+
 	canFinalize, reason, err := h.canFinalizeRevert(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -723,6 +759,11 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 
 	err = h.deleteTargetPersistentVolumeClaim(ctx, vd)
 	if err != nil {
+		if errors.Is(err, errWouldDeleteLastPersistentVolumeClaim) {
+			h.finalizeOnSurvivingPersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.TargetPVC,
+				"Migration failed: the source PersistentVolumeClaim is deleted, the target PersistentVolumeClaim is kept.")
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 	log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
@@ -730,6 +771,10 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.Virtual
 	vd.Status.MigrationState.EndTimestamp = metav1.Now()
 	vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
 	vd.Status.MigrationState.Message = "Migration reverted."
+
+	h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationFailed,
+		"Migration reverted, the VirtualDisk stays on the PersistentVolumeClaim %q.",
+		vd.Status.Target.PersistentVolumeClaim)
 
 	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
 	return reconcile.Result{}, nil
@@ -752,6 +797,10 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 		vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
 		vd.Status.MigrationState.Message = "Migration failed: target PVC is not found."
 
+		h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationFailed,
+			"Migration failed: the target PersistentVolumeClaim %q is not found, the VirtualDisk stays on the PersistentVolumeClaim %q.",
+			vd.Status.MigrationState.TargetPVC, vd.Status.MigrationState.SourcePVC)
+
 		vdsupplements.SetPVCName(vd, vd.Status.MigrationState.SourcePVC)
 		conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
@@ -764,6 +813,11 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 		err = h.deleteTargetPersistentVolumeClaim(ctx, vd)
 		if err != nil {
+			if errors.Is(err, errWouldDeleteLastPersistentVolumeClaim) {
+				h.finalizeOnSurvivingPersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.TargetPVC,
+					"Migration failed: the target PersistentVolumeClaim is not bound, but the source PersistentVolumeClaim is already deleted, so the target PersistentVolumeClaim is kept.")
+				return reconcile.Result{}, nil
+			}
 			return reconcile.Result{}, err
 		}
 		log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
@@ -771,6 +825,10 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 		vd.Status.MigrationState.EndTimestamp = metav1.Now()
 		vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
 		vd.Status.MigrationState.Message = "Migration failed: target PVC is not bound."
+
+		h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationFailed,
+			"Migration failed: the target PersistentVolumeClaim %q is not bound, the VirtualDisk stays on the PersistentVolumeClaim %q.",
+			vd.Status.MigrationState.TargetPVC, vd.Status.MigrationState.SourcePVC)
 
 		vdsupplements.SetPVCName(vd, vd.Status.MigrationState.SourcePVC)
 		conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
@@ -802,6 +860,11 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 
 	err = h.deleteSourcePersistentVolumeClaim(ctx, vd)
 	if err != nil {
+		if errors.Is(err, errWouldDeleteLastPersistentVolumeClaim) {
+			h.finalizeOnSurvivingPersistentVolumeClaim(ctx, vd, vd.Status.MigrationState.SourcePVC,
+				"Migration failed: the target PersistentVolumeClaim is deleted, the source PersistentVolumeClaim is kept.")
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
@@ -812,6 +875,10 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 	vd.Status.MigrationState.EndTimestamp = metav1.Now()
 	vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultSucceeded
 	vd.Status.MigrationState.Message = "Migration completed."
+
+	h.recorder.Eventf(vd, corev1.EventTypeNormal, v1alpha2.ReasonVolumeMigrationCompleted,
+		"Migration completed, the VirtualDisk now uses the PersistentVolumeClaim %q.",
+		vd.Status.MigrationState.TargetPVC)
 
 	vdsupplements.SetPVCName(vd, vd.Status.MigrationState.TargetPVC)
 
@@ -1003,32 +1070,62 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 }
 
 func (h MigrationHandler) getTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk) (*corev1.PersistentVolumeClaim, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.MigrationState.TargetPVC, Namespace: vd.Namespace}, h.client, &corev1.PersistentVolumeClaim{})
+	return object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.MigrationState.TargetPVC, Namespace: vd.Namespace}, h.apiReader, &corev1.PersistentVolumeClaim{})
 }
 
 func (h MigrationHandler) getSourcePersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk) (*corev1.PersistentVolumeClaim, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.MigrationState.SourcePVC, Namespace: vd.Namespace}, h.client, &corev1.PersistentVolumeClaim{})
+	return object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.MigrationState.SourcePVC, Namespace: vd.Namespace}, h.apiReader, &corev1.PersistentVolumeClaim{})
 }
 
 func (h MigrationHandler) deleteTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
-	pvc, err := h.getTargetPersistentVolumeClaim(ctx, vd)
-	if pvc == nil || err != nil {
+	targetPVC, err := h.getTargetPersistentVolumeClaim(ctx, vd)
+	if targetPVC == nil || err != nil {
 		return err
 	}
 
-	return deletePersistentVolumeClaim(ctx, pvc, h.client)
+	sourcePVC, err := h.getSourcePersistentVolumeClaim(ctx, vd)
+	if err != nil {
+		return err
+	}
+	if sourcePVC == nil || !sourcePVC.GetDeletionTimestamp().IsZero() {
+		return errWouldDeleteLastPersistentVolumeClaim
+	}
+
+	return deletePersistentVolumeClaim(ctx, targetPVC, h.client)
 }
 
 func (h MigrationHandler) deleteSourcePersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
-	pvc, err := h.getSourcePersistentVolumeClaim(ctx, vd)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	sourcePVC, err := h.getSourcePersistentVolumeClaim(ctx, vd)
+	if sourcePVC == nil || err != nil {
 		return err
 	}
-	if pvc == nil {
-		return nil
+
+	targetPVC, err := h.getTargetPersistentVolumeClaim(ctx, vd)
+	if err != nil {
+		return err
+	}
+	if targetPVC == nil || !targetPVC.GetDeletionTimestamp().IsZero() {
+		return errWouldDeleteLastPersistentVolumeClaim
 	}
 
-	return deletePersistentVolumeClaim(ctx, pvc, h.client)
+	return deletePersistentVolumeClaim(ctx, sourcePVC, h.client)
+}
+
+// finalizeOnSurvivingPersistentVolumeClaim ends the migration on the claim that is left, so the
+// disk keeps pointing at data that still exists.
+func (h MigrationHandler) finalizeOnSurvivingPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, survivingPVCName, message string) {
+	logger.FromContext(ctx).Error("The other PersistentVolumeClaim of the migration pair is already deleted, keep this one to not lose the data.",
+		slog.String("pvc.name", survivingPVCName),
+		slog.String("pvc.namespace", vd.Namespace),
+	)
+	h.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationLastVolumeKept, message)
+
+	vd.Status.MigrationState.EndTimestamp = metav1.Now()
+	vd.Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
+	vd.Status.MigrationState.Message = message
+
+	vdsupplements.SetPVCName(vd, survivingPVCName)
+	conditions.RemoveCondition(vdcondition.MigratingType, &vd.Status.Conditions)
 }
 
 func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolumeClaim, c client.Client) error {
