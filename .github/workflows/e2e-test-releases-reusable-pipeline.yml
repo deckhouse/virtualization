@@ -542,6 +542,14 @@ jobs:
           echo "[INFO] Checking virt-handler pods "
           virt_handler_ready
 
+      # The nfs StorageProfile is an embedded resource of the virtualization
+      # module, so it can only be waited on now, with the module Ready, and must
+      # come before maintenance mode stops its reconciliation. The e2e suite's
+      # precheck resolves the default StorageClass access mode from it.
+      - name: Wait for the nfs StorageProfile to be ready
+        if: ${{ inputs.storage_type == 'nfs' || inputs.storage_type == 'mixed' }}
+        run: bash "${E2E_SCRIPT_DIR}/wait-storage-profile.sh" nfs
+
       # Only now, with the module Ready, its webhook can validate each gate as an
       # addition and reject the ones this cluster does not admit.
       - name: Enable every feature gate the current release supports
