@@ -20,6 +20,10 @@ true
       name: dvcr-secrets
       key: salt
 
+{{- /* The registry always initializes OpenTelemetry and defaults to OTLP on localhost:4318, which nothing listens on. */}}
+- name: OTEL_TRACES_EXPORTER
+  value: none
+
 {{- if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
   value: "/var/lib/registry"
