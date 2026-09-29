@@ -38,14 +38,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-const (
-	nameStatisticHandler = "StatisticHandler"
-	// TODO: Remove this fallback after 2026-10-29.
-	lastStartTimePhaseTransitionMaxDiff = 10 * time.Minute
-)
+const nameStatisticHandler = "StatisticHandler"
 
 func NewStatisticHandler(client client.Client) *StatisticHandler {
 	return &StatisticHandler{client: client}
@@ -475,34 +470,24 @@ func ObserveLaunchStages(current, changed *v1alpha2.VirtualMachine) {
 	}
 }
 
+// Not from the Running condition: it also reports transient pod errors of a running guest.
 func syncLastStartTime(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
-	running := getRunningCondition(vm)
-	if running == nil || running.Status != metav1.ConditionTrue {
+	var startedAt *metav1.Time
+	if isKVVMIRunning(kvvmi) {
+		startedAt = getKVVMIRunningPhaseTransitionTimestamp(kvvmi)
+	}
+
+	if startedAt == nil {
 		if vm.Status.Stats != nil {
 			vm.Status.Stats.LastStartTime = nil
 		}
 		return
 	}
 
-	kvvmiRunningAt := getKVVMIRunningPhaseTransitionTimestamp(kvvmi)
-	if kvvmiRunningAt != nil && running.LastTransitionTime.Sub(kvvmiRunningAt.Time).Abs() > lastStartTimePhaseTransitionMaxDiff {
-		running.LastTransitionTime = *kvvmiRunningAt.DeepCopy()
-	}
-
 	if vm.Status.Stats == nil {
 		vm.Status.Stats = &v1alpha2.VirtualMachineStats{}
 	}
-	vm.Status.Stats.LastStartTime = running.LastTransitionTime.DeepCopy()
-}
-
-func getRunningCondition(vm *v1alpha2.VirtualMachine) *metav1.Condition {
-	for i := range vm.Status.Conditions {
-		if vm.Status.Conditions[i].Type == vmcondition.TypeRunning.String() {
-			return &vm.Status.Conditions[i]
-		}
-	}
-
-	return nil
+	vm.Status.Stats.LastStartTime = startedAt.DeepCopy()
 }
 
 func getKVVMIRunningPhaseTransitionTimestamp(kvvmi *virtv1.VirtualMachineInstance) *metav1.Time {

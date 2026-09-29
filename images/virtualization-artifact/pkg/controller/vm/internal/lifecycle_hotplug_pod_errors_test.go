@@ -28,10 +28,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
@@ -205,4 +209,48 @@ var _ = Describe("LifeCycleHandler hotplug pod errors", func() {
 		err = handler.checkVMPodVolumeErrors(context.Background(), vm, slog.Default())
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	DescribeTable("syncRunning with a hotplug pod volume error",
+		func(vmPhase v1alpha2.MachinePhase, kvvmiPhase virtv1.VirtualMachineInstancePhase, expectedStatus metav1.ConditionStatus, expectedReason vmcondition.RunningReason, expectEvent bool) {
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vm",
+					Namespace: "default",
+				},
+				Status: v1alpha2.VirtualMachineStatus{Phase: vmPhase},
+			}
+			hotplugPod := newContainerCreatingPod(vm, "hp-pod", nil)
+			hotplugPod.UID = types.UID("hp-pod-uid")
+			event := newVolumeErrorEvent(vm, hotplugPod.Name)
+			kvvmi := newKVVMIWithHotplugPod(vm, hotplugPod, hotplugPod.UID)
+			kvvmi.Status.Phase = kvvmiPhase
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(vm, kvvmi, hotplugPod, event)
+			Expect(err).NotTo(HaveOccurred())
+			var eventReasons []string
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, reason, _ string) {
+					eventReasons = append(eventReasons, reason)
+				},
+			}
+			handler := NewLifeCycleHandler(fakeClient, recorder)
+
+			err = handler.syncRunning(context.Background(), vm, nil, kvvmi, nil, slog.Default())
+			Expect(err).NotTo(HaveOccurred())
+
+			running, found := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+			Expect(found).To(BeTrue())
+			Expect(running.Status).To(Equal(expectedStatus))
+			Expect(running.Reason).To(Equal(expectedReason.String()))
+			if expectEvent {
+				Expect(eventReasons).To(ConsistOf(eventReasonBlockDeviceAttachError))
+			} else {
+				Expect(eventReasons).To(BeEmpty())
+			}
+		},
+		Entry("keeps Running for a running instance and reports the error in an event",
+			v1alpha2.MachineRunning, virtv1.Running, metav1.ConditionTrue, vmcondition.ReasonVirtualMachineRunning, true),
+		Entry("reports the error in Running for an instance that has not started yet",
+			v1alpha2.MachineStarting, virtv1.Scheduled, metav1.ConditionFalse, vmcondition.ReasonPodNotStarted, false),
+	)
 })

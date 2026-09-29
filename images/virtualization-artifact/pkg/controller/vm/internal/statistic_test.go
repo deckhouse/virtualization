@@ -461,82 +461,51 @@ var _ = Describe("TestStatisticHandler", func() {
 
 var _ = Describe("StatisticHandler", func() {
 	Describe("syncLastStartTime", func() {
-		It("sets lastStartTime from the Running condition last transition time", func() {
-			transitionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(transitionTime)
+		vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
 
-			syncLastStartTime(vm, nil)
+		It("sets lastStartTime from the VMI Running phase transition", func() {
+			vm := &v1alpha2.VirtualMachine{}
 
-			Expect(vm.Status.Stats).NotTo(BeNil())
-			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
-			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(transitionTime.Time))
-		})
-
-		It("sets lastStartTime from the VMI Running phase transition if it differs from the Running condition transition by more than ten minutes", func() {
-			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 20, 0, 0, time.UTC))
-			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(conditionTime)
-			kvvmi := newKVVMIWithRunningPhaseTransition(vmiRunningTime)
-
-			syncLastStartTime(vm, kvvmi)
+			syncLastStartTime(vm, newKVVMIWithRunningPhaseTransition(vmiRunningTime))
 
 			Expect(vm.Status.Stats).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
 			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(vmiRunningTime.Time))
-			Expect(vm.Status.Conditions[0].LastTransitionTime.Time).To(Equal(vmiRunningTime.Time))
 		})
 
-		It("sets lastStartTime from the VMI Running phase transition if it is newer than the Running condition transition by more than ten minutes", func() {
-			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 20, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(conditionTime)
-			kvvmi := newKVVMIWithRunningPhaseTransition(vmiRunningTime)
+		DescribeTable("keeps lastStartTime while the Running condition flaps on a running VMI",
+			func(status metav1.ConditionStatus) {
+				conditionTime := metav1.NewTime(vmiRunningTime.Add(time.Minute))
+				vm := newVMWithRunningCondition(conditionTime)
+				vm.Status.Conditions[0].Status = status
 
-			syncLastStartTime(vm, kvvmi)
+				syncLastStartTime(vm, newKVVMIWithRunningPhaseTransition(vmiRunningTime))
 
-			Expect(vm.Status.Stats).NotTo(BeNil())
-			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
-			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(vmiRunningTime.Time))
-			Expect(vm.Status.Conditions[0].LastTransitionTime.Time).To(Equal(vmiRunningTime.Time))
-		})
+				Expect(vm.Status.Stats).NotTo(BeNil())
+				Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
+				Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(vmiRunningTime.Time))
+				Expect(vm.Status.Conditions[0].LastTransitionTime.Time).To(Equal(conditionTime.Time))
+			},
+			Entry("Running condition is True with a later transition", metav1.ConditionTrue),
+			Entry("Running condition is False", metav1.ConditionFalse),
+			Entry("Running condition is Unknown", metav1.ConditionUnknown),
+		)
 
-		It("sets lastStartTime from the Running condition when the VMI Running phase transition does not differ by more than ten minutes", func() {
-			conditionTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 9, 0, 0, time.UTC))
-			vmiRunningTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-			vm := newVMWithRunningCondition(conditionTime)
-			kvvmi := newKVVMIWithRunningPhaseTransition(vmiRunningTime)
+		DescribeTable("clears lastStartTime when the VMI is not running",
+			func(kvvmi *virtv1.VirtualMachineInstance) {
+				lastStartTime := metav1.NewTime(vmiRunningTime.Time)
+				vm := newVMWithRunningCondition(lastStartTime)
+				vm.Status.Stats = &v1alpha2.VirtualMachineStats{LastStartTime: &lastStartTime}
 
-			syncLastStartTime(vm, kvvmi)
-
-			Expect(vm.Status.Stats).NotTo(BeNil())
-			Expect(vm.Status.Stats.LastStartTime).NotTo(BeNil())
-			Expect(vm.Status.Stats.LastStartTime.Time).To(Equal(conditionTime.Time))
-			Expect(vm.Status.Conditions[0].LastTransitionTime.Time).To(Equal(conditionTime.Time))
-		})
-
-		DescribeTable("clears lastStartTime when the VM is not running",
-			func(conditions []metav1.Condition) {
-				lastStartTime := metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC))
-				vm := &v1alpha2.VirtualMachine{
-					Status: v1alpha2.VirtualMachineStatus{
-						Stats:      &v1alpha2.VirtualMachineStats{LastStartTime: &lastStartTime},
-						Conditions: conditions,
-					},
-				}
-
-				syncLastStartTime(vm, nil)
+				syncLastStartTime(vm, kvvmi)
 
 				Expect(vm.Status.Stats).NotTo(BeNil())
 				Expect(vm.Status.Stats.LastStartTime).To(BeNil())
 			},
-			Entry("without the Running condition", nil),
-			Entry("with the Running condition set to False", []metav1.Condition{
-				{
-					Type:               vmcondition.TypeRunning.String(),
-					Status:             metav1.ConditionFalse,
-					LastTransitionTime: metav1.NewTime(time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)),
-				},
-			}),
+			Entry("without the VMI", nil),
+			Entry("with the VMI in the Succeeded phase", withKVVMIPhase(newKVVMIWithRunningPhaseTransition(vmiRunningTime), virtv1.Succeeded)),
+			Entry("with the VMI in the Scheduled phase", withKVVMIPhase(&virtv1.VirtualMachineInstance{}, virtv1.Scheduled)),
+			Entry("with the running VMI without the Running phase transition", withKVVMIPhase(&virtv1.VirtualMachineInstance{}, virtv1.Running)),
 		)
 	})
 })
@@ -862,6 +831,12 @@ func newKVVMIWithRunningPhaseTransition(transitionTime metav1.Time) *virtv1.Virt
 					PhaseTransitionTimestamp: transitionTime,
 				},
 			},
+			Phase: virtv1.Running,
 		},
 	}
+}
+
+func withKVVMIPhase(kvvmi *virtv1.VirtualMachineInstance, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
+	kvvmi.Status.Phase = phase
+	return kvvmi
 }

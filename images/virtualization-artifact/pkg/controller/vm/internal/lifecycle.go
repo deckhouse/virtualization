@@ -57,6 +57,8 @@ type LifeCycleHandler struct {
 	recorder eventrecord.EventRecorderLogger
 }
 
+const eventReasonBlockDeviceAttachError = "BlockDeviceAttachError"
+
 type VMPodVolumeError struct {
 	Reason  string
 	Message string
@@ -136,6 +138,9 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	volumeError := h.checkVMPodVolumeErrors(ctx, vm, log)
 	var vmPodVolumeErr *VMPodVolumeError
 	switch {
+	// Kubelet retries these errors and some CSI drivers fail every first attempt: Running must not flap for a running guest.
+	case errors.As(volumeError, &vmPodVolumeErr) && isKVVMIRunning(kvvmi):
+		h.recorder.Event(vm, corev1.EventTypeWarning, eventReasonBlockDeviceAttachError, service.CapitalizeFirstLetter(volumeError.Error()))
 	case errors.As(volumeError, &vmPodVolumeErr):
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonPodNotStarted).
