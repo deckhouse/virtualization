@@ -337,23 +337,10 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, expos
 		return false, nil
 	}
 
-	if svc.Spec.ClusterIP != "" {
-		client := &http.Client{Timeout: 5 * time.Second}
-		response, err := client.Get(fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP))
-		if err != nil {
-			return false, nil
-		}
-		defer response.Body.Close()
-
-		if response.StatusCode == http.StatusOK {
-			return true, nil
-		}
-
-		return false, nil
+	if !exposure.Required {
+		return isInClusterUploaderReady(svc), nil
 	}
 
-	// The external fallback below probes the public endpoint (Ingress or the
-	// Gateway HTTPRoute), so it needs the exposure to exist.
 	if !exposure.Exists {
 		return false, nil
 	}
@@ -389,6 +376,21 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, expos
 	}
 
 	return exposure.UploadPath != "", nil
+}
+
+func isInClusterUploaderReady(svc *corev1.Service) bool {
+	if svc.Spec.ClusterIP == "" {
+		return false
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	response, err := client.Get(fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP))
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+
+	return response.StatusCode == http.StatusOK
 }
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {

@@ -105,7 +105,7 @@ func readyPod(ready bool) *corev1.Pod {
 }
 
 func exposureWithURL(url string) serviceuploader.UploaderExposure {
-	return serviceuploader.UploaderExposure{Exists: true, UploadURL: url}
+	return serviceuploader.UploaderExposure{Required: true, Exists: true, UploadURL: url}
 }
 
 func tlsSecret(certPEM []byte) *corev1.Secret {
@@ -176,8 +176,42 @@ var _ = Describe("StatService.IsUploaderReady", func() {
 		Expect(ready).To(BeFalse())
 	})
 
+	It("probes the external endpoint even when the Service has a ClusterIP", func() {
+		cert, certPEM := genCert("127.0.0.1")
+		srv := tlsServer(cert, http.StatusServiceUnavailable)
+		defer srv.Close()
+
+		svc.Spec.ClusterIP = "127.0.0.1"
+		exposure := exposureWithURL(srv.URL + "/upload")
+		exposure.TLSSecret = tlsSecret(certPEM)
+		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ready).To(BeFalse())
+	})
+
+	It("reports ready once the external endpoint serves 200 regardless of the ClusterIP", func() {
+		cert, certPEM := genCert("127.0.0.1")
+		srv := tlsServer(cert, http.StatusOK)
+		defer srv.Close()
+
+		svc.Spec.ClusterIP = "127.0.0.1"
+		exposure := exposureWithURL(srv.URL + "/upload")
+		exposure.TLSSecret = tlsSecret(certPEM)
+		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ready).To(BeTrue())
+	})
+
+	It("does not probe the external endpoint when no external exposure is required", func() {
+		exposure := exposureWithURL("https://127.0.0.1:1/upload")
+		exposure.Required = false
+		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ready).To(BeFalse())
+	})
+
 	It("falls back to the upload-path annotation when no upload URL is set", func() {
-		exposure := serviceuploader.UploaderExposure{Exists: true, UploadPath: "/upload/token"}
+		exposure := serviceuploader.UploaderExposure{Required: true, Exists: true, UploadPath: "/upload/token"}
 		ready, err := s.IsUploaderReady(readyPod(true), svc, exposure)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ready).To(BeTrue())

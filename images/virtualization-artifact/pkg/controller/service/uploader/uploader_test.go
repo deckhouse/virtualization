@@ -68,12 +68,14 @@ var _ = Describe("Uploader", func() {
 		return signer
 	}
 
-	newUploader := func(ingressHost string) Uploader {
+	newUploaderWithTLS := func(ingressHost, tlsSecret, tlsSecretNamespace string) Uploader {
 		dvcrSettings := &dvcr.Settings{
 			RegistryURL: "registry.example.com",
 			TokenSigner: newSigner(),
 			UploaderIngressSettings: dvcr.UploaderIngressSettings{
-				Host: ingressHost,
+				Host:               ingressHost,
+				TLSSecret:          tlsSecret,
+				TLSSecretNamespace: tlsSecretNamespace,
 			},
 		}
 
@@ -87,6 +89,10 @@ var _ = Describe("Uploader", func() {
 			"vi-controller",
 			featuregates.Default(),
 		)
+	}
+
+	newUploader := func(ingressHost string) Uploader {
+		return newUploaderWithTLS(ingressHost, "", "")
 	}
 
 	apply := func(uploader Uploader) {
@@ -171,6 +177,36 @@ var _ = Describe("Uploader", func() {
 			Expect(exposure.Ensured()).To(BeTrue())
 			Expect(exposure.UploadPath).ToNot(BeEmpty())
 			Expect(exposure.UploadURL).To(HavePrefix("http://virtualization.example.com/upload/"))
+		})
+
+		It("probes with the source TLS secret when the uploader lives in its namespace", func() {
+			Expect(fakeClient.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "ingress-tls", Namespace: vi.Namespace},
+				Data:       map[string][]byte{"tls.crt": []byte("cert")},
+			})).To(Succeed())
+
+			uploader := newUploaderWithTLS("virtualization.example.com", "ingress-tls", vi.Namespace)
+			apply(uploader)
+
+			exposure, err := uploader.GetExposure(ctx, supgen)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exposure.TLSSecret).ToNot(BeNil())
+			Expect(exposure.TLSSecret.Name).To(Equal("ingress-tls"))
+		})
+
+		It("probes with the copied TLS secret when the uploader lives elsewhere", func() {
+			Expect(fakeClient.Create(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "ingress-tls", Namespace: "d8-virtualization"},
+				Data:       map[string][]byte{"tls.crt": []byte("cert")},
+			})).To(Succeed())
+
+			uploader := newUploaderWithTLS("virtualization.example.com", "ingress-tls", "d8-virtualization")
+			apply(uploader)
+
+			exposure, err := uploader.GetExposure(ctx, supgen)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exposure.TLSSecret).ToNot(BeNil())
+			Expect(exposure.TLSSecret.Name).To(Equal(supgen.UploaderTLSSecretForIngress().Name))
 		})
 
 		It("keeps the published path across reconciles", func() {

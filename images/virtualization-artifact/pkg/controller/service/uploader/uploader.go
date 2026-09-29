@@ -397,7 +397,7 @@ func (u *uploaderService) GetExposure(ctx context.Context, sup supplements.Gener
 		return UploaderExposure{Required: required}, nil
 	}
 
-	tlsSecret, err := supplements.GetTLSSecret(ctx, u.client, sup)
+	tlsSecret, err := u.getIngressTLSSecret(ctx, sup)
 	if err != nil {
 		return UploaderExposure{}, err
 	}
@@ -607,6 +607,26 @@ func (u *uploaderService) getHTTPRoute(ctx context.Context, sup supplements.Gene
 		return nil, err
 	}
 	return route, nil
+}
+
+func (u *uploaderService) getIngressTLSSecret(ctx context.Context, sup supplements.Generator) (*corev1.Secret, error) {
+	if supplements.ShouldCopyUploaderTLSSecret(u.dvcrSettings, sup) {
+		return supplements.GetTLSSecret(ctx, u.client, sup)
+	}
+
+	s := u.dvcrSettings.UploaderIngressSettings
+	if s.TLSSecret == "" {
+		return nil, nil
+	}
+
+	return object.FetchObject(ctx,
+		types.NamespacedName{
+			Name:      s.TLSSecret,
+			Namespace: s.TLSSecretNamespace,
+		},
+		u.client,
+		&corev1.Secret{},
+	)
 }
 
 // getListenerTLSSecret fetches the certificate the ListenerSet terminates TLS
