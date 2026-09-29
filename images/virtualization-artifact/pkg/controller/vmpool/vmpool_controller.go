@@ -20,9 +20,11 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
@@ -65,11 +67,15 @@ func SetupController(
 		handler.NewTemplateHandler(client),
 		handler.NewSyncHandler(client, exp, recorder),
 		handler.NewDisksHandler(client),
+		handler.NewStatusHandler(client),
 	}
 	r := NewReconciler(client, exp, handlers)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
-		Reconciler:       r,
+		Reconciler: r,
+		// The default backoff grows to about 16 minutes, so a pool that failed for a
+		// while would recover long after its cause is fixed (a quota raised, say).
+		RateLimiter:      workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Second, 32*time.Second),
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,

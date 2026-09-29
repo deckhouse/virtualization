@@ -46,6 +46,9 @@ const (
 	// replica is ready — hence "all", not "minimum".
 	ReasonAllReplicasReady          AvailableReason = "AllReplicasReady"
 	ReasonInsufficientReadyReplicas AvailableReason = "InsufficientReadyReplicas"
+	// ReplicasStopped: every replica that is not ready is powered off, and its run
+	// policy allows that. The pool lacks capacity by intent, not by failure.
+	ReasonReplicasStopped AvailableReason = "ReplicasStopped"
 )
 
 // ProgressingReason is a reason for the Progressing condition.
@@ -58,9 +61,17 @@ func (r ProgressingReason) String() string {
 const (
 	// ReplicasProgressing covers any convergence of the replica count — scaling
 	// as well as replacing a replica that disappeared — not only scaling.
-	// The Progressing condition is present only while converging; in the steady
-	// state it is removed rather than kept at False.
+	// The Progressing condition is present only while the number of created
+	// replicas differs from the desired one; in the steady state it is removed
+	// rather than kept at False. False means the pool cannot converge on its own.
 	ReasonReplicasProgressing ProgressingReason = "ReplicasProgressing"
+	// ReplicaCreationFailed: a replica or one of its disks cannot be created.
+	ReasonReplicaCreationFailed ProgressingReason = "ReplicaCreationFailed"
+	// ReplicaDeletionFailed: a surplus replica cannot be deleted.
+	ReasonReplicaDeletionFailed ProgressingReason = "ReplicaDeletionFailed"
+	// ScaleDownBlocked: there are more replicas than desired, but the Explicit
+	// scale-down policy removes replicas only by name.
+	ReasonScaleDownBlocked ProgressingReason = "ScaleDownBlocked"
 )
 
 // SyncedReason is a reason for the Synced condition.
@@ -74,4 +85,6 @@ const (
 	ReasonPoolSynced             SyncedReason = "PoolSynced"
 	ReasonRolloutInProgress      SyncedReason = "RolloutInProgress"
 	ReasonRestartPendingApproval SyncedReason = "RestartPendingApproval"
+	// ReplicaUpdateFailed: the template, or a disk it adds, cannot be applied to a replica.
+	ReasonReplicaUpdateFailed SyncedReason = "ReplicaUpdateFailed"
 )

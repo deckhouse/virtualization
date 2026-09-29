@@ -524,6 +524,7 @@ func (h *DisksHandler) ensureRetainDisk(
 	name := fmt.Sprintf("%s-%s-%s", pool.GetName(), diskTemplate.Name, rand.String(6))
 	logf.FromContext(ctx).Info("creating a reuse disk", "member", vm.GetName(), "disk", name, "diskTemplate", diskTemplate.Name)
 	if err := h.client.Create(ctx, h.newRetainDisk(pool, diskTemplate, name)); client.IgnoreAlreadyExists(err) != nil {
+		reportDiskFailure(ctx, vm, diskTemplate.Name, fmt.Sprintf("Cannot create VirtualDisk %q: ", name), diskTemplatePath(diskTemplate.Name), err)
 		return fmt.Errorf("create reuse disk %s: %w", name, err)
 	}
 	assignedThisPass[name] = true
@@ -593,6 +594,7 @@ func (h *DisksHandler) attachDisk(ctx context.Context, vm *v1alpha2.VirtualMachi
 		})
 	}
 	if err := h.client.Update(ctx, updated); err != nil {
+		reportDiskFailure(ctx, vm, placeholder, fmt.Sprintf("Cannot attach VirtualDisk %q to VirtualMachine %q: ", diskName, vm.GetName()), vmTemplatePath, err)
 		return fmt.Errorf("attach disk %s to %s: %w", diskName, vm.GetName(), err)
 	}
 	// Reflect the update onto the caller's copy so a subsequent disk-template
@@ -617,6 +619,7 @@ func (h *DisksHandler) ensureDeleteDisk(ctx context.Context, pool *v1alpha2.Virt
 	case apierrors.IsNotFound(err):
 		logf.FromContext(ctx).Info("creating a per-replica disk", "member", vm.GetName(), "disk", diskName, "diskTemplate", diskTemplate.Name)
 		if err := h.client.Create(ctx, buildDeleteDisk(pool, vm, diskTemplate, diskName)); client.IgnoreAlreadyExists(err) != nil {
+			reportDiskFailure(ctx, vm, diskTemplate.Name, fmt.Sprintf("Cannot create VirtualDisk %q: ", diskName), diskTemplatePath(diskTemplate.Name), err)
 			return fmt.Errorf("create disk %s: %w", diskName, err)
 		}
 	default:
@@ -652,4 +655,18 @@ func hasDiskRef(vm *v1alpha2.VirtualMachine, diskName string) bool {
 		}
 	}
 	return false
+}
+
+// reportDiskFailure files a disk failure under the axis it blocks: a replica that
+// still carries the placeholder was never fully created, while a replica without
+// it is an existing one that cannot get a disk its template now requires.
+func reportDiskFailure(ctx context.Context, vm *v1alpha2.VirtualMachine, placeholder, prefix, fieldPrefix string, err error) {
+	if !isPersistent(err) {
+		return
+	}
+	if hasDiskRef(vm, placeholder) {
+		ReportFrom(ctx).CreationFailed(prefix + explain(err, fieldPrefix))
+		return
+	}
+	ReportFrom(ctx).UpdateFailed(vm.GetName(), prefix+explain(err, fieldPrefix))
 }

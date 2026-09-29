@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -36,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmpoolcondition"
 )
 
 const (
@@ -214,12 +212,6 @@ var _ = Describe("SyncHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(listMemberNames(ctx, c, pool)).To(HaveLen(2))
-			Expect(pool.Status.Replicas).To(Equal(int32(2)))
-			Expect(pool.Status.ReadyReplicas).To(Equal(int32(2)))
-			Expect(pool.Status.Selector).To(ContainSubstring(string(poolUID)))
-			Expect(meta.IsStatusConditionTrue(pool.Status.Conditions, vmpoolcondition.TypeAvailable.String())).To(BeTrue())
-			// Steady state: the Progressing condition is removed, not kept at False.
-			Expect(meta.FindStatusCondition(pool.Status.Conditions, vmpoolcondition.TypeProgressing.String())).To(BeNil())
 		})
 
 		It("keeps a Stopped member: counts it, does not replace or duplicate it (invariant 4)", func() {
@@ -232,9 +224,6 @@ var _ = Describe("SyncHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(listMemberNames(ctx, c, pool)).To(ConsistOf("web-stopped")) // not replaced, not duplicated
-			Expect(pool.Status.Replicas).To(Equal(int32(1)))                   // counted
-			Expect(pool.Status.ReadyReplicas).To(Equal(int32(0)))              // Stopped is not ready
-			Expect(meta.IsStatusConditionFalse(pool.Status.Conditions, vmpoolcondition.TypeAvailable.String())).To(BeTrue())
 		})
 
 		It("treats nil replicas as zero", func() {
@@ -246,43 +235,6 @@ var _ = Describe("SyncHandler", func() {
 			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listMemberNames(ctx, c, pool)).To(BeEmpty())
-		})
-	})
-
-	Context("template revision", func() {
-		It("reports Synced when every replica is on the current template hash", func() {
-			pool := newPool(2)
-			hash := poollabels.ComputeTemplateHash(pool)
-			m1 := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
-			m2 := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime, false)
-			m1.Labels[poollabels.TemplateHash] = hash
-			m2.Labels[poollabels.TemplateHash] = hash
-			c, err := testutil.NewFakeClientWithObjects(pool, m1, m2)
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pool.Status.DesiredTemplateHash).To(Equal(hash))
-			Expect(pool.Status.UpdatedReplicas).To(Equal(int32(2)))
-			Expect(meta.IsStatusConditionTrue(pool.Status.Conditions, vmpoolcondition.TypeSynced.String())).To(BeTrue())
-		})
-
-		It("reports Synced=False when a replica lags on an old hash", func() {
-			pool := newPool(2)
-			hash := poollabels.ComputeTemplateHash(pool)
-			current := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
-			lagging := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime, false)
-			current.Labels[poollabels.TemplateHash] = hash
-			lagging.Labels[poollabels.TemplateHash] = "stale"
-			c, err := testutil.NewFakeClientWithObjects(pool, current, lagging)
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = NewSyncHandler(c, exp, testRecorder()).Handle(ctx, pool)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pool.Status.UpdatedReplicas).To(Equal(int32(1)))
-			Expect(meta.IsStatusConditionFalse(pool.Status.Conditions, vmpoolcondition.TypeSynced.String())).To(BeTrue())
 		})
 	})
 

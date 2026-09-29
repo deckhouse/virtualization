@@ -95,6 +95,7 @@ Supported scopes are the following:
       - vmclass
       - vmip
       - vmipl
+      - vmpool
       - vdsnapshot
       - vmsnapshot
       - vmrestore

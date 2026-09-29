@@ -4756,6 +4756,7 @@ Here are the limitations and non-obvious pool behaviors worth remembering during
 - Each replica has its own copy of every disk from `virtualDiskTemplates`. A shared read-only image, [VirtualImage](cr.html#virtualimage) or [ClusterVirtualImage](cr.html#clustervirtualimage), for example a single ISO, can be attached to all replicas by listing it in the `blockDeviceRefs` of the template, while a writable disk isn't shared between replicas.
 - An edit to the `blockDeviceRefs` of the template (reordering, adding, or removing a shared image) applies to new replicas; live replicas keep their current devices until they're recreated (rotation or scale-up), as with other template changes that require a restart.
 - Template changes that require a restart apply only after the replica restarts, according to [`.spec.disruptions.restartApprovalMode`](cr.html#virtualmachine-v1alpha2-spec-disruptions-restartapprovalmode) in the template.
+- A new entry in `virtualDiskTemplates` creates a disk for the running replicas too and attaches it to them. If paravirtualization is disabled for the machine (`enableParavirtualization: false`), the disk is attached after a restart.
 
 ## GPU devices
 

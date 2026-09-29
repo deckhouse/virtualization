@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -36,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmpoolcondition"
 )
 
 const syncHandlerName = "sync"
@@ -85,14 +83,12 @@ func (h *SyncHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachineP
 		return reconcile.Result{}, fmt.Errorf("list pool members: %w", err)
 	}
 
-	// Status always reflects the observed set, whether or not we act this pass.
-	defer h.updateStatus(pool, members)
-
 	// Do not create/delete again until previous actions are observed (or expire):
 	// this is what stops a lagging cache from over-creating anonymous replicas.
 	if !h.exp.Satisfied(key) {
 		return reconcile.Result{RequeueAfter: expectationsRecheck}, nil
 	}
+	ReportFrom(ctx).ScaleAttempted()
 
 	desired := int(ptr.Deref(pool.Spec.Replicas, 0))
 	// live counts every member, including Terminating and Stopped: a Terminating
@@ -126,6 +122,9 @@ func (h *SyncHandler) scaleUp(ctx context.Context, pool *v1alpha2.VirtualMachine
 			h.exp.CreationObserved(key)
 			h.recorder.Eventf(pool, corev1.EventTypeWarning, reasonFailedCreate,
 				"Failed to create a VirtualMachine from the template: %v", err)
+			if isPersistent(err) {
+				ReportFrom(ctx).CreationFailed("Cannot create a VirtualMachine from the template: " + explain(err, vmTemplatePath))
+			}
 			errs = errors.Join(errs, fmt.Errorf("create replica: %w", err))
 			continue
 		}
@@ -174,6 +173,9 @@ func (h *SyncHandler) scaleDown(ctx context.Context, pool *v1alpha2.VirtualMachi
 			if !apierrors.IsNotFound(err) {
 				h.recorder.Eventf(pool, corev1.EventTypeWarning, reasonFailedDelete,
 					"Failed to delete VirtualMachine %q: %v", victims[i].GetName(), err)
+				if isPersistent(err) {
+					ReportFrom(ctx).DeletionFailed(fmt.Sprintf("Cannot delete VirtualMachine %q: %s", victims[i].GetName(), explainDeletion(err)))
+				}
 				errs = errors.Join(errs, fmt.Errorf("delete replica %s: %w", victims[i].GetName(), err))
 			}
 			continue
@@ -246,90 +248,4 @@ func (h *SyncHandler) newMember(pool *v1alpha2.VirtualMachinePool) *v1alpha2.Vir
 		},
 		Spec: spec,
 	}
-}
-
-func (h *SyncHandler) updateStatus(pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMachine) {
-	desiredHash := poollabels.ComputeTemplateHash(pool)
-
-	ready := 0
-	liveNonTerminating := 0
-	updated := 0
-	restartPending := 0
-	for i := range members {
-		if members[i].GetDeletionTimestamp() != nil {
-			continue
-		}
-		liveNonTerminating++
-		if members[i].Status.Phase == v1alpha2.MachineRunning {
-			ready++
-		}
-		if members[i].GetLabels()[poollabels.TemplateHash] == desiredHash {
-			updated++
-		}
-		// Patched to the desired revision but the disruptive part awaits a restart.
-		if members[i].GetAnnotations()[poollabels.PatchedTemplateHash] == desiredHash && awaitingRestart(&members[i]) {
-			restartPending++
-		}
-	}
-	desired := int(ptr.Deref(pool.Spec.Replicas, 0))
-
-	pool.Status.ObservedGeneration = pool.GetGeneration()
-	pool.Status.Replicas = int32(len(members))
-	pool.Status.ReadyReplicas = int32(ready)
-	pool.Status.UpdatedReplicas = int32(updated)
-	pool.Status.RestartPendingReplicas = int32(restartPending)
-	pool.Status.DesiredTemplateHash = desiredHash
-	pool.Status.Selector = poollabels.StatusSelector(pool)
-
-	availableStatus := metav1.ConditionFalse
-	availableReason := vmpoolcondition.ReasonInsufficientReadyReplicas
-	availableMessage := fmt.Sprintf("Only %d of %d replicas are ready.", ready, desired)
-	if ready >= desired {
-		availableStatus = metav1.ConditionTrue
-		availableReason = vmpoolcondition.ReasonAllReplicasReady
-		availableMessage = ""
-	}
-	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
-		Type:               vmpoolcondition.TypeAvailable.String(),
-		Status:             availableStatus,
-		Reason:             availableReason.String(),
-		ObservedGeneration: pool.GetGeneration(),
-		Message:            availableMessage,
-	})
-
-	if len(members) != desired {
-		meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
-			Type:               vmpoolcondition.TypeProgressing.String(),
-			Status:             metav1.ConditionTrue,
-			Reason:             vmpoolcondition.ReasonReplicasProgressing.String(),
-			ObservedGeneration: pool.GetGeneration(),
-			Message:            fmt.Sprintf("Converging to %d replicas (currently %d).", desired, len(members)),
-		})
-	} else {
-		// Steady state: drop the condition instead of parking it at False, so the UI does
-		// not show a permanent inactive block. Matches the VirtualMachine Migrating condition.
-		meta.RemoveStatusCondition(&pool.Status.Conditions, vmpoolcondition.TypeProgressing.String())
-	}
-
-	syncedStatus := metav1.ConditionTrue
-	syncedReason := vmpoolcondition.ReasonPoolSynced
-	syncedMessage := ""
-	if updated < liveNonTerminating {
-		syncedStatus = metav1.ConditionFalse
-		syncedReason = vmpoolcondition.ReasonRolloutInProgress
-		syncedMessage = fmt.Sprintf("%d of %d replicas are on the current virtualMachineTemplate.", updated, liveNonTerminating)
-		if restartPending > 0 {
-			// Some replicas are patched but wait for a restart that will not happen
-			// on its own under restartApprovalMode: Manual.
-			syncedReason = vmpoolcondition.ReasonRestartPendingApproval
-			syncedMessage = fmt.Sprintf("%d of %d replicas await a restart to apply configuration.", restartPending, liveNonTerminating)
-		}
-	}
-	meta.SetStatusCondition(&pool.Status.Conditions, metav1.Condition{
-		Type:               vmpoolcondition.TypeSynced.String(),
-		Status:             syncedStatus,
-		Reason:             syncedReason.String(),
-		ObservedGeneration: pool.GetGeneration(),
-		Message:            syncedMessage,
-	})
 }

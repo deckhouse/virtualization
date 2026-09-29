@@ -343,14 +343,12 @@ const (
 )
 
 // LiveMigrationPolicy defines policy for live migration process:
-// * `Never` - This VM is not eligible for live migration.
-// * `Manual` - This VM is eligible for migrations triggered by user, no automatic migrations.
 // * `AlwaysSafe` - Use Safe options for automatic and VMOP migrations. Do not enable CPU throttling.
 // * `PreferSafe` - Use Safe options for automatic migrations. CPU throttling can be enabled with force=true in VMOP.
 // * `AlwaysForced` - Enable CPU throttling for automatic and VMOP migrations. No way to disable CPU throttling.
 // * `PreferForced` - Enable CPU throttling for automatic migrations. CPU throttling can be disabled with force=false in VMOP.
 //
-// +kubebuilder:validation:Enum={Manual,Never,AlwaysSafe,PreferSafe,AlwaysForced,PreferForced}
+// +kubebuilder:validation:Enum={AlwaysSafe,PreferSafe,AlwaysForced,PreferForced}
 type LiveMigrationPolicy string
 
 const (
@@ -377,6 +375,7 @@ type NetworksSpec struct {
 }
 
 const (
+	// Manual and Never are not in the CRD enum: only the module-wide override accepts them.
 	ManualMigrationPolicy       LiveMigrationPolicy = "Manual"
 	NeverMigrationPolicy        LiveMigrationPolicy = "Never"
 	AlwaysSafeMigrationPolicy   LiveMigrationPolicy = "AlwaysSafe"

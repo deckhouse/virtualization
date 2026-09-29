@@ -39,8 +39,11 @@ const (
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.replicas,selectorpath=.status.selector
 // +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmpool,vmpools},singular=virtualmachinepool
 // +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Desired",type="integer",JSONPath=".spec.replicas",description="Desired number of pool members."
 // +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".status.replicas",description="Current number of pool members (including Terminating)."
 // +kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyReplicas",description="Number of members ready to serve."
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=`.status.conditions[?(@.type=="Available")].reason`,description="Whether the pool members work."
+// +kubebuilder:printcolumn:name="Scaling",type="string",JSONPath=`.status.conditions[?(@.type=="Progressing")].reason`,description="Why the number of members differs from the desired one; empty when it matches."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -229,12 +232,12 @@ type VirtualMachinePoolStatus struct {
 	// such a machine still occupies resources, so it is real capacity, not a phantom.
 	//
 	// +optional
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas int32 `json:"replicas"`
 
 	// ReadyReplicas is the number of members ready to serve (Terminating excluded).
 	//
 	// +optional
-	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
+	ReadyReplicas int32 `json:"readyReplicas"`
 
 	// DesiredTemplateHash is the hash of the current virtualMachineTemplate — the
 	// revision the controller is converging replicas to (cf. updateRevision on a
@@ -244,10 +247,11 @@ type VirtualMachinePoolStatus struct {
 	DesiredTemplateHash string `json:"desiredTemplateHash,omitempty"`
 
 	// UpdatedReplicas is the number of replicas effectively on DesiredTemplateHash
-	// (fully synced).
+	// (fully synced): they have a disk of every current virtualDiskTemplates entry
+	// and do not wait for a restart.
 	//
 	// +optional
-	UpdatedReplicas int32 `json:"updatedReplicas,omitempty"`
+	UpdatedReplicas int32 `json:"updatedReplicas"`
 
 	// RestartPendingReplicas is the number of replicas patched to the new template
 	// whose disruptive part still awaits a restart.

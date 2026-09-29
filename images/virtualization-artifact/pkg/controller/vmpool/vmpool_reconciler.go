@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -89,7 +90,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return pool.Update(ctx)
 	})
 
-	return rec.Reconcile(ctx)
+	// One report per pass: the status handler, last in the chain, reads what the
+	// other handlers failed to do.
+	return rec.Reconcile(handler.WithReport(ctx))
 }
 
 func (r *Reconciler) factory() *v1alpha2.VirtualMachinePool {

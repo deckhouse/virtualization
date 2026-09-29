@@ -77,6 +77,9 @@ func (h *TemplateHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMach
 			}
 			vm.Annotations[poollabels.PatchedTemplateHash] = desiredHash
 			if err := h.client.Update(ctx, vm); err != nil {
+				if isPersistent(err) {
+					ReportFrom(ctx).UpdateFailed(vm.GetName(), fmt.Sprintf("Cannot apply the template to VirtualMachine %q: %s", vm.GetName(), explain(err, vmTemplatePath)))
+				}
 				errs = errors.Join(errs, fmt.Errorf("patch replica %s to template: %w", vm.GetName(), err))
 			}
 			continue

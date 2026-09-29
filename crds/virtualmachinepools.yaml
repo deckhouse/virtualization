@@ -23,6 +23,10 @@ spec:
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
+        - description: Desired number of pool members.
+          jsonPath: .spec.replicas
+          name: Desired
+          type: integer
         - description: Current number of pool members (including Terminating).
           jsonPath: .status.replicas
           name: Replicas
@@ -31,6 +35,16 @@ spec:
           jsonPath: .status.readyReplicas
           name: Ready
           type: integer
+        - description: Whether the pool members work.
+          jsonPath: .status.conditions[?(@.type=="Available")].reason
+          name: Status
+          type: string
+        - description:
+            Why the number of members differs from the desired one; empty when
+            it matches.
+          jsonPath: .status.conditions[?(@.type=="Progressing")].reason
+          name: Scaling
+          type: string
         - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
           name: Age
@@ -1356,8 +1370,6 @@ spec:
                         liveMigrationPolicy:
                           description: Live migration policy type.
                           enum:
-                            - Manual
-                            - Never
                             - AlwaysSafe
                             - PreferSafe
                             - AlwaysForced
@@ -1948,7 +1960,8 @@ spec:
                 updatedReplicas:
                   description: |-
                     UpdatedReplicas is the number of replicas effectively on DesiredTemplateHash
-                    (fully synced).
+                    (fully synced): they have a disk of every current virtualDiskTemplates entry
+                    and do not wait for a restart.
                   format: int32
                   type: integer
               type: object
