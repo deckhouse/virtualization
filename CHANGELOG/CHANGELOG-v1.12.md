@@ -1,5 +1,16 @@
 # Changelog v1.12
 
+## v1.12.2
+
+### module
+
+- **fix** (default): Users with access granted through ClusterAuthorizationRule can now view VirtualMachinePool resources. ([!539](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/539))
+
+### vm
+
+- **fix** (default): Fixed the status of an operation still being shown after the operation has actually finished. Now only the operation being performed at the moment is shown. ([!533](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/533))
+- **fix** (default): Enabling the HotplugMemoryWithLiveMigration feature gate no longer restarts running virtual machines. ([!545](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/545))
+
 ## v1.12.1
 
 ### core
