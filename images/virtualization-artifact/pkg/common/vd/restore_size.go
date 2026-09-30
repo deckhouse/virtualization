@@ -32,6 +32,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+var MinRestoreSize = resource.MustParse("1Mi")
+
 // RestoreFloors are the two lower bounds a restore from a VirtualDiskSnapshot obeys. Keeping them apart
 // is the point: asking for less than the source disk declared is a user error, while the driver floor is
 // none of the user's doing and the target is grown to it silently.
@@ -125,11 +127,19 @@ func (f RestoreFloors) Target(requested *resource.Quantity) *resource.Quantity {
 		size = f.Declared
 	}
 	if size == nil {
-		return f.Driver
+		size = f.Driver
+	}
+	if size == nil {
+		return nil
 	}
 
 	if f.Driver != nil && size.Cmp(*f.Driver) < 0 {
-		return f.Driver
+		size = f.Driver
+	}
+
+	if size.Cmp(MinRestoreSize) < 0 {
+		floor := MinRestoreSize.DeepCopy()
+		return &floor
 	}
 
 	return size

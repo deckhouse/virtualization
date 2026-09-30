@@ -136,6 +136,9 @@ var _ LifeCycleSnapshotter = &LifeCycleSnapshotterMock{}
 //			UnfreezeFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 //				panic("mock out the Unfreeze method")
 //			},
+//			UpdateVolumeSnapshotFunc: func(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
+//				panic("mock out the UpdateVolumeSnapshot method")
+//			},
 //		}
 //
 //		// use mockedLifeCycleSnapshotter in code that requires LifeCycleSnapshotter
@@ -178,6 +181,9 @@ type LifeCycleSnapshotterMock struct {
 
 	// UnfreezeFunc mocks the Unfreeze method.
 	UnfreezeFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+
+	// UpdateVolumeSnapshotFunc mocks the UpdateVolumeSnapshot method.
+	UpdateVolumeSnapshotFunc func(ctx context.Context, vs *vsv1.VolumeSnapshot) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -275,6 +281,13 @@ type LifeCycleSnapshotterMock struct {
 			// Kvvmi is the kvvmi argument value.
 			Kvvmi *virtv1.VirtualMachineInstance
 		}
+		// UpdateVolumeSnapshot holds details about calls to the UpdateVolumeSnapshot method.
+		UpdateVolumeSnapshot []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vs is the vs argument value.
+			Vs *vsv1.VolumeSnapshot
+		}
 	}
 	lockCanFreeze                          sync.RWMutex
 	lockCanUnfreezeWithVirtualDiskSnapshot sync.RWMutex
@@ -288,6 +301,7 @@ type LifeCycleSnapshotterMock struct {
 	lockIsFrozen                           sync.RWMutex
 	lockSyncFSFreezeRequest                sync.RWMutex
 	lockUnfreeze                           sync.RWMutex
+	lockUpdateVolumeSnapshot               sync.RWMutex
 }
 
 // CanFreeze calls CanFreezeFunc.
@@ -739,5 +753,41 @@ func (mock *LifeCycleSnapshotterMock) UnfreezeCalls() []struct {
 	mock.lockUnfreeze.RLock()
 	calls = mock.calls.Unfreeze
 	mock.lockUnfreeze.RUnlock()
+	return calls
+}
+
+// UpdateVolumeSnapshot calls UpdateVolumeSnapshotFunc.
+func (mock *LifeCycleSnapshotterMock) UpdateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
+	if mock.UpdateVolumeSnapshotFunc == nil {
+		panic("LifeCycleSnapshotterMock.UpdateVolumeSnapshotFunc: method is nil but LifeCycleSnapshotter.UpdateVolumeSnapshot was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Vs  *vsv1.VolumeSnapshot
+	}{
+		Ctx: ctx,
+		Vs:  vs,
+	}
+	mock.lockUpdateVolumeSnapshot.Lock()
+	mock.calls.UpdateVolumeSnapshot = append(mock.calls.UpdateVolumeSnapshot, callInfo)
+	mock.lockUpdateVolumeSnapshot.Unlock()
+	return mock.UpdateVolumeSnapshotFunc(ctx, vs)
+}
+
+// UpdateVolumeSnapshotCalls gets all the calls that were made to UpdateVolumeSnapshot.
+// Check the length with:
+//
+//	len(mockedLifeCycleSnapshotter.UpdateVolumeSnapshotCalls())
+func (mock *LifeCycleSnapshotterMock) UpdateVolumeSnapshotCalls() []struct {
+	Ctx context.Context
+	Vs  *vsv1.VolumeSnapshot
+} {
+	var calls []struct {
+		Ctx context.Context
+		Vs  *vsv1.VolumeSnapshot
+	}
+	mock.lockUpdateVolumeSnapshot.RLock()
+	calls = mock.calls.UpdateVolumeSnapshot
+	mock.lockUpdateVolumeSnapshot.RUnlock()
 	return calls
 }

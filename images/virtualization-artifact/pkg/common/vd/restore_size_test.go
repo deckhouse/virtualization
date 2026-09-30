@@ -168,5 +168,18 @@ var _ = Describe("RestoreFloors", func() {
 		It("has nothing to offer when the snapshot records neither floor", func() {
 			Expect(resolve(builtInSnapshot(), volumeSnapshot("", "")).Target(nil)).To(BeNil())
 		})
+
+		It("grows an unrounded driver floor to the mountable minimum", func() {
+			Expect(resolve(builtInSnapshot(), volumeSnapshot("", "95")).Target(nil).String()).To(Equal("1Mi"))
+		})
+
+		It("grows a request below the mountable minimum", func() {
+			Expect(resolve(builtInSnapshot(), volumeSnapshot("", "95")).Target(ptr.To(resource.MustParse("512Ki"))).String()).To(Equal("1Mi"))
+		})
+
+		// The declared size is the source disk's own, and a disk that small cannot have been running.
+		It("leaves a declared size above the minimum alone", func() {
+			Expect(resolve(builtInSnapshot(), volumeSnapshot("100Mi", "95")).Target(nil).String()).To(Equal("100Mi"))
+		})
 	})
 })

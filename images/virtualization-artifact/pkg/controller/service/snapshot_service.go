@@ -309,6 +309,10 @@ func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vs *vsv1.Vol
 	return vs, nil
 }
 
+func (s *SnapshotService) UpdateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
+	return s.client.Update(ctx, vs)
+}
+
 func (s *SnapshotService) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
 	err := s.protection.RemoveProtection(ctx, vs)
 	if err != nil {

@@ -414,4 +414,71 @@ var _ = Describe("LifeCycle handler", func() {
 			Entry("Has no VM", nil, false, false, false),
 		)
 	})
+
+	// A snapshot taken before the controller recorded the source size keeps failing to restore after an
+	// upgrade, because the annotation is only ever written when the VolumeSnapshot is created. Reaching
+	// those snapshots is the whole point of doing this on reconciliation of a Ready one.
+	Context("Backfilling the original size of an older snapshot", func() {
+		var updated *vsv1.VolumeSnapshot
+
+		reconcileReady := func() error {
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+				vs.Status = &vsv1.VolumeSnapshotStatus{ReadyToUse: ptr.To(true)}
+				return vs, nil
+			}
+			snapshotter.UpdateVolumeSnapshotFunc = func(_ context.Context, vs *vsv1.VolumeSnapshot) error {
+				updated = vs
+				return nil
+			}
+
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
+
+			_, err := NewLifeCycleHandler(snapshotter).Handle(testContext(), vdSnapshot)
+			return err
+		}
+
+		BeforeEach(func() {
+			updated = nil
+			vs.Spec.Source.PersistentVolumeClaimName = ptr.To(pvc.Name)
+			pvc.Spec.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("100Mi"),
+			}
+		})
+
+		It("stamps the size of the claim the snapshot was taken from", func() {
+			Expect(reconcileReady()).To(Succeed())
+
+			Expect(updated).NotTo(BeNil())
+			Expect(updated.Annotations[annotations.AnnVirtualDiskOriginalSize]).To(Equal("100Mi"))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseReady))
+		})
+
+		It("leaves a size the snapshot already records alone", func() {
+			vs.Annotations = map[string]string{annotations.AnnVirtualDiskOriginalSize: "42Mi"}
+
+			Expect(reconcileReady()).To(Succeed())
+
+			Expect(updated).To(BeNil())
+		})
+
+		// Nothing left to read the size off: the restore falls back to the mountable minimum instead.
+		It("does nothing when the source claim is gone", func() {
+			snapshotter.GetPersistentVolumeClaimFunc = func(_ context.Context, _, _ string) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+
+			Expect(reconcileReady()).To(Succeed())
+
+			Expect(updated).To(BeNil())
+		})
+
+		It("does nothing for a snapshot bound to a pre-provisioned content", func() {
+			vs.Spec.Source.PersistentVolumeClaimName = nil
+			vs.Spec.Source.VolumeSnapshotContentName = ptr.To("content")
+
+			Expect(reconcileReady()).To(Succeed())
+
+			Expect(updated).To(BeNil())
+		})
+	})
 })

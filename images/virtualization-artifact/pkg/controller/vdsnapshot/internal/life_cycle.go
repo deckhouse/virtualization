@@ -121,7 +121,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Reason(vdscondition.VirtualDiskSnapshotReady).
 			Message("")
 
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, h.backfillOriginalSize(ctx, vs)
 	}
 
 	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
@@ -468,7 +468,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Reason(vdscondition.VirtualDiskSnapshotReady).
 			Message("")
 
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, h.backfillOriginalSize(ctx, vs)
 	}
 }
 
@@ -491,6 +491,38 @@ func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotte
 	default:
 		return nil, fmt.Errorf("the virtual disk %q is attached to multiple virtual machines", vd.Name)
 	}
+}
+
+func (h LifeCycleHandler) backfillOriginalSize(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
+	if _, ok := vs.Annotations[annotations.AnnVirtualDiskOriginalSize]; ok {
+		return nil
+	}
+
+	if vs.Spec.Source.PersistentVolumeClaimName == nil || *vs.Spec.Source.PersistentVolumeClaimName == "" {
+		return nil
+	}
+
+	pvc, err := h.snapshotter.GetPersistentVolumeClaim(ctx, *vs.Spec.Source.PersistentVolumeClaimName, vs.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get the source persistent volume claim of the volume snapshot %q: %w", vs.Name, err)
+	}
+
+	if pvc == nil {
+		return nil
+	}
+
+	requestedSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+	if requestedSize.IsZero() {
+		return nil
+	}
+
+	annotations.AddAnnotation(vs, annotations.AnnVirtualDiskOriginalSize, requestedSize.String())
+
+	if err = h.snapshotter.UpdateVolumeSnapshot(ctx, vs); err != nil {
+		return fmt.Errorf("failed to backfill the original size onto the volume snapshot %q: %w", vs.Name, err)
+	}
+
+	return nil
 }
 
 func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VirtualDiskSnapshotPhase, err error) {

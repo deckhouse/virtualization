@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -135,7 +136,12 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.
 	if storageClassName != "" {
 		vi.Status.StorageClassName = storageClassName
 	}
-	size := s.restoreSize(vs)
+	floors, err := commonvd.RestoreFloorsFrom(vdSnapshot, vs)
+	if err != nil {
+		return nil, err
+	}
+
+	size := floors.Target(nil)
 	key := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID).PersistentVolumeClaim()
 
 	pvc, err := s.pvcSvc.CreateTargetFromVS(ctx, key, storageClassName, size, vi, vs, s.disk, nil)
@@ -165,13 +171,6 @@ func (s CreatePersistentVolumeClaimStep) storageClassName(vi *v1alpha2.VirtualIm
 		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
 	}
 	return storageClassName
-}
-
-func (s CreatePersistentVolumeClaimStep) restoreSize(vs *vsv1.VolumeSnapshot) *resource.Quantity {
-	if vs.Status != nil && vs.Status.RestoreSize != nil {
-		return vs.Status.RestoreSize
-	}
-	return nil
 }
 
 func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx context.Context, vi *v1alpha2.VirtualImage, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {

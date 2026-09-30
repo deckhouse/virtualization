@@ -43,6 +43,7 @@ type LifeCycleSnapshotter interface {
 	GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error)
 	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
 	GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error)
+	UpdateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error
 	SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
 	GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 }
