@@ -1,3 +1,17 @@
+- version: v1.12.2
+  date: "2026-09-30"
+  highlights:
+    - en: "Running virtual machines (VMs) no longer restart because of a change in the module settings and no longer show errors of operations that have already finished."
+      ru: "Работающие виртуальные машины (ВМ) больше не перезапускаются из-за изменения настроек модуля и не показывают ошибки уже завершившихся операций."
+  fixes:
+    virtual-machines:
+      - en: Enabling the `HotplugMemoryWithLiveMigration` feature gate no longer restarts running virtual machines.
+        ru: Включение feature gate `HotplugMemoryWithLiveMigration` больше не перезапускает работающие ВМ.
+      - en: Fixed the status of an operation still being shown after the operation has actually finished. Now only the operation being performed at the moment is shown.
+        ru: Исправлено отображение статуса операции после того, как она уже фактически выполнилась. Теперь отображается только та операция, которая выполняется в данный момент.
+    module:
+      - en: Fixed the permissions to view pools of virtual machines for the users whose access is granted through a ClusterAuthorizationRule.
+        ru: Исправлены права на отображение пулов ВМ для пользователей, которым выдан доступ через ClusterAuthorizationRule.
 - version: v1.12.1
   date: "2026-09-24"
   highlights:
