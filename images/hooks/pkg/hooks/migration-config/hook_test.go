@@ -41,6 +41,9 @@ var _ = Describe("MigrationConfig", func() {
 		dc        *mock.DependencyContainerMock
 		snapshots *mock.SnapshotsMock
 		values    *mock.OutputPatchableValuesCollectorMock
+
+		configValues         *mock.OutputPatchableValuesCollectorMock
+		migrationNetworkType string
 	)
 
 	setSnapshots := func(snaps ...pkg.Snapshot) {
@@ -59,10 +62,11 @@ var _ = Describe("MigrationConfig", func() {
 
 	newInput := func() *pkg.HookInput {
 		return &pkg.HookInput{
-			Snapshots: snapshots,
-			Values:    values,
-			DC:        dc,
-			Logger:    log.NewNop(),
+			Snapshots:    snapshots,
+			Values:       values,
+			ConfigValues: configValues,
+			DC:           dc,
+			Logger:       log.NewNop(),
 		}
 	}
 
@@ -70,12 +74,21 @@ var _ = Describe("MigrationConfig", func() {
 		dc = mock.NewDependencyContainerMock(GinkgoT())
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 		values = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
+		configValues = mock.NewOutputPatchableValuesCollectorMock(GinkgoT())
+		migrationNetworkType = ""
+		configValues.GetMock.Set(func(path string) gjson.Result {
+			if path == liveMigrationNetworkTypeConfigPath && migrationNetworkType != "" {
+				return gjson.Result{Type: gjson.String, Str: migrationNetworkType}
+			}
+			return gjson.Result{}
+		})
 	})
 
 	AfterEach(func() {
 		dc = nil
 		snapshots = nil
 		values = nil
+		configValues = nil
 	})
 
 	It("Should set all migration params from annotations", func() {
@@ -319,5 +332,47 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(setValues).To(HaveKeyWithValue(inboundMigrationLimitValuesPath, "disabled"))
 		Expect(setValues).To(HaveKeyWithValue(outboundMigrationLimitValuesPath, "disabled"))
 		Expect(setValues).To(HaveKeyWithValue(parallelPerClusterMigrationLimitValuesPath, "disabled"))
+	})
+
+	It("Should not limit bandwidth by default when a dedicated migration network is configured", func() {
+		migrationNetworkType = "SystemNetwork"
+		setSnapshots(newSnapshot(map[string]string{}))
+
+		values.GetMock.Set(func(path string) gjson.Result {
+			if path == bandwidthPerMigrationValuesPath {
+				return gjson.Result{Type: gjson.String, Str: defaultBandwidthPerMigration}
+			}
+			return gjson.Result{}
+		})
+
+		setValues := map[string]any{}
+		values.SetMock.Set(func(path string, v any) {
+			setValues[path] = v
+		})
+
+		Expect(reconcile(context.Background(), newInput())).To(Succeed())
+
+		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, unlimitedBandwidthPerMigration))
+		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultParallelOutboundMigrationsPerNode))
+	})
+
+	It("Should prefer the bandwidth annotation over the dedicated migration network default", func() {
+		migrationNetworkType = "SystemNetwork"
+		setSnapshots(newSnapshot(map[string]string{
+			bandwidthPerMigrationAnnotation: "1Gi",
+		}))
+
+		values.GetMock.Set(func(path string) gjson.Result {
+			return gjson.Result{}
+		})
+
+		setValues := map[string]any{}
+		values.SetMock.Set(func(path string, v any) {
+			setValues[path] = v
+		})
+
+		Expect(reconcile(context.Background(), newInput())).To(Succeed())
+
+		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, "1Gi"))
 	})
 })

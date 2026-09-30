@@ -59,6 +59,9 @@ const (
 	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
 	disableFirmwareUpdateValuesPath             = "virtualization.internal.disableFirmwareUpdate"
 
+	liveMigrationNetworkTypeConfigPath = "virtualization.liveMigration.network.type"
+	unlimitedBandwidthPerMigration     = "0"
+
 	defaultBandwidthPerMigration             = "640Mi"
 	defaultCompletionTimeoutPerGiB           = 800
 	defaultParallelOutboundMigrationsPerNode = 1
@@ -211,7 +214,14 @@ func reconcile(_ context.Context, input *pkg.HookInput) error {
 		return err
 	}
 
+	hasDedicatedMigrationNetwork := input.ConfigValues.Get(liveMigrationNetworkTypeConfigPath).String() != ""
+
 	for _, param := range migrationParams {
+		// Traffic on a dedicated migration network does not compete with workloads.
+		if hasDedicatedMigrationNetwork && param.annotation == bandwidthPerMigrationAnnotation {
+			param.defaultValue = unlimitedBandwidthPerMigration
+		}
+
 		value, err := param.resolve(annos)
 		if err != nil {
 			return err

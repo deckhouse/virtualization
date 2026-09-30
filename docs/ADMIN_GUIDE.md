@@ -1136,7 +1136,7 @@ Live migration is limited in speed and in the number of concurrent moves:
 
 - A node prepares and sends the memory of only one VM at a time, and accepts only one incoming migration at a time.
 - This also sets the cluster limit: no more concurrent migrations than there are nodes allowed to run virtual machines.
-- The transfer rate of a single migration is limited to 640 MiB/s, which is about 5 Gbit/s.
+- The transfer rate of a single migration is limited to 640 MiB/s, which is about 5 Gbit/s. On a [dedicated migration network](#dedicated-migration-network), the rate is unlimited.
 {{< /alert >}}
 
 #### Moving a selected VM to another node
