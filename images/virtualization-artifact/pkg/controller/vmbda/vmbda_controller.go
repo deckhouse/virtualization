@@ -44,7 +44,7 @@ func NewController(
 	lg *log.Logger,
 	ns string,
 ) (controller.Controller, error) {
-	attacher := service.NewAttachmentService(mgr.GetClient(), virtClient, ns)
+	attacher := service.NewAttachmentService(mgr.GetClient(), virtClient, ns).WithAPIReader(mgr.GetAPIReader())
 	blockDeviceService := service.NewBlockDeviceService(mgr.GetClient())
 
 	reconciler := NewReconciler(

@@ -1406,6 +1406,34 @@ var _ = Describe("Capacity check", func() {
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 			Expect(readyCondition.Reason).To(Equal(vmcondition.ReasonBlockDeviceLimitExceeded.String()))
 		})
+		It("drops an unplugged disk from the status above the limit", func() {
+			staleVM := vm.DeepCopy()
+			staleVM.Name = "vm-stale"
+			staleVM.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{
+				{Kind: v1alpha2.DiskDevice, Name: "vd-unplugged", Attached: true, Hotplugged: true},
+			}
+			staleKVVM := kvvm.DeepCopy()
+			staleKVVM.Name = staleVM.Name
+
+			cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(staleVM, staleKVVM).Build()
+			key := types.NamespacedName{Namespace: staleVM.Namespace, Name: staleVM.Name}
+			res := reconciler.NewResource(key, cl, vmFactoryByVM(staleVM), vmStatusGetter)
+			Expect(res.Fetch(ctx)).To(Succeed())
+			st := state.New(cl, res)
+
+			handler := NewBlockDeviceHandler(cl, &BlockDeviceServiceMock{
+				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (int, error) {
+					return 17, nil
+				},
+			})
+			_, err := handler.Handle(ctx, st)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := st.VirtualMachine().Changed()
+			Expect(changed.Status.BlockDeviceRefs).To(BeEmpty())
+			readyCondition, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, changed.Status.Conditions)
+			Expect(readyCondition.Reason).To(Equal(vmcondition.ReasonBlockDeviceLimitExceeded.String()))
+		})
 	})
 
 	Context("When images are hotplugged into a VirtualMachine", func() {

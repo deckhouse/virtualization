@@ -39,6 +39,8 @@ type AttachmentService struct {
 	client              client.Client
 	virtClient          kubeclient.Client
 	controllerNamespace string
+	// apiReader reads the disk owner past the cache right before a hotplug; the client is used without it.
+	apiReader client.Reader
 }
 
 func NewAttachmentService(client client.Client, virtClient kubeclient.Client, controllerNamespace string) *AttachmentService {
@@ -49,7 +51,14 @@ func NewAttachmentService(client client.Client, virtClient kubeclient.Client, co
 	}
 }
 
+// WithAPIReader makes the service check the disk owner against the API server, not the cache, before a hotplug.
+func (s *AttachmentService) WithAPIReader(r client.Reader) *AttachmentService {
+	s.apiReader = r
+	return s
+}
+
 var (
+	ErrDiskNotGivenToVM          = errors.New("the virtual disk is not given to the virtual machine")
 	ErrVolumeStatusNotReady      = errors.New("hotplug is not ready")
 	ErrBlockDeviceIsSpecAttached = errors.New("block device is already attached to the virtual machine spec")
 	ErrHotPlugRequestAlreadySent = errors.New("attachment request is already sent")
@@ -149,6 +158,12 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 		return errors.New("cannot hot plug a disk into a nil KVVM")
 	}
 
+	if ad.Kind == v1alpha2.DiskDevice {
+		if err := s.ensureDiskGivenToVM(ctx, ad, vm); err != nil {
+			return err
+		}
+	}
+
 	return s.virtClient.VirtualMachines(vm.GetNamespace()).AddVolume(ctx, vm.GetName(), subv1alpha2.VirtualMachineAddVolume{
 		VolumeKind: string(ad.Kind),
 		Name:       ad.GenerateName,
@@ -157,6 +172,29 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 		Serial:     ad.Serial,
 		IsCdrom:    ad.IsCdrom,
 	})
+}
+
+// ensureDiskGivenToVM rereads the disk right before the hotplug: the caller decided on a cached disk, and
+// the disk may have been given to another VM since. A disk has one writer.
+func (s AttachmentService) ensureDiskGivenToVM(ctx context.Context, ad *AttachmentDisk, vm *v1alpha2.VirtualMachine) error {
+	var reader client.Reader = s.client
+	if s.apiReader != nil {
+		reader = s.apiReader
+	}
+
+	vd := &v1alpha2.VirtualDisk{}
+	if err := reader.Get(ctx, types.NamespacedName{Namespace: ad.Namespace, Name: ad.Name}, vd); err != nil {
+		return fmt.Errorf("get the virtual disk %s/%s: %w", ad.Namespace, ad.Name, err)
+	}
+
+	// commonvd.GetCurrentlyMountedVMName is not importable here: common/vd imports this package.
+	for _, attached := range vd.Status.AttachedToVirtualMachines {
+		if attached.Mounted && attached.Name == vm.GetName() {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: virtual disk %q", ErrDiskNotGivenToVM, ad.Name)
 }
 
 func (s AttachmentService) IsAttached(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {

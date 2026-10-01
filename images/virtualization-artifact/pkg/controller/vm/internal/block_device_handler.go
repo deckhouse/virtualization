@@ -103,6 +103,13 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, fmt.Errorf("unable to reconcile PVC protection: %w", err)
 	}
 
+	// Refresh the status before the limit check: a disk listed here keeps this VM its owner, so a stale
+	// status above the limit would hold an unplugged disk and its deleted attachment would never go away.
+	changed.Status.BlockDeviceRefs, err = h.getBlockDeviceStatusRefs(ctx, s)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to get block device status refs: %w", err)
+	}
+
 	var shouldStop bool
 	shouldStop, err = h.handleBlockDeviceLimit(ctx, changed)
 	if err != nil {
@@ -111,11 +118,6 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	if shouldStop {
 		return reconcile.Result{}, nil
-	}
-
-	changed.Status.BlockDeviceRefs, err = h.getBlockDeviceStatusRefs(ctx, s)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get block device status refs: %w", err)
 	}
 
 	shouldStop, err = h.handleBlockDeviceConflicts(ctx, s, log)

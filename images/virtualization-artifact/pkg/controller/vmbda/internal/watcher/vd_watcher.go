@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -53,14 +54,7 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
 				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualDisk]) bool { return false },
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
-					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
-						return true
-					}
-
-					oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectOld.Status.Conditions)
-					newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectNew.Status.Conditions)
-
-					return oldReadyCondition.Status != newReadyCondition.Status
+					return diskChangeMattersToAttachments(e.ObjectOld, e.ObjectNew)
 				},
 			},
 		),
@@ -68,6 +62,25 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 		return fmt.Errorf("error setting watch on VDs: %w", err)
 	}
 	return nil
+}
+
+func diskChangeMattersToAttachments(oldVD, newVD *v1alpha2.VirtualDisk) bool {
+	if oldVD.Status.Phase != newVD.Status.Phase {
+		return true
+	}
+
+	oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
+	newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
+	if oldReadyCondition.Status != newReadyCondition.Status {
+		return true
+	}
+
+	// An attachment waits for the disk to be given to its VM and to be released by an image creation.
+	oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVD.Status.Conditions)
+	newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVD.Status.Conditions)
+
+	return commonvd.GetCurrentlyMountedVMName(oldVD) != commonvd.GetCurrentlyMountedVMName(newVD) ||
+		oldInUseCondition.Reason != newInUseCondition.Reason
 }
 
 func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {

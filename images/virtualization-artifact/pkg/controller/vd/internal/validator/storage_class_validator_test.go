@@ -50,6 +50,7 @@ var _ = Describe("StorageClassValidator", func() {
 		deprecatedSCName = "deprecated-sc"
 		sourcePVCName    = "source-pvc"
 		vmName           = "test-vm"
+		vdName           = "test-vd"
 		namespace        = "default"
 	)
 
@@ -89,7 +90,8 @@ var _ = Describe("StorageClassValidator", func() {
 				Namespace: namespace,
 			},
 			Status: v1alpha2.VirtualMachineStatus{
-				Phase: v1alpha2.MachineRunning,
+				Phase:           v1alpha2.MachineRunning,
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: vdName}},
 			},
 		}
 		sourcePVC := &corev1.PersistentVolumeClaim{
@@ -160,7 +162,7 @@ var _ = Describe("StorageClassValidator", func() {
 		}
 
 		newVD := &v1alpha2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
+			ObjectMeta: metav1.ObjectMeta{Name: vdName, Generation: 2, Namespace: namespace},
 			Spec: v1alpha2.VirtualDiskSpec{
 				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
 					StorageClass: newSC,
@@ -221,7 +223,7 @@ var _ = Describe("StorageClassValidator", func() {
 			},
 		}
 		newVD := &v1alpha2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
+			ObjectMeta: metav1.ObjectMeta{Name: vdName, Generation: 2, Namespace: namespace},
 			Spec: v1alpha2.VirtualDiskSpec{
 				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
 					StorageClass: &otherSCName,
@@ -254,7 +256,7 @@ var _ = Describe("StorageClassValidator", func() {
 			},
 		}
 		newVD := &v1alpha2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Generation: 2, Namespace: namespace},
+			ObjectMeta: metav1.ObjectMeta{Name: vdName, Generation: 2, Namespace: namespace},
 			Spec: v1alpha2.VirtualDiskSpec{
 				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
 					StorageClass: &otherSCName,
@@ -269,5 +271,24 @@ var _ = Describe("StorageClassValidator", func() {
 		_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("not mounted"))
+	})
+
+	It("should fail migration while the VD is being detached from the virtual machine that still owns it", func() {
+		oldVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: "detaching-vd", Generation: 1, Namespace: namespace},
+			Spec:       v1alpha2.VirtualDiskSpec{PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{StorageClass: &scName}},
+		}
+		// The disk has left the spec and the status of the virtual machine, but its volume is still on the instance.
+		newVD := &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: "detaching-vd", Generation: 2, Namespace: namespace},
+			Spec:       v1alpha2.VirtualDiskSpec{PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{StorageClass: &otherSCName}},
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase:                     v1alpha2.DiskReady,
+				StorageClassName:          scName,
+				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{{Name: vmName, Mounted: true}},
+			},
+		}
+		_, err := validator.ValidateUpdate(context.Background(), oldVD, newVD)
+		Expect(err).To(MatchError(ContainSubstring("being attached to or detached from")))
 	})
 })

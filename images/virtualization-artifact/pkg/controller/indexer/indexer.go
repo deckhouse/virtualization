@@ -90,6 +90,10 @@ const (
 	IndexFieldSNNNIABySystemNetworkName = "snnnia.spec.systemNetworkName"
 
 	IndexFieldVMIMByVMI = "vmim.spec.vmiName"
+
+	IndexFieldKVVMIByVolume          = "kvvmi.volumes"
+	IndexFieldKVVMByAddVolumeRequest = "kvvm.status.volumeRequests.addVolume"
+	IndexFieldVDByVolumeName         = "vd.volumeName"
 )
 
 var IndexGetters = []IndexGetter{
@@ -123,6 +127,9 @@ var IndexGetters = []IndexGetter{
 	IndexEventByInvolvedObjectKind,
 	IndexPVByStorageClass,
 	IndexVMIMByVMI,
+	IndexKVVMIByVolume,
+	IndexKVVMByAddVolumeRequest,
+	IndexVDByVolumeName,
 }
 
 var IndexGettersUSB = []IndexGetter{

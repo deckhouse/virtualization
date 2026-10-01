@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -33,7 +34,10 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -51,9 +55,17 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 }
 
 func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
-	err := h.updateAttachedVirtualMachines(ctx, vd)
+	holders, err := h.updateAttachedVirtualMachines(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	// Two instances with the volume mean two writers, left from before the owner election took in the
+	// attachments and the instances. Nothing is taken from a running VM: the condition names all of them.
+	inUseBy := mountedVirtualMachineNames(vd)
+	if len(holders) > 1 {
+		logger.FromContext(ctx).Warn("The virtual disk is plugged into several virtual machines", "vms", holders)
+		inUseBy = holders
 	}
 
 	var (
@@ -85,7 +97,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.AttachedToVirtualMachine).
-			Message(service.InUseByVirtualMachinesMessage("VirtualDisk", mountedVirtualMachineNames(vd)))
+			Message(service.InUseByVirtualMachinesMessage("VirtualDisk", inUseBy))
 	case usedByImage != "":
 		cb.
 			Status(metav1.ConditionTrue).
@@ -147,81 +159,185 @@ func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualD
 	return usedByImage, nil
 }
 
-func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+// updateAttachedVirtualMachines elects the disk owner and returns the VMs whose instances hold the volume.
+func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1alpha2.VirtualDisk) ([]string, error) {
 	var vms v1alpha2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
-		return fmt.Errorf("error getting virtual machines: %w", err)
+		return nil, fmt.Errorf("error getting virtual machines: %w", err)
 	}
 
-	usageMap, err := h.getVirtualMachineUsageMap(ctx, vd, vms)
+	candidates, err := h.getOwnerCandidates(ctx, vd, vms)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	h.updateAttachedVirtualMachinesStatus(vd, usageMap)
-	return nil
+	owner := electOwner(commonvd.GetCurrentlyMountedVMName(vd), candidates)
+
+	// An image being created reads the disk: it is not given to a VM that does not hold the volume yet.
+	if owner != "" && !slices.ContainsFunc(candidates, func(c ownerCandidate) bool { return c.name == owner && c.holds }) {
+		usedByImage, err := h.checkImageUsage(ctx, vd)
+		if err != nil {
+			return nil, err
+		}
+		if usedByImage != "" {
+			owner = ""
+		}
+	}
+
+	var holders []string
+	attachedVMs := make([]v1alpha2.AttachedVirtualMachine, 0, len(candidates))
+	for _, c := range candidates {
+		if c.holds {
+			holders = append(holders, c.name)
+		}
+		// A VM that only waits for the disk through an attachment stays out of the list:
+		// snapshots and WaitForFirstConsumer provisioning count the VMs listed here.
+		if !c.listed && !c.holds && c.name != owner {
+			continue
+		}
+		attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{Name: c.name, Mounted: c.name == owner})
+	}
+
+	vd.Status.AttachedToVirtualMachines = attachedVMs
+	return holders, nil
 }
 
-func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *v1alpha2.VirtualDisk, vms v1alpha2.VirtualMachineList) (map[string]bool, error) {
-	usageMap := make(map[string]bool)
+// ownerCandidate is a VM that claims the disk or still has its volume.
+type ownerCandidate struct {
+	name string
+	// listed: the VM status refers to the disk.
+	listed bool
+	// active: the VM is in a state that uses its disks.
+	active bool
+	// holds: the volume is on the instance of the VM or requested for it, whatever the spec says now.
+	holds bool
+}
 
+// electOwner returns the VM that mounts the disk. A VM that holds the volume wins over one that only
+// claims it, so the disk goes to another VM only once KubeVirt has really detached it; the current owner
+// keeps the disk among equals, and the rest is decided by name to give the same answer on every pass.
+func electOwner(current string, candidates []ownerCandidate) string {
+	pick := func(eligible func(ownerCandidate) bool) string {
+		first := ""
+		for _, c := range candidates {
+			if !eligible(c) {
+				continue
+			}
+			if c.name == current {
+				return current
+			}
+			if first == "" || c.name < first {
+				first = c.name
+			}
+		}
+		return first
+	}
+
+	if owner := pick(func(c ownerCandidate) bool { return c.holds }); owner != "" {
+		return owner
+	}
+
+	return pick(func(c ownerCandidate) bool { return c.active })
+}
+
+func (h InUseHandler) getOwnerCandidates(ctx context.Context, vd *v1alpha2.VirtualDisk, vms v1alpha2.VirtualMachineList) ([]ownerCandidate, error) {
+	claimedByAttachment, err := h.getVMsClaimingByAttachment(ctx, vd)
+	if err != nil {
+		return nil, err
+	}
+
+	holders, err := h.getVMsHoldingVolume(ctx, vd.GetNamespace(), kvbuilder.GenerateVDDiskName(vd.GetName()))
+	if err != nil {
+		return nil, err
+	}
+
+	var candidates []ownerCandidate
 	for _, vm := range vms.Items {
-		referenced, mounted, err := commonvm.BlockDeviceUsage(ctx, h.client, vm, v1alpha2.DiskDevice, vd.GetName())
+		c := ownerCandidate{
+			name:   vm.GetName(),
+			listed: commonvm.HasBlockDeviceStatusRef(vm, v1alpha2.DiskDevice, vd.GetName()),
+			holds:  holders[vm.GetName()],
+		}
+
+		if !c.listed && !claimedByAttachment[c.name] && !c.holds {
+			continue
+		}
+
+		c.active, err = commonvm.UsesBlockDevices(ctx, h.client, vm)
 		if err != nil {
 			return nil, err
 		}
 
-		if !referenced {
-			continue
-		}
-
-		usageMap[vm.GetName()] = mounted
+		candidates = append(candidates, c)
 	}
 
-	return usageMap, nil
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].name < candidates[j].name })
+
+	return candidates, nil
 }
 
-func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *v1alpha2.VirtualDisk, usageMap map[string]bool) {
-	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
+// getVMsClaimingByAttachment returns the VMs whose attachments of the disk are still in force.
+func (h InUseHandler) getVMsClaimingByAttachment(ctx context.Context, vd *v1alpha2.VirtualDisk) (map[string]bool, error) {
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+	err := h.client.List(ctx, &vmbdas, &client.ListOptions{Namespace: vd.GetNamespace()})
+	if err != nil {
+		return nil, fmt.Errorf("error getting virtual machine block device attachments: %w", err)
+	}
 
-	attachedVMs := make([]v1alpha2.AttachedVirtualMachine, 0, len(usageMap))
-	setAnyToTrue := false
-
-	if used, exists := usageMap[currentlyMountedVM]; exists && used {
-		for key := range usageMap {
-			if key == currentlyMountedVM {
-				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
-					Name:    key,
-					Mounted: true,
-				})
-			} else {
-				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
-					Name:    key,
-					Mounted: false,
-				})
-			}
+	claimed := make(map[string]bool)
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk || vmbda.Spec.BlockDeviceRef.Name != vd.GetName() {
+			continue
 		}
-	} else {
-		for key, value := range usageMap {
-			if !setAnyToTrue && value {
-				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
-					Name:    key,
-					Mounted: true,
-				})
-				setAnyToTrue = true
-			} else {
-				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
-					Name:    key,
-					Mounted: false,
-				})
-			}
+		// A conflicting attachment never plugs the disk, and a deleted one only unplugs it.
+		if vmbda.DeletionTimestamp != nil || vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseFailed {
+			continue
+		}
+		claimed[vmbda.Spec.VirtualMachineName] = true
+	}
+
+	return claimed, nil
+}
+
+// getVMsHoldingVolume returns the VMs whose running instance has the volume or an attach request for it
+// waits on the internal VM. The VM status is built from the internal VM template, which loses the volume
+// before the guest releases it, and a request goes through even if the attachment behind it is deleted.
+// The lookups go through indexes: a namespace of a nested cluster holds all its nodes.
+func (h InUseHandler) getVMsHoldingVolume(ctx context.Context, namespace, volumeName string) (map[string]bool, error) {
+	holders := make(map[string]bool)
+
+	var kvvmis virtv1.VirtualMachineInstanceList
+	err := h.client.List(ctx, &kvvmis, client.InNamespace(namespace), client.MatchingFields{indexer.IndexFieldKVVMIByVolume: volumeName})
+	if err != nil {
+		return nil, fmt.Errorf("list the internal virtual machine instances with the volume: %w", err)
+	}
+	for _, kvvmi := range kvvmis.Items {
+		holders[kvvmi.Name] = true
+	}
+
+	var kvvms virtv1.VirtualMachineList
+	err = h.client.List(ctx, &kvvms, client.InNamespace(namespace), client.MatchingFields{indexer.IndexFieldKVVMByAddVolumeRequest: volumeName})
+	if err != nil {
+		return nil, fmt.Errorf("list the internal virtual machines with an attach request for the volume: %w", err)
+	}
+	for _, kvvm := range kvvms.Items {
+		if holders[kvvm.Name] {
+			continue
+		}
+		// A request holds the disk only for a running instance: a stopped VM gets the volume on its next start.
+		kvvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: kvvm.Name, Namespace: namespace}, h.client, &virtv1.VirtualMachineInstance{})
+		if err != nil {
+			return nil, fmt.Errorf("fetch the internal virtual machine instance: %w", err)
+		}
+		if kvvmi != nil {
+			holders[kvvm.Name] = true
 		}
 	}
 
-	vd.Status.AttachedToVirtualMachines = attachedVMs
+	return holders, nil
 }
 
 func (h InUseHandler) checkUsageByVM(vd *v1alpha2.VirtualDisk) bool {
@@ -278,7 +394,8 @@ func (h InUseHandler) checkUsageByCVI(ctx context.Context, vd *v1alpha2.VirtualD
 			cvi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef &&
 			cvi.Spec.DataSource.ObjectRef != nil &&
 			cvi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind &&
-			cvi.Spec.DataSource.ObjectRef.Name == vd.Name {
+			cvi.Spec.DataSource.ObjectRef.Name == vd.Name &&
+			cvi.Spec.DataSource.ObjectRef.Namespace == vd.Namespace {
 			names = append(names, cvi.GetName())
 		}
 	}

@@ -99,3 +99,13 @@ var _ = Describe("GetVMPod", func() {
 		Expect(result).To(BeNil())
 	})
 })
+
+var _ = DescribeTable("InstanceHasVolume",
+	func(kvvmi *virtv1.VirtualMachineInstance, want bool) {
+		Expect(InstanceHasVolume(kvvmi, "vd-disk")).To(Equal(want))
+	},
+	Entry("no instance", nil, false),
+	Entry("in the volume status", &virtv1.VirtualMachineInstance{Status: virtv1.VirtualMachineInstanceStatus{VolumeStatus: []virtv1.VolumeStatus{{Name: "vd-disk"}}}}, true),
+	Entry("only in the spec", &virtv1.VirtualMachineInstance{Spec: virtv1.VirtualMachineInstanceSpec{Volumes: []virtv1.Volume{{Name: "vd-disk"}}}}, true),
+	Entry("another volume", &virtv1.VirtualMachineInstance{Spec: virtv1.VirtualMachineInstanceSpec{Volumes: []virtv1.Volume{{Name: "vd-other"}}}}, false),
+)

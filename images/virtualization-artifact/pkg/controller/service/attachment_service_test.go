@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -170,5 +171,38 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeFalse())
 		Expect(conflictWithName).To(BeEmpty())
+	})
+})
+
+var _ = Describe("AttachmentService method HotPlugDisk", func() {
+	const ns = "default"
+
+	// reader serves the disk as the API server has it; the cached client is never read.
+	reader := func(owner string) *ClientMock {
+		return &ClientMock{GetFunc: func(_ context.Context, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+			vd := obj.(*v1alpha2.VirtualDisk)
+			vd.Name, vd.Namespace = "vd", ns
+			if owner != "" {
+				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: owner, Mounted: true}}
+			}
+			return nil
+		}}
+	}
+	vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm-b", Namespace: ns}}
+	ad := &AttachmentDisk{Kind: v1alpha2.DiskDevice, Name: "vd", Namespace: ns, GenerateName: "vd-vd", PVCName: "pvc"}
+
+	DescribeTable("refuses a disk the API server shows given to another virtual machine",
+		func(owner string) {
+			s := NewAttachmentService(&ClientMock{}, nil, "").WithAPIReader(reader(owner))
+			err := s.HotPlugDisk(context.Background(), ad, vm, &virtv1.VirtualMachine{})
+			Expect(err).To(MatchError(ErrDiskNotGivenToVM))
+		},
+		Entry("given to another virtual machine", "vm-a"),
+		Entry("given to nobody", ""),
+	)
+
+	It("lets the disk through when the API server shows it given to the virtual machine", func() {
+		s := NewAttachmentService(&ClientMock{}, nil, "").WithAPIReader(reader("vm-b"))
+		Expect(s.ensureDiskGivenToVM(context.Background(), ad, vm)).To(Succeed())
 	})
 })

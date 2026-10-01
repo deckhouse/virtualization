@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,9 +67,9 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		return reconcile.Result{}, nil
 	}
 
-	if bdReady, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, current.Status.Conditions); ok && bdReady.Status != metav1.ConditionTrue {
-		return reconcile.Result{}, nil
-	}
+	// Unplugging does not wait for block devices: the disk to unplug may be the one that keeps them not ready.
+	// Changed() holds the condition BlockDeviceHandler refreshed earlier in this reconcile.
+	canHotplug := blockDevicesReady(current) && blockDevicesReady(s.VirtualMachine().Changed())
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil || kvvm == nil {
@@ -104,28 +105,34 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 	var errs []error
 
 	// 1. Hotplugging
-	for _, bd := range current.Spec.BlockDeviceRefs {
-		key := nameKindKey{kind: bd.Kind, name: bd.Name}
-		volName := generateVolumeName(key)
-		if _, onKVVM := kvvmDevices[key]; onKVVM {
-			continue
-		}
-		if _, ok := pending[volName]; ok {
-			continue
-		}
+	if canHotplug {
+		for _, bd := range current.Spec.BlockDeviceRefs {
+			key := nameKindKey{kind: bd.Kind, name: bd.Name}
+			volName := generateVolumeName(key)
+			if _, onKVVM := kvvmDevices[key]; onKVVM {
+				continue
+			}
+			if _, ok := pending[volName]; ok {
+				continue
+			}
 
-		ad, adErr := h.buildAttachmentDisk(ctx, key, s)
-		if adErr != nil {
-			errs = append(errs, fmt.Errorf("build attachment disk %s/%s: %w", key.kind, key.name, adErr))
-			continue
-		}
-		if ad == nil {
-			log.Info("Block device not ready for hotplug", "kind", key.kind, "name", key.name)
-			continue
-		}
+			ad, adErr := h.buildAttachmentDisk(ctx, key, s)
+			if adErr != nil {
+				errs = append(errs, fmt.Errorf("build attachment disk %s/%s: %w", key.kind, key.name, adErr))
+				continue
+			}
+			if ad == nil {
+				log.Info("Block device not ready for hotplug", "kind", key.kind, "name", key.name)
+				continue
+			}
 
-		if err = h.svc.HotPlugDisk(ctx, ad, current, kvvm); err != nil {
-			errs = append(errs, fmt.Errorf("hotplug %s/%s: %w", key.kind, key.name, err))
+			err = h.svc.HotPlugDisk(ctx, ad, current, kvvm)
+			switch {
+			case errors.Is(err, service.ErrDiskNotGivenToVM):
+				log.Info("Block device given to another VM since it was checked", "kind", key.kind, "name", key.name)
+			case err != nil:
+				errs = append(errs, fmt.Errorf("hotplug %s/%s: %w", key.kind, key.name, err))
+			}
 		}
 	}
 
@@ -140,6 +147,10 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		if _, ok := pending[vol.name]; ok {
 			continue
 		}
+		// KubeVirt refuses to unplug a static disk; it leaves the KVVM on the next restart.
+		if !vol.hotpluggable {
+			continue
+		}
 
 		if err = h.svc.UnplugDisk(ctx, kvvm, vol.name); err != nil {
 			errs = append(errs, fmt.Errorf("unplug %s/%s: %w", key.kind, key.name, err))
@@ -151,6 +162,13 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// A WaitForFirstConsumer disk binds only once it is plugged, so its wait does not hold the hotplug back.
+func blockDevicesReady(vm *v1alpha2.VirtualMachine) bool {
+	bdReady, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vm.Status.Conditions)
+	return !ok || bdReady.Status == metav1.ConditionTrue ||
+		bdReady.Reason == vmcondition.ReasonWaitingForWaitForFirstConsumerBlockDevicesToBeReady.String()
 }
 
 func (h *HotplugHandler) Name() string {

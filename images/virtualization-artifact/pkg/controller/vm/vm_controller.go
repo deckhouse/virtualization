@@ -59,7 +59,7 @@ func SetupController(
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
-	attachmentService := service.NewAttachmentService(client, virtClient, controllerNamespace)
+	attachmentService := service.NewAttachmentService(client, virtClient, controllerNamespace).WithAPIReader(mgr.GetAPIReader())
 
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 

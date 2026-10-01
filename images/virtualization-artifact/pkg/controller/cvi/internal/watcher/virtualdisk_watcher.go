@@ -84,7 +84,7 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *v1a
 			continue
 		}
 
-		if cvi.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskKind || cvi.Spec.DataSource.ObjectRef.Name != vd.GetName() && cvi.Spec.DataSource.ObjectRef.Namespace != vd.GetNamespace() {
+		if cvi.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskKind || cvi.Spec.DataSource.ObjectRef.Name != vd.GetName() || cvi.Spec.DataSource.ObjectRef.Namespace != vd.GetNamespace() {
 			continue
 		}
 

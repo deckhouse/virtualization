@@ -149,3 +149,13 @@ func RemoveRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1
 func kvvmiCompleted(kvvmi *virtv1.VirtualMachineInstance) bool {
 	return kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed
 }
+
+// InstanceHasVolume reports whether the instance has the volume: it is in the spec from the moment KubeVirt
+// takes the attach request, and stays in the volume status until the volume is detached from the guest.
+func InstanceHasVolume(kvvmi *virtv1.VirtualMachineInstance, volumeName string) bool {
+	if kvvmi == nil {
+		return false
+	}
+	return slices.ContainsFunc(kvvmi.Status.VolumeStatus, func(vs virtv1.VolumeStatus) bool { return vs.Name == volumeName }) ||
+		slices.ContainsFunc(kvvmi.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == volumeName })
+}

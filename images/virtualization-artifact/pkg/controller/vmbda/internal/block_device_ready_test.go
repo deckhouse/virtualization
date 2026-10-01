@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	vmbdaBuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -49,6 +50,12 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 				return nil, nil
 			},
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			},
+			GetVirtualMachineFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
+				return nil, nil
+			},
+			GetKVVMIFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 				return nil, nil
 			},
 		}
@@ -176,6 +183,58 @@ var _ = Describe("BlockDeviceReadyHandler ValidateVirtualDiskReady", func() {
 		Entry("VirtualDisk Migrating and PVC ClaimLost", v1alpha2.DiskMigrating, corev1.ClaimLost, metav1.ConditionFalse),
 		Entry("VirtualDisk WaitForFirstConsumer and PVC ClaimLost", v1alpha2.DiskWaitForFirstConsumer, corev1.ClaimLost, metav1.ConditionTrue),
 	)
+
+	DescribeTable("sets condition status based on which virtual machine the disk is given to", func(attached []v1alpha2.AttachedVirtualMachine, vmPhase v1alpha2.MachinePhase, phase v1alpha2.BlockDeviceAttachmentPhase, onInstance bool, expectedStatus metav1.ConditionStatus, expectedMessage string) {
+		vmbda.Spec.VirtualMachineName = "vm-b"
+		vmbda.Status.Phase = phase
+		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+			vd := generateVD(v1alpha2.DiskReady, metav1.ConditionTrue)
+			vd.Status.AttachedToVirtualMachines = attached
+			return vd, nil
+		}
+		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, name, ns string) (*v1alpha2.VirtualMachine, error) {
+			return &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}, Status: v1alpha2.VirtualMachineStatus{Phase: vmPhase}}, nil
+		}
+		attachmentServiceMock.GetKVVMIFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+			kvvmi := &virtv1.VirtualMachineInstance{}
+			if onInstance {
+				kvvmi.Status.VolumeStatus = []virtv1.VolumeStatus{{Name: "vd-vd", HotplugVolume: &virtv1.HotplugVolumeStatus{}}}
+			}
+			return kvvmi, nil
+		}
+		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+			return &corev1.PersistentVolumeClaim{Status: corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound}}, nil
+		}
+		err := NewBlockDeviceReadyHandler(&attachmentServiceMock).ValidateVirtualDiskReady(ctx, vmbda, cb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cb.Condition().Status).To(Equal(expectedStatus))
+		Expect(cb.Condition().Message).To(ContainSubstring(expectedMessage))
+	},
+		Entry("mounted by another virtual machine", []v1alpha2.AttachedVirtualMachine{{Name: "vm-a", Mounted: true}}, v1alpha2.MachineRunning, v1alpha2.BlockDeviceAttachmentPhasePending, false, metav1.ConditionFalse, `"vm-a"`),
+		Entry("given to the attachment's virtual machine", []v1alpha2.AttachedVirtualMachine{{Name: "vm-a"}, {Name: "vm-b", Mounted: true}}, v1alpha2.MachineRunning, v1alpha2.BlockDeviceAttachmentPhasePending, false, metav1.ConditionTrue, ""),
+		Entry("given to nobody yet while the attachment's virtual machine runs", []v1alpha2.AttachedVirtualMachine{{Name: "vm-a"}}, v1alpha2.MachineRunning, v1alpha2.BlockDeviceAttachmentPhasePending, false, metav1.ConditionFalse, `to be assigned to the VirtualMachine "vm-b"`),
+		Entry("given to nobody while the attachment's virtual machine is stopped", []v1alpha2.AttachedVirtualMachine{{Name: "vm-a"}}, v1alpha2.MachineStopped, v1alpha2.BlockDeviceAttachmentPhasePending, false, metav1.ConditionTrue, ""),
+		Entry("mounted by another virtual machine, attachment already attached and plugged", []v1alpha2.AttachedVirtualMachine{{Name: "vm-a", Mounted: true}}, v1alpha2.MachineRunning, v1alpha2.BlockDeviceAttachmentPhaseAttached, true, metav1.ConditionTrue, ""),
+		Entry("mounted by another virtual machine, attachment attached before a restart", []v1alpha2.AttachedVirtualMachine{{Name: "vm-a", Mounted: true}}, v1alpha2.MachineRunning, v1alpha2.BlockDeviceAttachmentPhaseAttached, false, metav1.ConditionFalse, `"vm-a"`),
+	)
+
+	It("sets condition to False while an image is being created from the disk", func() {
+		vmbda.Spec.VirtualMachineName = "vm-b"
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+		attachmentServiceMock.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+			vd := generateVD(v1alpha2.DiskReady, metav1.ConditionTrue)
+			vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
+				Type: vdcondition.InUseType.String(), Status: metav1.ConditionTrue, Reason: vdcondition.UsedForImageCreation.String(),
+			})
+			return vd, nil
+		}
+		attachmentServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *service.AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+			return &corev1.PersistentVolumeClaim{Status: corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound}}, nil
+		}
+		err := NewBlockDeviceReadyHandler(&attachmentServiceMock).ValidateVirtualDiskReady(ctx, vmbda, cb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cb.Condition().Status).To(Equal(metav1.ConditionFalse))
+	})
 })
 
 func generateVD(phase v1alpha2.DiskPhase, readyConditionStatus metav1.ConditionStatus) *v1alpha2.VirtualDisk {

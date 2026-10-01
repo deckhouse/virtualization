@@ -140,6 +140,21 @@ var _ = Describe("LifeCycleHandler Handle", func() {
 		}
 	})
 
+	It("should wait when the disk was given to another virtual machine right before the attachment request", func() {
+		vmbdaBuilder.ApplyOptions(vmbda, vmbdaBuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, "bd"))
+		attachmentServiceMock.HotPlugDiskFunc = func(_ context.Context, _ *service.AttachmentDisk, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachine) error {
+			return fmt.Errorf("%w: virtual disk %q", service.ErrDiskNotGivenToVM, "bd")
+		}
+
+		result, err := NewLifeCycleHandler(&attachmentServiceMock, fakeClient).Handle(context.Background(), vmbda)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(reconcile.Result{}))
+		Expect(vmbda.Status.Phase).To(Equal(v1alpha2.BlockDeviceAttachmentPhasePending))
+
+		attached, _ := conditions.GetCondition(vmbdacondition.AttachedType, vmbda.Status.Conditions)
+		Expect(attached.Reason).To(Equal(vmbdacondition.NotAttached.String()))
+	})
+
 	DescribeTable("should not send an attachment request while the virtual machine has the Migrating condition", func(kind v1alpha2.VMBDAObjectRefKind, storage v1alpha2.StorageType, status metav1.ConditionStatus, reason vmcondition.MigratingReason) {
 		vmbdaBuilder.ApplyOptions(vmbda, vmbdaBuilder.WithBlockDeviceRef(kind, "bd"))
 		attachmentServiceMock.GetVirtualImageFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualImage, error) {

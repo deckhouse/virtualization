@@ -301,6 +301,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 				return reconcile.Result{RequeueAfter: time.Second}, nil
 			}
 
+			if errors.Is(err, service.ErrDiskNotGivenToVM) {
+				log.Info("The disk has been given to another virtual machine since it was checked, wait")
+
+				vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmbdacondition.NotAttached).
+					Message("Waiting for block device to be ready.")
+				return reconcile.Result{}, nil
+			}
+
 			return reconcile.Result{}, err
 		}
 

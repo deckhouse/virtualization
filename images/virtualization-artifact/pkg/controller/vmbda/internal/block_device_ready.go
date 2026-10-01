@@ -25,7 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -229,6 +232,18 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 		return nil
 	}
 
+	ready, message, err := h.checkDiskOwner(ctx, vmbda, vd)
+	if err != nil {
+		return err
+	}
+	if !ready {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.BlockDeviceNotReady).
+			Message(message)
+		return nil
+	}
+
 	if vd.Generation != vd.Status.ObservedGeneration {
 		cb.
 			Status(metav1.ConditionFalse).
@@ -289,4 +304,48 @@ func (h BlockDeviceReadyHandler) ValidateVirtualDiskReady(ctx context.Context, v
 
 	cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
 	return nil
+}
+
+// checkDiskOwner lets the attachment plug the disk only into the VM the disk is given to: a disk has
+// one writer. An attachment that has already plugged the disk into the running instance is left as is.
+func (h BlockDeviceReadyHandler) checkDiskOwner(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, vd *v1alpha2.VirtualDisk) (bool, string, error) {
+	inUse, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if inUse.Status == metav1.ConditionTrue && inUse.Reason == vdcondition.UsedForImageCreation.String() {
+		return false, inUse.Message, nil
+	}
+
+	owner := commonvd.GetCurrentlyMountedVMName(vd)
+	if owner == vmbda.Spec.VirtualMachineName {
+		return true, "", nil
+	}
+
+	vm, err := h.attachment.GetVirtualMachine(ctx, vmbda.Spec.VirtualMachineName, vmbda.Namespace)
+	if err != nil {
+		return false, "", err
+	}
+	if vm == nil {
+		return true, "", nil
+	}
+
+	if vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseAttached {
+		kvvmi, err := h.attachment.GetKVVMI(ctx, vm)
+		if err != nil {
+			return false, "", err
+		}
+		// The phase survives a restart of the VM, so only the volume on the instance proves the disk is plugged.
+		if kvvmutil.InstanceHasVolume(kvvmi, kvbuilder.GenerateVDDiskName(vd.Name)) {
+			return true, "", nil
+		}
+	}
+
+	if owner != "" {
+		return false, service.InUseByVirtualMachinesMessage("VirtualDisk", []string{owner}), nil
+	}
+
+	// A stopped VM is waited for on its own; the disk is given to it once it runs.
+	if vm.Status.Phase == "" || vm.Status.Phase == v1alpha2.MachineStopped {
+		return true, "", nil
+	}
+
+	return false, fmt.Sprintf("Waiting for the VirtualDisk %q to be assigned to the VirtualMachine %q.", vd.Namespace+"/"+vd.Name, vm.Name), nil
 }

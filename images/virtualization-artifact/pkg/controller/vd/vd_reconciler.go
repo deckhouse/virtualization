@@ -112,6 +112,9 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualDiskSnapshotWatcher(mgrClient),
 		watcher.NewStorageClassWatcher(mgrClient),
 		watcher.NewVirtualMachineWatcher(),
+		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(),
+		watcher.NewKVVMIWatcher(mgrClient),
+		watcher.NewKVVMWatcher(mgrClient),
 		watcher.NewResourceQuotaWatcher(mgrClient),
 		postponeimporter.NewWatcher[*v1alpha2.VirtualDisk](mgrClient, logger),
 	}

@@ -131,18 +131,19 @@ func BlockDeviceUsage(
 		return false, false, nil
 	}
 
+	mounted, err = UsesBlockDevices(ctx, c, vm)
+	return true, mounted, err
+}
+
+// UsesBlockDevices reports whether the VM is in a state that keeps its block devices in use.
+func UsesBlockDevices(ctx context.Context, c client.Client, vm v1alpha2.VirtualMachine) (bool, error) {
 	switch vm.Status.Phase {
 	case "":
-		return true, false, nil
+		return false, nil
 	case v1alpha2.MachineStopped:
-		vmIsActive, err := IsVMActive(ctx, c, vm)
-		if err != nil {
-			return true, false, err
-		}
-
-		return true, vmIsActive, nil
+		return IsVMActive(ctx, c, vm)
 	default:
-		return true, true, nil
+		return true, nil
 	}
 }
 

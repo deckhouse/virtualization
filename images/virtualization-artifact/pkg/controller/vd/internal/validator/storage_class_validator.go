@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -146,6 +147,12 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 
 	if vm.Status.Phase != v1alpha2.MachineRunning && vm.Status.Phase != v1alpha2.MachineMigrating {
 		return fmt.Errorf("storage class cannot be changed unless the VirtualDisk is mounted to a running virtual machine")
+	}
+
+	// The owner holds the disk before the hotplug reaches its status and after the disk has left it until
+	// KubeVirt detaches the volume: a volume migration for such an owner would move a disk it does not have.
+	if !commonvm.HasBlockDeviceStatusRef(*vm, v1alpha2.DiskDevice, newVD.Name) {
+		return fmt.Errorf("storage class cannot be changed while the VirtualDisk is being attached to or detached from the virtual machine %q", vm.Name)
 	}
 
 	currentStorageClassName := newVD.Status.StorageClassName
