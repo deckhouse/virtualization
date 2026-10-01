@@ -698,6 +698,50 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
 		})
 
+		It("should exclude unstable vulnerability-status CPU features from the model and node matching", func() {
+			// node1 still exposes the arch-capabilities-derived features; node2
+			// no longer does (as happens on AMD after a qemu upgrade). Both
+			// expose the real compute features.
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx":               "true",
+				virtv1.CPUFeatureLabel + "avx":               "true",
+				virtv1.CPUFeatureLabel + "arch-capabilities": "true",
+				virtv1.CPUFeatureLabel + "mds-no":            "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "avx": "true",
+			})
+			handler1 := newVirtHandlerPod("node1")
+			handler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-unstable-features", v1alpha2.CPUTypeDiscovery, nil, nil)
+			// A set frozen before the upgrade still carries the unstable
+			// features; the handler must strip them and heal availableNodes.
+			vmc.Status.CpuFeatures.Enabled = []string{"vmx", "avx", "arch-capabilities", "mds-no"}
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				handler1, handler2)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			// Unstable features are stripped from the discovered model...
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx"))
+			// ...so node2 is no longer excluded for lacking them.
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+		})
+
 		It("should set condition Discovered=False with no-discovery-nodes message when discovery.nodeSelector matches no virt-handler nodes", func() {
 			node1 := newNodeWithLabels("node1", map[string]string{
 				"node.deckhouse.io/group":      "worker",
