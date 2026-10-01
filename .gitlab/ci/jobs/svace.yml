@@ -11,8 +11,11 @@
 # GitLab mapping:
 #   - The build step reuses the local `.base_build` template, with `.dev_vars`
 #     for DEV registry variables and job-local rules for schedule/manual runs.
-#   - The analyze step uses the upstream `.svace_analyze` template
-#     (Svace_Analayze.gitlab-ci.yml; note upstream file name typo).
+#   - The analyze step uses the upstream `.svace` template
+#     (Svace.gitlab-ci.yml). A single job runs the Svace analysis, svacer
+#     autoimport (reuse of decisions already made on other snapshots) and LLM
+#     autoreview. The import/review phases read the shared Svacer secret store
+#     from Vault and are gated on VAULT_ROLE (see the analyze job below).
 #   - Schedule cron: "00 04 * * 6" -> Pipeline Schedule in UI, with
 #     $SCHEDULE_TYPE == "svace" so the svace jobs run only under that
 #     dedicated schedule and not under any other pipeline schedule.
@@ -41,6 +44,14 @@
 #   SVACER_IMPORT_USER            masked
 #   SVACER_IMPORT_PASSWORD        masked
 #   LOOP_WEBHOOK_URL              masked
+#   VAULT_ROLE                    var (fox JWT role carrying the
+#                                 sap-ssdlc-svacer-secrets policy; reused from
+#                                 cve-scan, value "virtualization"). Without it
+#                                 the autoimport and autoreview phases are
+#                                 skipped and only the analysis runs. The autoimport
+#                                 and autoreview secrets themselves come from the
+#                                 shared Svacer Vault store the template points at,
+#                                 not from project variables.
 #
 # Tag suffix: `${CI_COMMIT_REF_NAME}-svace` matches the GH workflow
 # behavior.
@@ -108,7 +119,7 @@ svace:set-vars:
         echo "MODULE_EDITION=EE"
         echo "REF_NAME=${REF}"
         if [[ -n "${SVACE_BUILD_REF:-}" ]]; then
-          # The upstream .svace_analyze template labels the svacer import with
+          # The upstream .svace template labels the svacer import with
           # COMMIT_REF_NAME / COMMIT_HASH, which default to $CI_COMMIT_REF_NAME /
           # $CI_COMMIT_SHA — i.e. the dispatch branch, not the analyzed ref. A
           # dotenv report overrides job variables, so these relabel the import.
@@ -185,27 +196,40 @@ svace:build:
     - !reference [.base_build, script]
 
 # ---------------------------------------------------------------------------
-# analyze: invoke the upstream `.svace_analyze` template.
+# analyze: invoke the upstream `.svace` template (Svace.gitlab-ci.yml).
 #
-# Id-token + vault wiring is inherited from the upstream template.
+# One job now runs three phases in sequence: Svace analysis of the instrumented
+# build svace:build shipped to the analyze server, svacer autoimport (reuse of
+# decisions already made on the same defect in other snapshots) and LLM
+# autoreview of what is left undecided.
 #
-# `.dev_vars` is required even though analyze pulls nothing from a registry: it
-# only SSHes to the svace server and curls svacer. But the inherited Setup
-# before_script unconditionally runs `werf cr login ... ${MODULES_REGISTRY}`,
-# and without a registry bundle MODULES_REGISTRY is empty, so werf defaults to
-# Docker Hub and the GitLab creds fail there (unauthorized). `.dev_vars` points
-# the login at the DEV registry with valid creds, matching svace:build.
+# Unlike the old `.svace_analyze`, this template is self-contained: it pins its
+# own container image (svacer-autoreview, which carries d8 + the import/review
+# code), the `werf-2-stable` runner, `GIT_STRATEGY: none` and an empty
+# before_script. It logs in to no registry, so the old `.dev_vars` workaround
+# (needed only to satisfy the inherited Setup `werf cr login`) is gone.
+#
+# Id-token + Vault wiring is inherited from the template. The autoimport and
+# autoreview phases authenticate to Vault with VAULT_ROLE and are skipped (with
+# a warning, analysis still runs) if it is unset. We reuse the same fox role as
+# cve-scan, "virtualization"; its sap-ssdlc-svacer-secrets policy grants the
+# shared Svacer store the template reads.
+#
+# The svace:set-vars dotenv still overrides COMMIT_REF_NAME / COMMIT_HASH so a
+# ref-dispatch run labels the svacer import with the analyzed ref, not the
+# dispatch branch — the template reads the same two variables the old one did.
 # ---------------------------------------------------------------------------
 
 svace:analyze:
   extends:
-    - .svace_analyze
-    - .dev_vars
+    - .svace
   stage: scan
   interruptible: false
-  # Svace analysis over the full instrumented build is slow; allow up to 8h
-  # before the runner kills the job (same headroom as svace:build).
+  # The template allows 5h; the added autoimport/autoreview phases run after the
+  # analysis, so keep the 8h headroom svace:build and the old analyze job used.
   timeout: 8h
+  variables:
+    VAULT_ROLE: "virtualization"
   needs:
     - job: svace:set-vars
       artifacts: true

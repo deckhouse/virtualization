@@ -14,11 +14,13 @@
 #   - Deploy.gitlab-ci.yml          (.deploy_base — release-channel crane copy)
 #   - CVE_Scan.gitlab-ci.yml        (.cve_scan — Trivy scan via Vault)
 #   - gitleaks.gitlab-ci.yml        (.gitleaks_scan — secrets scanning)
-#   - Svace_Analayze.gitlab-ci.yml  (.svace_analyze; note: typo in upstream name)
+#   - Svace.gitlab-ci.yml           (.svace — analysis + svacer autoimport +
+#                                   autoreview in a single job; replaces the old
+#                                   .svace_analyze from Svace_Analayze.gitlab-ci.yml)
 #   - Translate_Changelog.gitlab-ci.yml (included from jobs/translate-changelog.yml)
 #
 # We include only the templates actually consumed by local jobs (Setup, Build,
-# Deploy, CVE_Scan, gitleaks, Svace_Analayze). The *_base bodies are rules-free,
+# Deploy, CVE_Scan, gitleaks, Svace). The *_base bodies are rules-free,
 # so our own .dev / .main / .prod context templates drive gating.
 
 include:
@@ -48,7 +50,10 @@ include:
       # Validation/scanning jobs extend these upstream templates.
       - "/templates/CVE_Scan.gitlab-ci.yml"
       - "/templates/gitleaks.gitlab-ci.yml"
-      - "/templates/Svace_Analayze.gitlab-ci.yml"
+      # Svace.gitlab-ci.yml provides `.svace`: Svace analysis, svacer autoimport
+      # (reuse of decisions from other snapshots) and LLM autoreview folded into
+      # one job. Consumed by svace:analyze in jobs/svace.yml.
+      - "/templates/Svace.gitlab-ci.yml"
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
   - local: ".gitlab/ci/stages.yml"
