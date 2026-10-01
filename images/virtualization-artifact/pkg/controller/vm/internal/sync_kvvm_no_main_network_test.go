@@ -74,7 +74,7 @@ var _ = Describe("filterReadyNetworks", func() {
 		Expect(kept).To(HaveLen(1))
 		Expect(kept[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
 
-		Expect(commonnetwork.CreateNetworkSpec(newVM(), kept, nil)).To(HaveLen(1))
+		Expect(commonnetwork.CreateNetworkSpec(newVM(), kept, nil, true)).To(HaveLen(1))
 	})
 
 	It("keeps the Main network while dropping a network that is not Ready", func() {
@@ -96,6 +96,6 @@ var _ = Describe("filterReadyNetworks", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kept).To(BeEmpty())
 
-		Expect(commonnetwork.CreateNetworkSpec(vm, kept, nil)).To(BeEmpty())
+		Expect(commonnetwork.CreateNetworkSpec(vm, kept, nil, true)).To(BeEmpty())
 	})
 })

@@ -65,7 +65,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(1))
 		Expect(configs[0].Name).To(Equal(""))
@@ -85,7 +85,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[0].Name).To(Equal(""))
@@ -110,7 +110,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[0].Name).To(Equal(""))
@@ -171,7 +171,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(5))
 
@@ -202,6 +202,7 @@ var _ = Describe("Network Config Generation", func() {
 				MAC:  "00:1A:2B:3C:4D:5E",
 			},
 			{
+				Type: v1alpha2.NetworksTypeNetwork,
 				Name: "name2",
 				MAC:  "00:1A:2B:3C:4D:5F",
 			},
@@ -211,6 +212,7 @@ var _ = Describe("Network Config Generation", func() {
 				MAC:  "00:1A:2B:3C:4D:7F",
 			},
 			{
+				Type: v1alpha2.NetworksTypeNetwork,
 				Name: "name4",
 				MAC:  "00:1A:2B:3C:4D:6A",
 			},
@@ -240,7 +242,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(4))
 
@@ -261,7 +263,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(1))
 		Expect(configs[0].ID).To(Equal(0))
@@ -280,7 +282,7 @@ var _ = Describe("Network Config Generation", func() {
 			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1", IPAddressName: "my-static-ip"},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[1].IPAddressNames).To(Equal([]string{"my-static-ip"}))
@@ -299,7 +301,7 @@ var _ = Describe("Network Config Generation", func() {
 			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1"},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs)
+		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[1].IPAddressNames).To(BeNil())

@@ -41,8 +41,8 @@ func WithImplicitMain(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec 
 
 // CreateNetworkSpec builds the interface list for the given networks of the virtual machine.
 // An empty list yields no interface at all, never the Main one.
-func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, networks []v1alpha2.NetworksSpec, vmmacs []*v1alpha2.VirtualMachineMACAddress) InterfaceSpecList {
-	macPool := NewMacAddressPool(vm, vmmacs)
+func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, networks []v1alpha2.NetworksSpec, vmmacs []*v1alpha2.VirtualMachineMACAddress, kvvmExists bool) InterfaceSpecList {
+	macPool := NewMacAddressPool(vm, vmmacs, kvvmExists)
 	var specs InterfaceSpecList
 
 	for _, net := range networks {
@@ -51,7 +51,7 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, networks []v1alpha2.Networks
 			continue
 		}
 
-		mac := macPool.Assign(net.Name)
+		mac := macPool.MACFor(net.Type, net.Name)
 		if mac != "" {
 			specs = append(specs, createAdditionalInterfaceSpec(net, mac))
 		}

@@ -86,6 +86,7 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 		attachedVM,
 		commonnetwork.WithImplicitMain(attachedVM.Spec.Networks),
 		[]*v1alpha2.VirtualMachineMACAddress{mac},
+		true,
 	)
 
 	additionalIfaceName := func() string {

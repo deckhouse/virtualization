@@ -351,7 +351,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	}
 
 	var networksStatus []v1alpha2.NetworksStatus
-	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vm.Spec.Networks, vmmacs) {
+	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vm.Spec.Networks, vmmacs, kvvm != nil) {
 		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
 			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 				ID:   interfaceSpec.ID,
@@ -361,6 +361,11 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		}
 
 		mac := macAddressesByInterfaceName[interfaceSpec.InterfaceName]
+		// The status is the binding the pool rebuilds the next KVVM from: keep it while the KVVM
+		// cannot tell the address (unschedulable, interface not rendered yet).
+		if mac == "" && kvvm != nil && vmmacNamesByAddress[interfaceSpec.MAC] != "" && statusHasMAC(vm.Status.Networks, interfaceSpec) {
+			mac = interfaceSpec.MAC
+		}
 		if interfaceSpec.Type == v1alpha2.NetworksTypeUnderlayNetwork {
 			// The VF is a host device, not a KVVM interface; the MAC comes from the
 			// assigned pool address that SDN programs on the VF.
@@ -378,6 +383,12 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 
 	vm.Status.Networks = retainDetachingNetworks(networksStatus, vm.Status.Networks, kvvmi)
 	return reconcile.Result{}, nil
+}
+
+func statusHasMAC(status []v1alpha2.NetworksStatus, interfaceSpec network.InterfaceSpec) bool {
+	return slices.ContainsFunc(status, func(ns v1alpha2.NetworksStatus) bool {
+		return ns.Type == interfaceSpec.Type && ns.Name == interfaceSpec.Name && ns.MAC == interfaceSpec.MAC
+	})
 }
 
 // retainDetachingNetworks keeps in next the status entries of prev that the spec no

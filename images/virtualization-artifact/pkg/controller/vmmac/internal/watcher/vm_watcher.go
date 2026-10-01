@@ -103,7 +103,9 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 					return true
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
-					return !reflect.DeepEqual(e.ObjectOld.Status.Networks, e.ObjectNew.Status.Networks)
+					// The attached handler also looks at the spec: a restore pins its addresses there.
+					return !reflect.DeepEqual(e.ObjectOld.Status.Networks, e.ObjectNew.Status.Networks) ||
+						!reflect.DeepEqual(e.ObjectOld.Spec.Networks, e.ObjectNew.Spec.Networks)
 				},
 			},
 		),

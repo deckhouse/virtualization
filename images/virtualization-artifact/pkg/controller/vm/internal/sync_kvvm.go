@@ -601,7 +601,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	if err != nil {
 		return nil, err
 	}
-	networkSpec := network.CreateNetworkSpec(current, readyNetworks, vmmacs)
+	networkSpec := network.CreateNetworkSpec(current, readyNetworks, vmmacs, kvvm != nil)
 	networkSpec, err = network.EnrichWithIPAM(ctx, s.Client(), current.Namespace, current, networkSpec)
 	if err != nil {
 		return nil, err
@@ -1422,7 +1422,7 @@ func (h *SyncKvvmHandler) resolvePodNetworks(ctx context.Context, s state.Virtua
 		return podNetworks{}, err
 	}
 
-	specs := network.CreateNetworkSpec(vm, readyNetworks, vmmacs)
+	specs := network.CreateNetworkSpec(vm, readyNetworks, vmmacs, kvvm != nil)
 	specs, err = network.EnrichWithIPAM(ctx, s.Client(), vm.Namespace, vm, specs)
 	if err != nil {
 		return podNetworks{}, fmt.Errorf("enrich network spec with IPAM: %w", err)
