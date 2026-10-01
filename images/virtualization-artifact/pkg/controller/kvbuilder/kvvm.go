@@ -406,27 +406,38 @@ func (b *KVVM) setMemoryNonHotpluggable(memorySize resource.Quantity) {
 func (b *KVVM) setMemoryHotpluggable(memorySize resource.Quantity) {
 	domain := &b.Resource.Spec.Template.Spec.Domain
 
-	currentMaxGuest := int64(-1)
+	var currentMaxGuest *resource.Quantity
+	currentMaxGuestValue := int64(-1)
 	if domain.Memory != nil && domain.Memory.MaxGuest != nil {
-		currentMaxGuest = domain.Memory.MaxGuest.Value()
+		currentMaxGuest = domain.Memory.MaxGuest
+		currentMaxGuestValue = domain.Memory.MaxGuest.Value()
 	}
 
+	// Recreate memory section.
 	domain.Memory = &virtv1.Memory{
 		Guest: &memorySize,
 	}
 
-	// Set maxMemory to enable hotplug for mem size >= 1Gi.
-	hotplugThreshold := resource.NewQuantity(EnableMemoryHotplugThreshold, resource.BinarySI)
-	if featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration) {
-		if memorySize.Cmp(*hotplugThreshold) >= 0 {
-			maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
-			domain.Memory.MaxGuest = maxMemory
+	status := b.Resource.Status.PrintableStatus
+	if b.ResourceExists && (status == virtv1.VirtualMachineStatusRunning || status == virtv1.VirtualMachineStatusMigrating) {
+		// Keep maxGuest as is for Running or Migrating machines: the maximum memory of a started domain
+		// cannot change, so KubeVirt reports any change of this field as a non-live-updatable one and
+		// sets the RestartRequired condition. The new value reaches the domain on the next start.
+		domain.Memory.MaxGuest = currentMaxGuest
+	} else {
+		// Set maxMemory to enable hotplug for mem size >= 1Gi.
+		hotplugThreshold := resource.NewQuantity(EnableMemoryHotplugThreshold, resource.BinarySI)
+		if featuregates.Default().Enabled(featuregates.HotplugMemoryWithLiveMigration) {
+			if memorySize.Cmp(*hotplugThreshold) >= 0 {
+				maxMemory := resource.NewQuantity(MaxMemorySizeForHotplug, resource.BinarySI)
+				domain.Memory.MaxGuest = maxMemory
+			}
 		}
-	}
-	// Set maxGuest to 0 if hotplug is disabled now (mem size < 1Gi) and maxGuest was previously set.
-	// Zero value is just a flag to patch memory and remove maxGuest before updating kvvm.
-	if memorySize.Cmp(*hotplugThreshold) == -1 && currentMaxGuest > 0 {
-		domain.Memory.MaxGuest = resource.NewQuantity(0, resource.BinarySI)
+		// Set maxGuest to 0 if hotplug is disabled now (mem size < 1Gi) and maxGuest was previously set.
+		// Zero value is just a flag to patch memory and remove maxGuest before updating kvvm.
+		if memorySize.Cmp(*hotplugThreshold) == -1 && currentMaxGuestValue > 0 {
+			domain.Memory.MaxGuest = resource.NewQuantity(0, resource.BinarySI)
+		}
 	}
 
 	// Remove memory limits and requests if set by previous implementation.
