@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -328,6 +329,7 @@ var _ = Describe("DisksHandler", func() {
 		pool := newPool(2)
 		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
 		shared := reuseDisk(pool, "web-cache-shared", v1alpha2.DiskReady)
+		shared.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: "web-keeper", Mounted: true}, {Name: "web-stuck"}}
 
 		keeper := newMemberVM(pool, "web-keeper", v1alpha2.MachineRunning, referenceTime, false)
 		keeper.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "web-cache-shared"}}
@@ -346,6 +348,175 @@ var _ = Describe("DisksHandler", func() {
 		sharedRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-shared"}
 		Expect(getVM(ctx, c, "web-keeper").Spec.BlockDeviceRefs).To(ContainElement(sharedRef))   // keeper (BlockDevicesReady=True) keeps it
 		Expect(getVM(ctx, c, "web-stuck").Spec.BlockDeviceRefs).NotTo(ContainElement(sharedRef)) // stuck one detached
+	})
+
+	It("gives the detached member a fresh disk at the colliding disk's position (boot order kept)", func() {
+		pool := newPool(2)
+		pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+		shared := reuseDisk(pool, "web-cache-shared", v1alpha2.DiskReady)
+		shared.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: "web-keeper", Mounted: true}, {Name: "web-stuck"}}
+		refs := func() []v1alpha2.BlockDeviceSpecRef {
+			return []v1alpha2.BlockDeviceSpecRef{
+				{Kind: v1alpha2.DiskDevice, Name: "web-cache-shared"}, // boot device
+				{Kind: v1alpha2.ImageDevice, Name: "tools"},
+			}
+		}
+		keeper := newMemberVM(pool, "web-keeper", v1alpha2.MachineRunning, referenceTime, false)
+		keeper.Spec.BlockDeviceRefs = refs()
+		keeper.Status.Conditions = []metav1.Condition{{Type: vmcondition.TypeBlockDevicesReady.String(), Status: metav1.ConditionTrue, Reason: "Ready"}}
+		stuck := newMemberVM(pool, "web-stuck", v1alpha2.MachineRunning, referenceTime, false)
+		stuck.Spec.BlockDeviceRefs = refs()
+		c, err := testutil.NewFakeClientWithObjects(pool, shared, keeper, stuck)
+		Expect(err).NotTo(HaveOccurred())
+
+		h := NewDisksHandler(c)
+		_, err = h.Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+		// Placeholder, not dropped: a VirtualImage must not become the first device.
+		Expect(getVM(ctx, c, "web-stuck").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{
+			{Kind: v1alpha2.DiskDevice, Name: "cache"},
+			{Kind: v1alpha2.ImageDevice, Name: "tools"},
+		}))
+
+		_, err = h.Handle(ctx, pool)
+		Expect(err).NotTo(HaveOccurred())
+		got := getVM(ctx, c, "web-stuck").Spec.BlockDeviceRefs
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].Kind).To(Equal(v1alpha2.DiskDevice))
+		Expect(got[0].Name).To(HavePrefix(poolName + "-cache-"))
+		Expect(got[1]).To(Equal(v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.ImageDevice, Name: "tools"}))
+		Expect(getVM(ctx, c, "web-keeper").Spec.BlockDeviceRefs).To(Equal(refs()))
+	})
+
+	Context("reuse disk handed out on a stale cache", func() {
+		var (
+			pool       *v1alpha2.VirtualMachinePool
+			api, cache client.WithWatch
+			h          *DisksHandler
+			clk        *testingclock.FakeClock
+		)
+		placeholder := []v1alpha2.BlockDeviceSpecRef{{Kind: v1alpha2.DiskDevice, Name: "cache"}}
+		xRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-x"}
+
+		// The first pass gives the free disk to web-b; the cache does not see that write.
+		BeforeEach(func() {
+			pool = newPool(2)
+			pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+			x := reuseDisk(pool, "web-cache-x", v1alpha2.DiskReady)
+			b := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime, false)
+			b.Spec.BlockDeviceRefs = placeholder
+			var err error
+			api, err = testutil.NewFakeClientWithObjects(pool, x, b.DeepCopy())
+			Expect(err).NotTo(HaveOccurred())
+			cache, err = testutil.NewFakeClientWithObjects(pool, x, b.DeepCopy())
+			Expect(err).NotTo(HaveOccurred())
+			clk = testingclock.NewFakeClock(referenceTime)
+			h = NewDisksHandler(staleReads{WithWatch: api, cache: cache})
+			h.clock = clk
+
+			_, err = h.Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getVM(ctx, api, "web-b").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{xRef}))
+			Expect(h.handouts[pool.GetUID()]).To(HaveKey("web-cache-x"))
+		})
+
+		It("gives a new replica another disk instead of the one it has handed out", func() {
+			a := newMemberVM(pool, "web-a", v1alpha2.MachinePending, referenceTime, false)
+			a.Spec.BlockDeviceRefs = placeholder
+			Expect(api.Create(ctx, a.DeepCopy())).To(Succeed())
+			Expect(cache.Create(ctx, a.DeepCopy())).To(Succeed())
+
+			_, err := h.Handle(ctx, pool)
+
+			refs := getVM(ctx, api, "web-a").Spec.BlockDeviceRefs
+			Expect(refs).To(HaveLen(1))
+			Expect(refs[0].Name).To(HavePrefix(poolName + "-cache-"))
+			Expect(refs[0].Name).NotTo(Equal("web-cache-x"))
+			Expect(getVM(ctx, api, "web-b").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{xRef}))
+			// web-b does not try to take a second disk while the cache lags.
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("forgets the handout once the cache shows it", func() {
+			b := getVM(ctx, cache, "web-b")
+			b.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{xRef}
+			Expect(cache.Update(ctx, b)).To(Succeed())
+
+			_, err := h.Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(h.handouts).NotTo(HaveKey(pool.GetUID()))
+		})
+
+		It("forgets the handout of a replica that is gone", func() {
+			Expect(cache.Delete(ctx, getVM(ctx, cache, "web-b"))).To(Succeed())
+
+			_, err := h.Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(h.handouts).NotTo(HaveKey(pool.GetUID()))
+		})
+
+		It("forgets the handout after the TTL", func() {
+			clk.Step(expectations.DefaultTTL + time.Second)
+
+			// web-b is stale in the cache, so taking the disk again conflicts and nothing is remembered.
+			_, _ = h.Handle(ctx, pool)
+			Expect(h.handouts).NotTo(HaveKey(pool.GetUID()))
+		})
+	})
+
+	Context("collision keeper", func() {
+		sharedRef := v1alpha2.BlockDeviceSpecRef{Kind: v1alpha2.DiskDevice, Name: "web-cache-shared"}
+		ready := func(status metav1.ConditionStatus) []metav1.Condition {
+			return []metav1.Condition{{Type: vmcondition.TypeBlockDevicesReady.String(), Status: status, Reason: "Test"}}
+		}
+		collide := func(shared *v1alpha2.VirtualDisk, a, b *v1alpha2.VirtualMachine) client.Client {
+			pool := newPool(2)
+			pool.Spec.VirtualDiskTemplates = []v1alpha2.VirtualDiskTemplateSpec{diskTemplate("cache", v1alpha2.VirtualDiskReclaimRetain)}
+			a.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{sharedRef}
+			b.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{sharedRef}
+			c, err := testutil.NewFakeClientWithObjects(pool, shared, a, b)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = NewDisksHandler(c).Handle(ctx, pool)
+			Expect(err).NotTo(HaveOccurred())
+			return c
+		}
+
+		It("keeps the disk on the member the disk reports as mounting it, over name and a stale BlockDevicesReady", func() {
+			pool := newPool(2)
+			shared := reuseDisk(pool, "web-cache-shared", v1alpha2.DiskReady)
+			shared.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: "web-a"}, {Name: "web-b", Mounted: true}}
+			a := newMemberVM(pool, "web-a", v1alpha2.MachineRunning, referenceTime, false)
+			a.Status.Conditions = ready(metav1.ConditionTrue) // not yet refreshed by the vm-controller
+			b := newMemberVM(pool, "web-b", v1alpha2.MachineRunning, referenceTime, false)
+			b.Status.Conditions = ready(metav1.ConditionFalse)
+			c := collide(shared, a, b)
+
+			Expect(getVM(ctx, c, "web-b").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{sharedRef}))
+			Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).NotTo(ContainElement(sharedRef))
+		})
+
+		It("waits while no member mounts the disk yet and one of them is starting", func() {
+			pool := newPool(2)
+			shared := reuseDisk(pool, "web-cache-shared", v1alpha2.DiskReady)
+			a := newMemberVM(pool, "web-a", v1alpha2.MachineStarting, referenceTime, false)
+			b := newMemberVM(pool, "web-b", v1alpha2.MachinePending, referenceTime, false)
+			c := collide(shared, a, b)
+
+			// Both stay until the disk reports which member mounts it.
+			Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{sharedRef}))
+			Expect(getVM(ctx, c, "web-b").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{sharedRef}))
+		})
+
+		It("resolves a collision between stopped members by name", func() {
+			pool := newPool(2)
+			shared := reuseDisk(pool, "web-cache-shared", v1alpha2.DiskReady)
+			a := newMemberVM(pool, "web-a", v1alpha2.MachineStopped, referenceTime, false)
+			b := newMemberVM(pool, "web-b", v1alpha2.MachineStopped, referenceTime, false)
+			c := collide(shared, a, b)
+
+			Expect(getVM(ctx, c, "web-a").Spec.BlockDeviceRefs).To(Equal([]v1alpha2.BlockDeviceSpecRef{sharedRef}))
+			Expect(getVM(ctx, c, "web-b").Spec.BlockDeviceRefs).NotTo(ContainElement(sharedRef))
+		})
 	})
 
 	Context("GC of free reuse disks", func() {
@@ -583,3 +754,17 @@ var _ = Describe("DisksHandler", func() {
 		})
 	})
 })
+
+// staleReads reads from a lagging cache and writes to the API server, like an informer-backed client.
+type staleReads struct {
+	client.WithWatch
+	cache client.Reader
+}
+
+func (s staleReads) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	return s.cache.Get(ctx, key, obj, opts...)
+}
+
+func (s staleReads) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	return s.cache.List(ctx, list, opts...)
+}

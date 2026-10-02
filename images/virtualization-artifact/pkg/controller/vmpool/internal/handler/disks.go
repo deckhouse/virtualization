@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/expectations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmpool/internal/poollabels"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -49,16 +52,29 @@ type DisksHandler struct {
 	client client.Client
 	// clock is injectable so tests can control free-disk ageing deterministically.
 	clock clock.PassiveClock
+
+	mu sync.Mutex
+	// handouts are reuse disks, per pool UID, written into a member the cache may not show yet.
+	handouts map[types.UID]map[string]handout
+}
+
+type handout struct {
+	member   types.UID
+	template string
+	at       time.Time
 }
 
 func NewDisksHandler(c client.Client) *DisksHandler {
-	return &DisksHandler{client: c, clock: clock.RealClock{}}
+	return &DisksHandler{client: c, clock: clock.RealClock{}, handouts: map[types.UID]map[string]handout{}}
 }
 
 func (h *DisksHandler) Name() string { return disksHandlerName }
 
 func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachinePool) (reconcile.Result, error) {
 	if pool.GetDeletionTimestamp() != nil {
+		h.mu.Lock()
+		delete(h.handouts, pool.GetUID())
+		h.mu.Unlock()
 		return reconcile.Result{}, nil
 	}
 
@@ -97,9 +113,8 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 			}
 		}
 	}
-	// Guards against handing the same free disk to two members within one pass
-	// (the informer cache does not yet reflect the attach we just did).
-	assignedThisPass := map[string]bool{}
+	// Disks handed out by this or an earlier pass that the cache does not show on the member yet.
+	claimed := h.pendingHandouts(pool.GetUID(), members)
 
 	for i := range members {
 		vm := &members[i]
@@ -112,7 +127,7 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 			if isDeletePolicy(diskTemplate) {
 				derr = h.ensureDeleteDisk(ctx, pool, vm, diskTemplate)
 			} else {
-				derr = h.ensureRetainDisk(ctx, pool, vm, diskTemplate, referenced, assignedThisPass)
+				derr = h.ensureRetainDisk(ctx, pool, vm, diskTemplate, referenced, claimed)
 			}
 			if derr != nil {
 				errs = errors.Join(errs, derr)
@@ -120,8 +135,7 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 		}
 	}
 
-	// Fallback: if a controller restart lost the in-pass guard and a reuse disk
-	// ended up on two members, detach it from the stuck one so it is reassigned.
+	// Fallback for a reuse disk on two members, e.g. after a restart lost the handouts.
 	if err := h.reassignCollisions(ctx, pool, members); err != nil {
 		errs = errors.Join(errs, err)
 	}
@@ -135,7 +149,7 @@ func (h *DisksHandler) Handle(ctx context.Context, pool *v1alpha2.VirtualMachine
 		if isDeletePolicy(diskTemplate) {
 			continue
 		}
-		after, err := h.gcReuseDisks(ctx, pool, diskTemplate, referenced, assignedThisPass)
+		after, err := h.gcReuseDisks(ctx, pool, diskTemplate, referenced, claimed)
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -190,7 +204,7 @@ func (h *DisksHandler) pruneRemovedTemplates(ctx context.Context, pool *v1alpha2
 				isBoot = true
 				attached = true
 			default:
-				if err := h.detachDisk(ctx, vm, d.Name); err != nil {
+				if err := h.detachDisk(ctx, vm, d.Name, ""); err != nil {
 					errs = errors.Join(errs, err)
 					attached = true
 				}
@@ -267,7 +281,8 @@ func (h *DisksHandler) gcReuseDisks(
 	ctx context.Context,
 	pool *v1alpha2.VirtualMachinePool,
 	diskTemplate v1alpha2.VirtualDiskTemplateSpec,
-	referenced, assignedThisPass map[string]bool,
+	referenced map[string]bool,
+	claimed map[string]handout,
 ) (time.Duration, error) {
 	disks, err := h.listReuseDisks(ctx, pool, diskTemplate)
 	if err != nil {
@@ -279,7 +294,8 @@ func (h *DisksHandler) gcReuseDisks(
 	var free []*v1alpha2.VirtualDisk
 	for i := range disks {
 		d := &disks[i]
-		inUse := referenced[d.Name] || assignedThisPass[d.Name]
+		_, isClaimed := claimed[d.Name]
+		inUse := referenced[d.Name] || isClaimed
 		if inUse {
 			// Back in use — drop the free-since stamp if present.
 			if _, ok := d.GetAnnotations()[poollabels.FreeSince]; ok {
@@ -345,11 +361,8 @@ func (h *DisksHandler) gcReuseDisks(
 	return requeueAfter, errs
 }
 
-// reassignCollisions detaches a reuse disk from all but one member when several
-// live members reference the same one (a cross-pass race after a restart). The
-// keeper is the member that can actually use it (BlockDevicesReady=True), or,
-// failing a clear winner, the lexicographically smallest name for determinism.
-// The detached members get a fresh disk on the next reconcile.
+// reassignCollisions leaves a reuse disk shared by several members to one of them;
+// the others get the template placeholder back, so their new disk keeps the boot order.
 func (h *DisksHandler) reassignCollisions(ctx context.Context, pool *v1alpha2.VirtualMachinePool, members []v1alpha2.VirtualMachine) error {
 	reuse, err := h.listAllReuseDisks(ctx, pool)
 	if err != nil {
@@ -358,9 +371,11 @@ func (h *DisksHandler) reassignCollisions(ctx context.Context, pool *v1alpha2.Vi
 	if len(reuse) == 0 {
 		return nil
 	}
-	reuseNames := make(map[string]bool, len(reuse))
+	templateOf := make(map[string]string, len(reuse))
+	mountedBy := make(map[string]string, len(reuse))
 	for i := range reuse {
-		reuseNames[reuse[i].Name] = true
+		templateOf[reuse[i].Name] = reuse[i].GetLabels()[poollabels.DiskTemplate]
+		mountedBy[reuse[i].Name] = commonvd.GetCurrentlyMountedVMName(&reuse[i])
 	}
 
 	refBy := map[string][]*v1alpha2.VirtualMachine{}
@@ -370,7 +385,10 @@ func (h *DisksHandler) reassignCollisions(ctx context.Context, pool *v1alpha2.Vi
 			continue
 		}
 		for _, ref := range vm.Spec.BlockDeviceRefs {
-			if ref.Kind == v1alpha2.DiskDevice && reuseNames[ref.Name] {
+			if ref.Kind != v1alpha2.DiskDevice {
+				continue
+			}
+			if _, isReuse := templateOf[ref.Name]; isReuse {
 				refBy[ref.Name] = append(refBy[ref.Name], vm)
 			}
 		}
@@ -381,12 +399,15 @@ func (h *DisksHandler) reassignCollisions(ctx context.Context, pool *v1alpha2.Vi
 		if len(vms) < 2 {
 			continue
 		}
-		keeper := pickKeeper(vms)
+		keeper := pickKeeper(vms, mountedBy[diskName])
+		if keeper == nil {
+			continue // the disk has not picked a member yet; wait for it
+		}
 		for _, vm := range vms {
 			if vm == keeper {
 				continue
 			}
-			if err := h.detachDisk(ctx, vm, diskName); err != nil {
+			if err := h.detachDisk(ctx, vm, diskName, templateOf[diskName]); err != nil {
 				errs = errors.Join(errs, err)
 			}
 		}
@@ -415,7 +436,18 @@ func (h *DisksHandler) listAllReuseDisks(ctx context.Context, pool *v1alpha2.Vir
 	return owned, nil
 }
 
-func pickKeeper(vms []*v1alpha2.VirtualMachine) *v1alpha2.VirtualMachine {
+// pickKeeper returns the member mounting the disk, or nil while a starting member may still mount it.
+func pickKeeper(vms []*v1alpha2.VirtualMachine, mountedBy string) *v1alpha2.VirtualMachine {
+	for _, vm := range vms {
+		if vm.GetName() == mountedBy {
+			return vm
+		}
+	}
+	for _, vm := range vms {
+		if phase := vm.Status.Phase; phase != "" && phase != v1alpha2.MachineStopped {
+			return nil
+		}
+	}
 	keeper := vms[0]
 	for _, vm := range vms {
 		if blockDevicesReady(vm) {
@@ -433,7 +465,8 @@ func blockDevicesReady(vm *v1alpha2.VirtualMachine) bool {
 	return c != nil && c.Status == metav1.ConditionTrue
 }
 
-func (h *DisksHandler) detachDisk(ctx context.Context, vm *v1alpha2.VirtualMachine, diskName string) error {
+// detachDisk drops the member's ref to diskName or, with a placeholder, renames the ref to it.
+func (h *DisksHandler) detachDisk(ctx context.Context, vm *v1alpha2.VirtualMachine, diskName, placeholder string) error {
 	// Re-read and retry on conflict: a member is a running VM the vm-controller
 	// updates often, so a blind Update from a cached copy would frequently lose the
 	// race — and a failed detach must never let the caller delete a still-attached
@@ -446,7 +479,10 @@ func (h *DisksHandler) detachDisk(ctx context.Context, vm *v1alpha2.VirtualMachi
 		refs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(cur.Spec.BlockDeviceRefs))
 		for _, ref := range cur.Spec.BlockDeviceRefs {
 			if ref.Kind == v1alpha2.DiskDevice && ref.Name == diskName {
-				continue
+				if placeholder == "" {
+					continue
+				}
+				ref.Name = placeholder
 			}
 			refs = append(refs, ref)
 		}
@@ -476,7 +512,8 @@ func (h *DisksHandler) ensureRetainDisk(
 	pool *v1alpha2.VirtualMachinePool,
 	vm *v1alpha2.VirtualMachine,
 	diskTemplate v1alpha2.VirtualDiskTemplateSpec,
-	referenced, assignedThisPass map[string]bool,
+	referenced map[string]bool,
+	claimed map[string]handout,
 ) error {
 	reuseDisks, err := h.listReuseDisks(ctx, pool, diskTemplate)
 	if err != nil {
@@ -493,6 +530,11 @@ func (h *DisksHandler) ensureRetainDisk(
 			return nil
 		}
 	}
+	for _, c := range claimed {
+		if c.member == vm.GetUID() && c.template == diskTemplate.Name {
+			return nil
+		}
+	}
 
 	// Reuse a free pool-owned disk (held by no live member). Prefer a Ready one, but
 	// take a still-provisioning one too: attaching it lets a WaitForFirstConsumer disk
@@ -500,7 +542,7 @@ func (h *DisksHandler) ensureRetainDisk(
 	var freeReady, freeAny *v1alpha2.VirtualDisk
 	for i := range reuseDisks {
 		d := &reuseDisks[i]
-		if referenced[d.Name] || assignedThisPass[d.Name] || d.GetDeletionTimestamp() != nil || d.Status.Phase == v1alpha2.DiskFailed {
+		if _, isClaimed := claimed[d.Name]; referenced[d.Name] || isClaimed || d.GetDeletionTimestamp() != nil || d.Status.Phase == v1alpha2.DiskFailed {
 			continue
 		}
 		if freeAny == nil {
@@ -511,24 +553,57 @@ func (h *DisksHandler) ensureRetainDisk(
 			break
 		}
 	}
+	var name string
 	if pick := freeReady; pick != nil || freeAny != nil {
 		if pick == nil {
 			pick = freeAny
 		}
-		assignedThisPass[pick.Name] = true
-		logf.FromContext(ctx).Info("reusing a free pool disk", "member", vm.GetName(), "disk", pick.Name, "diskTemplate", diskTemplate.Name)
-		return h.attachDisk(ctx, vm, pick.Name, diskTemplate.Name)
+		name = pick.Name
+		logf.FromContext(ctx).Info("reusing a free pool disk", "member", vm.GetName(), "disk", name, "diskTemplate", diskTemplate.Name)
+	} else {
+		// No free disk at all — create a new pool-owned disk and attach it.
+		name = fmt.Sprintf("%s-%s-%s", pool.GetName(), diskTemplate.Name, rand.String(6))
+		logf.FromContext(ctx).Info("creating a reuse disk", "member", vm.GetName(), "disk", name, "diskTemplate", diskTemplate.Name)
+		if err := h.client.Create(ctx, h.newRetainDisk(pool, diskTemplate, name)); client.IgnoreAlreadyExists(err) != nil {
+			reportDiskFailure(ctx, vm, diskTemplate.Name, fmt.Sprintf("Cannot create VirtualDisk %q: ", name), diskTemplatePath(diskTemplate.Name), err)
+			return fmt.Errorf("create reuse disk %s: %w", name, err)
+		}
 	}
+	c := handout{member: vm.GetUID(), template: diskTemplate.Name, at: h.clock.Now()}
+	claimed[name] = c
+	if err := h.attachDisk(ctx, vm, name, diskTemplate.Name); err != nil {
+		return err
+	}
+	h.remember(pool.GetUID(), name, c)
+	return nil
+}
 
-	// No free disk at all — create a new pool-owned disk and attach it.
-	name := fmt.Sprintf("%s-%s-%s", pool.GetName(), diskTemplate.Name, rand.String(6))
-	logf.FromContext(ctx).Info("creating a reuse disk", "member", vm.GetName(), "disk", name, "diskTemplate", diskTemplate.Name)
-	if err := h.client.Create(ctx, h.newRetainDisk(pool, diskTemplate, name)); client.IgnoreAlreadyExists(err) != nil {
-		reportDiskFailure(ctx, vm, diskTemplate.Name, fmt.Sprintf("Cannot create VirtualDisk %q: ", name), diskTemplatePath(diskTemplate.Name), err)
-		return fmt.Errorf("create reuse disk %s: %w", name, err)
+// pendingHandouts drops handouts the cache shows, of a gone member or past the TTL, and returns the rest.
+func (h *DisksHandler) pendingHandouts(poolUID types.UID, members []v1alpha2.VirtualMachine) map[string]handout {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	pending := map[string]handout{}
+	for disk, c := range h.handouts[poolUID] {
+		i := slices.IndexFunc(members, func(vm v1alpha2.VirtualMachine) bool { return vm.GetUID() == c.member })
+		if i < 0 || members[i].GetDeletionTimestamp() != nil || hasDiskRef(&members[i], disk) || h.clock.Since(c.at) > expectations.DefaultTTL {
+			delete(h.handouts[poolUID], disk)
+			continue
+		}
+		pending[disk] = c
 	}
-	assignedThisPass[name] = true
-	return h.attachDisk(ctx, vm, name, diskTemplate.Name)
+	if len(h.handouts[poolUID]) == 0 {
+		delete(h.handouts, poolUID)
+	}
+	return pending
+}
+
+func (h *DisksHandler) remember(poolUID types.UID, disk string, c handout) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.handouts[poolUID] == nil {
+		h.handouts[poolUID] = map[string]handout{}
+	}
+	h.handouts[poolUID][disk] = c
 }
 
 func (h *DisksHandler) listReuseDisks(ctx context.Context, pool *v1alpha2.VirtualMachinePool, diskTemplate v1alpha2.VirtualDiskTemplateSpec) ([]v1alpha2.VirtualDisk, error) {
