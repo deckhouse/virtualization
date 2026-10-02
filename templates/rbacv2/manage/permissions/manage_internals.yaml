@@ -1,6 +1,22 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:system-capability:virtualization:manage_internals
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: manage internal configuration"
+    ru.meta.deckhouse.io/title: "Виртуализация: управление внутренней конфигурацией"
+    en.meta.deckhouse.io/description: "Manage storage profiles, the internal configuration of the virtualization runtime and the IP and MAC address leases."
+    ru.meta.deckhouse.io/description: "Управление профилями хранилищ, внутренней конфигурацией среды виртуализации и арендами IP- и MAC-адресов."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: system
+    rbac.deckhouse.io/capability: "system-capability.virtualization.manage_internals"
+    rbac.deckhouse.io/aggregate-to-cluster-as: superadmin
+    rbac.deckhouse.io/namespace: d8-virtualization
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
@@ -9,6 +25,7 @@ metadata:
     rbac.deckhouse.io/level: module
     rbac.deckhouse.io/namespace: d8-virtualization
   name: d8:manage:permission:subsystem:virtualization:manage_internals
+{{- end }}
 rules:
 - apiGroups:
   - storage.virtualization.deckhouse.io

@@ -1,7 +1,7 @@
 name: virtualization
 stage: General Availability
 subsystems:
-  - virtualization
+  - cluster
 namespace: d8-virtualization
 descriptions:
   en: Launches and manages virtual machines on the Deckhouse platform.

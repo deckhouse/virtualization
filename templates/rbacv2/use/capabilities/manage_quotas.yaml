@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:manage_quotas
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: manage resource quotas"
+    ru.meta.deckhouse.io/title: "Виртуализация: управление ResourceQuota"
+    en.meta.deckhouse.io/description: "Manage ResourceQuota objects in a namespace."
+    ru.meta.deckhouse.io/description: "Управление объектами ResourceQuota в пространстве имён."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.manage_quotas"
+    rbac.deckhouse.io/aggregate-to-namespace-as: admin
+{{- else }}
   name: d8:use:capability:virtualization:manage_quotas
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: admin
     rbac.deckhouse.io/kind: use
+{{- end }}
 rules:
   - apiGroups:
       - ""

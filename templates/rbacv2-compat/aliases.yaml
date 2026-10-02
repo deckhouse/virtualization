@@ -1,0 +1,77 @@
+{{- /*
+  Old role names of the module kept as empty aggregating aliases for clusters on the DKP 1.78 role
+  model, so existing bindings keep their rights. Remove together with the legacy scheme.
+
+  Namespace aliases are delegatable like the platform d8:use:role aliases: on 1.78 every namespace
+  is a project, and a new RoleBinding to a role without the label is refused there.
+
+  An alias carries no rules key: rules belong to clusterrole-aggregation-controller, and rules: []
+  makes server-side apply fight it. An alias selects the capabilities of its level and of every
+  level below: the platform ladder links its own roles, not the capabilities. It also keeps the
+  legacy capabilities other modules still aggregate into the virtualization lineage.
+
+  The cluster and namespace lineages are shared by many modules, so an alias pins the modules that
+  used to aggregate into the virtualization lineage. Without the module label it would grant the
+  rights of the whole lineage.
+*/ -}}
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+{{- $levels := list "viewer" "user" "manager" "admin" "superadmin" }}
+{{- $aliases := list }}
+{{- $modules := list "virtualization" "ansible" "gpu" }}
+{{- $manageLevels := list "viewer" "manager" "superadmin" }}
+{{- range $i, $level := $manageLevels }}
+  {{- $selectors := list }}
+  {{- range $below := slice $manageLevels 0 (add1 $i) }}
+    {{- range $module := $modules }}
+      {{- $selectors = append $selectors (dict "module" $module "rbac.deckhouse.io/kind" "capability" "rbac.deckhouse.io/scope" "system" "rbac.deckhouse.io/aggregate-to-cluster-as" $below) }}
+    {{- end }}
+    {{- $selectors = append $selectors (dict "rbac.deckhouse.io/kind" "manage" "rbac.deckhouse.io/aggregate-to-virtualization-as" $below) }}
+  {{- end }}
+  {{- $aliases = append $aliases (dict "name" (printf "d8:manage:virtualization:%s" $level) "target" (printf "d8:subsystem:cluster:%s" $level) "selectors" $selectors) }}
+{{- end }}
+{{- range $i, $level := $levels }}
+  {{- $name := printf "d8:use:role:%s:virtualization" $level }}
+  {{- if eq $level "superadmin" }}
+    {{- $name = "d8:use:virtualization:superadmin" }}
+  {{- end }}
+  {{- $selectors := list }}
+  {{- range $below := slice $levels 0 (add1 $i) }}
+    {{- range $module := $modules }}
+      {{- $selectors = append $selectors (dict "module" $module "rbac.deckhouse.io/kind" "capability" "rbac.deckhouse.io/aggregate-to-namespace-as" $below) }}
+    {{- end }}
+    {{- $selectors = append $selectors (dict "rbac.deckhouse.io/kind" "use" "rbac.deckhouse.io/aggregate-to-virtualization-as" $below) }}
+  {{- end }}
+  {{- $aliases = append $aliases (dict "name" $name "target" (printf "d8:namespace:%s" $level) "selectors" $selectors "delegatable" true) }}
+{{- end }}
+{{- range $alias := $aliases }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $alias.name | quote }}
+  annotations:
+    en.meta.deckhouse.io/title: "Deprecated: {{ $alias.name }}"
+    ru.meta.deckhouse.io/title: "Устарело: {{ $alias.name }}"
+    en.meta.deckhouse.io/description: "Deprecated role of the virtualization module kept for backward compatibility. Migrate bindings to {{ $alias.target }}."
+    ru.meta.deckhouse.io/description: "Устаревшая роль модуля virtualization, оставленная для обратной совместимости. Переведите привязки на {{ $alias.target }}."
+    rbac.deckhouse.io/deprecated-replaced-by: {{ $alias.target | quote }}
+    {{- if $alias.delegatable }}
+    rbac.deckhouse.io/disabled-for-direct-use-in-projects: "true"
+    {{- end }}
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/deprecated: "true"
+    {{- if $alias.delegatable }}
+    rbac.deckhouse.io/delegatable: "true"
+    {{- end }}
+aggregationRule:
+  clusterRoleSelectors:
+  {{- range $selector := $alias.selectors }}
+    - matchLabels:
+        {{- range $key, $value := $selector }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

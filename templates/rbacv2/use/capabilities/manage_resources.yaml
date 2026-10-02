@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:manage_resources
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: manage resources"
+    ru.meta.deckhouse.io/title: "Виртуализация: управление ресурсами"
+    en.meta.deckhouse.io/description: "Create, change and delete virtual machines, disks, images, snapshots, IP and MAC addresses in a namespace."
+    ru.meta.deckhouse.io/description: "Создание, изменение и удаление виртуальных машин, дисков, образов, снимков, IP- и MAC-адресов в пространстве имён."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.manage_resources"
+    rbac.deckhouse.io/aggregate-to-namespace-as: manager
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: manager
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:manage_resources
+{{- end }}
 rules:
   - apiGroups:
       - virtualization.deckhouse.io

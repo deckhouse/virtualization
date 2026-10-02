@@ -142,3 +142,26 @@ func Test_skip_threat_model(t *testing.T) {
 		}
 	}
 }
+
+func Test_skip_rbacv2(t *testing.T) {
+	// RBACv2 capabilities and roles carry localized titles shown in the console.
+	for _, name := range []string{
+		"templates/rbacv2/use/capabilities/view_resources.yaml",
+		"templates/rbacv2/manage/roles/manager.yaml",
+		"templates/rbacv2-compat/aliases.yaml",
+	} {
+		if !skipRBACv2Re.MatchString(name) {
+			t.Errorf("Should skip '%s'", name)
+		}
+	}
+
+	for _, name := range []string{
+		"templates/_rbacv2_compat.tpl",
+		"templates/rbac-for-us.yaml",
+		"tools/kubeconform/rbacv2_check.py",
+	} {
+		if skipRBACv2Re.MatchString(name) {
+			t.Errorf("Should not skip '%s'", name)
+		}
+	}
+}

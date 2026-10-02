@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:manage_internals
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: view internal resources"
+    ru.meta.deckhouse.io/title: "Виртуализация: просмотр внутренних ресурсов"
+    en.meta.deckhouse.io/description: "Read-only access to the internal resources behind virtual machines in a namespace: pods, PersistentVolumeClaims, volume snapshots and internal virtual machine objects."
+    ru.meta.deckhouse.io/description: "Доступ только на чтение к внутренним ресурсам виртуальных машин в пространстве имён: подам, PersistentVolumeClaim, снимкам томов и внутренним объектам виртуальных машин."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.manage_internals"
+    rbac.deckhouse.io/aggregate-to-namespace-as: superadmin
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: superadmin
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:manage_internals
+{{- end }}
 rules:
   - apiGroups:
       - internal.virtualization.deckhouse.io

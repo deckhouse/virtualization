@@ -60,6 +60,10 @@ linters-settings:
         # Renders the release notes: holds the Russian section headings, the month
         # names and the bilingual fixtures of its tests.
         - tools/releasenotes
+        # Every RBACv2 capability and role carries a localized title and description:
+        # the console shows them to whoever is choosing what to grant.
+        - templates/rbacv2
+        - templates/rbacv2-compat
   templates:
     exclude-rules:
       # These mount-points.yaml directories pre-create mount points for containerd strict mode.

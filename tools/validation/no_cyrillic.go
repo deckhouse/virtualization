@@ -41,6 +41,10 @@ var skipReleaseNotesRe = regexp.MustCompile(`CHANGELOG/release-notes\.ya?ml$|too
 // methodology and cites the FSTEC BDU catalogue, both of which are Russian sources.
 var skipThreatModelRe = regexp.MustCompile(`(^|/)virtualization-threat-model\.md$`)
 
+// Every RBACv2 capability and role carries ru.meta.deckhouse.io/{title,description}:
+// the console shows them to whoever is choosing what to grant, so it is product text.
+var skipRBACv2Re = regexp.MustCompile(`(^|/)templates/rbacv2[^/]*/`)
+
 func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (exitCode int) {
 	fmt.Printf("Run 'no cyrillic' validation ...\n")
 
@@ -124,6 +128,11 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 
 			if skipThreatModelRe.MatchString(fileName) {
 				msgs.Add(NewSkip(fileName, "threat model"))
+				continue
+			}
+
+			if skipRBACv2Re.MatchString(fileName) {
+				msgs.Add(NewSkip(fileName, "RBACv2 localized titles"))
 				continue
 			}
 

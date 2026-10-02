@@ -309,6 +309,7 @@ tasks:
       - |
         cd tools/kubeconform
         ./kubeconform.sh
+      - python3 tools/kubeconform/rbacv2_check.py
 
   validation:alert-rules:
     desc: "Check alerting rules: PromQL syntax and unit tests"

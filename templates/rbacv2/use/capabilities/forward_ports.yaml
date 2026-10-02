@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:forward_ports
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: virtual machine port forwarding"
+    ru.meta.deckhouse.io/title: "Виртуализация: проброс портов виртуальных машин"
+    en.meta.deckhouse.io/description: "Forward ports of virtual machines in a namespace."
+    ru.meta.deckhouse.io/description: "Проброс портов виртуальных машин в пространстве имён."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.forward_ports"
+    rbac.deckhouse.io/aggregate-to-namespace-as: user
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: user
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:forward_ports
+{{- end }}
 rules:
 - apiGroups:
   - subresources.virtualization.deckhouse.io

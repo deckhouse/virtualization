@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:execute_vm_operations
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: virtual machine operations"
+    ru.meta.deckhouse.io/title: "Виртуализация: операции с виртуальными машинами"
+    en.meta.deckhouse.io/description: "Run operations on virtual machines in a namespace through VirtualMachineOperation."
+    ru.meta.deckhouse.io/description: "Выполнение операций с виртуальными машинами в пространстве имён через VirtualMachineOperation."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.execute_vm_operations"
+    rbac.deckhouse.io/aggregate-to-namespace-as: user
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: user
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:execute_virtualmachine_operations
+{{- end }}
 rules:
 - apiGroups:
   - virtualization.deckhouse.io

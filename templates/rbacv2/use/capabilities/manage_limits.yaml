@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:manage_limits
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: manage limit ranges"
+    ru.meta.deckhouse.io/title: "Виртуализация: управление LimitRange"
+    en.meta.deckhouse.io/description: "Manage LimitRange objects in a namespace."
+    ru.meta.deckhouse.io/description: "Управление объектами LimitRange в пространстве имён."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.manage_limits"
+    rbac.deckhouse.io/aggregate-to-namespace-as: admin
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: admin
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:manage_limits
+{{- end }}
 rules:
   - apiGroups:
       - ""

@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:view_resources
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: view resources"
+    ru.meta.deckhouse.io/title: "Виртуализация: просмотр ресурсов"
+    en.meta.deckhouse.io/description: "Read-only access to virtual machines, disks, images, snapshots and related resources in a namespace."
+    ru.meta.deckhouse.io/description: "Доступ только на чтение к виртуальным машинам, дискам, образам, снимкам и связанным ресурсам в пространстве имён."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.view_resources"
+    rbac.deckhouse.io/aggregate-to-namespace-as: viewer
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: viewer
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:view_resources
+{{- end }}
 rules:
   - apiGroups:
       - virtualization.deckhouse.io

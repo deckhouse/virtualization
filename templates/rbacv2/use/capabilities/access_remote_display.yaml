@@ -1,12 +1,28 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if eq (include "virtualization.rbacv2_new_scheme" .) "true" }}
+  name: d8:namespace-capability:virtualization:access_remote_display
+  annotations:
+    en.meta.deckhouse.io/title: "Virtualization: virtual machine graphical console"
+    ru.meta.deckhouse.io/title: "Виртуализация: графическая консоль виртуальных машин"
+    en.meta.deckhouse.io/description: "Connect to virtual machines in a namespace over VNC and SPICE."
+    ru.meta.deckhouse.io/description: "Подключение к виртуальным машинам в пространстве имён по VNC и SPICE."
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/kind: capability
+    rbac.deckhouse.io/scope: namespace
+    rbac.deckhouse.io/capability: "namespace-capability.virtualization.access_remote_display"
+    rbac.deckhouse.io/aggregate-to-namespace-as: user
+{{- else }}
   labels:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: user
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:access_remote_display
+{{- end }}
 rules:
 - apiGroups:
   - subresources.virtualization.deckhouse.io
