@@ -24,6 +24,9 @@ rules:
   - virtualmachinesnapshotoperations
   - usbdevices
   - nodeusbdevices
+  {{- if ne .Values.global.deckhouseEdition "CE" }}
+  - virtualmachinepools
+  {{- end }}
   verbs:
   - get
   - list
