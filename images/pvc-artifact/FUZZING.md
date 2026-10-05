@@ -68,10 +68,9 @@ certification requirement, not a style preference. The lowest count today is 31.
   covers the test files only - this document, like every other `.md` outside `doc-ru-*`, is
   still checked and is therefore English only.
 - Seed corpus entries run as ordinary subtests under `go test`, so a broken seed fails
-  wherever the package is tested. In CI that place is the fuzz image build: the `-fuzz` image
-  replays every target's corpus as its last build step, and a broken seed fails the build. The
-  ordinary jobs still leave this module alone — the pipeline runs unit tests for
-  `images/virtualization-artifact` and the hooks only.
+  wherever the package is tested. In CI the `replay_fuzz` child pipeline runs them in the
+  built `-fuzz` image, and a broken seed fails its replay job. Start the manual `replay_fuzz`
+  job in an MR to check this module; the ordinary unit-test jobs do not cover it.
 
 Every input is capped at 64 KiB with `t.Skip`. That is a technical limit against pointless
 memory and time, never a filter on malformed data - malformed data is what these paths exist
@@ -98,20 +97,36 @@ duration variable: the stopping policy belongs to the platform. From the reposit
 tasks are reachable as `task pvc-artifact:fuzz:list` and so on.
 
 These are the tasks the external fuzzing platform calls, and it reaches them through the
-`-fuzz` image: `werf.inc.yaml` ends with `{{- include "fuzz image" . }}`, which
-[`.werf/defines/fuzz.tmpl`](../../.werf/defines/fuzz.tmpl) turns into
-`{ModuleNamePrefix}pvc-artifact-fuzz`, built from the regular `pvc-artifact` image with
-`CGO_ENABLED=0`. The image is `final: false` and the whole template is behind
-`WERF_BUILD_FUZZ_IMAGES=true`, which only `build_fuzz_dev` and `build_fuzz_main` set
-(`.gitlab/ci/jobs/build-fuzz.yml`) — a test-only image must not be able to break the module
-build. Its install stage restores the corpus overlay from S3, discovers the targets with
-`task fuzz:list` and replays each one; mutation runs stay the platform's call.
+`-fuzz` image. [`werf.inc.yaml`](werf.inc.yaml) defines
+`{ModuleNamePrefix}pvc-artifact-fuzz` using the pinned `ci-images/fuzz-go` base with
+`CGO_ENABLED=0`. It imports the sources and downloads Go dependencies during the build.
+The image is `final: false`, so it is excluded from the module bundle.
+
+The base image reference is maintained in
+[`ci_images.yml`](../../build/base-images/ci_images.yml). The shared `fuzz image` template in
+[`fuzz-image.tmpl`](../../.werf/defines/fuzz-image.tmpl) reads this pin directly; source imports stay in the
+component's `werf.inc.yaml`.
+
+Each image passes its working directory to this one template. Extra environment variables,
+source imports, git files and install commands are written directly in its `werf.inc.yaml`.
+
+[`build-fuzz.yml`](../../.gitlab/ci/jobs/build-fuzz.yml) uses the shared
+`Build_Fuzz.gitlab-ci.yml` and `Replay_Fuzz.gitlab-ci.yml` templates from `modules-gitlab-ci`
+`v15.0`. `build_fuzz` builds the fuzz images and generates a child pipeline with one replay
+job per image. The replay jobs restore the S3 corpus and check it alongside the embedded
+seeds; mutation campaigns remain the external platform's job.
+
+Builds run automatically in MR pipelines and on pushes to `main`. The `replay_fuzz` trigger
+is manual and non-blocking in MRs; on `main` it runs automatically and publishes the image
+build report for the platform after successful replay. Replay artifacts include
+`fuzz-replay/summary.txt` and the full `fuzz-replay/job.log`; the console shows only a short
+summary or the tail of a failed run's log.
 
 **Inside the image the tasks come from the repository-root `Taskfile.fuzz.yml`**, copied into
 the workdir as `Taskfile.yml`, not from this module's `Taskfile.yaml`. The names match, the
 bodies do not: the in-image copy has no defaults for `FUZZ_PKG`, `FUZZ_TARGET` or
-`FUZZ_WORKERS`, and its `fuzz:list` always lists `./...`. Keep the two in step when changing
-either.
+`FUZZ_WORKERS`, and its `fuzz:list` uses `FUZZ_PKGS` (default `./...`). Keep the two in step
+when changing either.
 
 `fuzz:local:*` below runs the same tasks on the architecture the component ships as.
 
@@ -184,6 +199,7 @@ between runs; `docker volume rm pvc-artifact-fuzz-gocache` resets it.
 | --- | --- | --- |
 | `$(go env GOCACHE)/fuzz/<import path>/<FuzzFunc>/` | every coverage-expanding input the fuzzer finds | no |
 | `<package>/testdata/fuzz/<FuzzFunc>/` | crash reproducers only, written when a target fails | yes, it is not gitignored |
+| `s3://anomaloys-materials/<repository>/<branch slug>/<component>/` | the corpus the platform keeps between campaigns | no; CI restores it into the replay container's `testdata/fuzz` at runtime |
 
 There is no `testdata/fuzz` directory in this module today, because no target has failed.
 Consequences worth knowing:

@@ -6,12 +6,13 @@ parsing, checksum verification, upload, and the importer's handling of a hostile
 This one Go module builds both `dvcr-importer` and `dvcr-uploader`, so it holds the targets of
 two components. `task fuzz:*` runs them, and those are the tasks the external fuzzing platform
 calls. The repository builds a `dvcr-artifact-fuzz` image for them, and that image replays
-every seed corpus while it builds; the container loop below stays the way to run a campaign by
-hand.
+the corpus in the separate `replay_fuzz` child pipeline. The container loop below is the way
+to run a campaign by hand.
 
 Contents:
 
 - [Targets and components](#targets-and-components)
+- [Image classification and native inspection](#image-classification-and-native-inspection)
 - [Seed corpus convention](#seed-corpus-convention)
 - [Running a target](#running-a-target)
 - [The local loop: task docker:fuzz:*](#the-local-loop-task-dockerfuzz)
@@ -28,8 +29,8 @@ Five targets. The seed counts below were read off the `FuzzX/seed#…` subtests 
 | Target | Package | Seeds | Reached by | Covers |
 | --- | --- | --- | --- | --- |
 | `FuzzUploader` | `pkg/uploader` | 23 | dvcr-uploader | the `/upload` handler: request body and headers |
-| `FuzzImageInfo` | `pkg/registry` | 55 | both | qcow2/vmdk/vdi/vhdx/vpc/iso/raw parsing through `qemu-img` and `file` |
-| `FuzzImageInfoSnappy` | `pkg/registry` | 40 | dvcr-uploader | the same parsing behind the snappy framing of a blockdevice clone |
+| `FuzzPeekRawImage` | `pkg/registry` | 32 | both | Go header classification, preservation of the byte stream across fragmented reads, and source closure |
+| `FuzzImageInfoSnappy` | `pkg/registry` | 40 | dvcr-uploader | native image inspection behind the snappy framing of a blockdevice clone |
 | `FuzzChecksums` | `pkg/registry` | 35 | both | checksum spec parsing and verification |
 | `FuzzImporterHTTPSource` | `pkg/importer` | 47 | dvcr-importer | a hostile remote image source: status, headers, framing, body |
 
@@ -45,10 +46,11 @@ module, so `FuzzImageInfoSnappy` belongs to the uploader even though it lives in
 
 The project threat model assigns fuzzing of image formats to the image-upload path: qcow2,
 vmdk, vdi, vhdx, vpc and iso parsing against malformed and malicious data, plus the upload
-body of `dvcr-uploader`, where it names `FuzzUploader` as the target. That is what this module
-fuzzes. QEMU and libvirt device emulation is not fuzzed here: both are consumed as prebuilt
-container-factory packages (`pmPackages: [qemu]` in `images/qemu/werf.inc.yaml`), so there is
-nothing in this repository to instrument.
+body of `dvcr-uploader`, where it names `FuzzUploader` as the target. The mutation targets
+below implement parts of this assignment; they do not establish complete native-parser
+coverage. QEMU and libvirt device emulation is not fuzzed by these Go targets. The QEMU build is
+defined separately in `images/qemu/werf.inc.yaml`; Go coverage does not instrument the
+native parser invoked by `qemu-img`.
 
 Two notes about the document rather than about the code:
 
@@ -62,6 +64,32 @@ Two notes about the document rather than about the code:
   module — nothing here bounds `qemu-img`, it inherits the request context and dies with it.
   That half of the assignment is not satisfiable from this module.
 
+## Image classification and native inspection
+
+The former `FuzzImageInfo` mixed Go stream handling with an external `qemu-img` call.
+Its replacement, `FuzzPeekRawImage`, runs the production Go classifier with mutated
+image bytes and read boundaries. It checks the classification against explicit format
+signatures, byte-for-byte preservation of the stream, bounded header reads, and propagation
+of source close errors. Its 32 seeds start mutation; they are not a fixed replacement corpus.
+This classifier target accepts up to 4 KiB: a 512-byte header and a suffix to exercise
+restoration. The other four mutation targets retain their existing 1 MiB cap and behavior.
+
+The change narrows mutation coverage explicitly: it does not claim to fuzz native image
+metadata, decompress arbitrary image bodies, or replay historical S3 inputs from
+`FuzzImageInfo`. Those inputs are not automatically mapped to `FuzzPeekRawImage`. The
+threat TM-01 remains in scope. Native-parser resilience and production CPU, memory and
+output limits require separate checks. `FuzzImageInfoSnappy` retains its existing native
+inspection path; existing ordinary image-info tests are unchanged.
+
+The [original replay](https://fox.flant.com/deckhouse/virtualization/virtualization/-/jobs/6994819)
+and [second replay](https://fox.flant.com/deckhouse/virtualization/virtualization/-/jobs/7005439)
+on commit `b9cb127a` identified two native-inspection cases taking 5.19–7.53 seconds.
+Each produced about 14 MB of JSON metadata, logged in full before parsing; receiving the
+command output alone took 1.66–2.57 seconds. Both jobs already used Go 1.27.1. A larger
+watchdog does not speed up inspection. Passing `qemu-img info` does not establish image
+integrity. Successful replay jobs retain logs and a summary, rather than the downloaded
+input bytes.
+
 ## Seed corpus convention
 
 **Every target carries at least 20 seeds, spelled out in the test file.** This is a
@@ -69,15 +97,14 @@ certification requirement, not a style preference. The lowest count today is 23.
 
 - Seeds must be visible in `*_fuzz_test.go`. A table-driven corpus with a single `f.Add` in a
   `for` loop is fine — what matters is that the inputs are enumerated in the source, not
-  generated. Both forms are in use in `pkg/registry/imageinfo_fuzz_test.go`: one `f.Add` per
-  seed for the qcow2 and framing cases, and a loop over `imageFormatMagics` that gives every
-  other disk format its bare magic, its padded header and a header whose fields all claim
-  their maximum.
+  generated. The image classifier seeds live in `pkg/registry/peek_format_fuzz_test.go`;
+  `FuzzImageInfoSnappy` retains its existing framing seeds in `imageinfo_fuzz_test.go`.
 - Seeds should be *interesting*, not filler: format magic numbers, boundary values, truncated
   headers, overflowing lengths, path traversal, invalid UTF-8, and oversized inputs.
-- Every target skips inputs above 1 MiB (`fuzzMaxInputSize`). A larger hostile image is not a
-  more hostile one, and each iteration copies its payload through a temporary file and a child
-  process. All seeds are well under the cap.
+- The native-tool and source-body targets skip inputs above 1 MiB (`fuzzMaxInputSize`);
+  `FuzzPeekRawImage` uses a 4 KiB cap because it only classifies a 512-byte header and checks
+  the restored suffix. The native inspection paths additionally copy their payload through
+  a temporary file and run a child process. All seeds fit their target cap.
 - **Non-ASCII and Cyrillic seeds are allowed.** `task validation:no-cyrillic` skips any file
   matching `_fuzz_test.go$` — the `skipFuzzTestRe` variable in
   [`tools/validation/no_cyrillic.go`](../../tools/validation/no_cyrillic.go) — and reports the
@@ -85,12 +112,10 @@ certification requirement, not a style preference. The lowest count today is 23.
   covers the test files only: this document, and any other `.md` outside `doc-ru-*`/`*.ru.md`,
   is still checked.
 - Seed corpus entries run as ordinary subtests under `go test`, so a broken seed fails wherever
-  the package is tested. In CI that place is the fuzz image build, not the test job: the
-  `-fuzz` image replays every target's corpus as its last build step, and a broken seed fails
-  the build. The ordinary jobs still leave this module alone — unit tests cover
-  `images/virtualization-artifact` and the hooks only (`test:virtualization-controller` and
-  `test:hooks` in `.gitlab/ci/jobs/test.yml`), and `lint:go` prunes `images/dvcr-artifact`
-  outright (`.gitlab/ci/jobs/lint-validate.yml`).
+  the package is tested. In CI the `replay_fuzz` child pipeline runs them in the built
+  `-fuzz` image, and a broken seed fails its replay job. Start the manual `replay_fuzz` job
+  in an MR to check this module: the ordinary unit-test jobs do not cover it, and `lint:go`
+  excludes it (`.gitlab/ci/jobs/lint-validate.yml`).
 
 ## Running a target
 
@@ -119,19 +144,23 @@ cross-compiled for `GOARCH=arm64`, which excludes the libnbd path altogether.
 
 ### task fuzz:* (the platform contract)
 
-**The `-fuzz` image exists now.** The external fuzzing platform finds components by scanning
-werf build reports for images whose name contains `-fuzz`, and `werf.inc.yaml` ends with
-`{{- include "fuzz image" . }}`, which [`.werf/defines/fuzz.tmpl`](../../.werf/defines/fuzz.tmpl)
-turns into `{ModuleNamePrefix}dvcr-artifact-fuzz`. Two things keep a test-only image from
-breaking the module build, which is exactly what it did on its first CI run: it is
-`final: false`, so it never reaches the module bundle, and the whole template is behind
-`WERF_BUILD_FUZZ_IMAGES=true`, which only `build_fuzz_dev` and `build_fuzz_main` set
-(`.gitlab/ci/jobs/build-fuzz.yml`). An ordinary `werf build` still produces no fuzz image.
+The external fuzzing platform discovers fuzz images through werf build reports.
+[`werf.inc.yaml`](werf.inc.yaml) defines `{ModuleNamePrefix}dvcr-artifact-fuzz` using the
+pinned `ci-images/fuzz-go` base. It is `final: false`, so it is excluded from the module
+bundle. The shared CI templates build the images whose names end in `-fuzz` and generate a
+replay job for each image.
 
+The base image reference is maintained in
+[`ci_images.yml`](../../build/base-images/ci_images.yml). The shared `fuzz image` template in
+[`fuzz-image.tmpl`](../../.werf/defines/fuzz-image.tmpl) reads this pin directly; source imports, QEMU and native
+dependency installation stay in the component's `werf.inc.yaml`.
 
-`Taskfile.dist.yaml` implements the four tasks the external fuzzing platform calls. They are
-also the shortest way to run a target by hand. Everything is driven by environment variables,
-because that is how the platform passes its parameters:
+Each image passes its working directory to this one template. Extra environment variables,
+source imports, git files and install commands are written directly in its `werf.inc.yaml`.
+
+For local runs, `Taskfile.dist.yaml` implements the four tasks of the platform contract.
+They are the shortest way to run a target by hand. Everything is driven by environment
+variables:
 
 | Task | What it does | Variables |
 | --- | --- | --- |
@@ -163,30 +192,38 @@ Notes that matter when reading or changing these tasks:
   go-task discovers on its own, so no `-t` flag is needed — but the root `Taskfile.yaml` does
   not include this module, so there is no `task dvcr:fuzz:list` from the repository root.
 
-### What the image build runs
+### Image build and CI replay
 
-The image is built from `dvcr-artifact-builder` with `CGO_ENABLED=1`, imports `/qemu-img` from
-the `qemu` image and installs `file`, `jq`, the AWS CLI and go-task. Its install stage then does
-the campaign-independent half of the work:
+The `ci-images/fuzz-go` base supplies the common fuzzing tools. The module's image enables
+`CGO_ENABLED=1`, imports `/qemu-img` from the `qemu` image and installs `file` and the native
+compiler, headers and libraries required by libnbd. Its install stage downloads Go modules
+into the image layer (`GOMODCACHE=/fuzz/gomod`). Corpus download and replay happen later, in
+the child pipeline.
 
-1. downloads the modules into the image layer (`GOMODCACHE=/fuzz/gomod`, not the mounted
-   `/go/pkg`, which is outside the image);
-2. mirrors the corpus overlay from `s3://anomaloys-materials/<repository>/<branch slug>/` into
-   each target's `testdata/fuzz/<FuzzFunc>/`, skipping names that are already there;
-3. discovers the targets with `task fuzz:list` and replays each one through `task fuzz:replay`;
-4. deletes exactly the files it restored, then removes the emptied `testdata/fuzz` directories,
-   so a crash reproducer is the only thing that can be left behind.
+[`build-fuzz.yml`](../../.gitlab/ci/jobs/build-fuzz.yml) uses the shared
+`Build_Fuzz.gitlab-ci.yml` and `Replay_Fuzz.gitlab-ci.yml` templates from `modules-gitlab-ci`
+`v15.0`:
 
-An empty or missing corpus in S3 is normal and does not fail the build. A failing replay does,
-and so does a `fuzz:list` that returns no targets at all.
+1. `build_fuzz` builds the fuzz images, saves their build report and generates the replay
+   child pipeline.
+2. `replay_fuzz` starts that pipeline. Each replay job runs its built image, restores the S3
+   corpus into the targets' `testdata/fuzz/<FuzzFunc>/` directories, discovers targets with
+   `task fuzz:list` and checks the corpus as ordinary Go tests. A failing target or an empty
+   target list fails the replay job.
+3. The replay job saves `fuzz-replay/summary.txt`, the full `fuzz-replay/job.log` and failure
+   artifacts before removing its container. The console shows only a short summary or the
+   tail of a failed run's log.
 
-**Inside the image, `task fuzz:*` is not this module's `Taskfile.dist.yaml`.** The template
-copies the repository-root `Taskfile.fuzz.yml` into the workdir as `Taskfile.yml`. The four task
-names match, the bodies do not: the in-image copy has no defaults — `FUZZ_WORKERS` unset makes
-`-parallel=` a syntax error, `FUZZ_PKG`/`FUZZ_TARGET` unset run `go test ""` — and its
-`fuzz:list` always lists `./...`, ignoring `FUZZ_PACKAGES`. The build loop always passes both
-variables, so this only shows up when running a task by hand inside the image. Keep the two
-files in step when changing either.
+Builds run automatically in MR pipelines and on pushes to `main`. The `replay_fuzz` trigger
+is manual and non-blocking in MRs; on `main` it runs automatically and publishes the image
+build report for the platform after successful replay.
+
+**Inside the image, `task fuzz:*` comes from the repository-root
+[`Taskfile.fuzz.yml`](../../Taskfile.fuzz.yml)**, copied into the workdir as `Taskfile.yml`.
+The task names match this module's `Taskfile.dist.yaml`, but the in-image copy requires
+explicit `FUZZ_PKG` and `FUZZ_TARGET`, plus `FUZZ_WORKERS` for mutation runs. Its `fuzz:list`
+uses `FUZZ_PKGS` (default `./...`), while the local Taskfile uses `FUZZ_PACKAGES`. Keep the
+two files in step when changing either.
 
 ### Native (Linux host)
 
@@ -211,7 +248,7 @@ execs/s over nothing. `requireImageTools` now looks both binaries up once per ta
 it outright, so a misconfigured image cannot report a green run:
 
 ```text
---- FAIL: FuzzImageInfo (0.00s)
+--- FAIL: FuzzImageInfoSnappy (0.00s)
     imageinfo_fuzz_test.go:84: qemu-img is required to reach the image parsing path: exec: "qemu-img": executable file not found in $PATH
 ```
 
@@ -222,16 +259,17 @@ Verified by running the same binary in `debian:bookworm-slim` with neither tool,
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `will not fuzz, -fuzz matches more than one fuzz test: [FuzzImageInfo FuzzImageInfoSnappy]` | `-test.fuzz` is an unanchored regexp | anchor it: `-test.fuzz='^FuzzImageInfo$'` |
+| `will not fuzz, -fuzz matches more than one fuzz test` | `-test.fuzz` is an unanchored regexp | anchor it: `-test.fuzz='^FuzzImageInfoSnappy$'` |
 | the package's unit tests and every other target's seed corpus run before fuzzing starts | `-test.run` defaults to "everything" | pass `-test.run '^$'` |
 | `warning: the test binary was not built with coverage instrumentation, so fuzzing will run without coverage guidance and may be inefficient` | a binary prebuilt with `go test -c` carries no libFuzzer instrumentation | let `go test -fuzz` build it, as `task fuzz:run` does |
 
 The last row is about prebuilt binaries only. `go test -fuzz` instruments the target itself, so
 `task fuzz:run` always has coverage guidance and prints `gathering baseline coverage: N/N`;
 measured through `task docker:fuzz:run`, `FuzzChecksums` reported `new interesting: 16` in 45 s.
-`FuzzImageInfo` is the exception, and not because of instrumentation: it spawns `qemu-img` per
-exec and stalls at a few hundred execs (779 in 45 s on a native arm64 run, 59 under emulation),
-with `new interesting` never moving off zero.
+The former `FuzzImageInfo` spawned `qemu-img` per execution and reached 779 executions
+in 45 seconds natively, or 59 under emulation, with no new interesting coverage inputs.
+Its replacement, `FuzzPeekRawImage`, exercises Go stream classification without spawning
+external tools. Native metadata parsing is outside this new target's scope.
 
 ## The local loop: task docker:fuzz:*
 
@@ -243,7 +281,7 @@ drive it; they wrap the platform's `fuzz:*` tasks and never replace them.
 cd images/dvcr-artifact
 task docker:fuzz:build                                  # ~35 s
 task docker:fuzz:list                                   # all five targets
-task docker:fuzz:seeds                                  # every seed corpus
+task docker:fuzz:seeds                                  # every mutation seed corpus
 FUZZ_PKG=./pkg/registry FUZZ_TARGET=FuzzChecksums task docker:fuzz:seeds
 FUZZ_PKG=./pkg/registry FUZZ_TARGET=FuzzChecksums FUZZ_DOCKER_TIME=5m task docker:fuzz:run
 ```
@@ -256,7 +294,7 @@ of a command it had to terminate, and the whole progress log goes with it.
 
 **It runs under emulation on an arm64 host, and that is the dominant cost.** Measured against
 the same code in a native `linux/arm64` container: the `pkg/registry` seed replay takes 4.5 s
-against 0.38 s (~12x), and `FuzzImageInfo` manages 59 execs in 45 s against 779 (~13x) — both
+against 0.38 s (~12x), and the former `FuzzImageInfo` managed 59 execs in 45 s against 779 (~13x) — both
 bound by spawning `qemu-img`. Pure-Go paths pay much less: `FuzzChecksums` did 32 536 execs in
 20 s against 50 903 native (~1.6x). Use the emulated image to confirm behaviour in the shipped
 configuration, not for long soaks.
@@ -335,7 +373,7 @@ assume.
 | --- | --- | --- |
 | `$(go env GOCACHE)/fuzz/<package import path>/<FuzzFunc>/` | every coverage-expanding input the fuzzer finds | no |
 | `<package>/testdata/fuzz/<FuzzFunc>/` | crash reproducers only, written when a target fails | yes, it is not gitignored |
-| `s3://anomaloys-materials/<repository>/<branch slug>/` | the corpus the platform keeps between campaigns | no; the image build restores it into `testdata/fuzz` and deletes it again after the replay |
+| `s3://anomaloys-materials/<repository>/<branch slug>/<component>/` | the corpus the platform keeps between campaigns | no; CI restores it into the replay container's `testdata/fuzz` at runtime |
 
 Consequences:
 
@@ -396,8 +434,8 @@ Open items in the targets themselves, kept here so nobody has to rediscover them
   survives between iterations. `keepAlive` keeps the server up through a failed upload
   (`processUpload` in `pkg/uploader/uploader.go`); without it, the first non-permanent upload
   error shut the listener down and every later iteration silently talked to a closed port.
-- **CI replays the corpus, it does not fuzz.** The `-fuzz` image build runs `task fuzz:replay`
-  over every target, which is a regression check on known inputs. Mutation runs are the
-  external platform's job, on its own schedule; nothing in this repository starts one. The
-  module also stays outside the test and lint jobs, so the replay in the image build is the
-  only automated thing that compiles these packages.
+- **CI replays the corpus, it does not fuzz.** The `replay_fuzz` child pipeline checks known
+  inputs for every target. Mutation runs are the external platform's job, on its own
+  schedule; the CI jobs do not start one. The module stays outside the ordinary unit-test
+  and lint jobs, so run the manual replay job in an MR to exercise these packages before
+  merging.

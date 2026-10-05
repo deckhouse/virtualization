@@ -74,18 +74,32 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" (printf `go build -o /container-registry-binary/registry -ldflags '-s -w -X github.com/distribution/distribution/v3/version.version=%s -X github.com/distribution/distribution/v3/version.revision=%s -X github.com/distribution/distribution/v3/version.mainpkg=github.com/distribution/distribution/v3' ./cmd/dvcr-registry` $baseVersion $version)) | nindent 6 }}
 {{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
 
-# Fuzz image for the authorization decision of the DVCR registry plugin. The
-# builder above carries the cloned distribution fork at /distribution together
-# with the Go toolchain, and the fork vendors its dependencies, so nothing is
-# fetched here. The target itself lives in this repository and werf places it
-# into the plugin's package inside the clone: a Go fuzz target has to be in the
-# package it tests, and that package is in the fork.
+# Corpus restore and replay run in the CI child pipeline, after image publication.
 ---
-{{- $_ := set . "FuzzEngine" "go" }}
-{{- $_ := set . "FuzzWorkDir" "/distribution" }}
-{{- $_ := set . "FuzzFromImage" (printf "%s%s-builder" .ModuleNamePrefix .ImageName) }}
-{{- $_ := set . "FuzzPackages" "./registry/auth/dvcrk8s/..." }}
-{{- $_ := set . "FuzzTargetFiles" (list (dict
-      "from" "images/dvcr/fuzz/policy_fuzz_test.go"
-      "to"   "/distribution/registry/auth/dvcrk8s/policy_fuzz_test.go")) }}
-{{- include "fuzz image" . }}
+{{- include "fuzz image" (list . "/distribution") }}
+      FUZZ_PKGS: "./registry/auth/dvcrk8s/..."
+      CGO_ENABLED: "0"
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/distribution
+  to: /distribution
+  before: install
+git:
+- add: {{ .ModuleDir }}/Taskfile.fuzz.yml
+  to: /distribution/Taskfile.yml
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/fuzz/policy_fuzz_test.go
+  to: /distribution/registry/auth/dvcrk8s/policy_fuzz_test.go
+  stageDependencies:
+    install:
+    - '**/*'
+shell:
+  install:
+{{- include "fox module auth" . | nindent 2 }}
+  - cd /distribution
+  # The fork carries a vendor tree; keep its dependency resolution intact.
+  - |
+    if [ ! -f vendor/modules.txt ]; then
+      GOPROXY="$(cat /run/secrets/GOPROXY)" go mod download
+    fi
+{{- include "fox module auth cleanup" . | nindent 2 }}
+  - chmod -R a+rwX /distribution /fuzz/gomod

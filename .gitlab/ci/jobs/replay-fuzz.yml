@@ -1,0 +1,22 @@
+# Loaded only by the child pipeline, after the generated replay matrix.
+replay_fuzz:
+  script:
+    - |
+      mkdir -p fuzz-replay
+      echo 'Full replay output will be saved to fuzz-replay/job.log in job artifacts.'
+      exec >fuzz-replay/job.log 2>&1
+    - !reference [.replay_fuzz, script]
+  # GitLab runs after_script in a separate shell, with console output restored.
+  after_script:
+    - |
+      printf '\nReplay status: %s\n' "$CI_JOB_STATUS"
+      if [[ "$CI_JOB_STATUS" == success ]]; then
+        if [[ -f fuzz-replay/summary.txt ]]; then
+          tail -n 1 fuzz-replay/summary.txt | tail -c 1024
+        fi
+      elif [[ -f fuzz-replay/job.log ]]; then
+        echo 'Last replay output (at most 80 lines / 32 KiB):'
+        # Bound bytes too: qemu-img can emit a very large single line.
+        tail -n 80 fuzz-replay/job.log | tail -c 32768
+      fi
+      printf '\nFull output: fuzz-replay/job.log (job artifacts).\n'

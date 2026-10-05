@@ -75,112 +75,6 @@ func requireImageTools(f *testing.F) {
 	}
 }
 
-// FuzzImageInfo feeds fuzzed bytes into the image parsing path without going
-// through the HTTP layer: the payload is carried by the CDI UploadDataSource
-// that NewDataProcessor is given, and the format detection reads the image
-// from there. A malformed image is the normal case here and must only produce
-// an error - a panic, a hang or a wrong size accounting is the finding.
-func FuzzImageInfo(f *testing.F) {
-	requireImageTools(f)
-
-	var (
-		// A 512 byte header is what the format detection reads before it
-		// decides anything, so these are complete inputs from its point of view.
-		qcow2V2 = qcow2Header(2, 64<<20, 16, 0, 0)
-		qcow2V3 = qcow2Header(3, 64<<20, 16, 0, 0)
-	)
-
-	f.Add(qcow2V2)
-	f.Add(qcow2V3)
-	f.Add(plausibleQCow2())
-	// Versions the module never writes: 0 and 1 are pre-qcow2, and the upper
-	// bound checks the version comparison itself.
-	f.Add(qcow2Header(0, 64<<20, 16, 0, 0))
-	f.Add(qcow2Header(1, 64<<20, 16, 0, 0))
-	f.Add(qcow2Header(math.MaxUint32, 64<<20, 16, 0, 0))
-	// Absurd virtual sizes. MaxUint64 and 1<<63 both overflow the signed parse
-	// of the size field, MaxInt64 is the largest value that still fits.
-	f.Add(qcow2Header(3, math.MaxUint64, 16, 0, 0))
-	f.Add(qcow2Header(3, 1<<63, 16, 0, 0))
-	f.Add(qcow2Header(2, math.MaxInt64, 16, 0, 0))
-	f.Add(qcow2Header(3, 0, 16, 0, 0))
-	// Cluster sizes outside the 512 B - 2 MiB range qcow2 allows.
-	f.Add(qcow2Header(3, 64<<20, 0, 0, 0))
-	f.Add(qcow2Header(3, 64<<20, 8, 0, 0))
-	f.Add(qcow2Header(3, 64<<20, 63, 0, 0))
-	f.Add(qcow2Header(3, 64<<20, math.MaxUint32, 0, 0))
-	// Backing file references pointing outside the image, and a backing file
-	// name that claims to be longer than the whole header.
-	f.Add(qcow2Header(3, 64<<20, 16, math.MaxUint64, math.MaxUint32))
-	f.Add(qcow2Header(3, 64<<20, 16, 1<<62, 1<<20))
-	f.Add(withBackingFileName(qcow2Header(3, 64<<20, 16, 108, 1024), "/etc/shadow"))
-	f.Add(withBackingFileName(qcow2Header(2, 64<<20, 16, 108, 11), "../../../etc/passwd"))
-	// Truncated headers: shorter than the 512 bytes the reader stack insists on.
-	f.Add(qcow2V2[:4])
-	f.Add(qcow2V2[:24])
-	f.Add(qcow2V2[:31])
-	f.Add(qcow2V3[:72])
-	f.Add(qcow2V3[:511])
-	f.Add([]byte{})
-	f.Add([]byte{0x00})
-	// Raw payloads: sparse, all-ones, repetitive and incompressible.
-	f.Add(bytes.Repeat([]byte{0x00}, 64<<10))
-	f.Add(bytes.Repeat([]byte{0xff}, 64<<10))
-	f.Add(bytes.Repeat([]byte{0xde, 0xad, 0xbe, 0xef}, 1024))
-	f.Add(patternBytes(f, 64<<10))
-	// An ISO 9660 image: qemu-img calls it raw, so the format comes from `file`.
-	// Then the same image with the volume descriptor cut in half and with a
-	// broken CD001 identifier, which both have to fall back to raw.
-	f.Add(isoImage())
-	f.Add(isoImage()[:32*1024+3])
-	f.Add(patchByte(isoImage(), 32*1024+2, 0x00))
-	// The disk formats of the fuzzing assignment other than qcow2, raw and iso.
-	// Each one gets an input that ends right after its magic - short of the 512
-	// bytes the reader stack reads in one go - the padded header the detection
-	// accepts, and the same header with every length, offset and size field
-	// behind the magic set to its maximum.
-	for _, format := range imageFormatMagics {
-		f.Add(headerAt(format.offset, format.magic)[:format.offset+len(format.magic)])
-		f.Add(headerAt(format.offset, format.magic))
-		f.Add(withHostileFields(headerAt(format.offset, format.magic), format.offset+len(format.magic)))
-	}
-	// The textual form of a vmdk, plain and with an extent that claims the whole
-	// 64 bit sector range.
-	f.Add(headerAt(0, "# Disk DescriptorFile\nversion=1\nCID=fffffffe\ncreateType=\"monolithicSparse\"\n"))
-	f.Add(headerAt(0, "# Disk DescriptorFile\nversion=1\nCID=fffffffe\ncreateType=\"monolithicSparse\"\nRW 18446744073709551615 SPARSE \"disk-s001.vmdk\"\n"))
-	// Headers of the wrappers the detection unwraps before it sees a disk image.
-	f.Add(headerAt(0, "\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03"))
-	f.Add(headerAt(0, "\xfd7zXZ\x00"))
-	f.Add(headerAt(0, "\x28\xb5\x2f\xfd"))
-	f.Add(headerAt(0x101, "ustar"))
-	// A qcow2 header hiding behind a compression magic that decompresses to
-	// nothing: the detection loop has to give up instead of looping.
-	f.Add(append([]byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03"), qcow2V2...))
-	f.Add(append([]byte("\x28\xb5\x2f\xfd"), qcow2V3...))
-
-	f.Fuzz(func(t *testing.T, data []byte) {
-		if len(data) > fuzzMaxInputSize {
-			t.Skip()
-		}
-
-		info, err := fuzzImageInfo(t, io.NopCloser(bytes.NewReader(data)), len(data))
-		if err != nil {
-			return
-		}
-
-		// Uncompressed sources are counted byte by byte, and every byte has to
-		// be counted exactly once: a double counted header inflates the
-		// VirtualImage size and breaks the size validation of disks cloned
-		// from it. Compressed sources are excluded because there the counted
-		// bytes are the decompressed ones.
-		if info.Format == "raw" || info.Format == isoImageType {
-			if !hasCompressionHeader(data) && info.VirtualSize != uint64(len(data)) {
-				t.Fatalf("%s source of %d bytes reports virtual size %d", info.Format, len(data), info.VirtualSize)
-			}
-		}
-	})
-}
-
 // FuzzImageInfoSnappy covers the blockdevice-clone path, where the uploader
 // wraps the incoming stream into a snappy reader before the image parsing sees
 // it. The fuzzed bytes are therefore the snappy frames themselves: both the
@@ -404,18 +298,6 @@ func patternBytes(tb testing.TB, size int64) []byte {
 	}
 
 	return data
-}
-
-// hasCompressionHeader reports whether the detection unwraps the payload before
-// counting its bytes, in which case the counted size is the decompressed one.
-func hasCompressionHeader(data []byte) bool {
-	for _, magic := range []string{"\x1f\x8b", "\x28\xb5\x2f\xfd", "\xfd7zXZ\x00"} {
-		if bytes.HasPrefix(data, []byte(magic)) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // snappyFrame encodes a payload the way the blockdevice-clone client does.

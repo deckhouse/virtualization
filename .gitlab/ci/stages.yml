@@ -22,6 +22,7 @@
 #   build             — werf build for dev / dev-tags / main / prod
 #                       (dev tags are build-only: the DEV registry has no
 #                       release channels, so there is no DEV deploy stage)
+#   fuzz              — corpus replay in a dynamic child pipeline
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
 #   e2e                 — end-to-end suite on a cluster leased from the external
 #                         pool (jobs/e2e.yml). One manual job per MR pipeline,
@@ -52,6 +53,7 @@ stages:
   - test
   - prod_check
   - build
+  - fuzz
   - scan
   - e2e
   - deploy_prod

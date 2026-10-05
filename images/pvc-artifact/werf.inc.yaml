@@ -107,13 +107,23 @@ shell:
   install:
   {{- include "pm packages install" (list $builderDependencies.pmPackages "/relocate") | nindent 2 }}
 
-# Fuzz image for the pure-Go pvc importer and image parsing targets. The
-# pvc-artifact build stage already contains the full workspace and downloaded
-# dependencies; its fuzz targets stub external qemu execution.
+# Corpus restore and replay run in the CI child pipeline, after image publication.
 ---
-{{- $_ := set . "FuzzEngine" "go" }}
-{{- $_ := set . "FuzzWorkDir" "/src/images/pvc-artifact" }}
-{{- $_ := set . "FuzzFromImage" (printf "%s%s" .ModuleNamePrefix .ImageName) }}
-{{- $_ := set . "FuzzPackages" "./..." }}
-{{- $_ := set . "FuzzTargetFiles" (list) }}
-{{- include "fuzz image" . }}
+{{- include "fuzz image" (list . "/src/images/pvc-artifact") }}
+      FUZZ_PKGS: "./..."
+      CGO_ENABLED: "0"
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+git:
+- add: {{ .ModuleDir }}/Taskfile.fuzz.yml
+  to: /src/images/pvc-artifact/Taskfile.yml
+shell:
+  install:
+{{- include "fox module auth" . | nindent 2 }}
+  - cd /src/images/pvc-artifact
+  - GOPROXY="$(cat /run/secrets/GOPROXY)" go mod download
+{{- include "fox module auth cleanup" . | nindent 2 }}
+  - chmod -R a+rwX /src /fuzz/gomod
