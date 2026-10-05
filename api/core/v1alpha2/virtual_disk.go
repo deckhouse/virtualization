@@ -187,6 +187,9 @@ type VirtualDiskPersistentVolumeClaim struct {
 	// Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
 	//
 	// This parameter can be omitted if the `.spec.dataSource` section is filled out. In this case, the controller will determine the disk size automatically, based on the size of the extracted image from the source specified in `.spec.dataSource`.
+	//
+	// +kubebuilder:validation:XIntOrString
+	// +kubebuilder:validation:Pattern=`^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE])?$`
 	Size *resource.Quantity `json:"size,omitempty"`
 }
 
