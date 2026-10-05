@@ -1,3 +1,4 @@
+---
 # Service account for the e2e suite in the nested cluster.
 #
 # These objects are created by dhctl together with the rest of the cluster
@@ -9,7 +10,6 @@
 # The names must match the arguments gen-nested-kubeconfig.sh passes to
 # scripts/gen-kubeconfig.sh (<SA_NAME>=nested-sa, <CLUSTER_PREFIX>=nested),
 # which only reads the token secret and builds a kubeconfig from it.
----
 apiVersion: v1
 kind: ServiceAccount
 metadata:
