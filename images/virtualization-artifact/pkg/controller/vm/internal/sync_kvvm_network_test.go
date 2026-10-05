@@ -77,13 +77,13 @@ var _ = Describe("SyncKvvmHandler network sync across migration pods", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace, UID: "vm-uid"},
 			Spec: v1alpha2.VirtualMachineSpec{
 				Networks: []v1alpha2.NetworksSpec{
-					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.ReservedMainID)},
+					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.MinID)},
 					{Type: v1alpha2.NetworksTypeClusterNetwork, Name: clusterNetworkName, ID: ptr.To(2), VirtualMachineMACAddressName: macName},
 				},
 			},
 			Status: v1alpha2.VirtualMachineStatus{
 				Networks: []v1alpha2.NetworksStatus{
-					{Type: v1alpha2.NetworksTypeMain, ID: commonnetwork.ReservedMainID},
+					{Type: v1alpha2.NetworksTypeMain, ID: commonnetwork.MinID},
 					{Type: v1alpha2.NetworksTypeClusterNetwork, Name: clusterNetworkName, ID: 2, MAC: macAddr, VirtualMachineMACAddressName: macName},
 				},
 			},
@@ -201,13 +201,13 @@ var _ = Describe("SyncKvvmHandler tap-provision-by-dvp pod annotation gating", f
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace, UID: "vm-tap-uid"},
 			Spec: v1alpha2.VirtualMachineSpec{
 				Networks: []v1alpha2.NetworksSpec{
-					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.ReservedMainID)},
+					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.MinID)},
 					{Type: v1alpha2.NetworksTypeClusterNetwork, Name: clusterNetworkName, ID: ptr.To(2), VirtualMachineMACAddressName: macName},
 				},
 			},
 			Status: v1alpha2.VirtualMachineStatus{
 				Networks: []v1alpha2.NetworksStatus{
-					{Type: v1alpha2.NetworksTypeMain, ID: commonnetwork.ReservedMainID},
+					{Type: v1alpha2.NetworksTypeMain, ID: commonnetwork.MinID},
 					{Type: v1alpha2.NetworksTypeClusterNetwork, Name: clusterNetworkName, ID: 2, MAC: macAddr, VirtualMachineMACAddressName: macName},
 				},
 			},
@@ -493,7 +493,7 @@ var _ = Describe("SyncKvvmHandler network detach ordering", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace, UID: "vm-uid"},
 			Spec: v1alpha2.VirtualMachineSpec{
 				Networks: []v1alpha2.NetworksSpec{
-					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.ReservedMainID)},
+					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.MinID)},
 				},
 			},
 		}

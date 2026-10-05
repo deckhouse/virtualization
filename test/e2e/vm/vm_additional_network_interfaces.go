@@ -287,6 +287,153 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 		})
 	})
 
+	Describe("verifies guest interface names follow the network ids", func() {
+		// The pool-backed network answers DHCP. Cloud-init brings up DHCP on the lowest-named
+		// NIC only, and when Main is not eno1 that NIC is this one: on an L2-only network the
+		// boot would stall in wait-online for its full timeout before the bootcmd of the
+		// cloud-init below gets to configure Main.
+		clusterNetworkName := util.ClusterNetworkName(WithIPPoolNetworkVLANID)
+
+		// waitForMachine waits until the machine runs with its agent and network ready.
+		waitForMachine := func(vmObs vmobs.Observer) {
+			GinkgoHelper()
+			Expect(vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)).To(Succeed())
+			Expect(vmObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)).To(Succeed())
+			Expect(vmObs.WaitFor(haveNetworkReady(), framework.LongTimeout)).To(Succeed())
+		}
+
+		// expectGuestInterfaces checks that the guest names the ClusterNetwork interface
+		// eno<clusterNetworkID>, told apart by its MAC from the status, and carries a
+		// different interface named eno<mainID> for Main.
+		expectGuestInterfaces := func(testVM *v1alpha2.VirtualMachine, mainID, clusterNetworkID int) {
+			GinkgoHelper()
+			var clusterNetworkMAC string
+			for _, n := range testVM.Status.Networks {
+				if n.Type == v1alpha2.NetworksTypeClusterNetwork {
+					clusterNetworkMAC = n.MAC
+				}
+			}
+			Expect(clusterNetworkMAC).NotTo(BeEmpty(), "status should carry the ClusterNetwork MAC")
+
+			eventually.SSHReady(f, testVM, framework.LongTimeout)
+			mainInterfaceName := fmt.Sprintf("eno%d", mainID)
+			clusterNetworkInterfaceName := fmt.Sprintf("eno%d", clusterNetworkID)
+
+			macs := getGuestInterfaceMACs(f, testVM.Name, testVM.Namespace)
+			Expect(macs).To(HaveKey(clusterNetworkInterfaceName), "the guest should carry %s for the ClusterNetwork", clusterNetworkInterfaceName)
+			Expect(macs).To(HaveKey(mainInterfaceName), "the guest should carry %s for the Main network", mainInterfaceName)
+			Expect(strings.EqualFold(macs[clusterNetworkInterfaceName], clusterNetworkMAC)).To(BeTrue(),
+				"%s should be the ClusterNetwork interface: guest MAC %s, status MAC %s", clusterNetworkInterfaceName, macs[clusterNetworkInterfaceName], clusterNetworkMAC)
+			Expect(strings.EqualFold(macs[mainInterfaceName], clusterNetworkMAC)).To(BeFalse(),
+				"%s should not be the ClusterNetwork interface", mainInterfaceName)
+		}
+
+		// expectStatusIDs checks that the ids in the spec and the status are the given ones.
+		expectStatusIDs := func(testVM *v1alpha2.VirtualMachine, mainID, clusterNetworkID int) {
+			GinkgoHelper()
+			Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(testVM), testVM)).To(Succeed())
+
+			Expect(testVM.Spec.Networks).To(HaveLen(2))
+			Expect(ptr.Deref(testVM.Spec.Networks[0].ID, 0)).To(Equal(mainID), "the Main id in the spec")
+			Expect(ptr.Deref(testVM.Spec.Networks[1].ID, 0)).To(Equal(clusterNetworkID), "the ClusterNetwork id in the spec")
+
+			for _, n := range testVM.Status.Networks {
+				switch n.Type {
+				case v1alpha2.NetworksTypeMain:
+					Expect(n.ID).To(Equal(mainID), "the Main id in the status")
+				case v1alpha2.NetworksTypeClusterNetwork:
+					Expect(n.ID).To(Equal(clusterNetworkID), "the ClusterNetwork id in the status")
+				}
+			}
+		}
+
+		DescribeTable("names the Main and ClusterNetwork interfaces after the ids set on creation",
+			func(mainID, clusterNetworkID int) {
+				ns := f.Namespace().Name
+				vdRoot := object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
+				testVM := buildUbuntuVMWithNetworks("vm", ns, vdRoot.Name,
+					v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(mainID)},
+					v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: clusterNetworkName, ID: ptr.To(clusterNetworkID)},
+				)
+
+				var vmObs vmobs.Observer
+				By("Create VM with explicit ids on Main and ClusterNetwork", func() {
+					err := f.CreateWithDeferredDeletion(ctx, vdRoot, testVM)
+					Expect(err).NotTo(HaveOccurred(), "the webhook should accept id %d on Main and id %d on ClusterNetwork", mainID, clusterNetworkID)
+
+					vmObs = vmobs.StartObserver(ctx, f, testVM)
+					vmObs.Never(vmobs.BeFailed())
+					waitForMachine(vmObs)
+				})
+
+				By("Verify the ids are kept in spec and status", func() {
+					expectStatusIDs(testVM, mainID, clusterNetworkID)
+				})
+
+				By("Verify the guest names the interfaces after the ids", func() {
+					expectGuestInterfaces(testVM, mainID, clusterNetworkID)
+				})
+			},
+			Entry("Main 1, ClusterNetwork 2", 1, 2),
+			Entry("Main 2, ClusterNetwork 1", 2, 1),
+		)
+
+		// The case the fix is for: an additional network took id 1 while the machine had no
+		// Main, and Main is added back later. It used to be refused as a duplicate of id 1.
+		It("gives Main the next free id when it is added to a machine whose ClusterNetwork holds id 1", func() {
+			const (
+				clusterNetworkID = 1
+				mainID           = 2
+			)
+			ns := f.Namespace().Name
+			vdRoot := object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
+			testVM := buildUbuntuVMWithNetworks("vm", ns, vdRoot.Name,
+				v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: clusterNetworkName, ID: ptr.To(clusterNetworkID)},
+			)
+
+			var vmObs vmobs.Observer
+			By("Create VM without Main whose ClusterNetwork holds id 1", func() {
+				err := f.CreateWithDeferredDeletion(ctx, vdRoot, testVM)
+				Expect(err).NotTo(HaveOccurred(), "the webhook should accept id 1 on a ClusterNetwork")
+
+				vmObs = vmobs.StartObserver(ctx, f, testVM)
+				vmObs.Never(vmobs.BeFailed())
+				waitForMachine(vmObs)
+			})
+
+			var previousRunningTime time.Time
+			By("Add Main without an id at the head of the list", func() {
+				Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(testVM), testVM)).To(Succeed())
+				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, testVM.Status.Conditions)
+				previousRunningTime = runningCondition.LastTransitionTime.Time
+
+				setVMNetworks(ctx, f, testVM, func(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+					return append([]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, networks...)
+				})
+			})
+
+			// A change of the Main network applies on a restart only.
+			By("Reboot VM via VMOP", func() {
+				util.RebootVirtualMachineByVMOP(f, testVM)
+
+				err := vmObs.WaitFor(vmobs.BeRebootedAfter(previousRunningTime), framework.LongTimeout)
+				if err != nil {
+					util.SkipIfGuestPowerActionStuck(ctx, crclient.ObjectKeyFromObject(testVM))
+				}
+				Expect(err).NotTo(HaveOccurred())
+				waitForMachine(vmObs)
+			})
+
+			By("Verify Main got id 2 in spec and status", func() {
+				expectStatusIDs(testVM, mainID, clusterNetworkID)
+			})
+
+			By("Verify the guest names the ClusterNetwork eno1 and Main eno2", func() {
+				expectGuestInterfaces(testVM, mainID, clusterNetworkID)
+			})
+		})
+	})
+
 	Describe("verifies hotplug and hotunplug of additional network interfaces", func() {
 		const countNonLoopbackInterfacesCmd = "ip -o link show | grep -v 'lo:' | wc -l"
 
@@ -418,6 +565,32 @@ func haveNetworkReady() vmobs.Predicate {
 		cond, _ := conditions.GetCondition(vmcondition.TypeNetworkReady, vm.Status.Conditions)
 		return cond.Status == metav1.ConditionTrue, nil
 	}
+}
+
+// buildUbuntuVMWithNetworks creates an Ubuntu VM with the given networks. Ubuntu names the
+// interfaces after their ACPI index (eno<id>) and needs the EFI bootloader and more memory
+// than the custom image; the cloud-init brings up DHCP on every NIC, so Main is reachable
+// whatever id it holds.
+func buildUbuntuVMWithNetworks(name, ns, vdRootName string, networks ...v1alpha2.NetworksSpec) *v1alpha2.VirtualMachine {
+	opts := []vm.Option{
+		vm.WithName(name),
+		vm.WithNamespace(ns),
+		vm.WithBootloader(v1alpha2.EFI),
+		vm.WithCPU(1, ptr.To("50%")),
+		vm.WithMemory(resource.MustParse("512Mi")),
+		vm.WithRestartApprovalMode(v1alpha2.Manual),
+		vm.WithVirtualMachineClass(object.DefaultVMClass),
+		vm.WithLiveMigrationPolicy(v1alpha2.PreferSafeMigrationPolicy),
+		vm.WithProvisioningUserData(ubuntuAnyMainIDCloudInit()),
+		vm.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.VirtualDiskKind,
+			Name: vdRootName,
+		}),
+	}
+	for _, network := range networks {
+		opts = append(opts, vm.WithNetwork(network))
+	}
+	return vm.New(opts...)
 }
 
 // buildVMWithNetworks creates a VM with optional Main + ClusterNetwork.
@@ -581,10 +754,53 @@ func checkGuestInterfaceNames(f *framework.Framework, vmName, vmNamespace string
 	}, Timeout, eventually.WithPolling(Interval))
 }
 
+// ubuntuAnyMainIDCloudInit is the Ubuntu cloud-init for a VM whose Main network may not
+// be eno1. Cloud-init's fallback network config brings up DHCP only on the lowest-named
+// NIC, and SSH into the guest rides on the Main address, so with Main at a higher id the
+// guest would stay unreachable. The bootcmd adds DHCP on every en* NIC and waits for the
+// default route, which only Main hands out, so the package stage after it has a way out.
+func ubuntuAnyMainIDCloudInit() string {
+	cfg := object.UbuntuCloudConfig
+	cfg.Bootcmd = []string{
+		`printf 'network:\n  version: 2\n  ethernets:\n    all-en:\n      match:\n        name: "en*"\n      dhcp4: true\n      optional: true\n' > /etc/netplan/60-all-en.yaml`,
+		"chmod 600 /etc/netplan/60-all-en.yaml",
+		"netplan apply",
+		"for i in $(seq 1 60); do ip -4 route show default | grep -q default && break; sleep 1; done",
+	}
+	return cfg.Render()
+}
+
+// getGuestInterfaceMACs returns the non-loopback interfaces of the guest keyed by name,
+// with the MAC address of each.
+func getGuestInterfaceMACs(f *framework.Framework, vmName, vmNamespace string) map[string]string {
+	GinkgoHelper()
+	macs := make(map[string]string)
+	// EXCEPTION: guest-side wait (interface list over SSH), not a Kubernetes
+	// resource — nothing to observe via an Observer.
+	eventually.UntilAssertion(func(g Gomega) {
+		result, err := f.SSHCommand(vmName, vmNamespace, "ip -j link show", framework.WithSSHTimeout(SSHCommandTimeout))
+		g.Expect(err).NotTo(HaveOccurred(), "failed to execute command: %s", result)
+
+		var links IPLinks
+		g.Expect(json.Unmarshal([]byte(result), &links)).To(Succeed(), "failed to parse ip JSON output: %s", result)
+
+		clear(macs)
+		for _, link := range links {
+			if link.IFName == "lo" {
+				continue
+			}
+			macs[link.IFName] = link.Address
+		}
+		g.Expect(macs).NotTo(BeEmpty(), "the guest should report at least one non-loopback interface")
+	}, Timeout, eventually.WithPolling(Interval))
+	return macs
+}
+
 // IPLinks represents the JSON output of ip -j link show command.
 type IPLinks []IPLink
 
 // IPLink represents a single network interface in the ip JSON output.
 type IPLink struct {
-	IFName string `json:"ifname"`
+	IFName  string `json:"ifname"`
+	Address string `json:"address"`
 }

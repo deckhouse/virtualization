@@ -21,14 +21,14 @@ import (
 )
 
 const (
-	ReservedMainID = 1
-	StartGenericID = 2
-	MaxID          = 16*1024 - 1 // 16383
+	MinID = 1
+	MaxID = 16*1024 - 1 // 16383
 )
 
-// EnsureNetworkInterfaceIDs sets missing IDs in VM networks according to module rules:
-// - Main network gets id=1 when omitted.
-// - Other networks get the next available IDs starting from 2.
+// EnsureNetworkInterfaceIDs sets missing IDs in VM networks: every network without an ID
+// takes the lowest free ID, walking the list in order and starting from MinID. The Main
+// network is not special here: it gets 1 only when it is listed first and 1 is free, so an
+// additional network that already holds 1 does not block adding Main later.
 //
 // Returns true when at least one ID was assigned.
 func EnsureNetworkInterfaceIDs(networks []v1alpha2.NetworksSpec) bool {
@@ -45,17 +45,9 @@ func EnsureNetworkInterfaceIDs(networks []v1alpha2.NetworksSpec) bool {
 		}
 	}
 
-	nextID := StartGenericID
+	nextID := MinID
 	for i := range networks {
 		if networks[i].ID != nil {
-			continue
-		}
-
-		if networks[i].Type == v1alpha2.NetworksTypeMain {
-			v := ReservedMainID
-			networks[i].ID = &v
-			used[v] = struct{}{}
-			changed = true
 			continue
 		}
 
@@ -74,9 +66,6 @@ func EnsureNetworkInterfaceIDs(networks []v1alpha2.NetworksSpec) bool {
 
 func allocateNextID(used map[int]struct{}, nextID int) (int, bool) {
 	for id := nextID; id <= MaxID; id++ {
-		if id == ReservedMainID {
-			continue
-		}
 		if _, exists := used[id]; exists {
 			continue
 		}

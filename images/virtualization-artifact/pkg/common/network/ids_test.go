@@ -29,7 +29,7 @@ var _ = Describe("Network IDs", func() {
 			Expect(EnsureNetworkInterfaceIDs(nil)).To(BeFalse())
 		})
 
-		It("should assign id=1 to main and next IDs to others", func() {
+		It("should assign IDs in list order starting from 1", func() {
 			networks := []v1alpha2.NetworksSpec{
 				{Type: v1alpha2.NetworksTypeMain, Name: "main"},
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "n1"},
@@ -102,7 +102,7 @@ var _ = Describe("Network IDs", func() {
 			Expect(*networks[5].ID).To(Equal(5))
 		})
 
-		It("should assign generic IDs starting from 2 when there is no main", func() {
+		It("should assign IDs starting from 1 when there is no main", func() {
 			id4 := 4
 			networks := []v1alpha2.NetworksSpec{
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "n1"},
@@ -113,15 +113,14 @@ var _ = Describe("Network IDs", func() {
 			changed := EnsureNetworkInterfaceIDs(networks)
 
 			Expect(changed).To(BeTrue())
-			Expect(*networks[0].ID).To(Equal(2))
-			Expect(*networks[1].ID).To(Equal(3))
+			Expect(*networks[0].ID).To(Equal(1))
+			Expect(*networks[1].ID).To(Equal(2))
 			Expect(*networks[2].ID).To(Equal(4))
 		})
 
-		It("should stop assignment when generic ID space is exhausted", func() {
-			idMain := 1
-			networks := []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: &idMain}}
-			for id := StartGenericID; id <= MaxID; id++ {
+		It("should stop assignment when ID space is exhausted", func() {
+			var networks []v1alpha2.NetworksSpec
+			for id := MinID; id <= MaxID; id++ {
 				v := id
 				networks = append(networks, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, ID: &v})
 			}
@@ -133,20 +132,20 @@ var _ = Describe("Network IDs", func() {
 			Expect(networks[len(networks)-1].ID).To(BeNil())
 		})
 
-		It("should keep duplicate id=1 when main has no ID but id=1 is already used", func() {
+		It("should give main the next free ID when id=1 is already taken by another network", func() {
 			id1 := 1
 			networks := []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeNetwork, Name: "n-with-1", ID: &id1},
 				{Type: v1alpha2.NetworksTypeMain, Name: "main"},
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cn-with-1", ID: &id1},
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "n-missing"},
 			}
 
 			changed := EnsureNetworkInterfaceIDs(networks)
 
 			Expect(changed).To(BeTrue())
-			Expect(*networks[0].ID).To(Equal(1))
+			Expect(*networks[0].ID).To(Equal(2))
 			Expect(*networks[1].ID).To(Equal(1))
-			Expect(*networks[2].ID).To(Equal(2))
+			Expect(*networks[2].ID).To(Equal(3))
 		})
 
 		It("should preserve explicit invalid IDs and assign only missing ones", func() {
@@ -166,7 +165,7 @@ var _ = Describe("Network IDs", func() {
 			Expect(*networks[0].ID).To(Equal(0))
 			Expect(*networks[1].ID).To(Equal(-5))
 			Expect(*networks[2].ID).To(Equal(20000))
-			Expect(*networks[3].ID).To(Equal(2))
+			Expect(*networks[3].ID).To(Equal(1))
 		})
 
 		It("should return false when nothing to assign", func() {

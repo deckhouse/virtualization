@@ -35,7 +35,7 @@ func WithImplicitMain(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec 
 	}
 	return []v1alpha2.NetworksSpec{{
 		Type: v1alpha2.NetworksTypeMain,
-		ID:   ptr.To(ReservedMainID),
+		ID:   ptr.To(MinID),
 	}}
 }
 

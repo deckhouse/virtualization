@@ -157,7 +157,7 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(*vm.Spec.Networks[1].ID).To(Equal(2))
 		})
 
-		It("should skip id=1 when assigning to non-Main networks", func() {
+		It("should assign the next free id to additional networks", func() {
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
@@ -176,7 +176,7 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(*vm.Spec.Networks[1].ID).To(Equal(2))
 		})
 
-		It("should assign sequential ids starting from 2 when there is no Main network", func() {
+		It("should assign sequential ids starting from 1 when there is no Main network", func() {
 			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
 				Spec: v1alpha2.VirtualMachineSpec{
@@ -191,10 +191,10 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(vm.Spec.Networks).To(HaveLen(2))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[0].Name).To(Equal("test-network-1"))
-			Expect(*vm.Spec.Networks[0].ID).To(Equal(2))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
 			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 			Expect(vm.Spec.Networks[1].Name).To(Equal("test-network-2"))
-			Expect(*vm.Spec.Networks[1].ID).To(Equal(3))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(2))
 		})
 
 		It("should handle only ClusterNetwork without Main network", func() {
@@ -211,7 +211,26 @@ var _ = Describe("NetworksDefaulter", func() {
 			Expect(vm.Spec.Networks).To(HaveLen(1))
 			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
 			Expect(vm.Spec.Networks[0].Name).To(Equal("test-cluster-network"))
+			Expect(*vm.Spec.Networks[0].ID).To(Equal(1))
+		})
+
+		It("should give Main the next free id when an additional network already holds id=1", func() {
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
+				Spec: v1alpha2.VirtualMachineSpec{
+					Networks: []v1alpha2.NetworksSpec{
+						{Type: v1alpha2.NetworksTypeMain},
+						{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test-cluster-network", ID: ptr.To(1)},
+					},
+				},
+			}
+			err := networksDefaulter.Default(ctx, vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.Networks).To(HaveLen(2))
+			Expect(vm.Spec.Networks[0].Type).To(Equal(v1alpha2.NetworksTypeMain))
 			Expect(*vm.Spec.Networks[0].ID).To(Equal(2))
+			Expect(vm.Spec.Networks[1].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
+			Expect(*vm.Spec.Networks[1].ID).To(Equal(1))
 		})
 	})
 })

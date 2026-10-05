@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/featuregate"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -156,6 +157,16 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {
 	nets := vm.Spec.Networks
 	return len(nets) == 0 || (len(nets) == 1 && nets[0].Type == v1alpha2.NetworksTypeMain)
+}
+
+// mainNetworkID is the id the Main network carries in the spec: it is the ACPI index the
+// interface gets, and the status must name the same one. A machine that lists no network
+// at all runs on the implicit Main with the first id.
+func mainNetworkID(vm *v1alpha2.VirtualMachine) int {
+	if main := network.GetMainNetworkSpec(vm.Spec.Networks); main != nil {
+		return ptr.Deref(main.ID, network.MinID)
+	}
+	return network.MinID
 }
 
 // additionalNetworkKeys returns the additional networks the virtual machine spec asks
@@ -299,7 +310,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		networksStatus := make([]v1alpha2.NetworksStatus, 0)
 		if len(h.virtualMachineCIDRs) != 0 {
 			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
-				ID:   network.ReservedMainID,
+				ID:   mainNetworkID(vm),
 				Type: v1alpha2.NetworksTypeMain,
 			})
 		}

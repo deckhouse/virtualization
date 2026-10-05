@@ -281,13 +281,9 @@ func (v *NetworksValidator) validateNetworkID(network v1alpha2.NetworksSpec) err
 	}
 
 	id := *network.ID
-	if id < 1 || id > commonnetwork.MaxID {
+	if id < commonnetwork.MinID || id > commonnetwork.MaxID {
 		networkIdentifier := v.getNetworkIdentifier(network)
-		return fmt.Errorf("network id must be between 1 and %d for network %s, got %d", commonnetwork.MaxID, networkIdentifier, id)
-	}
-
-	if network.Type == v1alpha2.NetworksTypeMain && id != 1 {
-		return fmt.Errorf("network id for network %s must be 1, got %d", network.Type, id)
+		return fmt.Errorf("network id must be between %d and %d for network %s, got %d", commonnetwork.MinID, commonnetwork.MaxID, networkIdentifier, id)
 	}
 
 	return nil

@@ -29,6 +29,7 @@ import (
 type CloudConfig struct {
 	PackageUpdate bool              `json:"package_update,omitempty"`
 	Packages      []string          `json:"packages,omitempty"`
+	Bootcmd       []string          `json:"bootcmd,omitempty"`
 	WriteFiles    []WriteFile       `json:"write_files,omitempty"`
 	Users         []CloudConfigUser `json:"users,omitempty"`
 	Runcmd        []string          `json:"runcmd,omitempty"`

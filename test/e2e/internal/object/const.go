@@ -107,12 +107,16 @@ var AlpineCloudInit = CloudConfig{
 	},
 }.Render()
 
-var UbuntuCloudInit = CloudConfig{
+// UbuntuCloudConfig is the cloud-config behind UbuntuCloudInit. Tests that need an
+// extra key copy it, set the key and render the copy.
+var UbuntuCloudConfig = CloudConfig{
 	PackageUpdate: true,
 	Packages:      append(basePackages, "iputils-ping"),
 	Users:         []CloudConfigUser{DefaultCloudUser()},
 	Runcmd:        []string{"systemctl enable --now qemu-guest-agent"},
-}.Render()
+}
+
+var UbuntuCloudInit = UbuntuCloudConfig.Render()
 
 var PerfCloudInit = CloudConfig{
 	PackageUpdate: true,

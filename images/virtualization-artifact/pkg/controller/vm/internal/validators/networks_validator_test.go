@@ -105,9 +105,16 @@ func TestNetworksValidateCreate(t *testing.T) {
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(0)}}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(16384)}}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test", ID: ptr.To(-1)}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(2)}}, true, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(16383)}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(2)}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(16383)}}, true, true},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(16384)}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(0)}}, true, false},
+		// Main is not pinned to id 1: an additional network may hold it.
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test", ID: ptr.To(1)}}, true, true},
+		{[]v1alpha2.NetworksSpec{
+			{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(2)},
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "test", ID: ptr.To(1)},
+		}, true, true},
 	}
 
 	for i, test := range tests {
@@ -253,6 +260,40 @@ func TestNetworksValidateUpdate(t *testing.T) {
 			},
 			sdnEnabled: true,
 			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(1)},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(2)},
+			},
+			sdnEnabled: true,
+			valid:      true,
+			phase:      v1alpha2.MachineStopped,
+		},
+		// Main is added back to a VM whose additional network already holds id 1.
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: ptr.To(1)},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: ptr.To(1)},
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: ptr.To(1)},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(2)},
+				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cluster", ID: ptr.To(1)},
+			},
+			sdnEnabled: true,
+			valid:      true,
 		},
 		{
 			oldNetworksSpec: []v1alpha2.NetworksSpec{

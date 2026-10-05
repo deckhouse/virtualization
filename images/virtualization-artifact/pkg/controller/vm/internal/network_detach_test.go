@@ -52,7 +52,7 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 
 	ctx := testutil.ContextBackgroundWithNoOpLogger()
 
-	mainNetwork := v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.ReservedMainID)}
+	mainNetwork := v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.MinID)}
 	additionalNetwork := v1alpha2.NetworksSpec{
 		Type:                         v1alpha2.NetworksTypeClusterNetwork,
 		Name:                         cnName,
@@ -319,12 +319,12 @@ var _ = Describe("NetworkInterfaceHandler network status of a Main-only virtual 
 			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace, UID: "vm-status-detach-uid"},
 			Spec: v1alpha2.VirtualMachineSpec{
 				Networks: []v1alpha2.NetworksSpec{
-					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.ReservedMainID)},
+					{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.MinID)},
 				},
 			},
 		}
 		vm.Status.Networks = []v1alpha2.NetworksStatus{
-			{ID: commonnetwork.ReservedMainID, Type: v1alpha2.NetworksTypeMain},
+			{ID: commonnetwork.MinID, Type: v1alpha2.NetworksTypeMain},
 			detachingStatus,
 		}
 		return vm
@@ -356,7 +356,7 @@ var _ = Describe("NetworkInterfaceHandler network status of a Main-only virtual 
 		networksStatus := update(newKVVMI())
 
 		Expect(networksStatus).To(ConsistOf(v1alpha2.NetworksStatus{
-			ID:   commonnetwork.ReservedMainID,
+			ID:   commonnetwork.MinID,
 			Type: v1alpha2.NetworksTypeMain,
 		}))
 	})
@@ -365,7 +365,7 @@ var _ = Describe("NetworkInterfaceHandler network status of a Main-only virtual 
 		networksStatus := update()
 
 		Expect(networksStatus).To(ConsistOf(v1alpha2.NetworksStatus{
-			ID:   commonnetwork.ReservedMainID,
+			ID:   commonnetwork.MinID,
 			Type: v1alpha2.NetworksTypeMain,
 		}))
 	})

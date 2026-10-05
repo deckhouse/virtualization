@@ -79,7 +79,7 @@ var _ = Describe("filterReadyNetworks", func() {
 
 	It("keeps the Main network while dropping a network that is not Ready", func() {
 		vm := newVM(
-			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.ReservedMainID)},
+			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, ID: ptr.To(commonnetwork.MinID)},
 			v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: networkName, ID: ptr.To(2)},
 		)
 

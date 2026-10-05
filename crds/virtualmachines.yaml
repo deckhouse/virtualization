@@ -1042,7 +1042,11 @@ spec:
                       id:
                         type: integer
                         description: |
-                          The ID of the network interface.
+                          The ID of the network interface, from 1 to 16383. It is passed to the guest as the ACPI index of the interface, so the guest OS derives the interface name from it (for example, `eno1` for id 1).
+
+                          If omitted, the next free ID is assigned in the order the networks are listed, starting from 1. No ID is reserved for a particular network type: the `Main` network takes id 1 only when it is listed first and id 1 is free.
+
+                          The ID can be changed only when the virtual machine is stopped. Changing it renames the interface inside the guest OS.
                       type:
                         type: string
                         description: |
@@ -1566,7 +1570,7 @@ spec:
                       id:
                         type: integer
                         description: |
-                          The ID of the network interface.
+                          The ID of the network interface. It matches the ACPI index of the interface in the guest OS.
                       type:
                         type: string
                         description: |
