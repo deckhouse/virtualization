@@ -185,7 +185,7 @@ shell:
     ./configure \
       {{- tpl (.Files.Get (printf "images/%s/flags.tmpl" .ImageName)) . | trim | nindent 6 }}
 
-    {{- $_ := set $ "ProjectName" (list .ImageName "qemu" | join "/") }}
+    {{- $_ := set $ "ProjectName" "virt-launcher/qemu" }}
     {{- $_ := set $ "SvaceBuildOptions" "--enable-ptrace-all" }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
     {{- $_ := unset $ "SvaceBuildOptions" }}

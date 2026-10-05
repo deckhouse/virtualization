@@ -94,7 +94,7 @@ shell:
       {{- tpl (.Files.Get (printf "images/%s/flags.tmpl" .ImageName)) . | trim | nindent 6 }}
 
 
-      {{- $_ := set $ "ProjectName" (list .ImageName "libvirt" | join "/") }}
+      {{- $_ := set $ "ProjectName" "virt-launcher/libvirt" }}
       {{- $_ := set $ "SvaceBuildOptions" "--enable-ptrace-all" }}
       {{- include "image-build.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | nindent 6 }}
       {{- $_ := unset $ "SvaceBuildOptions" }}

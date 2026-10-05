@@ -3,7 +3,10 @@
 #   - SVACE_ENABLED - svace build toogler
 #   - SVACE_ANALYZE_SSH_USER - ssh user to connect to svace analyze server with
 #   - SVACE_ANALYZE_HOST - svace analyze server host
-#   - ProjectName - project name which will be used in svacer (report server)
+#   - ProjectName - project name which will be used in svacer (report server).
+#     Format: <final image name from the module bundle>/<binary name>. The SSDLC reporter matches the first
+#     part against images_digests.json of the bundle, so a binary built in an intermediate artifact image
+#     must be named after the final image it is shipped in (one of them when it is shipped in several).
 #   - Commit.Hash - build commit hash, which is used to distinct artifacts on the analyze server and to add into import custom field
 #   - SvaceBuildOptions - optional parameter; might be used for javascript and python svacing
 #   - SvaceImportSettings - dict, which can contain ProjectName and Branch fields, to override default behavior of the futher analysis job

@@ -105,7 +105,7 @@ shell:
     meson setup build \
       {{- tpl (.Files.Get (printf "images/%s/flags.tmpl" .ImageName)) . | trim | nindent 6 }}
 
-    {{- $_ := set $ "ProjectName" (list .ImageName "spice-server" | join "/") }}
+    {{- $_ := set $ "ProjectName" "virt-launcher/spice-server" }}
     # Svace's default interception does not reach the compiler calls ninja spawns,
     # so it captures nothing and fails the scan with "no compilation activity". The
     # ptrace mode makes it follow every child process, the same as the qemu build.

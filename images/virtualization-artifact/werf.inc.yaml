@@ -51,7 +51,7 @@ shell:
 
   - |
     echo "Build virtualization-controller binary"
-    {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-controller" | join "/") }}
+    {{- $_ := set $ "ProjectName" "virtualization-controller/virtualization-controller" }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
     go build -tags {{ .MODULE_EDITION }} -v -a -o /out/virtualization-controller ./cmd/virtualization-controller
@@ -62,7 +62,7 @@ shell:
 
   - |
     echo "Build virtualization-api binary"
-    {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-api" | join "/") }}
+    {{- $_ := set $ "ProjectName" "virtualization-api/virtualization-api" }}
 
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-api" }}
     go build -v -o /out/virtualization-api ./cmd/virtualization-api
@@ -73,7 +73,7 @@ shell:
 {{- if or (eq .MODULE_EDITION "EE") (eq .SVACE_ENABLED "true") }}
   - |
     echo "Build virtualization-audit binary"
-    {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-audit" | join "/") }}
+    {{- $_ := set $ "ProjectName" "virtualization-audit/virtualization-audit" }}
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-audit" }}
     go build -v -o /out/virtualization-audit ./cmd/virtualization-audit
     {{- else }}

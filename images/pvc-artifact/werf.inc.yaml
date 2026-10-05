@@ -53,12 +53,12 @@ shell:
 
   - echo ============== Build pvc-importer ===========
   - |
-    {{- $_ := set $ "ProjectName" (list .ImageName "pvc-importer" | join "/") }}
+    {{- $_ := set $ "ProjectName" "pvc-importer/pvc-importer" }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /pvc-binaries/pvc-importer ./cmd/pvc-importer`) | nindent 6 }}
 
   - echo ============== Build pvc-target-importer ===========
   - |
-    {{- $_ := set $ "ProjectName" (list .ImageName "pvc-target-importer" | join "/") }}
+    {{- $_ := set $ "ProjectName" "pvc-importer/pvc-target-importer" }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /pvc-binaries/pvc-target-importer ./cmd/pvc-target-importer`) | nindent 6 }}
 
   - chown -R 64535:64535 /pvc-binaries/*

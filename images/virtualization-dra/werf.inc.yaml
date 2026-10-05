@@ -34,7 +34,7 @@ shell:
 
     - |
       echo "Build virtualization-dra-usb binary"
-      {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-dra-usb" | join "/") }}
+      {{- $_ := set $ "ProjectName" "virtualization-dra-usb/virtualization-dra-usb" }}
 
       {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-usb" }}
       go build -v -o /out/virtualization-dra-usb ./cmd/usb/dra
@@ -44,12 +44,12 @@ shell:
 
     - |
       echo "Build go-usbip binary"
-      {{- $_ := set $ "ProjectName" (list .ImageName "go-usbip" | join "/") }}
+      {{- $_ := set $ "ProjectName" "virtualization-dra-usb/go-usbip" }}
       {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/go-usbip ./cmd/usb/go-usbip`) | nindent 6 }}
 
     - |
       echo "Build virtualization-dra-pci binary"
-      {{- $_ := set $ "ProjectName" (list .ImageName "virtualization-dra-pci" | join "/") }}
+      {{- $_ := set $ "ProjectName" "virtualization-dra-pci/virtualization-dra-pci" }}
       {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-dra-pci ./cmd/pci/dra`) | nindent 6 }}
 
 # Corpus restore and replay run in the CI child pipeline, after image publication.

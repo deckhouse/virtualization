@@ -72,13 +72,13 @@ shell:
     # conflict with the prototypes cgo generates.
     export CGO_CFLAGS="-std=gnu17"
   - |
-    {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-importer" | join "/") }}
+    {{- $_ := set $ "ProjectName" "dvcr-importer/dvcr-importer" }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -tags=dvcr_no_gost_tls -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
-    {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-uploader" | join "/") }}
+    {{- $_ := set $ "ProjectName" "dvcr-uploader/dvcr-uploader" }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -tags=dvcr_no_gost_tls -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader`) | nindent 6 }}
   - |
     export CGO_ENABLED=0
-    {{- $_ := set $ "ProjectName" (list .ImageName "dvcr-cleaner" | join "/") }}
+    {{- $_ := set $ "ProjectName" "dvcr/dvcr-cleaner" }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner`) | nindent 6 }}
   - chown -R 64535:64535 /out
 
