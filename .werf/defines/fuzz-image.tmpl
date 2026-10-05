@@ -1,0 +1,24 @@
+{{/*
+Common settings for every Go fuzz image. Arguments: (context, working directory).
+Source imports, git files, install commands and extra environment variables stay
+in each component's werf.inc.yaml. Extra env entries can follow this include.
+*/}}
+{{- define "fuzz image" }}
+{{- $ctx := index . 0 }}
+{{- $workDir := index . 1 }}
+image: {{ $ctx.ModuleNamePrefix }}{{ $ctx.ImageName }}-fuzz
+from: {{ index ($ctx.Files.Get "build/base-images/ci_images.yml" | fromYaml) "ci/fuzz-go" }}
+fromLatest: true
+final: false
+secrets:
+- id: GOPROXY
+  value: {{ $ctx.GOPROXY }}
+{{- include "fox module auth secret" $ctx }}
+imageSpec:
+  config:
+    workingDir: {{ $workDir }}
+    labels:
+      io.deckhouse.fuzz.engine: go
+    env:
+      FUZZ_WORKDIR: {{ $workDir }}
+{{- end }}

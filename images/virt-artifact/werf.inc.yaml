@@ -217,18 +217,32 @@ shell:
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-hook ./cmd/virt-launcher-hook/`) | nindent 6 }}
 
-# Fuzz image for the conntrack sync decoder of the KubeVirt fork. The build image
-# above already holds the clone at /kubevirt together with the Go toolchain, and
-# the fork vendors its dependencies. Discovery is narrowed to the one package:
-# "./..." here is the whole KubeVirt tree, thousands of test packages, some of
-# which need a cluster to build. The target lives in this repository and werf
-# places it into the package inside the clone.
+# Corpus restore and replay run in the CI child pipeline, after image publication.
 ---
-{{- $_ := set . "FuzzEngine" "go" }}
-{{- $_ := set . "FuzzWorkDir" "/kubevirt" }}
-{{- $_ := set . "FuzzFromImage" (printf "%s%s" .ModuleNamePrefix .ImageName) }}
-{{- $_ := set . "FuzzPackages" "./pkg/virt-handler/conntrack/..." }}
-{{- $_ := set . "FuzzTargetFiles" (list (dict
-      "from" "images/virt-artifact/fuzz/protocol_fuzz_test.go"
-      "to"   "/kubevirt/pkg/virt-handler/conntrack/protocol_fuzz_test.go")) }}
-{{- include "fuzz image" . }}
+{{- include "fuzz image" (list . "/kubevirt") }}
+      FUZZ_PKGS: "./pkg/virt-handler/conntrack/..."
+      CGO_ENABLED: "0"
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/kubevirt
+  to: /kubevirt
+  before: install
+git:
+- add: {{ .ModuleDir }}/Taskfile.fuzz.yml
+  to: /kubevirt/Taskfile.yml
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/fuzz/protocol_fuzz_test.go
+  to: /kubevirt/pkg/virt-handler/conntrack/protocol_fuzz_test.go
+  stageDependencies:
+    install:
+    - '**/*'
+shell:
+  install:
+{{- include "fox module auth" . | nindent 2 }}
+  - cd /kubevirt
+  # Regenerate the workspace vendor tree exactly as the production builder does.
+  - |
+    export GOPROXY="$(cat /run/secrets/GOPROXY)"
+    go mod download
+    go work vendor
+{{- include "fox module auth cleanup" . | nindent 2 }}
+  - chmod -R a+rwX /kubevirt /fuzz/gomod

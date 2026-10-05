@@ -43,14 +43,26 @@ shell:
       {{- $_ := set $ "ProjectName" (list .ImageName "go-usbip" | join "/") }}
       {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/go-usbip ./cmd/usb/go-usbip`) | nindent 6 }}
 
-# Fuzz image for the USB/IP protocol decoders and the daemon request handling.
-# The builder above carries the workspace and the downloaded dependencies; the
-# targets are pure Go and drive the daemon over an in-memory connection, so no
-# USB device, sysfs or network is involved.
+
+# Corpus restore and replay run in the CI child pipeline, after image publication.
 ---
-{{- $_ := set . "FuzzEngine" "go" }}
-{{- $_ := set . "FuzzWorkDir" "/src/images/virtualization-dra" }}
-{{- $_ := set . "FuzzFromImage" (printf "%s%s-builder" .ModuleNamePrefix .ImageName) }}
-{{- $_ := set . "FuzzPackages" "./..." }}
-{{- $_ := set . "FuzzTargetFiles" (list) }}
-{{- include "fuzz image" . }}
+{{- include "fuzz image" (list . "/src/images/virtualization-dra") }}
+      FUZZ_PKGS: "./..."
+      CGO_ENABLED: "0"
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src/images/virtualization-dra
+  stageDependencies:
+    install:
+    - '**/*'
+  excludePaths:
+  - werf.inc.yaml
+- add: {{ .ModuleDir }}/Taskfile.fuzz.yml
+  to: /src/images/virtualization-dra/Taskfile.yml
+shell:
+  install:
+{{- include "fox module auth" . | nindent 2 }}
+  - cd /src/images/virtualization-dra
+  - GOPROXY="$(cat /run/secrets/GOPROXY)" go mod download
+{{- include "fox module auth cleanup" . | nindent 2 }}
+  - chmod -R a+rwX /src /fuzz/gomod

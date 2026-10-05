@@ -1,0 +1,32 @@
+{{/*
+
+Install container-factory packages with pm.
+
+Packages are listed once, in the per-image "-dependencies" define, under the
+pmPackages key; this template turns that list into the install command, so no
+werf.inc.yaml spells out a pm invocation by hand.
+
+Arguments: a list of (packages, destination), where packages is the pmPackages
+list and destination is the pm -d root ("/" for a builder, "/relocate" for an
+image whose files are imported elsewhere).
+
+Emits shell lines, so include it in a shell stage:
+
+  {{- define "$name" -}}
+  pmPackages:
+  - libvirt
+  - swtpm libtpms numactl dmidecode
+  {{- end -}}
+
+  {{ $builderDependencies := include "$name" . | fromYaml }}
+
+  shell:
+    install:
+    {{- include "pm packages install" (list $builderDependencies.pmPackages "/relocate") | nindent 2 }}
+
+*/}}
+{{- define "pm packages install" -}}
+{{-   $packages := index . 0 -}}
+{{-   $destination := index . 1 -}}
+- pm install {{ $packages | join " " }} -d {{ $destination }}
+{{- end }}

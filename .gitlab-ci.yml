@@ -9,8 +9,8 @@
 # .gitlab/ci/includes.yml (see that file for the full include list).
 #
 # Upstream templates are sourced from deckhouse/3p/deckhouse/modules-gitlab-ci
-# at ref v15.0. Swap the branch ref for a pinned SHA after the first green
-# pipeline on virt-test.
+# at ref v15.0, including fuzz build/replay. The ref is configured in
+# .gitlab/ci/includes.yml.
 
 include:
   - local: '.gitlab/ci/includes.yml'

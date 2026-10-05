@@ -21,6 +21,7 @@
 #   build             — werf build for dev / dev-tags / main / prod
 #                       (dev tags are build-only: the DEV registry has no
 #                       release channels, so there is no DEV deploy stage)
+#   fuzz              — corpus replay in a dynamic child pipeline
 #   scan              — cve_scan, gitleaks, svace (owned by sibling issues)
 #   deploy_prod         — prod release-channel deploy. ONE stage with independent
 #                         manual jobs per channel (tag-push flow, deploy-prod.yml)
@@ -47,6 +48,7 @@ stages:
   - test
   - prod_check
   - build
+  - fuzz
   - scan
   - deploy_prod
   - prod_verify

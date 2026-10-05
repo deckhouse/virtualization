@@ -126,17 +126,38 @@ shell:
   - |
     /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
 
-# Fuzz image for the dvcr importer and uploader targets. The builder already
-# contains the module and the native libnbd toolchain, so the fuzz image only
-# adds the corpus and the task runner. The module root sits at /src on this
-# branch: the src-artifact adds images/dvcr-artifact itself, not the whole
-# repository. The shared template also imports the relocated qemu tools; no
-# target built here calls them, but they come from the same cached chain as
-# build_dev and the registry targets that do need them are not on this branch.
+# Corpus restore and replay run in the CI child pipeline, after image publication.
+# The module root is /src on this branch: the src-artifact adds
+# images/dvcr-artifact itself, not the whole repository.
 ---
-{{- $_ := set . "FuzzEngine" "go" }}
-{{- $_ := set . "FuzzWorkDir" "/src" }}
-{{- $_ := set . "FuzzFromImage" (printf "%s%s-builder" .ModuleNamePrefix .ImageName) }}
-{{- $_ := set . "FuzzPackages" "./..." }}
-{{- $_ := set . "FuzzTargetFiles" (list) }}
-{{- include "fuzz image" . }}
+{{- include "fuzz image" (list . "/src") }}
+      FUZZ_PKGS: "./..."
+      CGO_ENABLED: "1"
+      CGO_CFLAGS: "-std=gnu17"
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+# Registry targets execute the same qemu tools as the production importer.
+- image: {{ .ModuleNamePrefix }}qemu
+  add: /qemu-img
+  to: /
+  before: install
+git:
+- add: {{ .ModuleDir }}/Taskfile.fuzz.yml
+  to: /src/Taskfile.yml
+shell:
+  install:
+  # fuzz-go publishes only the common tools. Fetch native build dependencies
+  # from container-factory, using the release behind this fuzz-go base.
+  - export REGISTRY=registry.deckhouse.ru/container-factory PACKAGES_VERSION=v3.1.0
+  {{- include "pm packages install" (list (list "gnu-gcc-devel" "gnu-glibc-devel" "linux-headers" "binutils" "pkgconf" "libnbd" "libnbd-devel" "libxml2" "libxml2-devel" "file") "/") | nindent 2 }}
+  - pkg-config --modversion libnbd
+  - qemu-img --version
+  - file --version
+{{- include "fox module auth" . | nindent 2 }}
+  - cd /src
+  - GOPROXY="$(cat /run/secrets/GOPROXY)" go mod download
+{{- include "fox module auth cleanup" . | nindent 2 }}
+  - chmod -R a+rwX /src /fuzz/gomod
