@@ -1,0 +1,37 @@
+# Service account for the e2e suite in the nested cluster.
+#
+# These objects are created by dhctl together with the rest of the cluster
+# resources on purpose: since DKP 1.77 the user-authz admission
+# (d8-user-authz-identity-assign.deckhouse.io) only lets a requester grant
+# roles within its own can-assign range, and kubectl on the master runs as
+# kubernetes-admin, which has none. dhctl is on the webhook's exempt list.
+#
+# The names must match the arguments gen-nested-kubeconfig.sh passes to
+# scripts/gen-kubeconfig.sh (<SA_NAME>=nested-sa, <CLUSTER_PREFIX>=nested),
+# which only reads the token secret and builds a kubeconfig from it.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nested-sa
+  namespace: d8-service-accounts
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: virt-nested-nested-sa-token
+  namespace: d8-service-accounts
+  annotations:
+    kubernetes.io/service-account.name: nested-sa
+type: kubernetes.io/service-account-token
+---
+apiVersion: deckhouse.io/v1
+kind: ClusterAuthorizationRule
+metadata:
+  name: virt-nested-nested-sa
+spec:
+  subjects:
+    - kind: ServiceAccount
+      name: nested-sa
+      namespace: d8-service-accounts
+  accessLevel: SuperAdmin

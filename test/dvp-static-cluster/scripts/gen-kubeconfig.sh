@@ -128,35 +128,33 @@ else
   exit_with_error "No access to Kubernetes cluster or configuration issue."
 fi
 
-log_info "Apply SA, Secrets and ClusterAuthorizationRule"
-kubectl apply -f -<<EOF
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: ${SA_NAME}
-  namespace: d8-service-accounts
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "${SA_TOKEN}"
-  namespace: d8-service-accounts
-  annotations:
-    kubernetes.io/service-account.name: ${SA_NAME}
-type: kubernetes.io/service-account-token
----
-apiVersion: deckhouse.io/v1
-kind: ClusterAuthorizationRule
-metadata:
-  name: ${SA_CAR_NAME}
-spec:
-  subjects:
-  - kind: ServiceAccount
-    name: ${SA_NAME}
-    namespace: d8-service-accounts
-  accessLevel: SuperAdmin
-EOF
-log_success "SA, Secrets and ClusterAuthorizationRule applied"
+# The ServiceAccount, its token Secret and the ClusterAuthorizationRule are
+# created by dhctl from charts/cluster-config/templates/nested-sa.yaml. They
+# cannot be created from here: kubectl on the master runs as kubernetes-admin,
+# and the user-authz admission denies it a SuperAdmin grant.
+wait_for_sa_token() {
+  log_info "Wait for the token secret ${SA_TOKEN} of ServiceAccount ${SA_NAME}"
+
+  local max_attempts=60
+  local retry_wait_seconds=10
+  local attempt_number
+
+  for ((attempt_number = 1; attempt_number <= max_attempts; attempt_number++)); do
+    if [[ -n "$(kubectl -n d8-service-accounts get secret "${SA_TOKEN}" -o jsonpath='{.data.token}' 2>/dev/null)" ]]; then
+      log_success "Token secret ${SA_TOKEN} is ready"
+      return 0
+    fi
+    log_warning "Token secret ${SA_TOKEN} is not ready yet (attempt ${attempt_number}/${max_attempts}), retrying..."
+    sleep "${retry_wait_seconds}"
+  done
+
+  log_error "Token secret ${SA_TOKEN} not found; check that dhctl created the resources from charts/cluster-config/templates/nested-sa.yaml"
+  kubectl -n d8-service-accounts get sa,secret 2>&1 || true
+  kubectl get clusterauthorizationrule "${SA_CAR_NAME}" 2>&1 || true
+  return 1
+}
+
+wait_for_sa_token || exit_with_error "ServiceAccount token is not available"
 
 
 kubeconfig_cert_cluster_section() {
