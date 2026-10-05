@@ -18,20 +18,28 @@ package virtualmachine
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
+
+func fqName(metric string) string {
+	return metrics.MetricNamespace + "_" + metric
+}
 
 type stubIterator struct {
 	vms []*v1alpha2.VirtualMachine
@@ -54,6 +62,61 @@ func collectorOf(vms ...*v1alpha2.VirtualMachine) Collector {
 		log:      log.NewNop(),
 		iterator: stubIterator{vms: vms},
 	}
+}
+
+// registryOf registers the collector the way the module does. The labels and annotations series
+// carry labels the descriptor does not declare, which the pedantic registry behind
+// testutil.CollectAndCompare rejects and the real one accepts.
+func registryOf(c Collector) *prometheus.Registry {
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(c)
+	return reg
+}
+
+// machinePhases is every phase the metric must export a series for. A phase missing from the
+// scraper zeroes out the machine in the phase picture, which is what the table below catches.
+var machinePhases = []v1alpha2.MachinePhase{
+	v1alpha2.MachinePending,
+	v1alpha2.MachineRunning,
+	v1alpha2.MachineDegraded,
+	v1alpha2.MachineTerminating,
+	v1alpha2.MachineStopped,
+	v1alpha2.MachineStopping,
+	v1alpha2.MachineStarting,
+	v1alpha2.MachineMigrating,
+	v1alpha2.MachinePause,
+}
+
+// phaseSeries renders the status_phase block of vm-01 with the current phase marked with 1.
+func phaseSeries(current v1alpha2.MachinePhase) string {
+	var b strings.Builder
+	b.WriteString("# HELP d8_virtualization_virtualmachine_status_phase The virtualmachine current phase.\n")
+	b.WriteString("# TYPE d8_virtualization_virtualmachine_status_phase gauge\n")
+	for _, p := range machinePhases {
+		fmt.Fprintf(&b, "d8_virtualization_virtualmachine_status_phase{name=\"vm-01\",namespace=\"team-a\",node=\"node-1\",phase=%q,uid=\"uid-vm-01\"} %v\n",
+			string(p), common.BoolFloat64(p == current))
+	}
+	return b.String()
+}
+
+var runPolicies = []v1alpha2.RunPolicy{
+	v1alpha2.AlwaysOnPolicy,
+	v1alpha2.AlwaysOffPolicy,
+	v1alpha2.ManualPolicy,
+	v1alpha2.AlwaysOnUnlessStoppedManually,
+}
+
+// runPolicySeries renders the configuration_run_policy block of vm-01 with the current policy
+// marked with 1.
+func runPolicySeries(current v1alpha2.RunPolicy) string {
+	var b strings.Builder
+	b.WriteString("# HELP d8_virtualization_virtualmachine_configuration_run_policy The virtualmachine current runPolicy.\n")
+	b.WriteString("# TYPE d8_virtualization_virtualmachine_configuration_run_policy gauge\n")
+	for _, p := range runPolicies {
+		fmt.Fprintf(&b, "d8_virtualization_virtualmachine_configuration_run_policy{name=\"vm-01\",namespace=\"team-a\",node=\"node-1\",runPolicy=%q,uid=\"uid-vm-01\"} %v\n",
+			string(p), common.BoolFloat64(p == current))
+	}
+	return b.String()
 }
 
 // newVM builds the smallest machine that still produces every metric: no labels, annotations or
@@ -319,6 +382,99 @@ d8_virtualization_virtualmachine_migration_start_timestamp_seconds{name="vm-01",
 		// A machine that has never migrated carries no state, and the direction of a migration
 		// that did not happen must not be reported as a series of empty nodes.
 		Entry("the machine has never migrated", nil, ""),
+	)
+	DescribeTable("marks exactly the current phase with 1",
+		func(phase, marked v1alpha2.MachinePhase) {
+			vm := newVM()
+			vm.Status.Phase = phase
+
+			Expect(testutil.CollectAndCompare(collectorOf(vm), strings.NewReader(phaseSeries(marked)),
+				fqName(MetricVirtualMachineStatusPhase))).To(Succeed())
+		},
+		Entry("Pending", v1alpha2.MachinePending, v1alpha2.MachinePending),
+		Entry("Running", v1alpha2.MachineRunning, v1alpha2.MachineRunning),
+		Entry("Degraded", v1alpha2.MachineDegraded, v1alpha2.MachineDegraded),
+		Entry("Terminating", v1alpha2.MachineTerminating, v1alpha2.MachineTerminating),
+		Entry("Stopped", v1alpha2.MachineStopped, v1alpha2.MachineStopped),
+		Entry("Stopping", v1alpha2.MachineStopping, v1alpha2.MachineStopping),
+		Entry("Starting", v1alpha2.MachineStarting, v1alpha2.MachineStarting),
+		Entry("Migrating", v1alpha2.MachineMigrating, v1alpha2.MachineMigrating),
+		Entry("Pause", v1alpha2.MachinePause, v1alpha2.MachinePause),
+		// A machine the controller has not reached yet carries an empty phase. Reporting it as
+		// Pending keeps it visible: no series at all looks like a broken exporter.
+		Entry("an empty phase counts as Pending", v1alpha2.MachinePhase(""), v1alpha2.MachinePending),
+	)
+
+	DescribeTable("marks exactly the current run policy with 1",
+		func(policy v1alpha2.RunPolicy) {
+			vm := newVM()
+			vm.Spec.RunPolicy = policy
+
+			Expect(testutil.CollectAndCompare(collectorOf(vm), strings.NewReader(runPolicySeries(policy)),
+				fqName(MetricVirtualMachineConfigurationRunPolicy))).To(Succeed())
+		},
+		Entry("AlwaysOn", v1alpha2.AlwaysOnPolicy),
+		Entry("AlwaysOff", v1alpha2.AlwaysOffPolicy),
+		Entry("Manual", v1alpha2.ManualPolicy),
+		Entry("AlwaysOnUnlessStoppedManually", v1alpha2.AlwaysOnUnlessStoppedManually),
+		// The policy is defaulted by the API, so an empty one never reaches the collector; it
+		// still must not be reported as any of the policies.
+		Entry("an empty policy marks none", v1alpha2.RunPolicy("")),
+	)
+
+	// Kubernetes keys become Prometheus label names: the prefix tells a label from an annotation,
+	// every character outside [a-zA-Z0-9_] turns into an underscore and camelCase becomes snake_case.
+	It("turns the labels and annotations into labels of the labels and annotations series", func() {
+		vm := newVM()
+		vm.Labels = map[string]string{
+			"app":                        "web",
+			"team.example.com/ownerName": "ops",
+		}
+		vm.Annotations = map[string]string{
+			"note": "keep",
+			// The last applied configuration is a whole manifest: it never becomes a label.
+			"kubectl.kubernetes.io/last-applied-configuration": "{}",
+		}
+
+		expected := `
+# HELP d8_virtualization_virtualmachine_annotations Kubernetes annotations converted to Prometheus labels.
+# TYPE d8_virtualization_virtualmachine_annotations gauge
+d8_virtualization_virtualmachine_annotations{annotation_note="keep",name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1
+# HELP d8_virtualization_virtualmachine_labels Kubernetes labels converted to Prometheus labels.
+# TYPE d8_virtualization_virtualmachine_labels gauge
+d8_virtualization_virtualmachine_labels{label_app="web",label_team_example_com_owner_name="ops",name="vm-01",namespace="team-a",node="node-1",uid="uid-vm-01"} 1
+`
+		Expect(testutil.GatherAndCompare(registryOf(collectorOf(vm)), strings.NewReader(expected),
+			fqName(MetricVirtualMachineLabels), fqName(MetricVirtualMachineAnnotations))).To(Succeed())
+	})
+
+	// One series per pod the machine has had: the active one carries 1, the ones left behind by a
+	// migration or a restart carry 0 until they are gone.
+	DescribeTable("reports the pods of the machine",
+		func(pods []v1alpha2.VirtualMachinePod, expected string) {
+			vm := newVM()
+			vm.Status.VirtualMachinePods = pods
+
+			Expect(testutil.CollectAndCompare(collectorOf(vm), strings.NewReader(expected),
+				fqName(MetricVirtualMachinePod))).To(Succeed())
+		},
+		Entry("no pod yet", nil, ""),
+		Entry("a single running pod",
+			[]v1alpha2.VirtualMachinePod{{Name: "virt-launcher-vm-01-abcde", Active: true}}, `
+# HELP d8_virtualization_virtualmachine_pod The virtualmachine current active pod.
+# TYPE d8_virtualization_virtualmachine_pod gauge
+d8_virtualization_virtualmachine_pod{name="vm-01",namespace="team-a",node="node-1",pod="virt-launcher-vm-01-abcde",uid="uid-vm-01"} 1
+`),
+		Entry("the old pod is still around after a migration",
+			[]v1alpha2.VirtualMachinePod{
+				{Name: "virt-launcher-vm-01-abcde", Active: false},
+				{Name: "virt-launcher-vm-01-fghij", Active: true},
+			}, `
+# HELP d8_virtualization_virtualmachine_pod The virtualmachine current active pod.
+# TYPE d8_virtualization_virtualmachine_pod gauge
+d8_virtualization_virtualmachine_pod{name="vm-01",namespace="team-a",node="node-1",pod="virt-launcher-vm-01-abcde",uid="uid-vm-01"} 0
+d8_virtualization_virtualmachine_pod{name="vm-01",namespace="team-a",node="node-1",pod="virt-launcher-vm-01-fghij",uid="uid-vm-01"} 1
+`),
 	)
 })
 
