@@ -316,6 +316,9 @@ spec:
                   description: Settings for creating PVCs to store the disk.
                   properties:
                     size:
+                      allOf:
+                        - pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        - pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE])?$
                       anyOf:
                         - type: integer
                         - type: string
@@ -323,7 +326,6 @@ spec:
                         Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
 
                         This parameter can be omitted if the `.spec.dataSource` section is filled out. In this case, the controller will determine the disk size automatically, based on the size of the extracted image from the source specified in `.spec.dataSource`.
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     storageClassName:
                       description: |-

@@ -18,9 +18,17 @@ package importer
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+// decimalExponentImageSize matches a Kubernetes quantity written with a decimal exponent, such
+// as 1e3 or 4e400. The VirtualDisk CRD no longer admits this form (its size pattern keeps only
+// the SI and binary suffixes), and the importer receives its image size from that field, so
+// the fuzzer does not need to explore it. It also must not: resource.ParseQuantity hangs on an
+// out-of-range exponent, which the fuzzer would keep reporting as a finding nothing can reach.
+var decimalExponentImageSize = regexp.MustCompile(`^[+-]?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))[eE][+-]?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))$`)
 
 var malformedImageSizes = []string{
 	"not-a-quantity",
@@ -84,6 +92,10 @@ func FuzzParseImageSize(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, imageSize string) {
+		if decimalExponentImageSize.MatchString(imageSize) {
+			t.Skip("decimal exponent: not admitted by the VirtualDisk CRD")
+		}
+
 		quantity, err := parseImageSize(imageSize)
 		if err == nil {
 			_ = quantity.String()
