@@ -29,6 +29,14 @@
 
 build_fuzz:
   extends: [.fuzz_build, .dev_vars, .virtualization_fuzz_rules]
+  before_script:
+    # Setup selects TRDL_BIN before invoking trdl. Avoid the runner-wide
+    # current symlink, which another concurrent job can replace.
+    - |
+      trdl() {
+        "${TRDL_BIN:?Setup must select a TRDL binary}" "$@"
+      }
+    - !reference [before_script]
   needs:
     - job: set_vars
       artifacts: true
