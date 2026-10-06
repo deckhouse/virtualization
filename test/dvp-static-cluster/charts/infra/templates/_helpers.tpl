@@ -26,6 +26,7 @@ group: {{ $prefix }}
 {{- $cfg := index . 2 -}}
 {{- $networkConfig := get $ctx.Values.instances "networkConfig" | default dict -}}
 {{- $clusterNetworkName := get $networkConfig "clusterNetworkName" | default "" -}}
+{{- $clusterNetworkName2 := get $networkConfig "clusterNetworkName2" | default "" -}}
 
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -50,6 +51,10 @@ spec:
 {{- if $clusterNetworkName }}
     - type: ClusterNetwork
       name: {{ $clusterNetworkName }}
+{{- end }}
+{{- if $clusterNetworkName2 }}
+    - type: ClusterNetwork
+      name: {{ $clusterNetworkName2 }}
 {{- end }}
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
