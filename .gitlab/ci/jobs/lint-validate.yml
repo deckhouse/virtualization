@@ -16,7 +16,7 @@
 # - honors `validation/skip/<name>` labels via `when: never` rules.
 #
 # The job file assumes the upstream template include for
-# `/templates/Setup.gitlab-ci.yml` from deckhouse/3p/deckhouse/modules-gitlab-ci@v13.0
+# `/templates/Setup.gitlab-ci.yml` from deckhouse/3p/deckhouse/modules-gitlab-ci@v15.0
 # is in scope so that the shared `default:` and `stages:` are merged.
 # It also assumes the `lint` stage is declared in .gitlab/ci/stages.yml.
 #
