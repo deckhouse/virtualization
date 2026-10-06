@@ -240,6 +240,12 @@ import:
   includePaths:
     - module.yaml
     - changelog.yaml
+    # docs (without docs/internal), crds and openapi are reused from prepare-bundle,
+    # which has already applied the include/exclude filtering, so the platform can
+    # read a not-yet-enabled module's documentation and install requirements.
+    - crds
+    - docs
+    - openapi
 shell:
   install:
     - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json
