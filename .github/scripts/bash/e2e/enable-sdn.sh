@@ -73,7 +73,7 @@ ${source_field}
 EOF
   then
     echo "[SUCCESS] SDN ModuleConfig applied"
-    kubectl get mc sdn
+    kubectl get mc sdn || true
     return 0
   fi
 
@@ -92,7 +92,7 @@ wait_for_sdn_module() {
     echo "[INFO] Wait for modules/sdn to be Ready ${i}/${count}, phase=${phase:-unknown}"
 
     if [ "$phase" = "Ready" ]; then
-      kubectl get modules sdn -o wide
+      kubectl get modules sdn -o wide || true
       return 0
     fi
 
@@ -112,11 +112,15 @@ wait_for_sdn_module() {
 }
 
 wait_for_sdn_workloads() {
-  local timeout=600
-  echo "[INFO] Wait for sdn deployments to be ready, timeout: ${timeout}s"
-  kubectl -n d8-sdn wait --for=condition=Available deploy --all --timeout="${timeout}s"
-  echo "[INFO] Wait for sdn daemonset agent to be ready, timeout: ${timeout}s"
-  kubectl -n d8-sdn rollout status daemonset agent --timeout="${timeout}s"
+  local timeout=300
+  # The nested API can answer 502 for a couple of minutes right after the
+  # module is enabled, so give the waits as many attempts as the apply above.
+  local attempts=8
+  local delay=15
+  echo "[INFO] Wait for sdn deployments to be ready, timeout: ${timeout}s (up to ${attempts} attempts)"
+  run_with_retry "$attempts" "$delay" kubectl -n d8-sdn wait --for=condition=Available deploy --all --timeout="${timeout}s"
+  echo "[INFO] Wait for sdn daemonset agent to be ready, timeout: ${timeout}s (up to ${attempts} attempts)"
+  run_with_retry "$attempts" "$delay" kubectl -n d8-sdn rollout status daemonset agent --timeout="${timeout}s"
 }
 
 wait_for_sdn_admission_endpoint() {
@@ -129,7 +133,7 @@ wait_for_sdn_admission_endpoint() {
     echo "[INFO] Wait for controller-sdn-admission endpoints ${i}/${count}, endpoints=${endpoints:-none}"
 
     if [ -n "$endpoints" ]; then
-      kubectl -n d8-sdn get svc,endpoints controller-sdn-admission
+      kubectl -n d8-sdn get svc,endpoints controller-sdn-admission || true
       return 0
     fi
 

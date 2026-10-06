@@ -198,4 +198,30 @@ kubectl_apply_with_retry() {
   return 1
 }
 
+# Runs a command with retries. Handy for wrapping "kubectl wait"/"rollout status"
+# calls that abort early on transient API errors (e.g. "etcdserver: request timed
+# out") instead of honoring their own --timeout.
+# Usage: run_with_retry [count] [delay] cmd [args...]
+run_with_retry() {
+  local count="${1:-3}"
+  local delay="${2:-15}"
+  shift 2
+  local i
+
+  for ((i = 1; i <= count; i++)); do
+    echo "[INFO] attempt ${i}/${count}: $*"
+    if "$@"; then
+      return 0
+    fi
+
+    if [ "$i" -lt "$count" ]; then
+      echo "[WARN] command failed, retrying in ${delay}s..."
+      sleep "$delay"
+    fi
+  done
+
+  echo "[ERROR] command failed after ${count} attempts: $*" >&2
+  return 1
+}
+
 trap on_error ERR
