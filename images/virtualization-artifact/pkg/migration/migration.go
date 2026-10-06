@@ -29,9 +29,7 @@ import (
 
 type constructor func(client client.Client, logger *log.Logger) (Migration, error)
 
-var newMigrations = []constructor{
-	newQEMUMaxLength36,
-}
+var newMigrations = []constructor{}
 
 type Migration interface {
 	Name() string
