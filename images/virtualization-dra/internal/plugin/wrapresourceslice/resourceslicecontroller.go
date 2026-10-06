@@ -92,7 +92,7 @@ type Controller struct {
 	syncDelay        time.Duration
 	errorHandler     func(ctx context.Context, err error, msg string)
 
-	// Last time that a ResourceSlice of a pool was created.
+	// Last time that a ResourceSlice of a pool was created or updated.
 	// At that time + cache mutation TTL do we have to sync again
 	// because the locally cached slice might have stayed in the
 	// cache erronously (not removed on delete by someone else)
@@ -801,6 +801,14 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		return fmt.Errorf("remove slices: %w", err)
 	}
 
+	// Updated slices land in the mutation cache just like created ones,
+	// so a slice deleted right after an update (kubelet wipes node-local
+	// slices on startup) stays visible there until the TTL expires.
+	// TODO: fixed upstream in https://github.com/kubernetes/kubernetes/pull/140063 (v1.37)
+	// by dropping deleted objects from the mutation cache. Drop this divergence
+	// once client-go and this package are bumped to 1.37+.
+	added := false
+
 	// Update existing slices.
 	for i, currentSlice := range currentSliceForDesiredSlice {
 		if !changedDesiredSlices.Has(i) && !bumpedGeneration {
@@ -825,11 +833,11 @@ func (c *Controller) syncPool(ctx context.Context, poolName string) error {
 		}
 		logger.V(5).Info("Updated existing resource slice", "slice", klog.KObj(slice))
 		atomic.AddInt64(&c.numUpdates, 1)
+		added = true
 		c.sliceStored(ctx, "update ResourceSlice", poolName, pool, i, slice, actualSlice)
 	}
 
 	// Create new slices.
-	added := false
 	for i := 0; i < len(pool.Slices); i++ {
 		if _, ok := currentSliceForDesiredSlice[i]; ok {
 			// Was handled above through an update.
