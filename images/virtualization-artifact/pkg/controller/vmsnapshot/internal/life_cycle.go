@@ -96,17 +96,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		// OK.
 	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
 		log.Debug(err.Error())
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+		h.setWaitingForFilesystemSync(cb, vmSnapshot)
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmscondition.Snapshotting).
-			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
+		h.setWaitingForFilesystemSync(cb, vmSnapshot)
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
 		err = fmt.Errorf("failed to sync filesystem status: %w", err)
@@ -514,6 +508,26 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		Message("")
 
 	return reconcile.Result{}, nil
+}
+
+// setWaitingForFilesystemSync reports that the filesystem state of the virtual machine is still being
+// synced, without overwriting the reason a terminal snapshot already carries. The sync runs before the
+// phase is examined, so it is also reached by a snapshot that has already failed, and a failed one never
+// reconciles again to put its explanation back.
+func (h LifeCycleHandler) setWaitingForFilesystemSync(cb *conditions.ConditionBuilder, vmSnapshot *v1alpha2.VirtualMachineSnapshot) {
+	if vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
+		readyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
+		cb.
+			Status(readyCondition.Status).
+			Reason(conditions.CommonReason(readyCondition.Reason)).
+			Message(readyCondition.Message)
+		return
+	}
+
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vmscondition.Snapshotting).
+		Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 }
 
 func (h LifeCycleHandler) setPhaseConditionToFailed(cb *conditions.ConditionBuilder, vmSnapshot *v1alpha2.VirtualMachineSnapshot, err error) {
