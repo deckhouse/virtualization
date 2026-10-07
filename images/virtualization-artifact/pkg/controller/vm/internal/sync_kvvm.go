@@ -1082,18 +1082,17 @@ func hotplugVolumesOutOfSync(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualM
 		return false
 	}
 
-	unplugging := make(map[string]struct{}, len(kvvm.Status.VolumeRequests))
-	for _, request := range kvvm.Status.VolumeRequests {
-		if request.RemoveVolumeOptions != nil {
-			unplugging[request.RemoveVolumeOptions.Name] = struct{}{}
-		}
+	// kubevirt applies a hotplug to the instance first and to the template only when it
+	// trims the request, so while a request is in flight the instance is expected to run
+	// a volume the template does not list yet. Rewriting the template in that window
+	// races the attach (or undoes a detach) and leaves the volumes out of order, which
+	// kubevirt answers with RestartRequired.
+	if kvbuilder.HasPendingVolumeRequests(kvvm) {
+		return false
 	}
 
 	for _, volume := range kvvmi.Spec.Volumes {
 		if !kvbuilder.IsHotpluggableVolume(volume) {
-			continue
-		}
-		if _, removing := unplugging[volume.Name]; removing {
 			continue
 		}
 		if !slices.ContainsFunc(kvvm.Spec.Template.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == volume.Name }) {

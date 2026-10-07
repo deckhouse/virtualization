@@ -252,6 +252,41 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 		Entry("ClusterVirtualImage, gone from the status too", attachedClusterImage, false),
 	)
 
+	It("should not rewrite the internal virtual machine while a hotplug is in flight", func() {
+		// kubevirt attaches the volume to the instance first and writes it into the
+		// template only when it trims the request. Until then the instance is expected
+		// to run a volume the template does not list: rewriting the template here races
+		// kubevirt's own update, and the volumes come out permuted, which kubevirt
+		// answers with RestartRequired.
+		hotplug := attachedDisk()
+
+		vm := makeVM()
+		vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{hotplug.statusRef}
+
+		kvvm := makeKVVM(vm)
+		kvvm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{{
+			AddVolumeOptions: &virtv1.AddVolumeOptions{Name: hotplug.volume.Name},
+		}}
+
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm,
+			kvvm,
+			makeKVVMI(hotplug.volume),
+			hotplug.object,
+			makeVMBDA(hotplug.ref),
+			makeVMClass(),
+		)
+
+		before := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, before)).To(Succeed())
+
+		reconcile()
+
+		after := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, after)).To(Succeed())
+		Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+		Expect(kvvmVolumeNames()).NotTo(ContainElement(hotplug.volume.Name))
+	})
+
 	It("should not rewrite the internal virtual machine when nothing drifted", func() {
 		// The drift check runs on every reconcile of every running VM, so an unconditional
 		// rewrite here would put the whole cluster into an update loop.

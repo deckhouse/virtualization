@@ -17,6 +17,7 @@ limitations under the License.
 package kvbuilder
 
 import (
+	"fmt"
 	"maps"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -360,6 +361,14 @@ func deletingVMBDA() *v1alpha2.VirtualMachineBlockDeviceAttachment {
 	}
 }
 
+func diskNames(disks []virtv1.Disk) []string {
+	names := make([]string, 0, len(disks))
+	for _, disk := range disks {
+		names = append(names, disk.Name)
+	}
+	return names
+}
+
 func newHotplugKVVM(volumes ...virtv1.Volume) *KVVM {
 	kvvm := NewEmptyKVVM(namespacedName("test-vm", hotplugNamespace), KVVMOptions{})
 	kvvm.Resource.Spec.Template.Spec.Volumes = volumes
@@ -458,6 +467,24 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from t
 				}}
 				return runningInstance(hotplug.volume), nil
 			}),
+		// kubevirt attaches to the instance first and writes the template last, so a volume
+		// in flight is expected to be on the instance only; restoring it would race the attach.
+		Entry("while the volume is being hotplugged",
+			func(kvvm *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
+				kvvm.Resource.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{{
+					AddVolumeOptions: &virtv1.AddVolumeOptions{Name: hotplug.volume.Name},
+				}}
+				return runningInstance(hotplug.volume), nil
+			}),
+		// Any request in flight means the template is still catching up, so the position of
+		// every other volume is not settled either.
+		Entry("while another volume is being hotplugged",
+			func(kvvm *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
+				kvvm.Resource.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{{
+					AddVolumeOptions: &virtv1.AddVolumeOptions{Name: "vd-other-disk"},
+				}}
+				return runningInstance(hotplug.volume), nil
+			}),
 		Entry("when every VMBDA of the block device is being deleted",
 			func(_ *KVVM, hotplug hotplugCase) (*virtv1.VirtualMachineInstance, []*v1alpha2.VirtualMachineBlockDeviceAttachment) {
 				return runningInstance(hotplug.volume), []*v1alpha2.VirtualMachineBlockDeviceAttachment{deletingVMBDA()}
@@ -511,6 +538,28 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes: hotplug volume dropped from t
 		Expect(syncHotplugCases(kvvm, kvvmi, nil, first, second)).To(Succeed())
 
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal(kvvmi.Spec.Volumes))
+	})
+
+	It("should restore several volumes in the order the instance keeps them", func() {
+		// The block devices are handed over in a map, so the restore sees them in a random
+		// order. Inserting a later volume before an earlier one puts it at a clamped
+		// position, and the arrays end up permuted: kubevirt then compares them with
+		// DeepEqual and demands a restart.
+		cases := make([]hotplugCase, 0, 8)
+		volumes := make([]virtv1.Volume, 0, 8)
+		for i := range 8 {
+			c := hotpluggedDiskNamed(fmt.Sprintf("disk-%d", i))
+			cases = append(cases, c)
+			volumes = append(volumes, c.volume)
+		}
+		kvvmi := runningInstance(volumes...)
+		// Only the last volume is still in the KVVM.
+		kvvm := newHotplugKVVM(volumes[len(volumes)-1])
+
+		Expect(syncHotplugCases(kvvm, kvvmi, nil, cases...)).To(Succeed())
+
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(Equal(kvvmi.Spec.Volumes))
+		Expect(diskNames(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks)).To(Equal(diskNames(kvvmi.Spec.Domain.Devices.Disks)))
 	})
 
 	It("should restore the claim the instance actually runs", func() {

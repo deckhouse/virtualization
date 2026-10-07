@@ -462,7 +462,12 @@ func syncAttachedVMBDAHotplugVolumes(
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
 	vmbdaByBlockDeviceRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 ) error {
-	unplugging := pendingVolumeRemovals(kvvm)
+	// A volume request in flight means kubevirt is still bringing the KVVM template to its
+	// target state: a hotplug lands on the instance first and reaches the template only
+	// when the request is trimmed, an unplug the other way round. Restoring anything in
+	// that window either undoes the detach or races the attach, so wait it out.
+	restoring := !HasPendingVolumeRequests(kvvm.Resource)
+	missing := make(map[string]struct{})
 
 	for ref, vmbdas := range vmbdaByBlockDeviceRef {
 		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
@@ -473,16 +478,10 @@ func syncAttachedVMBDAHotplugVolumes(
 		kvvmVolumes := kvvm.Resource.Spec.Template.Spec.Volumes
 		if !slices.ContainsFunc(kvvmVolumes, func(v virtv1.Volume) bool { return v.Name == diskName }) {
 			// The volume is gone from the KVVM while the instance keeps running it, so the two
-			// stay apart forever and the VM never migrates again (VolumesSynced). Put it back,
-			// but never while the volume is being unplugged: that would undo the detach.
-			if _, removing := unplugging[diskName]; removing {
-				continue
+			// stay apart forever and the VM never migrates again (VolumesSynced). Put it back.
+			if restoring && !allBeingDeleted(vmbdas) {
+				missing[diskName] = struct{}{}
 			}
-			if allBeingDeleted(vmbdas) {
-				continue
-			}
-
-			restoreHotplugVolume(kvvm, kvvmi, diskName)
 			continue
 		}
 
@@ -497,35 +496,43 @@ func syncAttachedVMBDAHotplugVolumes(
 		}
 	}
 
+	restoreHotplugVolumes(kvvm, kvvmi, missing)
+
 	return nil
 }
 
-// restoreHotplugVolume puts a hotplug volume back into the VirtualMachine, copying it from the
-// instance that still runs it. The copy is verbatim and keeps the position the instance keeps:
-// the volume arrays of the two objects are compared with DeepEqual, so a volume rebuilt from the
-// block device, or appended to the tail, would leave them apart just the same. A volume without
-// its disk is rejected by the kubevirt webhook, so both have to be there.
-func restoreHotplugVolume(kvvm *KVVM, kvvmi *virtv1.VirtualMachineInstance, name string) {
+// restoreHotplugVolumes puts the named hotplug volumes back into the VirtualMachine, copying
+// them from the instance that still runs them. The copies are verbatim and are inserted in the
+// order the instance keeps them: the volume arrays of the two objects are compared with
+// DeepEqual, so a volume rebuilt from the block device, appended to the tail, or restored out
+// of order (the position of a later volume is only right once the earlier ones are back) would
+// leave them apart just the same. A volume without its disk is rejected by the kubevirt
+// webhook, so both have to be there.
+func restoreHotplugVolumes(kvvm *KVVM, kvvmi *virtv1.VirtualMachineInstance, names map[string]struct{}) {
+	if len(names) == 0 {
+		return
+	}
 	// No instance, no volume to copy: a stopped VM carries no hotplug volumes at all.
 	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Running {
 		return
 	}
 
-	volumeIndex := slices.IndexFunc(kvvmi.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == name })
-	if volumeIndex < 0 || !IsHotpluggableVolume(kvvmi.Spec.Volumes[volumeIndex]) {
-		return
+	for volumeIndex, volume := range kvvmi.Spec.Volumes {
+		if _, ok := names[volume.Name]; !ok || !IsHotpluggableVolume(volume) {
+			continue
+		}
+
+		diskIndex := slices.IndexFunc(kvvmi.Spec.Domain.Devices.Disks, func(d virtv1.Disk) bool { return d.Name == volume.Name })
+		if diskIndex < 0 {
+			continue
+		}
+
+		volumes := kvvm.Resource.Spec.Template.Spec.Volumes
+		kvvm.Resource.Spec.Template.Spec.Volumes = slices.Insert(volumes, min(volumeIndex, len(volumes)), *volume.DeepCopy())
+
+		disks := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks
+		kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.Insert(disks, min(diskIndex, len(disks)), *kvvmi.Spec.Domain.Devices.Disks[diskIndex].DeepCopy())
 	}
-
-	diskIndex := slices.IndexFunc(kvvmi.Spec.Domain.Devices.Disks, func(d virtv1.Disk) bool { return d.Name == name })
-	if diskIndex < 0 {
-		return
-	}
-
-	volumes := kvvm.Resource.Spec.Template.Spec.Volumes
-	kvvm.Resource.Spec.Template.Spec.Volumes = slices.Insert(volumes, min(volumeIndex, len(volumes)), *kvvmi.Spec.Volumes[volumeIndex].DeepCopy())
-
-	disks := kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks
-	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks = slices.Insert(disks, min(diskIndex, len(disks)), *kvvmi.Spec.Domain.Devices.Disks[diskIndex].DeepCopy())
 }
 
 // IsHotpluggableVolume reports whether the volume is attached to a running instance rather than
@@ -535,15 +542,12 @@ func IsHotpluggableVolume(volume virtv1.Volume) bool {
 		volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable
 }
 
-// pendingVolumeRemovals returns the volumes kubevirt has been asked to unplug.
-func pendingVolumeRemovals(kvvm *KVVM) map[string]struct{} {
-	names := make(map[string]struct{})
-	for _, vr := range kvvm.Resource.Status.VolumeRequests {
-		if vr.RemoveVolumeOptions != nil {
-			names[vr.RemoveVolumeOptions.Name] = struct{}{}
-		}
-	}
-	return names
+// HasPendingVolumeRequests reports whether kubevirt still has a hotplug or unplug to apply to
+// the VirtualMachine template. kubevirt keeps a volume request in the status until the template
+// carries the result (the volume and its disk added, or both gone), so while any request is
+// there the template is not the state to reconcile against.
+func HasPendingVolumeRequests(kvvm *virtv1.VirtualMachine) bool {
+	return kvvm != nil && len(kvvm.Status.VolumeRequests) > 0
 }
 
 // allBeingDeleted reports whether every VMBDA of a block device is on its way out:
