@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -49,14 +48,7 @@ func (v removeCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *
 		return admission.Warnings{}, err
 	}
 
-	// Once virtualMachineCIDRs has been configured, it can never be cleared entirely:
-	// that would silently disable IPAM for VirtualMachines/VirtualMachineIPAddresses
-	// that already depend on it.
-	if len(oldCIDRs) > 0 && len(newCIDRs) == 0 {
-		return nil, fmt.Errorf("virtualMachineCIDRs cannot be removed entirely: once configured, spec.settings.virtualMachineCIDRs cannot be cleared")
-	}
-
-	var validateCIDRs []netip.Prefix
+	var removedCIDRs []netip.Prefix
 
 loop:
 	for _, oldCIDR := range oldCIDRs {
@@ -65,29 +57,51 @@ loop:
 				continue loop
 			}
 		}
-		validateCIDRs = append(validateCIDRs, oldCIDR)
+		removedCIDRs = append(removedCIDRs, oldCIDR)
 	}
 
-	if len(validateCIDRs) == 0 {
+	if len(removedCIDRs) == 0 {
 		return nil, nil
 	}
 
-	leases := &v1alpha2.VirtualMachineIPAddressLeaseList{}
-	if err := v.client.List(ctx, leases); err != nil {
-		return nil, fmt.Errorf("failed to list VirtualMachineIPAddressLeases: %w", err)
+	vmips := &v1alpha2.VirtualMachineIPAddressList{}
+	if err := v.client.List(ctx, vmips); err != nil {
+		return nil, fmt.Errorf("failed to list VirtualMachineIPAddresses: %w", err)
 	}
 
-	for _, lease := range leases.Items {
-		leaseIP, err := netip.ParseAddr(ip.LeaseNameToIP(lease.Name))
+	if len(newCIDRs) == 0 {
+		if len(vmips.Items) > 0 {
+			return nil, fmt.Errorf("virtualMachineCIDRs cannot be cleared: %d VirtualMachineIPAddress resource(s) still exist", len(vmips.Items))
+		}
+
+		return nil, nil
+	}
+
+	for _, vmip := range vmips.Items {
+		address := requestedIPAddress(vmip)
+		if address == "" {
+			continue
+		}
+
+		parsedAddress, err := netip.ParseAddr(address)
 		if err != nil {
 			continue
 		}
-		for _, CIDR := range validateCIDRs {
-			if CIDR.Contains(leaseIP) {
-				return nil, fmt.Errorf("virtualMachineCIDRs item %q can't be removed: VirtualMachineIPAddressLease/%s holds IP address from this network", CIDR, lease.GetName())
+
+		for _, CIDR := range removedCIDRs {
+			if CIDR.Contains(parsedAddress) {
+				return nil, fmt.Errorf("virtualMachineCIDRs item %q can't be removed: VirtualMachineIPAddress %s/%s holds the IP address %s from this network", CIDR, vmip.GetNamespace(), vmip.GetName(), address)
 			}
 		}
 	}
 
 	return nil, nil
+}
+
+func requestedIPAddress(vmip v1alpha2.VirtualMachineIPAddress) string {
+	if vmip.Status.Address != "" {
+		return vmip.Status.Address
+	}
+
+	return vmip.Spec.StaticIP
 }

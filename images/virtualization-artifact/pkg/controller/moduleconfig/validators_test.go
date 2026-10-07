@@ -63,12 +63,18 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 		t.Fatalf("AddToScheme: %v", err)
 	}
 
+	type vmip struct {
+		name     string
+		staticIP string
+		address  string
+	}
+
 	tests := []struct {
-		name         string
-		oldCIDRs     []any
-		newCIDRs     []any
-		ipLeaseNames []string
-		wantErr      bool
+		name     string
+		oldCIDRs []any
+		newCIDRs []any
+		vmips    []vmip
+		wantErr  bool
 	}{
 		{
 			"old none new none",
@@ -99,44 +105,83 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 			false,
 		},
 		{
-			"old three new none (full clear is rejected)",
+			"old three new none without vmips",
 			[]any{"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24"},
 			nil,
 			nil,
+			false,
+		},
+		{
+			"old some new none with bound vmip",
+			[]any{"10.0.0.0/24"},
+			nil,
+			[]vmip{{name: "bound", address: "10.0.0.1"}},
 			true,
 		},
 		{
-			"old some new replaced (without leases)",
+			"old some new none with vmip awaiting an address",
+			[]any{"10.0.0.0/24"},
+			nil,
+			[]vmip{{name: "pending"}},
+			true,
+		},
+		{
+			"old some new replaced without vmips",
 			[]any{"10.0.0.0/24"},
 			[]any{"10.0.1.0/24"},
 			nil,
 			false,
 		},
 		{
-			"old two new one (without leases)",
+			"old two new one without vmips",
 			[]any{"10.0.0.0/24", "10.0.1.0/24"},
 			[]any{"10.0.1.0/24"},
 			nil,
 			false,
 		},
 		{
-			"old two new one removed with lease",
+			"old two new one removed with bound vmip",
 			[]any{"10.0.0.0/24", "10.0.1.0/24"},
 			[]any{"10.0.1.0/24"},
-			[]string{"ip-10-0-0-1"},
+			[]vmip{{name: "bound", address: "10.0.0.1"}},
 			true,
+		},
+		{
+			"old two new one removed with vmip requesting an address from it",
+			[]any{"10.0.0.0/24", "10.0.1.0/24"},
+			[]any{"10.0.1.0/24"},
+			[]vmip{{name: "pending", staticIP: "10.0.0.7"}},
+			true,
+		},
+		{
+			"old two new one kept with bound vmip",
+			[]any{"10.0.0.0/24", "10.0.1.0/24"},
+			[]any{"10.0.1.0/24"},
+			[]vmip{{name: "bound", address: "10.0.1.1"}},
+			false,
+		},
+		{
+			"old two new one removed with vmip awaiting an address",
+			[]any{"10.0.0.0/24", "10.0.1.0/24"},
+			[]any{"10.0.1.0/24"},
+			[]vmip{{name: "pending"}},
+			false,
 		},
 	}
 
-	createValidator := func(t *testing.T, ipLeaseNames []string) *removeCIDRsValidator {
+	createValidator := func(t *testing.T, vmips []vmip) *removeCIDRsValidator {
 		t.Helper()
 		clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
-		if len(ipLeaseNames) > 0 {
-			leases := []client.Object{}
-			for _, leaseName := range ipLeaseNames {
-				leases = append(leases, &v1alpha2.VirtualMachineIPAddressLease{ObjectMeta: metav1.ObjectMeta{Name: leaseName}})
+		if len(vmips) > 0 {
+			objs := []client.Object{}
+			for _, v := range vmips {
+				objs = append(objs, &v1alpha2.VirtualMachineIPAddress{
+					ObjectMeta: metav1.ObjectMeta{Name: v.name, Namespace: "default"},
+					Spec:       v1alpha2.VirtualMachineIPAddressSpec{StaticIP: v.staticIP},
+					Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: v.address},
+				})
 			}
-			clientBuilder = clientBuilder.WithObjects(leases...)
+			clientBuilder = clientBuilder.WithObjects(objs...)
 		}
 		return newRemoveCIDRsValidator(clientBuilder.Build())
 	}
@@ -158,7 +203,7 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := createValidator(t, tt.ipLeaseNames)
+			validator := createValidator(t, tt.vmips)
 
 			oldMC := createMC(t, tt.oldCIDRs)
 			newMC := createMC(t, tt.newCIDRs)

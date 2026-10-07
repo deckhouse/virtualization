@@ -152,7 +152,7 @@ You can leave the block unset. The module still starts, but you can no longer wo
 {{< alert level="warning" >}}
 The subnets in the [`.spec.settings.virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) block must not overlap with the cluster node subnets, the service subnet, or the pod subnet (`podCIDR`).
 
-You can't delete a subnet if addresses from it are already assigned to virtual machines. You also can't clear the block once it's set.
+You can't delete a subnet while a [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource holds an address from it. You can clear the block entirely only when no such resource is left in the cluster. To release an address, move the VM that uses this resource to an additional network in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) parameter.
 {{< /alert >}}
 
 ## Virtual machine image storage
