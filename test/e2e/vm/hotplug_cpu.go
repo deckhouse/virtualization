@@ -95,13 +95,6 @@ var _ = Describe("HotplugCPU", Label(label.SIGCompute), func() {
 	)
 
 	BeforeEach(func() {
-		// TODO: Re-enable the suite once the workload-updater no longer races with
-		// virt-handler on in-place resize completion: the in-place-resize-in-progress
-		// annotation is removed before the VCPUChange condition is cleared, so the
-		// HotplugHandler sees a plain CPU hotplug and creates a spurious
-		// hotplug-resources migration VMOP.
-		Skip("temporarily skipped on this branch")
-
 		f = framework.NewFramework("hotplug-cpu")
 		DeferCleanup(f.After)
 		f.Before()
