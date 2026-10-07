@@ -69,13 +69,6 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 		ctx context.Context
 	)
 	BeforeEach(func() {
-		// TODO: Re-enable when storage-foundation can export CSI-model snapshot leaves.
-		// The data-manager snapshot resolver requires status.boundSnapshotContentName
-		// (the unified-snapshot model) on the export target, while VirtualDiskSnapshot
-		// carries the CSI-model status.volumeSnapshotName, so a vds export never leaves
-		// TargetNotReady.
-		Skip("skipped: VirtualDiskSnapshot export is not supported by storage-foundation yet")
-
 		ctx = context.Background()
 		f = framework.NewFramework("data-exports")
 
@@ -84,24 +77,6 @@ var _ = Describe("DataExports", label.Slow(), Label(label.SIGStorage, precheck.P
 	})
 
 	It("exports VirtualDisk and VirtualDiskSnapshot, then restores data via upload", func() {
-		// Data export downloads the disk bytes from an in-cluster exporter. Off
-		// cluster (e.g. running the suite over a kube-apiserver tunnel from a
-		// laptop) d8 must fall back to publish mode. In principle publish mode
-		// should still work, but it is currently broken by a bug in the export
-		// module (storage-volume-data-manager): its publish path looks up the
-		// origin Ingress at the hard-coded location "d8-user-authn/kubernetes-api",
-		// while on current Deckhouse that Ingress is created by control-plane-manager
-		// in "kube-system", so the export fails with PublishFailed.
-		//
-		// TODO: this skip is a workaround for that export-module bug. Remove it once
-		// storage-volume-data-manager resolves the origin-Ingress lookup (e.g. makes
-		// the namespace configurable or also searches kube-system), so the test runs
-		// off-cluster too. Until then the test still runs on a cluster node / in CI,
-		// where the in-cluster download path needs no publish.
-		if !runningOnClusterNode(ctx, f) {
-			Skip("data export requires the suite to run on a cluster node (in-cluster download); skipped off-cluster due to a publish-mode bug in the storage-volume-data-manager export module")
-		}
-
 		var (
 			vdRoot               *v1alpha2.VirtualDisk
 			vdData               *v1alpha2.VirtualDisk
