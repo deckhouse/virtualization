@@ -18,9 +18,7 @@ package internal
 
 import (
 	"context"
-	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,108 +29,24 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	dynamicSettingsHandlerName = "DynamicSettingsHandler"
-	inboundSlotRequeueDelay    = 5 * time.Second
-	syncSlotRequeueDelay       = 5 * time.Second
-)
+const dynamicSettingsHandlerName = "DynamicSettingsHandler"
 
-type InboundMigrationLimiter interface {
-	Enabled() bool
-	TryAcquire(kvvmi *virtv1.VirtualMachineInstance, targetNode string) bool
-	Release(kvvmi *virtv1.VirtualMachineInstance, targetNode string)
+func NewDynamicSettingsHandler(client client.Client) *DynamicSettingsHandler {
+	return &DynamicSettingsHandler{client: client}
 }
 
-type SyncMigrationLimiter interface {
-	Enabled() bool
-	TryAcquire(kvvmi *virtv1.VirtualMachineInstance, sourceNode string) bool
-	Release(kvvmi *virtv1.VirtualMachineInstance, sourceNode string)
-}
-
-func NewDynamicSettingsHandler(client client.Client, inboundLimiter InboundMigrationLimiter, syncLimiter SyncMigrationLimiter) *DynamicSettingsHandler {
-	return &DynamicSettingsHandler{
-		client:         client,
-		inboundLimiter: inboundLimiter,
-		syncLimiter:    syncLimiter,
-	}
-}
-
+// DynamicSettingsHandler fills the migration configuration of a migrating VMI with the effective
+// migration policy. The migration slot limits are not checked here: virt-controller permits a
+// migration to transfer memory once it fits them.
 type DynamicSettingsHandler struct {
-	client         client.Client
-	inboundLimiter InboundMigrationLimiter
-	syncLimiter    SyncMigrationLimiter
+	client client.Client
 }
 
 func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(dynamicSettingsHandlerName))
 
-	release, err := h.shouldReleaseSlots(ctx, kvvmi)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if release {
-		h.inboundLimiter.Release(kvvmi, livemigration.InboundMigrationWaitingTargetNode(kvvmi))
-		livemigration.ClearInboundMigrationSlot(kvvmi)
-		h.syncLimiter.Release(kvvmi, livemigration.SyncMigrationWaitingSourceNode(kvvmi))
-		livemigration.ClearSyncMigrationSlot(kvvmi)
-		return reconcile.Result{}, nil
-	}
-
 	if !h.shouldUpdateMigrationConfiguration(kvvmi) {
 		return reconcile.Result{}, nil
-	}
-
-	var targetNode, sourceNode string
-	if h.inboundLimiter.Enabled() {
-		var err error
-		targetNode, err = h.resolveTargetNode(ctx, kvvmi)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if targetNode == "" {
-			log.Debug("Target node is not resolved yet, waiting before setting migrationConfiguration")
-			return reconcile.Result{RequeueAfter: inboundSlotRequeueDelay}, nil
-		}
-	}
-	if h.syncLimiter.Enabled() {
-		sourceNode = resolveSourceNode(kvvmi)
-		if sourceNode == "" {
-			log.Debug("Source node is not resolved yet, waiting before setting migrationConfiguration")
-			return reconcile.Result{RequeueAfter: syncSlotRequeueDelay}, nil
-		}
-	}
-
-	// Acquire both slots or none: a migration may start the memory transfer only when it
-	// overloads neither its target node (inbound) nor its source node (sync). Holding one slot
-	// while waiting for the other would block unrelated migrations on that node.
-	if h.inboundLimiter.Enabled() && !h.inboundLimiter.TryAcquire(kvvmi, targetNode) {
-		livemigration.MarkInboundMigrationSlotWaiting(kvvmi, targetNode)
-		if livemigration.IsSyncMigrationSlotWaiting(kvvmi) {
-			livemigration.ClearSyncMigrationSlot(kvvmi)
-		}
-		log.Debug("Inbound migration slot is not acquired, waiting before setting migrationConfiguration",
-			"targetNode", targetNode,
-		)
-		return reconcile.Result{RequeueAfter: inboundSlotRequeueDelay}, nil
-	}
-	if h.syncLimiter.Enabled() && !h.syncLimiter.TryAcquire(kvvmi, sourceNode) {
-		if h.inboundLimiter.Enabled() {
-			h.inboundLimiter.Release(kvvmi, targetNode)
-		}
-		if livemigration.IsInboundMigrationSlotWaiting(kvvmi) {
-			livemigration.ClearInboundMigrationSlot(kvvmi)
-		}
-		livemigration.MarkSyncMigrationSlotWaiting(kvvmi, sourceNode)
-		log.Debug("Sync migration slot is not acquired, waiting before setting migrationConfiguration",
-			"sourceNode", sourceNode,
-		)
-		return reconcile.Result{RequeueAfter: syncSlotRequeueDelay}, nil
-	}
-	if h.inboundLimiter.Enabled() {
-		livemigration.MarkInboundMigrationSlotAcquired(kvvmi, targetNode)
-	}
-	if h.syncLimiter.Enabled() {
-		livemigration.MarkSyncMigrationSlotAcquired(kvvmi, sourceNode)
 	}
 
 	var vm v1alpha2.VirtualMachine
@@ -149,7 +63,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		Namespace: "d8-virtualization",
 		Name:      "config",
 	}
-	err = h.client.Get(ctx, configKey, &kvconfig)
+	err := h.client.Get(ctx, configKey, &kvconfig)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -182,43 +96,6 @@ func (h *DynamicSettingsHandler) Name() string {
 	return dynamicSettingsHandlerName
 }
 
-// shouldReleaseSlots reports whether the VMI's migration slots must be freed. Slots are
-// released when the migration reached a terminal MigrationState, or — the stale-slot guard —
-// when the VMI still holds a slot but no active migration backs it anymore. The latter covers
-// a migration that died without ever setting MigrationState.Failed (e.g. an OOMKilled source
-// virt-launcher whose VMIM is already gone), which would otherwise leak the slot and starve
-// every subsequent migration to that node.
-func (h *DynamicSettingsHandler) shouldReleaseSlots(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	if state := kvvmi.Status.MigrationState; state != nil && (state.Completed || state.Failed) {
-		return true, nil
-	}
-	if !livemigration.HasMigrationSlot(kvvmi) {
-		return false, nil
-	}
-	active, err := h.hasActiveMigration(ctx, kvvmi)
-	if err != nil {
-		return false, err
-	}
-	return !active, nil
-}
-
-// hasActiveMigration reports whether a non-final VirtualMachineInstanceMigration still backs
-// the VMI. It is the liveness signal for slot ownership: a slot outlives its migration only
-// until the backing migration is gone or reached a final phase.
-func (h *DynamicSettingsHandler) hasActiveMigration(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	var migrations virtv1.VirtualMachineInstanceMigrationList
-	if err := h.client.List(ctx, &migrations, client.InNamespace(kvvmi.Namespace)); err != nil {
-		return false, err
-	}
-	for i := range migrations.Items {
-		m := &migrations.Items[i]
-		if m.Spec.VMIName == kvvmi.Name && !m.IsFinal() {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // shouldUpdateMigrationConfiguration indicates if live migration controller should inject
 // migration configuration into KVVMI status:
 // 1. status.migrationState is created by the virt-controller.
@@ -228,33 +105,6 @@ func (h *DynamicSettingsHandler) shouldUpdateMigrationConfiguration(kvvmi *virtv
 		!kvvmi.Status.MigrationState.Completed &&
 		!kvvmi.Status.MigrationState.Failed &&
 		kvvmi.Status.MigrationState.MigrationConfiguration == nil
-}
-
-func (h *DynamicSettingsHandler) resolveTargetNode(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (string, error) {
-	if kvvmi.Status.MigrationState == nil {
-		return "", nil
-	}
-	if kvvmi.Status.MigrationState.TargetNode != "" {
-		return kvvmi.Status.MigrationState.TargetNode, nil
-	}
-	if kvvmi.Status.MigrationState.TargetPod == "" {
-		return "", nil
-	}
-
-	var pod corev1.Pod
-	err := h.client.Get(ctx, types.NamespacedName{Namespace: kvvmi.Namespace, Name: kvvmi.Status.MigrationState.TargetPod}, &pod)
-	if err != nil {
-		return "", client.IgnoreNotFound(err)
-	}
-
-	return pod.Spec.NodeName, nil
-}
-
-func resolveSourceNode(kvvmi *virtv1.VirtualMachineInstance) string {
-	if kvvmi.Status.MigrationState != nil && kvvmi.Status.MigrationState.SourceNode != "" {
-		return kvvmi.Status.MigrationState.SourceNode
-	}
-	return kvvmi.Status.NodeName
 }
 
 // getVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.

@@ -56,8 +56,7 @@ func (w *KVVMIMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) er
 				}
 			}),
 			predicate.TypedFuncs[*virtv1.VirtualMachineInstanceMigration]{
-				// Deletes must pass: a migration deleted before a final phase
-				// must free the VMI's slot.
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachineInstanceMigration]) bool { return false },
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstanceMigration]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},

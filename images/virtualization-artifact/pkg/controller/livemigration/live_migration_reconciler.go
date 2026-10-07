@@ -42,23 +42,15 @@ type Handler interface {
 	Name() string
 }
 
-type SlotReleaser interface {
-	ReleaseByKVVMI(namespace, name string)
-}
-
 type Reconciler struct {
-	handlers       []Handler
-	client         client.Client
-	inboundLimiter SlotReleaser
-	syncLimiter    SlotReleaser
+	handlers []Handler
+	client   client.Client
 }
 
-func NewReconciler(client client.Client, inboundLimiter, syncLimiter SlotReleaser, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		handlers:       handlers,
-		client:         client,
-		inboundLimiter: inboundLimiter,
-		syncLimiter:    syncLimiter,
+		handlers: handlers,
+		client:   client,
 	}
 }
 
@@ -88,9 +80,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if kvvmi.IsEmpty() {
-		log.Info("Reconcile observe an absent VirtualMachineInstance: it may be deleted; releasing migration slots")
-		r.inboundLimiter.ReleaseByKVVMI(req.Namespace, req.Name)
-		r.syncLimiter.ReleaseByKVVMI(req.Namespace, req.Name)
+		log.Info("Reconcile observe an absent VirtualMachineInstance: it may be deleted")
 		return reconcile.Result{}, nil
 	}
 

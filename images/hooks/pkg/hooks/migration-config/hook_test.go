@@ -93,12 +93,12 @@ var _ = Describe("MigrationConfig", func() {
 
 	It("Should set all migration params from annotations", func() {
 		setSnapshots(newSnapshot(map[string]string{
-			bandwidthPerMigrationAnnotation:             "1Gi",
-			completionTimeoutPerGiBAnnotation:           "1200",
-			parallelOutboundMigrationsPerNodeAnnotation: "5",
-			progressTimeoutAnnotation:                   "300",
-			disableTLSAnnotation:                        "true",
-			disableFirmwareUpdateAnnotation:             "true",
+			bandwidthPerMigrationAnnotation:              "1Gi",
+			completionTimeoutPerGiBAnnotation:            "1200",
+			maxActiveOutboundMigrationsPerNodeAnnotation: "4",
+			progressTimeoutAnnotation:                    "300",
+			disableTLSAnnotation:                         "true",
+			disableFirmwareUpdateAnnotation:              "true",
 		}))
 
 		values.GetMock.Set(func(path string) gjson.Result {
@@ -108,7 +108,7 @@ var _ = Describe("MigrationConfig", func() {
 			case completionTimeoutPerGiBValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveOutboundMigrationsPerNode + defaultMaxPreactiveOutboundMigrationsPerNode}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -129,6 +129,7 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, "1Gi"))
 		Expect(setValues).To(HaveKeyWithValue(completionTimeoutPerGiBValuesPath, 1200))
 		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 5))
+		Expect(setValues).To(HaveKeyWithValue(maxActiveOutboundMigrationsPerNodeValuesPath, 4))
 		Expect(setValues).To(HaveKeyWithValue(progressTimeoutValuesPath, 300))
 		Expect(setValues).To(HaveKeyWithValue(disableTLSValuesPath, true))
 		Expect(setValues).To(HaveKeyWithValue(disableFirmwareUpdateValuesPath, true))
@@ -164,8 +165,9 @@ var _ = Describe("MigrationConfig", func() {
 
 		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, defaultBandwidthPerMigration))
 		Expect(setValues).To(HaveKeyWithValue(completionTimeoutPerGiBValuesPath, defaultCompletionTimeoutPerGiB))
-		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultParallelOutboundMigrationsPerNode))
-		Expect(setValues).To(HaveKeyWithValue(parallelSyncMigrationsPerNodeValuesPath, defaultParallelSyncMigrationsPerNode))
+		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultMaxActiveOutboundMigrationsPerNode+defaultMaxPreactiveOutboundMigrationsPerNode))
+		Expect(setValues).To(HaveKeyWithValue(maxActiveOutboundMigrationsPerNodeValuesPath, defaultMaxActiveOutboundMigrationsPerNode))
+		Expect(setValues).To(HaveKeyWithValue(maxActiveInboundMigrationsPerNodeValuesPath, defaultMaxActiveInboundMigrationsPerNode))
 		Expect(setValues).To(HaveKeyWithValue(progressTimeoutValuesPath, defaultProgressTimeout))
 		Expect(setValues).To(HaveKeyWithValue(disableTLSValuesPath, defaultDisableTLS))
 		Expect(setValues).To(HaveKeyWithValue(disableFirmwareUpdateValuesPath, defaultDisableFirmwareUpdate))
@@ -173,14 +175,14 @@ var _ = Describe("MigrationConfig", func() {
 
 	It("Should not set values when current matches target", func() {
 		setSnapshots(newSnapshot(map[string]string{
-			bandwidthPerMigrationAnnotation:             defaultBandwidthPerMigration,
-			completionTimeoutPerGiBAnnotation:           "800",
-			parallelOutboundMigrationsPerNodeAnnotation: "1",
-			parallelSyncMigrationsPerNodeAnnotation:     "1",
-			parallelInboundMigrationsPerNodeAnnotation:  "1",
-			progressTimeoutAnnotation:                   "150",
-			disableTLSAnnotation:                        "false",
-			disableFirmwareUpdateAnnotation:             "false",
+			bandwidthPerMigrationAnnotation:                 defaultBandwidthPerMigration,
+			completionTimeoutPerGiBAnnotation:               "800",
+			maxActiveOutboundMigrationsPerNodeAnnotation:    "1",
+			maxActiveInboundMigrationsPerNodeAnnotation:     "1",
+			maxPreactiveOutboundMigrationsPerNodeAnnotation: "1",
+			progressTimeoutAnnotation:                       "150",
+			disableTLSAnnotation:                            "false",
+			disableFirmwareUpdateAnnotation:                 "false",
 		}))
 
 		values.GetMock.Set(func(path string) gjson.Result {
@@ -190,13 +192,15 @@ var _ = Describe("MigrationConfig", func() {
 			case completionTimeoutPerGiBValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
-			case parallelSyncMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
-			case parallelInboundMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
-			case inboundMigrationLimitValuesPath:
-				return gjson.Result{Type: gjson.String, Str: defaultInboundMigrationLimit}
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveOutboundMigrationsPerNode + defaultMaxPreactiveOutboundMigrationsPerNode}
+			case maxActiveOutboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveOutboundMigrationsPerNode}
+			case maxActiveInboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveInboundMigrationsPerNode}
+			case maxActiveMigrationsPerClusterValuesPath:
+				return gjson.Result{Type: gjson.String, Str: defaultMaxActiveMigrationsPerCluster}
+			case maxActiveMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: 0}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -245,13 +249,13 @@ var _ = Describe("MigrationConfig", func() {
 			case completionTimeoutPerGiBValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
-			case parallelSyncMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
-			case parallelInboundMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
-			case inboundMigrationLimitValuesPath:
-				return gjson.Result{Type: gjson.String, Str: defaultInboundMigrationLimit}
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveOutboundMigrationsPerNode + defaultMaxPreactiveOutboundMigrationsPerNode}
+			case maxActiveOutboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveOutboundMigrationsPerNode}
+			case maxActiveInboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveInboundMigrationsPerNode}
+			case maxActiveMigrationsPerClusterValuesPath:
+				return gjson.Result{Type: gjson.String, Str: defaultMaxActiveMigrationsPerCluster}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -270,7 +274,7 @@ var _ = Describe("MigrationConfig", func() {
 
 	It("Should set only one param from annotation and defaults for the rest", func() {
 		setSnapshots(newSnapshot(map[string]string{
-			parallelOutboundMigrationsPerNodeAnnotation: "5",
+			maxPreactiveOutboundMigrationsPerNodeAnnotation: "4",
 		}))
 
 		values.GetMock.Set(func(path string) gjson.Result {
@@ -280,13 +284,15 @@ var _ = Describe("MigrationConfig", func() {
 			case completionTimeoutPerGiBValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultCompletionTimeoutPerGiB}
 			case parallelOutboundMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelOutboundMigrationsPerNode}
-			case parallelSyncMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelSyncMigrationsPerNode}
-			case parallelInboundMigrationsPerNodeValuesPath:
-				return gjson.Result{Type: gjson.Number, Num: defaultParallelInboundMigrationsPerNode}
-			case inboundMigrationLimitValuesPath:
-				return gjson.Result{Type: gjson.String, Str: defaultInboundMigrationLimit}
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveOutboundMigrationsPerNode + defaultMaxPreactiveOutboundMigrationsPerNode}
+			case maxActiveOutboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveOutboundMigrationsPerNode}
+			case maxActiveInboundMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: defaultMaxActiveInboundMigrationsPerNode}
+			case maxActiveMigrationsPerClusterValuesPath:
+				return gjson.Result{Type: gjson.String, Str: defaultMaxActiveMigrationsPerCluster}
+			case maxActiveMigrationsPerNodeValuesPath:
+				return gjson.Result{Type: gjson.Number, Num: 0}
 			case progressTimeoutValuesPath:
 				return gjson.Result{Type: gjson.Number, Num: defaultProgressTimeout}
 			case disableTLSValuesPath:
@@ -306,16 +312,132 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 5))
 	})
 
-	It("Should set inbound, outbound and per-cluster migration limits to disabled", func() {
+	Describe("migration slots", func() {
+		reconcileSlots := func(annos map[string]string) (map[string]any, error) {
+			setSnapshots(newSnapshot(annos))
+			values.GetMock.Set(func(string) gjson.Result { return gjson.Result{} })
+			setValues := map[string]any{}
+			values.SetMock.Set(func(path string, v any) {
+				setValues[path] = v
+			})
+			err := reconcile(context.Background(), newInput())
+			return setValues, err
+		}
+
+		It("derives the outbound window from the active and preactive outgoing migrations", func() {
+			setValues, err := reconcileSlots(map[string]string{
+				maxActiveOutboundMigrationsPerNodeAnnotation:    "2",
+				maxActiveInboundMigrationsPerNodeAnnotation:     "3",
+				maxPreactiveOutboundMigrationsPerNodeAnnotation: "2",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 4))
+			Expect(setValues).To(HaveKeyWithValue(maxActiveOutboundMigrationsPerNodeValuesPath, 2))
+			Expect(setValues).To(HaveKeyWithValue(maxActiveInboundMigrationsPerNodeValuesPath, 3))
+		})
+
+		It("allows turning preactive migrations off", func() {
+			setValues, err := reconcileSlots(map[string]string{
+				maxPreactiveOutboundMigrationsPerNodeAnnotation: "0",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultMaxActiveOutboundMigrationsPerNode))
+		})
+
+		It("sizes the outbound window from the shared budget when it is set", func() {
+			setValues, err := reconcileSlots(map[string]string{
+				maxActiveMigrationsPerNodeAnnotation:            "3",
+				maxPreactiveOutboundMigrationsPerNodeAnnotation: "1",
+				maxActiveOutboundMigrationsPerNodeAnnotation:    "5",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(maxActiveMigrationsPerNodeValuesPath, 3))
+			Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 4))
+		})
+
+		It("ignores the removed parallel-* annotations", func() {
+			setValues, err := reconcileSlots(map[string]string{
+				"virtualization.deckhouse.io/parallel-outbound-migrations-per-node": "12",
+				"virtualization.deckhouse.io/parallel-sync-migrations-per-node":     "3",
+				"virtualization.deckhouse.io/parallel-inbound-migrations-per-node":  "12",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultMaxActiveOutboundMigrationsPerNode+defaultMaxPreactiveOutboundMigrationsPerNode))
+			Expect(setValues).To(HaveKeyWithValue(maxActiveOutboundMigrationsPerNodeValuesPath, defaultMaxActiveOutboundMigrationsPerNode))
+			Expect(setValues).To(HaveKeyWithValue(maxActiveInboundMigrationsPerNodeValuesPath, defaultMaxActiveInboundMigrationsPerNode))
+		})
+
+		It("keeps the shared budget off by default", func() {
+			setValues, err := reconcileSlots(map[string]string{})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(maxActiveMigrationsPerNodeValuesPath, 0))
+		})
+
+		It("turns the per-node limits off with disabled", func() {
+			setValues, err := reconcileSlots(map[string]string{
+				maxActiveOutboundMigrationsPerNodeAnnotation: "disabled",
+				maxActiveInboundMigrationsPerNodeAnnotation:  "disabled",
+				maxActiveMigrationsPerNodeAnnotation:         "disabled",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(maxActiveOutboundMigrationsPerNodeValuesPath, 0))
+			Expect(setValues).To(HaveKeyWithValue(maxActiveInboundMigrationsPerNodeValuesPath, 0))
+			Expect(setValues).To(HaveKeyWithValue(maxActiveMigrationsPerNodeValuesPath, 0))
+			Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 0), "the outbound window is not limited either")
+		})
+
+		It("keeps the shared budget as the outbound window when the separate outbound limit is disabled", func() {
+			setValues, err := reconcileSlots(map[string]string{
+				maxActiveOutboundMigrationsPerNodeAnnotation: "disabled",
+				maxActiveMigrationsPerNodeAnnotation:         "2",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, 2+defaultMaxPreactiveOutboundMigrationsPerNode))
+		})
+
+		It("ignores the removed disable switches", func() {
+			setValues, err := reconcileSlots(map[string]string{
+				"virtualization.deckhouse.io/inbound-migration-limit":           "disabled",
+				"virtualization.deckhouse.io/outbound-migration-limit":          "disabled",
+				"virtualization.deckhouse.io/parallel-per-node-migration-limit": "disabled",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setValues).To(HaveKeyWithValue(maxActiveOutboundMigrationsPerNodeValuesPath, defaultMaxActiveOutboundMigrationsPerNode))
+			Expect(setValues).To(HaveKeyWithValue(maxActiveInboundMigrationsPerNodeValuesPath, defaultMaxActiveInboundMigrationsPerNode))
+		})
+
+		DescribeTable("rejects values below the minimum",
+			func(annotation, value string) {
+				_, err := reconcileSlots(map[string]string{annotation: value})
+				Expect(err).To(MatchError(ContainSubstring(annotation)))
+			},
+			Entry("active outbound", maxActiveOutboundMigrationsPerNodeAnnotation, "0"),
+			Entry("active inbound", maxActiveInboundMigrationsPerNodeAnnotation, "0"),
+			Entry("preactive outbound", maxPreactiveOutboundMigrationsPerNodeAnnotation, "-1"),
+			Entry("shared budget", maxActiveMigrationsPerNodeAnnotation, "0"),
+			Entry("cluster limit", maxActiveMigrationsPerClusterAnnotation, "0"),
+			Entry("cluster limit that is not a number", maxActiveMigrationsPerClusterAnnotation, "many"),
+			Entry("active outbound that is not a number", maxActiveOutboundMigrationsPerNodeAnnotation, "off"),
+		)
+	})
+
+	It("Should set the per-cluster migration limit and the inbound migration scheduler to disabled", func() {
 		setSnapshots(newSnapshot(map[string]string{
-			inboundMigrationLimitAnnotation:            "disabled",
-			outboundMigrationLimitAnnotation:           "disabled",
-			parallelPerClusterMigrationLimitAnnotation: "disabled",
+			maxActiveMigrationsPerClusterAnnotation: "disabled",
+			inboundMigrationSchedulerAnnotation:     "disabled",
 		}))
 
 		values.GetMock.Set(func(path string) gjson.Result {
 			switch path {
-			case inboundMigrationLimitValuesPath, outboundMigrationLimitValuesPath, parallelPerClusterMigrationLimitValuesPath:
+			case maxActiveMigrationsPerClusterValuesPath, inboundMigrationSchedulerValuesPath:
 				return gjson.Result{Type: gjson.String, Str: ""}
 			default:
 				return gjson.Result{}
@@ -329,9 +451,8 @@ var _ = Describe("MigrationConfig", func() {
 
 		Expect(reconcile(context.Background(), newInput())).To(Succeed())
 
-		Expect(setValues).To(HaveKeyWithValue(inboundMigrationLimitValuesPath, "disabled"))
-		Expect(setValues).To(HaveKeyWithValue(outboundMigrationLimitValuesPath, "disabled"))
-		Expect(setValues).To(HaveKeyWithValue(parallelPerClusterMigrationLimitValuesPath, "disabled"))
+		Expect(setValues).To(HaveKeyWithValue(maxActiveMigrationsPerClusterValuesPath, "disabled"))
+		Expect(setValues).To(HaveKeyWithValue(inboundMigrationSchedulerValuesPath, "disabled"))
 	})
 
 	It("Should not limit bandwidth by default when a dedicated migration network is configured", func() {
@@ -353,7 +474,7 @@ var _ = Describe("MigrationConfig", func() {
 		Expect(reconcile(context.Background(), newInput())).To(Succeed())
 
 		Expect(setValues).To(HaveKeyWithValue(bandwidthPerMigrationValuesPath, unlimitedBandwidthPerMigration))
-		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultParallelOutboundMigrationsPerNode))
+		Expect(setValues).To(HaveKeyWithValue(parallelOutboundMigrationsPerNodeValuesPath, defaultMaxActiveOutboundMigrationsPerNode+defaultMaxPreactiveOutboundMigrationsPerNode))
 	})
 
 	It("Should prefer the bandwidth annotation over the dedicated migration network default", func() {

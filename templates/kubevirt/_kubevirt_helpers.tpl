@@ -288,34 +288,52 @@ spec:
 {{- end }}
 
 
-{{/* Calculate parallel migrations per cluster.
+{{/* Calculate the cluster limit of live migrations transferring memory.
  This template returns:
+  - Nothing if the limit is disabled.
+  - The value of the max-active-migrations-per-cluster annotation if it is a number.
   - Count of nodes with virt-handler if kubevirt config is in 'Deployed' phase.
-  - Current parallelMigrationsPerCluster if config is not in 'Deployed' phase.
+  - Current activeMigrationsPerCluster if config is not in 'Deployed' phase.
   - Default migrations count (2) if there is no kubevirt config.
  This behaviour prevents unnecessary helm installs during installation.
-
- Values from
  */}}
-{{- define "kubevirt.parallel_migrations_per_cluster" -}}
+{{- define "kubevirt.active_migrations_per_cluster" -}}
 {{- $default := 2 -}}
-{{- if eq (.Values.virtualization.internal | dig "virtConfig" "parallelPerClusterMigrationLimit" "") "disabled" -}}
-{{- /* "disabled" lifts the cluster-wide cap; per-node limits still bound it.
- KubeVirt cannot switch the cap off, so 1000000 (far above any realistic
- migration count) stands in for "unlimited". */ -}}
-{{- 1000000 -}}
+{{- $limit := .Values.virtualization.internal | dig "virtConfig" "maxActiveMigrationsPerCluster" "" | toString -}}
+{{- if eq $limit "disabled" -}}
+{{- else if $limit -}}
+{{-   $limit -}}
 {{- else -}}
 {{- $phase := .Values.virtualization.internal | dig "virtConfig" "phase" "<missing>" -}}
 {{- if eq $phase "<missing>" -}}
 {{-   $default -}}
 {{- else -}}
-{{-   if eq $phase "Deployed" -}}
+{{-   $current := .Values.virtualization.internal | dig "virtConfig" "activeMigrationsPerCluster" 0 | int -}}
+{{-   if or (eq $phase "Deployed") (le $current 0) -}}
 {{-     max $default ( .Values.virtualization.internal |  dig "virtHandler" "nodeCount" 0 ) -}}
 {{-   else -}}
-{{-     .Values.virtualization.internal | dig "virtConfig" "parallelMigrationsPerCluster" $default -}}
+{{-     $current -}}
 {{-   end -}}
 {{- end -}}
 {{- end -}}
+{{- end -}}
+
+{{/* The per-node limits of live migrations transferring memory. A shared budget for both
+ directions replaces the separate ones; a limit of 0 is disabled and left out. */}}
+{{- define "kubevirt.active_migrations_per_node" -}}
+{{- $shared := int (.Values.virtualization.internal | dig "virtConfig" "maxActiveMigrationsPerNode" 0) -}}
+{{- $outbound := int (.Values.virtualization.internal | dig "virtConfig" "maxActiveOutboundMigrationsPerNode" 1) -}}
+{{- $inbound := int (.Values.virtualization.internal | dig "virtConfig" "maxActiveInboundMigrationsPerNode" 1) -}}
+{{- if gt $shared 0 }}
+activeMigrationsPerNode: {{ $shared }}
+{{- else }}
+{{- if gt $outbound 0 }}
+activeOutboundMigrationsPerNode: {{ $outbound }}
+{{- end }}
+{{- if gt $inbound 0 }}
+activeInboundMigrationsPerNode: {{ $inbound }}
+{{- end }}
+{{- end }}
 {{- end -}}
 
 {{- define "kubevirt.bandwidth_per_migration" -}}
@@ -327,13 +345,13 @@ spec:
 {{- end -}}
 
 {{- define "kubevirt.parallel_outbound_migrations_per_node" -}}
-{{- if eq (.Values.virtualization.internal | dig "virtConfig" "outboundMigrationLimit" "") "disabled" -}}
-{{- /* "disabled" lifts the per-node outbound cap; cluster total still bounds it.
- KubeVirt cannot switch the cap off, so 1000000 (far above any realistic
- migration count) stands in for "unlimited". */ -}}
+{{- $window := int (.Values.virtualization.internal | dig "virtConfig" "parallelOutboundMigrationsPerNode" 2) -}}
+{{- if eq $window 0 -}}
+{{- /* 0 means the outgoing migrations are not limited. KubeVirt cannot switch the cap off,
+ so 1000000 (far above any realistic migration count) stands in for "unlimited". */ -}}
 {{- 1000000 -}}
 {{- else -}}
-{{- .Values.virtualization.internal | dig "virtConfig" "parallelOutboundMigrationsPerNode" 2 -}}
+{{- $window -}}
 {{- end -}}
 {{- end -}}
 
@@ -349,7 +367,14 @@ spec:
 bandwidthPerMigration: {{ include "kubevirt.bandwidth_per_migration" . | quote }}
 completionTimeoutPerGiB: {{ include "kubevirt.completion_timeout_per_gib" . }}
 disableTLS: {{ include "kubevirt.disable_tls" . }}
-parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}
+{{- /* KubeVirt counts migrations waiting with a prepared target against parallelMigrationsPerCluster,
+ so the cluster limit is set on the migrations transferring memory instead. KubeVirt cannot switch
+ the cap off, so 1000000 (far above any realistic migration count) stands in for "unlimited". */}}
+parallelMigrationsPerCluster: 1000000
 parallelOutboundMigrationsPerNode: {{ include "kubevirt.parallel_outbound_migrations_per_node" . }}
 progressTimeout: {{ include "kubevirt.progress_timeout" . }}
+{{- include "kubevirt.active_migrations_per_node" . }}
+{{- with include "kubevirt.active_migrations_per_cluster" . }}
+activeMigrationsPerCluster: {{ . }}
+{{- end }}
 {{- end -}}

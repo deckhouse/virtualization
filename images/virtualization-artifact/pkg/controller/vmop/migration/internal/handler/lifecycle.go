@@ -79,8 +79,6 @@ const (
 	messageSyncingSourceAndTarget = "Source and target are being synchronized"
 	messageTargetPodScheduling    = "Scheduling the migration target"
 	messageTargetPodPreparing     = "Preparing the migration target"
-	messageWaitingForSyncSlot     = "Target prepared; waiting for a free sync slot on the source node."
-	messageWaitingForSyncSlotFmt  = "Target prepared; waiting for a free sync slot on source node %q."
 	messageTargetVMResumed        = "The virtual machine has resumed on the target"
 	messageSourceVMSuspended      = "The virtual machine has been suspended on the source"
 )
@@ -89,9 +87,18 @@ const (
 	reasonFailedAttachVolume = "FailedAttachVolume"
 	reasonFailedMount        = "FailedMount"
 
-	reasonTargetNodeIncomingMigrationLimitExceeded     = "TargetNodeIncomingMigrationLimitExceeded"
-	messageTargetNodeIncomingMigrationLimitExceeded    = "Waiting for a free inbound migration slot on the target node."
-	messageTargetNodeIncomingMigrationLimitExceededFmt = "Waiting for a free inbound migration slot on target node %q."
+	// Reasons the KubeVirt fork sets on a migration with a prepared target that waits for an
+	// active migration slot before it starts transferring memory.
+	reasonActiveOutboundNodeMigrationLimitReached = "ActiveOutboundNodeMigrationLimitReached"
+	reasonActiveInboundNodeMigrationLimitReached  = "ActiveInboundNodeMigrationLimitReached"
+	reasonActiveNodeMigrationLimitReached         = "ActiveNodeMigrationLimitReached"
+	reasonActiveClusterMigrationLimitReached      = "ActiveClusterMigrationLimitReached"
+
+	messageActiveOutboundSlotFmt = "Target prepared; waiting for a free outgoing migration slot on source node %q."
+	messageActiveInboundSlotFmt  = "Target prepared; waiting for a free incoming migration slot on target node %q."
+	messageActiveNodeSlotFmt     = "Target prepared; waiting for a free migration slot on source node %q or target node %q."
+	messageActiveClusterSlot     = "Target prepared; waiting for a free migration slot: the cluster limit of transferring live migrations is reached."
+	messageActiveSlot            = "Target prepared; waiting for a free migration slot."
 
 	messageClusterMigrationLimitReached         = "Waiting for a free migration slot: the cluster live migration limit is reached."
 	messageOutboundNodeMigrationLimitReached    = "Waiting for a free outbound migration slot on the source node."
@@ -869,13 +876,7 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 	case virtv1.MigrationPhaseUnset, virtv1.MigrationPending:
 		reason = vmopcondition.ReasonMigrationPending
 		message = messageMigrationPending
-		if _, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded), mig.Status.Conditions); found {
-			kvvmi, err := h.getMigrationVMI(ctx, mig)
-			if err != nil {
-				return reason, message, err
-			}
-			message = inboundSlotWaitMessage(kvvmi)
-		} else if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReached, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
+		if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReached, mig.Status.Conditions); found && cond.Status == corev1.ConditionTrue {
 			kvvmi, err := h.getMigrationVMI(ctx, mig)
 			if err != nil {
 				return reason, message, err
@@ -904,18 +905,16 @@ func (h LifecycleHandler) getInProgressReasonAndMessage(
 		return vmopcondition.ReasonTargetDiskError, fmt.Sprintf("Target pod has disk attach error: %s", diskErrMsg), nil
 	}
 
-	// Surface slot waits only after ruling out a broken target, and report them as a
-	// queue wait: the inbound wait happens in the Scheduled phase and must not look like
-	// target preparation, or the stall timeout would fail a healthy queued migration.
-	kvvmi, err := h.getMigrationVMI(ctx, mig)
-	if err != nil {
-		return "", "", err
-	}
-	if kvvmi != nil && livemigration.IsInboundMigrationSlotWaiting(kvvmi) {
-		return vmopcondition.ReasonMigrationPending, inboundSlotWaitMessage(kvvmi), nil
-	}
-	if kvvmi != nil && livemigration.IsSyncMigrationSlotWaiting(kvvmi) {
-		return vmopcondition.ReasonWaitingForSyncSlot, syncSlotWaitMessage(kvvmi), nil
+	// Surface slot waits only after ruling out a broken target, and report them as a queue
+	// wait: a prepared migration waiting for an active slot must not look like target
+	// preparation, or the stall timeout would fail a healthy queued migration.
+	if cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReached, mig.Status.Conditions); found &&
+		cond.Status == corev1.ConditionTrue && isActiveSlotReason(cond.Reason) {
+		kvvmi, err := h.getMigrationVMI(ctx, mig)
+		if err != nil {
+			return "", "", err
+		}
+		return vmopcondition.ReasonWaitingForSyncSlot, activeSlotWaitMessage(cond.Reason, kvvmi), nil
 	}
 
 	if mig.Status.MigrationState != nil {
@@ -1091,22 +1090,34 @@ func (h LifecycleHandler) getMigrationVMI(ctx context.Context, mig *virtv1.Virtu
 	return &kvvmi, nil
 }
 
-func inboundSlotWaitMessage(kvvmi *virtv1.VirtualMachineInstance) string {
-	if kvvmi != nil {
-		if node := livemigration.InboundMigrationWaitingTargetNode(kvvmi); node != "" {
-			return fmt.Sprintf(messageTargetNodeIncomingMigrationLimitExceededFmt, node)
-		}
+func isActiveSlotReason(reason string) bool {
+	switch reason {
+	case reasonActiveOutboundNodeMigrationLimitReached, reasonActiveInboundNodeMigrationLimitReached,
+		reasonActiveNodeMigrationLimitReached, reasonActiveClusterMigrationLimitReached:
+		return true
+	default:
+		return false
 	}
-	return messageTargetNodeIncomingMigrationLimitExceeded
 }
 
-func syncSlotWaitMessage(kvvmi *virtv1.VirtualMachineInstance) string {
-	if kvvmi != nil {
-		if node := livemigration.SyncMigrationWaitingSourceNode(kvvmi); node != "" {
-			return fmt.Sprintf(messageWaitingForSyncSlotFmt, node)
-		}
+func activeSlotWaitMessage(reason string, kvvmi *virtv1.VirtualMachineInstance) string {
+	var source, target string
+	if kvvmi != nil && kvvmi.Status.MigrationState != nil {
+		source, target = kvvmi.Status.MigrationState.SourceNode, kvvmi.Status.MigrationState.TargetNode
 	}
-	return messageWaitingForSyncSlot
+
+	switch {
+	case reason == reasonActiveClusterMigrationLimitReached:
+		return messageActiveClusterSlot
+	case reason == reasonActiveOutboundNodeMigrationLimitReached && source != "":
+		return fmt.Sprintf(messageActiveOutboundSlotFmt, source)
+	case reason == reasonActiveInboundNodeMigrationLimitReached && target != "":
+		return fmt.Sprintf(messageActiveInboundSlotFmt, target)
+	case reason == reasonActiveNodeMigrationLimitReached && source != "" && target != "":
+		return fmt.Sprintf(messageActiveNodeSlotFmt, source, target)
+	default:
+		return messageActiveSlot
+	}
 }
 
 func concurrencyLimitWaitMessage(condReason string, kvvmi *virtv1.VirtualMachineInstance) string {

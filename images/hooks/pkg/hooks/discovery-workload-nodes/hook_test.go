@@ -105,4 +105,38 @@ var _ = Describe("DiscoveryWorkloadNodes", func() {
 		Expect(handleDiscoveryNodes(context.Background(), newInput(true))).To(Succeed())
 		Expect(setCalls).To(Equal(1))
 	})
+
+	DescribeTable("should keep the cluster migration limit only when the KubeVirt config has one",
+		func(limit int, expectLimit bool) {
+			snapshots.GetMock.When(discoveryNodesSnapshot).Then([]pkg.Snapshot{mock.NewSnapshotMock(GinkgoT())})
+			snapshots.GetMock.When(kubevirtConfigSnapshot).Then([]pkg.Snapshot{
+				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
+					*v.(*virtConfigState) = virtConfigState{Phase: "Deploying", ActiveMigrationsPerCluster: limit}
+					return nil
+				}),
+			})
+
+			setValues := map[string]any{}
+			values.SetMock.Set(func(path string, v any) {
+				setValues[path] = v
+			})
+			var removed []string
+			if !expectLimit {
+				values.RemoveMock.Set(func(path string) {
+					removed = append(removed, path)
+				})
+			}
+
+			Expect(handleDiscoveryNodes(context.Background(), newInput(true))).To(Succeed())
+			Expect(setValues).To(HaveKeyWithValue(virtConfigPhasePath, "Deploying"))
+			if expectLimit {
+				Expect(setValues).To(HaveKeyWithValue(virtConfigActiveMigrationsPerClusterPath, limit))
+			} else {
+				Expect(setValues).NotTo(HaveKey(virtConfigActiveMigrationsPerClusterPath))
+				Expect(removed).To(ContainElement(virtConfigActiveMigrationsPerClusterPath), "a stale value must not stay in values")
+			}
+		},
+		Entry("a limit set", 5, true),
+		Entry("no limit in the config", 0, false),
+	)
 })

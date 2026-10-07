@@ -37,8 +37,8 @@ const (
 
 	kubevirtConfigSnapshot = "kubevirt-config"
 
-	virtConfigPhasePath                        = "virtualization.internal.virtConfig.phase"
-	virtConfigParallelMigrationsPerClusterPath = "virtualization.internal.virtConfig.parallelMigrationsPerCluster"
+	virtConfigPhasePath                      = "virtualization.internal.virtConfig.phase"
+	virtConfigActiveMigrationsPerClusterPath = "virtualization.internal.virtConfig.activeMigrationsPerCluster"
 )
 
 var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryNodes)
@@ -62,7 +62,7 @@ var configDiscoveryService = &pkg.HookConfig{
 			Name:       kubevirtConfigSnapshot,
 			APIVersion: "internal.virtualization.deckhouse.io/v1",
 			Kind:       "InternalVirtualizationKubeVirt",
-			JqFilter:   `{ "phase": .status.phase, "parallelMigrationsPerCluster": .spec.configuration.migrations.parallelMigrationsPerCluster }`,
+			JqFilter:   `{ "phase": .status.phase, "activeMigrationsPerCluster": .spec.configuration.migrations.activeMigrationsPerCluster }`,
 			NamespaceSelector: &pkg.NamespaceSelector{
 				NameSelector: &pkg.NameSelector{
 					MatchNames: []string{"d8-virtualization"},
@@ -96,15 +96,21 @@ func handleDiscoveryNodes(ctx context.Context, input *pkg.HookInput) error {
 	}
 	if kvCfgState != nil {
 		input.Values.Set(virtConfigPhasePath, kvCfgState.Phase)
-		input.Values.Set(virtConfigParallelMigrationsPerClusterPath, kvCfgState.ParallelMigrationsPerCluster)
+		// A KubeVirt config without the limit (before the first update, or with the limit
+		// disabled) reports 0, which would block every migration if rendered.
+		if kvCfgState.ActiveMigrationsPerCluster > 0 {
+			input.Values.Set(virtConfigActiveMigrationsPerClusterPath, kvCfgState.ActiveMigrationsPerCluster)
+		} else {
+			input.Values.Remove(virtConfigActiveMigrationsPerClusterPath)
+		}
 	}
 
 	return nil
 }
 
 type virtConfigState struct {
-	Phase                        string `json:"phase"`
-	ParallelMigrationsPerCluster int    `json:"parallelMigrationsPerCluster"`
+	Phase                      string `json:"phase"`
+	ActiveMigrationsPerCluster int    `json:"activeMigrationsPerCluster"`
 }
 
 func virtConfigStateFromSnapshot(input *pkg.HookInput) (*virtConfigState, error) {

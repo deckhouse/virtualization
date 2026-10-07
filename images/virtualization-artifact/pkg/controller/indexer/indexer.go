@@ -91,9 +91,10 @@ const (
 
 	IndexFieldVMIMByVMI = "vmim.spec.vmiName"
 
-	IndexFieldKVVMIByVolume          = "kvvmi.volumes"
-	IndexFieldKVVMByAddVolumeRequest = "kvvm.status.volumeRequests.addVolume"
-	IndexFieldVDByVolumeName         = "vd.volumeName"
+	IndexFieldKVVMIByVolume            = "kvvmi.volumes"
+	IndexFieldKVVMByAddVolumeRequest   = "kvvm.status.volumeRequests.addVolume"
+	IndexFieldVDByVolumeName           = "vd.volumeName"
+	IndexFieldPodByMigrationTargetNode = "pod.spec.nodeName,migrationTarget"
 )
 
 var IndexGetters = []IndexGetter{
@@ -130,6 +131,7 @@ var IndexGetters = []IndexGetter{
 	IndexKVVMIByVolume,
 	IndexKVVMByAddVolumeRequest,
 	IndexVDByVolumeName,
+	IndexPodByMigrationTargetNode,
 }
 
 var IndexGettersUSB = []IndexGetter{

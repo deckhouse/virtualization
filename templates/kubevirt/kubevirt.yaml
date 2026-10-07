@@ -18,6 +18,10 @@ metadata:
   name: config
   namespace: d8-{{ .Chart.Name }}
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  annotations:
+    # virt-operator validates this resource against its own schema. Applying it after the
+    # operator rollout lets new configuration fields through the webhook on an update.
+    werf.io/weight: "10"
 spec:
   certificateRotateStrategy: {}
   configuration:

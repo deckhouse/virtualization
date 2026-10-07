@@ -1,0 +1,28 @@
+{{- $schedulerEnabled := ne (.Values.virtualization.internal | dig "virtConfig" "inboundMigrationScheduler" "") "disabled" }}
+{{- $crdAPIVer := "deckhouse.io/v1alpha1/KubeSchedulerWebhookConfiguration" }}
+{{- $crdPresent := or (.Values.global.discovery.apiVersions | has $crdAPIVer) (.Capabilities.APIVersions.Has $crdAPIVer) }}
+{{- if and (eq (include "virtualization-controller.isEnabled" .) "true") $schedulerEnabled $crdPresent }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: KubeSchedulerWebhookConfiguration
+metadata:
+  name: d8-virtualization-inbound-migration
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+webhooks:
+  # Score only, with the smallest weight: a node without migration load gets a bonus well below the
+  # resource scoring, and no node is filtered out. Deckhouse before 1.75 ignores the empty filter
+  # verb and calls the filter endpoint, which keeps every candidate.
+  - weight: 1
+    filterVerb: ""
+    prioritizeVerb: prioritize
+    # Scheduling goes on without the bonus; the migration slot limits hold anyway.
+    failurePolicy: Ignore
+    timeoutSeconds: 2
+    clientConfig:
+      service:
+        name: virtualization-controller
+        namespace: d8-{{ .Chart.Name }}
+        port: 443
+        path: /scheduler/inbound-migration
+      caBundle: {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
+{{- end }}

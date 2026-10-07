@@ -88,6 +88,8 @@ if [[ ! -d schemas ]]; then
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/400-descheduler/crds/deschedulers.yaml
   echo " CiliumClusterwideNetworkPolicy"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/refs/heads/main/modules/021-cni-cilium/crds/cilium/ciliumclusterwidenetworkpolicies.yaml
+  echo " KubeSchedulerWebhookConfiguration"
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/040-control-plane-manager/crds/kube_scheduler_webhook_configuration.yaml
   echo " CustomSnapshotDefinition"
   curl -LOs https://raw.githubusercontent.com/deckhouse/state-snapshotter/refs/heads/main/crds/state-snapshotter.deckhouse.io_customsnapshotdefinitions.yaml
 

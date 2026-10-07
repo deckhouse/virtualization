@@ -38,11 +38,14 @@ const (
 // that must all be set to "disabled": the suite migrates many VMs in parallel,
 // and any of these limits makes migrations queue up and time the specs out.
 var migrationLimitAnnotations = []string{
-	"virtualization.deckhouse.io/inbound-migration-limit",
-	"virtualization.deckhouse.io/outbound-migration-limit",
-	"virtualization.deckhouse.io/parallel-per-cluster-migration-limit",
-	"virtualization.deckhouse.io/parallel-per-node-migration-limit",
+	"virtualization.deckhouse.io/max-active-outbound-migrations-per-node",
+	"virtualization.deckhouse.io/max-active-inbound-migrations-per-node",
+	"virtualization.deckhouse.io/max-active-migrations-per-cluster",
 }
+
+// sharedMigrationLimitAnnotation must be unset or "disabled": a per-node budget shared by both
+// directions replaces the separate limits, so their "disabled" no longer applies.
+const sharedMigrationLimitAnnotation = "virtualization.deckhouse.io/max-active-migrations-per-node"
 
 // migrationLimitsPrecheck implements the Precheck interface: it requires the
 // migration limits to be disabled on the virtualization ModuleConfig.
@@ -70,6 +73,9 @@ func (m *migrationLimitsPrecheck) Run(ctx context.Context, f *framework.Framewor
 			wrong = append(wrong, fmt.Sprintf("%s=%q", annotation, value))
 		}
 	}
+	if value, ok := mc.Annotations[sharedMigrationLimitAnnotation]; ok && value != migrationLimitDisabledValue {
+		wrong = append(wrong, fmt.Sprintf("%s=%q", sharedMigrationLimitAnnotation, value))
+	}
 	if len(wrong) == 0 {
 		return nil
 	}
@@ -88,6 +94,7 @@ func disableMigrationLimitsCommand() string {
 	for _, annotation := range migrationLimitAnnotations {
 		fmt.Fprintf(b, "    %s=%s \\\n", annotation, migrationLimitDisabledValue)
 	}
+	fmt.Fprintf(b, "    %s- \\\n", sharedMigrationLimitAnnotation)
 	b.WriteString("    --overwrite")
 	return b.String()
 }

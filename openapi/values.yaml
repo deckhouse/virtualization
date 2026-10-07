@@ -144,22 +144,20 @@ properties:
             type: string
           completionTimeoutPerGiB:
             type: integer
-          parallelMigrationsPerCluster:
+          activeMigrationsPerCluster:
             type: integer
           parallelOutboundMigrationsPerNode:
             type: integer
-          parallelSyncMigrationsPerNode:
+          maxActiveOutboundMigrationsPerNode:
             type: integer
-          parallelInboundMigrationsPerNode:
+          maxActiveInboundMigrationsPerNode:
             type: integer
-          inboundMigrationLimit:
+          maxActiveMigrationsPerCluster:
             type: string
-          outboundMigrationLimit:
+          inboundMigrationScheduler:
             type: string
-          syncMigrationLimit:
-            type: string
-          parallelPerClusterMigrationLimit:
-            type: string
+          maxActiveMigrationsPerNode:
+            type: integer
           progressTimeout:
             type: integer
           disableTLS:

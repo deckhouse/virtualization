@@ -38,6 +38,9 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 		fmt.Sprintf("%s.%s", settings.ControllerCertCN, settings.ModuleNamespace),
 		// virtualization.d8-virtualization.svc
 		fmt.Sprintf("%s.%s.svc", settings.ControllerCertCN, settings.ModuleNamespace),
+		// virtualization.d8-virtualization.svc.<cluster domain>: kube-scheduler calls the
+		// migration scheduler extender by the fully qualified service name.
+		fmt.Sprintf("%%CLUSTER_DOMAIN%%://%s.%s.svc", settings.ControllerCertCN, settings.ModuleNamespace),
 	}),
 
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.controller.cert", settings.ModuleName),

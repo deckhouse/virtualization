@@ -33,52 +33,49 @@ const (
 	snapshotModuleConfig = "module-config"
 	moduleConfigJQFilter = `.metadata.annotations`
 
-	bandwidthPerMigrationAnnotation             = "virtualization.deckhouse.io/bandwidth-per-migration"
-	completionTimeoutPerGiBAnnotation           = "virtualization.deckhouse.io/completion-timeout-per-gib"
-	parallelOutboundMigrationsPerNodeAnnotation = "virtualization.deckhouse.io/parallel-outbound-migrations-per-node"
-	parallelSyncMigrationsPerNodeAnnotation     = "virtualization.deckhouse.io/parallel-sync-migrations-per-node"
-	parallelInboundMigrationsPerNodeAnnotation  = "virtualization.deckhouse.io/parallel-inbound-migrations-per-node"
-	inboundMigrationLimitAnnotation             = "virtualization.deckhouse.io/inbound-migration-limit"
-	outboundMigrationLimitAnnotation            = "virtualization.deckhouse.io/outbound-migration-limit"
-	syncMigrationLimitAnnotation                = "virtualization.deckhouse.io/parallel-per-node-migration-limit"
-	parallelPerClusterMigrationLimitAnnotation  = "virtualization.deckhouse.io/parallel-per-cluster-migration-limit"
-	progressTimeoutAnnotation                   = "virtualization.deckhouse.io/progress-timeout"
-	disableTLSAnnotation                        = "virtualization.deckhouse.io/disable-tls"
-	disableFirmwareUpdateAnnotation             = "virtualization.deckhouse.io/disable-firmware-update"
+	bandwidthPerMigrationAnnotation                 = "virtualization.deckhouse.io/bandwidth-per-migration"
+	completionTimeoutPerGiBAnnotation               = "virtualization.deckhouse.io/completion-timeout-per-gib"
+	maxActiveMigrationsPerClusterAnnotation         = "virtualization.deckhouse.io/max-active-migrations-per-cluster"
+	inboundMigrationSchedulerAnnotation             = "virtualization.deckhouse.io/inbound-migration-scheduler"
+	maxActiveOutboundMigrationsPerNodeAnnotation    = "virtualization.deckhouse.io/max-active-outbound-migrations-per-node"
+	maxActiveInboundMigrationsPerNodeAnnotation     = "virtualization.deckhouse.io/max-active-inbound-migrations-per-node"
+	maxPreactiveOutboundMigrationsPerNodeAnnotation = "virtualization.deckhouse.io/max-preactive-outbound-migrations-per-node"
+	maxActiveMigrationsPerNodeAnnotation            = "virtualization.deckhouse.io/max-active-migrations-per-node"
+	progressTimeoutAnnotation                       = "virtualization.deckhouse.io/progress-timeout"
+	disableTLSAnnotation                            = "virtualization.deckhouse.io/disable-tls"
+	disableFirmwareUpdateAnnotation                 = "virtualization.deckhouse.io/disable-firmware-update"
 
-	bandwidthPerMigrationValuesPath             = "virtualization.internal.virtConfig.bandwidthPerMigration"
-	completionTimeoutPerGiBValuesPath           = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
-	parallelOutboundMigrationsPerNodeValuesPath = "virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode"
-	parallelSyncMigrationsPerNodeValuesPath     = "virtualization.internal.virtConfig.parallelSyncMigrationsPerNode"
-	parallelInboundMigrationsPerNodeValuesPath  = "virtualization.internal.virtConfig.parallelInboundMigrationsPerNode"
-	inboundMigrationLimitValuesPath             = "virtualization.internal.virtConfig.inboundMigrationLimit"
-	outboundMigrationLimitValuesPath            = "virtualization.internal.virtConfig.outboundMigrationLimit"
-	syncMigrationLimitValuesPath                = "virtualization.internal.virtConfig.syncMigrationLimit"
-	parallelPerClusterMigrationLimitValuesPath  = "virtualization.internal.virtConfig.parallelPerClusterMigrationLimit"
-	progressTimeoutValuesPath                   = "virtualization.internal.virtConfig.progressTimeout"
-	disableTLSValuesPath                        = "virtualization.internal.virtConfig.disableTLS"
-	disableFirmwareUpdateValuesPath             = "virtualization.internal.disableFirmwareUpdate"
+	bandwidthPerMigrationValuesPath              = "virtualization.internal.virtConfig.bandwidthPerMigration"
+	completionTimeoutPerGiBValuesPath            = "virtualization.internal.virtConfig.completionTimeoutPerGiB"
+	parallelOutboundMigrationsPerNodeValuesPath  = "virtualization.internal.virtConfig.parallelOutboundMigrationsPerNode"
+	maxActiveOutboundMigrationsPerNodeValuesPath = "virtualization.internal.virtConfig.maxActiveOutboundMigrationsPerNode"
+	maxActiveInboundMigrationsPerNodeValuesPath  = "virtualization.internal.virtConfig.maxActiveInboundMigrationsPerNode"
+	maxActiveMigrationsPerClusterValuesPath      = "virtualization.internal.virtConfig.maxActiveMigrationsPerCluster"
+	inboundMigrationSchedulerValuesPath          = "virtualization.internal.virtConfig.inboundMigrationScheduler"
+	maxActiveMigrationsPerNodeValuesPath         = "virtualization.internal.virtConfig.maxActiveMigrationsPerNode"
+	progressTimeoutValuesPath                    = "virtualization.internal.virtConfig.progressTimeout"
+	disableTLSValuesPath                         = "virtualization.internal.virtConfig.disableTLS"
+	disableFirmwareUpdateValuesPath              = "virtualization.internal.disableFirmwareUpdate"
 
 	liveMigrationNetworkTypeConfigPath = "virtualization.liveMigration.network.type"
 	unlimitedBandwidthPerMigration     = "0"
+	disabledLimit                      = "disabled"
 
-	defaultBandwidthPerMigration             = "640Mi"
-	defaultCompletionTimeoutPerGiB           = 800
-	defaultParallelOutboundMigrationsPerNode = 1
-	defaultParallelSyncMigrationsPerNode     = 1
-	defaultParallelInboundMigrationsPerNode  = 1
-	defaultInboundMigrationLimit             = ""
-	defaultOutboundMigrationLimit            = ""
-	defaultSyncMigrationLimit                = ""
-	defaultParallelPerClusterMigrationLimit  = ""
-	defaultProgressTimeout                   = 150
-	defaultDisableTLS                        = false
-	defaultDisableFirmwareUpdate             = false
+	defaultBandwidthPerMigration                 = "640Mi"
+	defaultCompletionTimeoutPerGiB               = 800
+	defaultMaxActiveOutboundMigrationsPerNode    = 1
+	defaultMaxActiveInboundMigrationsPerNode     = 1
+	defaultMaxPreactiveOutboundMigrationsPerNode = 1
+	defaultMaxActiveMigrationsPerCluster         = ""
+	defaultInboundMigrationScheduler             = ""
+	defaultProgressTimeout                       = 150
+	defaultDisableTLS                            = false
+	defaultDisableFirmwareUpdate                 = false
 )
 
 // migrationParams defines migration parameters configurable via ModuleConfig annotations.
-// parallelMigrationsPerCluster is intentionally excluded: it is managed by the
-// discovery-workload-nodes hook which reads the actual value from the KubeVirt config.
+// The default cluster limit of active migrations is the node count the discovery-workload-nodes
+// hook reads, so the annotation stays empty unless it is set.
 var migrationParams = []migrationParam{
 	{
 		annotation:   bandwidthPerMigrationAnnotation,
@@ -91,39 +88,14 @@ var migrationParams = []migrationParam{
 		defaultValue: defaultCompletionTimeoutPerGiB,
 	},
 	{
-		annotation:   parallelOutboundMigrationsPerNodeAnnotation,
-		valuesPath:   parallelOutboundMigrationsPerNodeValuesPath,
-		defaultValue: defaultParallelOutboundMigrationsPerNode,
+		annotation:   maxActiveMigrationsPerClusterAnnotation,
+		valuesPath:   maxActiveMigrationsPerClusterValuesPath,
+		defaultValue: defaultMaxActiveMigrationsPerCluster,
 	},
 	{
-		annotation:   parallelSyncMigrationsPerNodeAnnotation,
-		valuesPath:   parallelSyncMigrationsPerNodeValuesPath,
-		defaultValue: defaultParallelSyncMigrationsPerNode,
-	},
-	{
-		annotation:   parallelInboundMigrationsPerNodeAnnotation,
-		valuesPath:   parallelInboundMigrationsPerNodeValuesPath,
-		defaultValue: defaultParallelInboundMigrationsPerNode,
-	},
-	{
-		annotation:   inboundMigrationLimitAnnotation,
-		valuesPath:   inboundMigrationLimitValuesPath,
-		defaultValue: defaultInboundMigrationLimit,
-	},
-	{
-		annotation:   outboundMigrationLimitAnnotation,
-		valuesPath:   outboundMigrationLimitValuesPath,
-		defaultValue: defaultOutboundMigrationLimit,
-	},
-	{
-		annotation:   syncMigrationLimitAnnotation,
-		valuesPath:   syncMigrationLimitValuesPath,
-		defaultValue: defaultSyncMigrationLimit,
-	},
-	{
-		annotation:   parallelPerClusterMigrationLimitAnnotation,
-		valuesPath:   parallelPerClusterMigrationLimitValuesPath,
-		defaultValue: defaultParallelPerClusterMigrationLimit,
+		annotation:   inboundMigrationSchedulerAnnotation,
+		valuesPath:   inboundMigrationSchedulerValuesPath,
+		defaultValue: defaultInboundMigrationScheduler,
 	},
 	{
 		annotation:   progressTimeoutAnnotation,
@@ -231,7 +203,133 @@ func reconcile(_ context.Context, input *pkg.HookInput) error {
 		}
 	}
 
+	slots, err := resolveMigrationSlots(annos)
+	if err != nil {
+		return err
+	}
+	if _, err := limitAnnotation(annos, 0, maxActiveMigrationsPerClusterAnnotation); err != nil {
+		return err
+	}
+	if slots.shared > 0 && slots.separateSet {
+		input.Logger.Warn("The " + maxActiveMigrationsPerNodeAnnotation + " annotation is set; the separate outbound and inbound migration limits are ignored.")
+	}
+	for _, name := range removedMigrationAnnotations {
+		if _, ok := annos[name]; ok {
+			input.Logger.Warn("The " + name + " annotation is no longer read; set the max-active-* migration annotations instead.")
+		}
+	}
+	for path, value := range map[string]int{
+		parallelOutboundMigrationsPerNodeValuesPath:  slots.outboundWindow(),
+		maxActiveOutboundMigrationsPerNodeValuesPath: slots.activeOutbound,
+		maxActiveInboundMigrationsPerNodeValuesPath:  slots.activeInbound,
+		maxActiveMigrationsPerNodeValuesPath:         slots.shared,
+	} {
+		// 0 disables a limit, so a missing value is set too: the templates default it to a limit.
+		if current := input.Values.Get(path); !current.Exists() || int(current.Int()) != value {
+			input.Values.Set(path, value)
+		}
+	}
+
 	return nil
+}
+
+// removedMigrationAnnotations are the previous names of the migration limits. They are not read
+// anymore; a warning tells an admin who still has them set what to change.
+var removedMigrationAnnotations = []string{
+	"virtualization.deckhouse.io/parallel-outbound-migrations-per-node",
+	"virtualization.deckhouse.io/parallel-sync-migrations-per-node",
+	"virtualization.deckhouse.io/parallel-inbound-migrations-per-node",
+	"virtualization.deckhouse.io/parallel-per-cluster-migration-limit",
+	"virtualization.deckhouse.io/inbound-migration-limit",
+	"virtualization.deckhouse.io/outbound-migration-limit",
+	"virtualization.deckhouse.io/parallel-per-node-migration-limit",
+}
+
+// migrationSlots is the per-node migration capacity. A node runs up to activeOutbound
+// outgoing and activeInbound incoming migrations that transfer memory, and prepares up to
+// preactiveOutbound more outgoing ones, so the next migration starts transferring as soon as
+// a slot frees up instead of waiting for its target to be prepared. A limit of 0 is disabled.
+type migrationSlots struct {
+	activeOutbound    int
+	activeInbound     int
+	preactiveOutbound int
+	// shared is the budget of migrations a node transfers in any direction. When set, it
+	// replaces activeOutbound and activeInbound.
+	shared int
+	// separateSet reports that a separate outbound or inbound limit is set explicitly.
+	separateSet bool
+}
+
+// outboundWindow is the number of migrations a node may have in flight, preparing or
+// transferring, or 0 when the outgoing migrations are not limited. KubeVirt enforces it
+// before it creates a target pod.
+func (s migrationSlots) outboundWindow() int {
+	switch {
+	case s.shared > 0:
+		return s.shared + s.preactiveOutbound
+	case s.activeOutbound > 0:
+		return s.activeOutbound + s.preactiveOutbound
+	default:
+		return 0
+	}
+}
+
+// resolveMigrationSlots reads the slot annotations.
+func resolveMigrationSlots(annos map[string]string) (migrationSlots, error) {
+	activeOutbound, err := limitAnnotation(annos, defaultMaxActiveOutboundMigrationsPerNode, maxActiveOutboundMigrationsPerNodeAnnotation)
+	if err != nil {
+		return migrationSlots{}, err
+	}
+	activeInbound, err := limitAnnotation(annos, defaultMaxActiveInboundMigrationsPerNode, maxActiveInboundMigrationsPerNodeAnnotation)
+	if err != nil {
+		return migrationSlots{}, err
+	}
+	preactiveOutbound, err := intAnnotation(annos, defaultMaxPreactiveOutboundMigrationsPerNode, 0, maxPreactiveOutboundMigrationsPerNodeAnnotation)
+	if err != nil {
+		return migrationSlots{}, err
+	}
+
+	shared, err := limitAnnotation(annos, 0, maxActiveMigrationsPerNodeAnnotation)
+	if err != nil {
+		return migrationSlots{}, err
+	}
+
+	slots := migrationSlots{activeOutbound: activeOutbound, activeInbound: activeInbound, preactiveOutbound: preactiveOutbound, shared: shared}
+	for _, name := range []string{maxActiveOutboundMigrationsPerNodeAnnotation, maxActiveInboundMigrationsPerNodeAnnotation} {
+		if _, ok := annos[name]; ok {
+			slots.separateSet = true
+		}
+	}
+
+	return slots, nil
+}
+
+// limitAnnotation reads a limit annotation: a number of at least 1, or "disabled", returned as 0.
+func limitAnnotation(annos map[string]string, defaultValue int, name string) (int, error) {
+	if annos[name] == disabledLimit {
+		return 0, nil
+	}
+	value, err := intAnnotation(annos, defaultValue, 1, name)
+	if err != nil {
+		return 0, fmt.Errorf("%w; set a number or %q", err, disabledLimit)
+	}
+	return value, nil
+}
+
+// intAnnotation returns the value of the annotation, or defaultValue when it is not set.
+func intAnnotation(annos map[string]string, defaultValue, minValue int, name string) (int, error) {
+	raw, ok := annos[name]
+	if !ok {
+		return defaultValue, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse %q annotation: %w", name, err)
+	}
+	if value < minValue {
+		return 0, fmt.Errorf("the %q annotation must be at least %d, got %d", name, minValue, value)
+	}
+	return value, nil
 }
 
 func annotationsFromSnapshot(input *pkg.HookInput) (map[string]string, error) {

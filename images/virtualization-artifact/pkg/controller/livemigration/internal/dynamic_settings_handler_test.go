@@ -26,7 +26,6 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -110,35 +109,11 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			withMigrationState(kvvmi, "migration-uid")
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
+			h := NewDynamicSettingsHandler(fakeClient)
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotAcquired))
-		})
-
-		It("Should wait without migrationConfiguration when inbound slot is busy", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-
-			otherKVVMI := newKVVMI()
-			otherKVVMI.Name = "other-vm"
-			withMigrationState(otherKVVMI, "other-migration-uid")
-
-			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newKVConfig())
-			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			Expect(inboundLimiter.TryAcquire(otherKVVMI, "node-a")).To(BeTrue())
-
-			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
-			res, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(res.RequeueAfter).To(BeNumerically(">", 0))
-			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).Should(BeNil(), "Should not set migrationConfiguration")
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotWaiting))
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationTargetNodeAnnotation, "node-a"))
 		})
 
 		It("Should propagate DisableTLS from KubeVirt config", func() {
@@ -152,233 +127,13 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			}
 
 			fakeClient := setupEnvironment(kvvmi, vm, kvConfig)
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
+			h := NewDynamicSettingsHandler(fakeClient)
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration.DisableTLS).ShouldNot(BeNil(), "Should propagate DisableTLS")
 			Expect(*kvvmi.Status.MigrationState.MigrationConfiguration.DisableTLS).To(BeTrue())
-		})
-	})
-
-	When("Sync migration limiter is enabled", func() {
-		It("Should acquire a sync slot and set migrationConfiguration", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			kvvmi.Status.MigrationState.SourceNode = "node-src"
-
-			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(false, 1), livemigration.NewSyncMigrationLimiter(true, 1))
-			_, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotAcquired))
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSourceNodeAnnotation, "node-src"))
-		})
-
-		It("Should wait without migrationConfiguration when the sync slot is busy", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			kvvmi.Status.MigrationState.SourceNode = "node-src"
-
-			otherKVVMI := newKVVMI()
-			otherKVVMI.Name = "other-vm"
-			withMigrationState(otherKVVMI, "other-migration-uid")
-			otherKVVMI.Status.MigrationState.SourceNode = "node-src"
-
-			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newKVConfig())
-			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
-			Expect(syncLimiter.TryAcquire(otherKVVMI, "node-src")).To(BeTrue())
-
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(false, 1), syncLimiter)
-			res, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(res.RequeueAfter).To(BeNumerically(">", 0))
-			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).Should(BeNil(), "Should not set migrationConfiguration")
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotWaiting))
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSourceNodeAnnotation, "node-src"))
-		})
-
-		It("Should release the inbound slot when the sync slot is busy", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			kvvmi.Status.MigrationState.SourceNode = "node-src"
-			kvvmi.Status.MigrationState.TargetNode = "node-tgt"
-
-			otherKVVMI := newKVVMI()
-			otherKVVMI.Name = "other-vm"
-			withMigrationState(otherKVVMI, "other-migration-uid")
-			otherKVVMI.Status.MigrationState.SourceNode = "node-src"
-
-			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newKVConfig())
-			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
-			Expect(syncLimiter.TryAcquire(otherKVVMI, "node-src")).To(BeTrue())
-
-			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, syncLimiter)
-			res, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(res.RequeueAfter).To(BeNumerically(">", 0))
-			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).Should(BeNil(), "Should not set migrationConfiguration")
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotWaiting))
-
-			// The inbound slot taken during the failed acquisition must be handed back,
-			// so an unrelated migration can still take it.
-			newcomer := newKVVMI()
-			newcomer.Name = "newcomer"
-			withMigrationState(newcomer, "newcomer-migration-uid")
-			Expect(inboundLimiter.TryAcquire(newcomer, "node-tgt")).To(BeTrue())
-		})
-
-		newRunningMigration := func() *virtv1.VirtualMachineInstanceMigration {
-			return &virtv1.VirtualMachineInstanceMigration{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: virtv1.SchemeGroupVersion.String(),
-					Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
-				},
-				ObjectMeta: metav1.ObjectMeta{Name: "mig-1", Namespace: vmNamespace},
-				Spec:       virtv1.VirtualMachineInstanceMigrationSpec{VMIName: vmName},
-				Status:     virtv1.VirtualMachineInstanceMigrationStatus{Phase: virtv1.MigrationScheduling},
-			}
-		}
-
-		It("Should drop a stale inbound wait when the migration moves on to waiting for a sync slot", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			kvvmi.Status.MigrationState.SourceNode = "node-src"
-			kvvmi.Status.MigrationState.TargetNode = "node-tgt"
-			livemigration.MarkInboundMigrationSlotWaiting(kvvmi, "node-tgt")
-
-			otherKVVMI := newKVVMI()
-			otherKVVMI.Name = "other-vm"
-			withMigrationState(otherKVVMI, "other-migration-uid")
-			otherKVVMI.Status.MigrationState.SourceNode = "node-src"
-
-			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newRunningMigration(), newKVConfig())
-			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
-			Expect(syncLimiter.TryAcquire(otherKVVMI, "node-src")).To(BeTrue())
-
-			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, syncLimiter)
-			_, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.SyncMigrationSlotAnnotation, livemigration.SyncMigrationSlotWaiting))
-			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.InboundMigrationSlotAnnotation))
-		})
-
-		It("Should drop a stale sync wait when the migration moves on to waiting for an inbound slot", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			kvvmi.Status.MigrationState.SourceNode = "node-src"
-			kvvmi.Status.MigrationState.TargetNode = "node-a"
-			livemigration.MarkSyncMigrationSlotWaiting(kvvmi, "node-src")
-
-			otherKVVMI := newKVVMI()
-			otherKVVMI.Name = "other-vm"
-			withMigrationState(otherKVVMI, "other-migration-uid")
-
-			fakeClient := setupEnvironment(kvvmi, vm, otherKVVMI, newRunningMigration(), newKVConfig())
-			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			syncLimiter := livemigration.NewSyncMigrationLimiter(true, 1)
-			Expect(inboundLimiter.TryAcquire(otherKVVMI, "node-a")).To(BeTrue())
-
-			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, syncLimiter)
-			_, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotWaiting))
-			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.SyncMigrationSlotAnnotation))
-		})
-	})
-
-	newActiveMigration := func(phase virtv1.VirtualMachineInstanceMigrationPhase) *virtv1.VirtualMachineInstanceMigration {
-		return &virtv1.VirtualMachineInstanceMigration{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: virtv1.SchemeGroupVersion.String(),
-				Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
-			},
-			ObjectMeta: metav1.ObjectMeta{Name: "mig-1", Namespace: vmNamespace},
-			Spec:       virtv1.VirtualMachineInstanceMigrationSpec{VMIName: vmName},
-			Status:     virtv1.VirtualMachineInstanceMigrationStatus{Phase: phase},
-		}
-	}
-
-	When("VMI holds a slot but no active migration backs it", func() {
-		It("Should release the leaked slot", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			livemigration.MarkInboundMigrationSlotAcquired(kvvmi, "node-a")
-
-			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			Expect(inboundLimiter.TryAcquire(kvvmi, "node-a")).To(BeTrue())
-
-			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
-			_, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.InboundMigrationSlotAnnotation))
-
-			// The freed slot must be available to an unrelated migration.
-			newcomer := newKVVMI()
-			newcomer.Name = "newcomer"
-			withMigrationState(newcomer, "newcomer-uid")
-			Expect(inboundLimiter.TryAcquire(newcomer, "node-a")).To(BeTrue())
-		})
-	})
-
-	When("VMI holds a slot but its MigrationState is gone", func() {
-		It("Should release the leaked slot", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			livemigration.MarkInboundMigrationSlotAcquired(kvvmi, "node-a")
-
-			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			Expect(inboundLimiter.TryAcquire(kvvmi, "node-a")).To(BeTrue())
-			kvvmi.Status.MigrationState = nil
-
-			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
-			_, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(kvvmi.Annotations).NotTo(HaveKey(livemigration.InboundMigrationSlotAnnotation))
-
-			newcomer := newKVVMI()
-			newcomer.Name = "newcomer"
-			withMigrationState(newcomer, "newcomer-uid")
-			Expect(inboundLimiter.TryAcquire(newcomer, "node-a")).To(BeTrue())
-		})
-	})
-
-	When("VMI holds a slot while an active migration backs it", func() {
-		It("Should keep the slot", func() {
-			vm := newVM()
-			kvvmi := newKVVMI()
-			withMigrationState(kvvmi, "migration-uid")
-			livemigration.MarkInboundMigrationSlotAcquired(kvvmi, "node-a")
-
-			fakeClient := setupEnvironment(kvvmi, vm, newActiveMigration(virtv1.MigrationRunning), newKVConfig())
-			inboundLimiter := livemigration.NewInboundMigrationLimiter(true, 1)
-			Expect(inboundLimiter.TryAcquire(kvvmi, "node-a")).To(BeTrue())
-
-			h := NewDynamicSettingsHandler(fakeClient, inboundLimiter, livemigration.NewSyncMigrationLimiter(false, 1))
-			_, err := h.Handle(ctx, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(kvvmi.Annotations).To(HaveKeyWithValue(livemigration.InboundMigrationSlotAnnotation, livemigration.InboundMigrationSlotAcquired))
 		})
 	})
 
@@ -392,7 +147,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			}
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
+			h := NewDynamicSettingsHandler(fakeClient)
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -411,7 +166,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			vmop := newVMOPEvict(force)
 
 			fakeClient := setupEnvironment(kvvmi, vm, vmop, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, livemigration.NewInboundMigrationLimiter(true, 1), livemigration.NewSyncMigrationLimiter(false, 1))
+			h := NewDynamicSettingsHandler(fakeClient)
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 

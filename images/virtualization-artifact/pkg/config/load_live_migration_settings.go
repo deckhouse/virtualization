@@ -28,50 +28,21 @@ import (
 const (
 	DefaultLiveMigrationPolicy = v1alpha2.PreferSafeMigrationPolicy
 
-	ParallelInboundMigrationsPerNodeVar = "PARALLEL_INBOUND_MIGRATIONS_PER_NODE"
-	InboundMigrationLimitVar            = "INBOUND_MIGRATION_LIMIT"
-	InboundMigrationLimitDisabled       = "disabled"
-
-	ParallelSyncMigrationsPerNodeVar = "PARALLEL_SYNC_MIGRATIONS_PER_NODE"
-	SyncMigrationLimitVar            = "SYNC_MIGRATION_LIMIT"
-	SyncMigrationLimitDisabled       = "disabled"
-
-	defaultParallelInboundMigrationsPerNode = 1
-	defaultParallelSyncMigrationsPerNode    = 1
+	MaxActiveMigrationsPerNodeVar = "MAX_ACTIVE_MIGRATIONS_PER_NODE"
 )
 
-// LoadInboundMigrationLimitFromEnv reads the inbound migration limit configuration
-// applied at controller startup. The limit defaults to 1 and is disabled entirely
-// when INBOUND_MIGRATION_LIMIT is set to "disabled".
-func LoadInboundMigrationLimitFromEnv() (enabled bool, limit int) {
-	if os.Getenv(InboundMigrationLimitVar) == InboundMigrationLimitDisabled {
-		return false, defaultParallelInboundMigrationsPerNode
+// LoadSharedMigrationLimitFromEnv reads the per-node budget of migrations transferring memory in
+// any direction. When it is set, it replaces the separate inbound and sync limits.
+func LoadSharedMigrationLimitFromEnv() (enabled bool, limit int) {
+	raw := os.Getenv(MaxActiveMigrationsPerNodeVar)
+	if raw == "" {
+		return false, 0
 	}
-
-	limit = defaultParallelInboundMigrationsPerNode
-	if raw := os.Getenv(ParallelInboundMigrationsPerNodeVar); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 1 {
-			limit = parsed
-		}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed < 1 {
+		return false, 0
 	}
-	return true, limit
-}
-
-// LoadSyncMigrationLimitFromEnv reads the per-node sync migration limit applied
-// at controller startup. The limit defaults to 1 and is disabled
-// entirely when SYNC_MIGRATION_LIMIT is set to "disabled".
-func LoadSyncMigrationLimitFromEnv() (enabled bool, limit int) {
-	if os.Getenv(SyncMigrationLimitVar) == SyncMigrationLimitDisabled {
-		return false, defaultParallelSyncMigrationsPerNode
-	}
-
-	limit = defaultParallelSyncMigrationsPerNode
-	if raw := os.Getenv(ParallelSyncMigrationsPerNodeVar); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 1 {
-			limit = parsed
-		}
-	}
-	return true, limit
+	return true, parsed
 }
 
 var systemMigrationPolicyOverride v1alpha2.LiveMigrationPolicy

@@ -27,7 +27,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal"
-	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/extender"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -42,24 +42,13 @@ func SetupController(
 ) error {
 	client := mgr.GetClient()
 
-	inboundEnabled, inboundLimit := config.LoadInboundMigrationLimitFromEnv()
-	inboundLimiter := livemigration.NewInboundMigrationLimiter(inboundEnabled, inboundLimit)
-
-	syncEnabled, syncLimit := config.LoadSyncMigrationLimitFromEnv()
-	syncLimiter := livemigration.NewSyncMigrationLimiter(syncEnabled, syncLimit)
-
-	// Use the direct API reader: the manager cache is not started yet at setup time.
-	if err := inboundLimiter.Restore(ctx, mgr.GetAPIReader()); err != nil {
-		return err
-	}
-	if err := syncLimiter.Restore(ctx, mgr.GetAPIReader()); err != nil {
-		return err
-	}
+	sharedLimitSet, _ := config.LoadSharedMigrationLimitFromEnv()
+	SetupSchedulerExtender(mgr, extender.Settings{CountOutgoing: sharedLimitSet}, log)
 
 	handlers := []Handler{
-		internal.NewDynamicSettingsHandler(client, inboundLimiter, syncLimiter),
+		internal.NewDynamicSettingsHandler(client),
 	}
-	r := NewReconciler(client, inboundLimiter, syncLimiter, handlers...)
+	r := NewReconciler(client, handlers...)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,

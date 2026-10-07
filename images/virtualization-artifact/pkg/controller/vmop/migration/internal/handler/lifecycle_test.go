@@ -43,7 +43,6 @@ import (
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
-	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -417,26 +416,6 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(msg).To(ContainSubstring("restart the VirtualMachine"))
 		})
 
-		It("should keep migration pending for inbound target node limit", func() {
-			mig := newSimpleMigration("vmop-test", name)
-			mig.Status.Phase = virtv1.MigrationPending
-			mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
-				Type:    virtv1.VirtualMachineInstanceMigrationConditionType(reasonTargetNodeIncomingMigrationLimitExceeded),
-				Status:  corev1.ConditionTrue,
-				Reason:  reasonTargetNodeIncomingMigrationLimitExceeded,
-				Message: messageTargetNodeIncomingMigrationLimitExceeded,
-			}}
-
-			fakeClient, err := testutil.NewFakeClientWithObjects(mig)
-			Expect(err).NotTo(HaveOccurred())
-
-			h := LifecycleHandler{client: fakeClient}
-			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
-			Expect(msg).To(Equal(messageTargetNodeIncomingMigrationLimitExceeded))
-		})
-
 		DescribeTable("should tell which concurrency limit blocks a pending migration", func(condReason, expectedMsg string) {
 			mig := newSimpleMigration("vmop-test", name)
 			mig.Status.Phase = virtv1.MigrationPending
@@ -459,26 +438,6 @@ var _ = Describe("LifecycleHandler", func() {
 			Entry("outbound node limit", virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReachedReasonOutboundNode, messageOutboundNodeMigrationLimitReached),
 			Entry("unknown reason falls back to a generic slot wait", "SomethingElse", messageMigrationLimitReached),
 		)
-
-		It("should report a queue wait, not target preparing, for a scheduled migration waiting for an inbound slot", func() {
-			mig := newSimpleMigration("vmop-test", name)
-			mig.UID = "migration-uid"
-			mig.Status.Phase = virtv1.MigrationScheduled
-
-			kvvmi := &virtv1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-			}
-			livemigration.MarkInboundMigrationSlotWaiting(kvvmi, "node-a")
-
-			fakeClient, err := testutil.NewFakeClientWithObjects(mig, kvvmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			h := LifecycleHandler{client: fakeClient}
-			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(reason).To(Equal(vmopcondition.ReasonMigrationPending))
-			Expect(msg).To(Equal(fmt.Sprintf(messageTargetNodeIncomingMigrationLimitExceededFmt, "node-a")))
-		})
 
 		It("should name the source node when the outbound limit blocks a pending migration", func() {
 			mig := newSimpleMigration("vmop-test", name)
@@ -504,15 +463,24 @@ var _ = Describe("LifecycleHandler", func() {
 			Expect(msg).To(Equal(fmt.Sprintf(messageOutboundNodeMigrationLimitReachedFmt, "node-b")))
 		})
 
-		It("should name the source node for a prepared migration waiting for a sync slot", func() {
+		DescribeTable("should report a queue wait for a prepared migration waiting for an active slot", func(condReason, expectedMsg string) {
 			mig := newSimpleMigration("vmop-test", name)
 			mig.UID = "migration-uid"
 			mig.Status.Phase = virtv1.MigrationTargetReady
+			mig.Status.Conditions = []virtv1.VirtualMachineInstanceMigrationCondition{{
+				Type:   virtv1.VirtualMachineInstanceMigrationConcurrencyLimitReached,
+				Status: corev1.ConditionTrue,
+				Reason: condReason,
+			}}
 
 			kvvmi := &virtv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+				Status: virtv1.VirtualMachineInstanceStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					MigrationUID: mig.UID,
+					SourceNode:   "node-a",
+					TargetNode:   "node-b",
+				}},
 			}
-			livemigration.MarkSyncMigrationSlotWaiting(kvvmi, "node-b")
 
 			fakeClient, err := testutil.NewFakeClientWithObjects(mig, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -521,7 +489,25 @@ var _ = Describe("LifecycleHandler", func() {
 			reason, msg, err := h.getInProgressReasonAndMessage(ctx, mig)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reason).To(Equal(vmopcondition.ReasonWaitingForSyncSlot))
-			Expect(msg).To(Equal(fmt.Sprintf(messageWaitingForSyncSlotFmt, "node-b")))
+			Expect(msg).To(Equal(expectedMsg))
+		},
+			Entry("outgoing slot of the source", reasonActiveOutboundNodeMigrationLimitReached, fmt.Sprintf(messageActiveOutboundSlotFmt, "node-a")),
+			Entry("incoming slot of the target", reasonActiveInboundNodeMigrationLimitReached, fmt.Sprintf(messageActiveInboundSlotFmt, "node-b")),
+			Entry("shared budget of a node", reasonActiveNodeMigrationLimitReached, fmt.Sprintf(messageActiveNodeSlotFmt, "node-a", "node-b")),
+			Entry("cluster limit", reasonActiveClusterMigrationLimitReached, messageActiveClusterSlot),
+		)
+
+		It("should report syncing for a prepared migration without an active slot wait", func() {
+			mig := newSimpleMigration("vmop-test", name)
+			mig.Status.Phase = virtv1.MigrationTargetReady
+
+			fakeClient, err := testutil.NewFakeClientWithObjects(mig)
+			Expect(err).NotTo(HaveOccurred())
+
+			h := LifecycleHandler{client: fakeClient}
+			reason, _, err := h.getInProgressReasonAndMessage(ctx, mig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reason).To(Equal(vmopcondition.ReasonSyncing))
 		})
 
 		DescribeTable("should build in-progress reason and message", func(
