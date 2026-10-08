@@ -108,7 +108,7 @@ variables:
   # slot. Built by deckhouse/virtualization/tools/ci-images, which prints the
   # digest to pin; that project must list this one under its job token
   # permissions, or the pull is denied.
-  GOLANGCI_LINT_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/golangci-lint:2.11.1@sha256:4e883fc3af75ecdc3aabe413785181fc958d9e4bea17be4f127d06dd0935a90e"
+  GOLANGCI_LINT_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/golangci-lint:2.11.1@sha256:a43e899d1a432e6d8ce7feebfe692dba231de63908b40cd3c87635f5456c2d8e"
   # The image the e2e:* jobs run in. Built by deckhouse/virtualization/tools/ci-images,
   # pinned by digest like GOLANGCI_LINT_IMAGE.
   E2E_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/e2e:45f6c336@sha256:e2174c5113aca912d9657fa5e7c234d3c23456cc4b533f4347a96ebbf0cc2ca3"
