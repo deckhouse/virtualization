@@ -33,121 +33,6 @@ nested_storage_class_name="${NESTED_STORAGE_CLASS_NAME}"
 # shellcheck disable=SC2153,SC2154
 virtualization_tag="${VIRTUALIZATION_TAG}"
 
-show_modulesource_status() {
-  local ms_json
-  local phase
-  local message
-
-  if ! ms_json="$(kubectl get ms deckhouse-dev -o json 2>/dev/null)"; then
-    echo "[DEBUG] ModuleSource deckhouse-dev is not found"
-    return 0
-  fi
-
-  phase="$(jq -r '.status.phase // "unknown"' <<< "$ms_json")"
-  message="$(jq -r '.status.message // ""' <<< "$ms_json")"
-
-  echo "[DEBUG] ModuleSource deckhouse-dev phase: ${phase}"
-  if echo "$message" | grep -Eqi '401 Unauthorized|Auth failed'; then
-    echo "[DEBUG] ModuleSource deckhouse-dev problem: registry authentication failed (401 Unauthorized)"
-  fi
-}
-
-wait_for_modulesource_active() {
-  local count=30
-  local delay=10
-  local ms_json
-  local phase
-  local message
-
-  for i in $(seq 1 "$count"); do
-    ms_json="$(kubectl get ms deckhouse-dev -o json 2>/dev/null || true)"
-    phase="$(jq -r '.status.phase // "unknown"' <<< "$ms_json" 2>/dev/null || true)"
-    message="$(jq -r '.status.message // ""' <<< "$ms_json" 2>/dev/null || true)"
-
-    echo "[INFO] Wait for ModuleSource deckhouse-dev to be Active ${i}/${count}, phase=${phase:-unknown}"
-    if echo "$message" | grep -Eqi '401 Unauthorized|Auth failed'; then
-      echo "[INFO] ModuleSource deckhouse-dev problem: registry authentication failed (401 Unauthorized)"
-    fi
-
-    if [ "$phase" = "Active" ]; then
-      echo "[SUCCESS] ModuleSource deckhouse-dev is Active"
-      kubectl get ms deckhouse-dev -o wide
-      return 0
-    fi
-
-    if echo "$message" | grep -Eqi '401 Unauthorized|Auth failed'; then
-      echo "[ERROR] ModuleSource deckhouse-dev registry authentication failed. Check DEV_REGISTRY_DOCKER_CFG credentials." >&2
-      return 1
-    fi
-
-    if (( i % 5 == 0 )); then
-      show_deckhouse_state
-    fi
-
-    if [ "$i" -lt "$count" ]; then
-      sleep "$delay"
-    fi
-  done
-
-  echo "[ERROR] ModuleSource deckhouse-dev did not become Active"
-  show_modulesource_status
-  show_deckhouse_state
-  return 1
-}
-
-wait_for_virtualization_dev_source() {
-  local count=60
-  local delay=10
-  local available_sources
-
-  for i in $(seq 1 "$count"); do
-    available_sources="$(kubectl get modules virtualization -o json 2>/dev/null | jq -r '.properties.availableSources // [] | join(",")' || true)"
-    echo "[INFO] Wait for virtualization module source deckhouse-dev ${i}/${count}, availableSources=${available_sources:-none}"
-
-    if echo ",${available_sources}," | grep -q ",deckhouse-dev,"; then
-      echo "[SUCCESS] deckhouse-dev is available for virtualization module"
-      kubectl get modules virtualization -o wide
-      return 0
-    fi
-
-    if (( i % 5 == 0 )); then
-      echo "[DEBUG] Show ModuleSource"
-      show_modulesource_status
-      echo "[DEBUG] Show virtualization module"
-      kubectl get modules virtualization -o yaml || true
-      show_deckhouse_state
-    fi
-
-    if [ "$i" -lt "$count" ]; then
-      sleep "$delay"
-    fi
-  done
-
-  echo "[ERROR] deckhouse-dev did not become available for virtualization module"
-  show_modulesource_status
-  kubectl get modules virtualization -o yaml || true
-  return 1
-}
-
-apply_module_source() {
-  local registry
-  registry="$(registry_host_from_docker_cfg "$dev_registry_docker_cfg")"
-
-  echo "[INFO] Apply ModuleSource dev config"
-  kubectl_apply_with_retry 20 10 show_deckhouse_state <<EOF
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleSource
-metadata:
-  name: deckhouse-dev
-spec:
-  registry:
-    ca: ""
-    dockerCfg: "${dev_registry_docker_cfg}"
-    repo: "${registry}/sys/deckhouse-oss/modules"
-    scheme: HTTPS
-EOF
-}
-
 # No featureGates here: the module webhook validates only gates being added to a
 # live config, so gates set at creation time reach the controller unchecked and a
 # gate this edition locks makes it exit on start - taking that very webhook with
@@ -177,7 +62,7 @@ spec:
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 192.168.10.0/24
-  source: deckhouse-dev
+  source: ${DEV_MODULE_SOURCE}
   version: 1
 ---
 apiVersion: deckhouse.io/v1alpha2
@@ -201,10 +86,10 @@ show_virtualization_config() {
   kubectl get mpo virtualization
 }
 
-apply_module_source
+apply_dev_module_source "$dev_registry_docker_cfg"
 wait_for_modulesource_active
 wait_for_deckhouse_queue
-wait_for_virtualization_dev_source
+wait_for_module_dev_source virtualization
 wait_for_deckhouse_queue
 apply_virtualization_module_config
 show_virtualization_config

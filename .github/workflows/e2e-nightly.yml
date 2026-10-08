@@ -104,6 +104,9 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
+      # storage-foundation !179 pre-binds a PV restored by the VRR executor to
+      # its target PVC; run the nightly on that build until it is released.
+      storage_foundation_tag: mr179
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
@@ -139,6 +142,9 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
+      # storage-foundation !179 pre-binds a PV restored by the VRR executor to
+      # its target PVC; run the nightly on that build until it is released.
+      storage_foundation_tag: mr179
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
@@ -174,6 +180,9 @@ jobs:
       nested_cluster_network_name: cn-4006-for-e2e-test
       branch: main
       virtualization_tag: main
+      # storage-foundation !179 pre-binds a PV restored by the VRR executor to
+      # its target PVC; run the nightly on that build until it is released.
+      storage_foundation_tag: mr179
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}

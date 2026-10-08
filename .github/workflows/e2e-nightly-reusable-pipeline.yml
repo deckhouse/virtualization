@@ -63,6 +63,11 @@ on:
         type: string
         default: "main"
         description: "Virtualization tag"
+      storage_foundation_tag:
+        required: false
+        type: string
+        default: ""
+        description: "storage-foundation image tag to install from the dev registry via ModulePullOverride (e.g. 'mr179'). Empty installs the latest gated release."
       virtualization_image_url:
         required: false
         type: string
@@ -514,8 +519,24 @@ jobs:
         # storage-foundation and its state-snapshotter dependency ship their
         # latest release behind a manual-approval gate, so the ModuleRelease
         # stays Pending and the module keeps the old version until approved.
-        # Storage setup needs the latest version, so approve them first.
-        run: bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh"
+        # Storage setup needs the latest version, so approve them first. With
+        # a storage-foundation override only its state-snapshotter dependency
+        # goes through the gate: the override ignores releases.
+        env:
+          STORAGE_FOUNDATION_TAG: ${{ inputs.storage_foundation_tag }}
+        run: |
+          if [ -n "${STORAGE_FOUNDATION_TAG}" ]; then
+            bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh" state-snapshotter
+          else
+            bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh"
+          fi
+
+      - name: Override storage-foundation from the dev registry
+        if: ${{ inputs.storage_foundation_tag != '' }}
+        env:
+          DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          STORAGE_FOUNDATION_TAG: ${{ inputs.storage_foundation_tag }}
+        run: bash "${E2E_SCRIPT_DIR}/override-module.sh" storage-foundation "${STORAGE_FOUNDATION_TAG}"
 
       - name: Configure replicated storage
         id: storage-replicated-setup
