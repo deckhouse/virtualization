@@ -46,8 +46,6 @@ jobs:
       - name: Delete nested clusters
         env:
           LABEL_SELECTOR: test=nightly-e2e
-          KEEP_HOURS: "23"
-          FRIDAY_KEEP_HOURS: "71"
         run: bash .github/scripts/bash/e2e/cleanup-nightly-resources.sh
 
   power-off-vms-for-nested:
