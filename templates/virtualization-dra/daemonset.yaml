@@ -115,7 +115,7 @@ spec:
         metadata:
           description: |
             Allow hostPort {{ include "virtualization_dra.health_port" . }} for health check service.
-            Virtualization DRA component requires hostNetwork and health check service should be accessible via hostPort.
+            The service is bound to 127.0.0.1 and is used only by kubelet probes.
       - port: {{ include "virtualization_dra.usbipd_port" . }}
         protocol: TCP
         metadata:
@@ -238,7 +238,7 @@ spec:
             - {{ include "virtualization-dra.featureGates" . }}
             {{/* https://github.com/deckhouse/deckhouse/pull/18139 */}}
             - --usbipd-port={{ include "virtualization_dra.usbipd_port" . }}
-            - --healthz-port={{ include "virtualization_dra.health_port" . }}
+            - --healthz-bind-address=127.0.0.1:{{ include "virtualization_dra.health_port" . }}
             {{- if eq (include "moduleLogLevel" .) "debug" }}
             - --log-level=debug
             - --log-debug-verbosity=10
@@ -269,15 +269,17 @@ spec:
             {{- include "delvePorts" (list $delve "delve/virtualization-dra") | nindent 12 }}
           {{- if ne "delve/virtualization-dra" ($delve | dig "debug" "component" "<missing>") }}
           readinessProbe:
-            grpc:
+            httpGet:
+              host: 127.0.0.1
+              path: /healthz
               port: {{ include "virtualization_dra.health_port" . }}
-              service: liveness
             failureThreshold: 3
             periodSeconds: 10
           livenessProbe:
-            grpc:
+            httpGet:
+              host: 127.0.0.1
+              path: /healthz
               port: {{ include "virtualization_dra.health_port" . }}
-              service: liveness
             failureThreshold: 3
             periodSeconds: 10
           {{- end }}

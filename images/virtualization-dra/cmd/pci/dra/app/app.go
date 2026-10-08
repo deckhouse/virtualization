@@ -62,7 +62,7 @@ type draOptions struct {
 	Kubeconfig     string
 	NodeName       string
 	CDIRoot        string
-	HealthzPort    int
+	HealthzAddr    string
 	RescanInterval time.Duration
 
 	logging *logger.Options
@@ -79,7 +79,7 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.Kubeconfig, "kubeconfig", cli.GetStringEnv("KUBECONFIG", ""), "Path to kubeconfig file")
 	mfs.StringVar(&o.NodeName, "node-name", cli.GetStringEnv("NODE_NAME", ""), "Node name")
 	mfs.StringVar(&o.CDIRoot, "cdi-root", cli.GetStringEnv("CDI_ROOT", cdi.SpecDir), "CDI root")
-	mfs.IntVar(&o.HealthzPort, "healthz-port", cli.GetIntEnv("HEALTHZ_PORT", 51516), "Healthz port")
+	mfs.StringVar(&o.HealthzAddr, "healthz-bind-address", cli.GetStringEnv("HEALTHZ_BIND_ADDRESS", ":51516"), "Healthz bind address")
 	mfs.DurationVar(&o.RescanInterval, "rescan-interval", 5*time.Minute, "PCI bus rescan interval")
 
 	o.logging.AddFlags(fs.FlagSet("logging"))
@@ -122,7 +122,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create PCI store: %w", err)
 	}
 
-	mgr, err := plugin.NewManager(o.DriverName, o.NodeName, client, pciStore, o.HealthzPort, false)
+	mgr, err := plugin.NewManager(o.DriverName, o.NodeName, client, pciStore, o.HealthzAddr, false)
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}

@@ -18,34 +18,31 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
-	"strconv"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/status"
 	drapb "k8s.io/kubelet/pkg/apis/dra/v1"
 	registerapi "k8s.io/kubelet/pkg/apis/pluginregistration/v1"
 )
 
-// HealthCheck implements the gRPC health check; reports SERVING only if both the plugin registrar and the DRA socket are reachable (for liveness).
+// HealthCheck serves /healthz over HTTP; it answers 200 only if both the plugin registrar and the DRA socket are reachable.
 type HealthCheck struct {
-	grpc_health_v1.UnimplementedHealthServer
-	server      *grpc.Server
+	server      *http.Server
 	log         *slog.Logger
 	wg          sync.WaitGroup
 	regSockPath string
 	draSockPath string
-	port        int
 }
 
-func NewHealthCheck(driverName string, port int) *HealthCheck {
+func NewHealthCheck(driverName, addr string) *HealthCheck {
 	regSockPath := (&url.URL{
 		Scheme: "unix",
 		Path:   registrarSocketPath(driverName),
@@ -57,19 +54,19 @@ func NewHealthCheck(driverName string, port int) *HealthCheck {
 	}).String()
 
 	h := &HealthCheck{
-		server:      grpc.NewServer(),
 		log:         slog.With(slog.String("component", "healthcheck")),
 		regSockPath: regSockPath,
 		draSockPath: draSockPath,
-		port:        port,
 	}
-	grpc_health_v1.RegisterHealthServer(h.server, h)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", h.serveHealthz)
+	h.server = &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 
 	return h
 }
 
 func (h *HealthCheck) Start() error {
-	addr := net.JoinHostPort("", strconv.Itoa(h.port))
+	addr := h.server.Addr
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen for healthcheck service at %s: %w", addr, err)
@@ -79,7 +76,7 @@ func (h *HealthCheck) Start() error {
 	go func() {
 		defer h.wg.Done()
 		h.log.Info("starting healthcheck service", slog.String("addr", lis.Addr().String()))
-		if err := h.server.Serve(lis); err != nil {
+		if err := h.server.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			h.log.Error("failed to serve healthcheck service", slog.String("addr", addr), slog.Any("err", err))
 		}
 	}()
@@ -88,72 +85,50 @@ func (h *HealthCheck) Start() error {
 }
 
 func (h *HealthCheck) Stop() {
-	if h.server != nil {
-		h.log.Info("stopping healthcheck service")
-		h.server.GracefulStop()
+	h.log.Info("stopping healthcheck service")
+	if err := h.server.Close(); err != nil {
+		h.log.Error("failed to stop healthcheck service", slog.Any("err", err))
 	}
 	h.wg.Wait()
 }
 
-// Check implements [grpc_health_v1.HealthServer].
-func (h *HealthCheck) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
-	knownServices := map[string]struct{}{"": {}, "liveness": {}}
-	if _, known := knownServices[req.GetService()]; !known {
-		return nil, status.Error(codes.NotFound, "unknown service")
+func (h *HealthCheck) serveHealthz(w http.ResponseWriter, r *http.Request) {
+	if err := h.check(r.Context()); err != nil {
+		h.log.Error("health check failed", slog.Any("err", err))
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
 	}
+	_, _ = w.Write([]byte("ok"))
+}
 
-	healthCheckResponse := &grpc_health_v1.HealthCheckResponse{
-		Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING,
-	}
-
-	regClient, err := h.newRegClient()
+func (h *HealthCheck) check(ctx context.Context) error {
+	regConn, err := dialUnix(h.regSockPath)
 	if err != nil {
-		h.log.Error("failed to create registration client", slog.Any("err", err))
-		return healthCheckResponse, err
+		return fmt.Errorf("connect to registration socket: %w", err)
 	}
+	defer func() { _ = regConn.Close() }()
 
-	info, err := regClient.GetInfo(ctx, &registerapi.InfoRequest{})
+	info, err := registerapi.NewRegistrationClient(regConn).GetInfo(ctx, &registerapi.InfoRequest{})
 	if err != nil {
-		h.log.Error("failed to call GetInfo", slog.Any("err", err))
-		return healthCheckResponse, nil
+		return fmt.Errorf("call GetInfo: %w", err)
 	}
 	h.log.Debug("Successfully invoked GetInfo", "info", info)
 
-	draClient, err := h.newDraConn()
+	draConn, err := dialUnix(h.draSockPath)
 	if err != nil {
-		h.log.Error("failed to create DRA client", slog.Any("err", err))
-		return healthCheckResponse, err
+		return fmt.Errorf("connect to DRA socket: %w", err)
 	}
+	defer func() { _ = draConn.Close() }()
 
-	_, err = draClient.NodePrepareResources(ctx, &drapb.NodePrepareResourcesRequest{})
+	_, err = drapb.NewDRAPluginClient(draConn).NodePrepareResources(ctx, &drapb.NodePrepareResourcesRequest{})
 	if err != nil {
-		h.log.Error("failed to call NodePrepareResources", slog.Any("err", err))
-		return healthCheckResponse, nil
+		return fmt.Errorf("call NodePrepareResources: %w", err)
 	}
 	h.log.Debug("Successfully invoked NodePrepareResources")
 
-	healthCheckResponse.Status = grpc_health_v1.HealthCheckResponse_SERVING
-	return healthCheckResponse, nil
+	return nil
 }
 
-func (h *HealthCheck) newRegClient() (registerapi.RegistrationClient, error) {
-	regConn, err := grpc.NewClient(
-		h.regSockPath,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("connect to registration socket: %w", err)
-	}
-	return registerapi.NewRegistrationClient(regConn), nil
-}
-
-func (h *HealthCheck) newDraConn() (drapb.DRAPluginClient, error) {
-	draConn, err := grpc.NewClient(
-		h.draSockPath,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("connect to DRA socket: %w", err)
-	}
-	return drapb.NewDRAPluginClient(draConn), nil
+func dialUnix(target string) (*grpc.ClientConn, error) {
+	return grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 }

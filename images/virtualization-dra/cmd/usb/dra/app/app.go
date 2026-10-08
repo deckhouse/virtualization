@@ -74,7 +74,7 @@ type draOptions struct {
 	Kubeconfig  string
 	NodeName    string
 	CDIRoot     string
-	HealthzPort int
+	HealthzAddr string
 
 	logging      *logger.Options
 	monitor      *libusb.MonitorConfig
@@ -102,7 +102,7 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.Kubeconfig, "kubeconfig", cli.GetStringEnv("KUBECONFIG", ""), "Path to kubeconfig file")
 	mfs.StringVar(&o.NodeName, "node-name", cli.GetStringEnv("NODE_NAME", ""), "Node name")
 	mfs.StringVar(&o.CDIRoot, "cdi-root", cli.GetStringEnv("CDI_ROOT", cdi.SpecDir), "CDI root")
-	mfs.IntVar(&o.HealthzPort, "healthz-port", cli.GetIntEnv("HEALTHZ_PORT", 51515), "Healthz port")
+	mfs.StringVar(&o.HealthzAddr, "healthz-bind-address", cli.GetStringEnv("HEALTHZ_BIND_ADDRESS", ":51515"), "Healthz bind address")
 
 	o.logging.AddFlags(fs.FlagSet("logging"))
 	o.monitor.AddFlags(fs.FlagSet("usb-monitor"))
@@ -210,7 +210,7 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create USB store: %w", err)
 	}
 
-	mgr, err := plugin.NewManager(o.DriverName, o.NodeName, client, usbStore, o.HealthzPort, o.usbGatewayEnabled)
+	mgr, err := plugin.NewManager(o.DriverName, o.NodeName, client, usbStore, o.HealthzAddr, o.usbGatewayEnabled)
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}

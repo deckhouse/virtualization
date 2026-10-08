@@ -92,20 +92,6 @@ spec:
         description: |
           Unconfined profile allows the PCI passthrough DRA component to make privileged syscalls to bind/unbind PCI devices via sysfs.
 
-  network:
-    hostNetwork:
-      allowedValue: true
-      metadata:
-        description: |
-          The PCI passthrough DRA component runs in the same host-network daemon family as virtualization-dra. Architectural feature.
-    hostPorts:
-      - port: {{ include "virtualization_dra_pci.health_port" . }}
-        protocol: TCP
-        metadata:
-          description: |
-            Allow hostPort {{ include "virtualization_dra_pci.health_port" . }} for health check service.
-            The PCI passthrough DRA component requires hostNetwork and the health check service should be accessible via hostPort.
-
   # Allow mounting host directories.
   volumes:
     types:
@@ -163,8 +149,6 @@ spec:
       imagePullSecrets:
         - name: virtualization-module-registry
       serviceAccountName: virtualization-dra
-      dnsPolicy: ClusterFirstWithHostNet
-      hostNetwork: true
       nodeSelector:
         kubernetes.io/os: linux
         virtualization.deckhouse.io/containerd-version: "v2" # required for start NRI hooks. Label is added by nodegroupconfiguration-detect-containerd-version.sh
@@ -192,7 +176,6 @@ spec:
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraPci") }}
           imagePullPolicy: "IfNotPresent"
           args:
-            - --healthz-port={{ include "virtualization_dra_pci.health_port" . }}
             {{- if eq (include "moduleLogLevel" .) "debug" }}
             - --log-level=debug
             - --log-debug-verbosity=10
@@ -210,19 +193,19 @@ spec:
               {{- include "virtualization-dra-pci_resources" . | nindent 14 }}
               {{- end }}
           ports:
-            - containerPort: {{ include "virtualization_dra_pci.health_port" . }}
+            - containerPort: 51516
               name: health
               protocol: TCP
           readinessProbe:
-            grpc:
-              port: {{ include "virtualization_dra_pci.health_port" . }}
-              service: liveness
+            httpGet:
+              path: /healthz
+              port: health
             failureThreshold: 3
             periodSeconds: 10
           livenessProbe:
-            grpc:
-              port: {{ include "virtualization_dra_pci.health_port" . }}
-              service: liveness
+            httpGet:
+              path: /healthz
+              port: health
             failureThreshold: 3
             periodSeconds: 10
           volumeMounts:
