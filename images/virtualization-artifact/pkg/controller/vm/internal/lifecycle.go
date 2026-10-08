@@ -227,6 +227,13 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return nil
 		}
+		if paused, message := getPausedMessage(kvvmi); paused {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonVirtualMachinePaused).
+				Message(message)
+			conditions.SetCondition(cb, &vm.Status.Conditions)
+			return nil
+		}
 		for _, c := range kvvmi.Status.Conditions {
 			if c.Type == virtv1.VirtualMachineInstanceReady {
 				reason := getKVMIReadyReason(c.Reason)
@@ -247,6 +254,35 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	cb.Reason(vmcondition.ReasonVirtualMachineNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 	return nil
+}
+
+// Reasons of the Paused condition of the internal virtual machine instance.
+const (
+	pausedByUserReason             = "PausedByUser"
+	pausedByMigrationMonitorReason = "PausedByMigrationMonitor"
+	pausedIOErrorReason            = "PausedIOError"
+)
+
+// getPausedMessage reports whether the virtual machine is paused and explains why.
+func getPausedMessage(kvvmi *virtv1.VirtualMachineInstance) (bool, string) {
+	for _, c := range kvvmi.Status.Conditions {
+		if c.Type != virtv1.VirtualMachineInstancePaused || c.Status != corev1.ConditionTrue {
+			continue
+		}
+
+		switch c.Reason {
+		case pausedByUserReason:
+			return true, "The virtual machine is paused on request."
+		case pausedByMigrationMonitorReason:
+			return true, "The virtual machine is paused to complete the live migration: its memory changes faster than it can be transferred to the destination node. It resumes once the migration ends."
+		case pausedIOErrorReason:
+			return true, "The virtual machine is paused due to a disk I/O error. Check that the storage of its disks is available and has free space."
+		default:
+			return true, "The virtual machine is paused."
+		}
+	}
+
+	return false, ""
 }
 
 func (h *LifeCycleHandler) checkVMPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {

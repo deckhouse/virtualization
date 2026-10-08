@@ -212,6 +212,8 @@ const (
 	ReasonPodNotFound                 RunningReason = "PodNotFound"
 	ReasonPodConditionMissing         RunningReason = "PodConditionMissing"
 	ReasonGuestNotRunning             RunningReason = "GuestNotRunning"
+	// ReasonVirtualMachinePaused indicates that the virtual machine is paused: its guest keeps its state but does not run.
+	ReasonVirtualMachinePaused RunningReason = "Paused"
 	// ReasonNodeUnresponsive indicates that the node hosting the virtual machine stopped reporting
 	// readiness: the virtual machine may still be running, but the platform cannot confirm it.
 	ReasonNodeUnresponsive RunningReason = "NodeUnresponsive"
