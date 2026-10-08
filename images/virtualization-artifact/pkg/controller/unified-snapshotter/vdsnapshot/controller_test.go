@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -34,6 +35,7 @@ import (
 	storagev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
 	snapshotterv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
 	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -49,6 +51,7 @@ func newTestScheme(t *testing.T) *apiruntime.Scheme {
 		snapshotterv1alpha1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		foundationv1alpha1.AddToScheme,
+		virtv1.AddToScheme,
 	} {
 		if err := f(scheme); err != nil {
 			t.Fatal(err)
@@ -426,6 +429,122 @@ func TestReconcile_MirrorsTheSizeTheDiskDeclares(t *testing.T) {
 
 			if got := getVDS(t, r.Client).Status.PersistentVolumeClaimSize; got != tt.want {
 				t.Fatalf("persistentVolumeClaimSize = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// kvvmi.Status.FSFreezeStatus is not a latch: it has been observed going frozen -> empty -> frozen
+// within seconds while the parent VirtualMachineSnapshot still held the freeze. The consistency
+// verdict is reached once and never revisited, so reading the field at the wrong instant condemns a
+// capture that was in fact taken under a freeze. The parent's own record decides instead.
+func TestReconcile_ConsistencyFallsBackToTheParentFreezeRecord(t *testing.T) {
+	const parentName = "vms1"
+
+	tests := []struct {
+		name           string
+		withParent     bool
+		parentAnns     map[string]string
+		wantFailed     bool
+		wantConsistent bool
+	}{
+		{
+			name:           "the parent holds a confirmed freeze",
+			withParent:     true,
+			parentAnns:     map[string]string{annotations.AnnFSFrozenConfirmedAt: "2026-10-06T18:01:57Z"},
+			wantFailed:     false,
+			wantConsistent: true,
+		},
+		{
+			name:       "the parent already gave the freeze up",
+			withParent: true,
+			parentAnns: map[string]string{
+				annotations.AnnFSFrozenConfirmedAt:   "2026-10-06T18:01:57Z",
+				annotations.AnnFSUnfreezeRequestedAt: "2026-10-06T18:02:26Z",
+			},
+			wantFailed: true,
+		},
+		{
+			name:       "the guest never confirmed the parent's freeze",
+			withParent: true,
+			parentAnns: map[string]string{annotations.AnnFSFreezeRequestedAt: "2026-10-06T18:01:57Z"},
+			wantFailed: true,
+		},
+		{
+			name:       "a standalone capture has no parent to vouch for it",
+			withParent: false,
+			wantFailed: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vd := &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "vd1", Namespace: testNamespace},
+				Status: v1alpha2.VirtualDiskStatus{
+					Target:                    v1alpha2.DiskTarget{PersistentVolumeClaim: "pvc1"},
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{{Name: "vm1"}},
+				},
+			}
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "pvc1", Namespace: testNamespace},
+				Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound},
+			}
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
+				Status:     v1alpha2.VirtualMachineStatus{Phase: v1alpha2.MachineRunning},
+			}
+			// The flap: running, and the freeze field reads empty right now.
+			kvvmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
+				Status:     virtv1.VirtualMachineInstanceStatus{Phase: virtv1.Running, FSFreezeStatus: ""},
+			}
+			vds := &v1alpha2.VirtualDiskSnapshot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vds1", Namespace: testNamespace,
+					Annotations: map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""},
+				},
+				Spec: v1alpha2.VirtualDiskSnapshotSpec{
+					VirtualDiskName:     "vd1",
+					RequiredConsistency: true,
+				},
+				Status: v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhasePending},
+			}
+
+			objs := []client.Object{vd, pvc, vm, kvvmi, vds}
+			if tt.withParent {
+				vds.OwnerReferences = []metav1.OwnerReference{{
+					APIVersion: v1alpha2.SchemeGroupVersion.String(),
+					Kind:       v1alpha2.VirtualMachineSnapshotKind,
+					Name:       parentName,
+					UID:        "parent-uid",
+				}}
+				objs = append(objs, &v1alpha2.VirtualMachineSnapshot{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: parentName, Namespace: testNamespace,
+						UID:         "parent-uid",
+						Annotations: tt.parentAnns,
+					},
+					Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1"},
+				})
+			}
+
+			r := newTestReconciler(t, objs...)
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vds1"}}); err != nil {
+				t.Fatal(err)
+			}
+
+			got := getVDS(t, r.Client)
+			failed := got.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed
+			if failed != tt.wantFailed {
+				d := got.Status.CaptureState.DomainSpecificController
+				t.Fatalf("failed = %v, want %v (phase %q, reason %q, message %q)",
+					failed, tt.wantFailed, got.Status.Phase, d.Reason, d.Message)
+			}
+			if tt.wantConsistent {
+				if got.Status.Consistent == nil || !*got.Status.Consistent {
+					t.Errorf("consistent = %v, want true: the parent vouched for the freeze", got.Status.Consistent)
+				}
 			}
 		})
 	}

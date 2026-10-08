@@ -133,6 +133,10 @@ type unfreezeScope struct {
 	// skipAbandonedChildren excludes VirtualDiskSnapshots whose owning VirtualMachineSnapshot is gone or
 	// already terminal.
 	skipAbandonedChildren bool
+	// ignoreFrozenState drops the precondition that the guest currently reads frozen, leaving only the
+	// survey of the other snapshots. It serves a caller that knows the guest is frozen from its own
+	// records while kvvmi.Status.FSFreezeStatus reads empty.
+	ignoreFrozenState bool
 }
 
 func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, scope unfreezeScope) (bool, error) {
@@ -140,13 +144,15 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 		return false, nil
 	}
 
-	isFrozen, err := s.IsFrozen(kvvmi)
-	if err != nil {
-		return false, err
-	}
+	if !scope.ignoreFrozenState {
+		isFrozen, err := s.IsFrozen(kvvmi)
+		if err != nil {
+			return false, err
+		}
 
-	if !isFrozen {
-		return false, nil
+		if !isFrozen {
+			return false, nil
+		}
 	}
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
@@ -155,7 +161,7 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 		}
 
 		var vdSnapshots v1alpha2.VirtualDiskSnapshotList
-		err = s.client.List(ctx, &vdSnapshots,
+		err := s.client.List(ctx, &vdSnapshots,
 			client.InNamespace(vm.Namespace),
 			client.MatchingFields{indexer.IndexFieldVDSnapshotByVD: bdr.Name},
 		)
@@ -192,7 +198,7 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 	}
 
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
-	err = s.client.List(ctx, &vmSnapshots,
+	err := s.client.List(ctx, &vmSnapshots,
 		client.InNamespace(vm.Namespace),
 		client.MatchingFields{indexer.IndexFieldVMSnapshotByVM: vm.Name},
 	)
@@ -270,6 +276,22 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshotTree(ctx context.
 		skipVMSnapshotName:    vmSnapshot.Name,
 		skipChildrenOfUID:     vmSnapshot.UID,
 		skipAbandonedChildren: true,
+	})
+}
+
+// NoOtherSnapshotHoldsFreeze reports whether every snapshot of this VirtualMachine outside
+// vmSnapshot's own run tree has finished capturing, so releasing the freeze takes it from nobody.
+//
+// It is the sibling survey of CanUnfreezeWithVirtualMachineSnapshotTree without that method's
+// precondition that the guest currently reads frozen. A caller holding its own record of the freeze
+// needs the survey while kvvmi.Status.FSFreezeStatus reads empty, and the precondition would answer
+// "no" for the very reason the caller is working around.
+func (s *SnapshotService) NoOtherSnapshotHoldsFreeze(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) (bool, error) {
+	return s.canUnfreeze(ctx, vm, nil, unfreezeScope{
+		skipVMSnapshotName:    vmSnapshot.Name,
+		skipChildrenOfUID:     vmSnapshot.UID,
+		skipAbandonedChildren: true,
+		ignoreFrozenState:     true,
 	})
 }
 

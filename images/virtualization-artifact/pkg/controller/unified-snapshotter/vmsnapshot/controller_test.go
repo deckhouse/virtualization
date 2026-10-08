@@ -36,14 +36,26 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	v1alpha2clientsetcore "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
 
 func newFullTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 	t.Helper()
-	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(objs...).WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}).Build()
+	// The same field indexes the manager registers. Without them a List by MatchingFields fails
+	// instead of returning the snapshots, and the freeze code paths that survey a machine's other
+	// snapshots would be exercised against an error rather than against their real input.
+	c := fake.NewClientBuilder().
+		WithScheme(newTestScheme(t)).
+		WithObjects(objs...).
+		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}).
+		WithIndex(indexer.IndexVMSnapshotByVM()).
+		WithIndex(indexer.IndexVDSnapshotByVD()).
+		Build()
 	return &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(nil, c, nil), Log: log.NewNop()}
 }
 
@@ -1384,3 +1396,261 @@ func TestReconcile_StopsQuietlyWhenTheSnapshotIsDeletedMidReconcile(t *testing.T
 		t.Fatalf("the snapshot was read %d time(s); the reconcile never got past its first read, so nothing was exercised", reads)
 	}
 }
+
+// A reconcile that only waits must not write. The domain status is cleared on the way in and refilled
+// by the waiting branch, so the object ends each pass with the same content but a new
+// resourceVersion — and since the controller watches its own object, every write re-enqueues the next
+// reconcile at once, which is a write storm for as long as the wait lasts.
+func TestReconcile_AWaitingPassDoesNotRewriteTheDomainStatus(t *testing.T) {
+	r, req := freezeInFlightFixture(t, freezeFixture{
+		age:            10 * freezeConfirmDeadline,
+		request:        service.RequestFSFreeze,
+		fsFreezeStatus: "",
+		requestedAtAge: freezeConfirmDeadline / 2,
+	})
+	ctx := context.Background()
+
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	settled := getVMS(t, r.Client)
+	d := settled.Status.CaptureState.DomainSpecificController
+	if d == nil || d.Reason != string(vmscondition.FileSystemFreezing) {
+		t.Fatalf("the first pass did not park in the freeze wait: %+v", d)
+	}
+	before := settled.ResourceVersion
+
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	after := getVMS(t, r.Client).ResourceVersion
+
+	if before != after {
+		t.Errorf("a second waiting pass wrote the snapshot (resourceVersion %s -> %s); "+
+			"nothing changed, so it must not write at all", before, after)
+	}
+}
+
+// The parent must carry captureState at the moment it creates a child, not merely by the end of the
+// pass. A child VirtualDiskSnapshot with no capture state of its own routes itself by the parent's, so
+// a child born while the parent has none is handed to the built-in controller, which reads a
+// spec.virtualDiskName the unified children do not have and fails them — taking the whole
+// VirtualMachineSnapshot down with it. Asserting the end state cannot see this: a later Planned write
+// fills captureState in either case, so the ordering is checked where it is decided, on Create.
+func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T) {
+	vms := &v1alpha2.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vms1", Namespace: testNamespace,
+			Finalizers:        []string{v1alpha2.FinalizerVMSnapshotCleanup},
+			CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
+		},
+		Spec:   v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1", RequiredConsistency: true},
+		Status: v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress},
+	}
+	vm := &v1alpha2.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vm1", Namespace: testNamespace,
+			CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
+		},
+		Status: v1alpha2.VirtualMachineStatus{
+			BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+				{Kind: v1alpha2.DiskDevice, Name: "vd1"},
+			},
+		},
+	}
+	vd := &v1alpha2.VirtualDisk{
+		ObjectMeta: metav1.ObjectMeta{Name: "vd1", Namespace: testNamespace, UID: "vd1-uid"},
+		Status:     v1alpha2.VirtualDiskStatus{Phase: v1alpha2.DiskReady},
+	}
+	// Already frozen with no request pending: the freeze block is skipped entirely, so no waiting
+	// branch writes a status on the way to the children.
+	kvvmi := &virtv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
+		Status: virtv1.VirtualMachineInstanceStatus{
+			Phase:          virtv1.Running,
+			FSFreezeStatus: service.FSFrozen,
+		},
+	}
+
+	var orphanedChildren, createdChildren []string
+	c := fake.NewClientBuilder().
+		WithScheme(newTestScheme(t)).
+		WithObjects(vms, vm, vd, kvvmi).
+		WithStatusSubresource(&v1alpha2.VirtualMachineSnapshot{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				if vds, ok := obj.(*v1alpha2.VirtualDiskSnapshot); ok {
+					createdChildren = append(createdChildren, vds.Name)
+					parent := &v1alpha2.VirtualMachineSnapshot{}
+					if err := cl.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vms1"}, parent); err == nil {
+						if parent.Status.CaptureState == nil {
+							orphanedChildren = append(orphanedChildren, vds.Name)
+						}
+					}
+				}
+				return cl.Create(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	r := &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(nil, c, nil), Log: log.NewNop()}
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(createdChildren) == 0 {
+		t.Fatal("no child was created, so the ordering this test is about was never exercised")
+	}
+	if len(orphanedChildren) > 0 {
+		t.Errorf("%d child(ren) were created while the parent had no captureState: %v; "+
+			"they would route to the built-in controller", len(orphanedChildren), orphanedChildren)
+	}
+}
+
+// kvvmi.Status.FSFreezeStatus is not a latch: on a cluster it was seen going frozen -> empty ->
+// frozen within seconds while the capture held the freeze. Reading the empty moment as "already
+// thawed" finishes the capture without unfreezing, and the guest stays frozen with no object left to
+// drive a recovery from. A freeze this snapshot was confirmed to hold is released whatever the field
+// says.
+func TestReleaseFreeze_ReleasesAConfirmedFreezeWhenTheStatusReadsEmpty(t *testing.T) {
+	r, _ := freezeInFlightFixture(t, freezeFixture{
+		age: time.Minute,
+		// The flap itself: the guest froze for this snapshot earlier, and right now the field is empty.
+		request:        "",
+		fsFreezeStatus: "",
+	})
+	ctx := context.Background()
+
+	vms := getVMS(t, r.Client)
+	if vms.Annotations == nil {
+		vms.Annotations = map[string]string{}
+	}
+	r.Freezer = service.NewSnapshotService(unfreezingVirtClient{}, r.Client, nil)
+	vms.Annotations[annFSFrozenConfirmedAt] = time.Now().Add(-30 * time.Second).UTC().Format(time.RFC3339)
+	if err := r.Client.Update(ctx, vms); err != nil {
+		t.Fatalf("stamp the confirmed freeze: %v", err)
+	}
+
+	vm := &v1alpha2.VirtualMachine{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
+		t.Fatalf("get the virtual machine: %v", err)
+	}
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
+		t.Fatalf("get the instance: %v", err)
+	}
+
+	if r.releaseFreeze(ctx, vms, vm, kvvmi) {
+		t.Error("releaseFreeze reported the freeze released; an empty status is not proof the guest thawed")
+	}
+
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
+		t.Fatalf("get the instance: %v", err)
+	}
+	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != service.RequestFSUnfreeze {
+		t.Errorf("filesystem request = %q, want an unfreeze to have been issued", got)
+	}
+}
+
+// The override that unfreezes through an empty status must still yield to a sibling. Another
+// snapshot of the same machine that is still capturing needs the guest frozen, and thawing it there
+// would hand that snapshot a filesystem that moved under it while it reports itself consistent.
+func TestReleaseFreeze_LeavesTheFreezeToASiblingStillCapturing(t *testing.T) {
+	r, _ := freezeInFlightFixture(t, freezeFixture{
+		age:            time.Minute,
+		request:        "",
+		fsFreezeStatus: "",
+	})
+	ctx := context.Background()
+
+	vms := getVMS(t, r.Client)
+	if vms.Annotations == nil {
+		vms.Annotations = map[string]string{}
+	}
+	r.Freezer = service.NewSnapshotService(unfreezingVirtClient{}, r.Client, nil)
+	vms.Annotations[annFSFrozenConfirmedAt] = time.Now().Add(-30 * time.Second).UTC().Format(time.RFC3339)
+	if err := r.Client.Update(ctx, vms); err != nil {
+		t.Fatalf("stamp the confirmed freeze: %v", err)
+	}
+
+	sibling := &v1alpha2.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "vms2", Namespace: testNamespace},
+		Spec:       v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1", RequiredConsistency: true},
+		Status: v1alpha2.VirtualMachineSnapshotStatus{
+			Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress,
+		},
+	}
+	if err := r.Client.Create(ctx, sibling); err != nil {
+		t.Fatalf("create the sibling snapshot: %v", err)
+	}
+
+	vm := &v1alpha2.VirtualMachine{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
+		t.Fatalf("get the virtual machine: %v", err)
+	}
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
+		t.Fatalf("get the instance: %v", err)
+	}
+
+	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
+		t.Error("releaseFreeze reported work left to do; the sibling owns the freeze and this snapshot waits on nothing")
+	}
+
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
+		t.Fatalf("get the instance: %v", err)
+	}
+	if got := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; got != "" {
+		t.Errorf("filesystem request = %q, want none: the sibling still needs the guest frozen", got)
+	}
+
+	// Handing the freeze over has to be recorded, or this snapshot keeps reading as a holder and the
+	// disk captures under it vouch for a freeze it no longer owns.
+	if _, annotated := getVMS(t, r.Client).Annotations[annFSUnfreezeRequestedAt]; !annotated {
+		t.Error("the snapshot still claims an unreleased freeze after leaving it to the sibling")
+	}
+}
+
+// A freeze the guest never confirmed owes no release: the freeze budget abandons it, and issuing an
+// unfreeze for it would be asking the guest to undo something it never did.
+func TestReleaseFreeze_DoesNotReleaseAFreezeTheGuestNeverConfirmed(t *testing.T) {
+	r, _ := freezeInFlightFixture(t, freezeFixture{
+		age:            time.Minute,
+		request:        "",
+		fsFreezeStatus: "",
+		requestedAtAge: 30 * time.Second,
+	})
+	ctx := context.Background()
+
+	vms := getVMS(t, r.Client)
+	vm := &v1alpha2.VirtualMachine{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
+		t.Fatalf("get the virtual machine: %v", err)
+	}
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
+		t.Fatalf("get the instance: %v", err)
+	}
+
+	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
+		t.Error("releaseFreeze = false for a freeze that was asked for but never confirmed; there is nothing to release")
+	}
+}
+
+// unfreezingVirtClient is the smallest kubevirt client that lets releaseFreeze reach its unfreeze.
+// The shared fixture leaves that client nil because no other test in this package gets that far: the
+// paths they exercise either abandon the request or decide there is nothing to release.
+type unfreezingVirtClient struct {
+	kubeclient.Client
+}
+
+func (unfreezingVirtClient) VirtualMachines(string) v1alpha2clientsetcore.VirtualMachineInterface {
+	return unfreezingVirtualMachines{}
+}
+
+type unfreezingVirtualMachines struct {
+	v1alpha2clientsetcore.VirtualMachineInterface
+}
+
+func (unfreezingVirtualMachines) Unfreeze(context.Context, string) error { return nil }

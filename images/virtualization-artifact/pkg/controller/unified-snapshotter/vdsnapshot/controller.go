@@ -44,6 +44,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -261,6 +262,26 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				break
 			}
 			if vds.Spec.RequiredConsistency {
+				// The field this verdict rests on is not a latch: it has been observed going frozen ->
+				// empty -> frozen within seconds while the parent still held the freeze. Ask the parent
+				// before condemning the capture, since the parent's own record of the freeze does not
+				// flap, and this verdict is reached once and never revisited.
+				held, parentErr := r.parentHoldsConfirmedFreeze(ctx, vds)
+				if parentErr != nil {
+					log.Error("failed to read the parent snapshot's freeze record, will retry",
+						logger.SlogErr(parentErr))
+					return ctrl.Result{}, parentErr
+				}
+				if held {
+					log.Info("the freeze state reads empty but the parent snapshot holds a confirmed freeze; capturing as consistent",
+						freezelog.State(observed)...)
+					vds.Status.Consistent = ptr.To(true)
+					if err := r.patchStatus(ctx, vds); err != nil {
+						return ctrl.Result{}, err
+					}
+					break
+				}
+
 				log.Error("the guest filesystem is not frozen; failing the capture", freezelog.State(observed)...)
 				return r.failCapture(ctx, a, vds, string(vdscondition.PotentiallyInconsistent), fmt.Sprintf(
 					"cannot take a consistent snapshot of virtual disk %q: the virtual machine it is attached to is running and its filesystem is not frozen",
@@ -430,6 +451,39 @@ func (r *Reconciler) observedFreezeState(ctx context.Context, vd *v1alpha2.Virtu
 		return nil
 	}
 	return kvvmi
+}
+
+// parentHoldsConfirmedFreeze reports whether the VirtualMachineSnapshot this capture belongs to saw
+// the guest frozen and has not given that freeze up.
+//
+// It is the capture-side counterpart of the record the snapshot controller keeps for its own
+// unfreeze decision: the same pair of annotations, read from the parent instead of written to it.
+// A standalone capture has no parent and holds nothing.
+func (r *Reconciler) parentHoldsConfirmedFreeze(ctx context.Context, vds *v1alpha2.VirtualDiskSnapshot) (bool, error) {
+	for _, ref := range vds.GetOwnerReferences() {
+		if ref.Kind != v1alpha2.VirtualMachineSnapshotKind {
+			continue
+		}
+
+		parent := &v1alpha2.VirtualMachineSnapshot{}
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: ref.Name}, parent)
+		switch {
+		case apierrors.IsNotFound(err):
+			// The parent is gone, so nobody is holding a freeze on this capture's behalf.
+			return false, nil
+		case err != nil:
+			return false, err
+		}
+
+		anns := parent.GetAnnotations()
+		if _, thawed := anns[annotations.AnnFSUnfreezeRequestedAt]; thawed {
+			return false, nil
+		}
+		_, confirmed := anns[annotations.AnnFSFrozenConfirmedAt]
+		return confirmed, nil
+	}
+
+	return false, nil
 }
 
 func (r *Reconciler) isConsistent(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
