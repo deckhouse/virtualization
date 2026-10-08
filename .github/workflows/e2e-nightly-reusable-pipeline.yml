@@ -63,11 +63,6 @@ on:
         type: string
         default: "main"
         description: "Virtualization tag"
-      storage_foundation_tag:
-        required: false
-        type: string
-        default: ""
-        description: "storage-foundation image tag to install from the dev registry via ModulePullOverride (e.g. 'mr179'). Empty installs the latest gated release."
       virtualization_image_url:
         required: false
         type: string
@@ -519,24 +514,19 @@ jobs:
         # storage-foundation and its state-snapshotter dependency ship their
         # latest release behind a manual-approval gate, so the ModuleRelease
         # stays Pending and the module keeps the old version until approved.
-        # Storage setup needs the latest version, so approve them first. With
-        # a storage-foundation override only its state-snapshotter dependency
-        # goes through the gate: the override ignores releases.
-        env:
-          STORAGE_FOUNDATION_TAG: ${{ inputs.storage_foundation_tag }}
-        run: |
-          if [ -n "${STORAGE_FOUNDATION_TAG}" ]; then
-            bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh" state-snapshotter
-          else
-            bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh"
-          fi
+        # Storage setup needs the latest version, so approve them first.
+        # TEMPORARY: while storage-foundation is overridden below only its
+        # state-snapshotter dependency goes through the gate (the override
+        # ignores releases). Drop the argument together with the override.
+        run: bash "${E2E_SCRIPT_DIR}/approve-module-releases.sh" state-snapshotter
 
       - name: Override storage-foundation from the dev registry
-        if: ${{ inputs.storage_foundation_tag != '' }}
+        # TEMPORARY: storage-foundation !179 pre-binds a PV restored by the VRR
+        # executor to its target PVC. Run the nightly on that build until it
+        # is released, then remove this step.
         env:
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-          STORAGE_FOUNDATION_TAG: ${{ inputs.storage_foundation_tag }}
-        run: bash "${E2E_SCRIPT_DIR}/override-module.sh" storage-foundation "${STORAGE_FOUNDATION_TAG}"
+        run: bash "${E2E_SCRIPT_DIR}/override-module.sh" storage-foundation mr179
 
       - name: Configure replicated storage
         id: storage-replicated-setup
