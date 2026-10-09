@@ -115,11 +115,10 @@ var (
 // tests. Only images actually referenced by the suites are precreated: the
 // custom flavors (the default guest image), Ubuntu (the SecureBoot
 // migration-cancel entry and the systemd interface-name-persistence subtests)
-// and MyOS/UbuntuISO (the VirtualMachinePool suite).
+// and MyOS (the VirtualMachinePool suite).
 func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 	return []*v1alpha2.ClusterVirtualImage{
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntu, ImageURLUbuntu),
-		newPrecreatedHTTPCVI(PrecreatedCVIUbuntuISO, ImageURLUbuntuISO),
 		newPrecreatedHTTPCVI(PrecreatedCVIMyOS, ImageURLMyOS),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOS, ImageURLCustomBIOS),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomEFI, ImageURLCustomEFI),

@@ -153,7 +153,7 @@ var _ = Describe("VirtualMachinePool", Label(label.SIGCompute, precheck.NoPreche
 	})
 
 	It("attaches a shared image (CD-ROM) referenced in blockDeviceRefs to every replica", func() {
-		sharedImage := object.PrecreatedCVIUbuntuISO
+		sharedImage := object.PrecreatedCVICustomISO
 
 		By("Creating a pool whose template references a per-replica root disk and a shared ClusterVirtualImage", func() {
 			pool = buildPool(2, v1alpha2.ScaleDownPolicyNewestFirst, deleteReclaim)
