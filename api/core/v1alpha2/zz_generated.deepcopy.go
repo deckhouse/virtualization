@@ -101,6 +101,11 @@ func (in *CPU) DeepCopyInto(out *CPU) {
 		*out = new(CpuDiscovery)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnableNestedVirtualization != nil {
+		in, out := &in.EnableNestedVirtualization, &out.EnableNestedVirtualization
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

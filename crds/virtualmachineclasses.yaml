@@ -123,6 +123,14 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                       type: object
+                    enableNestedVirtualization:
+                      default: true
+                      description: |-
+                        Enables nested virtualization: virtual machines of this class can run their own hypervisor.
+                        Requires the `vmx` (Intel VT-x) or `svm` (AMD-V) CPU feature on the nodes the virtual machines run on.
+                        When disabled, the `vmx` and `svm` features are hidden from the virtual machines of the class.
+                        With the `Discovery` type they are also left out of `status.cpuFeatures.enabled`.
+                      type: boolean
                     features:
                       description: |-
                         List of CPU instructions (features) required when type=Features.
@@ -187,6 +195,13 @@ spec:
                       rule:
                         "self.type == 'Features' ? has(self.features) && !has(self.model)
                         && !has(self.discovery): true"
+                    - message:
+                        vmx and svm cannot be listed in features when enableNestedVirtualization
+                        is false
+                      rule:
+                        "!has(self.enableNestedVirtualization) || self.enableNestedVirtualization
+                        || !has(self.features) || !self.features.exists(f, f == 'vmx'
+                        || f == 'svm')"
                 nodeSelector:
                   description: NodeSelector defines the nodes targeted for VM scheduling.
                   properties:
@@ -647,6 +662,14 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                       type: object
+                    enableNestedVirtualization:
+                      default: true
+                      description: |-
+                        Enables nested virtualization: virtual machines of this class can run their own hypervisor.
+                        Requires the `vmx` (Intel VT-x) or `svm` (AMD-V) CPU feature on the nodes the virtual machines run on.
+                        When disabled, the `vmx` and `svm` features are hidden from the virtual machines of the class.
+                        With the `Discovery` type they are also left out of `status.cpuFeatures.enabled`.
+                      type: boolean
                     features:
                       description: |-
                         List of CPU instructions (features) required when type=Features.
@@ -711,6 +734,13 @@ spec:
                       rule:
                         "self.type == 'Features' ? has(self.features) && !has(self.model)
                         && !has(self.discovery): true"
+                    - message:
+                        vmx and svm cannot be listed in features when enableNestedVirtualization
+                        is false
+                      rule:
+                        "!has(self.enableNestedVirtualization) || self.enableNestedVirtualization
+                        || !has(self.features) || !self.features.exists(f, f == 'vmx'
+                        || f == 'svm')"
                 nodeSelector:
                   description: NodeSelector defines the nodes targeted for VM scheduling.
                   properties:

@@ -99,6 +99,13 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		// persisted set here also heals classes that froze them before an
 		// upgrade removed them from the nodes. See unstableCPUFeatures.
 		featuresEnabled = filterUnstableCPUFeatures(featuresEnabled)
+		// With nested virtualization off the virtual machines of the class never get vmx and
+		// svm, so the features are left out of the model: the status then shows the CPU model
+		// the virtual machines actually get, and a node is not excluded for lacking a feature
+		// nobody asks of it. spec.cpu is immutable, so the model stays stable.
+		if !current.NestedVirtualizationEnabled() {
+			featuresEnabled = filterNestedVirtualizationCPUFeatures(featuresEnabled)
+		}
 		availableNodes = h.nodesWithAllFeatures(availableNodes, featuresEnabled)
 	case v1alpha2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
@@ -251,12 +258,29 @@ var unstableCPUFeatures = map[string]struct{}{
 // filterUnstableCPUFeatures returns the given features without the entries
 // listed in unstableCPUFeatures, preserving order.
 func filterUnstableCPUFeatures(features []string) []string {
+	return filterCPUFeatures(features, func(f string) bool {
+		_, unstable := unstableCPUFeatures[f]
+		return unstable
+	})
+}
+
+// filterNestedVirtualizationCPUFeatures returns the given features without
+// vmx and svm, preserving order.
+func filterNestedVirtualizationCPUFeatures(features []string) []string {
+	return filterCPUFeatures(features, func(f string) bool {
+		return slices.Contains(v1alpha2.NestedVirtualizationCPUFeatures, f)
+	})
+}
+
+// filterCPUFeatures returns the given features without the ones drop reports,
+// preserving order.
+func filterCPUFeatures(features []string, drop func(string) bool) []string {
 	if len(features) == 0 {
 		return features
 	}
 	result := make([]string, 0, len(features))
 	for _, f := range features {
-		if _, unstable := unstableCPUFeatures[f]; unstable {
+		if drop(f) {
 			continue
 		}
 		result = append(result, f)

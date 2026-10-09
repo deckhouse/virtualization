@@ -67,9 +67,10 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 		},
 		Tolerations: v3Spec.Tolerations,
 		CPU: v1alpha2.CPU{
-			Type:     v1alpha2.CPUType(v3Spec.CPU.Type),
-			Model:    v3Spec.CPU.Model,
-			Features: v3Spec.CPU.Features,
+			Type:                       v1alpha2.CPUType(v3Spec.CPU.Type),
+			Model:                      v3Spec.CPU.Model,
+			Features:                   v3Spec.CPU.Features,
+			EnableNestedVirtualization: v3Spec.CPU.EnableNestedVirtualization,
 		},
 	}
 
@@ -167,9 +168,10 @@ func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) (VirtualMachineC
 		},
 		Tolerations: v2Spec.Tolerations,
 		CPU: CPU{
-			Type:     CPUType(v2Spec.CPU.Type),
-			Model:    v2Spec.CPU.Model,
-			Features: v2Spec.CPU.Features,
+			Type:                       CPUType(v2Spec.CPU.Type),
+			Model:                      v2Spec.CPU.Model,
+			Features:                   v2Spec.CPU.Features,
+			EnableNestedVirtualization: v2Spec.CPU.EnableNestedVirtualization,
 		},
 	}
 

@@ -82,7 +82,7 @@ func specValidator(t *testing.T, crdName string) (*schemacel.Validator, *structu
 	if err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(&versioned, &internal, nil); err != nil {
 		t.Fatalf("convert the spec schema of %s: %v", crdName, err)
 	}
-	if len(internal.XValidations) == 0 {
+	if !hasXValidations(&internal) {
 		t.Fatalf("the spec schema of %s carries no x-kubernetes-validations", crdName)
 	}
 
@@ -96,6 +96,22 @@ func specValidator(t *testing.T, crdName string) (*schemacel.Validator, *structu
 		t.Fatalf("no CEL validator was built for %s", crdName)
 	}
 	return validator, structural
+}
+
+// hasXValidations reports whether the schema or any schema nested in it carries CEL rules.
+func hasXValidations(s *apiextensions.JSONSchemaProps) bool {
+	if s == nil {
+		return false
+	}
+	if len(s.XValidations) > 0 {
+		return true
+	}
+	for _, p := range s.Properties {
+		if hasXValidations(&p) {
+			return true
+		}
+	}
+	return s.Items != nil && hasXValidations(s.Items.Schema)
 }
 
 type celCase struct {
@@ -207,5 +223,41 @@ func TestVirtualDiskSnapshotSpecCEL(t *testing.T) {
 
 		{name: "no mode, naming a disk", spec: map[string]interface{}{"virtualDiskName": "vd"}},
 		{name: "no mode, naming nothing", spec: map[string]interface{}{}, want: "exactly one of"},
+	})
+}
+
+// The VirtualMachineClass CPU rules live on spec.cpu. The nested virtualization one guards the only
+// contradiction a class can state: a Features class that asks for vmx or svm and turns nested
+// virtualization off at the same time. Without the rule the virtual machines of such a class would be
+// scheduled onto the nodes with the feature only to have it hidden from them.
+func TestVirtualMachineClassCPUCEL(t *testing.T) {
+	cpu := func(nested interface{}, features ...string) map[string]interface{} {
+		c := map[string]interface{}{"type": "Features"}
+		if nested != nil {
+			c["enableNestedVirtualization"] = nested
+		}
+		fs := make([]interface{}, 0, len(features))
+		for _, f := range features {
+			fs = append(fs, f)
+		}
+		c["features"] = fs
+		return map[string]interface{}{"cpu": c}
+	}
+
+	runCELCases(t, "virtualmachineclasses.yaml", []celCase{
+		{name: "vmx with nested virtualization enabled", spec: cpu(true, "mmx", "vmx")},
+		{name: "svm with nested virtualization enabled", spec: cpu(true, "svm")},
+		{name: "no nested features with nested virtualization disabled", spec: cpu(false, "mmx", "sse2")},
+		{
+			name: "a Discovery class with nested virtualization disabled",
+			spec: map[string]interface{}{"cpu": map[string]interface{}{"type": "Discovery", "enableNestedVirtualization": false}},
+		},
+
+		{name: "vmx with nested virtualization disabled", spec: cpu(false, "mmx", "vmx"), want: "cannot be listed in features"},
+		{name: "svm with nested virtualization disabled", spec: cpu(false, "svm"), want: "cannot be listed in features"},
+
+		// enableNestedVirtualization is defaulted to true before validation runs, so a spec without it
+		// is not reachable through the API. This pins that the rule reads it defensively anyway.
+		{name: "vmx with nested virtualization unset", spec: cpu(nil, "vmx")},
 	})
 }

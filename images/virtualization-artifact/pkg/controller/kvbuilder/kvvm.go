@@ -58,6 +58,18 @@ const (
 	EnableMemoryHotplugThreshold = 1 * 1024 * 1024 * 1024   // 1 Gi (no hotplug for VMs with less than 1Gi)
 )
 
+// CPU feature policies supported by libvirt, see virtv1.CPUFeature.
+const (
+	cpuFeaturePolicyRequire  = "require"
+	cpuFeaturePolicyOptional = "optional"
+	cpuFeaturePolicyDisable  = "disable"
+)
+
+const (
+	// invariantTSCCPUFeature exposes a TSC that does not change with the CPU frequency.
+	invariantTSCCPUFeature = "invtsc"
+)
+
 const (
 	// VCPUTopologyDynamicCoresAnnotation annotation indicates "distributed by sockets" or "dynamic cores number" VCPU topology.
 	VCPUTopologyDynamicCoresAnnotation = "internal.virtualization.deckhouse.io/vcpu-topology-dynamic-cores"
@@ -155,42 +167,92 @@ func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}
 	}
 	cpu := b.Resource.Spec.Template.Spec.Domain.CPU
-	// Reset features to handle vmclass changes: only discovery type sets features.
+	// Reset the features to drop the ones left by the vmclass the virtual machine used before.
 	cpu.Features = nil
 
 	switch class.Spec.CPU.Type {
 	case v1alpha2.CPUTypeHost:
 		cpu.Model = virtv1.CPUModeHostModel
+		cpu.Features = setupNestedVirtualizationFeatures(class)
 	case v1alpha2.CPUTypeHostPassthrough:
 		cpu.Model = virtv1.CPUModeHostPassthrough
+		cpu.Features = setupNestedVirtualizationFeatures(class)
 	case v1alpha2.CPUTypeModel:
 		cpu.Model = class.Spec.CPU.Model
+		cpu.Features = setupNestedVirtualizationFeatures(class)
 	case v1alpha2.CPUTypeDiscovery, v1alpha2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
-		l := len(class.Status.CpuFeatures.Enabled)
-		features := make([]virtv1.CPUFeature, l, l+1)
-		hasSvm := false
-		for i, feature := range class.Status.CpuFeatures.Enabled {
-			policy := "require"
-			if feature == "invtsc" {
-				policy = "optional"
-			}
-			if feature == "svm" {
-				hasSvm = true
-			}
-			features[i] = virtv1.CPUFeature{
-				Name:   feature,
-				Policy: policy,
-			}
-		}
-		if !hasSvm {
-			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
-		}
-		cpu.Features = features
+		cpu.Features = genericModelCPUFeatures(class)
 	default:
 		return fmt.Errorf("unexpected cpu type: %q", class.Spec.CPU.Type)
 	}
 	return nil
+}
+
+// setupNestedVirtualizationFeatures builds the feature set for the CPU types that inherit the whole
+// feature set from the node: Host, HostPassthrough and Model. An unnamed feature follows the node
+// there, so with nested virtualization off the only way to keep it off is to name vmx and svm as
+// disabled. With it on nothing is named, so the domain spec of the existing virtual machines stays
+// as is.
+func setupNestedVirtualizationFeatures(class *v1alpha2.VirtualMachineClass) []virtv1.CPUFeature {
+	if class.NestedVirtualizationEnabled() {
+		return nil
+	}
+
+	features := make([]virtv1.CPUFeature, 0, len(v1alpha2.NestedVirtualizationCPUFeatures))
+	for _, name := range v1alpha2.NestedVirtualizationCPUFeatures {
+		features = append(features, virtv1.CPUFeature{Name: name, Policy: cpuFeaturePolicyDisable})
+	}
+	return features
+}
+
+// genericModelCPUFeatures builds the feature set for the Discovery and Features CPU types, which
+// are built on top of GenericCPUModel and so have to name every feature the class provides.
+func genericModelCPUFeatures(class *v1alpha2.VirtualMachineClass) []virtv1.CPUFeature {
+	provided := class.Status.CpuFeatures.Enabled
+	nested := class.NestedVirtualizationEnabled()
+
+	features := make([]virtv1.CPUFeature, 0, len(provided)+len(v1alpha2.NestedVirtualizationCPUFeatures))
+	for _, name := range provided {
+		features = append(features, virtv1.CPUFeature{Name: name, Policy: cpuFeaturePolicy(name, nested)})
+	}
+
+	for _, name := range v1alpha2.NestedVirtualizationCPUFeatures {
+		if slices.Contains(provided, name) {
+			continue
+		}
+		switch {
+		case !nested:
+			// Spell the feature out: keeping it off must not rest on the libvirt defaults for a
+			// feature the model leaves unnamed.
+			features = append(features, virtv1.CPUFeature{Name: name, Policy: cpuFeaturePolicyDisable})
+		case name == v1alpha2.CPUFeatureSVM:
+			// QEMU declares qemu64 with svm among the features of the model and libvirt requires
+			// every feature of a custom model by default, so an unnamed svm keeps the domain from
+			// starting on an Intel node: "Host CPU does not provide required features: svm".
+			features = append(features, virtv1.CPUFeature{Name: name, Policy: cpuFeaturePolicyOptional})
+		}
+		// vmx is not part of qemu64, so with nested virtualization on it is left to the nodes: a
+		// guest hypervisor gets VT-x only where every node of the class provides it. Adding it as
+		// optional would pin the virtual machine to the node it started on, as there would be no
+		// guarantee that a migration target provides the feature too.
+	}
+
+	return features
+}
+
+// cpuFeaturePolicy picks the libvirt policy for a feature the class provides.
+func cpuFeaturePolicy(name string, nestedVirtualizationEnabled bool) string {
+	switch {
+	// invtsc ties the virtual machine to the TSC frequency of its node, so it is never required:
+	// requiring it would make the virtual machine unschedulable on the nodes with a different one.
+	case name == invariantTSCCPUFeature:
+		return cpuFeaturePolicyOptional
+	case !nestedVirtualizationEnabled && slices.Contains(v1alpha2.NestedVirtualizationCPUFeatures, name):
+		return cpuFeaturePolicyDisable
+	default:
+		return cpuFeaturePolicyRequire
+	}
 }
 
 func (b *KVVM) SetRunPolicy(runPolicy v1alpha2.RunPolicy) error {

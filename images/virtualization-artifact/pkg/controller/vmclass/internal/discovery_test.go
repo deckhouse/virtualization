@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -1241,6 +1242,84 @@ var _ = Describe("DiscoveryHandler", func() {
 			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1"))
 			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("vmx", "avx", "sse2"))
 			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(ConsistOf("clwb"))
+		})
+
+		It("should leave vmx and svm out of the discovered model and report them as notEnabledCommon when nested virtualization is disabled", func() {
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "avx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx":  "true",
+				virtv1.CPUFeatureLabel + "avx":  "true",
+				virtv1.CPUFeatureLabel + "sse2": "true",
+			})
+			handler1 := newVirtHandlerPod("node1")
+			handler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-nested-disabled", v1alpha2.CPUTypeDiscovery, nil, nil)
+			vmc.Spec.CPU.EnableNestedVirtualization = ptr.To(false)
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				handler1, handler2)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			// vmx is common to the nodes, but the class never gives it to its virtual machines, so
+			// the model leaves it out and it surfaces as an unused feature of the nodes.
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("avx", "sse2"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(ConsistOf("vmx"))
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
+		})
+
+		It("should not exclude nodes missing vmx when nested virtualization is disabled", func() {
+			node1 := newNodeWithLabels("node1", map[string]string{
+				virtv1.CPUFeatureLabel + "vmx": "true",
+				virtv1.CPUFeatureLabel + "avx": "true",
+			})
+			node2 := newNodeWithLabels("node2", map[string]string{
+				virtv1.CPUFeatureLabel + "avx": "true",
+			})
+			handler1 := newVirtHandlerPod("node1")
+			handler2 := newVirtHandlerPod("node2")
+
+			vmc := newVMClass("test-nested-disabled-nodes", v1alpha2.CPUTypeDiscovery, nil, nil)
+			vmc.Spec.CPU.EnableNestedVirtualization = ptr.To(false)
+			// A model persisted before vmx was filtered out still carries it; the handler must
+			// strip it and stop excluding node2 for lacking a feature nobody asks of it.
+			vmc.Status.CpuFeatures.Enabled = []string{"vmx", "avx"}
+
+			vmcState, resource := setupDiscoveryEnvironment(vmc,
+				node1, node2,
+				handler1, handler2)
+
+			ctx := context.Background()
+			mockRecorder := &eventrecord.EventRecorderLoggerMock{
+				EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...any) {},
+			}
+			handler := NewDiscoveryHandler(mockRecorder)
+
+			_, err := handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = handler.Handle(ctx, vmcState)
+			Expect(err).NotTo(HaveOccurred())
+
+			changed := resource.Changed()
+			Expect(changed.Status.CpuFeatures.Enabled).To(ConsistOf("avx"))
+			Expect(changed.Status.CpuFeatures.NotEnabledCommon).To(BeEmpty())
+			Expect(changed.Status.AvailableNodes).To(ConsistOf("node1", "node2"))
 		})
 	})
 })

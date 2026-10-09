@@ -178,6 +178,13 @@ func schema_virtualization_api_core_v1alpha3_CPU(ref common.ReferenceCallback) c
 							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha3.CpuDiscovery"),
 						},
 					},
+					"enableNestedVirtualization": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enables nested virtualization: virtual machines of this class can run their own hypervisor. Requires the `vmx` (Intel VT-x) or `svm` (AMD-V) CPU feature on the nodes the virtual machines run on. When disabled, the `vmx` and `svm` features are hidden from the virtual machines of the class.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"type"},
 			},

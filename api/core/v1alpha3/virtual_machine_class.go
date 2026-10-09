@@ -95,6 +95,7 @@ type NodeSelector struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'Discovery' ? !has(self.model) && !has(self.features) : true",message="Discovery cannot have model or features"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Model' ? has(self.model) && !has(self.features) && !has(self.discovery) : true",message="Model requires model and cannot have features or discovery"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Features' ? has(self.features) && !has(self.model) && !has(self.discovery): true",message="Features requires features and cannot have model or discovery"
+// +kubebuilder:validation:XValidation:rule="!has(self.enableNestedVirtualization) || self.enableNestedVirtualization || !has(self.features) || !self.features.exists(f, f == 'vmx' || f == 'svm')",message="vmx and svm cannot be listed in features when enableNestedVirtualization is false"
 type CPU struct {
 	// +kubebuilder:validation:Required
 	Type CPUType `json:"type"`
@@ -111,6 +112,13 @@ type CPU struct {
 	Features []string `json:"features,omitempty"`
 	// Create a CPU model based on intersecting CPU features for selected nodes.
 	Discovery *CpuDiscovery `json:"discovery,omitempty"`
+	// Enables nested virtualization: virtual machines of this class can run their own hypervisor.
+	// Requires the `vmx` (Intel VT-x) or `svm` (AMD-V) CPU feature on the nodes the virtual machines run on.
+	// When disabled, the `vmx` and `svm` features are hidden from the virtual machines of the class.
+	// With the `Discovery` type they are also left out of `status.cpuFeatures.enabled`.
+	//
+	// +kubebuilder:default:=true
+	EnableNestedVirtualization *bool `json:"enableNestedVirtualization,omitempty"`
 }
 
 type CpuDiscovery struct {
@@ -265,3 +273,10 @@ const (
 	ClassPhaseReady       VirtualMachineClassPhase = "Ready"
 	ClassPhaseTerminating VirtualMachineClassPhase = "Terminating"
 )
+
+// NestedVirtualizationEnabled reports whether virtual machines of this class may use nested
+// virtualization. The parameter defaults to true in the CRD schema, so it is only unset on an
+// object that never went through the API server.
+func (class *VirtualMachineClass) NestedVirtualizationEnabled() bool {
+	return class.Spec.CPU.EnableNestedVirtualization == nil || *class.Spec.CPU.EnableNestedVirtualization
+}
