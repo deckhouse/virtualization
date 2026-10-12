@@ -34,11 +34,16 @@ import (
 
 const deletionHandlerName = "DeletionHandler"
 
+const (
+	fsRequestPollInterval    = 2 * time.Second
+	fsRequestConfirmDeadline = 5 * time.Minute
+)
+
 type DeletionHandler struct {
-	snapshotter *service.SnapshotService
+	snapshotter DeletionSnapshotter
 }
 
-func NewDeletionHandler(snapshotter *service.SnapshotService) *DeletionHandler {
+func NewDeletionHandler(snapshotter DeletionSnapshotter) *DeletionHandler {
 	return &DeletionHandler{
 		snapshotter: snapshotter,
 	}
@@ -78,12 +83,32 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 			}
 		}
 
+		err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
+		switch {
+		case err == nil:
+		case k8serrors.IsConflict(err):
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+			if time.Since(vdSnapshot.DeletionTimestamp.Time) < fsRequestConfirmDeadline {
+				log.Debug("Waiting for the guest agent to confirm the filesystem request before deletion", logger.SlogErr(err))
+				return reconcile.Result{RequeueAfter: fsRequestPollInterval}, nil
+			}
+
+			log.Warn("The guest agent has not confirmed the filesystem request in time, discard it", logger.SlogErr(err))
+			err = h.snapshotter.DiscardFSFreezeRequest(ctx, kvvmi)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		default:
+			return reconcile.Result{}, err
+		}
+
 		if vm != nil {
 			var canUnfreeze bool
 			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-					return reconcile.Result{}, nil
+					return reconcile.Result{RequeueAfter: fsRequestPollInterval}, nil
 				}
 				return reconcile.Result{}, err
 			}

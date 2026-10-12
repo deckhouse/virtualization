@@ -791,3 +791,505 @@ func (mock *LifeCycleSnapshotterMock) UpdateVolumeSnapshotCalls() []struct {
 	mock.lockUpdateVolumeSnapshot.RUnlock()
 	return calls
 }
+
+// Ensure, that DeletionSnapshotterMock does implement DeletionSnapshotter.
+// If this is not the case, regenerate this file with moq.
+var _ DeletionSnapshotter = &DeletionSnapshotterMock{}
+
+// DeletionSnapshotterMock is a mock implementation of DeletionSnapshotter.
+//
+//	func TestSomethingThatUsesDeletionSnapshotter(t *testing.T) {
+//
+//		// make and configure a mocked DeletionSnapshotter
+//		mockedDeletionSnapshotter := &DeletionSnapshotterMock{
+//			CanUnfreezeWithVirtualDiskSnapshotFunc: func(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+//				panic("mock out the CanUnfreezeWithVirtualDiskSnapshot method")
+//			},
+//			DeleteVolumeSnapshotFunc: func(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
+//				panic("mock out the DeleteVolumeSnapshot method")
+//			},
+//			DiscardFSFreezeRequestFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+//				panic("mock out the DiscardFSFreezeRequest method")
+//			},
+//			GetVirtualDiskFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
+//				panic("mock out the GetVirtualDisk method")
+//			},
+//			GetVirtualMachineFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
+//				panic("mock out the GetVirtualMachine method")
+//			},
+//			GetVirtualMachineInstanceFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+//				panic("mock out the GetVirtualMachineInstance method")
+//			},
+//			GetVolumeSnapshotFunc: func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error) {
+//				panic("mock out the GetVolumeSnapshot method")
+//			},
+//			SyncFSFreezeRequestFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+//				panic("mock out the SyncFSFreezeRequest method")
+//			},
+//			UnfreezeFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+//				panic("mock out the Unfreeze method")
+//			},
+//		}
+//
+//		// use mockedDeletionSnapshotter in code that requires DeletionSnapshotter
+//		// and then make assertions.
+//
+//	}
+type DeletionSnapshotterMock struct {
+	// CanUnfreezeWithVirtualDiskSnapshotFunc mocks the CanUnfreezeWithVirtualDiskSnapshot method.
+	CanUnfreezeWithVirtualDiskSnapshotFunc func(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+
+	// DeleteVolumeSnapshotFunc mocks the DeleteVolumeSnapshot method.
+	DeleteVolumeSnapshotFunc func(ctx context.Context, vs *vsv1.VolumeSnapshot) error
+
+	// DiscardFSFreezeRequestFunc mocks the DiscardFSFreezeRequest method.
+	DiscardFSFreezeRequestFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+
+	// GetVirtualDiskFunc mocks the GetVirtualDisk method.
+	GetVirtualDiskFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error)
+
+	// GetVirtualMachineFunc mocks the GetVirtualMachine method.
+	GetVirtualMachineFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error)
+
+	// GetVirtualMachineInstanceFunc mocks the GetVirtualMachineInstance method.
+	GetVirtualMachineInstanceFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
+
+	// GetVolumeSnapshotFunc mocks the GetVolumeSnapshot method.
+	GetVolumeSnapshotFunc func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error)
+
+	// SyncFSFreezeRequestFunc mocks the SyncFSFreezeRequest method.
+	SyncFSFreezeRequestFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+
+	// UnfreezeFunc mocks the Unfreeze method.
+	UnfreezeFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CanUnfreezeWithVirtualDiskSnapshot holds details about calls to the CanUnfreezeWithVirtualDiskSnapshot method.
+		CanUnfreezeWithVirtualDiskSnapshot []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// VdSnapshotName is the vdSnapshotName argument value.
+			VdSnapshotName string
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
+		}
+		// DeleteVolumeSnapshot holds details about calls to the DeleteVolumeSnapshot method.
+		DeleteVolumeSnapshot []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vs is the vs argument value.
+			Vs *vsv1.VolumeSnapshot
+		}
+		// DiscardFSFreezeRequest holds details about calls to the DiscardFSFreezeRequest method.
+		DiscardFSFreezeRequest []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
+		}
+		// GetVirtualDisk holds details about calls to the GetVirtualDisk method.
+		GetVirtualDisk []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// GetVirtualMachine holds details about calls to the GetVirtualMachine method.
+		GetVirtualMachine []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// GetVirtualMachineInstance holds details about calls to the GetVirtualMachineInstance method.
+		GetVirtualMachineInstance []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+		}
+		// GetVolumeSnapshot holds details about calls to the GetVolumeSnapshot method.
+		GetVolumeSnapshot []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// SyncFSFreezeRequest holds details about calls to the SyncFSFreezeRequest method.
+		SyncFSFreezeRequest []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
+		}
+		// Unfreeze holds details about calls to the Unfreeze method.
+		Unfreeze []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
+		}
+	}
+	lockCanUnfreezeWithVirtualDiskSnapshot sync.RWMutex
+	lockDeleteVolumeSnapshot               sync.RWMutex
+	lockDiscardFSFreezeRequest             sync.RWMutex
+	lockGetVirtualDisk                     sync.RWMutex
+	lockGetVirtualMachine                  sync.RWMutex
+	lockGetVirtualMachineInstance          sync.RWMutex
+	lockGetVolumeSnapshot                  sync.RWMutex
+	lockSyncFSFreezeRequest                sync.RWMutex
+	lockUnfreeze                           sync.RWMutex
+}
+
+// CanUnfreezeWithVirtualDiskSnapshot calls CanUnfreezeWithVirtualDiskSnapshotFunc.
+func (mock *DeletionSnapshotterMock) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if mock.CanUnfreezeWithVirtualDiskSnapshotFunc == nil {
+		panic("DeletionSnapshotterMock.CanUnfreezeWithVirtualDiskSnapshotFunc: method is nil but DeletionSnapshotter.CanUnfreezeWithVirtualDiskSnapshot was just called")
+	}
+	callInfo := struct {
+		Ctx            context.Context
+		VdSnapshotName string
+		VM             *v1alpha2.VirtualMachine
+		Kvvmi          *virtv1.VirtualMachineInstance
+	}{
+		Ctx:            ctx,
+		VdSnapshotName: vdSnapshotName,
+		VM:             vm,
+		Kvvmi:          kvvmi,
+	}
+	mock.lockCanUnfreezeWithVirtualDiskSnapshot.Lock()
+	mock.calls.CanUnfreezeWithVirtualDiskSnapshot = append(mock.calls.CanUnfreezeWithVirtualDiskSnapshot, callInfo)
+	mock.lockCanUnfreezeWithVirtualDiskSnapshot.Unlock()
+	return mock.CanUnfreezeWithVirtualDiskSnapshotFunc(ctx, vdSnapshotName, vm, kvvmi)
+}
+
+// CanUnfreezeWithVirtualDiskSnapshotCalls gets all the calls that were made to CanUnfreezeWithVirtualDiskSnapshot.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.CanUnfreezeWithVirtualDiskSnapshotCalls())
+func (mock *DeletionSnapshotterMock) CanUnfreezeWithVirtualDiskSnapshotCalls() []struct {
+	Ctx            context.Context
+	VdSnapshotName string
+	VM             *v1alpha2.VirtualMachine
+	Kvvmi          *virtv1.VirtualMachineInstance
+} {
+	var calls []struct {
+		Ctx            context.Context
+		VdSnapshotName string
+		VM             *v1alpha2.VirtualMachine
+		Kvvmi          *virtv1.VirtualMachineInstance
+	}
+	mock.lockCanUnfreezeWithVirtualDiskSnapshot.RLock()
+	calls = mock.calls.CanUnfreezeWithVirtualDiskSnapshot
+	mock.lockCanUnfreezeWithVirtualDiskSnapshot.RUnlock()
+	return calls
+}
+
+// DeleteVolumeSnapshot calls DeleteVolumeSnapshotFunc.
+func (mock *DeletionSnapshotterMock) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
+	if mock.DeleteVolumeSnapshotFunc == nil {
+		panic("DeletionSnapshotterMock.DeleteVolumeSnapshotFunc: method is nil but DeletionSnapshotter.DeleteVolumeSnapshot was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Vs  *vsv1.VolumeSnapshot
+	}{
+		Ctx: ctx,
+		Vs:  vs,
+	}
+	mock.lockDeleteVolumeSnapshot.Lock()
+	mock.calls.DeleteVolumeSnapshot = append(mock.calls.DeleteVolumeSnapshot, callInfo)
+	mock.lockDeleteVolumeSnapshot.Unlock()
+	return mock.DeleteVolumeSnapshotFunc(ctx, vs)
+}
+
+// DeleteVolumeSnapshotCalls gets all the calls that were made to DeleteVolumeSnapshot.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.DeleteVolumeSnapshotCalls())
+func (mock *DeletionSnapshotterMock) DeleteVolumeSnapshotCalls() []struct {
+	Ctx context.Context
+	Vs  *vsv1.VolumeSnapshot
+} {
+	var calls []struct {
+		Ctx context.Context
+		Vs  *vsv1.VolumeSnapshot
+	}
+	mock.lockDeleteVolumeSnapshot.RLock()
+	calls = mock.calls.DeleteVolumeSnapshot
+	mock.lockDeleteVolumeSnapshot.RUnlock()
+	return calls
+}
+
+// DiscardFSFreezeRequest calls DiscardFSFreezeRequestFunc.
+func (mock *DeletionSnapshotterMock) DiscardFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+	if mock.DiscardFSFreezeRequestFunc == nil {
+		panic("DeletionSnapshotterMock.DiscardFSFreezeRequestFunc: method is nil but DeletionSnapshotter.DiscardFSFreezeRequest was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
+	}{
+		Ctx:   ctx,
+		Kvvmi: kvvmi,
+	}
+	mock.lockDiscardFSFreezeRequest.Lock()
+	mock.calls.DiscardFSFreezeRequest = append(mock.calls.DiscardFSFreezeRequest, callInfo)
+	mock.lockDiscardFSFreezeRequest.Unlock()
+	return mock.DiscardFSFreezeRequestFunc(ctx, kvvmi)
+}
+
+// DiscardFSFreezeRequestCalls gets all the calls that were made to DiscardFSFreezeRequest.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.DiscardFSFreezeRequestCalls())
+func (mock *DeletionSnapshotterMock) DiscardFSFreezeRequestCalls() []struct {
+	Ctx   context.Context
+	Kvvmi *virtv1.VirtualMachineInstance
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
+	}
+	mock.lockDiscardFSFreezeRequest.RLock()
+	calls = mock.calls.DiscardFSFreezeRequest
+	mock.lockDiscardFSFreezeRequest.RUnlock()
+	return calls
+}
+
+// GetVirtualDisk calls GetVirtualDiskFunc.
+func (mock *DeletionSnapshotterMock) GetVirtualDisk(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
+	if mock.GetVirtualDiskFunc == nil {
+		panic("DeletionSnapshotterMock.GetVirtualDiskFunc: method is nil but DeletionSnapshotter.GetVirtualDisk was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}{
+		Ctx:       ctx,
+		Name:      name,
+		Namespace: namespace,
+	}
+	mock.lockGetVirtualDisk.Lock()
+	mock.calls.GetVirtualDisk = append(mock.calls.GetVirtualDisk, callInfo)
+	mock.lockGetVirtualDisk.Unlock()
+	return mock.GetVirtualDiskFunc(ctx, name, namespace)
+}
+
+// GetVirtualDiskCalls gets all the calls that were made to GetVirtualDisk.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.GetVirtualDiskCalls())
+func (mock *DeletionSnapshotterMock) GetVirtualDiskCalls() []struct {
+	Ctx       context.Context
+	Name      string
+	Namespace string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}
+	mock.lockGetVirtualDisk.RLock()
+	calls = mock.calls.GetVirtualDisk
+	mock.lockGetVirtualDisk.RUnlock()
+	return calls
+}
+
+// GetVirtualMachine calls GetVirtualMachineFunc.
+func (mock *DeletionSnapshotterMock) GetVirtualMachine(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
+	if mock.GetVirtualMachineFunc == nil {
+		panic("DeletionSnapshotterMock.GetVirtualMachineFunc: method is nil but DeletionSnapshotter.GetVirtualMachine was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}{
+		Ctx:       ctx,
+		Name:      name,
+		Namespace: namespace,
+	}
+	mock.lockGetVirtualMachine.Lock()
+	mock.calls.GetVirtualMachine = append(mock.calls.GetVirtualMachine, callInfo)
+	mock.lockGetVirtualMachine.Unlock()
+	return mock.GetVirtualMachineFunc(ctx, name, namespace)
+}
+
+// GetVirtualMachineCalls gets all the calls that were made to GetVirtualMachine.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.GetVirtualMachineCalls())
+func (mock *DeletionSnapshotterMock) GetVirtualMachineCalls() []struct {
+	Ctx       context.Context
+	Name      string
+	Namespace string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}
+	mock.lockGetVirtualMachine.RLock()
+	calls = mock.calls.GetVirtualMachine
+	mock.lockGetVirtualMachine.RUnlock()
+	return calls
+}
+
+// GetVirtualMachineInstance calls GetVirtualMachineInstanceFunc.
+func (mock *DeletionSnapshotterMock) GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+	if mock.GetVirtualMachineInstanceFunc == nil {
+		panic("DeletionSnapshotterMock.GetVirtualMachineInstanceFunc: method is nil but DeletionSnapshotter.GetVirtualMachineInstance was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		VM  *v1alpha2.VirtualMachine
+	}{
+		Ctx: ctx,
+		VM:  vm,
+	}
+	mock.lockGetVirtualMachineInstance.Lock()
+	mock.calls.GetVirtualMachineInstance = append(mock.calls.GetVirtualMachineInstance, callInfo)
+	mock.lockGetVirtualMachineInstance.Unlock()
+	return mock.GetVirtualMachineInstanceFunc(ctx, vm)
+}
+
+// GetVirtualMachineInstanceCalls gets all the calls that were made to GetVirtualMachineInstance.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.GetVirtualMachineInstanceCalls())
+func (mock *DeletionSnapshotterMock) GetVirtualMachineInstanceCalls() []struct {
+	Ctx context.Context
+	VM  *v1alpha2.VirtualMachine
+} {
+	var calls []struct {
+		Ctx context.Context
+		VM  *v1alpha2.VirtualMachine
+	}
+	mock.lockGetVirtualMachineInstance.RLock()
+	calls = mock.calls.GetVirtualMachineInstance
+	mock.lockGetVirtualMachineInstance.RUnlock()
+	return calls
+}
+
+// GetVolumeSnapshot calls GetVolumeSnapshotFunc.
+func (mock *DeletionSnapshotterMock) GetVolumeSnapshot(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error) {
+	if mock.GetVolumeSnapshotFunc == nil {
+		panic("DeletionSnapshotterMock.GetVolumeSnapshotFunc: method is nil but DeletionSnapshotter.GetVolumeSnapshot was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}{
+		Ctx:       ctx,
+		Name:      name,
+		Namespace: namespace,
+	}
+	mock.lockGetVolumeSnapshot.Lock()
+	mock.calls.GetVolumeSnapshot = append(mock.calls.GetVolumeSnapshot, callInfo)
+	mock.lockGetVolumeSnapshot.Unlock()
+	return mock.GetVolumeSnapshotFunc(ctx, name, namespace)
+}
+
+// GetVolumeSnapshotCalls gets all the calls that were made to GetVolumeSnapshot.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.GetVolumeSnapshotCalls())
+func (mock *DeletionSnapshotterMock) GetVolumeSnapshotCalls() []struct {
+	Ctx       context.Context
+	Name      string
+	Namespace string
+} {
+	var calls []struct {
+		Ctx       context.Context
+		Name      string
+		Namespace string
+	}
+	mock.lockGetVolumeSnapshot.RLock()
+	calls = mock.calls.GetVolumeSnapshot
+	mock.lockGetVolumeSnapshot.RUnlock()
+	return calls
+}
+
+// SyncFSFreezeRequest calls SyncFSFreezeRequestFunc.
+func (mock *DeletionSnapshotterMock) SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+	if mock.SyncFSFreezeRequestFunc == nil {
+		panic("DeletionSnapshotterMock.SyncFSFreezeRequestFunc: method is nil but DeletionSnapshotter.SyncFSFreezeRequest was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
+	}{
+		Ctx:   ctx,
+		Kvvmi: kvvmi,
+	}
+	mock.lockSyncFSFreezeRequest.Lock()
+	mock.calls.SyncFSFreezeRequest = append(mock.calls.SyncFSFreezeRequest, callInfo)
+	mock.lockSyncFSFreezeRequest.Unlock()
+	return mock.SyncFSFreezeRequestFunc(ctx, kvvmi)
+}
+
+// SyncFSFreezeRequestCalls gets all the calls that were made to SyncFSFreezeRequest.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.SyncFSFreezeRequestCalls())
+func (mock *DeletionSnapshotterMock) SyncFSFreezeRequestCalls() []struct {
+	Ctx   context.Context
+	Kvvmi *virtv1.VirtualMachineInstance
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
+	}
+	mock.lockSyncFSFreezeRequest.RLock()
+	calls = mock.calls.SyncFSFreezeRequest
+	mock.lockSyncFSFreezeRequest.RUnlock()
+	return calls
+}
+
+// Unfreeze calls UnfreezeFunc.
+func (mock *DeletionSnapshotterMock) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+	if mock.UnfreezeFunc == nil {
+		panic("DeletionSnapshotterMock.UnfreezeFunc: method is nil but DeletionSnapshotter.Unfreeze was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
+	}{
+		Ctx:   ctx,
+		Kvvmi: kvvmi,
+	}
+	mock.lockUnfreeze.Lock()
+	mock.calls.Unfreeze = append(mock.calls.Unfreeze, callInfo)
+	mock.lockUnfreeze.Unlock()
+	return mock.UnfreezeFunc(ctx, kvvmi)
+}
+
+// UnfreezeCalls gets all the calls that were made to Unfreeze.
+// Check the length with:
+//
+//	len(mockedDeletionSnapshotter.UnfreezeCalls())
+func (mock *DeletionSnapshotterMock) UnfreezeCalls() []struct {
+	Ctx   context.Context
+	Kvvmi *virtv1.VirtualMachineInstance
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
+	}
+	mock.lockUnfreeze.RLock()
+	calls = mock.calls.Unfreeze
+	mock.lockUnfreeze.RUnlock()
+	return calls
+}

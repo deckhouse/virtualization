@@ -472,7 +472,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	}
 }
 
-func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotter LifeCycleSnapshotter) (*v1alpha2.VirtualMachine, error) {
+func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotter virtualMachineGetter) (*v1alpha2.VirtualMachine, error) {
 	if vd == nil {
 		return nil, nil
 	}
@@ -491,6 +491,10 @@ func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotte
 	default:
 		return nil, fmt.Errorf("the virtual disk %q is attached to multiple virtual machines", vd.Name)
 	}
+}
+
+type virtualMachineGetter interface {
+	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
 }
 
 func (h LifeCycleHandler) backfillOriginalSize(ctx context.Context, vs *vsv1.VolumeSnapshot) error {

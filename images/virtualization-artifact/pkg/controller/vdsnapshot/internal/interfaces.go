@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate go tool moq -rm -out mock.go . VirtualDiskReadySnapshotter LifeCycleSnapshotter
+//go:generate go tool moq -rm -out mock.go . VirtualDiskReadySnapshotter LifeCycleSnapshotter DeletionSnapshotter
 
 type VirtualDiskReadySnapshotter interface {
 	GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error)
@@ -45,5 +45,17 @@ type LifeCycleSnapshotter interface {
 	GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error)
 	UpdateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error
 	SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
+}
+
+type DeletionSnapshotter interface {
+	CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	DiscardFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error
+	GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error)
+	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
+	GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error)
 	GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 }
