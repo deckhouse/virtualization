@@ -262,14 +262,22 @@ func (b *KVVM) SetRunPolicy(runPolicy v1alpha2.RunPolicy) error {
 		v1alpha2.ManualPolicy:
 		b.Resource.Spec.RunStrategy = ptr.To(virtv1.RunStrategyManual)
 	case v1alpha2.AlwaysOnUnlessStoppedManually:
-		if !b.ResourceExists {
-			// initialize only
+		if !b.ResourceExists || b.lastAppliedRunPolicy() == v1alpha2.AlwaysOffPolicy {
 			b.Resource.Spec.RunStrategy = ptr.To(virtv1.RunStrategyAlways)
 		}
 	default:
 		return fmt.Errorf("unexpected runPolicy %s. %w", runPolicy, common.ErrUnknownValue)
 	}
 	return nil
+}
+
+// lastAppliedRunPolicy must be called before SetLastAppliedSpec overwrites the previous spec.
+func (b *KVVM) lastAppliedRunPolicy() v1alpha2.RunPolicy {
+	spec, err := LoadLastAppliedSpec(b.Resource)
+	if err != nil || spec == nil {
+		return ""
+	}
+	return spec.RunPolicy
 }
 
 func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]string) {

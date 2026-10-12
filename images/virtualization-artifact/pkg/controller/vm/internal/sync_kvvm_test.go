@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -389,6 +390,68 @@ var _ = Describe("SyncKvvmHandler", func() {
 			Expect(kvvm.Spec.RunStrategy).NotTo(BeNil())
 			Expect(*kvvm.Spec.RunStrategy).To(Equal(virtv1.RunStrategyAlways))
 		})
+	})
+
+	DescribeTable("switching the run policy of a stopped VM",
+		func(prevRunPolicy v1alpha2.RunPolicy, prevRunStrategy virtv1.VirtualMachineRunStrategy, runPolicy v1alpha2.RunPolicy, expectStart bool) {
+			vm := makeVM(v1alpha2.MachineStopped)
+			vm.Spec.RunPolicy = prevRunPolicy
+			kvvm := makeKVVM(vm)
+			kvvm.Spec.RunStrategy = ptr.To(prevRunStrategy)
+			vm.Spec.RunPolicy = runPolicy
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, makeVMIP(), makeVMClass())
+
+			syncKVVM := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+			_, err := syncKVVM.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = NewSyncPowerStateHandler(fakeClient, recorder).Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			newKVVM := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newKVVM)).To(Succeed())
+			started := *newKVVM.Spec.RunStrategy == virtv1.RunStrategyAlways ||
+				slices.ContainsFunc(newKVVM.Status.StateChangeRequests, func(r virtv1.VirtualMachineStateChangeRequest) bool {
+					return r.Action == virtv1.StartRequest
+				})
+			Expect(started).To(Equal(expectStart))
+		},
+		Entry("AlwaysOff to AlwaysOnUnlessStoppedManually starts", v1alpha2.AlwaysOffPolicy, virtv1.RunStrategyManual, v1alpha2.AlwaysOnUnlessStoppedManually, true),
+		Entry("Manual to AlwaysOnUnlessStoppedManually keeps stopped", v1alpha2.ManualPolicy, virtv1.RunStrategyManual, v1alpha2.AlwaysOnUnlessStoppedManually, false),
+		Entry("AlwaysOff to AlwaysOn starts", v1alpha2.AlwaysOffPolicy, virtv1.RunStrategyManual, v1alpha2.AlwaysOnPolicy, true),
+		Entry("Manual to AlwaysOn starts", v1alpha2.ManualPolicy, virtv1.RunStrategyManual, v1alpha2.AlwaysOnPolicy, true),
+		Entry("AlwaysOnUnlessStoppedManually to AlwaysOn starts", v1alpha2.AlwaysOnUnlessStoppedManually, virtv1.RunStrategyManual, v1alpha2.AlwaysOnPolicy, true),
+		Entry("AlwaysOff to Manual keeps stopped", v1alpha2.AlwaysOffPolicy, virtv1.RunStrategyManual, v1alpha2.ManualPolicy, false),
+		Entry("AlwaysOnUnlessStoppedManually to Manual keeps stopped", v1alpha2.AlwaysOnUnlessStoppedManually, virtv1.RunStrategyManual, v1alpha2.ManualPolicy, false),
+		Entry("Manual to AlwaysOff keeps stopped", v1alpha2.ManualPolicy, virtv1.RunStrategyManual, v1alpha2.AlwaysOffPolicy, false),
+		Entry("AlwaysOnUnlessStoppedManually to AlwaysOff keeps stopped", v1alpha2.AlwaysOnUnlessStoppedManually, virtv1.RunStrategyManual, v1alpha2.AlwaysOffPolicy, false),
+		Entry("AlwaysOnUnlessStoppedManually with a pending start to AlwaysOff cancels the start", v1alpha2.AlwaysOnUnlessStoppedManually, virtv1.RunStrategyAlways, v1alpha2.AlwaysOffPolicy, false),
+		Entry("AlwaysOnUnlessStoppedManually with a pending start to Manual cancels the start", v1alpha2.AlwaysOnUnlessStoppedManually, virtv1.RunStrategyAlways, v1alpha2.ManualPolicy, false),
+	)
+
+	It("starts the VM switched from AlwaysOff to AlwaysOnUnlessStoppedManually while its instance is being deleted", func() {
+		vm := makeVM(v1alpha2.MachineStopped)
+		vm.Spec.RunPolicy = v1alpha2.AlwaysOffPolicy
+		kvvm := makeKVVM(vm)
+		kvvm.Spec.RunStrategy = ptr.To(virtv1.RunStrategyManual)
+		vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+
+		kvvmi := makeKVVMI()
+		kvvmi.Status.Phase = virtv1.Succeeded
+		kvvmi.DeletionTimestamp = ptr.To(metav1.Now())
+		kvvmi.Finalizers = []string{"test"}
+
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, makeVMIP(), makeVMClass())
+
+		syncKVVM := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+		_, err := syncKVVM.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = NewSyncPowerStateHandler(fakeClient, recorder).Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		newKVVM := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newKVVM)).To(Succeed())
+		Expect(newKVVM.Spec.RunStrategy).To(HaveValue(Equal(virtv1.RunStrategyAlways)))
 	})
 
 	DescribeTable("AwaitingRestart Condition Tests",

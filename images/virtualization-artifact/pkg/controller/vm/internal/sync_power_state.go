@@ -30,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -109,7 +108,7 @@ func (h *SyncPowerStateHandler) syncPowerState(
 			err = kvvmutil.EnsureRunStrategy(ctx, h.client, kvvm, virtv1.RunStrategyManual)
 		} else if kvvmi == nil && kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyAlways {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
-				"Start on create initiated by controller for %v policy",
+				"Start initiated by controller for %v policy",
 				runPolicy,
 			)
 		}
@@ -198,7 +197,8 @@ func (h *SyncPowerStateHandler) syncPowerState(
 // It gates the moment AlwaysOnUnlessStoppedManually hands power management back to this
 // controller.
 func instanceLeftPending(kvvmi *virtv1.VirtualMachineInstance) bool {
-	if kvvmi == nil {
+	// An instance being deleted is the previous one: both stop paths settle Manual before deleting it.
+	if kvvmi == nil || kvvmi.DeletionTimestamp != nil {
 		return false
 	}
 
@@ -340,20 +340,6 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 	if kvvmi == nil || kvvmi.DeletionTimestamp != nil {
 		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, v1alpha2.AlwaysOnUnlessStoppedManually) {
 			return Start, nil
-		}
-
-		if kvvm != nil {
-			lastAppliedSpec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
-			if err != nil {
-				return Nothing, fmt.Errorf("load last applied spec: %w", err)
-			}
-
-			if lastAppliedSpec != nil && lastAppliedSpec.RunPolicy == v1alpha2.AlwaysOffPolicy {
-				err = kvvmutil.AddStartAnnotation(ctx, h.client, kvvm)
-				if err != nil {
-					return Nothing, fmt.Errorf("add annotation to KVVM: %w", err)
-				}
-			}
 		}
 
 		return Nothing, nil
