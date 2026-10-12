@@ -23,12 +23,18 @@ write_files:
       deb {{ $mirrorUrl }} {{ $codename }}-backports main restricted universe multiverse
       deb {{ $mirrorUrl }} {{ $codename }}-security  main restricted universe multiverse
 {{- end }}
-  - path: /etc/netplan/99-eno2.yaml
+  - path: /etc/netplan/99-extra-nics.yaml
     content: |
       network:
         version: 2
         ethernets:
           eno2:
+            dhcp4: false
+            dhcp6: false
+            addresses: []
+            link-local: []
+            optional: true
+          eno3:
             dhcp4: false
             dhcp6: false
             addresses: []

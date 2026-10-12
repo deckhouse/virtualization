@@ -225,6 +225,7 @@ jobs:
       storage_type: mixed
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
+      nested_cluster_network_name_2: cn-4007-for-e2e-test
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}

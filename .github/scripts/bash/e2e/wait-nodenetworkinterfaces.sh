@@ -24,15 +24,26 @@ count=60
 success=false
 wait_time_seconds=5
 
-for i in $(seq 1 "$count"); do
-  nodes=$(kubectl get nodes -o name | wc -l)
-  actual=$(kubectl get nodenetworkinterfaces -o json | jq -r '.items[] | select(.status.operationalState == "Up") | .metadata.name' | wc -l) || true
-  expected=$((nodes * 2))
+nodes_with_both_extra_nics() {
+  kubectl get nodenetworkinterfaces -l network.deckhouse.io/interface-type=NIC -o json \
+    | jq '
+        [ .items[]
+          | select(.status.operationalState == "Up")
+          | select(.status.ifName != "eno1" and .status.ifName != "enp1s0")
+          | .metadata.labels["network.deckhouse.io/node-name"] ]
+        | group_by(.)
+        | map(select(length >= 2))
+        | length'
+}
 
-  echo "[INFO] Attempt $i/$count: expected=$expected, actual=$actual"
+for i in $(seq 1 "$count"); do
+  expected=$(kubectl get nodes -o name | wc -l | tr -d '[:space:]')
+  actual=$(nodes_with_both_extra_nics) || true
+
+  echo "[INFO] Attempt $i/$count: nodes with both extra NICs: expected=$expected, actual=$actual"
 
   if [ "$actual" -ge "$expected" ]; then
-    echo "[SUCCESS] All nodenetworkinterfaces are present (expected=$expected, actual=$actual)"
+    echo "[SUCCESS] Every node carries both extra NICs (expected=$expected, actual=$actual)"
     kubectl get nodenetworkinterfaces
     success=true
     break
@@ -56,7 +67,7 @@ for i in $(seq 1 "$count"); do
 done
 
 if [ "$success" = false ]; then
-  echo "[ERROR] Failed to get all nodenetworkinterfaces after $count attempts (expected=$expected)"
+  echo "[ERROR] Only $actual of $expected nodes carry both extra NICs after $count attempts"
   echo "[DEBUG] Show namespaces d8-sdn"
   kubectl -n d8-sdn get pods || true
   echo "[DEBUG] Show nodenetworkinterfaces d8-sdn"

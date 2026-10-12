@@ -61,6 +61,11 @@ on:
         type: string
         default: "cn-4006-for-e2e-test"
         description: "ClusterNetwork name for nested VM additional network interface"
+      nested_cluster_network_name_2:
+        required: false
+        type: string
+        default: "cn-4007-for-e2e-test"
+        description: "ClusterNetwork name for the second additional interface"
       virtualization_image_url:
         required: false
         type: string
@@ -221,6 +226,7 @@ jobs:
           CLUSTER_CONFIG_WORKERS_MEMORY: ${{ inputs.cluster_config_workers_memory }}
           ADDITIONAL_DISK_SIZE: ${{ inputs.cluster_config_additional_disk_size }}
           NESTED_CLUSTER_NETWORK_NAME: ${{ inputs.nested_cluster_network_name }}
+          NESTED_CLUSTER_NETWORK_NAME_2: ${{ inputs.nested_cluster_network_name_2 }}
           ENABLED_MODULES: console
         run: bash "${E2E_SCRIPT_DIR}/render-dvp-static-values.sh"
 
@@ -384,14 +390,23 @@ jobs:
 
       - name: Configure ClusterNetwork
         run: |
-          extraNic=$(kubectl get nodenetworkinterfaces -l network.deckhouse.io/interface-type=NIC -o json | jq -r '.items[] | select(.status.operationalState == "Up") | select(.status.ifName != "eno1" and .status.ifName != "enp1s0") | .metadata.name')
+          kubectl get nodenetworkinterfaces -l network.deckhouse.io/interface-type=NIC -o json \
+            | jq -r '
+                [ .items[]
+                  | select(.status.operationalState == "Up")
+                  | select(.status.ifName != "eno1" and .status.ifName != "enp1s0")
+                  | {name: .metadata.name, node: .metadata.labels["network.deckhouse.io/node-name"], ifName: .status.ifName} ]
+                | group_by(.node)[]
+                | sort_by(.ifName)
+                | to_entries[]
+                | select(.key < 2)
+                | "\(.value.name) \(if .key == 0 then "extra" else "extra2" end)"' \
+            | while read -r nic group; do
+                echo "[INFO] Label nodenetworkinterface $nic nic-group=$group"
+                kubectl label nodenetworkinterfaces "$nic" "nic-group=$group"
+              done
 
-          for nic in $extraNic; do
-            echo "[INFO] Label nodenetworkinterface $nic nic-group=extra"
-            kubectl label nodenetworkinterfaces "$nic" nic-group=extra
-          done
-
-          kubectl get nodenetworkinterface -l nic-group=extra
+          kubectl get nodenetworkinterface -l nic-group
 
           cat <<'EOF' | bash "${E2E_SCRIPT_DIR}/apply-clusternetworks.sh"
           ---
@@ -427,10 +442,8 @@ jobs:
             parentNodeNetworkInterfaces:
               labelSelector:
                 matchLabels:
-                  nic-group: extra
-            type: VLAN
-            vlan:
-              id: 4007
+                  nic-group: extra2
+            type: Access
           EOF
 
           echo "[INFO] Wait for ClusterNetwork cn-4006-for-e2e-test to be ready"

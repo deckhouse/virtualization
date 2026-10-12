@@ -102,6 +102,7 @@ jobs:
       pipeline_job_name: "E2E Pipeline (Replicated)"
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
+      nested_cluster_network_name_2: cn-4007-for-e2e-test
       branch: main
       virtualization_tag: main
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
@@ -137,6 +138,7 @@ jobs:
       pipeline_job_name: "E2E Pipeline (NFS)"
       nested_storageclass_name: nfs
       nested_cluster_network_name: cn-4006-for-e2e-test
+      nested_cluster_network_name_2: cn-4007-for-e2e-test
       branch: main
       virtualization_tag: main
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
@@ -172,6 +174,7 @@ jobs:
       pipeline_job_name: "E2E Pipeline (Elastic)"
       nested_storageclass_name: nested-ceph-rbd
       nested_cluster_network_name: cn-4006-for-e2e-test
+      nested_cluster_network_name_2: cn-4007-for-e2e-test
       branch: main
       virtualization_tag: main
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}

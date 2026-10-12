@@ -37,6 +37,7 @@ require_env APT_MIRROR_URL
 require_env CLUSTER_CONFIG_WORKERS_MEMORY
 require_env ADDITIONAL_DISK_SIZE
 require_env NESTED_CLUSTER_NETWORK_NAME
+require_env NESTED_CLUSTER_NETWORK_NAME_2
 require_env DEV_REGISTRY_DOCKER_CFG
 
 default_storage_class="$(kubectl get storageclass -o json \
