@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # dlv builds natively (no emulation) and cross-compiles to linux/amd64.
-FROM --platform=$BUILDPLATFORM golang:1.25 AS dlv-builder
+FROM --platform=$BUILDPLATFORM golang:1.26 AS dlv-builder
 RUN GOOS=linux GOARCH=amd64 go install github.com/go-delve/delve/cmd/dlv@latest && \
     { cp "$(go env GOPATH)/bin/linux_amd64/dlv" /dlv-linux-amd64 2>/dev/null || \
       cp "$(go env GOPATH)/bin/dlv" /dlv-linux-amd64 ; }
