@@ -71,7 +71,7 @@ pmPackages:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-from: {{ index $.Images "builder/golang-1.25" }}
+from: {{ index $.Images "builder/golang-1.26" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src/{{ $gitRepoName }}-{{ $version }}

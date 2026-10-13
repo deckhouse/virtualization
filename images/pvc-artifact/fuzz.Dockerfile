@@ -35,7 +35,7 @@
 # construction. The price is a precondition: the host must have populated its module cache
 # once (any successful `go build` in this repository does it). GOPROXY=off below turns a
 # cold cache into an immediate, readable error instead of a hang on an unreachable host.
-FROM golang:1.25.12-bookworm
+FROM golang:1.26-bookworm
 
 # go-task: the fuzz:* tasks are written for it, and the external fuzzing platform calls them.
 ARG TASK_VERSION=v3.53.1
