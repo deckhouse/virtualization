@@ -435,31 +435,39 @@ func statusHasMAC(status []v1alpha2.NetworksStatus, interfaceSpec network.Interf
 }
 
 // retainDetachingNetworks keeps in next the status entries of prev that the spec no
-// longer asks for while their interface is still in the internal virtual machine
-// instance, that is while the hot-unplug has not completed. Once the entry is dropped the
-// VirtualMachineMACAddress becomes unattached and its address is released, so dropping it
-// early hands the address away while the guest still holds the interface.
+// longer asks for while their interface is still attached to the VMI. Dropping an entry
+// releases the address of its VirtualMachineMACAddress, so dropping it before the detach
+// would release an address the guest still uses.
 func retainDetachingNetworks(
 	next, prev []v1alpha2.NetworksStatus,
 	kvvmi *virtv1.VirtualMachineInstance,
 ) []v1alpha2.NetworksStatus {
 	for _, prevStatus := range prev {
-		if prevStatus.Type == v1alpha2.NetworksTypeMain || prevStatus.MAC == "" {
-			continue
-		}
 		if slices.ContainsFunc(next, func(networkStatus v1alpha2.NetworksStatus) bool {
 			return networkStatus.Type == prevStatus.Type && networkStatus.Name == prevStatus.Name
 		}) {
 			continue
 		}
-		if kvvmi == nil || !slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
-			return strings.EqualFold(i.MacAddress, prevStatus.MAC)
-		}) {
-			continue
+		if isAttachedToVMI(kvvmi, prevStatus) {
+			next = append(next, prevStatus)
 		}
-		next = append(next, prevStatus)
 	}
 	return next
+}
+
+func isRemovedFromSpec(vm *v1alpha2.VirtualMachine, networkStatus v1alpha2.NetworksStatus) bool {
+	return !slices.ContainsFunc(vm.Spec.Networks, func(network v1alpha2.NetworksSpec) bool {
+		return network.Type == networkStatus.Type && network.Name == networkStatus.Name
+	})
+}
+
+func isAttachedToVMI(kvvmi *virtv1.VirtualMachineInstance, networkStatus v1alpha2.NetworksStatus) bool {
+	if kvvmi == nil || networkStatus.Type == v1alpha2.NetworksTypeMain || networkStatus.MAC == "" {
+		return false
+	}
+	return slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(i virtv1.Interface) bool {
+		return strings.EqualFold(i.MacAddress, networkStatus.MAC)
+	})
 }
 
 // extractNetworkStatusFromPods returns the aggregated SDN error message of the launcher

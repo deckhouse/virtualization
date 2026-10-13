@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -86,20 +87,17 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		return reconcile.Result{}, err
 	}
 
-	expectedMACAddresses := 0
-	for _, network := range vm.Spec.Networks {
-		// 'Main' network not require a MAC address.
-		if network.Type == v1alpha2.NetworksTypeMain {
-			continue
-		}
-		expectedMACAddresses++
-	}
-
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to get KVVM: %s", err))
 		return reconcile.Result{}, err
 	}
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to get KVVMI: %s", err))
+		return reconcile.Result{}, err
+	}
+	expectedMACAddresses := countMACAddresses(vm, kvvmi)
 	if len(vmmacs) < expectedMACAddresses {
 		createdCount := 0
 		if kvvm != nil && len(vmmacs) == 0 {
@@ -175,6 +173,22 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func countMACAddresses(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) int {
+	count := 0
+	for _, network := range vm.Spec.Networks {
+		if network.Type != v1alpha2.NetworksTypeMain {
+			count++
+		}
+	}
+	// A detaching network keeps its MAC address until it leaves the VMI.
+	for _, networkStatus := range vm.Status.Networks {
+		if isRemovedFromSpec(vm, networkStatus) && isAttachedToVMI(kvvmi, networkStatus) {
+			count++
+		}
+	}
+	return count
 }
 
 func (h *MACHandler) Name() string {

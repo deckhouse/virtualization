@@ -432,6 +432,88 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Label(label.SIGCom
 				expectGuestInterfaces(testVM, mainID, clusterNetworkID)
 			})
 		})
+
+		It("replaces the ClusterNetwork in one update without a restart and keeps its interface name", func() {
+			const (
+				mainID           = 1
+				clusterNetworkID = 2
+			)
+			oldNetworkName := util.ClusterNetworkName(L2OnlyNetworkVLANID)
+			newNetworkName := clusterNetworkName
+			ns := f.Namespace().Name
+			vdRoot := object.NewVDFromCVI("vd-root", ns, object.PrecreatedCVIUbuntu)
+			testVM := buildUbuntuVMWithNetworks("vm", ns, vdRoot.Name,
+				v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain},
+				v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: oldNetworkName},
+			)
+
+			var (
+				vmObs               vmobs.Observer
+				oldMAC              string
+				previousRunningTime time.Time
+			)
+			By("Create VM with Main and a ClusterNetwork", func() {
+				Expect(f.CreateWithDeferredDeletion(ctx, vdRoot, testVM)).To(Succeed())
+
+				vmObs = vmobs.StartObserver(ctx, f, testVM)
+				vmObs.Never(vmobs.BeFailed())
+				waitForMachine(vmObs)
+				vmObs.Never(func(vm *v1alpha2.VirtualMachine) (bool, error) {
+					cond, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+					if cond.Status == metav1.ConditionTrue {
+						return true, fmt.Errorf("VM must not require restart to replace a ClusterNetwork: %s", cond.Message)
+					}
+					return false, nil
+				})
+
+				expectStatusIDs(testVM, mainID, clusterNetworkID)
+				for _, n := range testVM.Status.Networks {
+					if n.Type == v1alpha2.NetworksTypeClusterNetwork {
+						oldMAC = n.MAC
+					}
+				}
+				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, testVM.Status.Conditions)
+				previousRunningTime = runningCondition.LastTransitionTime.Time
+			})
+
+			By("Replace the ClusterNetwork with another one in one update", func() {
+				setVMNetworks(ctx, f, testVM, func(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+					return []v1alpha2.NetworksSpec{networks[0], {Type: v1alpha2.NetworksTypeClusterNetwork, Name: newNetworkName}}
+				})
+			})
+
+			By("Wait until the status lists only the new ClusterNetwork", func() {
+				err := vmObs.WaitFor(func(vm *v1alpha2.VirtualMachine) (bool, error) {
+					var clusterNetworks []v1alpha2.NetworksStatus
+					for _, n := range vm.Status.Networks {
+						if n.Type != v1alpha2.NetworksTypeMain {
+							clusterNetworks = append(clusterNetworks, n)
+						}
+					}
+					return len(clusterNetworks) == 1 && clusterNetworks[0].Name == newNetworkName && clusterNetworks[0].MAC != "", nil
+				}, framework.LongTimeout)
+				Expect(err).NotTo(HaveOccurred(), "the status should list %s with a MAC address instead of %s", newNetworkName, oldNetworkName)
+				Expect(vmObs.WaitFor(haveNetworkReady(), framework.LongTimeout)).To(Succeed())
+			})
+
+			By("Verify the new ClusterNetwork got id 2 and its own MAC address", func() {
+				expectStatusIDs(testVM, mainID, clusterNetworkID)
+				for _, n := range testVM.Status.Networks {
+					if n.Type == v1alpha2.NetworksTypeClusterNetwork {
+						Expect(strings.EqualFold(n.MAC, oldMAC)).To(BeFalse(), "the new ClusterNetwork should not reuse MAC %s of the old one", oldMAC)
+					}
+				}
+			})
+
+			By("Verify the guest names the new ClusterNetwork interface eno2", func() {
+				expectGuestInterfaces(testVM, mainID, clusterNetworkID)
+			})
+
+			By("Verify the VM was not restarted", func() {
+				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, testVM.Status.Conditions)
+				Expect(runningCondition.LastTransitionTime.Time).To(Equal(previousRunningTime), "the Running condition should not have been reset by a restart")
+			})
+		})
 	})
 
 	Describe("verifies hotplug and hotunplug of additional network interfaces", func() {

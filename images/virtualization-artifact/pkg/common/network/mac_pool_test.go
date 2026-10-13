@@ -80,6 +80,31 @@ var _ = Describe("MacAddressPool", func() {
 		Expect(pool.MACFor(v1alpha2.NetworksTypeNetwork, "net-b")).To(Equal(expected[1]))
 	})
 
+	It("should keep the MAC address of a detaching network off the network replacing it", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				Networks: []v1alpha2.NetworksSpec{
+					{Type: v1alpha2.NetworksTypeMain},
+					{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net-b"},
+				},
+			},
+			Status: v1alpha2.VirtualMachineStatus{
+				Networks: []v1alpha2.NetworksStatus{
+					{Type: v1alpha2.NetworksTypeMain},
+					{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a", MAC: "00:1A:2B:3C:4D:5E"},
+				},
+			},
+		}
+
+		pool := NewMacAddressPool(vm, []*v1alpha2.VirtualMachineMACAddress{
+			newVMMAC("00:1A:2B:3C:4D:5E"),
+			newVMMAC("00:1A:2B:3C:4D:6A"),
+		}, true)
+
+		Expect(pool.MACFor(v1alpha2.NetworksTypeNetwork, "net-a")).To(Equal("00:1A:2B:3C:4D:5E"))
+		Expect(pool.MACFor(v1alpha2.NetworksTypeClusterNetwork, "net-b")).To(Equal("00:1A:2B:3C:4D:6A"))
+	})
+
 	It("should tell a Network from a ClusterNetwork of the same name", func() {
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{

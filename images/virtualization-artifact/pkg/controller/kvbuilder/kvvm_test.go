@@ -18,6 +18,7 @@ package kvbuilder
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -571,7 +572,7 @@ func TestSetNetworkMarksRemovedAsAbsent(t *testing.T) {
 
 	setNetwork(b, network.InterfaceSpecList{
 		{InterfaceName: "default", MAC: "", ID: 1},
-	})
+	}, nil)
 
 	found := false
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
@@ -600,7 +601,7 @@ func TestSetNetworkDropsInterfaceWhoseACPIIndexIsReused(t *testing.T) {
 	setNetwork(b, network.InterfaceSpecList{
 		{InterfaceName: "default", MAC: "", ID: 1},
 		{InterfaceName: "veth_cnbbbbbbbb", MAC: "5a:40:3f:80:50:bc", ID: 2},
-	})
+	}, nil)
 
 	indexes := map[int]int{}
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
@@ -621,6 +622,39 @@ func TestSetNetworkDropsInterfaceWhoseACPIIndexIsReused(t *testing.T) {
 	}
 }
 
+func TestSetNetworkAttachesReplacingNetworkAfterDetach(t *testing.T) {
+	b := newTestKVVM()
+	b.SetNetworkInterface("default", "", 1)
+	b.SetNetworkInterface("veth_naaaaaaaa", "aa:bb:cc:dd:ee:ff", 2)
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	kvvmi.Spec.Domain.Devices.Interfaces = slices.Clone(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces)
+	desired := network.InterfaceSpecList{
+		{InterfaceName: "default", MAC: "", ID: 1},
+		{InterfaceName: "veth_cnbbbbbbbb", MAC: "5a:40:3f:80:50:bc", ID: 2},
+	}
+
+	setNetwork(b, desired, kvvmi)
+
+	states := map[string]virtv1.InterfaceState{}
+	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		states[iface.Name] = iface.State
+	}
+	if state, ok := states["veth_naaaaaaaa"]; !ok || state != virtv1.InterfaceStateAbsent {
+		t.Errorf("the old network must be marked absent while its interface is in the VMI, got %v", states)
+	}
+	if _, ok := states["veth_cnbbbbbbbb"]; ok {
+		t.Errorf("the new network must not be attached while the old one with the same ACPI index is in the VMI, got %v", states)
+	}
+
+	kvvmi.Spec.Domain.Devices.Interfaces = kvvmi.Spec.Domain.Devices.Interfaces[:1]
+	setNetwork(b, desired, kvvmi)
+
+	names := interfaceNames(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces)
+	if !slices.Equal(names, []string{"default", "veth_cnbbbbbbbb"}) {
+		t.Errorf("the new network must be attached once the old one is detached from the VMI, got %v", names)
+	}
+}
+
 func TestSetNetworkRemovesDefaultEntirely(t *testing.T) {
 	b := newTestKVVM()
 	b.SetNetworkInterface("default", "", 1)
@@ -628,7 +662,7 @@ func TestSetNetworkRemovesDefaultEntirely(t *testing.T) {
 
 	setNetwork(b, network.InterfaceSpecList{
 		{InterfaceName: "veth_n12345678", MAC: "aa:bb:cc:dd:ee:ff", ID: 2},
-	})
+	}, nil)
 
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
 		if iface.Name == "default" {
@@ -649,7 +683,7 @@ func TestSetNetworkAddsNewInterface(t *testing.T) {
 	setNetwork(b, network.InterfaceSpecList{
 		{InterfaceName: "default", MAC: "", ID: 1},
 		{InterfaceName: "veth_n12345678", MAC: "aa:bb:cc:dd:ee:ff", ID: 2},
-	})
+	}, nil)
 
 	found := false
 	for _, iface := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
@@ -674,7 +708,7 @@ func TestSetNetworkKeepsDefaultFirstWhenMainAddedLast(t *testing.T) {
 		{InterfaceName: "default", MAC: "", ID: 1},
 		{InterfaceName: "veth_cn11111111", MAC: "aa:bb:cc:dd:ee:01", ID: 2},
 		{InterfaceName: "veth_n22222222", MAC: "aa:bb:cc:dd:ee:02", ID: 3},
-	})
+	}, nil)
 
 	ifaces := b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces
 	if got := ifaces[0].Name; got != "default" {

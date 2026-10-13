@@ -110,7 +110,7 @@ var _ = Describe("setNetwork", func() {
 	It("turns the pod interface autoattach off when no network is asked for", func() {
 		kvvm := newKVVM()
 
-		setNetwork(kvvm, nil)
+		setNetwork(kvvm, nil, nil)
 
 		devices := kvvm.Resource.Spec.Template.Spec.Domain.Devices
 		Expect(devices.Interfaces).To(BeEmpty())
@@ -124,10 +124,10 @@ var _ = Describe("setNetwork", func() {
 			{Type: v1alpha2.NetworksTypeNetwork, Name: "net", InterfaceName: "veth_n12345678", ID: 2},
 		}
 
-		setNetwork(kvvm, additional)
+		setNetwork(kvvm, additional, nil)
 		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface).To(HaveValue(BeFalse()))
 
-		setNetwork(kvvm, nil)
+		setNetwork(kvvm, nil, nil)
 
 		devices := kvvm.Resource.Spec.Template.Spec.Domain.Devices
 		Expect(devices.Interfaces).To(HaveLen(1))
@@ -141,7 +141,7 @@ var _ = Describe("setNetwork", func() {
 		setNetwork(kvvm, network.InterfaceSpecList{
 			{Type: v1alpha2.NetworksTypeMain, InterfaceName: network.NameDefaultInterface},
 			{Type: v1alpha2.NetworksTypeNetwork, Name: "net", InterfaceName: "veth_n12345678", ID: 2},
-		})
+		}, nil)
 
 		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface).To(BeNil())
 	})
@@ -166,7 +166,7 @@ var _ = Describe("setNetwork with UnderlayNetwork entries", func() {
 		setNetwork(kvvm, network.InterfaceSpecList{
 			{Type: v1alpha2.NetworksTypeMain, InterfaceName: network.NameDefaultInterface, ID: 1},
 			underlaySpec,
-		})
+		}, nil)
 
 		templateSpec := kvvm.Resource.Spec.Template.Spec
 		Expect(templateSpec.Domain.Devices.Interfaces).To(HaveLen(1))
@@ -186,8 +186,8 @@ var _ = Describe("setNetwork with UnderlayNetwork entries", func() {
 
 	It("removes the claim and the host device when the entry is gone", func() {
 		kvvm := newKVVM()
-		setNetwork(kvvm, network.InterfaceSpecList{underlaySpec})
-		setNetwork(kvvm, network.InterfaceSpecList{})
+		setNetwork(kvvm, network.InterfaceSpecList{underlaySpec}, nil)
+		setNetwork(kvvm, network.InterfaceSpecList{}, nil)
 
 		templateSpec := kvvm.Resource.Spec.Template.Spec
 		Expect(templateSpec.ResourceClaims).To(BeEmpty())
@@ -202,8 +202,8 @@ var _ = Describe("setNetwork with UnderlayNetwork entries", func() {
 		kvvm.Resource.Spec.Template.Spec.Domain.Devices.HostDevices = []virtv1.HostDevice{
 			{Name: "gpu-dev"},
 		}
-		setNetwork(kvvm, network.InterfaceSpecList{underlaySpec})
-		setNetwork(kvvm, network.InterfaceSpecList{})
+		setNetwork(kvvm, network.InterfaceSpecList{underlaySpec}, nil)
+		setNetwork(kvvm, network.InterfaceSpecList{}, nil)
 
 		templateSpec := kvvm.Resource.Spec.Template.Spec
 		Expect(templateSpec.ResourceClaims).To(HaveLen(1))

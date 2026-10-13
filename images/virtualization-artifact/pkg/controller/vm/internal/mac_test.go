@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -128,6 +129,36 @@ var _ = Describe("MACHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmmacList.Items).To(HaveLen(2))
 		})
+
+		DescribeTable("should create a VMMAC only for a network replacing one still attached",
+			func(additionalNetworks []v1alpha2.NetworksSpec, netAInVMI bool, expectedVMMACs int) {
+				const netAMAC = "aa:bb:cc:dd:ee:ff"
+				vm.Spec.Networks = append([]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, additionalNetworks...)
+				vm.Status.Networks = []v1alpha2.NetworksStatus{
+					{Type: v1alpha2.NetworksTypeMain},
+					{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a", MAC: netAMAC},
+				}
+				kvvmi := newEmptyKVVMI(name, namespace)
+				if netAInVMI {
+					kvvmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{{Name: "veth_n1", MacAddress: netAMAC}}
+				}
+
+				fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, newMACAddress("net-a-mac", netAMAC, v1alpha2.VirtualMachineMACAddressPhaseAttached, name))
+				reconcile()
+
+				vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
+				Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
+				Expect(vmmacList.Items).To(HaveLen(expectedVMMACs))
+			},
+			Entry("a new network while the old one is still attached",
+				[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net-b"}}, true, 2),
+			Entry("a new network once the old one is detached",
+				[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "net-b"}}, false, 1),
+			Entry("a network that stays attached",
+				[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a"}}, true, 1),
+			Entry("a network detached without a replacement", nil, true, 1),
+		)
+
 		Describe("NetworkSpec is nil", func() {
 			It("Condition 'MACAddressReady' should have status 'True'", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm)

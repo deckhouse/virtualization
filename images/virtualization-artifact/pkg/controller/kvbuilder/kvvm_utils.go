@@ -237,7 +237,7 @@ func ApplyVirtualMachineSpec(
 	// alone, never from a key a user put on their own resource.
 	kvvm.SetSpiceDevices(vm)
 	kvvm.SetVideoModel(vm)
-	setNetwork(kvvm, networkSpec)
+	setNetwork(kvvm, networkSpec, kvvmi)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
 	kvvm.SetUSBGatewayNodeSelector(len(vm.Spec.USBDevices) > 0)
@@ -754,7 +754,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 	return nil
 }
 
-func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
+func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, kvvmi *virtv1.VirtualMachineInstance) {
 	// UnderlayNetwork entries are not tap interfaces: the VF enters the domain as a
 	// host device backed by a DRA resource claim, so they are reconciled separately
 	// and excluded from the interface bookkeeping below.
@@ -767,7 +767,7 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 		tapSpec = append(tapSpec, n)
 	}
 	kvvm.SetUnderlayNetworkDevices(underlaySpec)
-	networkSpec = tapSpec
+	networkSpec = withoutNetworksAwaitingDetach(tapSpec, kvvmi)
 
 	desiredByName := make(map[string]struct{}, len(networkSpec))
 	desiredACPIIndexes := make(map[int]struct{}, len(networkSpec))
@@ -790,9 +790,7 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 		// start at all instead of losing one interface. A re-assigned MAC address leaves
 		// exactly such a pair behind - the interface name is derived from the address
 		// while the index belongs to the network, so the very same network comes back
-		// under a new name and the old entry is a stale duplicate of it. Should the
-		// device still be attached to a running domain, virt-launcher unplugs a domain
-		// interface the VMI spec no longer has.
+		// under a new name and the old entry is a stale duplicate of it.
 		if _, reused := desiredACPIIndexes[iface.ACPIIndex]; reused {
 			kvvm.RemoveNetworkInterface(iface.Name)
 			continue
@@ -816,6 +814,20 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	}
 
 	moveDefaultNetworkToFront(kvvm)
+}
+
+// withoutNetworksAwaitingDetach drops the networks whose ACPI index the interface of another network
+// still takes in the VMI: KubeVirt would attach the new interface before detaching the old one, and
+// QEMU refuses two devices with the same index. A dropped network is attached on a later reconcile.
+func withoutNetworksAwaitingDetach(specs network.InterfaceSpecList, kvvmi *virtv1.VirtualMachineInstance) network.InterfaceSpecList {
+	if kvvmi == nil {
+		return specs
+	}
+	return slices.DeleteFunc(specs, func(spec network.InterfaceSpec) bool {
+		return spec.ID != 0 && slices.ContainsFunc(kvvmi.Spec.Domain.Devices.Interfaces, func(iface virtv1.Interface) bool {
+			return iface.ACPIIndex == spec.ID && iface.Name != spec.InterfaceName
+		})
+	})
 }
 
 func moveDefaultNetworkToFront(kvvm *KVVM) {
