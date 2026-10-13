@@ -51,10 +51,12 @@ spec:
 {{- if $clusterNetworkName }}
     - type: ClusterNetwork
       name: {{ $clusterNetworkName }}
+      virtualMachineMACAddressName: {{ include "infra.vmmac-name" (list $name 1) }}
 {{- end }}
 {{- if $clusterNetworkName2 }}
     - type: ClusterNetwork
       name: {{ $clusterNetworkName2 }}
+      virtualMachineMACAddressName: {{ include "infra.vmmac-name" (list $name 2) }}
 {{- end }}
   bootloader: {{ $ctx.Values.image.bootloader }}
   liveMigrationPolicy: PreferForced
@@ -109,4 +111,38 @@ spec:
     {{- end }}
   {{- end }}
 {{- end }}
+{{/*
+The MAC addresses of the additional interfaces are created here with fixed names and
+referenced from the VM spec, so they are attached to the VM from the first reconcile.
+The vmmac controller deletes an unattached MAC address about a second after creation
+(deletion_handler.go), which under load races with the auto-created ones and leaves
+the VM in Pending forever (see Kaiten #71795462). Drop this once the controller is fixed.
+*/}}
+{{- if $clusterNetworkName }}
+{{ include "infra.vmmac" (list $ctx $name 1) }}
+{{- end }}
+{{- if $clusterNetworkName2 }}
+{{ include "infra.vmmac" (list $ctx $name 2) }}
+{{- end }}
+{{- end }}
+
+{{- define "infra.vmmac-name" -}}
+{{- $name := index . 0 -}}
+{{- $idx := index . 1 -}}
+{{ printf "%s-cn%d" $name (int $idx) }}
+{{- end }}
+
+{{- define "infra.vmmac" -}}
+{{- $ctx := index . 0 -}}
+{{- $name := index . 1 -}}
+{{- $idx := index . 2 -}}
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineMACAddress
+metadata:
+  name: {{ include "infra.vmmac-name" (list $name $idx) }}
+  namespace: {{ $ctx.Values.namespace }}
+  labels:
+    {{- include "infra.vm-labels" $name | nindent 4 }}
+spec: {}
 {{- end }}
