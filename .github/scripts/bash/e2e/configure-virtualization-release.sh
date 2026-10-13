@@ -24,6 +24,7 @@ source "${SCRIPT_DIR}/deckhouse.sh"
 
 require_env DEV_REGISTRY_DOCKER_CFG
 require_env CURRENT_RELEASE
+require_env NESTED_STORAGE_CLASS_NAME
 
 required_env_value() {
   local name="$1"
@@ -34,6 +35,7 @@ required_env_value() {
 
 dev_registry_docker_cfg="$(required_env_value DEV_REGISTRY_DOCKER_CFG)"
 current_release="$(required_env_value CURRENT_RELEASE)"
+nested_storage_class_name="$(required_env_value NESTED_STORAGE_CLASS_NAME)"
 
 REGISTRY="$(registry_host_from_docker_cfg "${dev_registry_docker_cfg}")"
 
@@ -66,11 +68,13 @@ metadata:
 spec:
   enabled: true
   settings:
+    audit:
+      enabled: true
     dvcr:
       storage:
         persistentVolumeClaim:
           size: 10Gi
-          storageClassName: nested-thin-r1
+          storageClassName: ${nested_storage_class_name}
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 192.168.10.0/24
@@ -83,7 +87,7 @@ metadata:
   name: virtualization
 spec:
   imageTag: ${current_release}
-  scanInterval: 10h
+  scanInterval: 120h
 EOF
 
 echo "[INFO] Show ModuleSource"

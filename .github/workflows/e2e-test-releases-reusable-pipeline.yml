@@ -539,6 +539,7 @@ jobs:
         env:
           CURRENT_RELEASE: ${{ env.CURRENT_RELEASE }}
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          NESTED_STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
         run: bash "${E2E_SCRIPT_DIR}/configure-virtualization-release.sh"
       - name: Wait for Virtualization to be ready
         run: |
