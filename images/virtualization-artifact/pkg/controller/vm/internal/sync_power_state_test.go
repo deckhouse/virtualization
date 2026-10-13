@@ -72,6 +72,7 @@ var _ = Describe("Test power actions with VMs", func() {
 			Name:      "ns",
 		}
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(client.Object, string, string, string) {},
 			EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
 				return recorderMock
@@ -147,6 +148,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
 
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(client.Object, string, string, string) {},
 			EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
 				return recorderMock

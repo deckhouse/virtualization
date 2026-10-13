@@ -1,4 +1,4 @@
-FROM golang:1.24 AS builder
+FROM golang:1.26 AS builder
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 

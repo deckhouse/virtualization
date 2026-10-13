@@ -1,6 +1,6 @@
 module vlctl
 
-go 1.25.13
+go 1.26.9
 
 require (
 	github.com/spf13/cobra v1.9.1
@@ -24,9 +24,9 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.32.5 // indirect
@@ -80,5 +80,5 @@ replace (
 // CVE Replaces
 replace (
 	github.com/golang/glog => github.com/golang/glog v1.2.4 // CVE-2024-45339
-	golang.org/x/net => golang.org/x/net v0.56.0
+	golang.org/x/net => golang.org/x/net v0.60.0
 )

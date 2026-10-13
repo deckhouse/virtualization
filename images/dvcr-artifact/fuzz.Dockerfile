@@ -1,4 +1,4 @@
-FROM golang:1.24-bookworm
+FROM golang:1.26-bookworm
 
 RUN apt update -y && apt install -y \
   build-essential \

@@ -507,21 +507,21 @@ func (h *SyncPowerStateHandler) recordStartEventf(ctx context.Context, obj clien
 	)
 }
 
-func (h *SyncPowerStateHandler) recordStopEventf(ctx context.Context, obj client.Object, messageFmt string) {
-	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
+func (h *SyncPowerStateHandler) recordStopEventf(ctx context.Context, obj client.Object, message string) {
+	h.recorder.WithLogging(logger.FromContext(ctx)).Event(
 		obj,
 		corev1.EventTypeNormal,
 		v1alpha2.ReasonVMStopped,
-		messageFmt,
+		message,
 	)
 }
 
-func (h *SyncPowerStateHandler) recordRestartEventf(ctx context.Context, obj client.Object, messageFmt string) {
-	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
+func (h *SyncPowerStateHandler) recordRestartEventf(ctx context.Context, obj client.Object, message string) {
+	h.recorder.WithLogging(logger.FromContext(ctx)).Event(
 		obj,
 		corev1.EventTypeNormal,
 		v1alpha2.ReasonVMRestarted,
-		messageFmt,
+		message,
 	)
 }
 

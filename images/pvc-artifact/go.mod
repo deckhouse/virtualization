@@ -1,6 +1,6 @@
 module kubevirt.io/containerized-data-importer
 
-go 1.25.0
+go 1.26.9
 
 require (
 	github.com/containers/image/v5 v5.32.0
@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/client_model v0.6.0
 	github.com/ulikunitz/xz v0.5.15
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.48.0
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v8.0.0+incompatible
@@ -40,7 +40,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
-	github.com/moby/sys/user v0.2.0 // indirect
+	github.com/moby/sys/user v0.4.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/onsi/ginkgo/v2 v2.17.1 // indirect
@@ -56,8 +56,8 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/text v0.39.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

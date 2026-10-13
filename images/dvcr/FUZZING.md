@@ -58,7 +58,7 @@ fuzz image.
 
 The image is built from `dvcr-builder` with `CGO_ENABLED=0`, matching the registry binary, and
 imports no qemu tools — only `dvcr-artifact-fuzz` needs those. `dvcr-builder` stands on
-`builder/golang-debian-1.25` (svace builds swap it for `builder/golang-alt-1.25`), which ships
+`builder/golang-debian-1.26` (svace builds swap it for `builder/golang-alt-1.26`), which ships
 `git` but not `curl`. The install stage adds whatever is missing of `git`, `curl`, `python3`,
 `ca-certificates`, `jq`, `unzip` and `file` through the package manager the base ships (`pm`,
 `apk` or `apt-get`, probed in that order), then the AWS CLI from amazonaws and go-task via

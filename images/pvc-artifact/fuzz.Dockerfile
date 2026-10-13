@@ -22,7 +22,7 @@
 # host has them already (any successful `go build` in this repository fills the cache),
 # nothing has to be fetched through the container, and GOPROXY=off turns a cold cache into
 # an immediate, readable error instead of a download by root into the host cache.
-FROM golang:1.25.12-bookworm
+FROM golang:1.26-bookworm
 
 # go-task: the fuzz:* tasks are written for it, and the external fuzzing platform calls them.
 ARG TASK_VERSION=v3.53.1
@@ -30,7 +30,7 @@ RUN go install github.com/go-task/task/v3/cmd/task@${TASK_VERSION} \
     && go clean -cache -modcache
 
 # GOTOOLCHAIN=local is already the default here and is kept on purpose: go.mod asks for
-# go 1.25.0, which this base satisfies, so a toolchain download is never needed and an
+# go 1.26.9, which this base satisfies, so a toolchain download is never needed and an
 # accidental version bump should fail loudly rather than fetch a toolchain.
 ENV GOTOOLCHAIN=local \
     GOPROXY=off \

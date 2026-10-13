@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization-controller/dvcr-importers
 
-go 1.25.13
+go 1.26.9
 
 require (
 	github.com/containers/image/v5 v5.32.0
@@ -18,8 +18,8 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/sync v0.22.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sync v0.23.0
+	golang.org/x/sys v0.48.0
 	k8s.io/apimachinery v0.30.2
 	k8s.io/klog/v2 v2.120.1
 	kubevirt.io/containerized-data-importer v0.0.0-00010101000000-000000000000
@@ -103,7 +103,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
-	github.com/moby/sys/user v0.2.0 // indirect
+	github.com/moby/sys/user v0.4.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -129,12 +129,12 @@ require (
 	go.opentelemetry.io/otel v1.45.0 // indirect
 	go.opentelemetry.io/otel/metric v1.45.0 // indirect
 	go.opentelemetry.io/otel/trace v1.45.0 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/term v0.45.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/api v0.264.0 // indirect
 	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409 // indirect
@@ -209,6 +209,6 @@ replace (
 // CVE Replaces
 replace (
 	github.com/docker/docker => ./staging/src/github.com/docker/docker // CVE-2026-34040,CVE-2026-33997
-	golang.org/x/net => golang.org/x/net v0.56.0
+	golang.org/x/net => golang.org/x/net v0.60.0
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.34.0
 )
