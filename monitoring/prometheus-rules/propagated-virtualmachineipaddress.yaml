@@ -1,0 +1,35 @@
+# The `propagated-` prefix keeps namespace enforcement off this group: the resources live in
+# user namespaces (see propagated-vm-state.yaml).
+- name: virtualization.virtualmachineipaddress.deprecated
+  rules:
+    - alert: D8VirtualizationDeprecatedVMIPExists
+      # Aggregated to a single cluster-wide signal: the alert is about the deprecated resource,
+      # not about any particular object, so neither the resource labels nor the labels of the
+      # scrape target must become part of its identity.
+      expr: |
+        sum(d8_virtualization_deprecated_vmip_count) > 0
+      labels:
+        severity_level: "9"
+        tier: cluster
+      for: 10m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachineipaddress_deprecated: "D8VirtualizationVirtualMachineIPAddressDeprecated,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachineipaddress_deprecated: "D8VirtualizationVirtualMachineIPAddressDeprecated,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Deprecated VirtualMachineIPAddress resources are still present in the cluster.
+        description: |
+          The cluster still has `{{ $value }}` VirtualMachineIPAddress resources. The resource is deprecated: the address of the Main network of a virtual machine now comes from an IPAddress resource of the sdn module.
+
+          Impact:
+          - The existing resources keep working, and the virtual machines that use them are not affected.
+          - The resource is deprecated: move the virtual machines off it to IPAddress (sdn) before its support is removed.
+
+          The recommended course of action:
+
+          1. List the remaining resources:
+             ```bash
+             d8 k get vmip -A
+             ```
+          2. For each virtual machine that uses a VirtualMachineIPAddress, whether named in `.spec.virtualMachineIPAddressName` or created for it automatically, set `ipAddressName` of the `Main` network to the name of that VirtualMachineIPAddress and remove `.spec.virtualMachineIPAddressName` if it is set: an IPAddress resource with this name and address already exists. Restart the virtual machine; its address stays the same.
+          3. Delete the VirtualMachineIPAddress resources that no virtual machine uses any more.

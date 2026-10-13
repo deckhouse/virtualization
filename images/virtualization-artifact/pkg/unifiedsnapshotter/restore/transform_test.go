@@ -22,6 +22,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -177,5 +180,121 @@ func TestLinkCapturedIPAddress_NoIPAddress(t *testing.T) {
 	}
 	if _, found, _ := unstructured.NestedString(objs[0].Object, "spec", "virtualMachineIPAddressName"); found {
 		t.Error("spec.virtualMachineIPAddressName was set with no VirtualMachineIPAddress captured")
+	}
+}
+
+func mainIPAddressObj(specType string) unstructured.Unstructured {
+	o := obj(sdnapi.IPAddressKind, "vm-main")
+	o.SetAPIVersion(sdnapi.SchemeGroupVersion.String())
+	o.SetLabels(map[string]string{annotations.LabelVirtualMachineUID: "old-vm-uid"})
+	o.Object["spec"] = map[string]interface{}{
+		"type":       specType,
+		"networkRef": map[string]interface{}{"kind": "ClusterNetwork", "name": network.MainClusterNetworkName},
+	}
+	o.Object["status"] = map[string]interface{}{"address": "10.66.10.14"}
+	return o
+}
+
+func compileVMSnapshotWithMainIPAddress(t *testing.T, keep v1alpha2.KeepIPAddress, capturedIPA unstructured.Unstructured) (vm, ipa *unstructured.Unstructured) {
+	t.Helper()
+	manifests := &fakeManifests{byContent: map[string][]unstructured.Unstructured{
+		vmsContent: {obj(v1alpha2.VirtualMachineKind, "vm"), capturedIPA},
+	}}
+	vms := vmSnapshot()
+	vms.Spec.KeepIPAddress = keep
+	objs, err := newCompiler(t, manifests, vms).CompileVirtualMachineSnapshot(context.Background(), testNamespace, "vms")
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	for i := range objs {
+		switch objs[i].GetKind() {
+		case v1alpha2.VirtualMachineKind:
+			vm = &objs[i]
+		case sdnapi.IPAddressKind:
+			ipa = &objs[i]
+		}
+	}
+	if vm == nil || ipa == nil {
+		t.Fatal("compiled output lacks the VirtualMachine or the IPAddress")
+	}
+	return vm, ipa
+}
+
+func TestCompileVirtualMachineSnapshot_PinsTheCapturedMainIPAddress(t *testing.T) {
+	vm, ipa := compileVMSnapshotWithMainIPAddress(t, v1alpha2.KeepIPAddressAlways, mainIPAddressObj("Auto"))
+
+	gotType, _, _ := unstructured.NestedString(ipa.Object, "spec", "type")
+	gotIP, _, _ := unstructured.NestedString(ipa.Object, "spec", "static", "ip")
+	ignoreTTL, _, _ := unstructured.NestedBool(ipa.Object, "spec", "static", "ignoreLeaseTTLOnAllocation")
+	if gotType != sdnapi.IPAddressTypeStatic || gotIP != "10.66.10.14" || !ignoreTTL {
+		t.Errorf("spec = {type: %q, static.ip: %q, ignoreLeaseTTLOnAllocation: %v}, want {Static, 10.66.10.14, true}", gotType, gotIP, ignoreTTL)
+	}
+	if _, found := ipa.GetLabels()[annotations.LabelVirtualMachineUID]; found {
+		t.Error("the label of the snapshotted machine survived into the restore output")
+	}
+
+	networks, _, _ := unstructured.NestedSlice(vm.Object, "spec", "networks")
+	if len(networks) != 1 {
+		t.Fatalf("spec.networks = %v, want the Main network only", networks)
+	}
+	mainNetwork, _ := networks[0].(map[string]interface{})
+	if mainNetwork["type"] != string(v1alpha2.NetworksTypeMain) || mainNetwork["ipAddressName"] != "vm-main" {
+		t.Errorf("spec.networks[0] = %v, want {type: Main, ipAddressName: vm-main}", mainNetwork)
+	}
+}
+
+// Never is applied at capture: whatever IPAddress got into the snapshot is restored
+// with its address.
+func TestCompileVirtualMachineSnapshot_PinsTheCapturedMainIPAddressWithNever(t *testing.T) {
+	_, ipa := compileVMSnapshotWithMainIPAddress(t, v1alpha2.KeepIPAddressNever, mainIPAddressObj("Auto"))
+
+	gotType, _, _ := unstructured.NestedString(ipa.Object, "spec", "type")
+	if gotType != sdnapi.IPAddressTypeStatic {
+		t.Errorf("spec.type = %q, want Static", gotType)
+	}
+}
+
+func TestPinCapturedMainIPAddress_DropsTheMirrorAnnotation(t *testing.T) {
+	ipa := mainIPAddressObj("Static")
+	ipa.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: "vmip-uid"})
+	if err := pinCapturedMainIPAddress(&ipa); err != nil {
+		t.Fatalf("pin: %v", err)
+	}
+	if _, found := ipa.GetAnnotations()[annotations.AnnMirrorOfVMIP]; found {
+		t.Error("the mirror annotation survived into the restore output")
+	}
+}
+
+func TestLinkCapturedMainIPAddress_KeepsOtherNetworks(t *testing.T) {
+	vm := obj(v1alpha2.VirtualMachineKind, "vm")
+	vm.Object["spec"] = map[string]interface{}{"networks": []interface{}{
+		map[string]interface{}{"type": string(v1alpha2.NetworksTypeMain)},
+		map[string]interface{}{"type": string(v1alpha2.NetworksTypeNetwork), "name": "user-net"},
+	}}
+	objs := []unstructured.Unstructured{vm, mainIPAddressObj("Static")}
+	if err := linkCapturedMainIPAddress(objs); err != nil {
+		t.Fatalf("link: %v", err)
+	}
+
+	networks, _, _ := unstructured.NestedSlice(objs[0].Object, "spec", "networks")
+	if len(networks) != 2 {
+		t.Fatalf("spec.networks = %v, want two networks", networks)
+	}
+	if mainNetwork, _ := networks[0].(map[string]interface{}); mainNetwork["ipAddressName"] != "vm-main" {
+		t.Errorf("spec.networks[0] = %v, want ipAddressName vm-main", mainNetwork)
+	}
+}
+
+func TestLinkCapturedMainIPAddress_SkipsWhenVMIPCaptured(t *testing.T) {
+	objs := []unstructured.Unstructured{
+		obj(v1alpha2.VirtualMachineKind, "vm"),
+		vmipObj("vmip", string(v1alpha2.VirtualMachineIPAddressTypeStatic), "10.66.10.14"),
+		mainIPAddressObj("Static"),
+	}
+	if err := linkCapturedMainIPAddress(objs); err != nil {
+		t.Fatalf("link: %v", err)
+	}
+	if _, found, _ := unstructured.NestedSlice(objs[0].Object, "spec", "networks"); found {
+		t.Error("spec.networks was set although a VirtualMachineIPAddress is captured")
 	}
 }

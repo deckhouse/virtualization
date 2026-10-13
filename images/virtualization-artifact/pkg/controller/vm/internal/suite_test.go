@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -115,4 +116,9 @@ func newEmptyPOD(name, vmName string) *corev1.Pod {
 			},
 		},
 	}
+}
+
+func TestMain(m *testing.M) {
+	testutil.EnableSDNFeatureGate()
+	os.Exit(m.Run())
 }

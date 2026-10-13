@@ -26,6 +26,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	vpav1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/component-base/featuregate"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -34,15 +35,17 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 func registerNetworkGVKs(scheme *apiruntime.Scheme) {
 	scheme.AddKnownTypeWithName(commonnetwork.NetworkGVK, &unstructured.Unstructured{})
-	scheme.AddKnownTypeWithName(commonnetwork.ClusterNetworkGVK, &unstructured.Unstructured{})
+	_ = sdnapi.AddToScheme(scheme)
 }
 
 func registerGPUGVKs(scheme *apiruntime.Scheme) {
@@ -128,4 +131,12 @@ func ToContext(ctx context.Context, log *log.Logger) context.Context {
 
 func ContextBackgroundWithNoOpLogger() context.Context {
 	return ToContext(context.Background(), NewNoOpLogger())
+}
+
+// EnableSDNFeatureGate enables the SDN gate process-wide, as the chart does where the
+// sdn module is on.
+func EnableSDNFeatureGate() {
+	if err := featuregates.Default().(featuregate.MutableFeatureGate).Set(string(featuregates.SDN) + "=true"); err != nil {
+		panic(err)
+	}
 }

@@ -17,13 +17,21 @@ limitations under the License.
 package validators_test
 
 import (
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 )
 
 func TestValidators(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Validators")
+}
+
+func TestMain(m *testing.M) {
+	testutil.EnableSDNFeatureGate()
+	os.Exit(m.Run())
 }

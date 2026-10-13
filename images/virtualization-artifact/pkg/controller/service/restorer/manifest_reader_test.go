@@ -33,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	ssstoragev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -614,4 +616,63 @@ var _ = Describe("the unified-content discriminators", func() {
 			Spec: v1alpha2.VirtualDiskSnapshotSpec{Mode: v1alpha2.UnifiedSnapshotterModeImport},
 		}, true),
 	)
+})
+
+var _ = Describe("unifiedManifestReader main IPAddress", func() {
+	mainIPAddress := func(name, address, networkName string) map[string]any {
+		return map[string]any{
+			"apiVersion": sdnapi.SchemeGroupVersion.String(),
+			"kind":       sdnapi.IPAddressKind,
+			"metadata":   map[string]any{"name": name, "namespace": "vms"},
+			"spec": map[string]any{
+				"networkRef": map[string]any{"kind": "ClusterNetwork", "name": networkName},
+				"type":       "Static",
+				"static":     map[string]any{"ip": address},
+			},
+			"status": map[string]any{"address": address},
+		}
+	}
+
+	read := func(ipas ...map[string]any) (*MainIPAddressSnapshot, error) {
+		var manifests []RawManifest
+		for _, ipa := range ipas {
+			manifests = append(manifests, rawManifest(sdnapi.SchemeGroupVersion.String(), sdnapi.IPAddressKind, ipa))
+		}
+		reader := &unifiedManifestReader{client: &fakeManifestDownloader{manifests: manifests}, contentName: "content-1"}
+		return reader.RestoreMainIPAddress(context.Background())
+	}
+
+	It("returns the address of the Main network", func() {
+		got, err := read(mainIPAddress("vm-main-ip", "10.66.10.14", network.MainClusterNetworkName))
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).NotTo(BeNil())
+		Expect(got.Name).To(Equal("vm-main-ip"))
+		Expect(got.Address).To(Equal("10.66.10.14"))
+	})
+
+	It("fails on an IPAddress of the Main network without an address", func() {
+		ipa := mainIPAddress("vm-main-ip", "", network.MainClusterNetworkName)
+		ipa["spec"] = map[string]any{
+			"networkRef": map[string]any{"kind": "ClusterNetwork", "name": network.MainClusterNetworkName},
+			"type":       "Auto",
+		}
+		_, err := read(ipa)
+
+		Expect(err).To(MatchError(ContainSubstring("no allocated address")))
+	})
+
+	It("ignores the addresses of additional networks", func() {
+		got, err := read(mainIPAddress("vm-addnet-ip", "10.66.20.5", "cn-4006"))
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeNil())
+	})
+
+	It("reports nothing when the capture carries no IPAddress at all", func() {
+		got, err := read()
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeNil())
+	})
 })

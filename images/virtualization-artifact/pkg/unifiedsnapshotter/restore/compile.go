@@ -151,6 +151,9 @@ func (c *Compiler) compileNode(ctx context.Context, resource, namespace, name st
 		if err := applyKeepIPAddress(&obj, n.KeepIPAddress); err != nil {
 			return nil, err
 		}
+		if err := pinCapturedMainIPAddress(&obj); err != nil {
+			return nil, err
+		}
 		sanitized := SanitizeForRestore(obj, namespace)
 		if _, err := tr.TransformObject(restoreNode, &sanitized, nil); err != nil {
 			return nil, fmt.Errorf("transform %s %s/%s manifest: %w", resource, namespace, name, err)
@@ -158,6 +161,9 @@ func (c *Compiler) compileNode(ctx context.Context, resource, namespace, name st
 		nodeObjs = append(nodeObjs, sanitized)
 	}
 	if err := linkCapturedIPAddress(nodeObjs); err != nil {
+		return nil, err
+	}
+	if err := linkCapturedMainIPAddress(nodeObjs); err != nil {
 		return nil, err
 	}
 	return append(out, virtualMachineLast(nodeObjs)...), nil

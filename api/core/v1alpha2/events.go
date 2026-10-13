@@ -218,4 +218,12 @@ const (
 	// ReasonCoreFractionScaling is event reason that the effective coreFraction is being
 	// changed to the value desired by the Vertical VirtualMachine Autoscaler.
 	ReasonCoreFractionScaling = "CoreFractionScaling"
+
+	// ReasonMainIPAMMigrated is event reason that the Main network address of the
+	// virtual machine is now managed by the sdn module.
+	ReasonMainIPAMMigrated = "MainIPAMMigrated"
+
+	// ReasonMainIPAMMigrationBlocked is event reason that the virtual machine cannot
+	// move to the sdn module: its address is used by another resource.
+	ReasonMainIPAMMigrationBlocked = "MainIPAMMigrationBlocked"
 )

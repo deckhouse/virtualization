@@ -22,4 +22,5 @@ const (
 	virtualMachineIPAddressKey             = "vmip"
 	virtualMachineMACAddressesKey          = "vmmacs"
 	provisionerKey                         = "provisioner"
+	mainIPAddressKey                       = "main-ipaddress"
 )

@@ -122,6 +122,18 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 		if err != nil {
 			return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
 		}
+		// The owner that takes its address from an IPAddress is not attached to the
+		// vmip: the finalizer of an attached vmip stays, so a deleted one would hang
+		// in Terminating.
+		if attachedVM != nil {
+			usesVMIP, err := network.UsesVMIP(ctx, h.client, attachedVM)
+			if err != nil {
+				return nil, err
+			}
+			if !usesVMIP {
+				return nil, nil
+			}
+		}
 	}
 
 	if attachedVM != nil {

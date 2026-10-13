@@ -17,11 +17,15 @@ limitations under the License.
 package restore
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk/transform"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -124,6 +128,96 @@ func linkCapturedIPAddress(objs []unstructured.Unstructured) error {
 		}
 	}
 	return nil
+}
+
+// pinCapturedMainIPAddress does what MainIPAddressHandler does in the other restore path.
+func pinCapturedMainIPAddress(obj *unstructured.Unstructured) error {
+	ipa := mainIPAddressOf(*obj)
+	if ipa == nil {
+		return nil
+	}
+	address := network.AddressOfIPAddress(ipa)
+	if address == "" {
+		return fmt.Errorf("captured IPAddress %q has an Auto type and no allocated address", obj.GetName())
+	}
+	network.DetachIPAddressFromVM(ipa)
+	ipa.Spec = network.MainStaticIPAddressSpec(address)
+	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ipa)
+	if err != nil {
+		return fmt.Errorf("convert IPAddress %s: %w", obj.GetName(), err)
+	}
+	obj.Object = content
+	return nil
+}
+
+// mainIPAddressOf returns the object as an IPAddress of the Main network, or nil.
+func mainIPAddressOf(obj unstructured.Unstructured) *sdnapi.IPAddress {
+	if obj.GetKind() != sdnapi.IPAddressKind || obj.GetAPIVersion() != sdnapi.SchemeGroupVersion.String() {
+		return nil
+	}
+	ipa := &sdnapi.IPAddress{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, ipa); err != nil {
+		return nil
+	}
+	if !network.IsMainNetworkIPAddress(ipa) {
+		return nil
+	}
+	return ipa
+}
+
+// linkCapturedMainIPAddress links the captured Main IPAddress into the restored
+// VirtualMachine as VirtualMachineHandler does, in place of the vmip it names: the
+// spec takes one of the two.
+func linkCapturedMainIPAddress(objs []unstructured.Unstructured) error {
+	var mainIPAddressName string
+	for i := range objs {
+		if isVirtualMachineIPAddress(objs[i]) {
+			return nil
+		}
+		if mainIPAddressOf(objs[i]) != nil {
+			mainIPAddressName = objs[i].GetName()
+		}
+	}
+	if mainIPAddressName == "" {
+		return nil
+	}
+
+	for i := range objs {
+		if !isVirtualMachine(objs[i]) {
+			continue
+		}
+		vm := &objs[i]
+		networksField, _, err := unstructured.NestedSlice(vm.Object, "spec", "networks")
+		if err != nil {
+			return fmt.Errorf("read VirtualMachine %s spec.networks: %w", vm.GetName(), err)
+		}
+		var networks []v1alpha2.NetworksSpec
+		if err := convertJSON(networksField, &networks); err != nil {
+			return fmt.Errorf("read VirtualMachine %s spec.networks: %w", vm.GetName(), err)
+		}
+		if len(networks) > 0 && network.GetMainNetworkSpec(networks) == nil {
+			// Additional networks only: there is no Main network to link.
+			continue
+		}
+		networks = network.SetMainIPAddressName(networks, mainIPAddressName)
+		var networksWithMainIPAddress []interface{}
+		if err := convertJSON(networks, &networksWithMainIPAddress); err != nil {
+			return fmt.Errorf("set VirtualMachine %s spec.networks: %w", vm.GetName(), err)
+		}
+		if err := unstructured.SetNestedSlice(vm.Object, networksWithMainIPAddress, "spec", "networks"); err != nil {
+			return fmt.Errorf("set VirtualMachine %s spec.networks: %w", vm.GetName(), err)
+		}
+		unstructured.RemoveNestedField(vm.Object, "spec", "virtualMachineIPAddressName")
+	}
+	return nil
+}
+
+func convertJSON(in, out any) error {
+	data, err := json.Marshal(in)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, out)
 }
 
 func isVirtualMachine(obj unstructured.Unstructured) bool {

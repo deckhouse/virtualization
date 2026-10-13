@@ -30,6 +30,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
@@ -205,6 +206,15 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 			if boundCondition.Reason != vmiplcondition.Released.String() {
 				return fmt.Errorf("the VirtualMachineIPAddress cannot be created: the specified IP address %s has already been allocated and has not been released", ipAddress)
 			}
+		} else {
+			ipas, err := network.MainSDNIPAddressesByAddress(ctx, v.client)
+			if err != nil {
+				return fmt.Errorf("failed to find the IPAddress using %s: %w", ipAddress, err)
+			}
+			if ipaName, ok := ipas[ipAddress]; ok {
+				return fmt.Errorf("the VirtualMachineIPAddress cannot be created: the specified IP address %s is used by the IPAddress %s of the sdn module; choose another address or delete that IPAddress", ipAddress, ipaName)
+			}
+			return fmt.Errorf("the VirtualMachineIPAddress cannot be created: the specified IP address %s has already been allocated; choose another address", ipAddress)
 		}
 	}
 

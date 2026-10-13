@@ -29,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -74,6 +76,11 @@ func (r SecretRestorer) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, 
 		return nil, err
 	}
 
+	err = r.setMainIPAddress(ctx, &secret, vm, vmSnapshot.Spec.KeepIPAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	err = r.setVirtualMachineMACAddresses(ctx, &secret, vm)
 	if err != nil {
 		return nil, err
@@ -107,6 +114,10 @@ func (r SecretRestorer) RestoreProvisioner(_ context.Context, secret *corev1.Sec
 
 func (r SecretRestorer) RestoreVirtualMachineIPAddress(_ context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachineIPAddress, error) {
 	return get[*v1alpha2.VirtualMachineIPAddress](secret, virtualMachineIPAddressKey)
+}
+
+func (r SecretRestorer) RestoreMainIPAddress(_ context.Context, secret *corev1.Secret) (*MainIPAddressSnapshot, error) {
+	return get[*MainIPAddressSnapshot](secret, mainIPAddressKey)
 }
 
 func (r SecretRestorer) RestoreVirtualMachineMACAddresses(_ context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineMACAddress, error) {
@@ -178,6 +189,29 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 	}
 
 	secret.Data[virtualMachineBlockDeviceAttachmentKey] = JSON
+	return nil
+}
+
+func (r SecretRestorer) setMainIPAddress(ctx context.Context, secret *corev1.Secret, vm *v1alpha2.VirtualMachine, keepIPAddress v1alpha2.KeepIPAddress) error {
+	mainIPAddressName, mainAddress := network.MainIPAddressToSnapshot(vm)
+	if mainIPAddressName == "" {
+		return nil
+	}
+	ipa, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: mainIPAddressName}, r.client, &sdnapi.IPAddress{})
+	if err != nil {
+		return err
+	}
+	if ipa == nil {
+		return fmt.Errorf("the IPAddress %q of the Main network was not found", mainIPAddressName)
+	}
+	if keepIPAddress == v1alpha2.KeepIPAddressNever && !network.IsStaticOrNamedMainIPAddress(vm, ipa) {
+		return nil
+	}
+	JSON, err := json.Marshal(MainIPAddressSnapshot{Name: mainIPAddressName, Address: mainAddress})
+	if err != nil {
+		return err
+	}
+	secret.Data[mainIPAddressKey] = JSON
 	return nil
 }
 

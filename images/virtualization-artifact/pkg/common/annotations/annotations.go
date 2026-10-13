@@ -321,6 +321,12 @@ const (
 	// with the permission of an administrator.
 	LiveMigratableLabel = "vm." + AnnAPIGroupV + "/live-migratable"
 
+	// AnnMirrorOfVMIP marks the mirror of a VirtualMachineIPAddress with its uid. The
+	// mirror is the IPAddress of the Main network the vmip controller keeps for a vmip,
+	// under the name of the vmip and on its address, so that the sdn module counts the
+	// address as taken. Only such an IPAddress may be deleted by the vmip controller.
+	AnnMirrorOfVMIP = AnnAPIGroupV + "/vmip-uid"
+
 	// AnnNetworksSpec is the annotation for request network configuration into Pod.
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.

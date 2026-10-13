@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
@@ -150,6 +151,7 @@ func InitClients() {
 			clientgoscheme.AddToScheme,
 			dv1alpha1.AddToScheme,
 			dv1alpha2.AddToScheme,
+			sdnapi.AddToScheme,
 		} {
 			if err := f(scheme); err != nil {
 				panic(err)

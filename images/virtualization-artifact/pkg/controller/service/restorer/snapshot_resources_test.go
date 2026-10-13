@@ -30,8 +30,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
+	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -495,6 +498,10 @@ func (f fakeManifestReader) RestoreVirtualMachineIPAddress(context.Context) (*v1
 	return &v1alpha2.VirtualMachineIPAddress{ObjectMeta: metav1.ObjectMeta{Name: "vmip", Namespace: f.namespace}}, nil
 }
 
+func (f fakeManifestReader) RestoreMainIPAddress(context.Context) (*MainIPAddressSnapshot, error) {
+	return nil, nil
+}
+
 func (f fakeManifestReader) RestoreVirtualMachineMACAddresses(context.Context) ([]*v1alpha2.VirtualMachineMACAddress, error) {
 	return nil, nil
 }
@@ -537,5 +544,126 @@ var _ = Describe("preparing a restore from manifests captured in another namespa
 			Expect(obj.GetNamespace()).To(Equal("target-ns"),
 				"%T %q would be created in %q", obj, obj.GetName(), obj.GetNamespace())
 		}
+	})
+})
+
+var _ = Describe("restoring the Main IPAddress of a machine", func() {
+	const address = "10.66.10.14"
+
+	vmTypeMeta := metav1.TypeMeta{Kind: v1alpha2.VirtualMachineKind, APIVersion: v1alpha2.SchemeGroupVersion.String()}
+
+	toJSON := func(v any) []byte {
+		data, err := json.Marshal(v)
+		Expect(err).NotTo(HaveOccurred())
+		return data
+	}
+
+	newMainIPAddress := func(name string, labels, anns map[string]string) *sdnapi.IPAddress {
+		return &sdnapi.IPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Labels: labels, Annotations: anns},
+			Spec: sdnapi.IPAddressSpec{
+				NetworkRef: sdnapi.NetworkRef{Kind: v1alpha2.NetworksTypeClusterNetwork, Name: network.MainClusterNetworkName},
+				Type:       sdnapi.IPAddressTypeStatic,
+				Static:     &sdnapi.StaticIPAddress{IP: address},
+			},
+			Status: sdnapi.IPAddressStatus{Address: address},
+		}
+	}
+
+	prepareRestore := func(secretData map[string][]byte, objs ...client.Object) SnapshotResources {
+		fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
+		Expect(err).NotTo(HaveOccurred())
+		vmSnapshot := &v1alpha2.VirtualMachineSnapshot{
+			ObjectMeta: metav1.ObjectMeta{Name: "snapshot", Namespace: "default"},
+			Spec:       v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm"},
+		}
+		resources := NewSnapshotResources(
+			fakeClient, v1alpha2.VMOPTypeRestore, v1alpha2.SnapshotOperationModeStrict,
+			&secretManifestReader{restorer: NewSecretRestorer(fakeClient), secret: &corev1.Secret{Data: secretData}}, vmSnapshot, "restore-uid",
+		)
+		Expect(resources.Prepare(context.Background())).To(Succeed())
+		return resources
+	}
+
+	DescribeTable("keeps the current IPAddress of the machine that takes the captured address", func(labels, anns map[string]string) {
+		vm := &v1alpha2.VirtualMachine{
+			TypeMeta:   vmTypeMeta,
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default", UID: "vm-uid"},
+			Status: v1alpha2.VirtualMachineStatus{Networks: []v1alpha2.NetworksStatus{
+				{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm-captured", IPAddress: address},
+			}},
+		}
+		resources := prepareRestore(map[string][]byte{
+			virtualMachineKey: toJSON(vm),
+			mainIPAddressKey:  toJSON(MainIPAddressSnapshot{Name: "vm-captured", Address: address}),
+		}, newMainIPAddress("vm-replacement", labels, anns))
+
+		var vmFound, ipaFound bool
+		for _, handler := range resources.GetObjectHandlers() {
+			if restoredVM, ok := handler.Object().(*v1alpha2.VirtualMachine); ok {
+				vmFound = true
+				Expect(restoredVM.Spec.Networks).To(ConsistOf(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm-replacement"}))
+			}
+			if ipaHandler, ok := handler.(*restorer.MainIPAddressHandler); ok {
+				ipaFound = true
+				Expect(ipaHandler.Name()).To(Equal("vm-replacement"))
+				Expect(ipaHandler.ValidateRestore(context.Background())).To(Succeed(), "the machine's own IPAddress is not a conflict")
+			}
+		}
+		Expect(vmFound).To(BeTrue())
+		Expect(ipaFound).To(BeTrue())
+	},
+		Entry("labeled with the machine UID", map[string]string{annotations.LabelVirtualMachineUID: "vm-uid"}, nil),
+		// The restore drops the label on the first pass; the next pass must still see it as the machine's.
+		Entry("already taken over by this restore", nil, map[string]string{annotations.AnnVMOPRestore: "restore-uid"}),
+	)
+
+	It("restores the vmip, not the captured IPAddress, of a VM on a vmip", func() {
+		// An imported snapshot carries the manifests as uploaded: the mirror of the
+		// vmip may come with them.
+		vm := &v1alpha2.VirtualMachine{
+			TypeMeta:   vmTypeMeta,
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default", UID: "vm-uid"},
+			Spec:       v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}},
+			Status:     v1alpha2.VirtualMachineStatus{VirtualMachineIPAddress: "vmip"},
+		}
+		vmip := &v1alpha2.VirtualMachineIPAddress{
+			TypeMeta:   metav1.TypeMeta{Kind: v1alpha2.VirtualMachineIPAddressKind, APIVersion: v1alpha2.SchemeGroupVersion.String()},
+			ObjectMeta: metav1.ObjectMeta{Name: "vmip", Namespace: "default"},
+		}
+		resources := prepareRestore(map[string][]byte{
+			virtualMachineKey:          toJSON(vm),
+			virtualMachineIPAddressKey: toJSON(vmip),
+			mainIPAddressKey:           toJSON(MainIPAddressSnapshot{Name: "vmip", Address: address}),
+		})
+
+		for _, handler := range resources.GetObjectHandlers() {
+			Expect(handler).NotTo(BeAssignableToTypeOf(&restorer.MainIPAddressHandler{}))
+			if restoredVM, ok := handler.Object().(*v1alpha2.VirtualMachine); ok {
+				Expect(restoredVM.Spec.VirtualMachineIPAddress).To(Equal("vmip"))
+				Expect(restoredVM.Spec.Networks).To(ConsistOf(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}))
+			}
+		}
+	})
+
+	It("does not take over a foreign IPAddress when the captured machine has no UID", func() {
+		vm := &v1alpha2.VirtualMachine{
+			TypeMeta:   vmTypeMeta,
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
+		}
+		resources := prepareRestore(map[string][]byte{
+			virtualMachineKey: toJSON(vm),
+			mainIPAddressKey:  toJSON(MainIPAddressSnapshot{Name: "vm-captured", Address: address}),
+		}, newMainIPAddress("someone-else", nil, nil))
+
+		var ipaFound bool
+		for _, handler := range resources.GetObjectHandlers() {
+			if ipaHandler, ok := handler.(*restorer.MainIPAddressHandler); ok {
+				ipaFound = true
+				Expect(ipaHandler.Name()).To(Equal("vm-captured"))
+				Expect(ipaHandler.ValidateRestore(context.Background())).To(MatchError(common.ErrAlreadyInUse))
+			}
+		}
+		Expect(ipaFound).To(BeTrue())
 	})
 })

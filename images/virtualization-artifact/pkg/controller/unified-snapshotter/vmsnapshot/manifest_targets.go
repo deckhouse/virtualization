@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -66,6 +68,14 @@ func (r *Reconciler) planManifestTargets(ctx context.Context, vms *v1alpha2.Virt
 	}
 	if vmipTarget != nil {
 		targets = append(targets, *vmipTarget)
+	}
+
+	mainIPAddressTarget, err := r.planMainIPAddressTarget(ctx, vms, vm)
+	if err != nil {
+		return nil, err
+	}
+	if mainIPAddressTarget != nil {
+		targets = append(targets, *mainIPAddressTarget)
 	}
 
 	macTargets, err := r.planVMMACTargets(ctx, vm)
@@ -119,6 +129,31 @@ func (r *Reconciler) planVMIPTarget(ctx context.Context, vms *v1alpha2.VirtualMa
 		APIVersion: v1alpha2.SchemeGroupVersion.String(),
 		Kind:       v1alpha2.VirtualMachineIPAddressKind,
 		Name:       vmip.Name,
+	}, nil
+}
+
+func (r *Reconciler) planMainIPAddressTarget(ctx context.Context, vms *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) (*snapshotsdk.ManifestTarget, error) {
+	mainIPAddressName, _ := network.MainIPAddressToSnapshot(vm)
+	if mainIPAddressName == "" {
+		return nil, nil
+	}
+
+	ipa := &sdnapi.IPAddress{}
+	if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: mainIPAddressName}, ipa); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, sourceNotReady(sdnapi.IPAddressKind, mainIPAddressName)
+		}
+		return nil, err
+	}
+
+	if vms.Spec.KeepIPAddress == v1alpha2.KeepIPAddressNever && !network.IsStaticOrNamedMainIPAddress(vm, ipa) {
+		return nil, nil
+	}
+
+	return &snapshotsdk.ManifestTarget{
+		APIVersion: sdnapi.SchemeGroupVersion.String(),
+		Kind:       sdnapi.IPAddressKind,
+		Name:       ipa.Name,
 	}, nil
 }
 

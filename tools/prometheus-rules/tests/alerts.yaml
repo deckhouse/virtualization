@@ -528,6 +528,59 @@ tests:
               daemonset: virt-handler
             exp_annotations: *machinesUnmanageableAnnotations
   - interval: 1m
+    name: VMRouteForgeUnavailable fires when the DaemonSet is gone and nobody took the routing over
+    input_series:
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="vm-route-forge"}
+        values: 3 3 3 _x20
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 3+0x20
+      - series: d8_virtualization_sdn_route_forger_supported
+        values: 0+0x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationVMRouteForgeUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity_level: "4"
+              tier: cluster
+              namespace: d8-virtualization
+              daemonset: vm-route-forge
+            exp_annotations:
+              description: "Not a single vm-route-forge Pod is available in the cluster.\n\nImpact:\n- Routes to virtual machines are no longer maintained: newly started and migrated virtual machines are unreachable over the network.\n- Virtual machines that keep running on their current nodes retain the routes already configured for them.\n\nThe recommended course of action:\n1. Check the DaemonSet: `d8 k -n d8-virtualization describe daemonset vm-route-forge`\n2. View the status of the Pods: `d8 k -n d8-virtualization describe pod -l app=vm-route-forge`\n"
+              plk_create_group_if_not_exists__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_grouped_by__d8_virtualization_health: D8VirtualizationHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes
+              plk_markup_format: markdown
+              plk_protocol_version: "1"
+              summary: "Routes to new and migrated virtual machines are not configured: there is no vm-route-forge on any node."
+  - interval: 1m
+    name: VMRouteForgeUnavailable stays silent once the sdn module programs the routes
+    input_series:
+      # The module stops shipping the DaemonSet on purpose after the handover.
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="vm-route-forge"}
+        values: 3 3 3 _x20
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 3+0x20
+      - series: d8_virtualization_sdn_route_forger_supported
+        values: 1+0x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: D8VirtualizationVMRouteForgeUnavailable
+        exp_alerts: []
+  - interval: 1m
+    name: VMRouteForgeUnavailable stays silent while deckhouse restarts after the handover
+    input_series:
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="vm-route-forge"}
+        values: 3 3 3 _x30
+      - series: kube_daemonset_status_number_available{namespace="d8-virtualization", daemonset="virt-handler"}
+        values: 3+0x30
+      # The hook metric is gone for 20 minutes while deckhouse starts.
+      - series: d8_virtualization_sdn_route_forger_supported
+        values: 1+0x10 _x20
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: D8VirtualizationVMRouteForgeUnavailable
+        exp_alerts: []
+  - interval: 1m
     name: a failure of kube-state-metrics wakes nobody
     input_series:
       # No Deployment and no DaemonSet metrics at all: the components may well be healthy,

@@ -20,6 +20,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -35,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -95,6 +97,10 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	kvvmInCluster, builtKVVM, builtKVVMWithMigrationVolumes, kvvmiInCluster, err := s.getMachines(ctx, vmState)
+	if errors.Is(err, network.ErrMainIPAddressNotReady) {
+		log.Debug("The IPAddress of the Main network is not allocated yet, skip volume migration.")
+		return reconcile.Result{RequeueAfter: s.delayDuration}, nil
+	}
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -412,6 +418,9 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 	log := logger.FromContext(ctx).With("func", "VolumesSynced")
 
 	kvvmInCluster, _, builtKVVMWithMigrationVolumes, kvvmiInCluster, err := s.getMachines(ctx, vmState)
+	if errors.Is(err, network.ErrMainIPAddressNotReady) {
+		return false, nil
+	}
 	if err != nil {
 		return false, err
 	}

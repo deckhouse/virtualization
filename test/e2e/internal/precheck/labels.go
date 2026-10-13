@@ -24,6 +24,10 @@ const (
 	// PrecheckSDN - test requires SDN module to be enabled.
 	PrecheckSDN = "sdn-precheck"
 
+	// PrecheckMainIPAM - test requires the sdn module to serve the Main network
+	// (ClusterNetwork "main" of type PrimaryCNI with a configured IP address pool).
+	PrecheckMainIPAM = "main-ipam-precheck"
+
 	// PrecheckVMC - test requires VMC module to be enabled.
 	PrecheckVMC = "vmclass-precheck"
 
@@ -90,6 +94,7 @@ const (
 func KnownPrecheckLabels() []string {
 	return []string{
 		PrecheckSDN,
+		PrecheckMainIPAM,
 		PrecheckVMC,
 		PrecheckSVDM,
 		PrecheckDefaultStorageClass,

@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -60,6 +62,9 @@ func TestCIDRsValidatorValidateUpdate(t *testing.T) {
 func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	if err := sdnapi.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
 
@@ -209,6 +214,56 @@ func TestRemoveCIDRsValidatorValidateUpdate(t *testing.T) {
 			newMC := createMC(t, tt.newCIDRs)
 
 			_, err := validator.ValidateUpdate(context.Background(), oldMC, newMC)
+			if tt.wantErr && err == nil {
+				t.Fatalf("expected error, got none")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRemoveCIDRsValidatorWithSDNIPAddresses(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha2.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	if err := sdnapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	newIPAddress := func(name string, spec sdnapi.IPAddressSpec) *sdnapi.IPAddress {
+		return &sdnapi.IPAddress{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"}, Spec: spec}
+	}
+	otherNetworkSpec := sdnapi.IPAddressSpec{
+		NetworkRef: sdnapi.NetworkRef{Kind: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"},
+		Type:       sdnapi.IPAddressTypeStatic,
+		Static:     &sdnapi.StaticIPAddress{IP: "10.0.0.5"},
+	}
+
+	tests := []struct {
+		name    string
+		ipa     *sdnapi.IPAddress
+		wantErr bool
+	}{
+		{"an IPAddress of the Main network in the removed range", newIPAddress("main-ip", network.MainStaticIPAddressSpec("10.0.0.5")), true},
+		{"an IPAddress of the Main network in the kept range", newIPAddress("main-ip", network.MainStaticIPAddressSpec("10.0.1.5")), false},
+		{"an IPAddress of another network in the removed range", newIPAddress("corp-ip", otherNetworkSpec), false},
+	}
+
+	newMC := func(CIDRs ...any) *mcapi.ModuleConfig {
+		return &mcapi.ModuleConfig{Spec: mcapi.ModuleConfigSpec{Settings: mcapi.SettingsValues{
+			"dvcr":                map[string]any{},
+			"virtualMachineCIDRs": CIDRs,
+		}}}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator := newRemoveCIDRsValidator(fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.ipa).Build())
+
+			_, err := validator.ValidateUpdate(context.Background(), newMC("10.0.0.0/24", "10.0.1.0/24"), newMC("10.0.1.0/24"))
 			if tt.wantErr && err == nil {
 				t.Fatalf("expected error, got none")
 			}

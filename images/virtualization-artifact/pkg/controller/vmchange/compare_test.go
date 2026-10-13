@@ -765,6 +765,26 @@ networks:
 			),
 		},
 		{
+			"restart when main network ipAddressName changes",
+			`
+networks:
+- type: Main
+  id: 1
+  ipAddressName: main-ip-a
+`,
+			`
+networks:
+- type: Main
+  id: 1
+  ipAddressName: main-ip-b
+`,
+			nil,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("networks", ChangeReplace),
+			),
+		},
+		{
 			"restart when main network is removed",
 			`
 networks:

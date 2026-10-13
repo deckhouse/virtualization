@@ -235,7 +235,8 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	// 3. Create or update KVVM.
 	synced, kvvmSyncErr := h.syncKVVM(ctx, s, allChanges)
 	waitForNetwork := errors.Is(kvvmSyncErr, errWaitForNetworkReady)
-	if kvvmSyncErr != nil && !waitForNetwork {
+	waitForMainIPAddress := errors.Is(kvvmSyncErr, network.ErrMainIPAddressNotReady)
+	if kvvmSyncErr != nil && !waitForNetwork && !waitForMainIPAddress {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
 	}
 
@@ -258,6 +259,11 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message("Waiting for SDN to configure network interfaces.")
+	case waitForMainIPAddress:
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message("Waiting for the IPAddress of the Main network to become ready.")
 	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, v1alpha2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
@@ -325,7 +331,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if migrateVolumesErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
 	}
-	if waitForNetwork && result.RequeueAfter == 0 {
+	if (waitForNetwork || waitForMainIPAddress) && result.RequeueAfter == 0 {
 		result.RequeueAfter = 5 * time.Second
 	}
 	return result, errs
@@ -401,6 +407,15 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 		return true, nil
 	case allChanges.IsEmpty():
+		// The spec is unchanged, but the sdn module may have taken over the Main
+		// address since: nothing else would write that into the internal virtual machine.
+		kvvmPatched, err := h.addMainInterfaceSpec(ctx, s, kvvm)
+		if err != nil {
+			return false, fmt.Errorf("sync the Main interface spec: %w", err)
+		}
+		if kvvmPatched {
+			return true, nil
+		}
 		outOfSync, err := h.networksOutOfSync(ctx, s, kvvm)
 		if err != nil {
 			return false, fmt.Errorf("check network sync: %w", err)
@@ -578,19 +593,16 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	}
 	// Render KVVM from the effective coreFraction when the spec value is "Auto".
 	current = resolveCoreFraction(current, class)
-	ip, err := s.IPAddress(ctx)
+
+	usesVMIP, err := s.UsesVMIP(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	ipAddress := ""
-	if ip != nil {
-		if ip.Status.Address == "" {
-			return nil, fmt.Errorf("the IP address is not found for the virtual machine")
-		} else {
-			ipAddress = ip.Status.Address
-		}
+	mainInterfaceSpecEnabled, err := s.MainInterfaceSpecEnabled(ctx)
+	if err != nil {
+		return nil, err
 	}
+	mainInterfaceSpecRequired := network.MainInterfaceSpecRequired(usesVMIP, kvvm)
 
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
 	if err != nil {
@@ -602,9 +614,33 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 	networkSpec := network.CreateNetworkSpec(current, readyNetworks, vmmacs, kvvm != nil)
-	networkSpec, err = network.EnrichWithIPAM(ctx, s.Client(), current.Namespace, current, networkSpec)
+	networkSpec, err = network.ProvisionableInterfaceSpecs(ctx, s.Client(), current, networkSpec, mainInterfaceSpecEnabled)
 	if err != nil {
 		return nil, err
+	}
+
+	// A pod that requires the Main interface spec but gets none would take a random pod
+	// IP from cni-cilium. IPAddressReady holds back only a VM whose address is an
+	// IPAddress, so a vmip-backed one whose template has the spec is held here.
+	if mainInterfaceSpecRequired && networkSpec.HasMain() && networkSpec.MainWithAddress() == nil {
+		return nil, network.ErrMainIPAddressNotReady
+	}
+
+	// cni.cilium.io/ipAddress stays next to the Main interface spec: an older cni-cilium reads only it.
+	ipAddress := ""
+	if usesVMIP {
+		ip, err := s.IPAddress(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if ip != nil {
+			if ip.Status.Address == "" {
+				return nil, fmt.Errorf("the IP address is not found for the virtual machine")
+			}
+			ipAddress = ip.Status.Address
+		}
+	} else if mainSpec := networkSpec.MainWithAddress(); mainSpec != nil {
+		ipAddress = mainSpec.IPAddress
 	}
 
 	kvvmi, err := s.KVVMI(ctx)
@@ -1122,8 +1158,8 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	onlyDefault := hasOnlyDefaultNetwork(vm)
 	implicitDefaultDrift := onlyDefault && !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi)
 
-	// The template and the pod annotation are both built from the very same list, IPAM
-	// enrichment included, so the comparison is made against that list too. Comparing
+	// The template and the pod annotation are both built from the very same list (see
+	// ProvisionableInterfaceSpecs), so the comparison is made against that list too. Comparing
 	// the raw spec instead reports a drift on every reconcile of any virtual machine
 	// with an IPAM pool.
 	desired, err := h.resolvePodNetworks(ctx, s)
@@ -1152,7 +1188,9 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	// A migration target pod is never returned by GetVMPod, so its networks-spec
 	// annotation can stay stale even when the template above is already in sync. The
 	// annotation of a Main-only VM is compared as well: it still has to be emptied
-	// after the last additional interface has been detached.
+	// after the last additional interface has been detached. The comparison uses the
+	// same list that is written to the pod, otherwise the Main interface spec
+	// makes them differ forever.
 	pods, err := s.Pods(ctx)
 	if err != nil {
 		return false, err
@@ -1162,12 +1200,13 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 		if !isActiveLauncherPod(kvvmi, pod) {
 			continue
 		}
-		podConfigStr, leaveAlone, err := desired.annotationFor(ctx, pod)
-		if err != nil {
-			return false, err
-		}
+		podSpecs, leaveAlone := desired.interfaceSpecsFor(ctx, pod)
 		if leaveAlone {
 			continue
+		}
+		podConfigStr, err := podSpecs.ToString()
+		if err != nil {
+			return false, err
 		}
 		if pod.Annotations[annotations.AnnNetworksSpec] != podConfigStr {
 			return true, nil
@@ -1176,6 +1215,8 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 		if err != nil {
 			return false, err
 		}
+		// A pod with the Main interface spec alone must not ask SDN for a veth.
+		tapExpected = tapExpected && podSpecs.HasAdditional()
 		_, tapPresent := pod.Annotations[annotations.AnnTapProvisionByDVPSupported]
 		if tapKnown && tapPresent != tapExpected {
 			return true, nil
@@ -1321,17 +1362,20 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 		if !isActiveLauncherPod(kvvmi, pod) {
 			continue
 		}
-		podConfigStr, leaveAlone, err := desired.annotationFor(ctx, pod)
-		if err != nil {
-			return nil, fmt.Errorf("resolve the network annotation of pod %s: %w", pod.Name, err)
-		}
+		podSpecs, leaveAlone := desired.interfaceSpecsFor(ctx, pod)
 		if leaveAlone {
 			continue
+		}
+		podConfigStr, err := podSpecs.ToString()
+		if err != nil {
+			return nil, fmt.Errorf("build the network annotation of pod %s: %w", pod.Name, err)
 		}
 		tapExpected, tapKnown, err := h.tapProvisionByDVPExpected(ctx, pod)
 		if err != nil {
 			return nil, err
 		}
+		// A pod with the Main interface spec alone must not ask SDN for a veth.
+		tapExpected = tapExpected && podSpecs.HasAdditional()
 		_, tapPresent := pod.Annotations[annotations.AnnTapProvisionByDVPSupported]
 		tapInSync := !tapKnown || tapPresent == tapExpected
 		if pod.Annotations[annotations.AnnNetworksSpec] == podConfigStr && tapInSync {
@@ -1380,7 +1424,7 @@ func (h *SyncKvvmHandler) patchPodNetworkAnnotation(ctx context.Context, s state
 // two disagreed about which interfaces the annotation has to keep.
 type podNetworks struct {
 	// specs is the interface list both the KVVM template and the pod annotation are
-	// built from, IPAM enrichment included.
+	// built from (see ProvisionableInterfaceSpecs).
 	specs network.InterfaceSpecList
 	// awaitingRemoval names the interfaces the internal virtual machine still carries
 	// while specs no longer asks for them, that is step 3 of the handshake above.
@@ -1389,19 +1433,17 @@ type podNetworks struct {
 	additional []string
 }
 
-// annotationFor returns the networks-spec value the given launcher pod must carry.
+// interfaceSpecsFor returns the interface specs the networks-spec annotation of the given
+// launcher pod must carry.
 // leaveAlone reports that the pod must be left untouched altogether: it never carried the
 // annotation and has nothing to advertise, so it is given neither an empty spec nor a tap
 // provisioning mode, matching what the KVVM template builder does for a virtual machine
 // with no additional networks. The drift check and the patch have to agree on this,
 // otherwise the drift is reported on every reconcile while the patch keeps skipping.
-func (n podNetworks) annotationFor(ctx context.Context, pod *corev1.Pod) (value string, leaveAlone bool, err error) {
+func (n podNetworks) interfaceSpecsFor(ctx context.Context, pod *corev1.Pod) (specs network.InterfaceSpecList, leaveAlone bool) {
 	current, annotated := pod.Annotations[annotations.AnnNetworksSpec]
-	value, err = n.retainInterfacesAwaitingRemoval(ctx, current)
-	if err != nil {
-		return "", false, err
-	}
-	return value, !annotated && value == emptyNetworksSpec, nil
+	specs = n.retainInterfacesAwaitingRemoval(ctx, current)
+	return specs, !annotated && len(specs.ForAnnotation()) == 0
 }
 
 // resolvePodNetworks builds the interface list the launcher pods must advertise, along
@@ -1421,10 +1463,15 @@ func (h *SyncKvvmHandler) resolvePodNetworks(ctx context.Context, s state.Virtua
 		return podNetworks{}, err
 	}
 
-	specs := network.CreateNetworkSpec(vm, readyNetworks, vmmacs, kvvm != nil)
-	specs, err = network.EnrichWithIPAM(ctx, s.Client(), vm.Namespace, vm, specs)
+	mainInterfaceSpecEnabled, err := s.MainInterfaceSpecEnabled(ctx)
 	if err != nil {
-		return podNetworks{}, fmt.Errorf("enrich network spec with IPAM: %w", err)
+		return podNetworks{}, err
+	}
+
+	specs := network.CreateNetworkSpec(vm, readyNetworks, vmmacs, kvvm != nil)
+	specs, err = network.ProvisionableInterfaceSpecs(ctx, s.Client(), vm, specs, mainInterfaceSpecEnabled)
+	if err != nil {
+		return podNetworks{}, fmt.Errorf("get the provisionable interface specs: %w", err)
 	}
 
 	var additional []string
@@ -1448,8 +1495,8 @@ func (h *SyncKvvmHandler) resolvePodNetworks(ctx context.Context, s state.Virtua
 // address is gone - setNetwork marks exactly these absent, so all of them are on their
 // way out of the machine and none may leave the pod annotation yet.
 //
-// The desired list must therefore be the very same one the template is built from, IPAM
-// enrichment included (see MakeKVVMFromVMSpec): any other list would make the annotation
+// The desired list must therefore be the very same one the template is built from, that
+// of ProvisionableInterfaceSpecs (see MakeKVVMFromVMSpec): any other list would make the annotation
 // and the unplug request disagree, and the entry would go while the device is still
 // attached.
 func interfacesAwaitingRemoval(kvvm *virtv1.VirtualMachine, desired network.InterfaceSpecList) map[string]struct{} {
@@ -1478,9 +1525,9 @@ func interfacesAwaitingRemoval(kvvm *virtv1.VirtualMachine, desired network.Inte
 // the pod holds now, which is step 4 of the handshake on podNetworks: SDN tears the veth
 // down the moment an entry leaves the annotation, and dropping it before the device has
 // left the domain leaves the guest with an interface whose backing veth is already gone.
-func (n podNetworks) retainInterfacesAwaitingRemoval(ctx context.Context, currentStr string) (string, error) {
+func (n podNetworks) retainInterfacesAwaitingRemoval(ctx context.Context, currentStr string) network.InterfaceSpecList {
 	if len(n.awaitingRemoval) == 0 || currentStr == "" {
-		return n.specs.ToString()
+		return n.specs
 	}
 
 	var current network.InterfaceSpecList
@@ -1490,7 +1537,7 @@ func (n podNetworks) retainInterfacesAwaitingRemoval(ctx context.Context, curren
 		// of an interface still leaving the machine going early.
 		logger.FromContext(ctx).Warn("Cannot parse the current pod network annotation, advertising the desired spec as is",
 			logger.SlogErr(err), "networks", currentStr)
-		return n.specs.ToString()
+		return n.specs
 	}
 
 	kept := make(network.InterfaceSpecList, 0, len(n.specs)+len(current))
@@ -1510,7 +1557,7 @@ func (n podNetworks) retainInterfacesAwaitingRemoval(ctx context.Context, curren
 		kept = append(kept, spec)
 	}
 
-	return kept.ToString()
+	return kept
 }
 
 // tapProvisionByDVPExpected reports whether the launcher pod must carry the
@@ -1663,4 +1710,109 @@ func (h *SyncKvvmHandler) resizingEventReason(kvvmi *virtv1.VirtualMachineInstan
 	default:
 		return ""
 	}
+}
+
+// addMainInterfaceSpec moves a running machine to the sdn module without a restart:
+// the template gets the Main interface spec for the next pod, the instance for a
+// live-migration target, which takes its annotations from the instance. It reports
+// whether the KVVM was patched, so the caller does not write it again from a stale read.
+func (h *SyncKvvmHandler) addMainInterfaceSpec(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) (bool, error) {
+	enabled, err := s.MainInterfaceSpecEnabled(ctx)
+	if err != nil || !enabled {
+		return false, err
+	}
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return false, err
+	}
+	templateLacksSpec := !network.KVVMHasMainInterfaceSpec(kvvm)
+	instanceLacksSpec := kvvmi != nil && !network.HasMainInterfaceSpec(kvvmi.Annotations)
+	if !templateLacksSpec && !instanceLacksSpec {
+		return false, nil
+	}
+
+	specs, err := h.mainInterfaceSpecsToAdd(ctx, s)
+	if err != nil || specs == nil {
+		return false, err
+	}
+	annotationsToSet, annotationsToRemove, err := specs.BuildNetworksAnnotations()
+	if err != nil {
+		return false, err
+	}
+
+	if templateLacksSpec {
+		if err := h.addMainInterfaceSpecToTemplate(ctx, s, kvvm, annotationsToSet, annotationsToRemove); err != nil {
+			return false, err
+		}
+	}
+	// A pod on another address is left alone: a live-migration target created from it
+	// would move to the new address while the guest answers on the old one.
+	running := s.VirtualMachine().Current().Status.IPAddress
+	if instanceLacksSpec && (running == "" || running == specs.MainWithAddress().IPAddress) {
+		if err := h.addMainInterfaceSpecToInstance(ctx, kvvmi, annotationsToSet, annotationsToRemove); err != nil {
+			return templateLacksSpec, err
+		}
+	}
+	return templateLacksSpec, nil
+}
+
+// mainInterfaceSpecsToAdd returns nil until the Main IPAddress is labelled and
+// allocated: its watch brings the machine back. A machine on a vmip moves only onto
+// the mirror of the address it runs on.
+func (h *SyncKvvmHandler) mainInterfaceSpecsToAdd(ctx context.Context, s state.VirtualMachineState) (network.InterfaceSpecList, error) {
+	desired, err := h.resolvePodNetworks(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	mainSpec := desired.specs.MainWithAddress()
+	if mainSpec == nil {
+		return nil, nil
+	}
+	usesVMIP, err := s.UsesVMIP(ctx)
+	if err != nil || !usesVMIP {
+		return desired.specs, err
+	}
+	vmip, err := s.IPAddress(ctx)
+	if err != nil || vmip == nil || vmip.Status.Address != mainSpec.IPAddress {
+		return nil, err
+	}
+	return desired.specs, nil
+}
+
+// addMainInterfaceSpecToTemplate keeps cni.cilium.io/ipAddress: a node whose
+// cni-cilium predates the Main interface spec keeps serving the address from it.
+func (h *SyncKvvmHandler) addMainInterfaceSpecToTemplate(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, annotationsToSet map[string]string, annotationsToRemove []string) error {
+	kvvmWithSpec := kvvm.DeepCopy()
+	kvvmWithSpec.Spec.Template.ObjectMeta.Annotations = updateAnnotations(kvvmWithSpec.Spec.Template.ObjectMeta.Annotations, annotationsToSet, annotationsToRemove)
+	if err := h.client.Patch(ctx, kvvmWithSpec, client.MergeFrom(kvvm)); err != nil {
+		return fmt.Errorf("write the Main interface spec into the internal virtual machine: %w", err)
+	}
+
+	vm := s.VirtualMachine().Current()
+	msg := "The Main network address management has been migrated to the sdn module; the running pod is not affected."
+	logger.FromContext(ctx).Info(msg, "vm", vm.Name)
+	h.recorder.Event(vm, corev1.EventTypeNormal, v1alpha2.ReasonMainIPAMMigrated, msg)
+	return nil
+}
+
+func (h *SyncKvvmHandler) addMainInterfaceSpecToInstance(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, annotationsToSet map[string]string, annotationsToRemove []string) error {
+	kvvmiWithSpec := kvvmi.DeepCopy()
+	kvvmiWithSpec.SetAnnotations(updateAnnotations(kvvmiWithSpec.GetAnnotations(), annotationsToSet, annotationsToRemove))
+	if err := h.client.Patch(ctx, kvvmiWithSpec, client.MergeFrom(kvvmi)); err != nil {
+		return fmt.Errorf("write the Main interface spec into the internal virtual machine instance: %w", err)
+	}
+	return nil
+}
+
+func updateAnnotations(anno, annotationsToSet map[string]string, annotationsToRemove []string) map[string]string {
+	if anno == nil {
+		anno = map[string]string{}
+	}
+	for k, v := range annotationsToSet {
+		anno[k] = v
+	}
+	for _, k := range annotationsToRemove {
+		delete(anno, k)
+	}
+	return anno
 }

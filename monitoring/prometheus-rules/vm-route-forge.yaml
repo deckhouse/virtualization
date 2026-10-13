@@ -8,6 +8,7 @@
       # The absent() branch only counts when the object existed at some point during the
       # last week: during the very first installation the components created by
       # virt-operator do not exist yet, and a slow rollout must not page anybody.
+      # The metric of check-sdn-route-forger: after the handover to sdn the DaemonSet is removed on purpose.
       expr: |
         (
           max by (namespace, daemonset) (
@@ -22,6 +23,8 @@
         )
         unless on()
         absent(kube_daemonset_status_number_available{namespace="d8-virtualization"})
+        unless on()
+        (max(max_over_time(d8_virtualization_sdn_route_forger_supported[30m])) == 1)
       for: 10m
       labels:
         severity_level: "4"

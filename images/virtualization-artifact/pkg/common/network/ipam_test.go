@@ -24,10 +24,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -54,43 +56,51 @@ func newNetworkObj(kind, name, namespace string, withPool bool) *unstructured.Un
 	return u
 }
 
-func newIPAMFakeClient(objs ...client.Object) client.Client {
+func newIPAMScheme() *apiruntime.Scheme {
 	scheme := apiruntime.NewScheme()
 	_ = v1alpha2.AddToScheme(scheme)
-	scheme.AddKnownTypeWithName(ClusterNetworkGVK, &unstructured.Unstructured{})
+	_ = virtv1.AddToScheme(scheme)
 	scheme.AddKnownTypeWithName(NetworkGVK, &unstructured.Unstructured{})
-	scheme.AddKnownTypeWithName(IPAddressGVK, &unstructured.Unstructured{})
-	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: IPAddressGVK.Group, Version: IPAddressGVK.Version, Kind: "IPAddressList"}, &unstructured.UnstructuredList{})
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+	_ = sdnapi.AddToScheme(scheme)
+	return scheme
 }
 
-// newSDNIPAddressObj creates an SDN IPAddress unstructured with the given name,
-// namespace, VM UID label, networkRef, and allocated status.
-func newSDNIPAddressObj(name, vmUID, networkKind, networkName, address string, allocated bool) *unstructured.Unstructured {
-	u := &unstructured.Unstructured{}
-	u.SetGroupVersionKind(IPAddressGVK)
-	u.SetName(name)
-	u.SetNamespace("ns")
-	u.SetLabels(map[string]string{"virtualization.deckhouse.io/virtual-machine-uid": vmUID})
-	_ = unstructured.SetNestedField(u.Object, map[string]any{"kind": networkKind, "name": networkName}, "spec", "networkRef")
-	_ = unstructured.SetNestedField(u.Object, "Auto", "spec", "type")
-	if address != "" {
-		_ = unstructured.SetNestedField(u.Object, address, "status", "address")
-	}
-	status := "False"
+func newIPAMFakeClient(objs ...client.Object) client.Client {
+	return fake.NewClientBuilder().WithScheme(newIPAMScheme()).WithObjects(objs...).Build()
+}
+
+// newSDNIPAddressObj creates an SDN IPAddress with the given name, VM UID label,
+// networkRef and allocated status.
+func newSDNIPAddressObj(name, vmUID, networkKind, networkName, address string, allocated bool) *sdnapi.IPAddress {
+	condStatus := metav1.ConditionFalse
+	phase := sdnapi.PhasePending
 	if allocated {
-		status = "True"
-		_ = unstructured.SetNestedField(u.Object, SDNIPAddressPhaseAllocated, "status", "phase")
-	} else {
-		_ = unstructured.SetNestedField(u.Object, SDNIPAddressPhasePending, "status", "phase")
+		condStatus = metav1.ConditionTrue
+		phase = sdnapi.PhaseAllocated
 	}
-	_ = unstructured.SetNestedSlice(u.Object, []any{
-		map[string]any{"type": "Allocated", "status": status, "reason": "IPAddressAllocated"},
-	}, "status", "conditions")
-	return u
+	return &sdnapi.IPAddress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "ns",
+			Labels:    map[string]string{annotations.LabelVirtualMachineUID: vmUID},
+		},
+		Spec: sdnapi.IPAddressSpec{
+			NetworkRef: sdnapi.NetworkRef{Kind: networkKind, Name: networkName},
+			Type:       sdnapi.IPAddressTypeAuto,
+		},
+		Status: sdnapi.IPAddressStatus{
+			Address: address,
+			Phase:   phase,
+			Conditions: []metav1.Condition{{
+				Type:   sdnapi.ConditionAllocated,
+				Status: condStatus,
+				Reason: "IPAddressAllocated",
+			}},
+		},
+	}
 }
 
-var _ = Describe("EnrichWithIPAM", func() {
+var _ = Describe("ProvisionableInterfaceSpecs", func() {
 	var ctx context.Context
 
 	BeforeEach(func() {
@@ -100,7 +110,7 @@ var _ = Describe("EnrichWithIPAM", func() {
 	It("sets ipAssignmentMode=DHCP for additional networks with a pool (auto)", func() {
 		ipAddr := newSDNIPAddressObj("vm-01-corp-auto", "vm-uid", "ClusterNetwork", "corp-net", "192.168.200.4", true)
 		cl := newIPAMFakeClient(newNetworkObj("ClusterNetwork", "corp-net", "", true), ipAddr)
-		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid"}, Spec: v1alpha2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", UID: "vm-uid"}, Spec: v1alpha2.VirtualMachineSpec{
 			Networks: []v1alpha2.NetworksSpec{
 				{Type: v1alpha2.NetworksTypeMain},
 				{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"},
@@ -111,11 +121,11 @@ var _ = Describe("EnrichWithIPAM", func() {
 			{ID: 2, Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net", InterfaceName: "veth_cn1"},
 		}
 
-		out, err := EnrichWithIPAM(ctx, cl, "ns", vm, specs)
+		out, err := ProvisionableInterfaceSpecs(ctx, cl, vm, specs, false)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).To(HaveLen(2))
-		Expect(out[0].IPAssignmentMode).To(BeEmpty(), "Main is never enriched")
+		Expect(out[0].IPAssignmentMode).To(BeEmpty(), "Main never gets an ipAssignmentMode")
 		Expect(out[1].IPAssignmentMode).To(Equal(IPAssignmentModeDHCP))
 		Expect(out[1].IPAddressNames).To(Equal([]string{"vm-01-corp-auto"}))
 	})
@@ -131,7 +141,7 @@ var _ = Describe("EnrichWithIPAM", func() {
 			{ID: 2, Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net", InterfaceName: "veth_cn1"},
 		}
 
-		out, err := EnrichWithIPAM(ctx, cl, "ns", vm, specs)
+		out, err := ProvisionableInterfaceSpecs(ctx, cl, vm, specs, false)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out[0].IPAssignmentMode).To(BeEmpty())
@@ -140,7 +150,7 @@ var _ = Describe("EnrichWithIPAM", func() {
 	It("preserves ipAddressNames for static mode when IPAddress exists", func() {
 		ipAddr := newSDNIPAddressObj("my-ip", "", "Network", "user-net", "192.168.201.10", true)
 		cl := newIPAMFakeClient(newNetworkObj("Network", "user-net", "ns", true), ipAddr)
-		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid"}, Spec: v1alpha2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", UID: "vm-uid"}, Spec: v1alpha2.VirtualMachineSpec{
 			Networks: []v1alpha2.NetworksSpec{
 				{Type: v1alpha2.NetworksTypeNetwork, Name: "user-net", IPAddressName: "my-ip"},
 			},
@@ -149,7 +159,7 @@ var _ = Describe("EnrichWithIPAM", func() {
 			{ID: 2, Type: v1alpha2.NetworksTypeNetwork, Name: "user-net", InterfaceName: "veth_n1", IPAddressNames: []string{"my-ip"}},
 		}
 
-		out, err := EnrichWithIPAM(ctx, cl, "ns", vm, specs)
+		out, err := ProvisionableInterfaceSpecs(ctx, cl, vm, specs, false)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out[0].IPAssignmentMode).To(Equal(IPAssignmentModeDHCP))
@@ -235,9 +245,9 @@ var _ = Describe("WillProvisionInterface", func() {
 
 	It("returns true for L2-only network without ipAddressName", func() {
 		cl := newIPAMFakeClient(newNetworkObj("ClusterNetwork", "corp-net", "", false))
-		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid"}}
+		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", UID: "vm-uid"}}
 
-		ok, err := WillProvisionInterface(ctx, cl, "ns", vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"})
+		ok, err := WillProvisionInterface(ctx, cl, vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
@@ -245,9 +255,9 @@ var _ = Describe("WillProvisionInterface", func() {
 
 	It("returns false for network without pool when ipAddressName is set (config error)", func() {
 		cl := newIPAMFakeClient(newNetworkObj("ClusterNetwork", "corp-net", "", false))
-		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid"}}
+		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", UID: "vm-uid"}}
 
-		ok, err := WillProvisionInterface(ctx, cl, "ns", vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net", IPAddressName: "my-ip"})
+		ok, err := WillProvisionInterface(ctx, cl, vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net", IPAddressName: "my-ip"})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())
@@ -256,9 +266,9 @@ var _ = Describe("WillProvisionInterface", func() {
 	It("returns true for static mode when IPAddress exists", func() {
 		ipAddr := newSDNIPAddressObj("my-ip", "", "Network", "user-net", "192.168.201.10", true)
 		cl := newIPAMFakeClient(newNetworkObj("Network", "user-net", "ns", true), ipAddr)
-		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid"}}
+		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", UID: "vm-uid"}}
 
-		ok, err := WillProvisionInterface(ctx, cl, "ns", vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "user-net", IPAddressName: "my-ip"})
+		ok, err := WillProvisionInterface(ctx, cl, vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "user-net", IPAddressName: "my-ip"})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
@@ -266,9 +276,9 @@ var _ = Describe("WillProvisionInterface", func() {
 
 	It("returns false for static mode when IPAddress does not exist", func() {
 		cl := newIPAMFakeClient(newNetworkObj("Network", "user-net", "ns", true))
-		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid"}}
+		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", UID: "vm-uid"}}
 
-		ok, err := WillProvisionInterface(ctx, cl, "ns", vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "user-net", IPAddressName: "missing"})
+		ok, err := WillProvisionInterface(ctx, cl, vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeNetwork, Name: "user-net", IPAddressName: "missing"})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())
@@ -279,7 +289,7 @@ var _ = Describe("WillProvisionInterface", func() {
 		cl := newIPAMFakeClient(newNetworkObj("ClusterNetwork", "corp-net", "", true), ipAddr)
 		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid", Name: "vm"}}
 
-		ok, err := WillProvisionInterface(ctx, cl, "ns", vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"})
+		ok, err := WillProvisionInterface(ctx, cl, vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
@@ -290,7 +300,7 @@ var _ = Describe("WillProvisionInterface", func() {
 		cl := newIPAMFakeClient(newNetworkObj("ClusterNetwork", "corp-net", "", true), ipAddr)
 		vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{UID: "vm-uid", Name: "vm"}}
 
-		ok, err := WillProvisionInterface(ctx, cl, "ns", vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"})
+		ok, err := WillProvisionInterface(ctx, cl, vm, v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"})
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())

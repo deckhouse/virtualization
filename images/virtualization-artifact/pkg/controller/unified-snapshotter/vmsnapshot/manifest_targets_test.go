@@ -32,6 +32,7 @@ import (
 	storagev1alpha1 "github.com/deckhouse/state-snapshotter/api/storage/v1alpha1"
 	snapshotterv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
 	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -47,6 +48,7 @@ func newTestScheme(t *testing.T) *apiruntime.Scheme {
 		snapshotterv1alpha1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		foundationv1alpha1.AddToScheme,
+		sdnapi.AddToScheme,
 	} {
 		if err := f(scheme); err != nil {
 			t.Fatal(err)
@@ -142,6 +144,64 @@ func TestPlanVMIPTargetNotFound(t *testing.T) {
 	_, err := r.planVMIPTarget(context.Background(), vms, vm)
 	if !errors.Is(err, errSourceNotReady) {
 		t.Fatalf("expected errSourceNotReady, got %v", err)
+	}
+}
+
+func TestPlanMainIPAddressTarget(t *testing.T) {
+	cases := []struct {
+		name               string
+		keep               v1alpha2.KeepIPAddress
+		ipaType            string
+		namedInSpec        bool
+		usesVMIP           bool
+		mainNetworkRemoved bool
+		wantIncluded       bool
+	}{
+		{name: "always+auto", keep: v1alpha2.KeepIPAddressAlways, ipaType: sdnapi.IPAddressTypeAuto, wantIncluded: true},
+		{name: "never+static", keep: v1alpha2.KeepIPAddressNever, ipaType: sdnapi.IPAddressTypeStatic, wantIncluded: true},
+		{name: "never+namedAuto", keep: v1alpha2.KeepIPAddressNever, ipaType: sdnapi.IPAddressTypeAuto, namedInSpec: true, wantIncluded: true},
+		{name: "never+anonymousAuto", keep: v1alpha2.KeepIPAddressNever, ipaType: sdnapi.IPAddressTypeAuto},
+		// The vmip is captured instead.
+		{name: "always+usesVMIP", keep: v1alpha2.KeepIPAddressAlways, ipaType: sdnapi.IPAddressTypeStatic, usesVMIP: true},
+		// Nothing would refer to the address.
+		{name: "always+mainNetworkRemoved", keep: v1alpha2.KeepIPAddressAlways, ipaType: sdnapi.IPAddressTypeAuto, mainNetworkRemoved: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ipa := &sdnapi.IPAddress{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm1-main", Namespace: testNamespace},
+				Spec:       sdnapi.IPAddressSpec{Type: tc.ipaType},
+			}
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace},
+				Status: v1alpha2.VirtualMachineStatus{
+					Networks: []v1alpha2.NetworksStatus{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm1-main", IPAddress: "10.66.10.14"}},
+				},
+			}
+			if tc.namedInSpec {
+				vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm1-main"}}
+			}
+			if tc.usesVMIP {
+				vm.Status.VirtualMachineIPAddress = "vmip1"
+			}
+			if tc.mainNetworkRemoved {
+				vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"}}
+			}
+			vms := &v1alpha2.VirtualMachineSnapshot{Spec: v1alpha2.VirtualMachineSnapshotSpec{KeepIPAddress: tc.keep}}
+			r := newTestReconciler(t, ipa)
+
+			target, err := r.planMainIPAddressTarget(context.Background(), vms, vm)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantIncluded && (target == nil || target.Kind != sdnapi.IPAddressKind || target.Name != "vm1-main") {
+				t.Fatalf("expected the IPAddress target, got %+v", target)
+			}
+			if !tc.wantIncluded && target != nil {
+				t.Fatalf("expected no IPAddress target, got %+v", target)
+			}
+		})
 	}
 }
 

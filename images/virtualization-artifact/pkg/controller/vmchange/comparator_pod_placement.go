@@ -94,7 +94,7 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 	action := ActionRestart
 	if isOnlyNetworkIDAutofillChange(current.Networks, desired.Networks) {
 		action = ActionNone
-	} else if isOnlyNonMainNetworksChanged(current.Networks, desired.Networks) &&
+	} else if isMainNetworkUnchanged(current.Networks, desired.Networks) &&
 		!isUnderlayNetworksChanged(current.Networks, desired.Networks) {
 		action = ActionApplyImmediate
 	}
@@ -108,11 +108,20 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 	)
 }
 
-// isOnlyNonMainNetworksChanged returns true when the Main network is unchanged
-// between current and desired (so only non-Main networks differ).
-// Empty networks list is equivalent to having an implicit default Main.
-func isOnlyNonMainNetworksChanged(current, desired []v1alpha2.NetworksSpec) bool {
-	return hasMainNetwork(current) == hasMainNetwork(desired)
+// isMainNetworkUnchanged compares ipAddressName too: it is the address of the primary
+// interface, which cannot change on the fly.
+func isMainNetworkUnchanged(current, desired []v1alpha2.NetworksSpec) bool {
+	if hasMainNetwork(current) != hasMainNetwork(desired) {
+		return false
+	}
+	return mainIPAddressName(current) == mainIPAddressName(desired)
+}
+
+func mainIPAddressName(networks []v1alpha2.NetworksSpec) string {
+	if main := network.GetMainNetworkSpec(networks); main != nil {
+		return main.IPAddressName
+	}
+	return ""
 }
 
 func hasMainNetwork(networks []v1alpha2.NetworksSpec) bool {

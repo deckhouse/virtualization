@@ -18,10 +18,14 @@ spec:
       - vmip
   versions:
     - name: v1alpha2
+      deprecated: true
+      deprecationWarning: "VirtualMachineIPAddress is deprecated. Where the sdn module serves the Main network, leave virtualMachineIPAddressName unset or reference an IPAddress (network.deckhouse.io) in spec.networks[].ipAddressName of the Main network."
       schema:
         openAPIV3Schema:
           description: |
             Defines the IP address for a virtual machine.
+
+            The resource is deprecated. Where the sdn module serves the Main network, a virtual machine gets its address from an `IPAddress` (`network.deckhouse.io`) instead.
           properties:
             apiVersion:
               type: string

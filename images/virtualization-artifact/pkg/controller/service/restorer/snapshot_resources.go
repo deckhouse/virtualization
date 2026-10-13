@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
@@ -53,14 +54,16 @@ type SnapshotResourceStatus struct {
 }
 
 type SnapshotResources struct {
-	uuid           string
-	client         client.Client
-	manifestReader ManifestReader
-	vmSnapshot     *v1alpha2.VirtualMachineSnapshot
-	objectHandlers []ObjectHandler
-	statuses       []v1alpha2.SnapshotResourceStatus
-	mode           v1alpha2.SnapshotOperationMode
-	kind           v1alpha2.VMOPType
+	uuid                 string
+	client               client.Client
+	manifestReader       ManifestReader
+	vmSnapshot           *v1alpha2.VirtualMachineSnapshot
+	objectHandlers       []ObjectHandler
+	vmHandler            *restorer.VirtualMachineHandler
+	mainIPAddressHandler *restorer.MainIPAddressHandler
+	statuses             []v1alpha2.SnapshotResourceStatus
+	mode                 v1alpha2.SnapshotOperationMode
+	kind                 v1alpha2.VMOPType
 }
 
 func NewSnapshotResources(client client.Client, kind v1alpha2.VMOPType, mode v1alpha2.SnapshotOperationMode, manifestReader ManifestReader, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
@@ -90,10 +93,9 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		return err
 	}
 
-	if vmip != nil && r.kind == v1alpha2.VMOPTypeRestore {
-		vm.Spec.VirtualMachineIPAddress = vmip.Name
-	} else {
-		vm.Spec.VirtualMachineIPAddress = ""
+	mainIPAddressHandler, err := r.restoreMainAddress(ctx, vm, vmip)
+	if err != nil {
+		return err
 	}
 
 	vmmacs, err := r.manifestReader.RestoreVirtualMachineMACAddresses(ctx)
@@ -159,6 +161,11 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineIPAddressHandler(r.client, vmip, r.uuid))
 	}
 
+	if mainIPAddressHandler != nil {
+		r.mainIPAddressHandler = mainIPAddressHandler
+		r.objectHandlers = append(r.objectHandlers, mainIPAddressHandler)
+	}
+
 	for _, vd := range vds {
 		r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualDiskHandler(r.client, *vd, r.uuid))
 	}
@@ -171,7 +178,8 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(r.client, *provisioner, r.uuid))
 	}
 
-	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, r.uuid, r.mode))
+	r.vmHandler = restorer.NewVirtualMachineHandler(r.client, *vm, r.uuid, r.mode)
+	r.objectHandlers = append(r.objectHandlers, r.vmHandler)
 
 	return nil
 }
@@ -213,15 +221,100 @@ func (r *SnapshotResources) assertConfinedToSnapshotNamespace(obj client.Object)
 	)
 }
 
+// restoreMainAddress points the restored VM at the source of its Main network
+// address and returns the handler that restores the IPAddress when that is the source:
+//   - a clone gets a new address, from neither the vmip nor the IPAddress of the original;
+//   - a VM that ran on an IPAddress gets it back (see mainIPAddressName);
+//   - a VM that names an IPAddress in its spec keeps the name: it is the newer choice
+//     than a vmip its status still reports while the vmip exists;
+//   - a VM that ran on a vmip gets the vmip back.
+func (r *SnapshotResources) restoreMainAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, vmip *v1alpha2.VirtualMachineIPAddress) (*restorer.MainIPAddressHandler, error) {
+	vm.Spec.VirtualMachineIPAddress = ""
+	if r.kind != v1alpha2.VMOPTypeRestore {
+		vm.Spec.Networks = network.SetMainIPAddressName(vm.Spec.Networks, "")
+		return nil, nil
+	}
+
+	// A VM on a vmip gets the vmip back, not its mirror: an imported snapshot may
+	// carry both.
+	var capturedMainIPAddress *MainIPAddressSnapshot
+	if vm.Status.VirtualMachineIPAddress == "" {
+		var err error
+		capturedMainIPAddress, err = r.manifestReader.RestoreMainIPAddress(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if capturedMainIPAddress != nil {
+		vmUIDs, err := r.vmUIDs(ctx, vm)
+		if err != nil {
+			return nil, err
+		}
+		ipaName, err := r.mainIPAddressName(ctx, capturedMainIPAddress, vmUIDs)
+		if err != nil {
+			return nil, err
+		}
+		vm.Spec.Networks = network.SetMainIPAddressName(vm.Spec.Networks, ipaName)
+		return restorer.NewMainIPAddressHandler(r.client, ipaName, r.vmSnapshot.Namespace, capturedMainIPAddress.Address, vmUIDs, r.uuid), nil
+	}
+
+	mainSpec := network.GetMainNetworkSpec(vm.Spec.Networks)
+	if vmip != nil && (mainSpec == nil || mainSpec.IPAddressName == "") {
+		vm.Spec.VirtualMachineIPAddress = vmip.Name
+	}
+	return nil, nil
+}
+
+// mainIPAddressName returns the name of the IPAddress the restored VM gets: the
+// captured one, or the IPAddress of the VM that takes the address now, e.g. one made
+// after the captured one was deleted, or one this restore has already taken over.
+func (r *SnapshotResources) mainIPAddressName(ctx context.Context, capturedMainIPAddress *MainIPAddressSnapshot, vmUIDs []string) (string, error) {
+	ipaTakingAddress, err := restorer.GetMainIPAddressTakingAddress(ctx, r.client, r.vmSnapshot.Namespace, capturedMainIPAddress.Address)
+	if err != nil {
+		return "", err
+	}
+	if ipaTakingAddress != nil && restorer.IsIPAddressOfRestoredVM(ipaTakingAddress, vmUIDs, r.uuid) {
+		return ipaTakingAddress.GetName(), nil
+	}
+	return capturedMainIPAddress.Name, nil
+}
+
+// vmUIDs returns the captured and the live UID of the VM: it may have been recreated
+// since the snapshot.
+func (r *SnapshotResources) vmUIDs(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]string, error) {
+	var uids []string
+	if vm.GetUID() != "" {
+		uids = append(uids, string(vm.GetUID()))
+	}
+	liveVM, err := object.FetchObject(ctx, types.NamespacedName{Namespace: r.vmSnapshot.Namespace, Name: vm.Name}, r.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return nil, err
+	}
+	if liveVM != nil {
+		uids = append(uids, string(liveVM.GetUID()))
+	}
+	return uids, nil
+}
+
 func (r *SnapshotResources) Override(rules []v1alpha2.NameReplacement) {
 	for _, ov := range r.objectHandlers {
 		ov.Override(rules)
 	}
+	r.updateMainIPAddressName()
 }
 
 func (r *SnapshotResources) Customize(prefix, suffix string) {
 	for _, ov := range r.objectHandlers {
 		ov.Customize(prefix, suffix)
+	}
+	r.updateMainIPAddressName()
+}
+
+// updateMainIPAddressName points the restored VM at the possibly renamed Main IPAddress.
+func (r *SnapshotResources) updateMainIPAddressName() {
+	if r.vmHandler != nil && r.mainIPAddressHandler != nil {
+		r.vmHandler.SetMainIPAddressName(r.mainIPAddressHandler.Name())
 	}
 }
 

@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,7 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -115,21 +119,16 @@ func (w *NetworkWatcher) enqueueVMsReferencingNetwork(ctx context.Context, obj *
 // reconciliation without periodic requeue when a previously exhausted pool
 // gets free addresses.
 func (w *NetworkWatcher) watchIPAddress(mgr manager.Manager, ctr controller.Controller) error {
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(commonnetwork.IPAddressGVK)
-
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			obj,
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, o *unstructured.Unstructured) []reconcile.Request {
-				return w.enqueueVMOwningIPAddress(ctx, o)
-			}),
-			predicate.TypedFuncs[*unstructured.Unstructured]{
-				CreateFunc: func(e event.TypedCreateEvent[*unstructured.Unstructured]) bool { return true },
-				DeleteFunc: func(e event.TypedDeleteEvent[*unstructured.Unstructured]) bool { return true },
-				UpdateFunc: func(e event.TypedUpdateEvent[*unstructured.Unstructured]) bool {
-					return ipAddressAllocatedStatus(e.ObjectOld) != ipAddressAllocatedStatus(e.ObjectNew)
+			&sdnapi.IPAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueVMsOfIPAddress),
+			predicate.TypedFuncs[*sdnapi.IPAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*sdnapi.IPAddress]) bool { return true },
+				DeleteFunc: func(e event.TypedDeleteEvent[*sdnapi.IPAddress]) bool { return true },
+				UpdateFunc: func(e event.TypedUpdateEvent[*sdnapi.IPAddress]) bool {
+					return ipAddressChangeAffectsVM(e.ObjectOld, e.ObjectNew)
 				},
 			},
 		),
@@ -139,19 +138,19 @@ func (w *NetworkWatcher) watchIPAddress(mgr manager.Manager, ctr controller.Cont
 	return nil
 }
 
-// enqueueVMOwningIPAddress enqueues VMs affected by the given IPAddress:
-//   - VMs that own the IPAddress (via ownerReferences with kind VirtualMachine)
-//     — this covers auto-IPAddresses created by the controller.
-//   - VMs that reference the IPAddress by name in spec.networks[].ipAddressName
-//     — this covers static (user-provided) IPAddresses.
-func (w *NetworkWatcher) enqueueVMOwningIPAddress(ctx context.Context, obj *unstructured.Unstructured) []reconcile.Request {
+// enqueueVMsOfIPAddress enqueues the VMs that use the given IPAddress:
+//   - the VM that owns it (ownerReferences with kind VirtualMachine): an
+//     IPAddress the controller created;
+//   - the VMs that name it in spec.networks[].ipAddressName: an IPAddress of the user;
+//   - the VM its label names: a terminating IPAddress may have no ownerRef left.
+func (w *NetworkWatcher) enqueueVMsOfIPAddress(ctx context.Context, ipa *sdnapi.IPAddress) []reconcile.Request {
 	var requests []reconcile.Request
 	seen := make(map[types.NamespacedName]struct{})
 
 	// 1. Owner reference (auto-IPAddress created by controller).
-	for _, owner := range obj.GetOwnerReferences() {
+	for _, owner := range ipa.GetOwnerReferences() {
 		if owner.Kind == v1alpha2.VirtualMachineKind {
-			nn := types.NamespacedName{Name: owner.Name, Namespace: obj.GetNamespace()}
+			nn := types.NamespacedName{Name: owner.Name, Namespace: ipa.GetNamespace()}
 			if _, ok := seen[nn]; !ok {
 				seen[nn] = struct{}{}
 				requests = append(requests, reconcile.Request{NamespacedName: nn})
@@ -161,19 +160,33 @@ func (w *NetworkWatcher) enqueueVMOwningIPAddress(ctx context.Context, obj *unst
 
 	// 2. Reference by name in vm.spec.networks[].ipAddressName (static IPAddress).
 	var vms v1alpha2.VirtualMachineList
-	if err := w.client.List(ctx, &vms, client.InNamespace(obj.GetNamespace())); err != nil {
+	if err := w.client.List(ctx, &vms, client.InNamespace(ipa.GetNamespace())); err != nil {
 		log.Default().Error(fmt.Sprintf("ipaddress watcher: failed to list VMs: %s", err))
 		return requests
 	}
+	address := commonnetwork.AddressOfIPAddress(ipa)
 	for _, vm := range vms.Items {
+		matched := false
 		for _, ns := range vm.Spec.Networks {
-			if ns.IPAddressName == obj.GetName() {
-				nn := types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}
-				if _, ok := seen[nn]; !ok {
-					seen[nn] = struct{}{}
-					requests = append(requests, reconcile.Request{NamespacedName: nn})
-				}
+			if ns.IPAddressName == ipa.GetName() {
+				matched = true
 				break
+			}
+		}
+		// 3. Address match: the mirror of the vmip of a VM is linked to the VM only
+		// by the address.
+		if !matched && address != "" && vm.Status.IPAddress == address {
+			matched = true
+		}
+		// 4. The VM label: a terminating IPAddress may have no ownerRef left.
+		if !matched && ipa.GetLabels()[annotations.LabelVirtualMachineUID] == string(vm.UID) {
+			matched = true
+		}
+		if matched {
+			nn := types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}
+			if _, ok := seen[nn]; !ok {
+				seen[nn] = struct{}{}
+				requests = append(requests, reconcile.Request{NamespacedName: nn})
 			}
 		}
 	}
@@ -181,26 +194,23 @@ func (w *NetworkWatcher) enqueueVMOwningIPAddress(ctx context.Context, obj *unst
 	return requests
 }
 
+// ipAddressChangeAffectsVM reports whether the update changes what the VM controller reads from the IPAddress.
+func ipAddressChangeAffectsVM(oldIPA, newIPA *sdnapi.IPAddress) bool {
+	return ipAddressAllocatedStatus(oldIPA) != ipAddressAllocatedStatus(newIPA) ||
+		oldIPA.Status.Address != newIPA.Status.Address ||
+		oldIPA.GetLabels()[annotations.LabelVirtualMachineUID] != newIPA.GetLabels()[annotations.LabelVirtualMachineUID] ||
+		(oldIPA.GetDeletionTimestamp() == nil) != (newIPA.GetDeletionTimestamp() == nil) ||
+		(len(oldIPA.Status.UsedByPods) == 0) != (len(newIPA.Status.UsedByPods) == 0)
+}
+
 // ipAddressAllocatedStatus returns the Allocated condition status (True/False)
 // of an SDN IPAddress, or "" if not found. Used as a change predicate.
-func ipAddressAllocatedStatus(obj *unstructured.Unstructured) string {
-	conds, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-	if err != nil || !found {
+func ipAddressAllocatedStatus(ipa *sdnapi.IPAddress) metav1.ConditionStatus {
+	cond := apimeta.FindStatusCondition(ipa.Status.Conditions, sdnapi.ConditionAllocated)
+	if cond == nil {
 		return ""
 	}
-	for _, c := range conds {
-		m, ok := c.(map[string]any)
-		if !ok {
-			continue
-		}
-		t, _, _ := unstructured.NestedString(m, "type")
-		if t != "Allocated" {
-			continue
-		}
-		s, _, _ := unstructured.NestedString(m, "status")
-		return s
-	}
-	return ""
+	return cond.Status
 }
 
 func readyConditionStatus(obj *unstructured.Unstructured) string {

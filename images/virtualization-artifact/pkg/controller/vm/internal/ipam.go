@@ -18,12 +18,16 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -94,6 +98,15 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		return reconcile.Result{}, nil
 	}
 
+	usesVMIP, err := s.UsesVMIP(ctx)
+	if err != nil {
+		cb.Reason(vmcondition.ReasonIPAddressNotReady).Message(fmt.Sprintf("Failed to check whether the address of the Main network comes from a VirtualMachineIPAddress or an IPAddress: %v", err))
+		return reconcile.Result{}, err
+	}
+	if !usesVMIP {
+		return h.setMainIPAddressStatus(ctx, s, vm, cb, log)
+	}
+
 	ipAddress, err := s.IPAddress(ctx)
 	if err != nil {
 		cb.Reason(vmcondition.ReasonIPAddressNotReady).Message(fmt.Sprintf("Failed to get VirtualMachineIPAddress: %v", err))
@@ -107,28 +120,8 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		if vm.Status.Phase != v1alpha2.MachineRunning && vm.Status.Phase != v1alpha2.MachineStopping {
 			vm.Status.IPAddress = ipAddress.Status.Address
 		}
-		kvvmi, err := s.KVVMI(ctx)
-		if err != nil {
-			cb.Reason(vmcondition.ReasonIPAddressNotReady).Message(fmt.Sprintf("Failed to get KVVMI: %v", err))
+		if err := h.checkAddressAssignedInGuest(ctx, s, ipAddress.Status.Address, cb, log); err != nil {
 			return reconcile.Result{}, err
-		}
-		if kvvmi != nil && kvvmi.Status.Phase == virtv1.Running {
-			for _, iface := range kvvmi.Status.Interfaces {
-				if iface.Name == network.NameDefaultInterface {
-					hasClaimedIP := false
-					for _, ip := range iface.IPs {
-						if ip == ipAddress.Status.Address {
-							hasClaimedIP = true
-						}
-					}
-					if !hasClaimedIP {
-						msg := fmt.Sprintf("IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddress.Status.Address, network.NameDefaultInterface, strings.Join(iface.IPs, ", "))
-						cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonIPAddressNotAssigned).Message(msg)
-						log.Warn(msg)
-					}
-					break
-				}
-			}
 		}
 		return reconcile.Result{}, nil
 	}
@@ -171,6 +164,114 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	cb.Reason(vmcondition.ReasonIPAddressNotReady).Message("The IP address is not bound yet: waiting for it to be assigned.")
 
 	return reconcile.Result{}, nil
+}
+
+// addressConflictRetryInterval paces the retry of a VM blocked by another VM
+// referencing the same IPAddress: nothing links the two, so the block would
+// otherwise hold until an unrelated event.
+const addressConflictRetryInterval = 30 * time.Second
+
+// ipAddressKindRetryInterval paces the wait for the IPAddress kind to be
+// registered again: with it gone there is no watch to wake the reconcile up.
+const ipAddressKindRetryInterval = time.Minute
+
+// setMainIPAddressStatus fills the IPAddressReady condition and status.ipAddress from
+// the IPAddress of the Main network. The condition gates the KVVM sync, so the VM stays
+// Pending until the address is allocated.
+func (h *IPAMHandler) setMainIPAddressStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, cb *conditions.ConditionBuilder, log *slog.Logger) (reconcile.Result, error) {
+	mainSpec := network.MainNetworkSpecOrImplicit(vm)
+	if mainSpec == nil {
+		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonIPAddressReady)
+		return reconcile.Result{}, nil
+	}
+
+	cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonIPAddressNotReady)
+
+	ipa, err := network.GetMainSDNIPAddress(ctx, h.client, vm)
+	switch {
+	case apimeta.IsNoMatchError(err):
+		cb.Message("The IPAddress of the Main network cannot be read: the cluster does not serve the IPAddress kind. The virtual machine cannot be started or migrated until it does; ask the cluster administrator to check the sdn module.")
+		return reconcile.Result{RequeueAfter: ipAddressKindRetryInterval}, nil
+	case err != nil:
+		cb.Message(fmt.Sprintf("Failed to get the IPAddress of the Main network: %v", err))
+		return reconcile.Result{}, err
+	}
+	if ipa == nil {
+		if mainSpec.IPAddressName == "" {
+			cb.Message("The IPAddress of the Main network was not found: it may be in the process of being created.")
+		} else {
+			cb.Message(fmt.Sprintf("The requested IPAddress %q was not found: waiting for it to appear.", mainSpec.IPAddressName))
+		}
+		return reconcile.Result{}, nil
+	}
+	name := ipa.GetName()
+	if mainSpec.IPAddressName != "" && ipa.GetDeletionTimestamp() != nil {
+		// The controller does not recreate an IPAddress the owner named, so the owner
+		// has to act. A running VM keeps the address while sdn routes it to its pod.
+		cb.Message(fmt.Sprintf("The IPAddress %q is being deleted. The virtual machine keeps its address until it stops, but it will not start again until the IPAddress exists: recreate it, or reference another IPAddress in spec.networks[].ipAddressName of the Main network.", name))
+		return reconcile.Result{}, nil
+	}
+
+	err = network.CheckMainSDNIPAddress(ctx, h.client, vm, ipa)
+	var conflict *network.IPAddressConflictError
+	switch {
+	case errors.Is(err, network.ErrIPAddressOfAnotherNetwork):
+		msg := fmt.Sprintf("The IPAddress %q cannot be used for the Main network: it belongs to another network. Specify an IPAddress of the ClusterNetwork %q.", name, network.MainClusterNetworkName)
+		cb.Reason(vmcondition.ReasonIPAddressNotAvailable).Message(msg)
+		return reconcile.Result{}, nil
+	case errors.As(err, &conflict):
+		msg := fmt.Sprintf("The IPAddress %q of the Main network cannot be used: the virtual machine %q references it too. Remove the reference from one of them.", name, conflict.VMName)
+		cb.Reason(vmcondition.ReasonIPAddressNotAvailable).Message(msg)
+		h.recorder.Event(vm, corev1.EventTypeWarning, vmcondition.ReasonIPAddressNotAvailable.String(), msg)
+		return reconcile.Result{RequeueAfter: addressConflictRetryInterval}, nil
+	case errors.Is(err, network.ErrIPAddressBeingDeleted):
+		cb.Message(fmt.Sprintf("The IPAddress %q of the Main network is being deleted: waiting for a new one.", name))
+		return reconcile.Result{}, nil
+	case errors.Is(err, network.ErrIPAddressNotAllocated):
+		switch {
+		case network.IPAddressPoolExhausted(ipa):
+			cb.Message(fmt.Sprintf("The IPAddress %q cannot be allocated: no free IP addresses left in the pool.", name))
+		case network.IPAddressTakenByAnother(ipa):
+			cb.Reason(vmcondition.ReasonIPAddressNotAvailable).Message(fmt.Sprintf("The IPAddress %q cannot be allocated: another IPAddress already holds its address. Specify an IPAddress with a free address in spec.networks[].ipAddressName of the Main network.", name))
+		default:
+			cb.Message(fmt.Sprintf("The IPAddress %q is not allocated yet: waiting for it to be assigned.", name))
+		}
+		return reconcile.Result{}, nil
+	case err != nil:
+		cb.Message(fmt.Sprintf("Failed to check the IPAddress of the Main network: %v", err))
+		return reconcile.Result{}, err
+	}
+
+	cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonIPAddressReady)
+	if vm.Status.Phase != v1alpha2.MachineRunning && vm.Status.Phase != v1alpha2.MachineStopping {
+		vm.Status.IPAddress = ipa.Status.Address
+	}
+	// A stale reference would keep the vmip Attached and make a snapshot capture it.
+	vm.Status.VirtualMachineIPAddress = ""
+	return reconcile.Result{}, h.checkAddressAssignedInGuest(ctx, s, ipa.Status.Address, cb, log)
+}
+
+// checkAddressAssignedInGuest sets IPAddressReady to False when a running VM does not
+// have its Main address on the default guest interface.
+func (h *IPAMHandler) checkAddressAssignedInGuest(ctx context.Context, s state.VirtualMachineState, address string, cb *conditions.ConditionBuilder, log *slog.Logger) error {
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		cb.Reason(vmcondition.ReasonIPAddressNotReady).Message(fmt.Sprintf("Failed to get KVVMI: %v", err))
+		return err
+	}
+	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Running {
+		return nil
+	}
+	i := slices.IndexFunc(kvvmi.Status.Interfaces, func(iface virtv1.VirtualMachineInstanceNetworkInterface) bool {
+		return iface.Name == network.NameDefaultInterface
+	})
+	if i < 0 || slices.Contains(kvvmi.Status.Interfaces[i].IPs, address) {
+		return nil
+	}
+	msg := fmt.Sprintf("IP address (%s) is not among addresses assigned to '%s' network interface (%s)", address, network.NameDefaultInterface, strings.Join(kvvmi.Status.Interfaces[i].IPs, ", "))
+	cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonIPAddressNotAssigned).Message(msg)
+	log.Warn(msg)
+	return nil
 }
 
 func hasDefaultNetwork(ns []v1alpha2.NetworksStatus) bool {

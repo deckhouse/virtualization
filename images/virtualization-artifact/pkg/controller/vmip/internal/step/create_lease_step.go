@@ -25,11 +25,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
@@ -87,6 +89,16 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IPToLeaseName(vmip.Status.Address)))
 		s.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonFailed, fmt.Sprintf("The VirtualMachineIPAddressLease %q is lost.", ip.IPToLeaseName(vmip.Status.Address)))
 		return &reconcile.Result{}, nil
+	}
+
+	if vmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeAuto {
+		mainIPAMAvailable, err := network.MainIPAMAvailable(ctx, s.client)
+		if err != nil {
+			return nil, fmt.Errorf("check whether the sdn module serves the Main network: %w", err)
+		}
+		if mainIPAMAvailable {
+			return s.createLeaseForAddressFromSDN(ctx, vmip)
+		}
 	}
 
 	allocatedIPs, err := s.allocator.GetAllocatedIPs(ctx)
@@ -147,10 +159,66 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 		return &reconcile.Result{}, nil
 	}
 
+	// 5. All checks have passed, create a new lease.
+	return s.createLease(ctx, vmip, ipAddress)
+}
+
+// createLeaseForAddressFromSDN creates the Auto mirror first and the lease on the
+// address the sdn module gives it.
+func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*reconcile.Result, error) {
+	// The protection handler has removed the mirror; nothing would delete a new one.
+	if vmip.GetDeletionTimestamp() != nil {
+		return &reconcile.Result{}, nil
+	}
+
+	vm, err := network.GetVMOfVMIP(ctx, s.client, vmip)
+	if err != nil {
+		return nil, err
+	}
+	if err := network.ReleaseTerminatingMirror(ctx, s.client, vmip, vm); err != nil {
+		return nil, err
+	}
+	mirror, err := network.EnsureAutoMirror(ctx, s.client, vmip, network.MirrorOwnerRef(vmip, vm, false))
+	switch {
+	case err != nil:
+		return setConditionFromMirrorError(s.cb, err)
+	case mirror == nil:
+		return setMirrorNameTakenCondition(s.cb, vmip.Name), nil
+	case network.IPAddressPoolExhausted(mirror):
+		setLeaseNotReadyCondition(s.cb, "No free IP addresses left in the pool of the Main network.")
+		return &reconcile.Result{}, nil
+	case !network.IPAddressAllocated(mirror) || mirror.Status.Address == "":
+		setLeaseNotReadyCondition(s.cb, fmt.Sprintf("Waiting for the sdn module to allocate an address to the IPAddress %q.", mirror.GetName()))
+		return &reconcile.Result{}, nil
+	}
+
+	// The sdn module does not see the leases of vmips without a mirror and may give
+	// out such an address: the mirror is deleted, and the next one gets another.
+	address := mirror.Status.Address
+	lease := &v1alpha2.VirtualMachineIPAddressLease{}
+	err = s.client.Get(ctx, types.NamespacedName{Name: ip.IPToLeaseName(address)}, lease)
+	switch {
+	case err == nil:
+		if ref := lease.Spec.VirtualMachineIPAddressRef; ref != nil && ref.Namespace == vmip.Namespace && ref.Name == vmip.Name {
+			// Our own lease from a reconcile the cache has not caught up with.
+			return &reconcile.Result{}, nil
+		}
+		if err := network.DeleteSDNIPAddressByName(ctx, s.client, vmip.Namespace, mirror.GetName()); err != nil {
+			return nil, err
+		}
+		setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The IP address %q is already in use by another VirtualMachineIPAddress: picking another one.", address))
+		return &reconcile.Result{}, nil
+	case !k8serrors.IsNotFound(err):
+		return nil, fmt.Errorf("get the VirtualMachineIPAddressLease of %s: %w", address, err)
+	}
+
+	return s.createLease(ctx, vmip, address)
+}
+
+func (s CreateLeaseStep) createLease(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress, ipAddress string) (*reconcile.Result, error) {
 	logger.FromContext(ctx).Info("Create lease", "ipAddress", ipAddress)
 
-	// 5. All checks have passed, create a new lease.
-	err = s.client.Create(ctx, buildVirtualMachineIPAddressLease(vmip, ipAddress))
+	err := s.client.Create(ctx, buildVirtualMachineIPAddressLease(vmip, ipAddress))
 	switch {
 	case err == nil:
 		msg := fmt.Sprintf("The VirtualMachineIPAddressLease for the ip address %q has been created.", ipAddress)

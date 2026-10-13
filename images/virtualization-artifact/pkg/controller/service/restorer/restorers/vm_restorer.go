@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -113,6 +114,11 @@ func (v *VirtualMachineHandler) Customize(prefix, suffix string) {
 		}
 		v.vm.Spec.BlockDeviceRefs[i].Name = common.ApplyNameCustomization(v.vm.Spec.BlockDeviceRefs[i].Name, prefix, suffix)
 	}
+}
+
+// SetMainIPAddressName points the restored VM at the IPAddress of its Main network.
+func (v *VirtualMachineHandler) SetMainIPAddressName(name string) {
+	v.vm.Spec.Networks = network.SetMainIPAddressName(v.vm.Spec.Networks, name)
 }
 
 func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {

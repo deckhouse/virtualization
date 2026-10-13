@@ -17,12 +17,22 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"net/netip"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("IsInsideOfRange", func() {
@@ -89,5 +99,77 @@ var _ = Describe("AllocateNewIP", func() {
 			_, err = ipService.AllocateNewIP(allocatedIPs)
 			Expect(err).To(MatchError("no remaining ips"))
 		})
+	})
+})
+
+var _ = Describe("GetAllocatedIPs", func() {
+	newClientBuilder := func(objs ...client.Object) *fake.ClientBuilder {
+		scheme := apiruntime.NewScheme()
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+		Expect(sdnapi.AddToScheme(scheme)).To(Succeed())
+		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
+	}
+
+	newIPAddress := func(name, networkName, address string) *sdnapi.IPAddress {
+		return &sdnapi.IPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "vms"},
+			Spec: sdnapi.IPAddressSpec{
+				NetworkRef: sdnapi.NetworkRef{Kind: v1alpha2.NetworksTypeClusterNetwork, Name: networkName},
+				Type:       sdnapi.IPAddressTypeAuto,
+			},
+			Status: sdnapi.IPAddressStatus{Address: address},
+		}
+	}
+
+	It("merges vmip lease addresses with the IPAddresses of the main network", func() {
+		// Both cover the same ranges during the transition, so an address the sdn
+		// module has handed out must not be offered to a vmip.
+		vmipl := &v1alpha2.VirtualMachineIPAddressLease{
+			ObjectMeta: metav1.ObjectMeta{Name: ip.IPToLeaseName("192.168.1.3")},
+		}
+		cl := newClientBuilder(
+			vmipl,
+			newIPAddress("main-ip", commonnetwork.MainClusterNetworkName, "192.168.1.4"),
+			newIPAddress("other-ip", "corp-net", "192.168.1.5"),
+		).Build()
+
+		allocatedIPs, err := IPAddressService{client: cl}.GetAllocatedIPs(context.Background())
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(allocatedIPs).To(HaveLen(2))
+		Expect(allocatedIPs).To(HaveKey("192.168.1.3"))
+		Expect(allocatedIPs).To(HaveKey("192.168.1.4"))
+	})
+
+	It("counts the static address of an IPAddress that is not allocated yet", func() {
+		static := newIPAddress("static-ip", commonnetwork.MainClusterNetworkName, "")
+		static.Spec.Type = sdnapi.IPAddressTypeStatic
+		static.Spec.Static = &sdnapi.StaticIPAddress{IP: "192.168.1.7"}
+		cl := newClientBuilder(static).Build()
+
+		allocatedIPs, err := IPAddressService{client: cl}.GetAllocatedIPs(context.Background())
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(allocatedIPs).To(HaveKey("192.168.1.7"))
+	})
+
+	It("counts only the leases where the sdn module is not installed", func() {
+		// A missing IPAddress kind means the sdn module is off, not an error.
+		cl := newClientBuilder(&v1alpha2.VirtualMachineIPAddressLease{
+			ObjectMeta: metav1.ObjectMeta{Name: ip.IPToLeaseName("192.168.1.3")},
+		}).
+			WithInterceptorFuncs(interceptor.Funcs{
+				List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+					if _, ok := list.(*sdnapi.IPAddressList); ok {
+						return &meta.NoKindMatchError{GroupKind: sdnapi.SchemeGroupVersion.WithKind("IPAddress").GroupKind()}
+					}
+					return c.List(ctx, list, opts...)
+				},
+			}).Build()
+
+		allocatedIPs, err := IPAddressService{client: cl}.GetAllocatedIPs(context.Background())
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(allocatedIPs).To(HaveKey("192.168.1.3"))
 	})
 })

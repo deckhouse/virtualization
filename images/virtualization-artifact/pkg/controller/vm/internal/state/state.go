@@ -33,6 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/nodeaffinity"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
@@ -66,6 +67,8 @@ type VirtualMachineState interface {
 	USBDevice(ctx context.Context, name string) (*v1alpha2.USBDevice, error)
 	PCIDevicesByName(ctx context.Context) (map[string]*v1alpha2.PCIDevice, error)
 	USBDevicesByName(ctx context.Context) (map[string]*v1alpha2.USBDevice, error)
+	UsesVMIP(ctx context.Context) (bool, error)
+	MainInterfaceSpecEnabled(ctx context.Context) (bool, error)
 }
 
 func New(c client.Client, vm *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]) VirtualMachineState {
@@ -83,6 +86,9 @@ type state struct {
 	vm     *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 	shared Shared
 	bdRefs []blockDeviceRef
+	// Answers computed once per reconcile; nil until asked.
+	usesVMIP                 *bool
+	mainInterfaceSpecEnabled *bool
 
 	pvNodeAffinity *pvNodeAffinity
 }
@@ -127,6 +133,40 @@ func (s *state) Shared(fn func(s *Shared)) {
 
 func (s *state) VirtualMachine() *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus] {
 	return s.vm
+}
+
+// UsesVMIP is computed once per reconcile: every handler acts on the same answer.
+func (s *state) UsesVMIP(ctx context.Context) (bool, error) {
+	if s.usesVMIP != nil {
+		return *s.usesVMIP, nil
+	}
+	usesVMIP, err := network.UsesVMIP(ctx, s.client, s.vm.Current())
+	if err != nil {
+		return false, err
+	}
+	s.usesVMIP = &usesVMIP
+	return usesVMIP, nil
+}
+
+// MainInterfaceSpecEnabled is computed once per reconcile: every handler acts on the same answer.
+func (s *state) MainInterfaceSpecEnabled(ctx context.Context) (bool, error) {
+	if s.mainInterfaceSpecEnabled != nil {
+		return *s.mainInterfaceSpecEnabled, nil
+	}
+	kvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+	usesVMIP, err := s.UsesVMIP(ctx)
+	if err != nil {
+		return false, err
+	}
+	enabled, err := network.MainInterfaceSpecEnabled(ctx, s.client, usesVMIP, kvvm)
+	if err != nil {
+		return false, err
+	}
+	s.mainInterfaceSpecEnabled = &enabled
+	return enabled, nil
 }
 
 func (s *state) KVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {

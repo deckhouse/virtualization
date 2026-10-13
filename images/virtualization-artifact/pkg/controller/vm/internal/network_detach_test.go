@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -175,26 +176,26 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 	})
 
 	Context("an additional network with an IPAM pool", func() {
-		// The pod annotation and the KVVM template are both built from the IPAM-enriched
-		// spec, so the drift check has to compare against the enriched one too.
+		// The pod annotation and the KVVM template are both built from the provisionable
+		// specs, so the drift check has to compare against them too.
 		var (
-			fakeClient client.WithWatch
-			vmState    state.VirtualMachineState
-			kvvm       *virtv1.VirtualMachine
-			enriched   string
+			fakeClient    client.WithWatch
+			vmState       state.VirtualMachineState
+			kvvm          *virtv1.VirtualMachine
+			provisionable string
 		)
 
 		BeforeEach(func() {
-			enrichedSpecs := commonnetwork.InterfaceSpecList{}
+			provisionableSpecs := commonnetwork.InterfaceSpecList{}
 			for _, spec := range attachedSpecs {
 				if spec.Type != string(v1alpha2.NetworksTypeMain) {
 					spec.IPAssignmentMode = commonnetwork.IPAssignmentModeDHCP
 					spec.IPAddressNames = []string{ipName}
 				}
-				enrichedSpecs = append(enrichedSpecs, spec)
+				provisionableSpecs = append(provisionableSpecs, spec)
 			}
 			var err error
-			enriched, err = enrichedSpecs.ToString()
+			provisionable, err = provisionableSpecs.ToString()
 			Expect(err).NotTo(HaveOccurred())
 
 			kvvm = newKVVM(
@@ -204,16 +205,16 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 			fakeClient, _, vmState = setupEnvironment(
 				newVM(mainNetwork, additionalNetwork), kvvm, newKVVMI(), mac,
 				newReadyClusterNetworkWithPool(cnName, poolName),
-				newSDNIPAddressUnstructured(ipName, namespace, string(vmUID), "ClusterNetwork", cnName, "192.168.201.10", true),
+				newSDNIPAddress(ipName, namespace, string(vmUID), "ClusterNetwork", cnName, "192.168.201.10", true),
 				newPod(map[string]string{
-					annotations.AnnNetworksSpec:               enriched,
+					annotations.AnnNetworksSpec:               provisionable,
 					annotations.AnnTapProvisionByDVPSupported: "true",
 				}),
 				newNodeWithTapSupport(nodeName),
 			)
 		})
 
-		It("reports no drift once the enriched spec is on the pod", func() {
+		It("reports no drift once the provisionable specs are on the pod", func() {
 			h := &SyncKvvmHandler{client: fakeClient}
 
 			outOfSync, err := h.networksOutOfSync(ctx, vmState, kvvm)
@@ -221,12 +222,12 @@ var _ = Describe("SyncKvvmHandler network detach corner cases", func() {
 			Expect(outOfSync).To(BeFalse())
 		})
 
-		It("leaves the enriched annotation untouched", func() {
+		It("leaves the annotation of the provisionable specs untouched", func() {
 			h := &SyncKvvmHandler{client: fakeClient}
 
 			_, err := h.patchPodNetworkAnnotation(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(getPod(fakeClient).Annotations[annotations.AnnNetworksSpec]).To(Equal(enriched))
+			Expect(getPod(fakeClient).Annotations[annotations.AnnNetworksSpec]).To(Equal(provisionable))
 		})
 	})
 
@@ -393,23 +394,29 @@ var _ = Describe("podNetworks resolving the annotation of a launcher pod", func(
 		return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "d8v-vm-x", Annotations: anns}}
 	}
 
+	annotationValue := func(specs commonnetwork.InterfaceSpecList) string {
+		value, err := specs.ToString()
+		Expect(err).NotTo(HaveOccurred())
+		return value
+	}
+
 	It("carries over the entry of an interface still leaving the machine", func() {
-		value, leaveAlone, err := desired.annotationFor(ctx, podWith(map[string]string{
+		specs, leaveAlone := desired.interfaceSpecsFor(ctx, podWith(map[string]string{
 			annotations.AnnNetworksSpec: leavingEntry,
 		}))
 
-		Expect(err).NotTo(HaveOccurred())
+		value := annotationValue(specs)
 		Expect(leaveAlone).To(BeFalse())
 		Expect(value).To(ContainSubstring(wantedIface))
 		Expect(value).To(ContainSubstring(leavingIface))
 	})
 
 	It("advertises the desired spec as is when the current annotation cannot be parsed", func() {
-		value, leaveAlone, err := desired.annotationFor(ctx, podWith(map[string]string{
+		specs, leaveAlone := desired.interfaceSpecsFor(ctx, podWith(map[string]string{
 			annotations.AnnNetworksSpec: unparseable,
 		}))
 
-		Expect(err).NotTo(HaveOccurred())
+		value := annotationValue(specs)
 		Expect(leaveAlone).To(BeFalse())
 		Expect(value).To(ContainSubstring(wantedIface))
 		Expect(value).NotTo(ContainSubstring(leavingIface))
@@ -418,22 +425,58 @@ var _ = Describe("podNetworks resolving the annotation of a launcher pod", func(
 	It("leaves a pod alone when it was never annotated and there is nothing to advertise", func() {
 		empty := podNetworks{}
 
-		value, leaveAlone, err := empty.annotationFor(ctx, podWith(nil))
+		specs, leaveAlone := empty.interfaceSpecsFor(ctx, podWith(nil))
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(value).To(Equal(emptyNetworksSpec))
+		Expect(annotationValue(specs)).To(Equal(emptyNetworksSpec))
 		Expect(leaveAlone).To(BeTrue())
 	})
 
 	It("does not leave an annotated pod alone even when the spec is empty", func() {
 		empty := podNetworks{}
 
-		value, leaveAlone, err := empty.annotationFor(ctx, podWith(map[string]string{
+		specs, leaveAlone := empty.interfaceSpecsFor(ctx, podWith(map[string]string{
 			annotations.AnnNetworksSpec: leavingEntry,
 		}))
 
-		Expect(err).NotTo(HaveOccurred())
-		Expect(value).To(Equal(emptyNetworksSpec))
+		Expect(annotationValue(specs)).To(Equal(emptyNetworksSpec))
 		Expect(leaveAlone).To(BeFalse())
+	})
+
+	mainOnly := func() podNetworks {
+		return podNetworks{
+			specs: commonnetwork.InterfaceSpecList{{
+				ID: 0, Type: string(v1alpha2.NetworksTypeMain),
+				InterfaceName: commonnetwork.NameDefaultInterface, UID: 64535, GID: 64535,
+				IPAddressNames: []string{"vm-x-main"},
+				IPAddress:      "10.66.10.14",
+			}},
+		}
+	}
+
+	// A machine moving off its vmip keeps cni.cilium.io/ipAddress on the pod.
+	It("advertises the Main interface spec next to cni.cilium.io/ipAddress", func() {
+		shared := mainOnly()
+
+		specs, leaveAlone := shared.interfaceSpecsFor(ctx, podWith(map[string]string{
+			netmanager.AnnoIPAddressCNIRequest: "10.66.10.14",
+		}))
+
+		value := annotationValue(specs)
+		Expect(leaveAlone).To(BeFalse())
+		Expect(value).To(ContainSubstring("vm-x-main"))
+		Expect(value).To(ContainSubstring(commonnetwork.MainPodInterfaceName))
+		// The address cni-cilium applies travels in the entry itself.
+		Expect(value).To(ContainSubstring(`"ipAddress":"10.66.10.14"`))
+	})
+
+	It("advertises the Main interface spec to a pod without network annotations", func() {
+		shared := mainOnly()
+
+		specs, leaveAlone := shared.interfaceSpecsFor(ctx, podWith(nil))
+
+		value := annotationValue(specs)
+		Expect(leaveAlone).To(BeFalse())
+		Expect(value).To(ContainSubstring("vm-x-main"))
+		Expect(value).To(ContainSubstring(commonnetwork.MainPodInterfaceName))
 	})
 })

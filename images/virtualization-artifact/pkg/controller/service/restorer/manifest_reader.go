@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization-controller/pkg/unifiedsnapshotter/node"
@@ -46,9 +48,17 @@ type ManifestReader interface {
 	RestoreVirtualMachine(ctx context.Context) (*v1alpha2.VirtualMachine, error)
 	RestoreProvisioner(ctx context.Context) (*corev1.Secret, error)
 	RestoreVirtualMachineIPAddress(ctx context.Context) (*v1alpha2.VirtualMachineIPAddress, error)
+	RestoreMainIPAddress(ctx context.Context) (*MainIPAddressSnapshot, error)
 	RestoreVirtualMachineMACAddresses(ctx context.Context) ([]*v1alpha2.VirtualMachineMACAddress, error)
 	RestoreMACAddressOrder(ctx context.Context) ([]string, error)
 	RestoreVirtualMachineBlockDeviceAttachments(ctx context.Context) ([]*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
+}
+
+// MainIPAddressSnapshot is the IPAddress of the Main network captured with a machine
+// without a vmip.
+type MainIPAddressSnapshot struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
 }
 
 // IsUnifiedCapture reports whether vmSnapshot's content was produced by the state-snapshotter core
@@ -220,6 +230,10 @@ func (s *secretManifestReader) RestoreVirtualMachineIPAddress(ctx context.Contex
 	return s.restorer.RestoreVirtualMachineIPAddress(ctx, s.secret)
 }
 
+func (s *secretManifestReader) RestoreMainIPAddress(ctx context.Context) (*MainIPAddressSnapshot, error) {
+	return s.restorer.RestoreMainIPAddress(ctx, s.secret)
+}
+
 func (s *secretManifestReader) RestoreVirtualMachineMACAddresses(ctx context.Context) ([]*v1alpha2.VirtualMachineMACAddress, error) {
 	return s.restorer.RestoreVirtualMachineMACAddresses(ctx, s.secret)
 }
@@ -366,6 +380,32 @@ func (u *unifiedManifestReader) applyKeepIPAddress(vmip *v1alpha2.VirtualMachine
 	vmip.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeStatic
 	vmip.Spec.StaticIP = vmip.Status.Address
 	return nil
+}
+
+// A capture carries one IPAddress of the Main network at most.
+func (u *unifiedManifestReader) RestoreMainIPAddress(ctx context.Context) (*MainIPAddressSnapshot, error) {
+	manifests, err := u.load(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range manifests {
+		if !m.Is(sdnapi.SchemeGroupVersion.String(), sdnapi.IPAddressKind) {
+			continue
+		}
+		ipa := &sdnapi.IPAddress{}
+		if err := json.Unmarshal(m.Raw, ipa); err != nil {
+			return nil, fmt.Errorf("unmarshal captured IPAddress from SnapshotContent %q: %w", u.contentName, err)
+		}
+		if !network.IsMainNetworkIPAddress(ipa) {
+			continue
+		}
+		address := network.AddressOfIPAddress(ipa)
+		if address == "" {
+			return nil, fmt.Errorf("captured IPAddress %q has an Auto type and no allocated address", ipa.GetName())
+		}
+		return &MainIPAddressSnapshot{Name: ipa.GetName(), Address: address}, nil
+	}
+	return nil, nil
 }
 
 func (u *unifiedManifestReader) RestoreVirtualMachineMACAddresses(ctx context.Context) ([]*v1alpha2.VirtualMachineMACAddress, error) {

@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"net/netip"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -73,8 +75,6 @@ loop:
 		if len(vmips.Items) > 0 {
 			return nil, fmt.Errorf("virtualMachineCIDRs cannot be cleared: %d VirtualMachineIPAddress resource(s) still exist", len(vmips.Items))
 		}
-
-		return nil, nil
 	}
 
 	for _, vmip := range vmips.Items {
@@ -91,6 +91,24 @@ loop:
 		for _, CIDR := range removedCIDRs {
 			if CIDR.Contains(parsedAddress) {
 				return nil, fmt.Errorf("virtualMachineCIDRs item %q can't be removed: VirtualMachineIPAddress %s/%s holds the IP address %s from this network", CIDR, vmip.GetNamespace(), vmip.GetName(), address)
+			}
+		}
+	}
+
+	// The IPAddress resources of the sdn module use addresses of the same ranges (the
+	// pool is derived from virtualMachineCIDRs).
+	ipas, err := network.MainSDNIPAddressesByAddress(ctx, v.client)
+	if err != nil && !meta.IsNoMatchError(err) {
+		return nil, err
+	}
+	for addr, ipaName := range ipas {
+		addrIP, err := netip.ParseAddr(addr)
+		if err != nil {
+			continue
+		}
+		for _, CIDR := range removedCIDRs {
+			if CIDR.Contains(addrIP) {
+				return nil, fmt.Errorf("virtualMachineCIDRs item %q can't be removed: IPAddress %s uses IP address %s from this network; delete the IPAddress resources with addresses from it first", CIDR, ipaName, addr)
 			}
 		}
 	}

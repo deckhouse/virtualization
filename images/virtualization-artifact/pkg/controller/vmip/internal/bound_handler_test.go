@@ -31,6 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -55,6 +56,7 @@ var _ = Describe("BoundHandler", func() {
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(virtv1.AddToScheme(scheme)).To(Succeed())
+		Expect(sdnapi.AddToScheme(scheme)).To(Succeed())
 
 		ctx = context.TODO()
 
@@ -166,7 +168,7 @@ var _ = Describe("BoundHandler", func() {
 				}
 				return lease, nil
 			}
-			h := NewBoundHandler(svc, nil, recorderMock)
+			h := NewBoundHandler(svc, fake.NewClientBuilder().WithScheme(scheme).Build(), recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -182,7 +184,7 @@ var _ = Describe("BoundHandler", func() {
 				}
 				return lease, nil
 			}
-			h := NewBoundHandler(svc, nil, recorderMock)
+			h := NewBoundHandler(svc, fake.NewClientBuilder().WithScheme(scheme).Build(), recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -195,7 +197,7 @@ var _ = Describe("BoundHandler", func() {
 			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 				return nil, nil
 			}
-			h := NewBoundHandler(svc, nil, recorderMock)
+			h := NewBoundHandler(svc, fake.NewClientBuilder().WithScheme(scheme).Build(), recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -215,7 +217,7 @@ var _ = Describe("BoundHandler", func() {
 				return lease, nil
 			}
 
-			h := NewBoundHandler(svc, nil, recorderMock)
+			h := NewBoundHandler(svc, fake.NewClientBuilder().WithScheme(scheme).Build(), recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -239,7 +241,7 @@ var _ = Describe("BoundHandler", func() {
 				return lease, nil
 			}
 
-			h := NewBoundHandler(svc, nil, recorderMock)
+			h := NewBoundHandler(svc, fake.NewClientBuilder().WithScheme(scheme).Build(), recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())

@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -285,6 +286,28 @@ var _ = Describe("SyncKvvmHandler: hotplug volume dropped from the KVVM", func()
 		Expect(fakeClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, after)).To(Succeed())
 		Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
 		Expect(kvvmVolumeNames()).NotTo(ContainElement(hotplug.volume.Name))
+	})
+
+	It("does not rebuild the template without the Main interface spec it already has", func() {
+		vm := makeVM()
+		kvvm := makeKVVM(vm)
+		kvvm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+			annotations.AnnNetworksSpec: `[{"id":1,"type":"Main","ifName":"eth0","ipAddressNames":["vm-main-ip"],"ipAddress":"10.66.10.14"}]`,
+		}
+		vmip := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: name + "-ip", Namespace: namespace, Labels: map[string]string{annotations.LabelVirtualMachineUID: string(vm.UID)}},
+			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: "10.66.10.14", Phase: v1alpha2.VirtualMachineIPAddressPhaseAttached},
+		}
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, makeVMClass(), vmip, newMainPrimaryCNINetwork())
+
+		_, err := MakeKVVMFromVMSpec(ctx, vmState)
+		Expect(err).To(MatchError(network.ErrMainIPAddressNotReady))
+
+		// The handler waits for the IPAddress instead of reporting an error.
+		reconcile()
+		updated := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, updated)).To(Succeed())
+		Expect(network.KVVMHasMainInterfaceSpec(updated)).To(BeTrue())
 	})
 
 	It("should not rewrite the internal virtual machine when nothing drifted", func() {

@@ -29,6 +29,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -230,6 +231,24 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+	})
+
+	It("waits without an error while the IPAddress of the Main network is not allocated", func() {
+		ctx := testutil.ContextBackgroundWithNoOpLogger()
+		vm := newVM()
+		vmState := setupState(vm, newKVVMWithVolume(sourcePVC, nil, "source-node"), newKVVMIWithVolume(sourcePVC))
+		notAllocated := func(context.Context, state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+			return nil, network.ErrMainIPAddressNotReady
+		}
+		service := NewMigrationVolumesService(vmState.Client(), notAllocated, 10*time.Second)
+
+		result, err := service.SyncVolumes(ctx, vmState, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).NotTo(BeZero())
+
+		synced, err := service.VolumesSynced(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(synced).To(BeFalse())
 	})
 
 	It("forces volume rollback when kvvmi is missing", func() {

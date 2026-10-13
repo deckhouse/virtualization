@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -55,7 +56,7 @@ func UnderlayDeviceName(networkName string) string {
 
 // WillProvisionInterface reports whether the given additional network interface
 // will be included in networks-spec (i.e. SDN will provision it and report
-// status). This mirrors the skip logic in EnrichWithIPAM:
+// status). This mirrors the skip logic in ProvisionableInterfaceSpecs:
 //   - network without a pool: provisioned as L2-only (unless ipAddressName is
 //     set, which is a config error -> skip);
 //   - network with a pool, static mode: provisioned only if the IPAddress exists;
@@ -64,7 +65,7 @@ func UnderlayDeviceName(networkName string) string {
 //
 // Used by NetworkInterfaceHandler to avoid waiting for SDN status on skipped
 // interfaces (which would produce a misleading "waiting for SDN" message).
-func WillProvisionInterface(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, netSpec v1alpha2.NetworksSpec) (bool, error) {
+func WillProvisionInterface(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, netSpec v1alpha2.NetworksSpec) (bool, error) {
 	if netSpec.Type == v1alpha2.NetworksTypeMain {
 		return false, nil
 	}
@@ -72,7 +73,7 @@ func WillProvisionInterface(ctx context.Context, c client.Client, namespace stri
 		// UnderlayNetwork entries are always provisioned by SDN (no IPAM involved).
 		return true, nil
 	}
-	hasPool, err := HasIPAM(ctx, c, namespace, netSpec)
+	hasPool, err := HasIPAM(ctx, c, vm.Namespace, netSpec)
 	if err != nil {
 		return false, err
 	}
@@ -80,38 +81,13 @@ func WillProvisionInterface(ctx context.Context, c client.Client, namespace stri
 		// No pool: L2-only is provisioned unless ipAddressName is set (config error).
 		return netSpec.IPAddressName == "", nil
 	}
-	// Pool exists.
-	if netSpec.IPAddressName != "" {
-		// Static: provisioned only if the IPAddress exists, matches the network,
-		// is allocated, and not used by another VM.
-		exists, err := SDNIPAddressExists(ctx, c, namespace, netSpec.IPAddressName, netSpec.Type, netSpec.Name)
-		if err != nil || !exists {
-			return false, err
-		}
-		status, err := GetSDNIPAddressStatus(ctx, c, namespace, netSpec.IPAddressName)
-		if err != nil || status == nil || !status.Allocated {
-			return false, err
-		}
-		conflictVM, err := IsIPAddressNameUsedByAnotherVM(ctx, c, vm, netSpec.IPAddressName, netSpec)
-		if err != nil || conflictVM != "" {
-			return false, err
-		}
-		return true, nil
-	}
-	// Auto: provisioned only if the IPAddress exists and is allocated.
-	name, err := FindSDNIPAddress(ctx, c, vm, netSpec)
-	if err != nil || name == "" {
-		return false, err
-	}
-	status, err := GetSDNIPAddressStatus(ctx, c, namespace, name)
-	if err != nil || status == nil {
-		return false, err
-	}
-	return status.Allocated, nil
+	ipa, err := AdditionalNetworkIPAddress(ctx, c, vm, netSpec)
+	return ipa != nil, err
 }
 
-// network has a pool configured (spec.ipam.ipAddressPoolRef), and resolves
-// ipAddressNames:
+// ProvisionableInterfaceSpecs returns the interface specs the pod can get now, with
+// the IPAddress names of the additional networks filled in; an interface that cannot
+// be provisioned yet is left out. A network with a pool has spec.ipam.ipAddressPoolRef:
 //   - auto-mode (no user ipAddressName): finds the SDN IPAddress created by the
 //     IPAddressHandler (by VM label) and includes its name. If the IPAddress is
 //     not yet allocated (Pending/NoFreeIPAddress) or not found, the interface is
@@ -120,19 +96,37 @@ func WillProvisionInterface(ctx context.Context, c client.Client, namespace stri
 //     exists. If not found, the interface is skipped.
 //   - networks without a pool: kept as L2-only (no ipAssignmentMode).
 //
-// The Main network is never enriched and is always kept in the result.
+// The Main network is always kept in the result (KubeVirt needs its interface).
+// Where the Main interface spec is enabled (see MainInterfaceSpecEnabled), it carries
+// the name and the address of the usable Main IPAddress, but no ipAssignmentMode:
+// cni-cilium applies the address on the pod interface. Otherwise the Main interface
+// spec carries no address and stays out of the annotation.
 //
 // This must be applied everywhere the networks-spec annotation is built so that
 // the annotation is consistent between the KVVM template (initial pod creation)
 // and a direct pod patch (live reconfiguration).
-func EnrichWithIPAM(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, specs InterfaceSpecList) (InterfaceSpecList, error) {
+func ProvisionableInterfaceSpecs(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, specs InterfaceSpecList, mainInterfaceSpecEnabled bool) (InterfaceSpecList, error) {
 	result := make(InterfaceSpecList, 0, len(specs))
 	for _, spec := range specs {
 		if spec.Type == v1alpha2.NetworksTypeMain {
+			// The Main interface spec without an address stays out of the annotation (see
+			// ForAnnotation), and the pod takes the vmip address from cni.cilium.io/ipAddress.
+			spec.IPAddressNames, spec.IPAddress = nil, ""
+			if mainInterfaceSpecEnabled {
+				ipa, err := usableMainIPAddress(ctx, c, vm)
+				if err != nil {
+					// A transient failure must not silently drop the Main interface spec
+					// from the annotation of a running pod.
+					return nil, fmt.Errorf("get the Main IPAddress: %w", err)
+				}
+				if ipa != nil {
+					spec.IPAddressNames, spec.IPAddress = []string{ipa.GetName()}, ipa.Status.Address
+				}
+			}
 			result = append(result, spec)
 			continue
 		}
-		hasPool, err := HasIPAM(ctx, c, namespace, v1alpha2.NetworksSpec{
+		hasPool, err := HasIPAM(ctx, c, vm.Namespace, v1alpha2.NetworksSpec{
 			Type: spec.Type,
 			Name: spec.Name,
 		})
@@ -155,47 +149,18 @@ func EnrichWithIPAM(ctx context.Context, c client.Client, namespace string, vm *
 		}
 
 		// IPAM is enabled: resolve ipAddressNames and check readiness.
+		netSpec := v1alpha2.NetworksSpec{Type: spec.Type, Name: spec.Name}
 		if len(spec.IPAddressNames) > 0 {
-			// Static mode: validate the user-provided IPAddress exists and is allocated.
-			exists, err := SDNIPAddressExists(ctx, c, namespace, spec.IPAddressNames[0], spec.Type, spec.Name)
-			if err != nil {
-				return nil, fmt.Errorf("check static IPAddress %s: %w", spec.IPAddressNames[0], err)
-			}
-			if !exists {
-				continue
-			}
-			status, err := GetSDNIPAddressStatus(ctx, c, namespace, spec.IPAddressNames[0])
-			if err != nil {
-				return nil, fmt.Errorf("get status for static IPAddress %s: %w", spec.IPAddressNames[0], err)
-			}
-			if status == nil || !status.Allocated {
-				continue
-			}
-			conflictVM, err := IsIPAddressNameUsedByAnotherVM(ctx, c, vm, spec.IPAddressNames[0], v1alpha2.NetworksSpec{Type: spec.Type, Name: spec.Name})
-			if err != nil {
-				return nil, fmt.Errorf("check static IPAddress %s conflict: %w", spec.IPAddressNames[0], err)
-			}
-			if conflictVM != "" {
-				continue
-			}
-		} else {
-			// Auto mode: find the IPAddress created by IPAddressHandler.
-			name, err := FindSDNIPAddress(ctx, c, vm, v1alpha2.NetworksSpec{Type: spec.Type, Name: spec.Name})
-			if err != nil {
-				return nil, fmt.Errorf("find auto IPAddress for %s: %w", spec.Name, err)
-			}
-			if name == "" {
-				continue
-			}
-			status, err := GetSDNIPAddressStatus(ctx, c, namespace, name)
-			if err != nil {
-				return nil, fmt.Errorf("get status for IPAddress %s: %w", name, err)
-			}
-			if status == nil || !status.Allocated {
-				continue
-			}
-			spec.IPAddressNames = []string{name}
+			netSpec.IPAddressName = spec.IPAddressNames[0]
 		}
+		ipa, err := AdditionalNetworkIPAddress(ctx, c, vm, netSpec)
+		if err != nil {
+			return nil, fmt.Errorf("get the IPAddress of %s: %w", SpecKey(netSpec), err)
+		}
+		if ipa == nil {
+			continue
+		}
+		spec.IPAddressNames = []string{ipa.GetName()}
 		spec.IPAssignmentMode = IPAssignmentModeDHCP
 		result = append(result, spec)
 	}
@@ -241,6 +206,9 @@ type InterfaceSpec struct {
 	// static IP on the interface instead of automatic allocation.
 	// At most one name per interface (single-element slice per the SDN annotation format).
 	IPAddressNames []string `json:"ipAddressNames,omitempty"`
+	// IPAddress is set for the Main interface only: cni-cilium applies it as-is.
+	// The sdn agent finds the addresses of additional networks by ipAddressNames.
+	IPAddress string `json:"ipAddress,omitempty"`
 	// BindingMode is how SDN hands the device to the pod. Set to "VFIO-PCI" for
 	// UnderlayNetwork entries (SR-IOV VF passthrough); empty for tap-based entries.
 	BindingMode string `json:"bindingMode,omitempty"`
@@ -288,16 +256,78 @@ type IPRoute struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func (s InterfaceSpecList) ToString() (string, error) {
+// MainPodInterfaceName is the pod-side name of the primary (Main) interface in
+// the networks-spec annotation. InterfaceName of the Main spec holds the
+// KubeVirt network name ("default") and is not meaningful on the pod side.
+const MainPodInterfaceName = "eth0"
+
+// HasAddress reports whether the spec names an IPAddress and its address.
+func (s InterfaceSpec) HasAddress() bool {
+	return len(s.IPAddressNames) > 0 && s.IPAddress != ""
+}
+
+// HasAdditional reports whether the list has a network other than Main.
+func (s InterfaceSpecList) HasAdditional() bool {
+	for _, spec := range s {
+		if spec.Type != v1alpha2.NetworksTypeMain {
+			return true
+		}
+	}
+	return false
+}
+
+// MainWithAddress returns the Main interface spec when it has an address, or nil.
+func (s InterfaceSpecList) MainWithAddress() *InterfaceSpec {
+	for i := range s {
+		if s[i].Type == v1alpha2.NetworksTypeMain && s[i].HasAddress() {
+			return &s[i]
+		}
+	}
+	return nil
+}
+
+// ForAnnotation returns the interface specs that go into the networks-spec
+// annotation. The Main interface spec goes only with an address: without
+// ipAddressNames cni-cilium would create an IPAddress owned by the pod, and the
+// address would die with it.
+func (s InterfaceSpecList) ForAnnotation() InterfaceSpecList {
 	filtered := InterfaceSpecList{}
 	for _, spec := range s {
 		if spec.Type == v1alpha2.NetworksTypeMain {
-			continue
+			if !spec.HasAddress() {
+				continue
+			}
+			spec.InterfaceName = MainPodInterfaceName
 		}
 		filtered = append(filtered, spec)
 	}
+	return filtered
+}
 
-	data, err := json.Marshal(filtered)
+// BuildNetworksAnnotations returns the pod network annotations of the list: the
+// key/values to set and the keys to remove. A list with nothing to advertise
+// produces no annotations; the tap-provision annotation is advertised only when
+// there is an SDN-provisioned (non-Main) interface.
+func (s InterfaceSpecList) BuildNetworksAnnotations() (annotationsToSet map[string]string, annotationsToRemove []string, err error) {
+	advertised := s.ForAnnotation()
+	if len(advertised) == 0 {
+		return nil, []string{annotations.AnnNetworksSpec, annotations.AnnTapProvisionByDVPSupported}, nil
+	}
+	data, err := json.Marshal(advertised)
+	if err != nil {
+		return nil, nil, err
+	}
+	annotationsToSet = map[string]string{annotations.AnnNetworksSpec: string(data)}
+	if advertised.HasAdditional() {
+		annotationsToSet[annotations.AnnTapProvisionByDVPSupported] = "true"
+	} else {
+		annotationsToRemove = []string{annotations.AnnTapProvisionByDVPSupported}
+	}
+	return annotationsToSet, annotationsToRemove, nil
+}
+
+func (s InterfaceSpecList) ToString() (string, error) {
+	data, err := json.Marshal(s.ForAnnotation())
 	if err != nil {
 		return "", err
 	}
@@ -311,13 +341,4 @@ func (s InterfaceSpecList) HasMain() bool {
 		}
 	}
 	return false
-}
-
-func (s InterfaceSpecList) HasOnlyMain() bool {
-	for _, spec := range s {
-		if spec.Type != v1alpha2.NetworksTypeMain {
-			return false
-		}
-	}
-	return true
 }

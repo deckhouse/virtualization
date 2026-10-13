@@ -3114,10 +3114,10 @@ d8 v collect-debug-info linux-vm.mynamespace > debug-info.tar.gz
 
 Блок [`.spec.settings.virtualMachineCIDRs`](admin_guide.html#сетевые-настройки) в настройках модуля задаёт подсети, из которых машины получают IP-адреса. Доступны все адреса подсети, кроме первого и последнего.
 
-Если в модуле [`sdn`](/modules/sdn/) для основной сети кластера настроен пул адресов, адресом машины в этой сети управляет общий IPAM этого модуля, то есть тот же ресурс IPAddress, что и для дополнительных сетей. Адрес запрашивается автоматически, а существующие машины переходят на общий IPAM без смены адресов и без перезапуска.
+Если в модуле [`sdn`](/modules/sdn/) для основной сети кластера настроен пул адресов, адресом машины в этой сети управляет этот модуль, то есть тот же ресурс IPAddress, что и для дополнительных сетей. Адрес запрашивается автоматически, а существующие машины переходят без смены адресов и без перезапуска.
 
 {{< alert level="warning" >}}
-В кластере с общим IPAM ресурсы [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) и [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease), а также параметр [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) устарели. Они продолжают работать и описаны в разделах ниже, но адресом основной сети новых машин управляет общий IPAM, о котором рассказывает раздел [IPAM для основной сети](#ipam-для-основной-сети).
+Там, где основную сеть обслуживает модуль `sdn`, ресурсы [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) и [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease), а также параметр [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) устарели. Они продолжают работать и описаны в разделах ниже, но адресом основной сети новых машин управляет модуль `sdn`, о котором рассказывает раздел [IPAM для основной сети](#ipam-для-основной-сети).
 {{< /alert >}}
 
 Кластерный ресурс [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease) (`vmipl`) управляет арендой IP-адресов из общего пула, указанного в `virtualMachineCIDRs`, а проектный ресурс [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) (`vmip`) отвечает за резервирование арендованных адресов и их привязку к машинам. Адрес закреплён за машиной, когда ресурс переходит в фазу `Attached`. Остальные фазы описаны в поле [`.status.phase`](cr.html#virtualmachineipaddress-v1alpha2-status-phase).
@@ -3268,7 +3268,7 @@ EOF
 ### IPAM для основной сети
 
 {{< alert level="info" >}}
-Общий IPAM работает, только если в модуле [`sdn`](/modules/sdn/) для основной сети кластера настроен пул адресов. Без него адресами машин управляют устаревшие ресурсы [VirtualMachineIPAddress](cr.html#virtualmachineipaddress), описанные выше.
+Для работы с IPAM основной сети необходимо, чтобы её обслуживал модуль [`sdn`](/modules/sdn/). Иначе адресами ВМ управляют устаревшие ресурсы [VirtualMachineIPAddress](cr.html#virtualmachineipaddress), описанные выше.
 {{< /alert >}}
 
 Адрес машины в основной сети хранит ресурс [IPAddress](/modules/sdn/cr.html#ipaddress) модуля `sdn`, тот же самый, которым адресуются дополнительные сети. Получить адрес можно двумя способами:
@@ -3318,13 +3318,13 @@ d8 k get vm linux-vm -o jsonpath='{.status.networks[?(@.type=="Main")]}'
 {"id":1,"ipAddress":"10.66.10.14","ipAddressName":"linux-vm-4bkqr","type":"Main"}
 ```
 
-#### Перевод машины на общий IPAM
+#### Перевод ВМ на ресурс IPAddress
 
-Машины, которые не ссылаются на ресурс [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) явно, переходят на общий IPAM автоматически, при этом адрес не меняется и машина не перезапускается.
+DP переводит уже работающие ВМ на ресурс [IPAddress](/modules/sdn/cr.html#ipaddress) автоматически. Адрес при этом не меняется, ВМ не перезапускается, а имя нового ресурса появляется в её статусе.
 
-Машина с заданным параметром [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) продолжает работать по устаревшему механизму, поскольку ссылка на ресурс задана в её спецификации явно.
+ВМ с заданным параметром [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) тоже переходит, но источником её адреса остаётся указанный в этом параметре ресурс [VirtualMachineIPAddress](cr.html#virtualmachineipaddress). Для этого ресурса DP поддерживает ресурс IPAddress с тем же именем и тем же адресом.
 
-Для ресурса [VirtualMachineIPAddress](cr.html#virtualmachineipaddress), указанного в спецификации машины, DP поддерживает ресурс IPAddress с тем же именем и тем же адресом. Чтобы перевести машину и сохранить её адрес, замените один параметр другим:
+Чтобы сменить источник адреса и сохранить сам адрес, замените один параметр другим:
 
 ```yaml
 spec:
@@ -3337,9 +3337,7 @@ spec:
 
 Перезапустите машину, чтобы применить изменение. Адрес останется прежним, а ресурс [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) после этого можно удалить.
 
-{{< alert level="warning" >}}
-Не удаляйте параметр [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) без такой замены, иначе машина получит новый адрес из пула.
-{{< /alert >}}
+Если удалить параметр [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname), не указав ресурс IPAddress, адрес тоже останется прежним: машина возьмёт его из ресурса IPAddress, который DP поддерживает для ресурса [VirtualMachineIPAddress](cr.html#virtualmachineipaddress).
 
 ### Доступ к приложениям на виртуальной машине
 

@@ -5,6 +5,8 @@ spec:
         openAPIV3Schema:
           description: |
             Ресурс, определяющий факт выданной аренды для ресурса VirtualMachineIPAddress.
+
+            Ресурс устарел. Там, где основную сеть обслуживает модуль `sdn`, выданные им адреса учитываются ресурсом `IPAddressLease` (`network.deckhouse.io`).
           properties:
             spec:
               description: |

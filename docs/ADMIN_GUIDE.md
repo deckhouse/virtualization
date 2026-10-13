@@ -155,6 +155,18 @@ The subnets in the [`.spec.settings.virtualMachineCIDRs`](configuration.html#par
 You can't delete a subnet while a [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource holds an address from it. You can clear the block entirely only when no such resource is left in the cluster. To release an address, move the VM that uses this resource to an additional network in the [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks) parameter.
 {{< /alert >}}
 
+#### Main network addresses served by the sdn module
+
+A VM gets its main network address using an [IPAddress](/modules/sdn/cr.html#ipaddress) resource of the [`sdn`](/modules/sdn/) module, the one that also addresses additional networks. The former [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) and [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease) resources are deprecated, and running VMs move to the new mechanism without changing their addresses and without a restart.
+
+You don't have to define the subnets for the new mechanism separately. DP creates the `d8-virtualization` address pool from the [`.spec.settings.virtualMachineCIDRs`](configuration.html#parameters-virtualmachinecidrs) block and keeps it up to date, so the block stays the only place where VM subnets are defined. If another pool already serves the main network, DP doesn't replace it.
+
+The transition starts once the [`sdn`](/modules/sdn/) module serves the main cluster network. Until then, the former resources manage VM addresses. After the transition starts, DP still gives a deprecated [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource to each new VM without the [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) parameter for the `Main` network. DP gives such resources until the [`sdn`](/modules/sdn/) module allocates the addresses of all VirtualMachineIPAddress resources in the cluster. This way, DP prevents the `sdn` module from giving a new VM an address that a running VM already uses. Such a VM moves to an [IPAddress](/modules/sdn/cr.html#ipaddress) resource together with the other VMs. The deprecated resource stays with the VM until the project owner moves the VM manually.
+
+Follow the transition using the `d8_virtualization_deprecated_vmip_count` metric that shows the number of deprecated resources left, broken down by namespace and phase. The `D8VirtualizationDeprecatedVMIPExists` alert fires while such resources are still in the cluster. This doesn't affect how the VMs run.
+
+A deprecated resource stays with every VM that got its address from it: both the VMs that name it in the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter and the VMs DP created it for. Only a project owner can move such a VM to an [IPAddress](/modules/sdn/cr.html#ipaddress) resource: set the [`ipAddressName`](cr.html#virtualmachine-v1alpha2-spec-networks-ipaddressname) parameter of the `Main` network to the name of the deprecated resource, remove the `.spec.virtualMachineIPAddressName` parameter if it is set, and restart the VM. DP creates an IPAddress resource with this name and address in advance, so the VM address doesn't change. After the restart, the deprecated resource can be deleted.
+
 ## Virtual machine image storage
 
 DP stores virtual machine images in an internal container image storage (DVCR) that resides on a persistent volume of the cluster. Images travel from there to virtual machine disks, so the size of the volume determines how many images fit into the cluster.

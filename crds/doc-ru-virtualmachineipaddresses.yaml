@@ -5,6 +5,8 @@ spec:
         openAPIV3Schema:
           description: |
             Ресурс, определяющий IP-адрес для виртуальной машины.
+
+            Ресурс устарел. Там, где основную сеть обслуживает модуль `sdn`, виртуальная машина получает адрес из ресурса `IPAddress` (`network.deckhouse.io`).
           properties:
             spec:
               description: |

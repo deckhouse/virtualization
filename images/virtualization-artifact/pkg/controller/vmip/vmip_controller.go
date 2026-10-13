@@ -24,12 +24,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	vmipcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmip"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -55,7 +57,7 @@ func NewController(
 		internal.NewBoundHandler(ipService, mgr.GetClient(), recorder),
 		internal.NewAttachedHandler(recorder, mgr.GetClient()),
 		internal.NewLifecycleHandler(recorder),
-		internal.NewProtectionHandler(),
+		internal.NewProtectionHandler(mgr.GetClient()),
 	}
 
 	r, err := NewReconciler(mgr.GetClient(), virtClient, handlers...)
@@ -84,6 +86,8 @@ func NewController(
 		Complete(); err != nil {
 		return nil, err
 	}
+
+	vmipcollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineIP controller")
 	return c, nil

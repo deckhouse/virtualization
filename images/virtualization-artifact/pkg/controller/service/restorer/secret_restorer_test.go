@@ -24,7 +24,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -69,6 +72,56 @@ var _ = Describe("SecretRestorer", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data).NotTo(HaveKey(virtualMachineIPAddressKey))
+		})
+	})
+
+	Describe("setMainIPAddress", func() {
+		newVM := func(specIPAddressName string) *v1alpha2.VirtualMachine {
+			vm := &v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "ns"},
+				Status: v1alpha2.VirtualMachineStatus{Networks: []v1alpha2.NetworksStatus{
+					{Type: v1alpha2.NetworksTypeMain, IPAddressName: "vm-main", IPAddress: "10.66.10.14"},
+				}},
+			}
+			if specIPAddressName != "" {
+				vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: specIPAddressName}}
+			}
+			return vm
+		}
+		newIPAddress := func(ipaType string) *sdnapi.IPAddress {
+			return &sdnapi.IPAddress{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm-main", Namespace: "ns"},
+				Spec:       sdnapi.IPAddressSpec{Type: ipaType},
+			}
+		}
+
+		DescribeTable("saves the IPAddress",
+			func(keep v1alpha2.KeepIPAddress, ipaType, specIPAddressName string, saved bool) {
+				cl, err := testutil.NewFakeClientWithObjects(newIPAddress(ipaType))
+				Expect(err).NotTo(HaveOccurred())
+				secret := &corev1.Secret{Data: map[string][]byte{}}
+
+				Expect(SecretRestorer{client: cl}.setMainIPAddress(context.Background(), secret, newVM(specIPAddressName), keep)).To(Succeed())
+				if saved {
+					Expect(secret.Data).To(HaveKey(mainIPAddressKey))
+				} else {
+					Expect(secret.Data).NotTo(HaveKey(mainIPAddressKey))
+				}
+			},
+			Entry("Always, Auto", v1alpha2.KeepIPAddressAlways, sdnapi.IPAddressTypeAuto, "", true),
+			Entry("Never, Auto, not named in the spec", v1alpha2.KeepIPAddressNever, sdnapi.IPAddressTypeAuto, "", false),
+			Entry("Never, Auto, named in the spec", v1alpha2.KeepIPAddressNever, sdnapi.IPAddressTypeAuto, "vm-main", true),
+			Entry("Never, Static", v1alpha2.KeepIPAddressNever, sdnapi.IPAddressTypeStatic, "", true),
+		)
+
+		It("fails when the IPAddress of the status is gone", func() {
+			cl, err := testutil.NewFakeClientWithObjects()
+			Expect(err).NotTo(HaveOccurred())
+			secret := &corev1.Secret{Data: map[string][]byte{}}
+
+			err = SecretRestorer{client: cl}.setMainIPAddress(context.Background(), secret, newVM(""), v1alpha2.KeepIPAddressAlways)
+			Expect(err).To(MatchError(ContainSubstring("was not found")))
+			Expect(secret.Data).NotTo(HaveKey(mainIPAddressKey))
 		})
 	})
 })

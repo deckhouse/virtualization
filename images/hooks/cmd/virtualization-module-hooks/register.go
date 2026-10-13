@@ -19,6 +19,7 @@ package main
 import (
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/ca-discovery"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/cdi-cleanup"
+	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/check-sdn-route-forger"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/copy-custom-certificate"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/discover-kube-apiserver-feature-gates"
 	_ "github.com/deckhouse/virtualization/hooks/pkg/hooks/discovery-clusterip-service-for-dvcr"

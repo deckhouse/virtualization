@@ -24,6 +24,7 @@ import (
 	"net/netip"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -122,6 +124,15 @@ func (s IPAddressService) GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs,
 	allocatedIPs := make(ip.AllocatedIPs, len(leases.Items))
 	for _, lease := range leases.Items {
 		allocatedIPs[ip.LeaseNameToIP(lease.Name)] = struct{}{}
+	}
+
+	// The IPAddress resources of the sdn module take addresses of the same ranges and have no lease.
+	ipas, err := network.MainSDNIPAddressesByAddress(ctx, s.client)
+	if err != nil && !meta.IsNoMatchError(err) {
+		return nil, fmt.Errorf("list the SDN IPAddress of the main network: %w", err)
+	}
+	for addr := range ipas {
+		allocatedIPs[addr] = struct{}{}
 	}
 
 	return allocatedIPs, nil

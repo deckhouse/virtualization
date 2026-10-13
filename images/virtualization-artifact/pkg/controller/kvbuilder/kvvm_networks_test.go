@@ -57,6 +57,37 @@ var _ = Describe("setNetworksAnnotation", func() {
 		Expect(anno).NotTo(HaveKey(annotations.AnnTapProvisionByDVPSupported))
 	})
 
+	It("sets networks-spec without the tap annotation for a Main-only VM", func() {
+		kvvm := newKVVM()
+		Expect(setNetworksAnnotation(kvvm, network.InterfaceSpecList{
+			{
+				Type:           v1alpha2.NetworksTypeMain,
+				InterfaceName:  network.NameDefaultInterface,
+				IPAddressNames: []string{"vm-abcde"},
+				IPAddress:      "10.66.10.14",
+			},
+		})).To(Succeed())
+
+		anno := kvvm.Resource.Spec.Template.ObjectMeta.GetAnnotations()
+		Expect(anno[annotations.AnnNetworksSpec]).To(ContainSubstring(`"type":"Main"`))
+		Expect(anno[annotations.AnnNetworksSpec]).To(ContainSubstring(`"ipAddressNames":["vm-abcde"]`))
+		Expect(anno[annotations.AnnNetworksSpec]).To(ContainSubstring(`"ipAddress":"10.66.10.14"`))
+		Expect(anno).NotTo(HaveKey(annotations.AnnTapProvisionByDVPSupported))
+	})
+
+	It("sets the Main interface spec with an address and the tap annotation next to an additional network", func() {
+		kvvm := newKVVM()
+		Expect(setNetworksAnnotation(kvvm, network.InterfaceSpecList{
+			{Type: v1alpha2.NetworksTypeMain, InterfaceName: network.NameDefaultInterface, IPAddressNames: []string{"vm-abcde"}, IPAddress: "10.66.10.14"},
+			{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "cnet", InterfaceName: "veth_cn12345678", UID: 64535, GID: 64535},
+		})).To(Succeed())
+
+		anno := kvvm.Resource.Spec.Template.ObjectMeta.GetAnnotations()
+		Expect(anno[annotations.AnnNetworksSpec]).To(ContainSubstring(`"type":"Main"`))
+		Expect(anno[annotations.AnnNetworksSpec]).To(ContainSubstring(`"name":"cnet"`))
+		Expect(anno).To(HaveKeyWithValue(annotations.AnnTapProvisionByDVPSupported, "true"))
+	})
+
 	It("sets the annotations when there is an additional network", func() {
 		kvvm := newKVVM()
 		Expect(setNetworksAnnotation(kvvm, network.InterfaceSpecList{

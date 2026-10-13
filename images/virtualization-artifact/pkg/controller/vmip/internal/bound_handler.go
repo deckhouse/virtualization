@@ -76,6 +76,7 @@ func (h *BoundHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMachine
 	}
 
 	return steptaker.NewStepTakers[*v1alpha2.VirtualMachineIPAddress](
+		step.NewMirrorStep(lease, h.client, cb, h.recorder),
 		step.NewBindStep(lease, cb),
 		step.NewTakeLeaseStep(lease, h.client, cb, h.recorder),
 		step.NewCreateLeaseStep(lease, h.ipService, h.client, cb, h.recorder),

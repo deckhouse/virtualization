@@ -19,10 +19,14 @@ spec:
       - vmiplease
   versions:
     - name: v1alpha2
+      deprecated: true
+      deprecationWarning: "VirtualMachineIPAddressLease is deprecated. Where the sdn module serves the Main network, the addresses it hands out are tracked by IPAddressLease (network.deckhouse.io)."
       schema:
         openAPIV3Schema:
           description: |
             Resource confirming the issued lease for VirtualMachineIPAddress.
+
+            The resource is deprecated. Where the sdn module serves the Main network, the addresses it hands out are tracked by `IPAddressLease` (`network.deckhouse.io`).
           properties:
             apiVersion:
               type: string

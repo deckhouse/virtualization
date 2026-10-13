@@ -3114,10 +3114,10 @@ Two resources describe the address of a machine in the main cluster network, the
 
 The [`.spec.settings.virtualMachineCIDRs`](admin_guide.html#network-settings) block in the module settings defines the subnets that machines get IP addresses from. All addresses of a subnet are available except the first and the last one.
 
-If an address pool is configured for the main cluster network in the [`sdn`](/modules/sdn/) module, the address of a machine in that network is managed by the shared IPAM of that module, that is, by the same IPAddress resource as for additional networks. The address is requested automatically, and existing machines switch to the shared IPAM without changing their addresses and without a restart.
+If an address pool is configured for the main cluster network in the [`sdn`](/modules/sdn/) module, the address of a machine in that network is managed by that module, that is, by the same IPAddress resource as for additional networks. The address is requested automatically, and existing machines move over without changing their addresses and without a restart.
 
 {{< alert level="warning" >}}
-In a cluster with the shared IPAM, the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) and [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease) resources, as well as the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter, are deprecated. They keep working and are described in the sections below, but the main network address of new machines is managed by the shared IPAM, covered in [IPAM for the main network](#ipam-for-the-main-network).
+Where the `sdn` module serves the main network, the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) and [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease) resources, as well as the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter, are deprecated. They keep working and are described in the sections below, but the main network address of new machines is managed by the `sdn` module, covered in [IPAM for the main network](#ipam-for-the-main-network).
 {{< /alert >}}
 
 The cluster-wide [VirtualMachineIPAddressLease](cr.html#virtualmachineipaddresslease) (`vmipl`) resource manages leases of IP addresses from the shared pool specified in `virtualMachineCIDRs`, while the project [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) (`vmip`) resource reserves leased addresses and binds them to machines. An address is assigned to a machine when the resource moves to the `Attached` phase. The other phases are described in the [`.status.phase`](cr.html#virtualmachineipaddress-v1alpha2-status-phase) field.
@@ -3268,7 +3268,7 @@ EOF
 ### IPAM for the main network
 
 {{< alert level="info" >}}
-The shared IPAM works only if an address pool is configured for the main cluster network in the [`sdn`](/modules/sdn/) module. Without it, machine addresses are managed by the deprecated [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resources described above.
+To use IPAM for the main network, the main network has to be served by the [`sdn`](/modules/sdn/) module. Otherwise, VM addresses are managed by the deprecated [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resources described above.
 {{< /alert >}}
 
 The address of a machine in the main network is held by the [IPAddress](/modules/sdn/cr.html#ipaddress) resource of the `sdn` module, the same one that addresses additional networks. There are two ways to get an address:
@@ -3318,13 +3318,13 @@ Example output:
 {"id":1,"ipAddress":"10.66.10.14","ipAddressName":"linux-vm-4bkqr","type":"Main"}
 ```
 
-#### Switching a machine to the shared IPAM
+#### Switching a VM to the IPAddress resource
 
-Machines that don't reference a [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource explicitly switch to the shared IPAM automatically, and the address doesn't change and the machine isn't restarted.
+DP moves the VMs that are already running to the [IPAddress](/modules/sdn/cr.html#ipaddress) resource automatically. The address doesn't change, the VM isn't restarted, and the name of the new resource appears in its status.
 
-A machine with the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter set keeps working through the deprecated mechanism, because the reference to the resource is set in its specification explicitly.
+A VM with the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter set moves over too, but the source of its address stays the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource named in that parameter. For that resource, DP maintains an IPAddress resource with the same name and the same address.
 
-For the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource listed in the machine specification, DP maintains an IPAddress resource with the same name and the same address. To switch the machine and keep its address, replace one parameter with the other:
+To change the address source and keep the address itself, replace one parameter with the other:
 
 ```yaml
 spec:
@@ -3337,9 +3337,7 @@ spec:
 
 Restart the machine to apply the change. The address stays the same, and the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource can be deleted after that.
 
-{{< alert level="warning" >}}
-Don't remove the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter without such a replacement, otherwise the machine gets a new address from the pool.
-{{< /alert >}}
+If you remove the [`.spec.virtualMachineIPAddressName`](cr.html#virtualmachine-v1alpha2-spec-virtualmachineipaddressname) parameter without naming an IPAddress resource, the address stays the same too: the machine takes it from the IPAddress resource that DP maintains for the [VirtualMachineIPAddress](cr.html#virtualmachineipaddress) resource.
 
 ### Accessing applications on a virtual machine
 

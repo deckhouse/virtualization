@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -112,7 +114,7 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 		// in networks-spec. Skipped interfaces (no pool + ipAddressName, or
 		// IPAddress not yet allocated/exists) are not provisioned by SDN, so
 		// waiting for their status would produce a misleading message.
-		willProvision, err := network.WillProvisionInterface(ctx, s.Client(), vm.Namespace, vm, netSpec)
+		willProvision, err := network.WillProvisionInterface(ctx, s.Client(), vm, netSpec)
 		if err != nil {
 			return err
 		}
@@ -138,7 +140,7 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	// Aggregate IPAM configuration errors for additional networks.
 	// A network with ipAddressName set requires a pool (IPAM) on the referenced
 	// Network/ClusterNetwork; otherwise the IPAddress cannot be applied.
-	ipamErrors := collectIPAMErrors(ctx, s.Client(), vm.Namespace, vm, vm.Spec.Networks)
+	ipamErrors := collectIPAMErrors(ctx, s.Client(), vm)
 	if len(ipamErrors) > 0 {
 		if errMsg != "" {
 			errMsg += ". " + strings.Join(ipamErrors, "; ")
@@ -190,18 +192,18 @@ func additionalNetworkKeys(vm *v1alpha2.VirtualMachine) map[string]struct{} {
 // into the NetworkReady condition message.
 //
 // Errors reported (the VM is not blocked from running by these; problematic
-// interfaces are skipped by EnrichWithIPAM, and the errors are surfaced here):
+// interfaces are skipped by ProvisionableInterfaceSpecs, and the errors are surfaced here):
 //   - static mode: ipAddressName set but the network has no pool (IPAM);
 //   - static mode: referenced IPAddress does not exist or is not bound to the network;
 //   - auto mode: the IPAddress created by the controller is not yet allocated
 //     (Pending / NoFreeIPAddress — pool exhausted).
-func collectIPAMErrors(ctx context.Context, c client.Client, namespace string, vm *v1alpha2.VirtualMachine, networks []v1alpha2.NetworksSpec) []string {
+func collectIPAMErrors(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) []string {
 	var errs []string
-	for _, netSpec := range networks {
+	for _, netSpec := range vm.Spec.Networks {
 		if netSpec.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
-		hasPool, err := network.HasIPAM(ctx, c, namespace, netSpec)
+		hasPool, err := network.HasIPAM(ctx, c, vm.Namespace, netSpec)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s: failed to check IPAM configuration: %v", network.SpecKey(netSpec), err))
 			continue
@@ -219,31 +221,26 @@ func collectIPAMErrors(ctx context.Context, c client.Client, namespace string, v
 		// Pool exists: validate the IPAddress (static or auto).
 		if netSpec.IPAddressName != "" {
 			// Static mode: check the user-provided IPAddress exists, matches the network, and is allocated.
-			exists, err := network.SDNIPAddressExists(ctx, c, namespace, netSpec.IPAddressName, netSpec.Type, netSpec.Name)
+			ipa, err := network.GetSDNIPAddress(ctx, c, vm.Namespace, netSpec.IPAddressName)
 			if err != nil {
-				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
+				errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
 				continue
 			}
-			if !exists {
+			if ipa == nil || !network.IPAddressBelongsToNetwork(ipa, netSpec) {
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q does not exist or is not bound to this network; the interface is skipped",
 					network.SpecKey(netSpec), netSpec.IPAddressName))
 				continue
 			}
-			status, err := network.GetSDNIPAddressStatus(ctx, c, namespace, netSpec.IPAddressName)
-			if err != nil {
-				errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
-				continue
-			}
-			if status == nil || !status.Allocated {
-				reason := ipStatusReason(status)
-				phase := ipStatusPhase(status)
+			if !network.IPAddressAllocated(ipa) {
+				reason := ipStatusReason(ipa)
+				phase := ipStatusPhase(ipa)
 				errs = append(errs, fmt.Sprintf(
 					"%s: ipAddressName %q is in phase %s (%s); the interface is skipped",
 					network.SpecKey(netSpec), netSpec.IPAddressName, phase, reason))
 				continue
 			}
-			conflictVM, err := network.IsIPAddressNameUsedByAnotherVM(ctx, c, vm, netSpec.IPAddressName, netSpec)
+			conflictVM, err := network.OtherVMUsingIPAddress(ctx, c, vm, ipa, netSpec)
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("%s: failed to check IPAddress %q conflict: %v", network.SpecKey(netSpec), netSpec.IPAddressName, err))
 				continue
@@ -257,62 +254,100 @@ func collectIPAMErrors(ctx context.Context, c client.Client, namespace string, v
 		}
 
 		// Auto mode: check the controller-created IPAddress is allocated.
-		name, err := network.FindSDNIPAddress(ctx, c, vm, netSpec)
+		ipa, err := network.GetSDNIPAddressOfVM(ctx, c, vm, netSpec)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s: failed to find auto IPAddress: %v", network.SpecKey(netSpec), err))
 			continue
 		}
-		if name == "" {
+		if ipa == nil {
 			errs = append(errs, fmt.Sprintf("%s: auto IPAddress is not yet created; waiting for the controller", network.SpecKey(netSpec)))
 			continue
 		}
-		status, err := network.GetSDNIPAddressStatus(ctx, c, namespace, name)
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("%s: failed to get IPAddress %q status: %v", network.SpecKey(netSpec), name, err))
+		if ipa.GetDeletionTimestamp() != nil {
+			errs = append(errs, fmt.Sprintf("%s: auto IPAddress %q is being replaced; waiting for the controller", network.SpecKey(netSpec), ipa.GetName()))
 			continue
 		}
-		if status == nil || !status.Allocated {
-			reason := ipStatusReason(status)
-			phase := ipStatusPhase(status)
+		if !network.IPAddressAllocated(ipa) {
+			reason := ipStatusReason(ipa)
+			phase := ipStatusPhase(ipa)
 			errs = append(errs, fmt.Sprintf(
 				"%s: auto IPAddress %q is in phase %s (%s); the interface is skipped",
-				network.SpecKey(netSpec), name, phase, reason))
+				network.SpecKey(netSpec), ipa.GetName(), phase, reason))
 		}
 	}
 	return errs
 }
 
 // ipStatusReason returns a human-readable reason for why an IPAddress is not allocated.
-func ipStatusReason(status *network.SDNIPAddressStatus) string {
-	if status == nil {
+func ipStatusReason(ipa *sdnapi.IPAddress) string {
+	if ipa == nil {
 		return "IPAddress not found"
 	}
-	if status.NoFreeAddress {
+	if network.IPAddressPoolExhausted(ipa) {
 		return "pool exhausted (NoFreeIPAddress)"
 	}
 	return "address not yet allocated"
 }
 
 // ipStatusPhase returns the phase of an IPAddress, or "unknown" if nil.
-func ipStatusPhase(status *network.SDNIPAddressStatus) string {
-	if status == nil || status.Phase == "" {
+func ipStatusPhase(ipa *sdnapi.IPAddress) string {
+	if ipa == nil || ipa.Status.Phase == "" {
 		return "unknown"
 	}
-	return status.Phase
+	return ipa.Status.Phase
 }
 
 func (h *NetworkInterfaceHandler) Name() string {
 	return nameNetworkHandler
 }
 
+// mainNetworkStatus returns the status of the Main network with its IPAddress. On a
+// lookup error it keeps the IPAddress the status has: blanking it would drop the
+// IPAddress from a snapshot made in that moment.
+func (h *NetworkInterfaceHandler) mainNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, id int) v1alpha2.NetworksStatus {
+	status := v1alpha2.NetworksStatus{ID: id, Type: v1alpha2.NetworksTypeMain}
+	keepCurrent := func() v1alpha2.NetworksStatus {
+		for _, ns := range vm.Status.Networks {
+			if ns.Type == v1alpha2.NetworksTypeMain {
+				status.IPAddressName, status.IPAddress = ns.IPAddressName, ns.IPAddress
+			}
+		}
+		return status
+	}
+
+	mainInterfaceSpecEnabled, err := s.MainInterfaceSpecEnabled(ctx)
+	if err != nil {
+		return keepCurrent()
+	}
+	if !mainInterfaceSpecEnabled {
+		return status
+	}
+	ipa, err := network.GetMainSDNIPAddress(ctx, s.Client(), vm)
+	if err != nil {
+		return keepCurrent()
+	}
+	if ipa != nil {
+		err = network.CheckMainSDNIPAddress(ctx, s.Client(), vm, ipa)
+	}
+	switch {
+	case ipa == nil, errors.Is(err, network.ErrIPAddressBeingDeleted):
+		// The IPAddress named in the spec is shown without an address until it is there.
+		if mainSpec := network.MainNetworkSpecOrImplicit(vm); mainSpec != nil {
+			status.IPAddressName = mainSpec.IPAddressName
+		}
+	case err == nil, errors.Is(err, network.ErrIPAddressNotAllocated):
+		status.IPAddressName, status.IPAddress = ipa.GetName(), ipa.Status.Address
+	default:
+		return keepCurrent()
+	}
+	return status
+}
+
 func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	if hasOnlyDefaultNetwork(vm) {
 		networksStatus := make([]v1alpha2.NetworksStatus, 0)
 		if len(h.virtualMachineCIDRs) != 0 {
-			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
-				ID:   mainNetworkID(vm),
-				Type: v1alpha2.NetworksTypeMain,
-			})
+			networksStatus = append(networksStatus, h.mainNetworkStatus(ctx, s, vm, mainNetworkID(vm)))
 		}
 		// The last additional network may still be leaving the domain: retain its entry
 		// here as well, otherwise removing the only additional network releases the MAC
@@ -364,10 +399,7 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 	var networksStatus []v1alpha2.NetworksStatus
 	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vm.Spec.Networks, vmmacs, kvvm != nil) {
 		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
-			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
-				ID:   interfaceSpec.ID,
-				Type: v1alpha2.NetworksTypeMain,
-			})
+			networksStatus = append(networksStatus, h.mainNetworkStatus(ctx, s, vm, interfaceSpec.ID))
 			continue
 		}
 

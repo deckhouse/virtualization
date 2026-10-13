@@ -44,12 +44,14 @@ import (
 	ssv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
 	storagefoundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	storagev1alpha1 "github.com/deckhouse/virtualization-controller/pkg/apis/storage/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	dvcrgarbagecollection "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/mainippool"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/migrationiface"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
@@ -269,6 +271,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfg.WarningHandlerWithContext = withoutVMIPDeprecationWarnings()
+
 	// Override content type to JSON so proxy can rewrite payloads.
 	cfg.ContentType = apiruntime.ContentTypeJSON
 	cfg.NegotiatedSerializer = clientgoscheme.Codecs.WithoutConversion()
@@ -300,6 +304,7 @@ func main() {
 		mcapi.AddToScheme,
 		ssv1alpha1.AddToScheme,
 		ssstoragev1alpha1.AddToScheme,
+		sdnapi.AddToScheme,
 	} {
 		err = f(scheme)
 		if err != nil {
@@ -460,6 +465,12 @@ func main() {
 
 	vmbdaLogger := logger.NewControllerLogger(vmbda.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmbda.NewController(ctx, mgr, virtClient, vmbdaLogger, controllerNamespace); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	mainIPPoolLogger := logger.NewControllerLogger(mainippool.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = mainippool.SetupController(ctx, mgr, mainIPPoolLogger, virtualMachineCIDRs); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

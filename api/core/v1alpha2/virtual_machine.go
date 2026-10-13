@@ -364,10 +364,12 @@ type NetworksSpec struct {
 	Name                         string `json:"name,omitempty"`
 	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
 	// IPAddressName is the name of the `IPAddress` resource (SDN module, network.deckhouse.io/v1alpha1)
-	// to use for a static IP address on this additional network interface.
+	// to use for a static IP address on this network interface.
 	// If specified, the referenced IPAddress is used instead of automatic allocation from the network pool.
-	// Only applicable to additional networks (Network, ClusterNetwork) with IPAM configured (a pool bound to the network).
-	// Ignored if the network has no pool.
+	// For the `Main` network the referenced IPAddress must belong to the `main` ClusterNetwork and requires
+	// an address pool configured for it in the `sdn` module; changing it requires a restart of the virtual machine.
+	// Cannot be combined with `spec.virtualMachineIPAddressName`.
+	// For additional networks (Network, ClusterNetwork) without a configured pool, the field is ignored.
 	IPAddressName string `json:"ipAddressName,omitempty"`
 	// VLANID is the VLAN tag to set on the SR-IOV virtual function.
 	// Only applicable to networks of type UnderlayNetwork.
@@ -567,10 +569,12 @@ type NetworksStatus struct {
 	Name                         string `json:"name,omitempty"`
 	MAC                          string `json:"macAddress,omitempty"`
 	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
-	// IPAddress is the IP address allocated for this additional network interface by SDN (from the network pool).
-	// Populated from the pod's network.deckhouse.io/networks-status annotation (ipAddressConfigs[].address).
-	// Empty for the Main network or when the additional network has no pool configured.
+	// IPAddress is the IP address allocated for this network interface by the `sdn` module from the network pool.
+	// Filled for additional networks with IPAM configured and for the `Main` network when its address
+	// is managed by the `sdn` module. Empty for networks without a configured pool.
 	IPAddress string `json:"ipAddress,omitempty"`
+	// IPAddressName is the name of the `IPAddress` resource (`sdn` module) the address of this network interface comes from.
+	IPAddressName string `json:"ipAddressName,omitempty"`
 }
 
 // MachinePhase defines the current phase of the virtual machine.

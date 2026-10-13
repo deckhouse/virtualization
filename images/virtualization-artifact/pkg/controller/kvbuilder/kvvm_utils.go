@@ -840,18 +840,15 @@ func defaultNameFirst(a, b string) int {
 }
 
 func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) error {
-	// A VM without additional networks has nothing SDN-managed; omit the annotations
-	// (and clear any stale value) instead of advertising an empty networks-spec.
-	if networkSpec.HasOnlyMain() {
-		kvvm.RemoveKVVMIAnnotation(annotations.AnnNetworksSpec)
-		kvvm.RemoveKVVMIAnnotation(annotations.AnnTapProvisionByDVPSupported)
-		return nil
-	}
-	networkConfigStr, err := networkSpec.ToString()
+	annotationsToSet, annotationsToRemove, err := networkSpec.BuildNetworksAnnotations()
 	if err != nil {
 		return err
 	}
-	kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
-	kvvm.SetKVVMIAnnotation(annotations.AnnTapProvisionByDVPSupported, "true")
+	for k, v := range annotationsToSet {
+		kvvm.SetKVVMIAnnotation(k, v)
+	}
+	for _, k := range annotationsToRemove {
+		kvvm.RemoveKVVMIAnnotation(k)
+	}
 	return nil
 }

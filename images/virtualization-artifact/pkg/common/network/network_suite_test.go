@@ -17,13 +17,25 @@ limitations under the License.
 package network
 
 import (
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/component-base/featuregate"
+
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 )
 
 func TestNetwork(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Network Suite")
+}
+
+// Not testutil.EnableSDNFeatureGate: testutil imports this package.
+func TestMain(m *testing.M) {
+	if err := featuregates.Default().(featuregate.MutableFeatureGate).Set(string(featuregates.SDN) + "=true"); err != nil {
+		panic(err)
+	}
+	os.Exit(m.Run())
 }
