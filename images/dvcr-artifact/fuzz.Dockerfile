@@ -10,7 +10,7 @@
 #
 # Build and run through `task docker:fuzz:*` rather than by hand.
 
-# Must satisfy the `go` directive of the repository-root go.work (1.25.12) on its
+# Must satisfy the `go` directive of the repository-root go.work (1.26.0) on its
 # own: GOTOOLCHAIN=local is set below because GOPROXY is off at run time and a
 # toolchain download would be the first thing to fail.
 FROM golang:1.26-bookworm

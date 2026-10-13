@@ -39,7 +39,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-from: {{ index $.Images "builder/golang-1.25" }}
+from: {{ index $.Images "builder/golang-1.26" }}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}

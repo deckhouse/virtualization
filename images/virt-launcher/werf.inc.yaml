@@ -274,7 +274,7 @@ pmPackages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
-from: {{ index $.Images "builder/golang-1.25" }}
+from: {{ index $.Images "builder/golang-1.26" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
@@ -323,7 +323,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-from: {{ index $.Images "builder/golang-1.25" }}
+from: {{ index $.Images "builder/golang-1.26" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries
