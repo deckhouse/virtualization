@@ -71,6 +71,11 @@ on:
         type: string
         default: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
         description: "Virtualization image url (default noble-server-cloudimg-amd64.img)"
+      virtualization_image_os_family:
+        required: false
+        type: string
+        default: "ubuntu"
+        description: "OS family of virtualization_image_url (ubuntu or redos), selects the nested cluster nodes' cloud-init flavor"
       deckhouse_channel:
         required: false
         type: string
@@ -219,6 +224,7 @@ jobs:
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
           DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
           VIRTUALIZATION_IMAGE_URL: ${{ inputs.virtualization_image_url }}
+          VIRTUALIZATION_IMAGE_OS_FAMILY: ${{ inputs.virtualization_image_os_family }}
           DEFAULT_USER: ${{ env.DEFAULT_USER }}
           APT_MIRROR_ENABLED: ${{ inputs.apt_mirror_enabled }}
           APT_MIRROR_NAME: ${{ inputs.apt_mirror_name }}

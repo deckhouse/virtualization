@@ -15,6 +15,7 @@ deckhouse:
   proxyEnabled: false
 image:
   url: ${VIRTUALIZATION_IMAGE_URL}
+  osFamily: ${VIRTUALIZATION_IMAGE_OS_FAMILY}
   defaultUser: ${DEFAULT_USER}
   bootloader: BIOS
 # Labels put on every node of the nested cluster, through the nodeTemplate of its
