@@ -30,6 +30,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/step"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
@@ -222,5 +225,98 @@ var _ = Describe("ProtectionHandler mirror cleanup", func() {
 		handle(cl)
 
 		Expect(mirrorExists(cl)).To(BeFalse())
+	})
+})
+
+var _ = Describe("Deleting vmip the VM has left", func() {
+	const (
+		namespace  = "ns"
+		oldName    = "vmip-old"
+		newName    = "vmip-new"
+		oldAddress = "10.10.10.10"
+		newAddress = "10.10.10.20"
+		vmUID      = types.UID("vm-uid")
+	)
+
+	BeforeEach(testutil.EnableSDNFeatureGate)
+
+	newAllocatedMirror := func(name, address string, vmipUID types.UID) *sdnapi.IPAddress {
+		return &sdnapi.IPAddress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Namespace:   namespace,
+				Annotations: map[string]string{annotations.AnnMirrorOfVMIP: string(vmipUID)},
+			},
+			Spec: sdnapi.IPAddressSpec{
+				NetworkRef: sdnapi.NetworkRef{Kind: v1alpha2.NetworksTypeClusterNetwork, Name: network.MainClusterNetworkName},
+				Type:       sdnapi.IPAddressTypeStatic,
+				Static:     &sdnapi.StaticIPAddress{IP: address},
+			},
+			Status: sdnapi.IPAddressStatus{
+				Address:    address,
+				Conditions: []metav1.Condition{{Type: sdnapi.ConditionAllocated, Status: metav1.ConditionTrue, Reason: "IPAddressAllocated"}},
+			},
+		}
+	}
+
+	It("deletes the released mirror despite Attached left from the previous reconcile", func() {
+		ctx := context.Background()
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: namespace, UID: vmUID},
+			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineIPAddress: newName,
+				Networks:                []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}},
+			},
+			Status: v1alpha2.VirtualMachineStatus{VirtualMachineIPAddress: newName, IPAddress: newAddress},
+		}
+		now := metav1.Now()
+		oldVMIP := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              oldName,
+				Namespace:         namespace,
+				UID:               "old-uid",
+				DeletionTimestamp: &now,
+				Finalizers:        []string{v1alpha2.FinalizerIPAddressCleanup},
+			},
+			Spec: v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeAuto},
+			Status: v1alpha2.VirtualMachineIPAddressStatus{
+				Address:        oldAddress,
+				VirtualMachine: vm.Name,
+				Conditions: []metav1.Condition{
+					{Type: vmipcondition.AttachedType.String(), Status: metav1.ConditionTrue, Reason: vmipcondition.Attached.String()},
+					{Type: vmipcondition.BoundType.String(), Status: metav1.ConditionTrue, Reason: vmipcondition.Bound.String()},
+				},
+			},
+		}
+		// The VM has released the mirror of its previous vmip: no label, no ownerRef.
+		oldMirror := newAllocatedMirror(oldName, oldAddress, oldVMIP.UID)
+		newMirror := newAllocatedMirror(newName, newAddress, "new-uid")
+		newMirror.SetLabels(map[string]string{annotations.LabelVirtualMachineUID: string(vmUID)})
+		newMirror.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(vm, v1alpha2.SchemeGroupVersion.WithKind(v1alpha2.VirtualMachineKind))})
+		mainNetwork := &sdnapi.ClusterNetwork{
+			ObjectMeta: metav1.ObjectMeta{Name: network.MainClusterNetworkName},
+			Spec: sdnapi.ClusterNetworkSpec{
+				Type: sdnapi.ClusterNetworkTypePrimaryCNI,
+				IPAM: &sdnapi.IPAMSpec{IPAddressPoolRef: &sdnapi.IPAddressPoolRef{Kind: sdnapi.ClusterIPAddressPoolKind, Name: "demo-pool"}},
+			},
+		}
+		cl, err := testutil.NewFakeClientWithObjects(vm, mainNetwork, oldMirror, newMirror)
+		Expect(err).NotTo(HaveOccurred())
+
+		// The handlers in the controller order: BoundHandler runs MirrorStep before AttachedHandler.
+		_, err = step.NewMirrorStep(nil, cl, conditions.NewConditionBuilder(vmipcondition.BoundType), recorder).Take(ctx, oldVMIP)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = NewAttachedHandler(recorder, cl).Handle(ctx, oldVMIP)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = NewProtectionHandler(cl).Handle(ctx, oldVMIP)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(oldVMIP.Finalizers).NotTo(ContainElement(v1alpha2.FinalizerIPAddressCleanup))
+		err = cl.Get(ctx, types.NamespacedName{Name: oldName, Namespace: namespace}, &sdnapi.IPAddress{})
+		Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "a mirror left after the vmip keeps the address in the sdn pool forever")
 	})
 })

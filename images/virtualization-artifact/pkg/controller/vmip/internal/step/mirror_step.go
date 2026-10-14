@@ -87,13 +87,6 @@ func (s MirrorStep) isVMMovedToIPAddress(ctx context.Context, vmip *v1alpha2.Vir
 }
 
 func (s MirrorStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*reconcile.Result, error) {
-	// A vmip on its way out gets no mirror: the protection handler removes the
-	// mirror first, so a reconcile slipping in afterwards would leave an IPAddress
-	// behind with nothing to ever delete it.
-	if vmip.GetDeletionTimestamp() != nil {
-		return nil, nil
-	}
-
 	address := vmip.Status.Address
 	if address == "" && s.lease != nil {
 		address = ip.LeaseNameToIP(s.lease.Name)
@@ -135,12 +128,18 @@ func (s MirrorStep) ensureMirror(ctx context.Context, vmip *v1alpha2.VirtualMach
 	if err != nil {
 		return nil, err
 	}
+	if vmip.GetDeletionTimestamp() != nil && !isAttachedTo(vmip, vm) {
+		return nil, nil
+	}
 	if err := network.ReleaseTerminatingMirror(ctx, s.client, vmip, vm); err != nil {
 		return nil, err
 	}
 	vmMovedToIPAddress, err := s.isVMMovedToIPAddress(ctx, vmip, vm)
 	if err != nil {
 		return nil, err
+	}
+	if vmip.GetDeletionTimestamp() != nil && vmMovedToIPAddress {
+		return nil, nil
 	}
 
 	ipa, err := network.EnsureVMIPAddressTaken(ctx, s.client, vmip, network.MirrorOwnerRef(vmip, vm, vmMovedToIPAddress))
@@ -169,6 +168,12 @@ func (s MirrorStep) ensureMirror(ctx context.Context, vmip *v1alpha2.VirtualMach
 		setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The sdn module refused the address %s for the IPAddress %q: %s. Delete the IPAddress that already has this address, or give this VirtualMachineIPAddress another address.", vmip.Status.Address, ipa.GetName(), ipAddressRefusalMessage(ipa)))
 		return &reconcile.Result{}, nil
 	}
+}
+
+// A deleting vmip mirrors only for the VM running on it, so the mirror never becomes an orphan.
+// Not by Attached: AttachedHandler runs after this step.
+func isAttachedTo(vmip *v1alpha2.VirtualMachineIPAddress, vm *v1alpha2.VirtualMachine) bool {
+	return vm != nil && vm.Status.VirtualMachineIPAddress == vmip.Name
 }
 
 func setLeaseNotReadyCondition(cb *conditions.ConditionBuilder, message string) {

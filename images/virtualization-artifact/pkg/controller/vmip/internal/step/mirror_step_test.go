@@ -363,38 +363,90 @@ var _ = Describe("MirrorStep", func() {
 	})
 })
 
-var _ = Describe("MirrorStep on a deletingVMIP vmip", func() {
+var _ = Describe("MirrorStep on a deleting vmip", func() {
 	const (
 		address   = "10.10.10.10"
 		namespace = "ns"
+		vmName    = "vm"
 	)
 
-	It("creates no mirror: nothing would ever delete it", func() {
-		ctx := context.Background()
-		deletingVMIP := &v1alpha2.VirtualMachineIPAddress{
+	var (
+		ctx          context.Context
+		cb           *conditions.ConditionBuilder
+		recorder     *eventrecord.EventRecorderLoggerMock
+		deletingVMIP *v1alpha2.VirtualMachineIPAddress
+		vm           *v1alpha2.VirtualMachine
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		cb = conditions.NewConditionBuilder(vmipcondition.BoundType)
+		recorder = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
+		deletingVMIP = &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:              "vmip-deletingVMIP",
+				Name:              "vmip-deleting",
 				Namespace:         namespace,
 				DeletionTimestamp: ptr.To(metav1.Now()),
 				Finalizers:        []string{v1alpha2.FinalizerIPAddressCleanup},
+				Labels:            map[string]string{annotations.LabelVirtualMachineUID: "vm-uid"},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: v1alpha2.SchemeGroupVersion.String(),
+					Kind:       v1alpha2.VirtualMachineKind,
+					Name:       vmName,
+					UID:        "vm-uid",
+				}},
 			},
 			Spec:   v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeAuto},
 			Status: v1alpha2.VirtualMachineIPAddressStatus{Address: address},
 		}
-		cl := newStepFakeClient(newMainClusterNetworkWithPool())
-		cb := conditions.NewConditionBuilder(vmipcondition.BoundType)
-		recorder := &eventrecord.EventRecorderLoggerMock{
-			EventFunc:  func(_ client.Object, _, _, _ string) {},
-			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		vm = &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: namespace, UID: "vm-uid"},
+			Status:     v1alpha2.VirtualMachineStatus{IPAddress: address},
 		}
+	})
 
-		result, err := NewMirrorStep(nil, cl, cb, recorder).Take(ctx, deletingVMIP)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(result).To(BeNil())
+	markAttached := func() {
+		deletingVMIP.Status.VirtualMachine = vmName
+		vm.Status.VirtualMachineIPAddress = deletingVMIP.Name
+		deletingVMIP.Status.Conditions = []metav1.Condition{{
+			Type:   vmipcondition.AttachedType.String(),
+			Status: metav1.ConditionTrue,
+			Reason: vmipcondition.Attached.String(),
+		}}
+	}
 
+	listIPAddresses := func(cl client.Client) []sdnapi.IPAddress {
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas, client.InNamespace(namespace))).To(Succeed())
-		Expect(ipas.Items).To(BeEmpty(), "a mirror created after the cleanup keeps the address forever")
+		return ipas.Items
+	}
+
+	It("creates no mirror once no VM runs on it: nothing would ever delete it", func() {
+		cl := newStepFakeClient(newMainClusterNetworkWithPool(), vm)
+
+		result, err := NewMirrorStep(nil, cl, cb, recorder).Take(ctx, deletingVMIP)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(BeNil())
+		Expect(listIPAddresses(cl)).To(BeEmpty(), "a mirror created after the cleanup keeps the address forever")
+	})
+
+	It("mirrors the address for the VM that still runs on it", func() {
+		markAttached()
+		cl := newStepFakeClient(newMainClusterNetworkWithPool(), vm)
+
+		_, err := NewMirrorStep(nil, cl, cb, recorder).Take(ctx, deletingVMIP)
+
+		Expect(err).NotTo(HaveOccurred())
+		mirrors := listIPAddresses(cl)
+		Expect(mirrors).To(HaveLen(1))
+		Expect(mirrors[0].Spec.Static).NotTo(BeNil())
+		Expect(mirrors[0].Spec.Static.IP).To(Equal(address))
+		Expect(mirrors[0].GetLabels()).To(HaveKeyWithValue(annotations.LabelVirtualMachineUID, "vm-uid"),
+			"the protection handler keeps a labelled mirror for the VM")
 	})
 })
 

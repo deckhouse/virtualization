@@ -92,11 +92,11 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 	}
 
 	if vmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeAuto {
-		mainIPAMAvailable, err := network.MainIPAMAvailable(ctx, s.client)
+		useSDNPool, err := s.useSDNPool(ctx, vmip)
 		if err != nil {
-			return nil, fmt.Errorf("check whether the sdn module serves the Main network: %w", err)
+			return nil, err
 		}
-		if mainIPAMAvailable {
+		if useSDNPool {
 			return s.createLeaseForAddressFromSDN(ctx, vmip)
 		}
 	}
@@ -163,6 +163,26 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachine
 	return s.createLease(ctx, vmip, ipAddress)
 }
 
+// Until every vmip address is taken in the sdn pool, the pool may allocate one of them again.
+func (s CreateLeaseStep) useSDNPool(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (bool, error) {
+	mainIPAMAvailable, err := network.MainIPAMAvailable(ctx, s.client)
+	if err != nil {
+		return false, fmt.Errorf("check whether the sdn module serves the Main network: %w", err)
+	}
+	if !mainIPAMAvailable {
+		return false, nil
+	}
+	mirror, err := network.GetMirrorOfVMIP(ctx, s.client, vmip)
+	if err != nil {
+		return false, err
+	}
+	// The mirror already gets an address from sdn: the vmip allocator would give another one.
+	if mirror != nil {
+		return true, nil
+	}
+	return network.VMIPAddressesTakenInSDNPool(ctx, s.client)
+}
+
 // createLeaseForAddressFromSDN creates the Auto mirror first and the lease on the
 // address the sdn module gives it.
 func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*reconcile.Result, error) {
@@ -193,7 +213,8 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 	}
 
 	// The sdn module does not see the leases of vmips without a mirror and may give
-	// out such an address: the mirror is deleted, and the next one gets another.
+	// out such an address: the mirror is deleted and the vmip allocator picks another;
+	// for a Released lease, sdn may repeat it until the lease is deleted.
 	address := mirror.Status.Address
 	lease := &v1alpha2.VirtualMachineIPAddressLease{}
 	err = s.client.Get(ctx, types.NamespacedName{Name: ip.IPToLeaseName(address)}, lease)
