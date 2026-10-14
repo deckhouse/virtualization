@@ -230,10 +230,27 @@ jobs:
           ENABLED_MODULES: console
         run: bash "${E2E_SCRIPT_DIR}/render-dvp-static-values.sh"
 
+      # A rerun reuses the namespace and its VMs, which trust only the SSH key of the
+      # first attempt, so restore it instead of letting ssh-gen create a new one.
+      - name: Restore ssh key from cluster
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+        run: |
+          bash "${E2E_SCRIPT_DIR}/ssh-key-secret.sh" restore "${NAMESPACE}" "${SETUP_CLUSTER_TYPE_PATH}/tmp/ssh"
+
       - name: Bootstrap cluster [infra-deploy]
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task infra-deploy
+
+      # Saved even when infra-deploy fails: the VMs may already exist with this key.
+      - name: Save ssh to secrets in cluster
+        if: always()
+        env:
+          NAMESPACE: ${{ steps.vars.outputs.namespace }}
+        run: |
+          bash "${E2E_SCRIPT_DIR}/ssh-key-secret.sh" save "${NAMESPACE}" "${SETUP_CLUSTER_TYPE_PATH}/tmp/ssh"
+
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
@@ -267,13 +284,6 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task show-connection-info
-
-      - name: Save ssh to secrets in cluster
-        env:
-          NAMESPACE: ${{ steps.vars.outputs.namespace }}
-        if: always() && steps.dhctl-bootstrap.outcome == 'success'
-        run: |
-          kubectl -n "$NAMESPACE" create secret generic ssh-key --from-file="${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud"
 
       - name: Get info about nested cluster and master VM
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
