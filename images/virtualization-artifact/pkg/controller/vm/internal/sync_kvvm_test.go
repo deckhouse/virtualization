@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"time"
@@ -27,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -37,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -47,6 +50,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 var _ = Describe("SyncKvvmHandler", func() {
@@ -713,59 +717,315 @@ var _ = Describe("SyncKvvmHandler", func() {
 			vmClass := makeVMClass()
 			vm := makeVM(v1alpha2.MachineRunning)
 			kvvm := makeKVVM(vm)
-
 			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
 			featureGates = featureGate
-
 			reconcile()
-
 			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
-
 			confAppliedCond, confAppliedExists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
 			Expect(confAppliedExists).To(BeTrue())
 			Expect(confAppliedCond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(confAppliedCond.Reason).To(Equal(vmcondition.ReasonConfigurationNotApplied.String()))
 			Expect(confAppliedCond.Message).To(Equal(expectedMessage))
+			_, awaitingRestart := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+			Expect(awaitingRestart).To(BeFalse())
 		},
 		Entry(
 			"cpu hotplug pending",
 			newFeatureGateEnableResourceInPlaceResize(),
 			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizePending, "Waiting for kubelet", virtv1.VirtualMachineInstanceVCPUChange),
-			"CPU hotplug is in progress. Waiting for kubelet",
+			"The CPU changes are being applied in place.",
 		),
 		Entry(
 			"memory hotplug in progress",
 			newFeatureGateEnableResourceInPlaceResize(),
 			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeInProgress, "Resizing pod resources", virtv1.VirtualMachineInstanceMemoryChange),
-			"Memory hotplug is in progress. Resizing pod resources",
+			"The memory changes are being applied in place.",
 		),
 		Entry(
 			"resize completed",
 			newFeatureGateEnableResourceInPlaceResize(),
 			makeResizingKVVMI(virtv1.VirtualMachineInstanceReasonPodResizeCompleted, "Completed", virtv1.VirtualMachineInstanceVCPUChange),
-			"CPU hotplug is in progress. Waiting when cpu and memory will be hotplugged on virtual machine.",
+			"The CPU changes are being applied to the virtual machine.",
 		),
+		// An unknown reason is reported as progress; the raw text goes to the events.
 		Entry(
 			"unexpected resize reason",
 			newFeatureGateEnableResourceInPlaceResize(),
-			makeResizingKVVMI("UnexpectedReason", "unexpected", ""),
-			"Hotplug is in progress. UnexpectedReason: unexpected",
-		),
-		Entry(
-			"unexpected resize reason without a message",
-			newFeatureGateEnableResourceInPlaceResize(),
-			makeResizingKVVMI("UnexpectedReason", "", ""),
-			"Hotplug is in progress. UnexpectedReason",
+			makeResizingKVVMI("UnexpectedReason", "unexpected", virtv1.VirtualMachineInstanceVCPUChange),
+			"The CPU changes are being applied in place.",
 		),
 		Entry(
 			"resize is not confirmed by the runtime",
 			newFeatureGateEnableResourceInPlaceResize(),
 			makeUnconfirmedResizeKVVMI(virtv1.VirtualMachineInstanceVCPUChange),
-			"CPU hotplug is in progress. Waiting for the runtime to confirm the resize.",
+			"The CPU changes are accepted; waiting for the node to confirm the in-place change.",
 		),
 	)
+
+	// The in-place marker outlives the resize once the changes go through a live migration;
+	// the condition reports on the pending changes, not the marker.
+	It("leaves ConfigurationApplied alone for an in-place marker without pending changes", func() {
+		ip := makeVMIP()
+		vmClass := makeVMClass()
+		vm := makeVM(v1alpha2.MachineRunning)
+		kvvm := makeKVVM(vm)
+		kvvmi := makeResizingKVVMI("UnexpectedReason", "unexpected", "")
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+		featureGates = newFeatureGateEnableResourceInPlaceResize()
+		reconcile()
+
+		newVM := &v1alpha2.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+		_, exists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+		Expect(exists).To(BeFalse())
+	})
+
+	Describe("ConfigurationApplied Condition for hotplug via live migration", func() {
+		const (
+			nodeName = "test-node"
+			podUID   = types.UID("virt-launcher-test-uid")
+		)
+
+		var events []string
+
+		BeforeEach(func() {
+			events = nil
+			recorder.EventFunc = func(_ client.Object, eventType, reason, message string) {
+				events = append(events, eventType+"/"+reason+": "+message)
+			}
+		})
+
+		// makeHotplugVM returns a running VM with CPU and memory raised in the spec only.
+		makeHotplugVM := func() *v1alpha2.VirtualMachine {
+			vm := makeVM(v1alpha2.MachineRunning)
+			vm.Spec.CPU.Cores = 4
+			vm.Spec.CPU.CoreFraction = "100%"
+			vm.Spec.Memory.Size = resource.MustParse("4Gi")
+			vm.Status.Resources.CPU.Cores = 2
+			vm.Status.Resources.Memory.Size = resource.MustParse("2Gi")
+			return vm
+		}
+
+		makePendingKVVMI := func(conditionTypes ...virtv1.VirtualMachineInstanceConditionType) *virtv1.VirtualMachineInstance {
+			kvvmi := makeKVVMI()
+			kvvmi.UID = types.UID("kvvmi-test-uid")
+			kvvmi.Status.NodeName = nodeName
+			kvvmi.Status.ActivePods = map[types.UID]string{podUID: nodeName}
+			for _, conditionType := range conditionTypes {
+				kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+					Type:   conditionType,
+					Status: corev1.ConditionTrue,
+				})
+			}
+			return kvvmi
+		}
+
+		// markInplaceRefused marks the resize as rejected and returns the launcher pod with the reason.
+		markInplaceRefused := func(kvvmi *virtv1.VirtualMachineInstance, podReason, podMessage string) *corev1.Pod {
+			kvvmi.Annotations = map[string]string{virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn: "true"}
+			kvvmi.Status.Conditions = append(kvvmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:    virtv1.VirtualMachineInstancePodResourceResizeInProgress,
+				Status:  corev1.ConditionTrue,
+				Reason:  virtv1.VirtualMachineInstanceReasonPodResizePending,
+				Message: podMessage,
+			})
+			return &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "virt-launcher-test",
+					Namespace: namespace,
+					UID:       podUID,
+					Labels: map[string]string{
+						virtv1.AppLabel:       "virt-launcher",
+						virtv1.CreatedByLabel: string(kvvmi.UID),
+					},
+				},
+				Spec: corev1.PodSpec{NodeName: nodeName},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					Conditions: []corev1.PodCondition{{
+						Type:    corev1.PodResizePending,
+						Status:  corev1.ConditionTrue,
+						Reason:  podReason,
+						Message: podMessage,
+					}},
+				},
+			}
+		}
+
+		makeHotplugVMOP := func(vm *v1alpha2.VirtualMachine, name string, phase v1alpha2.VMOPPhase, completedMessage string, created time.Time) *v1alpha2.VirtualMachineOperation {
+			vmop := &v1alpha2.VirtualMachineOperation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              name,
+					Namespace:         namespace,
+					CreationTimestamp: metav1.NewTime(created),
+					Annotations: map[string]string{
+						annotations.AnnVMOPWorkloadUpdate:                    "true",
+						annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum: vmutil.HotplugResourcesSum(vm),
+					},
+				},
+				Spec: v1alpha2.VirtualMachineOperationSpec{
+					Type:           v1alpha2.VMOPTypeEvict,
+					VirtualMachine: vm.Name,
+				},
+				Status: v1alpha2.VirtualMachineOperationStatus{Phase: phase},
+			}
+			if completedMessage != "" {
+				vmop.Status.Conditions = []metav1.Condition{{
+					Type:    vmopcondition.TypeCompleted.String(),
+					Status:  metav1.ConditionFalse,
+					Reason:  vmopcondition.ReasonOperationFailed.String(),
+					Message: completedMessage,
+				}}
+			}
+			return vmop
+		}
+
+		type expectation struct {
+			message             string
+			restartRequired     bool
+			restartChangesPaths []string
+			warning             bool
+		}
+
+		run := func(vm *v1alpha2.VirtualMachine, gate featuregate.FeatureGate, objs ...client.Object) *v1alpha2.VirtualMachine {
+			kvvm := makeKVVM(vm)
+			objs = append(objs, kvvm, makeVMIP(), makeVMClass())
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, objs...)
+			featureGates = gate
+			reconcile()
+			newVM := &v1alpha2.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+			return newVM
+		}
+
+		expect := func(newVM *v1alpha2.VirtualMachine, e expectation) {
+			GinkgoHelper()
+			confApplied, exists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+			Expect(exists).To(BeTrue())
+			Expect(confApplied.Status).To(Equal(metav1.ConditionFalse))
+			Expect(confApplied.Message).To(Equal(e.message))
+
+			awaitingRestart, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+			Expect(exists).To(Equal(e.restartRequired))
+			if e.restartRequired {
+				Expect(awaitingRestart.Reason).To(Equal(vmcondition.ReasonChangesPendingRestart.String()))
+				Expect(awaitingRestart.Message).To(Equal(e.message))
+			}
+
+			var paths []string
+			for _, change := range newVM.Status.RestartAwaitingChanges {
+				var fields map[string]interface{}
+				Expect(json.Unmarshal(change.Raw, &fields)).To(Succeed())
+				paths = append(paths, fields["path"].(string))
+			}
+			Expect(paths).To(ConsistOf(e.restartChangesPaths))
+
+			eventType := corev1.EventTypeNormal
+			if e.warning {
+				eventType = corev1.EventTypeWarning
+			}
+			Expect(events).To(ContainElement(HavePrefix(eventType + "/" + v1alpha2.ReasonVMCPUResizing + ": " + e.message)))
+		}
+
+		It("announces the live migration while no migration exists yet", func() {
+			vm := makeHotplugVM()
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange))
+			expect(newVM, expectation{message: "The CPU changes will be applied by live migration."})
+		})
+
+		It("names both resources when both are pending", func() {
+			vm := makeHotplugVM()
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange, virtv1.VirtualMachineInstanceMemoryChange))
+			confApplied, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+			Expect(confApplied.Message).To(Equal("The CPU and memory changes will be applied by live migration."))
+			Expect(events).To(ContainElement(HavePrefix(corev1.EventTypeNormal + "/" + v1alpha2.ReasonVMCPUAndMemoryResizing + ": ")))
+		})
+
+		It("explains the refused in-place change and the migration that follows", func() {
+			vm := makeHotplugVM()
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			pod := markInplaceRefused(kvvmi, string(corev1.PodReasonInfeasible), `Resize is infeasible for Guaranteed Pods alongside CPU Manager static policy`)
+			newVM := run(vm, newFeatureGate(featuregates.HotplugCPUAndMemoryWithInPlaceResize, featuregates.HotplugCPUWithLiveMigration, featuregates.HotplugMemoryWithLiveMigration), kvvmi, pod)
+			expect(newVM, expectation{
+				message: "The node cannot apply the CPU changes in place to a virtual machine with coreFraction 100%. The CPU changes will be applied by live migration.",
+			})
+			Expect(events).To(ContainElement(ContainSubstring("The node reports: Resize is infeasible for Guaranteed Pods alongside CPU Manager static policy")))
+		})
+
+		It("asks for a restart when the refused in-place change cannot go through a migration", func() {
+			vm := makeHotplugVM()
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			pod := markInplaceRefused(kvvmi, string(corev1.PodReasonInfeasible), "infeasible")
+			newVM := run(vm, newFeatureGateEnableResourceInPlaceResize(), kvvmi, pod)
+			expect(newVM, expectation{
+				message:             "The node cannot apply the CPU changes in place to a virtual machine with coreFraction 100%. Live migration to apply the CPU changes is disabled in the module settings. Restart the virtual machine to apply the changes.",
+				restartRequired:     true,
+				restartChangesPaths: []string{"cpu.cores"},
+				warning:             true,
+			})
+		})
+
+		It("passes on why the migration has not started", func() {
+			vm := makeHotplugVM()
+			vmop := makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhasePending, "Project quota exceeded", time.Now())
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange), vmop)
+			expect(newVM, expectation{
+				message: "The CPU changes are being applied by live migration. The live migration has not started yet: Project quota exceeded.",
+			})
+		})
+
+		It("reports a running migration", func() {
+			vm := makeHotplugVM()
+			vmop := makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhaseInProgress, "", time.Now())
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange), vmop)
+			expect(newVM, expectation{message: "The CPU changes are being applied by live migration."})
+		})
+
+		It("warns about a failed migration that is going to be retried", func() {
+			vm := makeHotplugVM()
+			vmop := makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhaseFailed, "The migration target is unschedulable.", time.Now())
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange), vmop)
+			expect(newVM, expectation{
+				message: "Live migration to apply the CPU changes failed: The migration target is unschedulable; retrying.",
+				warning: true,
+			})
+		})
+
+		It("asks for a restart once the migration has failed too many times", func() {
+			vm := makeHotplugVM()
+			now := time.Now()
+			vmops := []client.Object{
+				makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhaseFailed, "first", now.Add(-2*time.Minute)),
+				makeHotplugVMOP(vm, "hotplug-resources-2", v1alpha2.VMOPPhaseFailed, "second", now.Add(-time.Minute)),
+				makeHotplugVMOP(vm, "hotplug-resources-3", v1alpha2.VMOPPhaseFailed, "The migration target is unschedulable.", now),
+			}
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange, virtv1.VirtualMachineInstanceMemoryChange)
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), append(vmops, kvvmi)...)
+			confApplied, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+			Expect(confApplied.Message).To(Equal("Live migration to apply the CPU and memory changes failed 3 times: The migration target is unschedulable. Restart the virtual machine to apply the changes."))
+			awaitingRestart, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+			Expect(exists).To(BeTrue())
+			Expect(awaitingRestart.Reason).To(Equal(vmcondition.ReasonChangesPendingRestart.String()))
+			Expect(newVM.Status.RestartAwaitingChanges).To(HaveLen(2))
+			Expect(events).To(ContainElement(HavePrefix(corev1.EventTypeWarning + "/" + v1alpha2.ReasonVMCPUAndMemoryResizing + ": ")))
+		})
+
+		// The workload updater records the configuration on the KVVMI when it gives up on it.
+		It("asks for a restart when the configuration is recorded as given up on", func() {
+			vm := makeHotplugVM()
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			kvvmi.Annotations = map[string]string{annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum: vmutil.HotplugResourcesSum(vm)}
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi)
+			expect(newVM, expectation{
+				message:             "Live migration to apply the CPU changes did not succeed. Restart the virtual machine to apply the changes.",
+				restartRequired:     true,
+				restartChangesPaths: []string{"cpu.cores"},
+				warning:             true,
+			})
+		})
+	})
 
 	It("does not expose apply-immediate block device changes in RestartAwaitingChanges while dependencies are not ready", func() {
 		ip := makeVMIP()

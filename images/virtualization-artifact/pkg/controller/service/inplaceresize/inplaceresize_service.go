@@ -68,21 +68,35 @@ func (s *Service) IsPossible(ctx context.Context, kvvmi *virtv1.VirtualMachineIn
 		return false, fmt.Errorf("unexpected %s condition reason: %s", virtv1.VirtualMachineInstancePodResourceResizeInProgress, cond.Reason)
 	}
 
-	pod, err := kvvm.FindPodByKVVMI(ctx, s.client, kvvmi)
+	rejection, err := s.PodResizeRejection(ctx, kvvmi)
 	if err != nil {
 		return false, err
 	}
 
+	return rejection == "", nil
+}
+
+// PodResizeRejection returns the pod resize reason the node rejected the in-place resize with
+// (Infeasible, Deferred or Error), or an empty string when it was not rejected.
+func (s *Service) PodResizeRejection(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (string, error) {
+	pod, err := kvvm.FindPodByKVVMI(ctx, s.client, kvvmi)
+	if err != nil {
+		return "", err
+	}
+	if pod == nil {
+		return "", nil
+	}
+
 	podResizePending, _ := conditions.GetPodCondition(corev1.PodResizePending, pod.Status.Conditions)
 	if podResizePending.Reason == corev1.PodReasonDeferred || podResizePending.Reason == corev1.PodReasonInfeasible {
-		return false, nil
+		return podResizePending.Reason, nil
 	}
 	podResizeInProgress, _ := conditions.GetPodCondition(corev1.PodResizeInProgress, pod.Status.Conditions)
 	if podResizeInProgress.Reason == corev1.PodReasonError {
-		return false, nil
+		return podResizeInProgress.Reason, nil
 	}
 
-	return true, nil
+	return "", nil
 }
 
 func (s *Service) ResizeCondition(kvvmi *virtv1.VirtualMachineInstance) virtv1.VirtualMachineInstanceCondition {

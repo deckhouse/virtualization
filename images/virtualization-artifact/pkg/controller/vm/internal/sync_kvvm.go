@@ -250,7 +250,10 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		return reconcile.Result{}, err
 	}
 
-	inplaceResizeInProgress := kvvmi != nil && h.inplaceResize.InProgress(kvvmi)
+	hotplug, err := h.observeHotplug(ctx, s, current, kvvmi)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("observe the pending CPU and memory changes: %w", err)
+	}
 
 	// 4. Set ConfigurationApplied condition.
 	switch {
@@ -295,10 +298,20 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonChangesPendingRestart).
 			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
-	case inplaceResizeInProgress:
-		msg := h.buildInProgressInplaceResizeMsg(kvvmi)
-		h.recorder.Event(current, corev1.EventTypeNormal, h.resizingEventReason(kvvmi), msg)
-		cbConfApplied.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonConfigurationNotApplied).Message(msg)
+	case hotplug != nil && hotplug.restartRequired:
+		h.recorder.Event(current, hotplug.eventType(), hotplug.eventReason(), hotplug.eventMessage())
+		cbConfApplied.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonConfigurationNotApplied).Message(hotplug.message)
+		cbAwaitingRestart.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonChangesPendingRestart).Message(hotplug.message)
+		if len(changed.Status.RestartAwaitingChanges) == 0 {
+			pending, convErr := hotplugRestartAwaitingChanges(hotplug, current)
+			if convErr != nil {
+				return reconcile.Result{}, fmt.Errorf("list the pending CPU and memory changes: %w", convErr)
+			}
+			changed.Status.RestartAwaitingChanges = pending
+		}
+	case hotplug != nil:
+		h.recorder.Event(current, hotplug.eventType(), hotplug.eventReason(), hotplug.eventMessage())
+		cbConfApplied.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonConfigurationNotApplied).Message(hotplug.message)
 	case synced:
 		h.recorder.Event(current, corev1.EventTypeNormal, v1alpha2.ReasonErrVmSynced, "The virtual machine configuration successfully synced")
 		cbConfApplied.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonConfigurationApplied)
@@ -1659,57 +1672,6 @@ func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChang
 	}
 
 	return false
-}
-
-func (h *SyncKvvmHandler) buildInProgressInplaceResizeMsg(kvvmi *virtv1.VirtualMachineInstance) string {
-	msg := strings.Builder{}
-
-	switch {
-	case h.inplaceResize.CPUChange(kvvmi):
-		msg.WriteString("CPU hotplug is in progress.")
-	case h.inplaceResize.MemoryChange(kvvmi):
-		msg.WriteString("Memory hotplug is in progress.")
-	default:
-		msg.WriteString("Hotplug is in progress.")
-	}
-
-	cond := h.inplaceResize.ResizeCondition(kvvmi)
-	switch cond.Reason {
-	case virtv1.VirtualMachineInstanceReasonPodResizePending, virtv1.VirtualMachineInstanceReasonPodResizeInProgress:
-		msg.WriteString(" ")
-		msg.WriteString(strings.ReplaceAll(cond.Message, "Pod", "VM"))
-	case virtv1.VirtualMachineInstanceReasonPodResizeCompleted:
-		msg.WriteString(" Waiting when cpu and memory will be hotplugged on virtual machine.")
-	case "":
-		// The runtime has not reported the resize yet: it has either just started, or the request
-		// has been rejected and the changes will be applied via live migration instead.
-		msg.WriteString(" Waiting for the runtime to confirm the resize.")
-	default:
-		msg.WriteString(" ")
-		msg.WriteString(cond.Reason)
-		if cond.Message != "" {
-			msg.WriteString(": ")
-			msg.WriteString(cond.Message)
-		}
-	}
-
-	return msg.String()
-}
-
-func (h *SyncKvvmHandler) resizingEventReason(kvvmi *virtv1.VirtualMachineInstance) string {
-	cpuChange := h.inplaceResize.CPUChange(kvvmi)
-	memoryChange := h.inplaceResize.MemoryChange(kvvmi)
-
-	switch {
-	case cpuChange && memoryChange:
-		return v1alpha2.ReasonVMCPUAndMemoryResizing
-	case cpuChange:
-		return v1alpha2.ReasonVMCPUResizing
-	case memoryChange:
-		return v1alpha2.ReasonVMMemoryResizing
-	default:
-		return ""
-	}
 }
 
 // addMainInterfaceSpec moves a running machine to the sdn module without a restart:

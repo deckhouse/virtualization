@@ -30,7 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/inplaceresize"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -158,6 +160,8 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 		hasHotMemoryChangeCondition bool
 		awaitingRestart             bool
 		shouldMigrate               bool
+		// appliedRecorded marks the current configuration as handled on the KVVMI.
+		appliedRecorded bool
 		// waitTimeoutExpired drops the wait for the resize condition to zero, emulating a runtime
 		// that has not confirmed the resize within the timeout.
 		waitTimeoutExpired     bool
@@ -176,6 +180,12 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 					Status: metav1.ConditionTrue,
 					Reason: vmcondition.ReasonChangesPendingRestart.String(),
 				})
+			}
+			if settings.appliedRecorded {
+				if kvvmi.Annotations == nil {
+					kvvmi.Annotations = make(map[string]string)
+				}
+				kvvmi.Annotations[annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum] = vmutil.HotplugResourcesSum(vm)
 			}
 			pod := newLauncherPod(kvvmi, settings.resizeState)
 			if pod != nil {
@@ -221,10 +231,20 @@ var _ = Describe("TestHotplugResourcesHandler", func() {
 			},
 		),
 		Entry(
-			"Migration should not return an error when one-shot migration reports no action",
+			"Migration should be retried when one-shot migration reports no action",
 			testResourcesSettings{
 				hasHotMemoryChangeCondition: true,
 				shouldMigrate:               false,
+				expectedMigrationCalls:      1,
+				expectedRequeueAfter:        hotplugMigrationRetryInterval,
+			},
+		),
+		Entry(
+			"Migration should not be retried when the configuration is recorded as handled",
+			testResourcesSettings{
+				hasHotMemoryChangeCondition: true,
+				shouldMigrate:               false,
+				appliedRecorded:             true,
 				expectedMigrationCalls:      1,
 			},
 		),

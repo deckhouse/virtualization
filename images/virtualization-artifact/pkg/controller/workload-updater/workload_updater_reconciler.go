@@ -55,6 +55,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	for _, w := range []Watcher{
 		watcher.NewVMWatcher(),
 		watcher.NewKVVMIWatcher(),
+		watcher.NewVMOPWatcher(),
 	} {
 		if err := w.Watch(mgr, ctr); err != nil {
 			return err
