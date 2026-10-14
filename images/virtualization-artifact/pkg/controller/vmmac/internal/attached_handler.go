@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -109,6 +110,18 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 		}
 	}
 
+	// The name in the status is rebuilt on every reconcile of the virtual machine and may be
+	// missing for a moment: an interface of the owner still on the address keeps the vmmac attached.
+	if attachedVM == nil && vmmac.Status.Address != "" {
+		ownerUID := vmmac.Labels[annotations.LabelVirtualMachineUID]
+		for _, vm := range vms.Items {
+			if string(vm.UID) == ownerUID && hasNetworkWithMAC(&vm, vmmac.Status.Address) {
+				attachedVM = &vm
+				break
+			}
+		}
+	}
+
 	if attachedVM == nil {
 		for _, vm := range vms.Items {
 			if attachedVM == nil {
@@ -126,4 +139,13 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 	}
 
 	return attachedVM, nil
+}
+
+func hasNetworkWithMAC(vm *v1alpha2.VirtualMachine, mac string) bool {
+	for _, ns := range vm.Status.Networks {
+		if ns.MAC == mac {
+			return true
+		}
+	}
+	return false
 }
