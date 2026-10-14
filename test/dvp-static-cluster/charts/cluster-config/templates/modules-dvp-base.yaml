@@ -76,12 +76,24 @@ metadata:
 spec:
   enabled: false
 ---
+# Deckhouse stays on the default AutoPatch mode, where minor/major module releases
+# wait for manual approval. storage-foundation v1.0.0 requires state-snapshotter
+# >= 1.0.0, so both are updated automatically to keep the storage stack consistent.
+apiVersion: deckhouse.io/v1alpha2
+kind: ModuleUpdatePolicy
+metadata:
+  name: e2e-auto-update
+spec:
+  update:
+    mode: Auto
+---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
   name: state-snapshotter
 spec:
   enabled: true
+  updatePolicy: e2e-auto-update
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -89,6 +101,7 @@ metadata:
   name: storage-foundation
 spec:
   enabled: true
+  updatePolicy: e2e-auto-update
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
