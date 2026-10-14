@@ -99,6 +99,16 @@ kubectl() {
   sudo /opt/deckhouse/bin/kubectl "$@"
 }
 
+# The user-authz identity-assign webhook rejects a SuperAdmin ClusterAuthorizationRule
+# from admin.conf (kubeadm:cluster-admins); system:masters from super-admin.conf is exempt.
+kubectl_super_admin() {
+  if sudo test -f /etc/kubernetes/super-admin.conf; then
+    kubectl --kubeconfig /etc/kubernetes/super-admin.conf "$@"
+  else
+    kubectl "$@"
+  fi
+}
+
 trap 'on_error "${LINENO}" "${BASH_COMMAND}"' ERR
 trap 'on_signal "SIGINT" 130' SIGINT
 trap 'on_signal "SIGTERM" 143' SIGTERM
@@ -129,7 +139,7 @@ else
 fi
 
 log_info "Apply SA, Secrets and ClusterAuthorizationRule"
-kubectl apply -f -<<EOF
+kubectl_super_admin apply -f -<<EOF
 apiVersion: v1
 kind: ServiceAccount
 metadata:
