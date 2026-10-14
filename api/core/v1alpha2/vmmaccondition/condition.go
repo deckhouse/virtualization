@@ -65,6 +65,9 @@ const (
 	// VirtualMachineNotFound is an AttachedReason indicating the Virtual Machine was not found.
 	VirtualMachineNotFound AttachedReason = "VirtualMachineNotFound"
 
+	// Detached is an AttachedReason indicating the MAC address was attached to a Virtual Machine and is no longer used by it.
+	Detached AttachedReason = "Detached"
+
 	// Attached is an AttachedReason indicating the MAC address was successfully attached to the Virtual Machine.
 	Attached AttachedReason = "Attached"
 )

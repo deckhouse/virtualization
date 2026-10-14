@@ -63,11 +63,13 @@ func (w *VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr control
 				}
 
 				for _, lease := range leases.Items {
-					if vmmac.Status.Address != "" && vmmac.Status.Address == mac.LeaseNameToAddress(lease.Name) {
+					// A vmmac deleted right after creation may have no address in its status yet.
+					ref := lease.Spec.VirtualMachineMACAddressRef
+					if (vmmac.Status.Address != "" && vmmac.Status.Address == mac.LeaseNameToAddress(lease.Name)) ||
+						(ref != nil && ref.Namespace == vmmac.Namespace && ref.Name == vmmac.Name) {
 						requests = append(requests, reconcile.Request{
 							NamespacedName: types.NamespacedName{Name: lease.Name},
 						})
-						continue
 					}
 				}
 

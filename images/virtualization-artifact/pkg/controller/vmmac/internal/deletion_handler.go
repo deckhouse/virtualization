@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -42,13 +41,7 @@ func NewDeletionHandler(client client.Client) *DeletionHandler {
 
 func (h *DeletionHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (reconcile.Result, error) {
 	attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
-	if attachedCondition.Status == metav1.ConditionTrue || !conditions.IsLastUpdated(attachedCondition, vmmac) {
-		return reconcile.Result{}, nil
-	}
-
-	// This is done to allow new resources to be created while ensuring they are deleted when the interface is removed from the virtual machine's specification.
-	diff := vmmac.CreationTimestamp.Time.Sub(attachedCondition.LastTransitionTime.Time).Abs()
-	if diff.Seconds() < 1 {
+	if attachedCondition.Reason != vmmaccondition.Detached.String() || !conditions.IsLastUpdated(attachedCondition, vmmac) {
 		return reconcile.Result{}, nil
 	}
 

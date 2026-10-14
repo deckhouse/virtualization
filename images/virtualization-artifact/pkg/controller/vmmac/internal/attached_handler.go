@@ -57,10 +57,16 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMac
 	}
 
 	if vm == nil {
+		// Only an attached vmmac becomes Detached: a new one is not in the VM status yet.
+		attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
+		reason := vmmaccondition.VirtualMachineNotFound
+		if vmmac.Status.VirtualMachine != "" || attachedCondition.Reason == vmmaccondition.Detached.String() {
+			reason = vmmaccondition.Detached
+		}
 		vmmac.Status.VirtualMachine = ""
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineNotFound).
+			Reason(reason).
 			Message("VirtualMachineMACAddress is not attached to any virtual machine.")
 		conditions.SetCondition(cb, &vmmac.Status.Conditions)
 		h.recorder.Event(vmmac, corev1.EventTypeWarning, v1alpha2.ReasonNotAttached, "VirtualMachineMACAddress is not attached to any virtual machine.")
