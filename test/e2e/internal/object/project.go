@@ -39,6 +39,47 @@ func NewNonIsolatedProject(prefix, basePrefix string) *dv1alpha2.Project {
 	return newProject(prefix, basePrefix, "NotRestricted")
 }
 
+// NewReleaseProject builds a Project mirroring the one validated on the manual
+// update-virtualization-version lab cluster (vms-nested-e2e.yaml's "pr-update"
+// Project): "NotRestricted" network policy and "Privileged" pod security so the
+// VM fleet's iperf/hotplug scenarios behave the same as on that cluster, extended
+// monitoring on, and a resource quota sized for the current-release smoke's 11 VMs
+// plus their ~20 hotplug data disks. The yaml's "k8s-admins" administrators group
+// is dropped: it is a lab-cluster RBAC group that does not exist on the e2e
+// cluster, and the smoke never depends on project-scoped admin access.
+func NewReleaseProject(prefix, basePrefix string) *dv1alpha2.Project {
+	return &dv1alpha2.Project{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "deckhouse.io/v1alpha2",
+			Kind:       "Project",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-%s-", basePrefix, prefix),
+		},
+		Spec: dv1alpha2.ProjectSpec{
+			Description:         "Current-release e2e smoke: validates virtual machines survive a module upgrade",
+			ProjectTemplateName: "default",
+			Parameters: map[string]interface{}{
+				"administrators":            []interface{}{},
+				"extendedMonitoringEnabled": true,
+				"networkPolicy":             "NotRestricted",
+				"podSecurityProfile":        "Privileged",
+				"resourceQuota": map[string]interface{}{
+					"limits": map[string]interface{}{
+						"cpu":    "50",
+						"memory": "50Gi",
+					},
+					"requests": map[string]interface{}{
+						"cpu":     "50",
+						"memory":  "50Gi",
+						"storage": "400Gi",
+					},
+				},
+			},
+		},
+	}
+}
+
 func newProject(prefix, basePrefix, networkPolicy string) *dv1alpha2.Project {
 	return &dv1alpha2.Project{
 		TypeMeta: metav1.TypeMeta{

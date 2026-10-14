@@ -48,6 +48,9 @@ const (
 	PrecreatedCVITestDataQCOW   = "v12n-e2e-testdata-qcow"
 	PrecreatedCVITestDataISO    = "v12n-e2e-testdata-iso"
 	PrecreatedCVIMyOS           = "v12n-e2e-myos"
+	PrecreatedCVIRedOS          = "v12n-e2e-redos"
+	PrecreatedCVIWin2022Core    = "v12n-e2e-win2022-core"
+	PrecreatedCVIVirtioWin      = "v12n-e2e-virtio-win"
 
 	// Custom image: the default guest image for the e2e suites. It
 	// bakes in the guest agent, root SSH, stress-ng, mkfs.vfat and a BusyBox
@@ -93,6 +96,20 @@ var (
 	// Minimal fast-boot image used by the VirtualMachinePool suite.
 	ImageURLMyOS = imageURL("/upmeter/myos-latest.qcow2")
 
+	// RedOS 8 minimal server image, used by the release smoke's iperf server.
+	ImageURLRedOS = imageURL("/redos/redos-8-minimal-server.qcow2")
+
+	// Windows Server 2022 Core, pre-built with OpenSSH Server enabled, and the
+	// virtio-win driver ISO it needs to see its virtio-scsi/virtio-net
+	// devices, both used by the release smoke's Windows iperf client.
+	ImageURLWin2022Core = imageURL("/windows/win-srv-2022-core-ssh.qcow2")
+	ImageURLVirtioWin   = imageURL("/windows/virtio-win.iso")
+
+	// iperf3/jq tools ISO mounted into the release smoke's Windows VM; unlike
+	// the images above this is namespaced (a VirtualImage, not a CVI) because
+	// only that one VM ever uses it.
+	ImageURLWinIperfJQTools = imageURL("/windows/win_iperf_jq_tools.iso")
+
 	// Custom qcow2 images on Selectel (public HTTP): the BIOS flavor
 	// (MBR/extlinux) and the EFI flavor (GPT + GRUB on the ESP, boots under
 	// OVMF without NVRAM entries).
@@ -115,11 +132,21 @@ var (
 // tests. Only images actually referenced by the suites are precreated: the
 // custom flavors (the default guest image), Ubuntu (the SecureBoot
 // migration-cancel entry and the systemd interface-name-persistence subtests)
-// and MyOS (the VirtualMachinePool suite).
+// MyOS/UbuntuISO (the VirtualMachinePool suite), and AlpineUEFI/RedOS (the
+// release current-release smoke suite).
+//
+// NOTE: RedOS, Win2022Core and VirtioWin are new here. Unlike the other
+// entries, they have not been copied to the nightly pipeline's image mirror
+// (see imageBaseURLEnv above), so the nightly precreated-CVI precheck will
+// fail until they are.
 func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 	return []*v1alpha2.ClusterVirtualImage{
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntu, ImageURLUbuntu),
 		newPrecreatedHTTPCVI(PrecreatedCVIMyOS, ImageURLMyOS),
+		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFI, ImageURLAlpineUEFI),
+		newPrecreatedHTTPCVI(PrecreatedCVIRedOS, ImageURLRedOS),
+		newPrecreatedHTTPCVI(PrecreatedCVIWin2022Core, ImageURLWin2022Core),
+		newPrecreatedHTTPCVI(PrecreatedCVIVirtioWin, ImageURLVirtioWin),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOS, ImageURLCustomBIOS),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomEFI, ImageURLCustomEFI),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomISO, ImageURLCustomISO),

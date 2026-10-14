@@ -118,6 +118,16 @@ var UbuntuCloudConfig = CloudConfig{
 
 var UbuntuCloudInit = UbuntuCloudConfig.Render()
 
+// RedOSCloudInit is systemd-based like UbuntuCloudInit, but RedOS (RHEL
+// family, dnf) does not have an "iputils-ping" package: ping ships in the
+// plain "iputils" package there, as on Alpine.
+var RedOSCloudInit = CloudConfig{
+	PackageUpdate: true,
+	Packages:      append(basePackages, "iputils"),
+	Users:         []CloudConfigUser{DefaultCloudUser()},
+	Runcmd:        []string{"systemctl enable --now qemu-guest-agent"},
+}.Render()
+
 var PerfCloudInit = CloudConfig{
 	PackageUpdate: true,
 	Packages:      append(basePackages, "iputils"),

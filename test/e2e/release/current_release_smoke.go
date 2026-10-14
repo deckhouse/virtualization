@@ -26,14 +26,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
-	"github.com/deckhouse/virtualization/test/e2e/internal/observer"
+	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	projobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/project"
 	vdobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vd"
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 	vmbdaobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vmbda"
@@ -69,6 +69,10 @@ type currentReleaseSmokeTest struct {
 	dataDiskByName map[string]*dataDiskScenario
 	iperfClient    *vmScenario
 	iperfServer    *vmScenario
+	// extraObjects are supporting resources a scenario's VM references but
+	// that don't fit the disk/attachment shape above: currently the Windows
+	// scenario's sysprep Secret and its iperf3/jq-tools VirtualImage.
+	extraObjects []crclient.Object
 
 	migrationWindowCache *migrationWindow
 }
@@ -91,7 +95,7 @@ func (t *currentReleaseSmokeTest) migration() (window migrationWindow, ok bool) 
 
 func runPreUpgradeReleaseSmoke() {
 	f := framework.NewFramework("")
-	namespace := ensureReleaseNamespace(f, releaseNamespaceName)
+	namespace := createReleaseProject(f)
 
 	test := newCurrentReleaseSmokeTest(f, namespace)
 	test.createResources()
@@ -113,6 +117,11 @@ func runPostUpgradeReleaseSmoke() {
 
 func (t *currentReleaseSmokeTest) createResources() {
 	ctx := context.Background()
+
+	if len(t.extraObjects) > 0 {
+		By("Creating supporting resources (Windows sysprep secret, extra images)")
+		Expect(t.framework.CreateWithDeferredDeletion(ctx, t.extraObjects...)).To(Succeed())
+	}
 
 	// Observers are armed before the resources are created, so every phase
 	// transition (including ones that settle quickly) is captured for the
@@ -181,6 +190,9 @@ func (t *currentReleaseSmokeTest) verifyVMsReady() {
 
 	By("Checking attached disks inside guests")
 	for _, vmScenario := range t.vms {
+		if vmScenario.skipDiskCheck {
+			continue
+		}
 		By(fmt.Sprintf("Checking attached disks on %s", vmScenario.vm.Name))
 		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
 	}
@@ -200,6 +212,9 @@ func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 
 	By("Checking attached disks after module upgrade")
 	for _, vmScenario := range t.vms {
+		if vmScenario.skipDiskCheck {
+			continue
+		}
 		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
 	}
 }
@@ -225,13 +240,12 @@ func (t *currentReleaseSmokeTest) verifyVMsDidNotRestart() {
 func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 	GinkgoHelper()
 
-	// iperf3 is baked into the custom image but nothing starts it at
-	// boot, so the smoke launches the server itself.
+	// iperf3 is installed via cloud-init but nothing starts it at boot, so
+	// the smoke launches the server itself.
 	_, err := t.framework.SSHCommand(
 		t.iperfServer.vm.Name,
 		t.iperfServer.vm.Namespace,
 		"nohup iperf3 -s >/dev/null 2>&1 </dev/null &",
-		framework.WithSSHUser("root"),
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start iperf3 server")
 
@@ -247,7 +261,6 @@ func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 		t.iperfClient.vm.Name,
 		t.iperfClient.vm.Namespace,
 		command,
-		framework.WithSSHUser("root"),
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start long-running iperf3 client")
 
@@ -377,41 +390,24 @@ func mustGetEnv(name string) string {
 	return value
 }
 
-func ensureReleaseNamespace(f *framework.Framework, namespace string) string {
+// createReleaseProject creates a Deckhouse Project (see object.NewReleaseProject)
+// and waits for it to be deployed, in place of a bare Namespace. The Project's
+// generated name doubles as the namespace name: multitenancy-manager creates a
+// namespace of that same name for every resource in this file to use.
+func createReleaseProject(f *framework.Framework) string {
 	GinkgoHelper()
 
-	nsClient := f.KubeClient().CoreV1().Namespaces()
-	_, err := nsClient.Get(context.Background(), namespace, metav1.GetOptions{})
-	switch {
-	case err == nil:
-		By(fmt.Sprintf("Namespace %q already exists, recreating it", namespace))
-		err = nsClient.Delete(context.Background(), namespace, metav1.DeleteOptions{})
+	ctx := context.Background()
+	project := object.NewReleaseProject("release", framework.NamespaceBasePrefix)
+
+	By("Creating a Project", func() {
+		Expect(f.CreateWithDeferredDeletion(ctx, project)).To(Succeed())
+
+		projObs := projobs.StartObserver(ctx, f, project.Name)
+		err := projObs.WaitFor(projobs.BeDeployed(), framework.LongTimeout)
 		Expect(err).NotTo(HaveOccurred())
+	})
 
-		err = observer.WaitForDeleted(context.Background(), nsClient, namespace, "", framework.LongTimeout,
-			func(ctx context.Context) (bool, error) {
-				_, getErr := nsClient.Get(ctx, namespace, metav1.GetOptions{})
-				if k8serrors.IsNotFound(getErr) {
-					return true, nil
-				}
-				return false, getErr
-			})
-		Expect(err).NotTo(HaveOccurred(), "namespace %q must finish deleting", namespace)
-	case !k8serrors.IsNotFound(err):
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-			Labels: map[string]string{
-				framework.E2ELabel: "true",
-			},
-		},
-	}
-	_, err = nsClient.Create(context.Background(), ns, metav1.CreateOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	By(fmt.Sprintf("Namespace %q has been created", namespace))
-
-	return namespace
+	By(fmt.Sprintf("Project %q has been created", project.Name))
+	return project.Name
 }

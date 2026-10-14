@@ -111,10 +111,11 @@ func waitForIPerfServerToStart(f *framework.Framework, vm *v1alpha2.VirtualMachi
 	// EXCEPTION: this polls a guest-side process over SSH, not a Kubernetes
 	// resource, so there is nothing to observe via an Observer and a polling
 	// wait is used deliberately.
-	// BusyBox has no pgrep; pidof is the baked-in equivalent.
+	// pidof is available on both the Alpine and RedOS/Ubuntu images used
+	// here, unlike pgrep/pkill, which not all of them ship.
 	command := "pidof iperf3"
 	eventually.Until(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
@@ -130,10 +131,9 @@ func waitForIPerfClientToStart(f *framework.Framework, vm *v1alpha2.VirtualMachi
 
 	// EXCEPTION: this polls a guest-side process over SSH, not a Kubernetes
 	// resource, so a polling wait is used deliberately.
-	// BusyBox has no pgrep; pidof is the baked-in equivalent.
 	command := "pidof iperf3"
 	eventually.Until(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
@@ -149,10 +149,11 @@ func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 
 	// EXCEPTION: this retries a guest-side signal delivery over SSH, not a
 	// Kubernetes resource, so a polling wait is used deliberately.
-	// BusyBox has no pkill; signal the PIDs that pidof reports.
+	// None of the images used here ship pkill; signal the PIDs that pidof
+	// reports instead.
 	command := "kill -INT $(pidof iperf3)"
 	eventually.Until(func() error {
-		_, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
+		_, err := f.SSHCommand(vm.Name, vm.Namespace, command)
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
@@ -170,7 +171,7 @@ func getIPerfClientReport(f *framework.Framework, vm *v1alpha2.VirtualMachine, r
 	// EXCEPTION: this polls for the guest-side iperf3 report file to be fully
 	// written, not a Kubernetes resource, so a polling wait is used deliberately.
 	eventually.Until(func() error {
-		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command, framework.WithSSHUser("root"))
+		stdout, err := f.SSHCommand(vm.Name, vm.Namespace, command)
 		if err != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %w", command, err)
 		}
