@@ -61,6 +61,46 @@ runcmd:
 final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $UPTIME seconds \U0001F525\U0001F525\U0001F525"
 {{- end }}
 
+{{- define "cloudinit.redos" -}}
+#cloud-config
+ssh_pwauth: true
+package_update: true
+write_files:
+  - path: /etc/NetworkManager/system-connections/eno2.nmconnection
+    permissions: '0600'
+    content: |
+      [connection]
+      id=eno2
+      type=ethernet
+      interface-name=eno2
+      [ipv4]
+      method=disabled
+      [ipv6]
+      method=disabled
+packages:
+  - qemu-guest-agent
+  - jq
+  - rsync
+  - bind-utils
+users:
+  - default
+  - name: cloud
+    passwd: {{ .Values.discovered.userPasswd }}
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    chpasswd: {expire: False}
+    lock_passwd: false
+    ssh_authorized_keys:
+      - {{ .Values.discovered.publicSSHKey }}
+runcmd:
+  - chmod 600 /etc/NetworkManager/system-connections/eno2.nmconnection
+  - nmcli connection reload
+  - nmcli connection up eno2 || true
+  - systemctl enable --now qemu-guest-agent.service
+
+final_message: "\U0001F525\U0001F525\U0001F525 The system is finally up, after $UPTIME seconds \U0001F525\U0001F525\U0001F525"
+{{- end }}
+
 {{- define "cloudinit.alpine" -}}
 #cloud-config
 ssh_pwauth: true

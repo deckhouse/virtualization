@@ -65,7 +65,11 @@ spec:
   provisioning:
     type: UserData
     userData: |
+{{- if eq $ctx.Values.image.osFamily "redos" }}
+{{ include "cloudinit.redos" $ctx | indent 6 }}
+{{- else }}
 {{ include "cloudinit.ubuntu" $ctx | indent 6 }}
+{{- end }}
   runPolicy: AlwaysOn
   virtualMachineClassName: {{ include "infra.vmclass-name" $ctx }}
 ---

@@ -30,6 +30,7 @@ require_env K8S_VERSION
 require_env REGISTRY
 require_env REGISTRY_DOCKER_CFG
 require_env VIRTUALIZATION_IMAGE_URL
+require_env VIRTUALIZATION_IMAGE_OS_FAMILY
 require_env DEFAULT_USER
 require_env APT_MIRROR_ENABLED
 require_env APT_MIRROR_NAME

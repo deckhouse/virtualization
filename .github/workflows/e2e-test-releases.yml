@@ -225,6 +225,8 @@ jobs:
       storage_type: mixed
       nested_storageclass_name: nested-thin-r1
       nested_cluster_network_name: cn-4006-for-e2e-test
+      virtualization_image_url: "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/packer/redos-8/redos-8-cloud-20260910.raw.gz"
+      virtualization_image_os_family: redos
       deckhouse_channel: ${{ needs.set-vars.outputs.deckhouse_channel }}
       deckhouse_version: ${{ needs.set-vars.outputs.deckhouse_version }}
       registry_profile: ${{ needs.set-vars.outputs.registry_profile }}
