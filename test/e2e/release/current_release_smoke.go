@@ -384,6 +384,13 @@ func upgradeMigratesVMs() bool {
 	return os.Getenv(releaseUpgradeMigratesVMsEnv) != "false"
 }
 
+func envOrDefault(name, defaultValue string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 func mustGetEnv(name string) string {
 	value := os.Getenv(name)
 	Expect(value).NotTo(BeEmpty(), "environment variable %s must be set", name)
