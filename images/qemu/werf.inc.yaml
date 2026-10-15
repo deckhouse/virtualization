@@ -355,7 +355,7 @@ shell:
       --enable-xkbcommon \
       --enable-zstd
 
-    {{- $_ := set $ "ProjectName" (list .ImageName "qemu" | join "/") }}
+    {{- $_ := set $ "ProjectName" "virt-launcher/qemu" }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
   setup:
   - |

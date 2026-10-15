@@ -1,3 +1,7 @@
+# ProjectName is the project name used in svacer (report server).
+# Format: <final image name from the module bundle>/<binary name>. The SSDLC reporter matches the first
+# part against images_digests.json of the bundle, so a binary built in an intermediate artifact image
+# must be named after the final image it is shipped in (one of them when it is shipped in several).
 {{- define "image-build.build" }}
 {{-   if ne $.SVACE_ENABLED "false" }}
 svace build --init --clear-build-dir {{ .BuildCommand }}

@@ -200,7 +200,7 @@ shell:
       -Dlibiscsi=disabled
 
 
-      {{- $_ := set $ "ProjectName" (list .ImageName "libvirt" | join "/") }}
+      {{- $_ := set $ "ProjectName" "virt-launcher/libvirt" }}
       {{- include "image-build.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | nindent 6 }}
 
   setup:
