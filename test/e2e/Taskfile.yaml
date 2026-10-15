@@ -73,6 +73,13 @@ tasks:
           --repeat "{{ .REPEAT }}"
           {{end -}}
 
+  release:local:
+    desc: "Run the release smoke in the current cluster: task release:local -- [pre|upgrade|post|cleanup|all] (see release/run-local.sh)"
+    deps:
+      - kubectl
+    cmds:
+      - ./release/run-local.sh {{.CLI_ARGS}}
+
   fzf:
     desc: "Select and run e2e suites with fzf"
     cmds:

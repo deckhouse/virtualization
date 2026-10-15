@@ -31,11 +31,15 @@ import (
 	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 )
 
-const (
-	replicatedStorageClass = "nested-thin-r1"
-	localThinStorageClass  = "nested-local-thin"
-	nfsStorageClass        = "nfs"
+// The storage classes default to the ones the release pipeline creates in the
+// nested cluster; run-local.sh overrides them to run the suite in any cluster.
+var (
+	replicatedStorageClass = envOrDefault("RELEASE_STORAGE_CLASS_REPLICATED", "nested-thin-r1")
+	localThinStorageClass  = envOrDefault("RELEASE_STORAGE_CLASS_LOCAL", "nested-local-thin")
+	nfsStorageClass        = envOrDefault("RELEASE_STORAGE_CLASS_NFS", "nfs")
+)
 
+const (
 	// Root disk sizes match the source images: the Alpine cloud image is tiny,
 	// RedOS/Ubuntu/Windows server images need real room to unpack and grow
 	// into.
