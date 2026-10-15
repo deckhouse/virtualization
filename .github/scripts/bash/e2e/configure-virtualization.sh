@@ -172,7 +172,7 @@ spec:
     dvcr:
       storage:
         persistentVolumeClaim:
-          size: 10Gi
+          size: 16Gi
           storageClassName: ${nested_storage_class_name}
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
