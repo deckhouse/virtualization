@@ -29,8 +29,14 @@ E2E_IMAGE_BASE_URL="${E2E_IMAGE_BASE_URL:-}"
 readonly DEFAULT_IMAGE_BASE_URL="https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru"
 
 date_tag="$(date +"%Y-%m-%d")"
-e2e_report_file="e2e_report_${CSI}_${date_tag}.json"
-e2e_output_file="e2e_output_${CSI}_${date_tag}.log"
+# The nightly jobs (one per guest OS) set E2E_OS and may land on the same CSI on
+# the same day, so the OS goes into the filename to keep the reports distinct
+# once they are merged for the Loop report. MR buttons leave E2E_OS empty and
+# keep the original name.
+report_prefix="e2e_report${E2E_OS:+_${E2E_OS}}"
+output_prefix="e2e_output${E2E_OS:+_${E2E_OS}}"
+e2e_report_file="${report_prefix}_${CSI}_${date_tag}.json"
+e2e_output_file="${output_prefix}_${CSI}_${date_tag}.log"
 
 rewrite_testdata_image_urls() {
   local image_base_url="${E2E_IMAGE_BASE_URL%/}"

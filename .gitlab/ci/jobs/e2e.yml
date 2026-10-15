@@ -33,11 +33,13 @@
 # a lease.
 
 include:
-  # The lease fragments, pinned to a tag so that changes in the pool project
-  # cannot silently alter this repository's pipeline. Bumping the pin is a
-  # merge request here.
+  # The lease fragments, pinned so that changes in the pool project cannot
+  # silently alter this repository's pipeline. Bumping the pin is a merge
+  # request here. Pinned to the commit that added per-OS cloud clusters to the
+  # pool (lease.yml with E2E_POOL_TYPE / E2E_POOL_API_DOMAIN); re-pin to the next
+  # `v*` tag once the pool cuts one.
   - project: "deckhouse/virtualization/ci/e2e-pool"
-    ref: "v1"
+    ref: "ea9dedc3c82222fa87e9ede7db97ca5b161eedf3"
     file: "/templates/lease.yml"
 
 # ---------------------------------------------------------------------------
@@ -92,7 +94,7 @@ include:
     E2E_SCRIPT_DIR: $CI_PROJECT_DIR/.github/scripts/bash/e2e
     E2E_CONFIG: $CI_PROJECT_DIR/test/e2e/default_config.yaml
     # Below the ginkgo default of 24: more parallelism gets the single-master pool
-    # cluster's apiserver killed by kubelet. Nightly keeps the Taskfile default.
+    # cluster's apiserver killed by kubelet. The nightly jobs inherit this too.
     PROCS: "10"
     # Must cover the five bounded steps below (5 x 10m), or `release` never runs
     # and the lease stays busy behind a dead job.
@@ -109,6 +111,18 @@ include:
       export DOCKER_CONFIG="$CI_PROJECT_DIR/.docker-e2e"
       mkdir -p "$DOCKER_CONFIG"
       printf '%s' "$MODULES_REGISTRY_PASSWORD" | crane auth login "${MODULES_REGISTRY%%/*}" -u "$MODULES_REGISTRY_LOGIN" --password-stdin
+    # Nightly only: the .e2e-nightly jobs set E2E_OS, which selects a per-OS
+    # stand and turns on the per-day storage-class rotation. STORAGE_CLASS_NAME
+    # and CSI exported here survive into `script` (one shell). Empty for the MR
+    # buttons, which set STORAGE_CLASS_NAME themselves, so they are unaffected.
+    - |
+      if [ -n "${E2E_OS:-}" ]; then
+        # Capture first, then eval: `eval "$(bad-cmd)"` would otherwise run empty
+        # and continue with an unset STORAGE_CLASS_NAME instead of failing.
+        sc_exports="$(bash "$CI_PROJECT_DIR/.gitlab/ci/scripts/bash/e2e/nightly-storage-class.sh" "$E2E_OS")"
+        eval "$sc_exports"
+        echo "[INFO] nightly ${E2E_OS}: storage class ${STORAGE_CLASS_NAME} (CSI ${CSI})"
+      fi
   script:
     # Collapsed log section around everything before the suite itself, so the
     # job log opens on the test run. Same trick as GitHub's log groups.
@@ -215,3 +229,163 @@ e2e:local:
   variables:
     CSI: local
     STORAGE_CLASS_NAME: nested-local-thin
+
+# ---------------------------------------------------------------------------
+# Nightly: the suite on the per-OS cloud stands, run on a schedule.
+#
+# These are not the buttons above. The buttons lease one homogeneous
+# `e2e-regular` cluster and are pressed by hand on an MR. The nightly jobs lease
+# a per-OS stand (Astra / ALT / RED OS) from the pool, one boskos type each, and
+# fire from a scheduled pipeline. They `extends: .e2e` to reuse its whole body -
+# before_script (login, storage rotation), script (lease, module image,
+# readiness, suite), after_script (cleanup, release), artifacts - and override
+# only the MR-specific wiring (`.dev` rules, MR-iid tag, build_dev dependency),
+# so there is one copy of the hard part.
+#
+# What differs from the buttons:
+#   - the module under test is `main` (the rolling DEV slot), not an MR build,
+#     so there is no build to wait for - `needs: []`;
+#   - the stand lives on dvp.flant.dev, a different domain than the e2e-regular
+#     pool, so E2E_POOL_API_DOMAIN is set for the lease check;
+#   - E2E_POOL_TYPE selects the OS stand's boskos type;
+#   - the storage class is not fixed per job but rotates by the day
+#     (nightly-storage-class.sh), exported before the referenced script runs.
+#
+# Enabling: set up a schedule on `main` with SCHEDULE_TYPE=e2e-nightly (the
+# repo-wide schedule discriminator, see .gitlab/ci/variables.yml; nothing else
+# triggers these). Note the lease variables above take effect only once the
+# `ref:` of the pool include is bumped to a tag whose lease.yml honours
+# E2E_POOL_TYPE / E2E_POOL_API_DOMAIN; until then a scheduled run would lease an
+# e2e-regular cluster. Both - the ref bump and the schedule - are deliberately
+# separate, flipped once the stands are registered in the pool.
+# ---------------------------------------------------------------------------
+
+.e2e-nightly:
+  # Inherit the whole body of .e2e - before_script (registry login), script
+  # (lease, module image, readiness, suite), after_script (cleanup, release),
+  # artifacts, timeout, tags. Only the pipeline wiring differs, overridden below.
+  extends: .e2e
+  # The main-tagged module image already exists in the DEV registry; nothing to
+  # build or wait for in a scheduled pipeline.
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "e2e-nightly"'
+      when: always
+    - when: never
+  # One stand per OS, so one run of each OS at a time; no MR iid here.
+  resource_group: e2e-nightly-$E2E_OS
+  variables:
+    # Test the rolling `main` module image; .e2e/.dev use the MR's mr<iid> tag.
+    MODULES_MODULE_TAG: main
+    # The cloud stands answer on api.<name>.dvp.flant.dev, not the e2e-regular
+    # pool's domain; the lease check in the pool template is built against this.
+    E2E_POOL_API_DOMAIN: dvp.flant.dev
+    # Picked up by .e2e's before_script: a non-empty E2E_OS turns on the per-day
+    # storage-class rotation for that stand. The per-OS jobs set it below.
+
+e2e-nightly:redos:
+  extends: .e2e-nightly
+  variables:
+    E2E_OS: redos
+    E2E_POOL_TYPE: e2e-redos
+
+e2e-nightly:astra:
+  extends: .e2e-nightly
+  variables:
+    E2E_OS: astra
+    E2E_POOL_TYPE: e2e-astra
+
+# ALT lands on nested-thin-r1 one day in three, where replicated storage does
+# not build on the ALT kernel - that run fails on purpose (see
+# nightly-storage-class.sh). Left visible rather than hidden, so the day it
+# starts passing shows up; flip this to allow_failure or drop the class from the
+# rotation if the red night becomes noise.
+e2e-nightly:alt:
+  extends: .e2e-nightly
+  variables:
+    E2E_OS: alt
+    E2E_POOL_TYPE: e2e-alt
+
+# ---------------------------------------------------------------------------
+# Nightly report: collect the three OS runs and post one threaded summary to
+# Loop, reusing the GitHub report scripts in place (as the bash scripts are
+# reused). No npm install - the report path is node built-ins + global fetch.
+#
+# dependencies (not needs): the OS jobs publish `artifacts: when: always`, so
+# their raw reports are here even when a run failed; `needs` on a failed job
+# would skip this one, but the report must run regardless. allow_failure keeps a
+# broken report (or Loop outage) from reddening the nightly pipeline on its own.
+#
+# Three docker runs share the workspace (-w /src, runner-owned via -u so the
+# shell executor's git clean is not left root-owned files):
+#   1. node    cluster-report.js  raw ginkgo -> processed/e2e_report_<os>.json
+#   2. python  charts.py          processed  -> tmp/messenger-charts/*.png + manifest
+#   3. node    messenger-report.js processed + manifest -> threaded Loop post
+#
+# Requires three user-provided CI variables (Loop API, same channel as the old
+# GitHub nightly): LOOP_API_BASE_URL, LOOP_CHANNEL_ID, LOOP_TOKEN. With all three
+# absent the messenger step is a silent no-op (the report scripts disable Loop).
+# ---------------------------------------------------------------------------
+e2e-nightly:report:
+  stage: notify
+  tags:
+    - deckhouse
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "e2e-nightly"'
+      when: always
+    - when: never
+  allow_failure: true
+  dependencies:
+    - e2e-nightly:redos
+    - e2e-nightly:astra
+    - e2e-nightly:alt
+  variables:
+    EXPECTED_STORAGE_TYPES: '["redos","astra","alt"]'
+    E2E_OS_LIST: "redos astra alt"
+    PROCESSED_DIR: processed
+  before_script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh docker
+  script:
+    - |
+      set -e
+      # 1. raw ginkgo reports (test/e2e/e2e_report_<os>_*.json, pulled via
+      #    dependencies) -> processed/e2e_report_<os>.json.
+      docker run --rm --platform linux/amd64 \
+        -v "${PWD}:/src" -w /src -u "$(id -u):$(id -g)" -e HOME=/tmp \
+        -e CI_SERVER_URL -e CI_PROJECT_PATH -e CI_PIPELINE_ID -e CI_COMMIT_REF_NAME \
+        -e E2E_OS_LIST -e PROCESSED_DIR -e RAW_REPORTS_DIR=test/e2e \
+        "node:${NODE_VERSION}" \
+        node .gitlab/ci/scripts/js/e2e-nightly-report.js cluster-reports
+    - |
+      set -e
+      # 2. render per-cluster charts + manifest (matplotlib). pip --user so the
+      #    non-root container writes under HOME=/tmp, not system site-packages.
+      docker run --rm --platform linux/amd64 \
+        -v "${PWD}:/src" -w /src -u "$(id -u):$(id -g)" -e HOME=/tmp \
+        -e PROCESSED_DIR \
+        python:3.12 \
+        sh -c '
+          set -e
+          pip install --user --quiet --no-cache-dir -r .github/scripts/python/requirements.txt
+          python .github/scripts/python/e2e_report/charts.py messenger-all \
+            --reports-dir "${PROCESSED_DIR}" \
+            --out-dir tmp/messenger-charts \
+            --manifest tmp/messenger-charts/manifest.json
+        '
+    - |
+      set -e
+      # 3. post the threaded report (text + chart images) to Loop.
+      # No CI_* here: the messenger reads only the processed reports (context was
+      # baked into them in step 1), EXPECTED_STORAGE_TYPES and LOOP_*.
+      docker run --rm --platform linux/amd64 \
+        -v "${PWD}:/src" -w /src -u "$(id -u):$(id -g)" -e HOME=/tmp \
+        -e REPORTS_DIR="${PROCESSED_DIR}" -e EXPECTED_STORAGE_TYPES \
+        -e LOOP_API_BASE_URL -e LOOP_CHANNEL_ID -e LOOP_TOKEN \
+        "node:${NODE_VERSION}" \
+        node .gitlab/ci/scripts/js/e2e-nightly-report.js messenger
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - processed/
+      - tmp/messenger-charts/

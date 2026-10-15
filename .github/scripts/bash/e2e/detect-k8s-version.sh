@@ -40,12 +40,31 @@ fi
 label_filter=""
 usb_supported=false
 
-if (( server_major > 1 || (server_major == 1 && server_minor >= 34) )); then
+# USB (DRA) passthrough E2E needs two independent conditions to hold:
+#   1. Kubernetes >= 1.34 (DRA), and
+#   2. a node kernel that ships the USB gadget subsystem, because the dummy_hcd
+#      virtual USB device is built from source and configured on each node via
+#      configfs (see test/e2e/scripts/generate_dummy_hcd_ngc.sh).
+# RED OS and ALT ship kernels built WITHOUT the USB gadget subsystem
+# (libcomposite/udc_core are absent), so dummy_hcd cannot be configured there and
+# the usb-precheck specs would fail regardless of the Kubernetes version. Detect
+# those node OSes and exclude the USB specs for them.
+node_os_images="$(kubectl get nodes -o jsonpath='{range .items[*]}{.status.nodeInfo.osImage}{"\n"}{end}')"
+usb_capable_os=true
+if grep -qiE 'red os|alt server|alt linux|alt workstation|alt starterkit' <<<"${node_os_images}"; then
+  usb_capable_os=false
+fi
+
+if (( server_major > 1 || (server_major == 1 && server_minor >= 34) )) && [[ "${usb_capable_os}" == "true" ]]; then
   usb_supported=true
   echo "[INFO] Kubernetes server version ${server_version} supports USB E2E tests"
 else
   label_filter="!usb-precheck"
-  echo "[INFO] Kubernetes server version ${server_version} does not support USB E2E tests"
+  if [[ "${usb_capable_os}" != "true" ]]; then
+    echo "[INFO] Node OS lacks the USB gadget subsystem (RED OS / ALT); USB E2E tests disabled"
+  else
+    echo "[INFO] Kubernetes server version ${server_version} does not support USB E2E tests"
+  fi
   echo "[INFO] USB-labeled specs will be excluded with label filter: ${label_filter}"
 fi
 

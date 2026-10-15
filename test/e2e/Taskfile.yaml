@@ -131,6 +131,14 @@ tasks:
         # supposed to run here.
         SKIP_IMAGES+=("virtualizationDraUsb")
         SKIP_IMAGES+=("virtualizationDraPci")
+        # vm-route-forge is not deployed when the sdn module serves the Main
+        # network (sdn takes over VM routing), so its DaemonSet is absent and its
+        # image never appears in any pod. Skip it only in that case, so clusters
+        # that still run vm-route-forge keep validating its image.
+        route_forge_desired=$(kubectl -n d8-virtualization get ds vm-route-forge -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "")
+        if [ -z "$route_forge_desired" ] || [ "$route_forge_desired" -eq 0 ]; then
+          SKIP_IMAGES+=("vmRouteForge")
+        fi
 
         is_skipped_image() {
           local img="$1"
