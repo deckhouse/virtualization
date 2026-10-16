@@ -19,6 +19,8 @@ package vmsnapshot
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -56,7 +58,7 @@ func newFullTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 		WithIndex(indexer.IndexVMSnapshotByVM()).
 		WithIndex(indexer.IndexVDSnapshotByVD()).
 		Build()
-	return &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(nil, c, nil), Log: log.NewNop()}
+	return &Reconciler{Client: c, APIReader: c, Freezer: service.NewSnapshotService(unfreezingVirtClient{}, c, nil), Log: log.NewNop()}
 }
 
 func getVMS(t *testing.T, c client.Client) *v1alpha2.VirtualMachineSnapshot {
@@ -1152,6 +1154,7 @@ func TestReleaseFreeze_KeepsAnUnfreezeInsideItsBudget(t *testing.T) {
 		fsFreezeStatus:         service.FSFrozen,
 		unfreezeRequestedAtAge: unfreezeConfirmDeadline / 2,
 	})
+	r.Freezer = service.NewSnapshotService(&countingVirtClient{}, r.Client, nil)
 	ctx := context.Background()
 
 	vms := getVMS(t, r.Client)
@@ -1638,9 +1641,9 @@ func TestReleaseFreeze_DoesNotReleaseAFreezeTheGuestNeverConfirmed(t *testing.T)
 	}
 }
 
-// unfreezingVirtClient is the smallest kubevirt client that lets releaseFreeze reach its unfreeze.
-// The shared fixture leaves that client nil because no other test in this package gets that far: the
-// paths they exercise either abandon the request or decide there is nothing to release.
+// unfreezingVirtClient is the smallest kubevirt client that answers an unfreeze. The shared fixture
+// installs it so that any pass re-sending a pending unfreeze has something to call; a test that cares
+// how often it is called swaps in countingVirtClient instead.
 type unfreezingVirtClient struct {
 	kubeclient.Client
 }
@@ -1654,3 +1657,168 @@ type unfreezingVirtualMachines struct {
 }
 
 func (unfreezingVirtualMachines) Unfreeze(context.Context, string) error { return nil }
+
+// The stamp is what lets releaseFreeze re-send a pending unfreeze and bounds it by the unfreeze
+// budget. Stamping only after the request succeeds leaves a failed attempt neither repeated nor timed.
+func TestRequestUnfreeze_StampsTheBudgetEvenWhenTheRequestFails(t *testing.T) {
+	// A freeze request pending on the instance makes Unfreeze refuse before it reaches the API — a
+	// deterministic failure, standing in for any reason the request may not go through.
+	r, _ := freezeInFlightFixture(t, freezeFixture{
+		age:            time.Minute,
+		request:        service.RequestFSFreeze,
+		fsFreezeStatus: service.FSFrozen,
+	})
+	ctx := context.Background()
+
+	vms := getVMS(t, r.Client)
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
+		t.Fatalf("get the instance: %v", err)
+	}
+
+	if released := r.requestUnfreeze(ctx, vms, kvvmi, slog.New(slog.NewTextHandler(io.Discard, nil))); released {
+		t.Error("requestUnfreeze reported the freeze released; the guest confirms asynchronously")
+	}
+
+	if _, stamped := getVMS(t, r.Client).Annotations[annFSUnfreezeRequestedAt]; !stamped {
+		t.Error("no unfreeze stamp after a failed request: the budget never starts and the guest stays frozen")
+	}
+}
+
+// countingVirtClient is a kubevirt client whose Unfreeze succeeds and counts the calls, so a test can
+// tell whether releaseFreeze re-sent a pending unfreeze.
+type countingVirtClient struct {
+	kubeclient.Client
+	unfreezes int
+}
+
+func (c *countingVirtClient) VirtualMachines(string) v1alpha2clientsetcore.VirtualMachineInterface {
+	return countingVirtualMachines{client: c}
+}
+
+type countingVirtualMachines struct {
+	v1alpha2clientsetcore.VirtualMachineInterface
+	client *countingVirtClient
+}
+
+func (m countingVirtualMachines) Unfreeze(context.Context, string) error {
+	m.client.unfreezes++
+	return nil
+}
+
+// releaseFreezeOnce runs one releaseFreeze pass against the objects as they are stored now.
+func releaseFreezeOnce(t *testing.T, r *Reconciler) bool {
+	t.Helper()
+	ctx := context.Background()
+
+	vm := &v1alpha2.VirtualMachine{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, vm); err != nil {
+		t.Fatalf("get the virtual machine: %v", err)
+	}
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "vm1"}, kvvmi); err != nil {
+		t.Fatalf("get the instance: %v", err)
+	}
+
+	return r.releaseFreeze(ctx, getVMS(t, r.Client), vm, kvvmi)
+}
+
+// An unfreeze whose API call failed stays pending on a still-frozen guest, and SyncFSFreezeRequest
+// parks every later pass on it before requestUnfreeze is reached. Unless releaseFreeze re-sends it, the
+// guest stays frozen until the deadline abandons the request with the guest still frozen.
+func TestReleaseFreeze_ResendsAPendingUnfreezeTheGuestHasNotConfirmed(t *testing.T) {
+	r, _ := freezeInFlightFixture(t, freezeFixture{
+		age:                    10 * freezeConfirmDeadline,
+		request:                service.RequestFSUnfreeze,
+		fsFreezeStatus:         service.FSFrozen,
+		unfreezeRequestedAtAge: 2 * unfreezeRetryInterval,
+	})
+	virt := &countingVirtClient{}
+	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
+
+	if releaseFreezeOnce(t, r) {
+		t.Error("releaseFreeze reported the freeze released; the guest is still frozen")
+	}
+	if virt.unfreezes != 1 {
+		t.Fatalf("unfreeze sent %d times, want it re-sent once", virt.unfreezes)
+	}
+
+	// The next requeue comes seconds later, well inside unfreezeRetryInterval.
+	releaseFreezeOnce(t, r)
+	if virt.unfreezes != 1 {
+		t.Errorf("unfreeze sent %d times, want no second re-send inside the retry interval", virt.unfreezes)
+	}
+}
+
+// The re-send has to happen on the path a pass actually takes. SyncFSFreezeRequest reports the
+// in-flight sentinel at the top of the reconcile and the freeze wait returns there, so a pending
+// unfreeze never reaches releaseFreeze while the snapshot is still capturing: of the five release
+// sites only the two behind the phase switch — a failed capture and a deletion — run ahead of that
+// gate. A re-send reachable only from releaseFreeze leaves the guest frozen until the budget
+// abandons the request.
+func TestReconcile_ResendsAPendingUnfreezeTheFreezeWaitWouldOtherwiseSwallow(t *testing.T) {
+	r, req := freezeInFlightFixture(t, freezeFixture{
+		age:                    10 * freezeConfirmDeadline,
+		request:                service.RequestFSUnfreeze,
+		fsFreezeStatus:         service.FSFrozen,
+		unfreezeRequestedAtAge: 2 * unfreezeRetryInterval,
+	})
+	virt := &countingVirtClient{}
+	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
+
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if virt.unfreezes != 1 {
+		t.Fatalf("unfreeze sent %d times, want the reconcile to re-send it once", virt.unfreezes)
+	}
+
+	// The next requeue comes seconds later, well inside unfreezeRetryInterval.
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if virt.unfreezes != 1 {
+		t.Errorf("unfreeze sent %d times, want no second re-send inside the retry interval", virt.unfreezes)
+	}
+}
+
+// A freshly sent unfreeze is the guest's to confirm; re-sending it on every requeue only queues more
+// requests behind a guest agent that is already thawing. Asserted through the reconcile as well as
+// through releaseFreeze, because the two reach the re-send by different paths.
+func TestReconcile_DoesNotResendAFreshUnfreeze(t *testing.T) {
+	r, req := freezeInFlightFixture(t, freezeFixture{
+		age:                    10 * freezeConfirmDeadline,
+		request:                service.RequestFSUnfreeze,
+		fsFreezeStatus:         service.FSFrozen,
+		unfreezeRequestedAtAge: unfreezeRetryInterval / 2,
+	})
+	virt := &countingVirtClient{}
+	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
+
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if virt.unfreezes != 0 {
+		t.Errorf("unfreeze sent %d times, want none inside the retry interval", virt.unfreezes)
+	}
+}
+
+// A freshly sent unfreeze is the guest's to confirm; re-sending it on every requeue only queues more
+// requests behind a guest agent that is already thawing.
+func TestReleaseFreeze_DoesNotResendAFreshUnfreeze(t *testing.T) {
+	r, _ := freezeInFlightFixture(t, freezeFixture{
+		age:                    10 * freezeConfirmDeadline,
+		request:                service.RequestFSUnfreeze,
+		fsFreezeStatus:         service.FSFrozen,
+		unfreezeRequestedAtAge: unfreezeRetryInterval / 2,
+	})
+	virt := &countingVirtClient{}
+	r.Freezer = service.NewSnapshotService(virt, r.Client, nil)
+
+	if releaseFreezeOnce(t, r) {
+		t.Error("releaseFreeze reported the freeze released; the guest is still frozen")
+	}
+	if virt.unfreezes != 0 {
+		t.Errorf("unfreeze sent %d times, want none inside the retry interval", virt.unfreezes)
+	}
+}

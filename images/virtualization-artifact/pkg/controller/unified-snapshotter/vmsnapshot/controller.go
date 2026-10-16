@@ -32,6 +32,7 @@ import (
 	"log/slog"
 	"slices"
 	"sort"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -93,6 +94,13 @@ const (
 	// round-trip over the same mounted filesystems.
 	unfreezeConfirmDeadline = freezeConfirmDeadline
 
+	// unfreezeRetryInterval is the least time between two unfreeze requests for the same pending thaw.
+	// It keeps a guest agent that is slow to thaw from being sent a request on every requeue.
+	//
+	// A fifth of unfreezeConfirmDeadline, so a request that never reached the guest is re-sent several
+	// times before the deadline abandons it.
+	unfreezeRetryInterval = unfreezeConfirmDeadline / 5
+
 	// The freeze bookkeeping this controller keeps on the snapshot. Defined in common/annotations
 	// because the disk captures under this snapshot read the same records; see there for what each one
 	// means. Absent annFSFreezeRequestedAt (an older object, or a request this controller did not
@@ -115,6 +123,10 @@ type Reconciler struct {
 	Freezer  *service.SnapshotService
 	Recorder eventrecord.EventRecorderLogger
 	Log      *log.Logger
+
+	// unfreezeSentAt holds, per VirtualMachineInstance UID, when repeatUnfreeze last re-sent an
+	// unfreeze. It is in memory only: losing it on restart costs one early re-send at most.
+	unfreezeSentAt sync.Map
 }
 
 // SetupWithManager registers the reconciler, gated to the objects the unified mechanism owns — see
@@ -308,6 +320,16 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				// never ran. Left false, the block below asks for a second freeze.
 				frozen = true
 			} else {
+				// Re-sent from here rather than from releaseFreeze alone, because a pass carrying a
+				// pending unfreeze does not reach it: of the release sites only a failed capture and a
+				// deletion run ahead of this gate, and the wait below returns before the rest. Without
+				// this the request whose API call failed is never repeated and the budget abandons it
+				// with the guest frozen. The per-instance retry interval is shared with releaseFreeze,
+				// so a guest that is merely slow to thaw is still asked only once per interval.
+				if inFlight && unfreezeBudgeted {
+					r.repeatUnfreeze(ctx, kvvmi, unfreezeWaited, freezelog.For(ctx))
+				}
+
 				waited, budgeted := r.freezeWaitedFor(vms, vm, kvvmi)
 				if !inFlight || !budgeted || waited <= freezeConfirmDeadline {
 					return r.waitForFreeze(ctx, sdk, a, vms, vm, what, freezeErr)
@@ -998,13 +1020,15 @@ func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMac
 	// An unfreeze the guest never confirms is abandoned and reported as released. Every caller reads
 	// false as "come back in a couple of seconds", so such a request keeps a finished capture out of its
 	// terminal phase and keeps the finalizer on a snapshot being deleted.
-	if waited, budgeted := r.unfreezeWaitedFor(vms, kvvmi); budgeted && waited > unfreezeConfirmDeadline {
+	unfreezeWaited, unfreezeBudgeted := r.unfreezeWaitedFor(vms, kvvmi)
+	if unfreezeBudgeted && unfreezeWaited > unfreezeConfirmDeadline {
 		log.Error("the guest never confirmed the unfreeze; abandoning the request, the guest filesystem stays frozen",
 			freezelog.Attrs(kvvmi,
 				slog.String("budget", unfreezeConfirmDeadline.String()),
-				slog.String("waited", waited.String()),
+				slog.String("waited", unfreezeWaited.String()),
 			)...)
 
+		r.unfreezeSentAt.Delete(kvvmi.UID)
 		if err := r.Freezer.DiscardFSFreezeRequest(ctx, kvvmi); err != nil {
 			log.Debug("failed to retire the abandoned unfreeze request, will retry",
 				freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
@@ -1015,10 +1039,16 @@ func (r *Reconciler) releaseFreeze(ctx context.Context, vms *v1alpha2.VirtualMac
 	}
 
 	if err := r.Freezer.SyncFSFreezeRequest(ctx, kvvmi); err != nil {
+		if unfreezeBudgeted && errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+			r.repeatUnfreeze(ctx, kvvmi, unfreezeWaited, log)
+			return false
+		}
+
 		log.Debug("failed to sync the guest filesystem freeze request, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
 		return false
 	}
+	r.unfreezeSentAt.Delete(kvvmi.UID)
 
 	frozen, err := r.Freezer.IsFrozen(kvvmi)
 	if err != nil {
@@ -1126,20 +1156,58 @@ func holdsUnreleasedFreeze(vms *v1alpha2.VirtualMachineSnapshot) bool {
 // requestUnfreeze asks the guest to thaw and records when it was asked. It always reports "not
 // released yet": the guest confirms asynchronously, and the next pass reads that confirmation.
 func (r *Reconciler) requestUnfreeze(ctx context.Context, vms *v1alpha2.VirtualMachineSnapshot, kvvmi *virtv1.VirtualMachineInstance, log *slog.Logger) bool {
+	// Stamped before the request rather than after it succeeds. The stamp is what lets releaseFreeze
+	// re-send a pending unfreeze through repeatUnfreeze and bound it by unfreezeConfirmDeadline, so a
+	// failed attempt left unstamped would be neither repeated nor timed.
+	//
+	// Starting the budget a moment early costs nothing: the deadline is minutes and the request
+	// follows within the same pass.
+	//
+	// The stamp also marks the freeze as given up, so a request that fails at the API and has its
+	// marker rolled back leaves this snapshot reading as a non-holder while the guest is still
+	// frozen: a freeze status that flaps empty before the next pass re-issues the request is then
+	// reported as released. Narrow enough to leave: both have to fall inside the same two-second pass.
+	if err := r.recordFSRequestedAt(ctx, vms, annFSUnfreezeRequestedAt); err != nil {
+		log.Debug("failed to record the moment the unfreeze was requested, will retry",
+			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+		return false
+	}
+
 	if err := r.Freezer.Unfreeze(ctx, kvvmi); err != nil {
 		log.Debug("failed to request guest filesystem unfreeze, will retry",
 			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
 		return false
 	}
 
-	// Stamped after the request actually went out, so the budget can never start before the guest was
-	// asked.
-	if err := r.recordFSRequestedAt(ctx, vms, annFSUnfreezeRequestedAt); err != nil {
-		log.Debug("failed to record the moment the unfreeze was requested, will retry",
-			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+	return false
+}
+
+// repeatUnfreeze re-sends the unfreeze this snapshot has pending on the guest, at most once per
+// unfreezeRetryInterval counted from the later of the stamp and the last re-send.
+//
+// A pending unfreeze parks every pass in SyncFSFreezeRequest until the guest reports thawed, so a request
+// whose API call failed is never reached by requestUnfreeze again; only a re-send from here frees the
+// guest before unfreezeConfirmDeadline abandons it frozen. Re-sending is safe because thawing a guest
+// that is no longer frozen is a no-op.
+func (r *Reconciler) repeatUnfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, waited time.Duration, log *slog.Logger) {
+	last := time.Now().Add(-waited)
+	if v, ok := r.unfreezeSentAt.Load(kvvmi.UID); ok && v.(time.Time).After(last) {
+		last = v.(time.Time)
+	}
+	if time.Since(last) < unfreezeRetryInterval {
+		log.Debug("waiting for the guest to confirm the unfreeze", freezelog.State(kvvmi)...)
+		return
 	}
 
-	return false
+	r.unfreezeSentAt.Store(kvvmi.UID, time.Now())
+	if err := r.Freezer.Unfreeze(ctx, kvvmi); err != nil {
+		log.Debug("failed to re-send the guest filesystem unfreeze, will retry",
+			freezelog.Attrs(kvvmi, logger.SlogErr(err))...)
+		return
+	}
+
+	log.Info("re-sent the guest filesystem unfreeze the guest has not confirmed",
+		freezelog.Attrs(kvvmi, slog.String("waited", waited.String()))...)
 }
 
 // childrenAreConsistent aggregates the consistency each child VirtualDiskSnapshot resolved for itself:

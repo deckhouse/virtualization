@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -539,9 +540,10 @@ var _ = Describe("SnapshotService", func() {
 			err := snapshotter.Unfreeze(ctx, kvvmi)
 			if specialErr != nil {
 				Expect(err).To(MatchError(specialErr))
-			} else {
-				Expect(err).To(Not(HaveOccurred()))
+				// A rejected call leaves whatever request was already there untouched.
+				return
 			}
+			Expect(err).To(Not(HaveOccurred()))
 			Expect(kvvmi.Annotations).To(HaveKeyWithValue(annotations.AnnVMFilesystemRequest, RequestFSUnfreeze))
 		},
 			Entry(
@@ -550,7 +552,20 @@ var _ = Describe("SnapshotService", func() {
 				nil,                              // specialErr
 			),
 			Entry(
-				"ShouldReturnErrUnexpectedFilesystemRequest",
+				// A request of the other kind means something else is driving the guest.
+				"ShouldReturnErrUnexpectedFilesystemRequestWhenAFreezeIsPending",
+				&virtv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annotations.AnnVMFilesystemRequest: RequestFSFreeze,
+						},
+					},
+				},
+				ErrUnexpectedFilesystemRequest, // specialErr
+			),
+			Entry(
+				// A failed call leaves its request pending, and the caller re-sends it from there.
+				"ShouldRepeatAnUnfreezeItAlreadyRequested",
 				&virtv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -558,9 +573,39 @@ var _ = Describe("SnapshotService", func() {
 						},
 					},
 				},
-				ErrUnexpectedFilesystemRequest, // specialErr
+				nil, // specialErr
 			),
 		)
+
+		// A pending freeze request parks every later pass in SyncFSFreezeRequest and a freeze is never
+		// re-sent, so a request left behind by a failed call would hold the capture until its deadline.
+		It("rolls the freeze request back when the API rejects the call", func() {
+			clientMock.PatchFunc = applyAnnotationMergePatch
+			virtClientMock.VirtualMachinesFunc = func(namespace string) v1alpha2clientsetcore.VirtualMachineInterface {
+				return &VirtualMachineInterfaceMock{freezeErr: errTestAPIRejected}
+			}
+			kvvmi := &virtv1.VirtualMachineInstance{}
+
+			err := snapshotter.Freeze(ctx, kvvmi)
+
+			Expect(err).To(MatchError(errTestAPIRejected))
+			Expect(kvvmi.Annotations).To(Not(HaveKey(annotations.AnnVMFilesystemRequest)))
+		})
+
+		// The caller re-sends an unfreeze while its request stays pending, so the request must survive
+		// the failed call that is to be repeated.
+		It("keeps the unfreeze request pending when the API rejects the call", func() {
+			clientMock.PatchFunc = applyAnnotationMergePatch
+			virtClientMock.VirtualMachinesFunc = func(namespace string) v1alpha2clientsetcore.VirtualMachineInterface {
+				return &VirtualMachineInterfaceMock{unfreezeErr: errTestAPIRejected}
+			}
+			kvvmi := &virtv1.VirtualMachineInstance{}
+
+			err := snapshotter.Unfreeze(ctx, kvvmi)
+
+			Expect(err).To(MatchError(errTestAPIRejected))
+			Expect(kvvmi.Annotations).To(HaveKeyWithValue(annotations.AnnVMFilesystemRequest, RequestFSUnfreeze))
+		})
 
 		DescribeTable("SyncFSFreezeRequest", func(kvvmi *virtv1.VirtualMachineInstance, annotationExistsAfterSync bool, specialErr error) {
 			clientMock.PatchFunc = applyAnnotationMergePatch
@@ -633,16 +678,22 @@ var _ = Describe("SnapshotService", func() {
 	})
 })
 
+// errTestAPIRejected stands in for the subresource call being refused by the API.
+var errTestAPIRejected = errors.New("the api rejected the request")
+
 type VirtualMachineInterfaceMock struct {
 	v1alpha2clientsetcore.VirtualMachineInterface
+	// freezeErr and unfreezeErr stand in for an API that rejects the subresource call.
+	freezeErr   error
+	unfreezeErr error
 }
 
 func (m *VirtualMachineInterfaceMock) Freeze(ctx context.Context, name string, opts subv1alpha2.VirtualMachineFreeze) error {
-	return nil
+	return m.freezeErr
 }
 
 func (m *VirtualMachineInterfaceMock) Unfreeze(ctx context.Context, name string) error {
-	return nil
+	return m.unfreezeErr
 }
 
 // applyAnnotationMergePatch stands in for the API server: it checks that the write really is a

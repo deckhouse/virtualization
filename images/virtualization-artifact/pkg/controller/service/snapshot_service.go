@@ -100,9 +100,6 @@ func (s *SnapshotService) CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 	return false, nil
 }
 
-// TODO: The Freeze method should be atomic because there is a chance of encountering
-// a dead-end with the `ErrUntrustedFilesystemFrozenCondition` error in the SyncFSFreezeRequest method
-// when the API returns an error on an freeze request.
 func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
 		return fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)
@@ -115,7 +112,24 @@ func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachi
 
 	err = s.virtClient.VirtualMachines(kvvmi.Namespace).Freeze(ctx, kvvmi.Name, subv1alpha2.VirtualMachineFreeze{})
 	if err != nil {
-		return fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w", kvvmi.Namespace, kvvmi.Name, err)
+		return errors.Join(
+			fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w", kvvmi.Namespace, kvvmi.Name, err),
+			s.rollBackFSFreezeRequest(ctx, kvvmi),
+		)
+	}
+
+	return nil
+}
+
+// rollBackFSFreezeRequest retires the freeze request annotation after the call it was written for failed.
+//
+// A pending freeze request parks every later pass in SyncFSFreezeRequest until the guest reports frozen,
+// and a freeze is never re-sent, so an annotation left behind by a failed call holds the capture until
+// the caller's confirmation deadline fails it. The roll-back lets the next pass ask again instead. It is
+// best-effort: when the patch fails too, that deadline stays the backstop.
+func (s *SnapshotService) rollBackFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+	if err := s.removeAnnFSFreezeRequest(ctx, kvvmi); err != nil {
+		return fmt.Errorf("failed to roll back the filesystem request annotation on %s/%s: %w", kvvmi.Namespace, kvvmi.Name, err)
 	}
 
 	return nil
@@ -295,11 +309,14 @@ func (s *SnapshotService) NoOtherSnapshotHoldsFreeze(ctx context.Context, vmSnap
 	})
 }
 
-// TODO: The Unfreeze method should be atomic because there is a chance of encountering
-// a dead-end with the `ErrUntrustedFilesystemFrozenCondition` error in the SyncFSFreezeRequest method
-// when the API returns an error on an unfreeze request.
+// Unfreeze asks the guest to thaw its filesystems.
+//
+// A failed API call leaves the unfreeze request annotation in place, and the caller re-sends it while
+// the request stays pending. Re-sending is safe because thawing a guest that is no longer frozen is a
+// no-op, so an unfreeze already pending is accepted. Only a request of the OTHER kind is unexpected: a
+// freeze pending here means something else is driving the guest.
 func (s *SnapshotService) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
-	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
+	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok && request != RequestFSUnfreeze {
 		return fmt.Errorf("failed to unfreeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)
 	}
 
