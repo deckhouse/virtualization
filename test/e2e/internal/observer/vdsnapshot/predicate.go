@@ -40,14 +40,27 @@ func BeReady() Predicate {
 	}
 }
 
-// failureDetail extracts the reason and message the vdsnapshot controller left
-// on the VirtualDiskSnapshotReady condition (e.g. the latched VolumeSnapshot
-// error), so a Failed phase surfaces its cause instead of a bare phase name.
+// failureDetail extracts the reason and message the controller left behind, so
+// a Failed phase surfaces its cause instead of a bare phase name.
+//
+// The two mechanisms record it in different places. The unified-snapshotter
+// controller writes to status.captureState.domainSpecificController and never
+// touches conditions, which the state-snapshotter core owns; the built-in one
+// latches onto the VirtualDiskSnapshotReady condition. Both are consulted
+// because one suite runs against whichever mechanism the cluster pins.
 func failureDetail(s *v1alpha2.VirtualDiskSnapshot) string {
+	if cs := s.Status.CaptureState; cs != nil && cs.DomainSpecificController != nil {
+		d := cs.DomainSpecificController
+		if d.Reason != "" || d.Message != "" {
+			return fmt.Sprintf("%s: %s", d.Reason, d.Message)
+		}
+	}
+
 	for _, c := range s.Status.Conditions {
 		if c.Type == vdscondition.VirtualDiskSnapshotReadyType.String() {
 			return fmt.Sprintf("%s: %s", c.Reason, c.Message)
 		}
 	}
-	return "no VirtualDiskSnapshotReady condition with details found"
+
+	return "no failure detail found in captureState.domainSpecificController or the VirtualDiskSnapshotReady condition"
 }

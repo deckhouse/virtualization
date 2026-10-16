@@ -18,6 +18,7 @@ package vmop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/eventually"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
@@ -71,17 +74,44 @@ const (
 	changedMemorySize         = "128Mi"
 	mountPoint                = "/mnt"
 	fileDataPath              = "/mnt/value"
+	mountPointNoFstab         = "/mnt-no-fstab"
+	fileDataPathNoFstab       = "/mnt-no-fstab/value"
 	// WithIPPoolNetworkVLANID is the ClusterNetwork with an IPAM pool used for
 	// IPAM restore tests (auto allocation via DHCP).
 	WithIPPoolNetworkVLANID = 4006
+
+	// vmSnapshotTimeout bounds the wait for a VirtualMachineSnapshot to reach a terminal phase.
+	//
+	// It has to outlast every budget the snapshot controller spends on the way there. Expiring first
+	// buys nothing and costs the diagnosis: the controller fails a capture with a reason naming what
+	// it gave up on, while this timeout reports only that the snapshot never became Ready.
+	//
+	// The budgets are consecutive, each counted from its own start, and all live in
+	// unified-snapshotter/vmsnapshot/controller.go:
+	//
+	//	planningDeadline         2m   resolving the machine and its disks
+	//	freezeConfirmDeadline    5m   the guest confirming the filesystem freeze
+	//	childrenSettleDeadline  10m   every child VirtualDiskSnapshot going terminal
+	//	unfreezeConfirmDeadline  5m   the guest confirming the thaw
+	//	                        ---
+	//	                        22m
+	//
+	// Only the last one still ends in Ready once exceeded — it abandons the unfreeze rather than
+	// failing the capture — so 22m is the longest a healthy snapshot can take. The remaining three
+	// minutes cover the 2s requeue interval, API latency and this suite's own polling.
+	vmSnapshotTimeout = 25 * time.Minute
+
+	// vmCoreFraction is a bigger coreFraction to ensure guest agent is responsive.
+	// The guest agent walks every mounted filesystem to serve a freeze request,
+	// so the time it takes to confirm one scales with the coreFraction.
+	//
+	// 10% is used instead of object.CustomImageVMCoreFraction (5%), at which
+	// confirmations took several minutes (3m36s, 4m28s) instead of seconds and
+	// overran the controller's freeze deadline.
+	vmCoreFraction = "10%"
 )
 
 var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(label.SIGCompute, precheck.PrecheckSnapshot, precheck.PrecheckSDN), func() {
-	BeforeEach(func() {
-		// TODO: Re-enable the suite.
-		Skip("skipped as flaky: fix the instability, then remove this skip")
-	})
-
 	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, removeRecoverableResources bool) {
 		ctx := context.Background()
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
@@ -89,15 +119,15 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(label.SIG
 		f.Before()
 
 		t := newRestoreTest(f)
-		if !t.IsStorageClassAvailableForTest(ctx, t.VM) {
-			Skip("Temporary skip on sds-replicated-volume until snapshot functionality is fixed")
-		}
 
 		By("Environment preparation", func() {
 			t.GenerateResources(restoreMode, restartApprovalMode, runPolicy)
 			t.StartObservers(ctx)
+
+			// Create VM and VD first and wait for VM readiness.
+			// Creating VMBDA later makes test more stable.
 			err := f.CreateWithDeferredDeletion(
-				ctx, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry,
+				ctx, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VDBlankWithNoFstabEntry,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
@@ -107,31 +137,36 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(label.SIG
 			}
 			err = t.VMObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred())
-			// The first attachment waits out the blank disk provisioning and the CSI
-			// attach of the hotplug pod, which take minutes under a parallel run.
-			err = t.VMBDAObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
-			Expect(err).NotTo(HaveOccurred())
-			err = t.VMBDANoFstabObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+
+			err = f.CreateWithDeferredDeletion(ctx, t.VMBDA, t.VMBDAWithNoFstabEntry)
 			Expect(err).NotTo(HaveOccurred())
 
+			t.CheckVMFullReadiness("after creation")
+
+			// Prepare disk with fstab entry. File should be present after reboot.
 			util.CreateBlockDeviceFilesystem(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, "ext4")
 			util.MountBlockDevice(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, mountPoint)
 			util.RegisterFstabEntry(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name)
 			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
 
+			// Prepare disk without fstab entry. Should not be mounted after reboot.
 			util.CreateBlockDeviceFilesystem(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, "ext4")
-			util.MountBlockDevice(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, mountPoint)
-			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
+			util.MountBlockDevice(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, mountPointNoFstab)
+			util.WriteFile(f, t.VM, fileDataPathNoFstab, originalValueOnDisk)
 			// Unmount the disk to ensure nothing affects the hash.
-			util.UnmountBlockDevice(f, t.VM, mountPoint)
+			util.UnmountBlockDevice(f, t.VM, mountPointNoFstab)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(ctx, f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
 			t.CheckAdditionalNetworkInterface(ctx, t.VM)
+		})
 
+		By("Taking snapshot", func() {
 			vmsObs := vmsnapshotobs.StartObserver(ctx, f, t.VMSnapshot)
-			err = f.CreateWithDeferredDeletion(ctx, t.VMSnapshot)
+			err := f.CreateWithDeferredDeletion(ctx, t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			waitVMSnapshotReady(vmsObs, framework.MiddleTimeout)
+			waitVMSnapshotReady(t.VMObs, vmsObs, vmSnapshotTimeout)
+
+			t.CheckVMFullReadiness("after taking snapshot")
 		})
 		By("Changing VM", func() {
 			util.WriteFile(f, t.VM, fileDataPath, changedValueOnDisk)
@@ -142,22 +177,29 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(label.SIG
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
-			t.VM.Annotations[vmAnnotationName] = vmAnnotationChangedValue
-			t.VM.Labels[vmLabelName] = vmLabelChangedValue
-			t.VM.Spec.CPU.Cores = changedCPUCores
-			t.VM.Spec.Memory.Size = resource.MustParse(changedMemorySize)
-			err = f.Clients.GenericClient().Update(ctx, t.VM)
+			// Re-read and re-apply on conflict. The controller writes to this VirtualMachine while the
+			// spec edits it — it is reconciling the snapshot that was just taken — so a plain
+			// read-modify-write loses the race whenever the two land in the same moment.
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(t.VM), t.VM); err != nil {
+					return err
+				}
+				t.VM.Annotations[vmAnnotationName] = vmAnnotationChangedValue
+				t.VM.Labels[vmLabelName] = vmLabelChangedValue
+				t.VM.Spec.CPU.Cores = changedCPUCores
+				t.VM.Spec.Memory.Size = resource.MustParse(changedMemorySize)
+				return f.Clients.GenericClient().Update(ctx, t.VM)
+			})
 			Expect(err).NotTo(HaveOccurred())
 
-			if util.IsRestartRequired(t.VM, 3*time.Second) {
+			// Wait for AwaitingChanges presence if restart is required.
+			if util.IsRestartRequired(t.VM, framework.ShortTimeout) {
 				util.RebootVirtualMachineBySSH(f, t.VM)
 			}
 
 			t.WaitVMRebooted(ctx, runningLastTransitionTime, framework.LongTimeout)
-			err = t.VMObs.WaitFor(vmobs.BeAgentReady(), framework.ShortTimeout)
-			Expect(err).NotTo(HaveOccurred())
-			err = t.VMBDAObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
-			Expect(err).NotTo(HaveOccurred())
+
+			t.CheckVMFullReadiness("after reboot")
 		})
 		By("Check that VM is in changed state", func() {
 			Expect(util.ReadFile(f, t.VM, fileDataPath)).To(Equal(changedValueOnDisk))
@@ -175,6 +217,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), Label(label.SIG
 		})
 		By("Restore VM from snapshot", func() {
 			t.RestoreVM(ctx, t.VM, t.VMOPRestore)
+			t.CheckVMFullReadiness("after restore")
 		})
 		By("Check VM after restore", func() {
 			t.CheckVMAfterRestore(ctx, t.VM, t.VDRoot, t.VDBlank, t.VDBlankWithNoFstabEntry, t.VMBDA, t.VMBDAWithNoFstabEntry, t.VMOPRestore)
@@ -289,10 +332,11 @@ func newRestoreTest(f *framework.Framework) *restoreModeTest {
 func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
 	// The VI and the CD-ROM below are data payloads only, so they are sourced
 	// from the custom images.
+	// NOTE: do not use the same image that used for vd-root: same PARTUUID will make boot impossible.
 	t.VI = object.NewVI(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
-		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomBIOS),
+		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, object.PrecreatedCVICustomEFI),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 
@@ -333,7 +377,7 @@ runcmd:
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithAnnotation(vmAnnotationName, vmAnnotationOriginalValue),
 		vmbuilder.WithLabel(vmLabelName, vmLabelOriginalValue),
-		vmbuilder.WithCPU(originalCPUCores, ptr.To(object.CustomImageVMCoreFraction)),
+		vmbuilder.WithCPU(originalCPUCores, ptr.To(vmCoreFraction)),
 		vmbuilder.WithMemory(resource.MustParse(originalMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
@@ -429,12 +473,15 @@ func (t *restoreModeTest) WaitVMRebooted(ctx context.Context, previousRunningTim
 // A snapshot that failed because the CSI driver could not create the
 // underlying VolumeSnapshot skips the spec: that is a storage-infrastructure
 // problem, not a virtualization one. Any other failure fails the spec.
-func waitVMSnapshotReady(obs vmsnapshotobs.Observer, timeout time.Duration) {
+func waitVMSnapshotReady(vmObs vmobs.Observer, vmsObs vmsnapshotobs.Observer, timeout time.Duration) {
 	GinkgoHelper()
-	err := obs.WaitFor(vmsnapshotobs.BeReady(), timeout)
+	err := vmsObs.WaitFor(vmsnapshotobs.BeReady(), timeout)
 	if err != nil && util.IsCSIVolumeSnapshotError(err.Error()) {
 		Skip(fmt.Sprintf("VirtualMachineSnapshot failed on the CSI side, skipping: %s", err))
 	}
+	Expect(err).NotTo(HaveOccurred(), "should take snapshot successfully")
+
+	err = vmObs.WaitFor(vmobs.BeUnmaintained(), timeout)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -576,22 +623,54 @@ func (t *restoreModeTest) getResourceInfoFromVMOP(vmopRestore *v1alpha2.VirtualM
 func (t *restoreModeTest) RestoreVM(ctx context.Context, vm *v1alpha2.VirtualMachine, vmopRestore *v1alpha2.VirtualMachineOperation) {
 	GinkgoHelper()
 
+	// The restore puts the VM back into the phase it held going in, so capture that
+	// phase and when it was last entered. The wait afterwards has to be anchored on a
+	// timestamp: the VM passes through Stopped/Running during the restore itself, and a
+	// bare predicate matches that, letting the test run ahead while the VM is still
+	// Pending. The anchor comes from the VM's own PhasesTransitions, so there is no
+	// clock skew against this machine.
+	err := t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
+	Expect(err).NotTo(HaveOccurred())
+	vmPhaseBeforeRestore := vm.Status.Phase
+	if vmPhaseBeforeRestore != v1alpha2.MachineRunning && vmPhaseBeforeRestore != v1alpha2.MachineStopped {
+		Expect(errors.New("unexpected VM phase before restore. Should be Stopped or Running")).NotTo(HaveOccurred(), vm.Status.Phase, vm.Status.Stats.PhasesTransitions)
+	}
+
+	phaseTransition := object.FindPhaseLastTransition(vm, vmPhaseBeforeRestore)
+	Expect(phaseTransition).ToNot(BeNil(), "Phase transition should be present in the VM status")
+	phaseTransitionTime := phaseTransition.Timestamp.Time
+
+	_, _ = fmt.Fprintf(GinkgoWriter, "Found last transition for %s phase at %s\n", vmPhaseBeforeRestore, phaseTransitionTime.Format(time.RFC3339))
+
+	// Create VMOP Restore and wait for restore completion.
 	vmopRestoreObs := vmopobs.StartObserver(ctx, vmopRestore)
-	err := t.Framework.CreateWithDeferredDeletion(ctx, vmopRestore)
+	err = t.Framework.CreateWithDeferredDeletion(ctx, vmopRestore)
 	Expect(err).NotTo(HaveOccurred())
 	err = vmopRestoreObs.WaitFor(vmopobs.BeCompleted(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
 
+	// No need to wait for VM phase transitions for the DryRun mode.
 	if vmopRestore.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return
 	}
 
-	// after restore, the VM is in the Stopped state
-	// if runPolicy == ManualPolicy, the VM should be started
-	// cannot use isRestartRequired here, because we might skip the stopped phase
-	if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
-		err := t.VMObs.WaitFor(vmobs.BeStopped(), framework.ShortTimeout)
-		Expect(err).NotTo(HaveOccurred())
+	predicate := vmobs.BeStoppedAfter(phaseTransitionTime)
+	if vmPhaseBeforeRestore == v1alpha2.MachineRunning {
+		predicate = vmobs.BeRunningAfter(phaseTransitionTime)
+	}
+	// Deliberately not asserted: a VM that never leaves Stopped records no new
+	// transition, so this times out while the state is perfectly fine. The phase read
+	// below is what decides; the wait only keeps us from acting mid-restore.
+	waitErr := t.VMObs.WaitFor(predicate, framework.LongTimeout)
+
+	err = t.Framework.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vm), vm)
+	Expect(err).NotTo(HaveOccurred())
+	_, _ = fmt.Fprintf(GinkgoWriter, "VM phase after restore: %s (wait err: %v)\n", vm.Status.Phase, waitErr)
+
+	// A VM restored into Stopped stays Stopped, so start it explicitly. Doing this
+	// before the wait above is what used to fail the operation with
+	// NotApplicableForVirtualMachinePhase - back then the VM was still Pending.
+	if vm.Status.Phase == v1alpha2.MachineStopped {
 		util.StartVirtualMachine(ctx, t.Framework, t.VM)
 	}
 
@@ -599,6 +678,24 @@ func (t *restoreModeTest) RestoreVM(ctx context.Context, vm *v1alpha2.VirtualMac
 	Expect(err).NotTo(HaveOccurred())
 	err = t.VMBDAObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func (t *restoreModeTest) CheckVMFullReadiness(extraMsg string) {
+	GinkgoHelper()
+
+	err := t.VMObs.WaitFor(vmobs.BeAgentReady(), framework.LongTimeout)
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("VM should be agentReady %s", extraMsg))
+	err = t.VMBDAObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("VMBDA should be Attached %s", extraMsg))
+	err = t.VMBDANoFstabObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("VMBDA no fstab should be Attached %s", extraMsg))
+
+	eventually.SSHReadyAsRoot(t.Framework, t.VM, framework.LongTimeout, eventually.WithExplanation(fmt.Sprintf("SSH should be available within %s %s", framework.LongTimeout.String(), extraMsg)))
+
+	// The machine answering is not the same as the platform being done with it: every point this is
+	// called from has just stopped or started the machine, and the platform reacts by evicting it.
+	// The wait belongs here rather than at each call site, so a step added later inherits it.
+	t.WaitEvictionSettled(context.Background())
 }
 
 // CheckAdditionalNetworkInterface reads the auto-allocated IP from VM
@@ -621,6 +718,77 @@ func (t *restoreModeTest) CheckAdditionalNetworkInterface(ctx context.Context, v
 	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show", framework.WithSSHUser("root"))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cmdOut).To(ContainSubstring(fmt.Sprintf("inet %s", ip)))
+}
+
+// WaitEvictionSettled lets an eviction the platform started finish before the spec moves the machine
+// again.
+//
+// Stopping, starting or resizing the machine makes the platform reconsider its placement and issue an
+// Evict VirtualMachineOperation. On local storage that eviction migrates the volume as well, which
+// takes long enough for the spec's next step to overtake it; the migration then dies with
+// "VirtualMachine is stopped" and the failed operation fails the spec through the fail-fast watcher.
+// Both the change step and the restore have been seen losing this race.
+//
+// Only local storage is waited on: elsewhere the eviction finishes within the readiness checks above,
+// and an unconditional wait would add its timeout to every run of the suite.
+//
+// The appearance of the operation is given ShortTimeout and no more. Whether the platform always
+// issues one is not asserted here — this is a race to lose, not a contract to verify, so a run that
+// sees none simply carries on.
+func (t *restoreModeTest) WaitEvictionSettled(ctx context.Context) {
+	GinkgoHelper()
+
+	if !t.isLocalStorage(ctx) {
+		return
+	}
+
+	// Plain polling rather than Eventually: an eviction that never appears is an acceptable outcome,
+	// and Gomega has no way to wait for something optional without failing when it stays absent.
+	deadline := time.Now().Add(framework.ShortTimeout)
+	for t.findEviction(ctx) == nil {
+		if time.Now().After(deadline) {
+			return
+		}
+		time.Sleep(time.Second)
+	}
+
+	// findEviction reports only the running one, so nil means it reached a terminal phase or was
+	// cleaned up. Which of the two, and whether it succeeded, is not this wait's business: the spec
+	// waits for the platform to be done, and judges the machine itself through the checks around it.
+	Eventually(func() *v1alpha2.VirtualMachineOperation {
+		return t.findEviction(ctx)
+	}).WithTimeout(framework.LongTimeout).WithPolling(2*time.Second).Should(BeNil(),
+		"the eviction of virtual machine %s never settled", t.VM.Name)
+}
+
+// findEviction returns the Evict VirtualMachineOperation that is still running for this test's
+// virtual machine, or nil when there is none.
+func (t *restoreModeTest) findEviction(ctx context.Context) *v1alpha2.VirtualMachineOperation {
+	var vmops v1alpha2.VirtualMachineOperationList
+	if err := t.Framework.GenericClient().List(ctx, &vmops, crclient.InNamespace(t.VM.Namespace)); err != nil {
+		return nil
+	}
+	for i := range vmops.Items {
+		op := &vmops.Items[i]
+		if op.Spec.Type != v1alpha2.VMOPTypeEvict || op.Spec.VirtualMachine != t.VM.Name {
+			continue
+		}
+		switch op.Status.Phase {
+		case v1alpha2.VMOPPhaseCompleted, v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseSuperseded:
+			continue
+		}
+		return op
+	}
+	return nil
+}
+
+func (t *restoreModeTest) isLocalStorage(ctx context.Context) bool {
+	var scList storagev1.StorageClassList
+	if err := framework.GetClients().GenericClient().List(ctx, &scList); err != nil {
+		return false
+	}
+	sc := config.FindDefaultStorageClass(&scList)
+	return sc != nil && sc.Provisioner == framework.SDSLocalVolume
 }
 
 func (t *restoreModeTest) IsStorageClassAvailableForTest(ctx context.Context, vm *v1alpha2.VirtualMachine) bool {

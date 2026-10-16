@@ -24,6 +24,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 )
 
 // BeRunning reports the VirtualMachine has reached the Running phase. Intended
@@ -31,6 +32,49 @@ import (
 func BeRunning() Predicate {
 	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
 		return vm.Status.Phase == v1alpha2.MachineRunning, nil
+	}
+}
+
+// BeRunningAfter reports the VirtualMachine transitioned into the Running
+// phase after timestamp. Three conditions must all hold: the phase-transition
+// history (status.stats.phasesTransitions) records a Running entry newer than
+// timestamp, the Running condition transitioned to True after timestamp (the
+// same check as [BeRunningAfterRebootAfter]), and the current phase is
+// Running. Intended for use with [Observer.WaitFor].
+func BeRunningAfter(timestamp time.Time) Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		if !object.HasPhaseTransitionAfter(vm, v1alpha2.MachineRunning, timestamp) {
+			return false, nil
+		}
+
+		cond := findCondition(vm.Status.Conditions, vmcondition.TypeRunning.String())
+		if cond == nil || !cond.LastTransitionTime.After(timestamp) || cond.Status != metav1.ConditionTrue {
+			return false, nil
+		}
+
+		return vm.Status.Phase == v1alpha2.MachineRunning, nil
+	}
+}
+
+// BeStoppedAfter reports the VirtualMachine transitioned into the Stopped
+// phase after timestamp. Three conditions must all hold: the phase-transition
+// history (status.stats.phasesTransitions) records a Stopped entry newer than
+// timestamp, the Running condition transitioned to False after timestamp
+// (there is no dedicated Stopped condition, so a stop is a Running=False
+// transition), and the current phase is Stopped. Intended for use with
+// [Observer.WaitFor].
+func BeStoppedAfter(timestamp time.Time) Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		if !object.HasPhaseTransitionAfter(vm, v1alpha2.MachineStopped, timestamp) {
+			return false, nil
+		}
+
+		cond := findCondition(vm.Status.Conditions, vmcondition.TypeRunning.String())
+		if cond == nil || !cond.LastTransitionTime.After(timestamp) || cond.Status != metav1.ConditionFalse {
+			return false, nil
+		}
+
+		return vm.Status.Phase == v1alpha2.MachineStopped, nil
 	}
 }
 
@@ -96,6 +140,18 @@ func BeFilesystemFrozen() Predicate {
 	}
 }
 
+// BeUnmaintained reports the VirtualMachine is not in Maintaned mode and
+// its filesystems are note frozen. Freezing and Maintenance are transient,
+// so observe it with [Observer.WaitFor] started before the snapshot is created.
+func BeUnmaintained() Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		frozenCond := findCondition(vm.Status.Conditions, vmcondition.TypeFilesystemFrozen.String())
+		maintenanceCond := findCondition(vm.Status.Conditions, vmcondition.TypeMaintenance.String())
+
+		return frozenCond == nil && maintenanceCond == nil, nil
+	}
+}
+
 // BeRebootedAfter reports the VirtualMachine is Running again with the
 // Running condition transitioned after previousRunningTime, i.e. the guest
 // went down and came back. Intended for use with [Observer.WaitFor].
@@ -106,6 +162,19 @@ func BeRebootedAfter(previousRunningTime time.Time) Predicate {
 			return false, nil
 		}
 		return cond.LastTransitionTime.After(previousRunningTime) && vm.Status.Phase == v1alpha2.MachineRunning, nil
+	}
+}
+
+// BeRunningAfterRebootAfter reports the VirtualMachine is Running again with the
+// Running condition in True status transitioned after previousRunningTime, i.e. the guest
+// went down and came back. Intended for use with [Observer.WaitFor].
+func BeRunningAfterRebootAfter(previousRunningTime time.Time) Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		cond := findCondition(vm.Status.Conditions, vmcondition.TypeRunning.String())
+		if cond == nil {
+			return false, nil
+		}
+		return cond.LastTransitionTime.After(previousRunningTime) && vm.Status.Phase == v1alpha2.MachineRunning && cond.Status == metav1.ConditionTrue, nil
 	}
 }
 

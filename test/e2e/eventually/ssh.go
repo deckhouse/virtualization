@@ -49,15 +49,15 @@ func SSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.
 // SSHReadyAsRoot waits until the guest accepts SSH commands as root. The
 // custom image has no cloud user and no sudo, so the check logs in as
 // root with the baked key.
-func SSHReadyAsRoot(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+func SSHReadyAsRoot(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration, options ...Option) {
 	GinkgoHelper()
 
 	UntilAssertion(func(g Gomega) {
 		out, err := f.SSHCommand(vm.Name, vm.Namespace, "echo ok",
 			framework.WithSSHUser("root"), framework.WithSSHTimeout(5*time.Second))
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(HaveOccurred(), "SSH should be accessible with root login")
 		g.Expect(out).To(ContainSubstring("ok"))
-	}, timeout)
+	}, timeout, options...)
 }
 
 // GuestCommandsReady waits until every command in commands is available in

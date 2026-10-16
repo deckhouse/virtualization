@@ -138,8 +138,31 @@ func (c ClusterTransport) RestConfig() (*rest.Config, error) {
 	if c.Endpoint != "" {
 		configFlags.APIServer = &c.Endpoint
 	}
-	return configFlags.ToRESTConfig()
+	restConfig, err := configFlags.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+	restConfig.QPS = clientQPS
+	restConfig.Burst = clientBurst
+	return restConfig, nil
 }
+
+// clientQPS and clientBurst raise the client-side request budget above the
+// client-go default the generic flags leave in place.
+//
+// A spec that waits for several objects at once spends that budget on polling
+// alone: observer.WaitForDeleted re-reads every object it watches once a
+// second, and a single restore step waits on five of them. Once the budget is
+// gone the limiter queues calls until their context expires, and the spec
+// fails with "client rate limiter Wait returned an error" instead of the
+// condition it was waiting for.
+//
+// The values give roughly tenfold headroom over that polling rate, which keeps
+// the limiter out of the way while still bounding a runaway spec.
+const (
+	clientQPS   = 50
+	clientBurst = 100
+)
 
 type HelperImages struct {
 	CurlImage string `yaml:"curlImage"`

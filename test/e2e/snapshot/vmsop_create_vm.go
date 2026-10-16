@@ -65,15 +65,12 @@ var _ = Describe("VMSOPCreateVirtualMachine", Label(label.SIGCompute, precheck.P
 	// Each entry provisions its own environment (VM, VMBDA, snapshot) in its
 	// own namespace, so the entries run in parallel.
 	BeforeEach(func() {
-		// TODO: Re-enable the suite.
-		Skip("skipped as flaky: fix the instability, then remove this skip")
-
 		ctx = context.Background()
 		f = framework.NewFramework("vmsop-create-vm")
-		cfg := framework.GetConfig()
-		if cfg.StorageClass.DefaultStorageClass != nil && cfg.StorageClass.DefaultStorageClass.Provisioner == framework.NFS {
-			Skip("Not working due to bug with VMBDA on NFS right now, skipping")
-		}
+		// cfg := framework.GetConfig()
+		// if cfg.StorageClass.DefaultStorageClass != nil && cfg.StorageClass.DefaultStorageClass.Provisioner == framework.NFS {
+		//	Skip("Not working due to bug with VMBDA on NFS right now, skipping")
+		// }
 
 		DeferCleanup(f.After)
 
@@ -184,7 +181,7 @@ var _ = Describe("VMSOPCreateVirtualMachine", Label(label.SIGCompute, precheck.P
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			By("Check that resounsec doesn't exist for DryRun mode", func() {
+			By("Check that resources not appear for DryRun mode", func() {
 				if mode != v1alpha2.SnapshotOperationModeDryRun {
 					return
 				}
