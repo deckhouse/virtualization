@@ -650,7 +650,9 @@ func setVMBDABlockDeviceDisk(
 			return nil
 		}
 
-		if vd.Status.Phase == v1alpha2.DiskTerminating || vd.Status.Target.PersistentVolumeClaim == "" {
+		// A terminating disk stays: dropping its volume from the KVVM does not unplug it from
+		// the instance, and kubevirt then refuses the removeVolume of the VMBDA deletion.
+		if vd.Status.Target.PersistentVolumeClaim == "" {
 			removeDisk(kvvm, name)
 			return nil
 		}

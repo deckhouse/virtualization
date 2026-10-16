@@ -113,7 +113,7 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 	})
 
-	It("should remove terminating VirtualDisk attached via VMBDA", func() {
+	It("should keep terminating VirtualDisk attached via VMBDA until the VMBDA unplugs it", func() {
 		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
 		vd := &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: diskName, Namespace: vmNamespace},
@@ -134,8 +134,9 @@ var _ = Describe("syncAttachedVMBDAHotplugVolumes", func() {
 			},
 		)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(BeEmpty())
-		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(kvvm.Resource.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
+		Expect(kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
 	})
 
 	It("should keep VMBDA VirtualDisk volume when the disk is not resolved yet", func() {
