@@ -116,7 +116,7 @@ d8_virtualization_virtualdisk_annotations{name="vd-01",namespace="team-a",uid="u
 d8_virtualization_virtualdisk_capacity_bytes{name="vd-01",namespace="team-a",uid="uid-vd-01"} 1.073741824e+10
 # HELP d8_virtualization_virtualdisk_info Information about the virtualdisk.
 # TYPE d8_virtualization_virtualdisk_info gauge
-d8_virtualization_virtualdisk_info{name="vd-01",namespace="team-a",persistentvolumeclaim="vd-vd-01-pvc",storageclass="linstor-r2",uid="uid-vd-01"} 1
+d8_virtualization_virtualdisk_info{datasource="blank",datasource_kind="",datasource_name="",name="vd-01",namespace="team-a",persistentvolumeclaim="vd-vd-01-pvc",storageclass="linstor-r2",uid="uid-vd-01"} 1
 # HELP d8_virtualization_virtualdisk_labels Kubernetes labels converted to Prometheus labels.
 # TYPE d8_virtualization_virtualdisk_labels gauge
 d8_virtualization_virtualdisk_labels{name="vd-01",namespace="team-a",uid="uid-vd-01"} 1
@@ -255,6 +255,47 @@ d8_virtualization_virtualdisk_labels{label_app="web",label_team_example_com_owne
 			fqName(MetricDiskLabels), fqName(MetricDiskAnnotations))).To(Succeed())
 	})
 
+	DescribeTable("reports the source of the disk",
+		func(ds *v1alpha2.VirtualDiskDataSource, sourceLabels string) {
+			vd := newVD("vd-01", v1alpha2.DiskReady)
+			vd.Spec.DataSource = ds
+
+			expected := `
+# HELP d8_virtualization_virtualdisk_info Information about the virtualdisk.
+# TYPE d8_virtualization_virtualdisk_info gauge
+d8_virtualization_virtualdisk_info{` + sourceLabels + `,name="vd-01",namespace="team-a",persistentvolumeclaim="vd-vd-01-pvc",storageclass="linstor-r2",uid="uid-vd-01"} 1
+`
+			Expect(testutil.CollectAndCompare(collectorOf(vd), strings.NewReader(expected),
+				fqName(MetricDiskInfo))).To(Succeed())
+		},
+		Entry("a blank disk", nil, `datasource="blank",datasource_kind="",datasource_name=""`),
+		Entry("a virtual image",
+			&v1alpha2.VirtualDiskDataSource{
+				Type:      v1alpha2.DataSourceTypeObjectRef,
+				ObjectRef: &v1alpha2.VirtualDiskObjectRef{Kind: v1alpha2.VirtualDiskObjectRefKindVirtualImage, Name: "ubuntu"},
+			},
+			`datasource="object_ref",datasource_kind="VirtualImage",datasource_name="ubuntu"`),
+		Entry("a cluster virtual image",
+			&v1alpha2.VirtualDiskDataSource{
+				Type:      v1alpha2.DataSourceTypeObjectRef,
+				ObjectRef: &v1alpha2.VirtualDiskObjectRef{Kind: v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage, Name: "alpine"},
+			},
+			`datasource="object_ref",datasource_kind="ClusterVirtualImage",datasource_name="alpine"`),
+		Entry("a container image",
+			&v1alpha2.VirtualDiskDataSource{
+				Type:           v1alpha2.DataSourceTypeContainerImage,
+				ContainerImage: &v1alpha2.VirtualDiskContainerImage{Image: "registry.example.com/images/slackware:15"},
+			},
+			`datasource="container_image",datasource_kind="",datasource_name="registry.example.com/images/slackware:15"`),
+		// The URL never becomes a label: it may carry a token.
+		Entry("an HTTP source",
+			&v1alpha2.VirtualDiskDataSource{
+				Type: v1alpha2.DataSourceTypeHTTP,
+				HTTP: &v1alpha2.DataSourceHTTP{URL: "https://example.com/image.qcow2?token=secret"},
+			},
+			`datasource="http",datasource_kind="",datasource_name=""`),
+	)
+
 	It("keeps the disks apart when several are reported", func() {
 		first := newVD("first", v1alpha2.DiskReady)
 		second := newVD("second", v1alpha2.DiskProvisioning)
@@ -265,8 +306,8 @@ d8_virtualization_virtualdisk_labels{label_app="web",label_team_example_com_owne
 		expected := `
 # HELP d8_virtualization_virtualdisk_info Information about the virtualdisk.
 # TYPE d8_virtualization_virtualdisk_info gauge
-d8_virtualization_virtualdisk_info{name="first",namespace="team-a",persistentvolumeclaim="vd-first-pvc",storageclass="linstor-r2",uid="uid-first"} 1
-d8_virtualization_virtualdisk_info{name="second",namespace="team-a",persistentvolumeclaim="",storageclass="ceph-rbd",uid="uid-second"} 1
+d8_virtualization_virtualdisk_info{datasource="blank",datasource_kind="",datasource_name="",name="first",namespace="team-a",persistentvolumeclaim="vd-first-pvc",storageclass="linstor-r2",uid="uid-first"} 1
+d8_virtualization_virtualdisk_info{datasource="blank",datasource_kind="",datasource_name="",name="second",namespace="team-a",persistentvolumeclaim="",storageclass="ceph-rbd",uid="uid-second"} 1
 `
 		Expect(testutil.CollectAndCompare(c, strings.NewReader(expected), fqName(MetricDiskInfo))).To(Succeed())
 	})

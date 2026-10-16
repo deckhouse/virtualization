@@ -86,7 +86,7 @@ func (s *scraper) updateMetricDiskCapacityBytes(m *dataMetric) {
 }
 
 func (s *scraper) updateMetricDiskInfo(m *dataMetric) {
-	s.defaultUpdate(MetricDiskInfo, 1, m, m.StorageClass, m.PersistentVolumeClaim)
+	s.defaultUpdate(MetricDiskInfo, 1, m, m.StorageClass, m.PersistentVolumeClaim, m.DataSource, m.DataSourceKind, m.DataSourceName)
 }
 
 func (s *scraper) updateMetricDiskStatusInUse(m *dataMetric) {

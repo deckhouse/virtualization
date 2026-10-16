@@ -40,6 +40,9 @@ type dataMetric struct {
 	PersistentVolumeClaim   string
 	InUse                   bool
 	AttachedVirtualMachines []string
+	DataSource              string
+	DataSourceKind          string
+	DataSourceName          string
 }
 
 // DO NOT mutate VirtualDisk!
@@ -50,6 +53,7 @@ func newDataMetric(vd *v1alpha2.VirtualDisk) *dataMetric {
 
 	capacityBytes := parseCapacityBytes(vd.Status.Capacity)
 	inUse, attachedVMs := getInUseStatus(vd)
+	dataSourceKind, dataSourceName := getDataSourceRef(vd.Spec.DataSource)
 
 	return &dataMetric{
 		Name:      vd.Name,
@@ -67,6 +71,9 @@ func newDataMetric(vd *v1alpha2.VirtualDisk) *dataMetric {
 		PersistentVolumeClaim:   vd.Status.Target.PersistentVolumeClaim,
 		InUse:                   inUse,
 		AttachedVirtualMachines: attachedVMs,
+		DataSource:              DataSourceLabel(vd.Spec.DataSource),
+		DataSourceKind:          dataSourceKind,
+		DataSourceName:          dataSourceName,
 	}
 }
 
@@ -97,4 +104,18 @@ func getInUseStatus(vd *v1alpha2.VirtualDisk) (bool, []string) {
 	}
 
 	return true, vmNames
+}
+
+// The name stays empty for an HTTP source: a URL may carry a token and is unique per disk.
+func getDataSourceRef(ds *v1alpha2.VirtualDiskDataSource) (kind, name string) {
+	switch {
+	case ds == nil:
+		return "", ""
+	case ds.ObjectRef != nil:
+		return string(ds.ObjectRef.Kind), ds.ObjectRef.Name
+	case ds.ContainerImage != nil:
+		return "", ds.ContainerImage.Image
+	default:
+		return "", ""
+	}
 }

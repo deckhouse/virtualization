@@ -5394,7 +5394,7 @@
       "type": "row"
     }
   ],
-  "refresh": "auto",
+  "refresh": "30s",
   "schemaVersion": 39,
   "tags": [
     "main"

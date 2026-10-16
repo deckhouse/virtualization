@@ -84,7 +84,7 @@ var diskMetrics = map[string]metrics.MetricInfo{
 		MetricDiskInfo,
 		"Information about the virtualdisk.",
 		prometheus.GaugeValue,
-		WithBaseLabels("storageclass", "persistentvolumeclaim"),
+		WithBaseLabels("storageclass", "persistentvolumeclaim", "datasource", "datasource_kind", "datasource_name"),
 		nil,
 	),
 
