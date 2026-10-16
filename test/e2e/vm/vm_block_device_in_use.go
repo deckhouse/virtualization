@@ -492,8 +492,8 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 			vmbda := newAttachment("vmbda-"+disk.Name+"-"+vm.Name, vm, disk)
 			obs := vmbdaobs.StartObserver(ctx, f, vmbda)
 			obs.Never(vmbdaobs.BeFailed())
-			// The webhook refuses a second attachment of the disk while the previous one still exists,
-			// even being deleted; the CSI driver retries the publish until it is gone.
+			// The CSI driver retries the publish on any refusal; the attachment waits in Pending
+			// while the previous one of the disk is being deleted.
 			eventually.UntilAssertion(func(g Gomega) {
 				err := f.Clients.GenericClient().Create(ctx, vmbda.DeepCopy())
 				// A create that reached the server but timed out on the client comes back as AlreadyExists.
@@ -590,6 +590,112 @@ var _ = Describe("VirtualMachineBlockDeviceInUse", Label(label.SIGCompute, prech
 		Consistently(func(g Gomega) {
 			g.Expect(hasVolume(g, waiter, disk)).To(BeFalse(), "a disk whose attachment was deleted must not come back with the VM")
 			g.Expect(mountedBy(g, disk)).To(BeEmpty())
+		}).WithTimeout(inUseHold).WithPolling(hotplugPolling).Should(Succeed())
+	})
+
+	// startMigration migrates the VM and returns while the migration is in progress: a deleted attachment
+	// of a migrating VM is kept until the migration ends, so the next attachment meets it being deleted.
+	// A small VM migrates in seconds, hence the fast polling.
+	startMigration := func(vm *v1alpha2.VirtualMachine) *v1alpha2.VirtualMachineOperation {
+		GinkgoHelper()
+		vmop := util.MigrateVirtualMachine(f, vm)
+		eventually.UntilAssertion(func(g Gomega) {
+			cur := &v1alpha2.VirtualMachineOperation{}
+			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(vmop), cur)).To(Succeed())
+			g.Expect(cur.Status.Phase).To(Equal(v1alpha2.VMOPPhaseInProgress))
+		}, framework.MiddleTimeout, eventually.WithPolling(200*time.Millisecond))
+		return vmop
+	}
+
+	// replaceAttachment deletes the previous attachment of the disk and creates the next one right away.
+	// The webhook may refuse the next one only until its cache sees the deletion; a refusal later,
+	// while the previous attachment still exists, means it is rejected instead of waiting.
+	replaceAttachment := func(previous, next *v1alpha2.VirtualMachineBlockDeviceAttachment) {
+		GinkgoHelper()
+		Expect(f.Clients.GenericClient().Delete(ctx, previous)).To(Succeed())
+		// The webhook cache follows a watch and lags by milliseconds; the previous attachment of a
+		// small migrating VM lives only a few seconds, so a longer allowance would hide a rejection.
+		deadline := time.Now().Add(time.Second)
+		eventually.UntilAssertion(func(g Gomega) {
+			err := f.Clients.GenericClient().Create(ctx, next.DeepCopy())
+			if err != nil {
+				GinkgoWriter.Printf("create %s refused: %v\n", next.Name, err)
+			}
+			if err != nil && time.Now().After(deadline) {
+				prevErr := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(previous), &v1alpha2.VirtualMachineBlockDeviceAttachment{})
+				Expect(k8serrors.IsNotFound(prevErr)).To(BeTrue(), "the attachment %s is rejected while %s is being deleted: %v", next.Name, previous.Name, err)
+			}
+			g.Expect(err == nil || k8serrors.IsAlreadyExists(err)).To(BeTrue(), "create %s: %v", next.Name, err)
+		}, framework.LongTimeout, eventually.WithPolling(time.Second))
+		f.DeferDelete(next)
+		prevErr := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(previous), &v1alpha2.VirtualMachineBlockDeviceAttachment{})
+		GinkgoWriter.Printf("%s created, %s still exists: %t\n", next.Name, previous.Name, prevErr == nil)
+	}
+
+	It("moves a disk off a migrating VM to another VM without a rejection", func() {
+		disk := newBlank("vd-move-migrating")
+		Expect(f.CreateWithDeferredDeletion(ctx, disk)).To(Succeed())
+		util.WaitDiskInExpectedPhase(ctx, f, disk)
+		watchOneWriter(disk)
+
+		previous := newAttachment("vmbda-move-from", owner, disk)
+		Expect(f.CreateWithDeferredDeletion(ctx, previous)).To(Succeed())
+		previousObs := vmbdaobs.StartObserver(ctx, f, previous)
+		Expect(previousObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
+
+		By("Migrating the VM and moving the disk to the other VM meanwhile")
+		vmop := startMigration(owner)
+		next := newAttachment("vmbda-move-to", waiter, disk)
+		nextObs := vmbdaobs.StartObserver(ctx, f, next)
+		nextObs.Never(vmbdaobs.BeFailed())
+		replaceAttachment(previous, next)
+
+		By("Waiting for the disk to move once the migration is over")
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+		Expect(nextObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
+		eventually.UntilAssertion(func(g Gomega) {
+			g.Expect(hasVolume(g, waiter, disk)).To(BeTrue())
+			g.Expect(holders(disk)).To(Equal(1))
+		}, framework.LongTimeout, eventually.WithPolling(hotplugPolling))
+	})
+
+	It("re-attaches a disk to a migrating VM under another attachment name", func() {
+		disk := newBlank("vd-reattach")
+		Expect(f.CreateWithDeferredDeletion(ctx, disk)).To(Succeed())
+		util.WaitDiskInExpectedPhase(ctx, f, disk)
+		watchOneWriter(disk)
+
+		previous := newAttachment("vmbda-reattach-old", waiter, disk)
+		Expect(f.CreateWithDeferredDeletion(ctx, previous)).To(Succeed())
+		previousObs := vmbdaobs.StartObserver(ctx, f, previous)
+		Expect(previousObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
+
+		By("Migrating the VM and re-attaching the disk under another name meanwhile")
+		vmop := startMigration(waiter)
+		next := newAttachment("vmbda-reattach-new", waiter, disk)
+		nextObs := vmbdaobs.StartObserver(ctx, f, next)
+		nextObs.Never(vmbdaobs.BeFailed())
+		replaceAttachment(previous, next)
+		util.UntilVMOPMigrationSucceeded(ctx, vmop, framework.MaxTimeout)
+
+		// The unplug of the deleted attachment removes the volume by the disk name, so the new one
+		// must keep the disk only if it waited for that unplug.
+		By("Checking the disk stays plugged under the new attachment")
+		Expect(nextObs.WaitFor(vmbdaobs.BeAttached(), framework.LongTimeout)).To(Succeed())
+		eventually.UntilAssertion(func(g Gomega) {
+			err := f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(previous), &v1alpha2.VirtualMachineBlockDeviceAttachment{})
+			g.Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the previous attachment must be gone")
+		}, framework.LongTimeout, eventually.WithPolling(hotplugPolling))
+		Consistently(func(g Gomega) {
+			g.Expect(hasVolume(g, waiter, disk)).To(BeTrue(), "the unplug of the previous attachment must not remove the disk")
+			cur := &v1alpha2.VirtualMachine{}
+			g.Expect(f.Clients.GenericClient().Get(ctx, crclient.ObjectKeyFromObject(waiter), cur)).To(Succeed())
+			idx := slices.IndexFunc(cur.Status.BlockDeviceRefs, func(bd v1alpha2.BlockDeviceStatusRef) bool {
+				return bd.Kind == v1alpha2.DiskDevice && bd.Name == disk.Name
+			})
+			g.Expect(idx).NotTo(Equal(-1))
+			g.Expect(cur.Status.BlockDeviceRefs[idx].Attached).To(BeTrue())
+			g.Expect(cur.Status.BlockDeviceRefs[idx].VirtualMachineBlockDeviceAttachmentName).To(Equal(next.Name))
 		}).WithTimeout(inUseHold).WithPolling(hotplugPolling).Should(Succeed())
 	})
 

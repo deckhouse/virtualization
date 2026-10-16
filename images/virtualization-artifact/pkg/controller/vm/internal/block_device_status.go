@@ -251,14 +251,29 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 		Name: bdName,
 	}]
 
-	switch len(vmbdas) {
-	case 0:
+	if len(vmbdas) == 0 {
 		return "", nil
-	case 1:
-		// OK.
-	default:
-		log.Error("Only one vmbda should be found for hot-plugged block device")
 	}
 
-	return vmbdas[0].Name, nil
+	// A new attachment of the block device waits while a deleted one unplugs it: the volume belongs to
+	// the attachment that has sent the request.
+	var holders []*v1alpha2.VirtualMachineBlockDeviceAttachment
+	for _, vmbda := range vmbdas {
+		switch {
+		case vmbda.DeletionTimestamp != nil,
+			vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseInProgress,
+			vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseAttached:
+			holders = append(holders, vmbda)
+		}
+	}
+
+	switch len(holders) {
+	case 0:
+		return vmbdas[0].Name, nil
+	case 1:
+		return holders[0].Name, nil
+	default:
+		log.Error("Only one vmbda should be found for hot-plugged block device")
+		return holders[0].Name, nil
+	}
 }

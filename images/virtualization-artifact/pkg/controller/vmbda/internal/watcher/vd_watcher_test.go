@@ -17,15 +17,15 @@ limitations under the License.
 package watcher
 
 import (
-	"testing"
-
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-func TestDiskChangeMattersToAttachments(t *testing.T) {
+var _ = Describe("VirtualDiskWatcher", func() {
 	disk := func(owner string, inUseReason vdcondition.InUseReason) *v1alpha2.VirtualDisk {
 		vd := &v1alpha2.VirtualDisk{Status: v1alpha2.VirtualDiskStatus{
 			Phase:      v1alpha2.DiskReady,
@@ -37,21 +37,13 @@ func TestDiskChangeMattersToAttachments(t *testing.T) {
 		return vd
 	}
 
-	tests := []struct {
-		name     string
-		old, cur *v1alpha2.VirtualDisk
-		want     bool
-	}{
-		{"nothing changed", disk("vm-a", vdcondition.AttachedToVirtualMachine), disk("vm-a", vdcondition.AttachedToVirtualMachine), false},
-		{"the disk is given to another VM", disk("vm-a", vdcondition.AttachedToVirtualMachine), disk("vm-b", vdcondition.AttachedToVirtualMachine), true},
-		{"the disk is released", disk("vm-a", vdcondition.AttachedToVirtualMachine), disk("", vdcondition.NotInUse), true},
-		{"an image creation released the disk", disk("", vdcondition.UsedForImageCreation), disk("", vdcondition.NotInUse), true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := diskChangeMattersToAttachments(tt.old, tt.cur); got != tt.want {
-				t.Errorf("diskChangeMattersToAttachments() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+	DescribeTable("diskChangeMattersToAttachments",
+		func(old, cur *v1alpha2.VirtualDisk, want bool) {
+			Expect(diskChangeMattersToAttachments(old, cur)).To(Equal(want))
+		},
+		Entry("nothing changed", disk("vm-a", vdcondition.AttachedToVirtualMachine), disk("vm-a", vdcondition.AttachedToVirtualMachine), false),
+		Entry("the disk is given to another VM", disk("vm-a", vdcondition.AttachedToVirtualMachine), disk("vm-b", vdcondition.AttachedToVirtualMachine), true),
+		Entry("the disk is released", disk("vm-a", vdcondition.AttachedToVirtualMachine), disk("", vdcondition.NotInUse), true),
+		Entry("an image creation released the disk", disk("", vdcondition.UsedForImageCreation), disk("", vdcondition.NotInUse), true),
+	)
+})

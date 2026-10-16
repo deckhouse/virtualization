@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1620,3 +1621,46 @@ func vmFactoryByVM(vm *v1alpha2.VirtualMachine) func() *v1alpha2.VirtualMachine 
 func vmStatusGetter(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus {
 	return obj.Status
 }
+
+var _ = Describe("BlockDeviceHandler attachment name of a hot-plugged block device", func() {
+	newVMBDA := func(name string, phase v1alpha2.BlockDeviceAttachmentPhase) *v1alpha2.VirtualMachineBlockDeviceAttachment {
+		return &v1alpha2.VirtualMachineBlockDeviceAttachment{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
+			Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
+				VirtualMachineName: "vm",
+				BlockDeviceRef:     v1alpha2.VMBDAObjectRef{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: "vd"},
+			},
+			Status: v1alpha2.VirtualMachineBlockDeviceAttachmentStatus{Phase: phase},
+		}
+	}
+
+	DescribeTable("names the attachment that has plugged the volume, not the one waiting for it",
+		func(waiting, holding *v1alpha2.VirtualMachineBlockDeviceAttachment) {
+			scheme := apiruntime.NewScheme()
+			Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
+			vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "ns"}}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, waiting, holding).Build()
+			vmResource := reconciler.NewResource(types.NamespacedName{Name: "vm", Namespace: "ns"}, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
+			Expect(vmResource.Fetch(context.Background())).To(Succeed())
+
+			handler := NewBlockDeviceHandler(fakeClient, nil)
+			name, err := handler.getBlockDeviceAttachmentName(context.Background(), v1alpha2.DiskDevice, "vd", state.New(fakeClient, vmResource))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(name).To(Equal(holding.Name))
+		},
+		Entry("a deleted attachment unplugs the volume",
+			newVMBDA("a-new", v1alpha2.BlockDeviceAttachmentPhasePending),
+			func() *v1alpha2.VirtualMachineBlockDeviceAttachment {
+				vmbda := newVMBDA("b-old", v1alpha2.BlockDeviceAttachmentPhaseTerminating)
+				vmbda.Finalizers = []string{v1alpha2.FinalizerVMBDACleanup}
+				vmbda.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+				return vmbda
+			}(),
+		),
+		Entry("a failed attachment never plugs the volume",
+			newVMBDA("a-failed", v1alpha2.BlockDeviceAttachmentPhaseFailed),
+			newVMBDA("b-attached", v1alpha2.BlockDeviceAttachmentPhaseAttached),
+		),
+	)
+})

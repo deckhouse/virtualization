@@ -17,20 +17,29 @@ limitations under the License.
 package watcher
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualMachineBlockDeviceAttachmentWatcher struct{}
+type VirtualMachineBlockDeviceAttachmentWatcher struct {
+	client client.Client
+}
 
-func NewVirtualMachineBlockDeviceAttachmentWatcher() *VirtualMachineBlockDeviceAttachmentWatcher {
-	return &VirtualMachineBlockDeviceAttachmentWatcher{}
+func NewVirtualMachineBlockDeviceAttachmentWatcher(client client.Client) *VirtualMachineBlockDeviceAttachmentWatcher {
+	return &VirtualMachineBlockDeviceAttachmentWatcher{client: client}
 }
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
@@ -46,5 +55,42 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, c
 	); err != nil {
 		return err
 	}
+
+	// An attachment waits for a deleted attachment of the same block device to finish the unplug.
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineBlockDeviceAttachment{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueSameBlockDevice),
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineBlockDeviceAttachment]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachineBlockDeviceAttachment]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineBlockDeviceAttachment]) bool { return false },
+			},
+		),
+	); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueSameBlockDevice(ctx context.Context, deleted *v1alpha2.VirtualMachineBlockDeviceAttachment) (requests []reconcile.Request) {
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+	err := w.client.List(ctx, &vmbdas, client.InNamespace(deleted.GetNamespace()))
+	if err != nil {
+		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
+		return requests
+	}
+
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Name == deleted.Name || vmbda.Spec.BlockDeviceRef != deleted.Spec.BlockDeviceRef {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      vmbda.Name,
+				Namespace: vmbda.Namespace,
+			},
+		})
+	}
+
+	return requests
 }

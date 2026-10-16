@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -195,6 +198,23 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
+	// An attached attachment has already waited, and no other one of the disk can be created while it exists.
+	var unplugMessage string
+	if vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseAttached {
+		unplugMessage, err = h.previousUnplugMessage(ctx, vmbda, kvvm, kvvmi)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+	if unplugMessage != "" {
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message(unplugMessage)
+		return reconcile.Result{}, nil
+	}
+
 	log = log.With("vmName", vm.Name, "attachmentDiskName", ad.Name)
 
 	_, canErr := h.attacher.CanHotPlug(ad, vm, kvvm)
@@ -333,4 +353,54 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 	default:
 		return reconcile.Result{}, canErr
 	}
+}
+
+// previousUnplugMessage tells why the attachment waits for an earlier unplug of the same block device
+// from the same VM, or returns an empty string. The unplug removes the volume by the block device name,
+// so a hot-plug sent before it is over is undone, and a volume status left from it reads as attached.
+func (h LifeCycleHandler) previousUnplugMessage(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (string, error) {
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
+	// Read only: the attachments are not copied out of the cache.
+	err := h.client.List(ctx, &vmbdas, client.InNamespace(vmbda.Namespace),
+		client.MatchingFields{indexer.IndexFieldVMBDAByVM: vmbda.Spec.VirtualMachineName}, client.UnsafeDisableDeepCopy)
+	if err != nil {
+		return "", fmt.Errorf("list virtual machine block device attachments: %w", err)
+	}
+
+	for _, other := range vmbdas.Items {
+		if other.Name == vmbda.Name || other.DeletionTimestamp == nil ||
+			other.Spec.BlockDeviceRef.Kind != vmbda.Spec.BlockDeviceRef.Kind ||
+			other.Spec.BlockDeviceRef.Name != vmbda.Spec.BlockDeviceRef.Name {
+			continue
+		}
+
+		return fmt.Sprintf("Waiting for the VirtualMachineBlockDeviceAttachment %q to detach the %s %q from the VirtualMachine %q.",
+			other.Name, vmbda.Spec.BlockDeviceRef.Kind, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.VirtualMachineName), nil
+	}
+
+	name := kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef)
+	if volumeRequested(kvvm, name) || slices.ContainsFunc(kvvmi.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == name }) {
+		return "", nil
+	}
+
+	for _, vs := range kvvmi.Status.VolumeStatus {
+		// An unmounted volume is already reported as not attached.
+		if vs.Name == name && vs.HotplugVolume != nil && vs.Phase != virtv1.HotplugVolumeUnMounted {
+			return fmt.Sprintf("Waiting for the %s %q to finish detaching from the VirtualMachine %q.",
+				vmbda.Spec.BlockDeviceRef.Kind, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.VirtualMachineName), nil
+		}
+	}
+
+	return "", nil
+}
+
+// volumeRequested reports whether the internal VM has the volume or an attach request for it.
+func volumeRequested(kvvm *virtv1.VirtualMachine, name string) bool {
+	if kvvm.Spec.Template != nil && slices.ContainsFunc(kvvm.Spec.Template.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == name }) {
+		return true
+	}
+
+	return slices.ContainsFunc(kvvm.Status.VolumeRequests, func(vr virtv1.VirtualMachineVolumeRequest) bool {
+		return vr.AddVolumeOptions != nil && vr.AddVolumeOptions.Name == name
+	})
 }

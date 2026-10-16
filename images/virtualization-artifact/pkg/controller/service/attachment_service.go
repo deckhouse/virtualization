@@ -261,6 +261,12 @@ func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *v1
 			continue
 		}
 
+		// A detaching VMBDA only waits for the unplug: the disk owner check keeps a VMBDA of another VM
+		// pending, and the lifecycle handler keeps one of the same VM pending until the unplug is over.
+		if vmbdas.Items[i].DeletionTimestamp != nil {
+			continue
+		}
+
 		// There is already a Non-Conflicted VMBDA.
 		if vmbdas.Items[i].Status.Phase != "" && vmbdas.Items[i].Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseFailed {
 			return true, vmbdas.Items[i].Name, nil

@@ -158,6 +158,29 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 		Expect(conflictWithName).To(BeEmpty())
 	})
 
+	DescribeTable("a detaching vmbda",
+		func(vmName string, expectConflict bool) {
+			vmbdaBeta.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseAttached
+			vmbdaBeta.CreationTimestamp = metav1.Time{Time: vmbdaBeta.CreationTimestamp.Add(-time.Hour)}
+			vmbdaBeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			vmbdaBeta.Spec.VirtualMachineName = vmName
+			clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+				list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
+					*vmbdaAlpha,
+					*vmbdaBeta,
+				}
+				return nil
+			}
+
+			s := NewAttachmentService(clientMock, nil, "")
+			isConflicted, _, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
+			Expect(err).To(BeNil())
+			Expect(isConflicted).To(Equal(expectConflict))
+		},
+		Entry("of another vm does not conflict", "vm-old", false),
+		Entry("of the same vm does not conflict", "vm", false),
+	)
+
 	It("Only one vmbda", func() {
 		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
 			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
