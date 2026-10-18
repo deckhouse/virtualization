@@ -139,7 +139,7 @@ import:
   add: /src
   to: /src
   before: install
-# Registry targets execute the same qemu tools as the production importer.
+# Retain native tools for the uploader path; registry header targets do not use them.
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /

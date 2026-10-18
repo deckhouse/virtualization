@@ -157,14 +157,31 @@ replay checks only the seeds committed in the repository.
 | Target | Package | Surface |
 | --- | --- | --- |
 | `FuzzUploader` | `pkg/uploader` | the uploader's HTTP request parsing and validation |
-| `FuzzImageInfo` | `pkg/registry` | qcow2/vmdk/vdi/vhdx/vpc/iso/raw parsing through `qemu-img` and `file` |
-| `FuzzImageInfoSnappy` | `pkg/registry` | the same parsing behind the snappy framing of a blockdevice clone |
+| `FuzzImageHeaders` | `pkg/registry` | the pinned CDI header matchers for disk, compression and archive signatures |
+| `FuzzSnappyImageHeaders` | `pkg/registry` | snappy framing up to the first decoded header window, then the same CDI matchers |
 | `FuzzImporterHTTPSource` | `pkg/importer` | a hostile HTTP image source: status, headers, redirects, lengths, encodings |
 
 The one target `main` additionally carries, `FuzzChecksums`, is not here: the multi-algorithm
 checksum path it tests (`pkg/registry/checksum.go`) does not exist on this branch, whose import
-handler accepts a sha256 and an md5 sum only. `FuzzImageInfo` and `FuzzImageInfoSnappy` are the
-files of `main` with one line adapted to this branch's `NewDataProcessor` signature.
+handler accepts a sha256 and an md5 sum only. This branch also has no production
+`peekRawImage` function. The two header targets call `image.CopyKnownHdrs` and
+`Header.Match` from the CDI revision pinned by this branch's `go.mod`, without copying
+production code from `main`.
+
+The header targets replace `FuzzImageInfo` and `FuzzImageInfoSnappy`. They do not call
+`getImageInfo`, `qemu-img` or `file`, create temporary files, inspect native image metadata,
+or validate virtual sizes. They check each format matcher independently, including headers
+with more than one signature, so they do not impose an ordering on CDI's header map.
+`FuzzImageHeaders` limits input to 512 bytes and zero-fills a full header window before
+calling `Header.Match`, whose contract requires sufficient bytes. Short fuzz values are
+header windows with a zero-filled suffix, not evidence that the release accepts short files.
+`FuzzSnappyImageHeaders` limits encoded input to 64 KiB and reads exactly one decoded
+512-byte window; malformed frames and shorter decoded streams are rejected. It does not
+validate the remainder of a snappy stream or restore a source stream.
+
+The new names give these targets separate `testdata/fuzz/<FuzzFunc>/` corpus directories.
+Do not rename the old image-info corpus directories and assume equivalent coverage: the
+new targets cover header matching, not the old native inspection and size-accounting path.
 
 ## Running a target by hand
 
@@ -181,6 +198,14 @@ the platform calls, which is also the shortest way to run a target manually:
 ```bash
 FUZZ_PKG=./pkg/importer FUZZ_TARGET=FuzzImporterHTTPSource task fuzz:replay
 FUZZ_PKG=./pkg/importer FUZZ_TARGET=FuzzImporterHTTPSource FUZZ_WORKERS=8 task fuzz:run
+```
+
+For a bounded mutation run of the header targets, skip ordinary package tests, including
+`TestGetImageInfoRawVirtualSize`, which can invoke `qemu-img`:
+
+```bash
+go test ./pkg/registry -run '^$' -fuzz '^FuzzImageHeaders$' -fuzztime=30s -parallel=1
+go test ./pkg/registry -run '^$' -fuzz '^FuzzSnappyImageHeaders$' -fuzztime=30s -parallel=1
 ```
 
 `fuzz:run` never ends on its own: no `-fuzztime` is passed, by contract the platform decides when
