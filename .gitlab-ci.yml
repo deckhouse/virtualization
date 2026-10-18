@@ -9,7 +9,7 @@
 # .gitlab/ci/includes.yml (see that file for the full include list).
 #
 # Upstream templates are sourced from deckhouse/3p/deckhouse/modules-gitlab-ci
-# at ref v15.0, including fuzz build/replay. The ref is configured in
+# at ref v15.0; fuzz build/replay use a separate ref. Both are configured in
 # .gitlab/ci/includes.yml.
 
 include:

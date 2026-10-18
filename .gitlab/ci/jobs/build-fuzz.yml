@@ -5,21 +5,22 @@
 #
 # This is the release-1.10 counterpart of the main job: .main would never fire
 # here, so the automatic run is keyed on a push to release-X.Y instead. The
-# corpus is tied to the code that produced it, and pvc-artifact on this branch
-# is even a differently named Go module, so main's corpus entries never match
-# its packages. The shared template defaults FUZZ_S3_BRANCH_SLUG to main for
-# merge requests; override it with this branch's slug so an MR into
-# release-1.10 replays release-1-10, the same prefix the push run reports under.
-# Until the external platform has filled that prefix the replay runs on the
-# committed seeds only.
+# source branch must retain its original name: release-1.10 is distinct from
+# the lossy GitLab slug release-1-10. Use the release's corpus projection for
+# MR replay too; the platform shares compatible inputs across branches using
+# the target's corpus contract. MR pipelines never publish build reports.
+# Until the platform has populated the release projection, replay uses the
+# committed seeds. Build_Fuzz and Replay_Fuzz use the same release-aware ref
+# configured separately from the standard templates in includes.yml.
 .virtualization_fuzz_rules:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       variables:
-        FUZZ_S3_BRANCH_SLUG: release-1-10
+        FUZZ_S3_BRANCH_SLUG: release-1.10
+        FUZZ_PUBLISH_REPORT: "false"
     - if: '$CI_COMMIT_BRANCH =~ /^release-[0-9]+\.[0-9]+/ && $CI_PIPELINE_SOURCE == "push"'
       variables:
-        FUZZ_S3_BRANCH_SLUG: ${CI_COMMIT_REF_SLUG}
+        FUZZ_S3_BRANCH_SLUG: ${CI_COMMIT_REF_NAME}
         FUZZ_PUBLISH_REPORT: "true"
     - when: never
 
@@ -73,5 +74,6 @@ replay_fuzz:
       when: manual
       allow_failure: true
       variables:
-        FUZZ_S3_BRANCH_SLUG: release-1-10
+        FUZZ_S3_BRANCH_SLUG: release-1.10
+        FUZZ_PUBLISH_REPORT: "false"
     - !reference [.virtualization_fuzz_rules, rules]

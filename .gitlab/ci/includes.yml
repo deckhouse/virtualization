@@ -6,7 +6,8 @@
 # stages: [build, deploy]; we explicitly extend stages via .gitlab/ci/stages.yml
 # so the final list is the union of both.
 #
-# Upstream template names (deckhouse/3p/deckhouse/modules-gitlab-ci, v15.0):
+# Upstream template names (deckhouse/3p/deckhouse/modules-gitlab-ci):
+# Standard templates stay on v15.0; fuzz build/replay use their own ref below.
 #   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
 #   - Build.gitlab-ci.yml           (.build_base — werf build + bundle/attestation
 #                                   copy + release-channel copy + registration;
@@ -49,7 +50,12 @@ include:
       - "/templates/CVE_Scan.gitlab-ci.yml"
       - "/templates/gitleaks.gitlab-ci.yml"
       - "/templates/Svace_Analayze.gitlab-ci.yml"
-      - "/templates/Build_Fuzz.gitlab-ci.yml"
+
+  # Keep fuzz build and its generated replay pipeline on the same release-aware
+  # ref without upgrading Setup, delivery, or scanning templates.
+  - project: "deckhouse/ssdlc/gitlab-ci"
+    ref: &fuzz_templates_ref fuzz-release-branch-support
+    file: "/templates/Build_Fuzz.gitlab-ci.yml"
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
   - local: ".gitlab/ci/stages.yml"
@@ -117,5 +123,5 @@ include:
   - local: ".gitlab/ci/jobs/translate-changelog.yml"
 
 variables:
-  # The generated replay pipeline uses the same ref as the parent templates.
-  FUZZ_REPLAY_TEMPLATE_REF: *templates_ref
+  # The generated replay pipeline uses the same ref as its fuzz build template.
+  FUZZ_REPLAY_TEMPLATE_REF: *fuzz_templates_ref
