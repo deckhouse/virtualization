@@ -13,3 +13,4 @@ imageSpec:
   config:
     entrypoint: ["/usr/bin/pvc-importer", "-alsologtostderr"]
     user: 64535
+{{- include "vex mitigation" (list $ (printf "%s%s" $.ModuleNamePrefix $.ImageName)) }}
