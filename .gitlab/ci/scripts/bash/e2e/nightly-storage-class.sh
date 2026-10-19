@@ -16,20 +16,20 @@
 
 # Pick the storage class the nightly e2e run uses on a given guest OS stand.
 #
-# Each OS stand carries several storage classes, but one nightly run exercises
-# one of them. Rather than pin an OS to a single class forever, the class
-# rotates by the day: with a list of N working classes, day D uses index
-# D mod N, so over N days the OS covers them all. The rotation is a pure
-# function of the date - no state is stored anywhere - so any runner computes
-# the same class for the same day.
+# One nightly run per OS exercises one storage class, rotating by the day so no
+# class is pinned forever. The schedule is an explicit table: one row per
+# rotation day, one (OS, class) pair per OS. The rows are built so that redos and
+# alt never share a class on the same day - in particular never both on
+# replicated, where the suite is weakest - and every (OS, class) pair the stand
+# supports is covered over the cycle. To add a stand or a class, add a column /
+# rows to the table.
 #
-# The lists hold only classes that actually work on that OS today. A class is
-# added to a list once its stand can serve it:
-#   - ceph is not stood up on any stand yet, so it is in no list;
+# Which classes are in play, and why some are excluded:
+#   - ceph is not stood up on any stand yet, so it is used nowhere;
 #   - replicated (nested-thin-r1) does not build on the ALT kernel (DRBD 9.2),
-#     so an ALT run that lands on it is a KNOWN FAILURE, left in the list on
-#     purpose so the rotation keeps covering it and the day it starts passing
-#     is visible. Remove this note and nothing else changes when it is fixed.
+#     so an ALT run that lands on it is a KNOWN FAILURE, kept in the rotation on
+#     purpose so coverage continues and the day it starts passing is visible;
+#   - astra carries no replicated class (only nfs/local).
 #
 # Usage, from a job script:
 #   eval "$(bash nightly-storage-class.sh "$E2E_OS")"
@@ -40,22 +40,33 @@ set -euo pipefail
 
 os="${1:?usage: nightly-storage-class.sh <redos|alt|astra>}"
 
-# Day zero of the rotation. Arbitrary but fixed: moving it reshuffles which
-# class each OS lands on, so it does not change.
-base_date="2026-01-01"
+sc_nfs=nfs
+sc_local=nested-local-thin
+sc_repl=nested-thin-r1
 
-case "$os" in
-  redos) classes=(nfs nested-local-thin nested-thin-r1) ;;
-  alt) classes=(nfs nested-local-thin nested-thin-r1) ;; # nested-thin-r1 is a known fail, see header
-  astra) classes=(nfs nested-local-thin) ;;
+# The rotation schedule, one row per day in the cycle. redos and alt never share
+# a class (so never both on replicated), astra only ever gets nfs/local, and over
+# the three rows each stand covers every class it supports.
+cases=(
+  "redos ${sc_repl}  alt ${sc_local} astra ${sc_nfs}"
+  "redos ${sc_nfs}   alt ${sc_repl}  astra ${sc_local}"
+  "redos ${sc_local} alt ${sc_nfs}   astra ${sc_nfs}"
+)
+
+# Day of the month picks the row; it resets monthly, but every month is longer
+# than the cycle, so each row still runs several times a month.
+idx=$(( ( $(date -u +%-d) - 1 ) % ${#cases[@]} ))
+read -r _ redos_sc _ alt_sc _ astra_sc <<<"${cases[$idx]}"
+
+case "${os}" in
+  redos) sc="${redos_sc}" ;;
+  alt) sc="${alt_sc}" ;;
+  astra) sc="${astra_sc}" ;;
   *)
     echo "[ERROR] unknown OS '${os}', expected one of: redos alt astra" >&2
     exit 1
     ;;
 esac
-
-days=$(( ( $(date -u +%s) - $(date -u -d "${base_date}" +%s) ) / 86400 ))
-sc="${classes[$(( days % ${#classes[@]} ))]}"
 
 case "$sc" in
   nfs) csi="nfs" ;;

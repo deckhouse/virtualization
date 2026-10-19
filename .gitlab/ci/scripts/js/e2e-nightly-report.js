@@ -82,6 +82,52 @@ function rawReportExists(rawReportsDir, os) {
   return entries.some((name) => pattern.test(name));
 }
 
+// The raw ginkgo report is named e2e_report_<os>_<csi>_<date>.json, where <csi>
+// is the storage label the run used (replicated / local / nfs; see
+// nightly-storage-class.sh). Pull it back out so the report can show which
+// storage each OS actually exercised on this run.
+function rawStorageClass(rawReportsDir, os) {
+  const pattern = new RegExp(`^e2e_report_${os}_(.+)_\\d{4}-\\d{2}-\\d{2}\\.json$`);
+  let entries = [];
+  try {
+    entries = fs.readdirSync(rawReportsDir);
+  } catch {
+    return null;
+  }
+  for (const name of entries) {
+    const match = name.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
+}
+
+// Post-process a processed report for the GitLab nightly:
+//   1. record the storage label on the display name, so the Loop table row reads
+//      "<os> (<storage>)";
+//   2. rewrite the run URL: the shared GitHub script builds it in the GitHub
+//      "/actions/runs/<id>" shape, which 404s on GitLab, so swap it for the
+//      "/-/pipelines/<id>" shape (serverUrl/owner/repo/id are already correct).
+// Only display fields change; storageType stays the bare OS, so cluster
+// keying/ordering in the messenger are untouched and the shared report scripts
+// need no change.
+function finalizeProcessedReport(processedDir, os, storageClass, core) {
+  const file = path.join(processedDir, `e2e_report_${os}.json`);
+  try {
+    const report = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (storageClass) {
+      report.cluster = `${os} (${storageClass})`;
+    }
+    if (typeof report.workflowRunUrl === "string") {
+      report.workflowRunUrl = report.workflowRunUrl.replace("/actions/runs/", "/-/pipelines/");
+    }
+    fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
+  } catch (error) {
+    core.warning(`Could not finalize ${os} report: ${error.message}`);
+  }
+}
+
 async function runClusterReports() {
   const context = buildContext();
   const rawReportsDir = process.env.RAW_REPORTS_DIR || "test/e2e";
@@ -115,6 +161,7 @@ async function runClusterReports() {
           stageResults: LEASED_CLUSTER_STAGE_RESULTS,
         },
       });
+      finalizeProcessedReport(processedDir, os, rawStorageClass(rawReportsDir, os), core);
     } catch (error) {
       // One OS must not sink the whole report: e.g. findSingleMatchingFile
       // throws when a stand left two raw reports (a retried run). Degrade to the
