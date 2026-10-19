@@ -65,7 +65,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(1))
 		Expect(configs[0].Name).To(Equal(""))
@@ -85,7 +85,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[0].Name).To(Equal(""))
@@ -110,7 +110,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[0].Name).To(Equal(""))
@@ -171,7 +171,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(5))
 
@@ -242,7 +242,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(4))
 
@@ -263,7 +263,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(1))
 		Expect(configs[0].ID).To(Equal(0))
@@ -282,7 +282,7 @@ var _ = Describe("Network Config Generation", func() {
 			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1", IPAddressName: "my-static-ip"},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[1].IPAddressNames).To(Equal([]string{"my-static-ip"}))
@@ -301,9 +301,37 @@ var _ = Describe("Network Config Generation", func() {
 			{Type: v1alpha2.NetworksTypeNetwork, Name: "name1"},
 		}
 
-		configs := CreateNetworkSpec(vm, WithImplicitMain(vm.Spec.Networks), vmmacs, true)
+		configs := CreateNetworkSpec(vm, WithEffectiveMain(vm.Spec.Networks), vmmacs, true)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[1].IPAddressNames).To(BeNil())
 	})
+})
+
+var _ = Describe("The implicit Main network", func() {
+	main := v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain, IPAddressName: "main-ip"}
+	additional := v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"}
+
+	DescribeTable("spec.networks",
+		func(networks []v1alpha2.NetworksSpec, usesMain, hasAdditional bool, mainIPAddressName string) {
+			Expect(UsesMainNetwork(networks)).To(Equal(usesMain))
+			Expect(HasAdditionalNetworks(networks)).To(Equal(hasAdditional))
+			if spec := MainNetworkSpec(networks); usesMain {
+				Expect(spec).NotTo(BeNil())
+				Expect(spec.Type).To(Equal(v1alpha2.NetworksTypeMain))
+				Expect(spec.IPAddressName).To(Equal(mainIPAddressName))
+				// The id is the ACPI index of the interface: the implicit Main keeps the first one.
+				if len(networks) == 0 {
+					Expect(spec.ID).To(HaveValue(Equal(MinID)))
+				}
+			} else {
+				Expect(spec).To(BeNil())
+			}
+		},
+		Entry("nil", nil, true, false, ""),
+		Entry("empty", []v1alpha2.NetworksSpec{}, true, false, ""),
+		Entry("Main only", []v1alpha2.NetworksSpec{main}, true, false, "main-ip"),
+		Entry("Main and an additional network", []v1alpha2.NetworksSpec{main, additional}, true, true, "main-ip"),
+		Entry("an additional network only", []v1alpha2.NetworksSpec{additional}, false, true, ""),
+	)
 })

@@ -134,7 +134,7 @@ func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alph
 }
 
 func mainIPAddressName(vm *v1alpha2.VirtualMachine) string {
-	if mainSpec := network.GetMainNetworkSpec(vm.Spec.Networks); mainSpec != nil {
+	if mainSpec := network.MainNetworkSpec(vm.Spec.Networks); mainSpec != nil {
 		return mainSpec.IPAddressName
 	}
 	return ""
@@ -145,7 +145,7 @@ func (v *IPAMValidator) validateVMIPUsage(vm *v1alpha2.VirtualMachine) error {
 		return nil
 	}
 
-	if mainSpec := network.GetMainNetworkSpec(vm.Spec.Networks); mainSpec != nil && mainSpec.IPAddressName != "" {
+	if mainSpec := network.MainNetworkSpec(vm.Spec.Networks); mainSpec != nil && mainSpec.IPAddressName != "" {
 		return fmt.Errorf("spec.virtualMachineIPAddressName cannot be combined with spec.networks[Main].ipAddressName: use only one way to set the Main network address")
 	}
 
@@ -153,7 +153,7 @@ func (v *IPAMValidator) validateVMIPUsage(vm *v1alpha2.VirtualMachine) error {
 		return fmt.Errorf("spec.virtualMachineIPAddressName cannot be set when ModuleConfig/virtualization spec.settings.virtualMachineCIDRs is not configured")
 	}
 
-	if len(vm.Spec.Networks) > 0 && !network.HasMainNetworkSpec(vm.Spec.Networks) {
+	if !network.UsesMainNetwork(vm.Spec.Networks) {
 		return fmt.Errorf("spec.virtualMachineIPAddressName cannot be set without Main network type in spec.networks")
 	}
 
@@ -161,7 +161,7 @@ func (v *IPAMValidator) validateVMIPUsage(vm *v1alpha2.VirtualMachine) error {
 }
 
 func (v *IPAMValidator) validateMainIPAddressName(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
-	mainSpec := network.GetMainNetworkSpec(vm.Spec.Networks)
+	mainSpec := network.MainNetworkSpec(vm.Spec.Networks)
 	if mainSpec == nil || mainSpec.IPAddressName == "" {
 		return nil
 	}

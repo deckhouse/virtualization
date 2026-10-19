@@ -111,21 +111,17 @@ func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 // isMainNetworkUnchanged compares ipAddressName too: it is the address of the primary
 // interface, which cannot change on the fly.
 func isMainNetworkUnchanged(current, desired []v1alpha2.NetworksSpec) bool {
-	if hasMainNetwork(current) != hasMainNetwork(desired) {
+	if network.UsesMainNetwork(current) != network.UsesMainNetwork(desired) {
 		return false
 	}
 	return mainIPAddressName(current) == mainIPAddressName(desired)
 }
 
 func mainIPAddressName(networks []v1alpha2.NetworksSpec) string {
-	if main := network.GetMainNetworkSpec(networks); main != nil {
+	if main := network.MainNetworkSpec(networks); main != nil {
 		return main.IPAddressName
 	}
 	return ""
-}
-
-func hasMainNetwork(networks []v1alpha2.NetworksSpec) bool {
-	return len(networks) == 0 || network.GetMainNetworkSpec(networks) != nil
 }
 
 // isUnderlayNetworksChanged reports whether the set of UnderlayNetwork entries

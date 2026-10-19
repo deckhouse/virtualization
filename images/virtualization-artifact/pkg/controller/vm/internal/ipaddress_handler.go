@@ -84,7 +84,7 @@ func (h *IPAddressHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 
 	// A machine on the Main network alone whose pod gets no Main interface spec takes
 	// its address from a vmip and has no IPAddress to keep.
-	if hasOnlyDefaultNetwork(vm) && !mainInterfaceSpecEnabled {
+	if !commonnetwork.HasAdditionalNetworks(vm.Spec.Networks) && !mainInterfaceSpecEnabled {
 		return reconcile.Result{}, nil
 	}
 
@@ -207,7 +207,7 @@ func (h *IPAddressHandler) labelMirrorOfVMIP(ctx context.Context, s state.Virtua
 // ensureMainIPAddress keeps the IPAddress of the Main network a VM without a vmip
 // gets when it names none in ipAddressName.
 func (h *IPAddressHandler) ensureMainIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, ipAddresses []sdnapi.IPAddress, log *slog.Logger) (reconcile.Result, error) {
-	mainSpec := commonnetwork.MainNetworkSpecOrImplicit(vm)
+	mainSpec := commonnetwork.MainNetworkSpec(vm.Spec.Networks)
 	if mainSpec == nil || mainSpec.IPAddressName != "" {
 		return reconcile.Result{}, nil
 	}
@@ -231,7 +231,7 @@ func (h *IPAddressHandler) cleanupOrphanedIPAddresses(ctx context.Context, vm *v
 	// the same ClusterNetwork/main its IPAddress carries.
 	wanted := make(map[sdnapi.NetworkRef]struct{})
 	if mainInterfaceSpecEnabled {
-		if mainSpec := commonnetwork.MainNetworkSpecOrImplicit(vm); mainSpec != nil && mainSpec.IPAddressName == "" {
+		if mainSpec := commonnetwork.MainNetworkSpec(vm.Spec.Networks); mainSpec != nil && mainSpec.IPAddressName == "" {
 			wanted[commonnetwork.SDNNetworkRef(*mainSpec)] = struct{}{}
 		}
 	}
@@ -249,7 +249,7 @@ func (h *IPAddressHandler) cleanupOrphanedIPAddresses(ctx context.Context, vm *v
 	// Names referenced by the spec (static mode) are user-managed regardless of
 	// labels and must never be garbage-collected.
 	referenced := make(map[string]struct{})
-	for _, netSpec := range commonnetwork.WithImplicitMain(vm.Spec.Networks) {
+	for _, netSpec := range commonnetwork.WithEffectiveMain(vm.Spec.Networks) {
 		if netSpec.IPAddressName != "" {
 			referenced[netSpec.IPAddressName] = struct{}{}
 		}

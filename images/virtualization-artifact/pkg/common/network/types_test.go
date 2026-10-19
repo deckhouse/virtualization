@@ -39,21 +39,6 @@ var _ = Describe("Network types helpers", func() {
 		})
 	})
 
-	Describe("HasMainNetworkSpec", func() {
-		It("should return true when main network exists", func() {
-			specs := []v1alpha2.NetworksSpec{
-				{Type: v1alpha2.NetworksTypeClusterNetwork},
-				{Type: v1alpha2.NetworksTypeMain},
-			}
-			Expect(HasMainNetworkSpec(specs)).To(BeTrue())
-		})
-
-		It("should return false when main network does not exist", func() {
-			specs := []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork}}
-			Expect(HasMainNetworkSpec(specs)).To(BeFalse())
-		})
-	})
-
 	Describe("InterfaceSpecList.ToString", func() {
 		It("should skip main interface in JSON output", func() {
 			list := InterfaceSpecList{

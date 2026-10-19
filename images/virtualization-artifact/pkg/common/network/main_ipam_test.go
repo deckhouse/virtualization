@@ -367,22 +367,6 @@ var _ = Describe("InterfaceSpecList.ForAnnotation", func() {
 	})
 })
 
-var _ = Describe("MainNetworkSpecOrImplicit", func() {
-	It("returns an implicit Main network for a VM without a networks section", func() {
-		vm := &v1alpha2.VirtualMachine{}
-		spec := MainNetworkSpecOrImplicit(vm)
-		Expect(spec).NotTo(BeNil())
-		Expect(spec.Type).To(Equal(v1alpha2.NetworksTypeMain))
-	})
-
-	It("returns nil for a VM with additional networks only", func() {
-		vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{
-			Networks: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeClusterNetwork, Name: "corp-net"}},
-		}}
-		Expect(MainNetworkSpecOrImplicit(vm)).To(BeNil())
-	})
-})
-
 var _ = Describe("EnsureSDNIPAddress for the Main network", func() {
 	It("creates an IPAddress with networkRef ClusterNetwork/main", func() {
 		ctx := context.Background()

@@ -320,16 +320,16 @@ func (v *NetworksValidator) validateNetworkRequirements(networksSpec []v1alpha2.
 // network - explicitly or by leaving spec.networks empty - unless
 // virtualMachineCIDRs is configured.
 func (v *NetworksValidator) validateMainAvailability(networksSpec []v1alpha2.NetworksSpec) error {
-	hasCIDRs := len(v.virtualMachineCIDRs) > 0
-
-	hasExplicitMainNetwork := commonnetwork.HasMainNetworkSpec(networksSpec)
-	if !hasCIDRs && hasExplicitMainNetwork {
-		return errors.New("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
+	if len(v.virtualMachineCIDRs) > 0 {
+		return nil
 	}
 
-	implicitMainNetwork := isImplicitMainNet(networksSpec)
-	if !hasCIDRs && implicitMainNetwork {
+	if len(networksSpec) == 0 {
 		return errors.New("spec.networks cannot be empty when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
+	}
+
+	if commonnetwork.UsesMainNetwork(networksSpec) {
+		return errors.New("spec.networks cannot explicitly include Main network type when ModuleConfig/virtualization has no configured IP ranges in the spec.settings.virtualMachineCIDRs field")
 	}
 
 	return nil
@@ -339,7 +339,7 @@ func (v *NetworksValidator) validateMainAvailability(networksSpec []v1alpha2.Net
 // is backed by the SDN module, which provides the Network and ClusterNetwork
 // resources spec.networks entries other than Main refer to.
 func (v *NetworksValidator) validateAdditionalNetworksAvailability(networksSpec []v1alpha2.NetworksSpec) error {
-	if !hasAdditionalNetworks(networksSpec) || v.featureGate.Enabled(featuregates.SDN) {
+	if !commonnetwork.HasAdditionalNetworks(networksSpec) || v.featureGate.Enabled(featuregates.SDN) {
 		return nil
 	}
 
@@ -359,17 +359,4 @@ func networksAdded(oldSpec, newSpec []v1alpha2.NetworksSpec) []v1alpha2.Networks
 		}
 	}
 	return added
-}
-
-func isImplicitMainNet(networks []v1alpha2.NetworksSpec) bool {
-	return len(networks) == 0
-}
-
-func isSingleMainNet(networks []v1alpha2.NetworksSpec) bool {
-	return len(networks) == 1 && networks[0].Type == v1alpha2.NetworksTypeMain
-}
-
-// hasAdditionalNetworks return true if spec.networks is not empty and has at least 1 non Main network.
-func hasAdditionalNetworks(networks []v1alpha2.NetworksSpec) bool {
-	return !isImplicitMainNet(networks) && !isSingleMainNet(networks)
 }

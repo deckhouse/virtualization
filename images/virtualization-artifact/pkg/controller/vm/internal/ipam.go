@@ -86,7 +86,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 	}()
 
-	if !hasDefaultNetwork(vm.Status.Networks) {
+	if !network.HasMainNetworkStatus(vm.Status.Networks) {
 		vm.Status.IPAddress = ""
 		vm.Status.VirtualMachineIPAddress = ""
 		if err := h.deleteManagedVMIP(ctx, s, vm); err != nil {
@@ -179,7 +179,7 @@ const ipAddressKindRetryInterval = time.Minute
 // the IPAddress of the Main network. The condition gates the KVVM sync, so the VM stays
 // Pending until the address is allocated.
 func (h *IPAMHandler) setMainIPAddressStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, cb *conditions.ConditionBuilder, log *slog.Logger) (reconcile.Result, error) {
-	mainSpec := network.MainNetworkSpecOrImplicit(vm)
+	mainSpec := network.MainNetworkSpec(vm.Spec.Networks)
 	if mainSpec == nil {
 		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonIPAddressReady)
 		return reconcile.Result{}, nil
@@ -272,15 +272,6 @@ func (h *IPAMHandler) checkAddressAssignedInGuest(ctx context.Context, s state.V
 	cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonIPAddressNotAssigned).Message(msg)
 	log.Warn(msg)
 	return nil
-}
-
-func hasDefaultNetwork(ns []v1alpha2.NetworksStatus) bool {
-	for _, n := range ns {
-		if n.Type == v1alpha2.NetworksTypeMain {
-			return true
-		}
-	}
-	return false
 }
 
 func (h *IPAMHandler) deleteManagedVMIP(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) error {

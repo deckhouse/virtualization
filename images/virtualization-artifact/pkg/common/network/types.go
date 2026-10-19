@@ -177,19 +177,6 @@ func HasMainNetworkStatus(networks []v1alpha2.NetworksStatus) bool {
 	return false
 }
 
-func HasMainNetworkSpec(networks []v1alpha2.NetworksSpec) bool {
-	return GetMainNetworkSpec(networks) != nil
-}
-
-func GetMainNetworkSpec(networks []v1alpha2.NetworksSpec) *v1alpha2.NetworksSpec {
-	for i := range networks {
-		if networks[i].Type == v1alpha2.NetworksTypeMain {
-			return &networks[i]
-		}
-	}
-	return nil
-}
-
 type InterfaceSpec struct {
 	ID            int    `json:"id"`
 	Type          string `json:"type"`

@@ -79,7 +79,7 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		}
 	}()
 
-	if !hasOnlyDefaultNetwork(vm) {
+	if network.HasAdditionalNetworks(vm.Spec.Networks) {
 		if err := h.evaluateAdditionalNetworks(ctx, s, vm, cb); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -154,21 +154,6 @@ func (h *NetworkInterfaceHandler) evaluateAdditionalNetworks(ctx context.Context
 	}
 	cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
 	return nil
-}
-
-func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {
-	nets := vm.Spec.Networks
-	return len(nets) == 0 || (len(nets) == 1 && nets[0].Type == v1alpha2.NetworksTypeMain)
-}
-
-// mainNetworkID is the id the Main network carries in the spec: it is the ACPI index the
-// interface gets, and the status must name the same one. A machine that lists no network
-// at all runs on the implicit Main with the first id.
-func mainNetworkID(vm *v1alpha2.VirtualMachine) int {
-	if main := network.GetMainNetworkSpec(vm.Spec.Networks); main != nil {
-		return ptr.Deref(main.ID, network.MinID)
-	}
-	return network.MinID
 }
 
 // additionalNetworkKeys returns the additional networks the virtual machine spec asks
@@ -301,8 +286,9 @@ func (h *NetworkInterfaceHandler) Name() string {
 	return nameNetworkHandler
 }
 
-// mainNetworkStatus returns the status of the Main network with its IPAddress. On a
-// lookup error it keeps the IPAddress the status has: blanking it would drop the
+// mainNetworkStatus returns the status of the Main network with its IPAddress. The status
+// names the id of the Main network in the spec: it is the ACPI index the interface gets.
+// On a lookup error it keeps the IPAddress the status has: blanking it would drop the
 // IPAddress from a snapshot made in that moment.
 func (h *NetworkInterfaceHandler) mainNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, id int) v1alpha2.NetworksStatus {
 	status := v1alpha2.NetworksStatus{ID: id, Type: v1alpha2.NetworksTypeMain}
@@ -332,7 +318,7 @@ func (h *NetworkInterfaceHandler) mainNetworkStatus(ctx context.Context, s state
 	switch {
 	case ipa == nil, errors.Is(err, network.ErrIPAddressBeingDeleted):
 		// The IPAddress named in the spec is shown without an address until it is there.
-		if mainSpec := network.MainNetworkSpecOrImplicit(vm); mainSpec != nil {
+		if mainSpec := network.MainNetworkSpec(vm.Spec.Networks); mainSpec != nil {
 			status.IPAddressName = mainSpec.IPAddressName
 		}
 	case err == nil, errors.Is(err, network.ErrIPAddressNotAllocated):
@@ -344,10 +330,11 @@ func (h *NetworkInterfaceHandler) mainNetworkStatus(ctx context.Context, s state
 }
 
 func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
-	if hasOnlyDefaultNetwork(vm) {
+	if !network.HasAdditionalNetworks(vm.Spec.Networks) {
 		networksStatus := make([]v1alpha2.NetworksStatus, 0)
 		if len(h.virtualMachineCIDRs) != 0 {
-			networksStatus = append(networksStatus, h.mainNetworkStatus(ctx, s, vm, mainNetworkID(vm)))
+			mainSpec := network.MainNetworkSpec(vm.Spec.Networks)
+			networksStatus = append(networksStatus, h.mainNetworkStatus(ctx, s, vm, ptr.Deref(mainSpec.ID, network.MinID)))
 		}
 		// The last additional network may still be leaving the domain: retain its entry
 		// here as well, otherwise removing the only additional network releases the MAC

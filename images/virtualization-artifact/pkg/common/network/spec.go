@@ -26,10 +26,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-// WithImplicitMain writes out the Main network of a virtual machine listing none. Callers
+// WithEffectiveMain writes out the Main network of a virtual machine listing none. Callers
 // that filter the list must default before filtering, or "nothing is Ready" turns back into
 // "nothing was asked for" and the machine lands on the pod network.
-func WithImplicitMain(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
+func WithEffectiveMain(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec {
 	if len(networks) > 0 {
 		return networks
 	}
@@ -37,6 +37,32 @@ func WithImplicitMain(networks []v1alpha2.NetworksSpec) []v1alpha2.NetworksSpec 
 		Type: v1alpha2.NetworksTypeMain,
 		ID:   ptr.To(MinID),
 	}}
+}
+
+// MainNetworkSpec returns the Main network of a virtual machine, the implicit one included,
+// or nil for a machine on additional networks only. The implicit Main is a copy: changes to
+// it do not reach the list.
+func MainNetworkSpec(networks []v1alpha2.NetworksSpec) *v1alpha2.NetworksSpec {
+	networks = WithEffectiveMain(networks)
+	for i := range networks {
+		if networks[i].Type == v1alpha2.NetworksTypeMain {
+			return &networks[i]
+		}
+	}
+	return nil
+}
+
+func UsesMainNetwork(networks []v1alpha2.NetworksSpec) bool {
+	return MainNetworkSpec(networks) != nil
+}
+
+func HasAdditionalNetworks(networks []v1alpha2.NetworksSpec) bool {
+	for _, n := range networks {
+		if n.Type != v1alpha2.NetworksTypeMain {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateNetworkSpec builds the interface list for the given networks of the virtual machine.

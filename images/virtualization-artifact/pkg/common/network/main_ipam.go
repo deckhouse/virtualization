@@ -109,7 +109,7 @@ func vmHasOwnVMIP(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMach
 
 // vmHasMainIPAddress counts a terminating IPAddress too: it is recreated on the same address.
 func vmHasMainIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (bool, error) {
-	mainSpec := MainNetworkSpecOrImplicit(vm)
+	mainSpec := MainNetworkSpec(vm.Spec.Networks)
 	if mainSpec == nil {
 		return false, nil
 	}
@@ -142,7 +142,7 @@ func UsesVMIP(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine)
 		return false, err
 	}
 
-	if mainSpec := GetMainNetworkSpec(vm.Spec.Networks); mainSpec != nil && mainSpec.IPAddressName != "" {
+	if mainSpec := MainNetworkSpec(vm.Spec.Networks); mainSpec != nil && mainSpec.IPAddressName != "" {
 		// Once the template has the Main interface spec the named IPAddress stays in
 		// effect without the pool: the sdn module keeps routing the address by that spec.
 		namedIPAddressInEffect := mainIPAMAvailable
@@ -184,11 +184,6 @@ func templateHasMainInterfaceSpec(ctx context.Context, c client.Client, vm *v1al
 	return KVVMHasMainInterfaceSpec(kvvm), nil
 }
 
-// MainNetworkSpecOrImplicit returns nil when the VM has additional networks only.
-func MainNetworkSpecOrImplicit(vm *v1alpha2.VirtualMachine) *v1alpha2.NetworksSpec {
-	return GetMainNetworkSpec(WithImplicitMain(vm.Spec.Networks))
-}
-
 var ErrIPAddressOfAnotherNetwork = errors.New("the IPAddress belongs to another network")
 
 // IPAddressConflictError is a user configuration state, not a failure: it is
@@ -204,7 +199,7 @@ func (e *IPAddressConflictError) Error() string {
 // GetMainSDNIPAddress returns the named IPAddress or the one the VM got by its label,
 // a terminating one too: whether the VM may use it is for CheckMainSDNIPAddress to say.
 func GetMainSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) (*sdnapi.IPAddress, error) {
-	mainSpec := MainNetworkSpecOrImplicit(vm)
+	mainSpec := MainNetworkSpec(vm.Spec.Networks)
 	if mainSpec == nil {
 		return nil, nil
 	}
@@ -223,7 +218,7 @@ var ErrIPAddressNotAllocated = errors.New("the IPAddress has no address yet")
 // CheckMainSDNIPAddress returns why the VM cannot put the IPAddress of its Main
 // network into its pod, or nil.
 func CheckMainSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ipa *sdnapi.IPAddress) error {
-	if mainSpec := MainNetworkSpecOrImplicit(vm); mainSpec != nil && mainSpec.IPAddressName != "" {
+	if mainSpec := MainNetworkSpec(vm.Spec.Networks); mainSpec != nil && mainSpec.IPAddressName != "" {
 		if err := checkNamedMainIPAddress(ctx, c, vm, ipa, *mainSpec); err != nil {
 			return err
 		}

@@ -141,11 +141,8 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 		if !attachedVM.GetDeletionTimestamp().IsZero() && len(attachedVM.Status.VirtualMachinePods) == 0 {
 			return nil, nil
 		}
+		// The status, not the spec: the vm controller takes the address of the vmip only for the Main network it lists there.
 		if network.HasMainNetworkStatus(attachedVM.Status.Networks) {
-			return attachedVM, nil
-		}
-
-		if network.HasMainNetworkSpec(attachedVM.Spec.Networks) {
 			return attachedVM, nil
 		}
 	}

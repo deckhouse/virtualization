@@ -67,10 +67,6 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 						return true
 					}
 
-					if network.HasMainNetworkSpec(oldVM.Spec.Networks) != network.HasMainNetworkSpec(newVM.Spec.Networks) {
-						return true
-					}
-
 					if len(oldVM.Status.VirtualMachinePods) != len(newVM.Status.VirtualMachinePods) {
 						return true
 					}

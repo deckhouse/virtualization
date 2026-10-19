@@ -292,7 +292,7 @@ func MainStaticIPAddressSpec(address string) sdnapi.IPAddressSpec {
 // MainIPAddressToSnapshot returns an empty name for a VM on a vmip: the snapshot keeps
 // the vmip, and the IPAddress in the status is its mirror.
 func MainIPAddressToSnapshot(vm *v1alpha2.VirtualMachine) (name, address string) {
-	if vm.Status.VirtualMachineIPAddress != "" || MainNetworkSpecOrImplicit(vm) == nil {
+	if vm.Status.VirtualMachineIPAddress != "" || MainNetworkSpec(vm.Spec.Networks) == nil {
 		return "", ""
 	}
 	for _, status := range vm.Status.Networks {
@@ -310,7 +310,7 @@ func IsStaticOrNamedMainIPAddress(vm *v1alpha2.VirtualMachine, ipa *sdnapi.IPAdd
 	if ipa.Spec.Type == sdnapi.IPAddressTypeStatic {
 		return true
 	}
-	mainSpec := GetMainNetworkSpec(vm.Spec.Networks)
+	mainSpec := MainNetworkSpec(vm.Spec.Networks)
 	return mainSpec != nil && mainSpec.IPAddressName == ipa.GetName()
 }
 
@@ -337,7 +337,7 @@ func SetMainIPAddressName(networks []v1alpha2.NetworksSpec, name string) []v1alp
 			return networks
 		}
 	}
-	if name != "" && len(networks) == 0 {
+	if name != "" && UsesMainNetwork(networks) {
 		return []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: name}}
 	}
 	return networks

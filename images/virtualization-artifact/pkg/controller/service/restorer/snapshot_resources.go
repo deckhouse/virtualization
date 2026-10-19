@@ -259,7 +259,7 @@ func (r *SnapshotResources) restoreMainAddress(ctx context.Context, vm *v1alpha2
 		return restorer.NewMainIPAddressHandler(r.client, ipaName, r.vmSnapshot.Namespace, capturedMainIPAddress.Address, vmUIDs, r.uuid), nil
 	}
 
-	mainSpec := network.GetMainNetworkSpec(vm.Spec.Networks)
+	mainSpec := network.MainNetworkSpec(vm.Spec.Networks)
 	if vmip != nil && (mainSpec == nil || mainSpec.IPAddressName == "") {
 		vm.Spec.VirtualMachineIPAddress = vmip.Name
 	}

@@ -475,31 +475,35 @@ func TestNetworksValidatorMainRequiresCIDRs(t *testing.T) {
 
 	t.Run("create: explicit Main without CIDRs is rejected", func(t *testing.T) {
 		vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
-		if _, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm); err == nil {
-			t.Fatalf("expected error for explicit Main without CIDRs")
+		_, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm)
+		if err == nil || !strings.Contains(err.Error(), "cannot explicitly include Main") {
+			t.Fatalf("expected the explicit Main error without CIDRs, got: %v", err)
 		}
 	})
 
 	t.Run("create: implicit Main without CIDRs is rejected", func(t *testing.T) {
 		vm := &v1alpha2.VirtualMachine{}
-		if _, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm); err == nil {
-			t.Fatalf("expected error for empty spec.networks without CIDRs")
+		_, err := newValidatorWithDCVROnly.ValidateCreate(t.Context(), vm)
+		if err == nil || !strings.Contains(err.Error(), "cannot be empty") {
+			t.Fatalf("expected the empty spec.networks error without CIDRs, got: %v", err)
 		}
 	})
 
 	t.Run("update: newly setting explicit Main without CIDRs is rejected", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{networkTest}}}
 		newVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{mainNetwork}}}
-		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
-			t.Fatalf("expected update error for newly set explicit Main without CIDRs")
+		_, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM)
+		if err == nil || !strings.Contains(err.Error(), "cannot explicitly include Main") {
+			t.Fatalf("expected the explicit Main update error without CIDRs, got: %v", err)
 		}
 	})
 
 	t.Run("update: clearing spec.networks to implicit Main without CIDRs is rejected", func(t *testing.T) {
 		oldVM := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: []v1alpha2.NetworksSpec{networkTest}}}
 		newVM := &v1alpha2.VirtualMachine{}
-		if _, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM); err == nil {
-			t.Fatalf("expected update error for clearing spec.networks to implicit Main without CIDRs")
+		_, err := newValidatorWithDCVROnly.ValidateUpdate(t.Context(), oldVM, newVM)
+		if err == nil || !strings.Contains(err.Error(), "cannot be empty") {
+			t.Fatalf("expected the empty spec.networks update error without CIDRs, got: %v", err)
 		}
 	})
 

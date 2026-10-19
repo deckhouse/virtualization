@@ -1168,7 +1168,7 @@ func (h *SyncKvvmHandler) networksOutOfSync(ctx context.Context, s state.Virtual
 	// template diff as a non-live-updatable network change and sets RestartRequired.
 	// When there are no active additional interfaces, this is only an implicit-vs-
 	// explicit default-network drift, so do not reconcile it.
-	onlyDefault := hasOnlyDefaultNetwork(vm)
+	onlyDefault := !network.HasAdditionalNetworks(vm.Spec.Networks)
 	implicitDefaultDrift := onlyDefault && !hasActiveAdditionalInterfaces(kvvm) && isKVVMIRunning(kvvmi)
 
 	// The template and the pod annotation are both built from the very same list (see
@@ -1265,7 +1265,7 @@ func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state
 	}
 
 	vm := s.VirtualMachine().Current()
-	if hasOnlyDefaultNetwork(vm) {
+	if !network.HasAdditionalNetworks(vm.Spec.Networks) {
 		kvvm, err := s.KVVM(ctx)
 		if err != nil {
 			return fmt.Errorf("find the internal virtual machine: %w", err)
@@ -1298,12 +1298,12 @@ func (h *SyncKvvmHandler) applyNetworkReadinessSync(ctx context.Context, s state
 // filterReadyNetworks returns the Ready networks of the virtual machine, the implicit Main
 // network of a machine listing none included. It returns a list rather than a copy of the
 // machine because an empty spec.networks means "nothing was asked for", which defaults back
-// to the Main network - see WithImplicitMain.
+// to the Main network - see WithEffectiveMain.
 func filterReadyNetworks(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine) ([]v1alpha2.NetworksSpec, error) {
 	if vm == nil {
 		return nil, nil
 	}
-	networks := network.WithImplicitMain(vm.Spec.Networks)
+	networks := network.WithEffectiveMain(vm.Spec.Networks)
 	if c == nil {
 		// Readiness cannot be checked; keep every network rather than strip the machine bare.
 		return networks, nil

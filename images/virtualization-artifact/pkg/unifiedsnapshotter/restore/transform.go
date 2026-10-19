@@ -195,7 +195,7 @@ func linkCapturedMainIPAddress(objs []unstructured.Unstructured) error {
 		if err := convertJSON(networksField, &networks); err != nil {
 			return fmt.Errorf("read VirtualMachine %s spec.networks: %w", vm.GetName(), err)
 		}
-		if len(networks) > 0 && network.GetMainNetworkSpec(networks) == nil {
+		if !network.UsesMainNetwork(networks) {
 			// Additional networks only: there is no Main network to link.
 			continue
 		}
