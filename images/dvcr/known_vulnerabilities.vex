@@ -2,7 +2,7 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://openvex.dev/docs/public/vex-virtualization-dvcr-go-2026-5932",
   "author": "Deckhouse <contact@deckhouse.io>",
-  "version": 4,
+  "version": 5,
   "statements": [
     {
       "vulnerability": {
@@ -17,8 +17,25 @@
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "GO-2026-5932 относится к пакету golang.org/x/crypto/openpgp, который является unmaintained и не имеет исправленной версии. В образе dvcr пакет openpgp присутствует исключительно как транзитивная зависимость модуля golang.org/x/crypto; бинарный файл registry (форк distribution/distribution) не использует OpenPGP-функциональность: подпись и проверка manifest'ов реализованы через go-jose, а не через openpgp. Код openpgp не входит в путь исполнения registry, поэтому уязвимость для образа dvcr не достижима.",
       "timestamp": "2026-07-13T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-85747",
+        "aliases": [
+          "GHSA-685w-q87j-wqw3"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/distribution/distribution/v3@v3.1.1"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-85747 относится к клиенту реестра (internal/client, метод manifests.Get не сверяет полученный manifest с запрошенным digest) и к pull-through proxy registry/proxy, который кеширует такой manifest. В бинарном файле registry (форк distribution/distribution) клиент вызывается только из pull-through proxy, а proxy включается только параметром proxy.remoteurl. Конфигурацию DVCR задаёт модуль (ConfigMap dvcr-config и переменные окружения пода): секции proxy в ней нет, и включить её через настройки модуля нельзя, DVCR работает только как локальное хранилище образов. Код клиента не входит в путь исполнения registry, поэтому уязвимость для образа dvcr не достижима.",
+      "timestamp": "2026-10-19T00:00:00Z"
     }
   ],
   "timestamp": "2026-07-13T00:00:00Z",
-  "last_updated": "2026-10-12T00:00:00Z"
+  "last_updated": "2026-10-19T00:00:00Z"
 }
