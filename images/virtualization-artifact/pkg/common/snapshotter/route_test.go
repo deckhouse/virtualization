@@ -19,6 +19,7 @@ package snapshotter
 import (
 	"context"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -134,6 +135,74 @@ var _ = Describe("routing an already-captured object", func() {
 		Expect(UseUnifiedForVirtualMachineSnapshot(&v1alpha2.VirtualMachineSnapshot{}, false)).To(BeFalse())
 		Expect(routeDisk(&v1alpha2.VirtualDiskSnapshot{}, true)).To(BeTrue())
 		Expect(routeDisk(&v1alpha2.VirtualDiskSnapshot{}, false)).To(BeFalse())
+	})
+
+	It("keeps a built-in VirtualDiskSnapshot that failed before taking a VolumeSnapshot", func() {
+		vds := &v1alpha2.VirtualDiskSnapshot{
+			Status: v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhaseFailed},
+		}
+		Expect(routeDisk(vds, true)).To(BeFalse())
+	})
+
+	It("keeps a built-in VirtualDiskSnapshot that carries only the built-in cleanup finalizer", func() {
+		vds := &v1alpha2.VirtualDiskSnapshot{
+			ObjectMeta: metav1.ObjectMeta{Finalizers: []string{v1alpha2.FinalizerVDSnapshotCleanup}},
+			Status:     v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhasePending},
+		}
+		Expect(routeDisk(vds, true)).To(BeFalse())
+	})
+
+	It("keeps a built-in VirtualMachineSnapshot that failed before writing its Secret", func() {
+		vms := &v1alpha2.VirtualMachineSnapshot{
+			Status: v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhaseFailed},
+		}
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, true)).To(BeFalse())
+	})
+
+	// The unified controllers write the Pending bootstrap before captureState, so Pending alone must not
+	// pull an object away from them.
+	It("follows the default for a snapshot in the Pending bootstrap", func() {
+		vms := &v1alpha2.VirtualMachineSnapshot{
+			ObjectMeta: metav1.ObjectMeta{Finalizers: []string{v1alpha2.FinalizerVMSnapshotCleanup}},
+			Status:     v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhasePending},
+		}
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, true)).To(BeTrue())
+
+		vds := &v1alpha2.VirtualDiskSnapshot{
+			Status: v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhasePending},
+		}
+		Expect(routeDisk(vds, true)).To(BeTrue())
+	})
+
+	It("keeps a built-in VirtualMachineSnapshot in Pending without the unified cleanup finalizer", func() {
+		vms := &v1alpha2.VirtualMachineSnapshot{
+			Status: v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhasePending},
+		}
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, true)).To(BeFalse())
+	})
+
+	// The unified controller drops its cleanup finalizer at the end of its own deletion, so a deleting
+	// Pending object carries no mark of either mechanism.
+	It("follows the default for a deleting VirtualMachineSnapshot in Pending without the cleanup finalizer", func() {
+		vms := &v1alpha2.VirtualMachineSnapshot{
+			ObjectMeta: metav1.ObjectMeta{
+				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				Finalizers:        []string{"example.com/other"},
+			},
+			Status: v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhasePending},
+		}
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, true)).To(BeTrue())
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, false)).To(BeFalse())
+	})
+
+	It("keeps a unified snapshot whose phase moved past Pending", func() {
+		vms := &v1alpha2.VirtualMachineSnapshot{
+			Status: v1alpha2.VirtualMachineSnapshotStatus{
+				Phase:        v1alpha2.VirtualMachineSnapshotPhaseFailed,
+				CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{},
+			},
+		}
+		Expect(UseUnifiedForVirtualMachineSnapshot(vms, false)).To(BeTrue())
 	})
 
 	It("lets an explicit pin override the recorded capture", func() {

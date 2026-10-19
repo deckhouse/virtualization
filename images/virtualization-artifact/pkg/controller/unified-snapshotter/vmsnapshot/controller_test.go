@@ -1448,7 +1448,7 @@ func TestReconcile_TheParentCarriesCaptureStateWhenAChildIsCreated(t *testing.T)
 			CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
 		},
 		Spec:   v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1", RequiredConsistency: true},
-		Status: v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress},
+		Status: v1alpha2.VirtualMachineSnapshotStatus{Phase: v1alpha2.VirtualMachineSnapshotPhasePending},
 	}
 	vm := &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{

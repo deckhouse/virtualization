@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -73,7 +74,10 @@ func UseUnifiedForVirtualMachineSnapshot(vms *v1alpha2.VirtualMachineSnapshot, u
 	if pinned, ok := pinnedMechanism(vms); ok {
 		return pinned
 	}
-	if captured, ok := capturedMechanism(vms.Status.CaptureState != nil, vms.Status.VirtualMachineSnapshotSecretName != ""); ok {
+	builtIn := vms.Status.VirtualMachineSnapshotSecretName != "" ||
+		phasePastPending(vms.Status.Phase, v1alpha2.VirtualMachineSnapshotPhasePending) ||
+		pendingWithoutUnifiedFinalizer(vms)
+	if captured, ok := capturedMechanism(vms.Status.CaptureState != nil, builtIn); ok {
 		return captured
 	}
 
@@ -110,7 +114,10 @@ func UseUnifiedForVirtualDiskSnapshot(ctx context.Context, reader client.Reader,
 	if pinned, ok := pinnedMechanism(vds); ok {
 		return pinned, nil
 	}
-	if captured, ok := capturedMechanism(vds.Status.CaptureState != nil, vds.Status.VolumeSnapshotName != ""); ok {
+	builtIn := vds.Status.VolumeSnapshotName != "" ||
+		controllerutil.ContainsFinalizer(vds, v1alpha2.FinalizerVDSnapshotCleanup) ||
+		phasePastPending(vds.Status.Phase, v1alpha2.VirtualDiskSnapshotPhasePending)
+	if captured, ok := capturedMechanism(vds.Status.CaptureState != nil, builtIn); ok {
 		return captured, nil
 	}
 
@@ -174,13 +181,17 @@ func pinnedMechanism(obj metav1.Object) (useUnified, pinned bool) {
 	return false, false
 }
 
-// capturedMechanism reports the mechanism that has already left its mark on an object's status, if any.
+// capturedMechanism reports the mechanism that has already left its mark on an object, if any.
 //
 // A mechanism that captured an object keeps it. Without this the cluster default would silently
 // reassign every snapshot taken before the default moved: on an upgrade that turns the unified
 // mechanism on, a built-in snapshot sitting at phase Ready would be handed to the unified
 // VirtualMachineSnapshot controller, which — seeing an empty domain capture phase — would plan the whole
 // capture again against a live VirtualMachine.
+//
+// The built-in mark is any trace the built-in controller leaves, not only the CSI VolumeSnapshot or the
+// Secret it produces: a built-in snapshot that failed or stalled before producing them is still the
+// built-in controller's, and only that controller removes its cleanup finalizer on deletion.
 func capturedMechanism(unified, builtIn bool) (useUnified, captured bool) {
 	switch {
 	case unified:
@@ -190,4 +201,25 @@ func capturedMechanism(unified, builtIn bool) (useUnified, captured bool) {
 	default:
 		return false, false
 	}
+}
+
+// phasePastPending reports whether status.phase has moved beyond Pending.
+//
+// Without captureState such a phase can only come from the built-in controller: the unified one writes
+// nothing but the Pending bootstrap before it applies captureState.
+func phasePastPending[P ~string](phase, pending P) bool {
+	return phase != "" && phase != pending
+}
+
+// pendingWithoutUnifiedFinalizer reports whether vms is in phase Pending without the unified cleanup
+// finalizer, which only the built-in controller leaves.
+//
+// The unified controller adds FinalizerVMSnapshotCleanup before it writes the Pending bootstrap, and the
+// built-in controller never adds it. A deleting object is excluded because the unified controller removes
+// that finalizer at the end of its own deletion, so its absence no longer identifies the mechanism; such an
+// object follows the cluster default.
+func pendingWithoutUnifiedFinalizer(vms *v1alpha2.VirtualMachineSnapshot) bool {
+	return vms.Status.Phase == v1alpha2.VirtualMachineSnapshotPhasePending &&
+		vms.DeletionTimestamp == nil &&
+		!controllerutil.ContainsFinalizer(vms, v1alpha2.FinalizerVMSnapshotCleanup)
 }
