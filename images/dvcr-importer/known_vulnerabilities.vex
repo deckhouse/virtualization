@@ -2,7 +2,7 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://openvex.dev/docs/public/vex-virtualization-dvcr-importer-go-2026-5932",
   "author": "Deckhouse <contact@deckhouse.io>",
-  "version": 3,
+  "version": 4,
   "statements": [
     {
       "vulnerability": {
@@ -17,8 +17,25 @@
       "justification": "vulnerable_code_not_in_execute_path",
       "impact_statement": "GO-2026-5932 относится к пакету golang.org/x/crypto/openpgp, который является unmaintained и не имеет исправленной версии. В образе dvcr-importer пакет openpgp присутствует исключительно как транзитивная зависимость модуля golang.org/x/crypto; importer не использует OpenPGP-функциональность. Код openpgp не входит в путь исполнения dvcr-importer, поэтому уязвимость для образа не достижима.",
       "timestamp": "2026-07-13T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-85747",
+        "aliases": [
+          "GHSA-685w-q87j-wqw3"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/docker/distribution@v2.8.3%2Bincompatible"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "CVE-2026-85747 относится к пакету github.com/docker/distribution/registry/client: метод manifests.Get не сверяет полученный manifest с запрошенным digest, а pull-through proxy registry/proxy кеширует такой manifest. Модуль github.com/docker/distribution (v2) архивирован, исправленной версии нет. В образе dvcr-importer модуль присутствует как транзитивная зависимость (github.com/containers/image/v5/docker, github.com/google/go-containerregistry/pkg/v1/remote/transport); в бинарный файл usr/local/bin/dvcr-importer из него попадают только пакеты registry/api/errcode, registry/api/v2, registry/client/auth/challenge. Пакеты registry/client и registry/proxy в бинарные файлы образа не входят, поэтому уязвимость для образа не достижима.",
+      "timestamp": "2026-10-19T00:00:00Z"
     }
   ],
   "timestamp": "2026-07-13T00:00:00Z",
-  "last_updated": "2026-10-12T00:00:00Z"
+  "last_updated": "2026-10-19T00:00:00Z"
 }
