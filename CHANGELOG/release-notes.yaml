@@ -1,3 +1,48 @@
+- version: v1.12.3
+  date: "2026-10-19"
+  highlights:
+    - en: Fixed vulnerabilities in the module.
+      ru: "Устранены уязвимости в модуле."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
 - version: v1.12.2
   date: "2026-09-30"
   highlights:
@@ -157,6 +202,51 @@
   upgrade:
     - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
       ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.11.3
+  date: "2026-10-19"
+  highlights:
+    - en: Fixed vulnerabilities in the module.
+      ru: "Устранены уязвимости в модуле."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
 - version: v1.11.2
   date: "2026-09-22"
   highlights:
