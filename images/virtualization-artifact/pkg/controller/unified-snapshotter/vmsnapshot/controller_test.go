@@ -21,6 +21,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -1820,5 +1821,106 @@ func TestReleaseFreeze_DoesNotResendAFreshUnfreeze(t *testing.T) {
 	}
 	if virt.unfreezes != 0 {
 		t.Errorf("unfreeze sent %d times, want none inside the retry interval", virt.unfreezes)
+	}
+}
+
+// The timeout message must say why a disk snapshot is stuck, not only which one: the domain-written
+// detail wins, the core-owned Ready condition is the fallback, and terminal children are not blamed.
+func TestPendingChildrenDetails(t *testing.T) {
+	withDomain := v1alpha2.VirtualDiskSnapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "a"},
+		Status: v1alpha2.VirtualDiskSnapshotStatus{
+			CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{
+				DomainSpecificController: &v1alpha2.UnifiedSnapshotterDomainCaptureState{Reason: "DataCaptureRetrying", Message: "not Thin"},
+			},
+			Conditions: []metav1.Condition{{Type: v1alpha2.UnifiedSnapshotterConditionReady, Status: metav1.ConditionFalse, Reason: "DataCapturePending", Message: "waiting"}},
+		},
+	}
+	withReady := v1alpha2.VirtualDiskSnapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "b"},
+		Status: v1alpha2.VirtualDiskSnapshotStatus{
+			Conditions: []metav1.Condition{{Type: v1alpha2.UnifiedSnapshotterConditionReady, Status: metav1.ConditionFalse, Reason: "DataCapturePending", Message: "waiting"}},
+		},
+	}
+	failed := v1alpha2.VirtualDiskSnapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "c"},
+		Status:     v1alpha2.VirtualDiskSnapshotStatus{Phase: v1alpha2.VirtualDiskSnapshotPhaseFailed},
+	}
+	silent := v1alpha2.VirtualDiskSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "d"}}
+
+	got := pendingChildrenDetails([]v1alpha2.VirtualDiskSnapshot{withReady, withDomain, failed, silent})
+	want := `. VirtualDiskSnapshot "a": DataCaptureRetrying: not Thin; VirtualDiskSnapshot "b": DataCapturePending: waiting`
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if got := pendingChildrenDetails([]v1alpha2.VirtualDiskSnapshot{silent, failed}); got != "" {
+		t.Fatalf("got %q, want empty", got)
+	}
+}
+
+// ChildrenSettled counts a failed child as settled, and the core bubbles the failure up to this
+// snapshot's own Ready on its own schedule, so the node can see "settled" before it sees the failure. A
+// failed disk must still never be published as a Ready virtual machine snapshot, whichever of the child's
+// two failure markers (phase, domain capture phase) has landed yet.
+func TestReconcile_FailedChildNeverYieldsAReadySnapshot(t *testing.T) {
+	failedPhase := v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhaseFailed)
+	tests := map[string]v1alpha2.VirtualDiskSnapshotStatus{
+		"phase only": {Phase: v1alpha2.VirtualDiskSnapshotPhaseFailed},
+		"domain phase only": {
+			Phase: v1alpha2.VirtualDiskSnapshotPhaseInProgress,
+			CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{
+				DomainSpecificController: &v1alpha2.UnifiedSnapshotterDomainCaptureState{
+					Phase: failedPhase, Reason: "SnapshotsNotSupported", Message: "no snapshots here",
+				},
+			},
+		},
+	}
+	for name, childStatus := range tests {
+		t.Run(name, func(t *testing.T) {
+			vms := &v1alpha2.VirtualMachineSnapshot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vms1", Namespace: testNamespace, UID: "vms1-uid",
+					Annotations: map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""},
+					Finalizers:  []string{v1alpha2.FinalizerVMSnapshotCleanup},
+				},
+				Spec: v1alpha2.VirtualMachineSnapshotSpec{VirtualMachineName: "vm1"},
+				Status: v1alpha2.VirtualMachineSnapshotStatus{
+					Phase: v1alpha2.VirtualMachineSnapshotPhaseInProgress,
+					CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{
+						DomainSpecificController: &v1alpha2.UnifiedSnapshotterDomainCaptureState{
+							Phase:                      v1alpha2.UnifiedSnapshotterPhase(snapshotsdk.PhasePlanned),
+							ManifestCaptureRequestName: "nss-mcr-established",
+						},
+						CommonController: &v1alpha2.UnifiedSnapshotterCommonCaptureState{
+							ManifestCaptured: ptr.To(true),
+							ChildrenSettled:  ptr.To(true),
+						},
+					},
+					ChildrenSnapshotRefs: []v1alpha2.UnifiedSnapshotterChildRef{{
+						APIVersion: v1alpha2.SchemeGroupVersion.String(),
+						Kind:       v1alpha2.VirtualDiskSnapshotKind,
+						Name:       "child",
+					}},
+				},
+			}
+			vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm1", Namespace: testNamespace}}
+			child := &v1alpha2.VirtualDiskSnapshot{
+				ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: testNamespace},
+				Status:     childStatus,
+			}
+			r := newFullTestReconciler(t, vms, vm, child)
+
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "vms1"}}); err != nil {
+				t.Fatal(err)
+			}
+
+			got := getVMS(t, r.Client)
+			if got.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseFailed {
+				t.Fatalf("phase = %q, want Failed", got.Status.Phase)
+			}
+			if d := got.Status.CaptureState.DomainSpecificController; d.Phase != failedPhase || !strings.Contains(d.Message, "[child]") {
+				t.Fatalf("domain state = %+v, want Failed naming the child", d)
+			}
+		})
 	}
 }

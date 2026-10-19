@@ -18,6 +18,7 @@ package vdsnapshot
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,7 @@ import (
 	snapshotterv1alpha1 "github.com/deckhouse/state-snapshotter/api/v1alpha1"
 	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/unified-snapshotter/internal/adapter"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -547,5 +549,130 @@ func TestReconcile_ConsistencyFallsBackToTheParentFreezeRecord(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func newCapturingVDS() *v1alpha2.VirtualDiskSnapshot {
+	return &v1alpha2.VirtualDiskSnapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: "vds1", Namespace: testNamespace},
+		Spec:       v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: "vd1"},
+		Status: v1alpha2.VirtualDiskSnapshotStatus{
+			CaptureState: &v1alpha2.UnifiedSnapshotterCaptureState{
+				DomainSpecificController: &v1alpha2.UnifiedSnapshotterDomainCaptureState{
+					VolumeCaptureRequestName: "vcr1",
+					Phase:                    v1alpha2.UnifiedSnapshotterPhasePlanned,
+				},
+			},
+		},
+	}
+}
+
+func newVCR(ready *metav1.Condition) *foundationv1alpha1.VolumeCaptureRequest {
+	vcr := &foundationv1alpha1.VolumeCaptureRequest{ObjectMeta: metav1.ObjectMeta{Name: "vcr1", Namespace: testNamespace}}
+	if ready != nil {
+		vcr.Status.Conditions = []metav1.Condition{*ready}
+	}
+	return vcr
+}
+
+// The storage error lives only on the VolumeCaptureRequest, which retries forever, so the snapshot has to
+// relay it while the data leg is still capturing.
+func TestDataCaptureRetry_RelaysTheStorageError(t *testing.T) {
+	vds := newCapturingVDS()
+	r := newTestReconciler(t, vds, newVCR(&metav1.Condition{
+		Type: foundationv1alpha1.ConditionTypeReady, Status: metav1.ConditionFalse,
+		Reason: foundationv1alpha1.ConditionReasonTargetsPending, Message: "rpc error: code = InvalidArgument desc = not of 'Thin' type",
+	}))
+
+	reason, message, terminal, err := r.dataCaptureRetry(context.Background(), &adapter.VirtualDiskSnapshotAdapter{VDS: vds}, vds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if terminal {
+		t.Fatal("an unrecognized storage error must not be terminal")
+	}
+	if reason != reasonDataCaptureRetrying {
+		t.Fatalf("reason = %q, want %q", reason, reasonDataCaptureRetrying)
+	}
+	for _, want := range []string{`"vd1"`, "TargetsPending", "not of 'Thin' type"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("message %q does not contain %q", message, want)
+		}
+	}
+}
+
+func TestDataCaptureRetry_StaysQuietWithoutAProblem(t *testing.T) {
+	tests := map[string]*foundationv1alpha1.VolumeCaptureRequest{
+		"no request":      nil,
+		"no condition":    newVCR(nil),
+		"ready":           newVCR(&metav1.Condition{Type: foundationv1alpha1.ConditionTypeReady, Status: metav1.ConditionTrue, Message: "done"}),
+		"no message yet":  newVCR(&metav1.Condition{Type: foundationv1alpha1.ConditionTypeReady, Status: metav1.ConditionFalse, Reason: "TargetsPending"}),
+		"other condition": newVCR(&metav1.Condition{Type: "Other", Status: metav1.ConditionFalse, Message: "x"}),
+	}
+	for name, vcr := range tests {
+		t.Run(name, func(t *testing.T) {
+			vds := newCapturingVDS()
+			objs := []client.Object{vds}
+			if vcr != nil {
+				objs = append(objs, vcr)
+			}
+			r := newTestReconciler(t, objs...)
+
+			reason, message, terminal, err := r.dataCaptureRetry(context.Background(), &adapter.VirtualDiskSnapshotAdapter{VDS: vds}, vds)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if reason != "" || message != "" || terminal {
+				t.Fatalf("got %q / %q, want nothing", reason, message)
+			}
+		})
+	}
+}
+
+// A driver that cannot snapshot at all will never succeed on retry, so the capture is failed at once and
+// the user sees a StorageClass-level message instead of the storage's own text.
+func TestDataCaptureRetry_UnsupportedDriverIsTerminal(t *testing.T) {
+	vds := newCapturingVDS()
+	vds.Status.StorageClassName = "linstor-thick-r1"
+	r := newTestReconciler(t, vds, newVCR(&metav1.Condition{
+		Type: foundationv1alpha1.ConditionTypeReady, Status: metav1.ConditionFalse,
+		Reason:  foundationv1alpha1.ConditionReasonTargetsPending,
+		Message: "rpc error: code = Internal desc = Message: ''Storage driver ''LVM'' does not support snapshots.''; Reports: ''[X]''",
+	}))
+
+	reason, message, terminal, err := r.dataCaptureRetry(context.Background(), &adapter.VirtualDiskSnapshotAdapter{VDS: vds}, vds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !terminal || reason != reasonSnapshotsNotSupported {
+		t.Fatalf("terminal = %v, reason = %q, want a terminal %q", terminal, reason, reasonSnapshotsNotSupported)
+	}
+	if !strings.Contains(message, `"linstor-thick-r1"`) || strings.Contains(message, "LVM") || strings.Contains(message, "rpc error") {
+		t.Fatalf("message %q must name the StorageClass and hide the storage text", message)
+	}
+}
+
+func TestReconcile_UnsupportedDriverFailsTheSnapshot(t *testing.T) {
+	vds := newCapturingVDS()
+	vds.Annotations = map[string]string{v1alpha2.AnnUseUnifiedSnapshotter: ""}
+	r := newTestReconciler(t, vds, newVCR(&metav1.Condition{
+		Type: foundationv1alpha1.ConditionTypeReady, Status: metav1.ConditionFalse,
+		Message: "Storage driver ''LVM'' does not support snapshots.",
+	}))
+	reason, message, terminal, err := r.dataCaptureRetry(context.Background(), &adapter.VirtualDiskSnapshotAdapter{VDS: vds}, vds)
+	if err != nil || !terminal {
+		t.Fatalf("terminal = %v, err = %v", terminal, err)
+	}
+
+	if _, err := r.failCapture(context.Background(), &adapter.VirtualDiskSnapshotAdapter{VDS: vds}, vds, reason, message); err != nil {
+		t.Fatal(err)
+	}
+
+	got := getVDS(t, r.Client)
+	if got.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseFailed {
+		t.Fatalf("phase = %q, want Failed", got.Status.Phase)
+	}
+	if d := got.Status.CaptureState.DomainSpecificController; d.Reason != reasonSnapshotsNotSupported || d.Message != message {
+		t.Fatalf("domain state = %+v", d)
 	}
 }

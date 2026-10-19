@@ -36,6 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -44,6 +45,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/state-snapshotter/pkg/snapshotsdk"
+	foundationv1alpha1 "github.com/deckhouse/storage-foundation/api/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
@@ -64,7 +66,21 @@ const (
 	// reasonInvalidSource is the terminal domain reason for a snapshot whose spec does not resolve to a
 	// capturable source object.
 	reasonInvalidSource = "InvalidSource"
+
+	// reasonDataCaptureRetrying is the non-terminal domain reason that carries the storage error of a data
+	// capture the storage keeps retrying; it is cleared as soon as the error clears.
+	reasonDataCaptureRetrying = "DataCaptureRetrying"
+
+	// reasonSnapshotsNotSupported is the terminal domain reason for a disk whose storage driver cannot take
+	// snapshots at all.
+	reasonSnapshotsNotSupported = "SnapshotsNotSupported"
 )
+
+// snapshotsNotSupportedMarker is the fragment of the storage error that names a driver without snapshot
+// support. It is matched without the driver name, which the storage quotes in a form that varies with the
+// layer that wraps the error.
+// TODO remove detection harness when storage level implements stopping retries on terminal errors.
+const snapshotsNotSupportedMarker = "does not support snapshots"
 
 // Reconciler drives VirtualDiskSnapshot capture through the state-snapshotter SDK.
 type Reconciler struct {
@@ -328,7 +344,21 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if err := sdk.DomainCaptureStatus(a).Phase(snapshotsdk.PhasePlanned).Apply(ctx); err != nil {
+	// Fails the capture on a storage error known to be terminal (e.g. a driver without snapshot support);
+	// otherwise relays the storage's retry error through the Planned barrier write, because every
+	// same-phase Planned write overwrites reason and message.
+	retryReason, retryMessage, isTerminalError, err := r.dataCaptureRetry(ctx, a, vds)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if isTerminalError {
+		return r.failCapture(ctx, a, vds, retryReason, retryMessage)
+	}
+	if err := sdk.DomainCaptureStatus(a).
+		Phase(snapshotsdk.PhasePlanned).
+		Reason(snapshotsdk.Reason(retryReason)).
+		Message(retryMessage).
+		Apply(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -365,6 +395,51 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 	return r.finishAsReady(ctx, vds)
+}
+
+// dataCaptureRetry returns the domain reason and message for the storage error found in the Ready
+// condition of the VolumeCaptureRequest behind the data leg; both are empty when there is no request or
+// no error. isTerminalError is true for an error recognized as permanent, and the message is then the
+// user-facing replacement for the storage text.
+//
+// The VolumeCaptureRequest never turns terminal on its own, so its error is relayed to the snapshot to
+// be visible to the user.
+func (r *Reconciler) dataCaptureRetry(ctx context.Context, a *adapter.VirtualDiskSnapshotAdapter, vds *v1alpha2.VirtualDiskSnapshot) (reason, message string, isTerminalError bool, err error) {
+	vcrName := a.GetDomainCaptureState().VolumeCaptureRequestName
+	if vcrName == "" || snapshotsdk.CoreCaptureOutcome(a).Outcome != snapshotsdk.CaptureOutcomeCapturing {
+		return "", "", false, nil
+	}
+
+	// APIReader (uncached): the controller does not watch VolumeCaptureRequests, so a cached Get would
+	// start a cluster-wide informer for the whole type to read a single object.
+	vcr := &foundationv1alpha1.VolumeCaptureRequest{}
+	if err := r.APIReader.Get(ctx, types.NamespacedName{Namespace: vds.Namespace, Name: vcrName}, vcr); err != nil {
+		return "", "", false, client.IgnoreNotFound(err)
+	}
+
+	ready := meta.FindStatusCondition(vcr.Status.Conditions, foundationv1alpha1.ConditionTypeReady)
+	if ready == nil || ready.Status != metav1.ConditionFalse || ready.Message == "" {
+		return "", "", false, nil
+	}
+
+	if strings.Contains(ready.Message, snapshotsNotSupportedMarker) {
+		return reasonSnapshotsNotSupported, snapshotsNotSupportedMessage(vds), true, nil
+	}
+
+	return reasonDataCaptureRetrying, fmt.Sprintf(
+		"The storage failed to capture the data of VirtualDisk %q and keeps retrying. Reason: %s. %s",
+		vds.SourceVirtualDiskName(), ready.Reason, ready.Message), false, nil
+}
+
+func snapshotsNotSupportedMessage(vds *v1alpha2.VirtualDiskSnapshot) string {
+	storageClass := "the StorageClass"
+	if sc := vds.Status.StorageClassName; sc != "" {
+		storageClass = fmt.Sprintf("the StorageClass %q", sc)
+	}
+	return fmt.Sprintf(
+		"The storage driver of %s does not support snapshots, so the snapshot of the VirtualDisk %q cannot be taken. "+
+			"Use a VirtualDisk with the StorageClass that supports snapshots.",
+		storageClass, vds.SourceVirtualDiskName())
 }
 
 // settleConsistency records the negative answer to the consistency question once the capture reaches a

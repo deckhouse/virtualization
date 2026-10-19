@@ -32,6 +32,7 @@ import (
 	"log/slog"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -504,8 +505,8 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if waited > childrenSettleDeadline {
 			return r.failCapture(ctx, a, vms, vm, kvvmi, string(vmscondition.VirtualMachineSnapshotFailed), fmt.Sprintf(
 				"giving up after %s so the guest filesystem is not held frozen indefinitely: "+
-					"VirtualDiskSnapshots %v have not finished capturing data",
-				childrenSettleDeadline, pending))
+					"VirtualDiskSnapshots %v have not finished capturing data%s",
+				childrenSettleDeadline, pending, pendingChildrenDetails(childSnapshots)))
 		}
 
 		// The freeze is held for exactly this wait, so record who it is still being held for.
@@ -519,6 +520,14 @@ func (r *Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 		logger.FromContext(ctx).Info("patch VMS phase to VirtualMachineSnapshotPhaseInProgress, children not settled")
 		return ctrl.Result{RequeueAfter: requeueAfter}, r.patchStatus(ctx, vms)
+	}
+
+	// Fails on a failed child read directly from the children: ChildrenSettled also counts failed children,
+	// and the core propagates a child failure into Ready on its own schedule, so this snapshot could otherwise
+	// turn Ready with a failed disk.
+	if failed, details := failedChildren(childSnapshots); len(failed) > 0 {
+		return r.failCapture(ctx, a, vms, vm, kvvmi, string(vmscondition.VirtualMachineSnapshotFailed), fmt.Sprintf(
+			"VirtualDiskSnapshots %v have failed%s", failed, details))
 	}
 
 	if !r.releaseFreeze(ctx, vms, vm, kvvmi) {
@@ -562,6 +571,75 @@ func childrenWaitProgress(vms *v1alpha2.VirtualMachineSnapshot, children []v1alp
 		return time.Since(vms.CreationTimestamp.Time), pending
 	}
 	return time.Since(oldest.Time), pending
+}
+
+// childDetail renders the reason and message of a child VirtualDiskSnapshot, or "" when it has no message.
+//
+// It prefers the domain captureState, which carries the storage error relayed by the disk controller,
+// and falls back to the core-owned Ready condition.
+func childDetail(vds *v1alpha2.VirtualDiskSnapshot) string {
+	a := &adapter.VirtualDiskSnapshotAdapter{VDS: vds}
+	reason, message := a.GetDomainCaptureState().Reason, a.GetDomainCaptureState().Message
+	if message == "" {
+		reason, message = a.ReadyReason(), a.ReadyMessage()
+	}
+	if message == "" {
+		return ""
+	}
+	return fmt.Sprintf("VirtualDiskSnapshot %q: %s: %s", vds.Name, reason, message)
+}
+
+// joinDetails renders child details as a message suffix ("" when there is none).
+func joinDetails(details []string) string {
+	if len(details) == 0 {
+		return ""
+	}
+	sort.Strings(details)
+	return ". " + strings.Join(details, "; ")
+}
+
+// pendingChildrenDetails renders why each non-terminal child VirtualDiskSnapshot has not finished, as a
+// suffix for the timeout message ("" when no child reports a reason).
+func pendingChildrenDetails(children []v1alpha2.VirtualDiskSnapshot) string {
+	var details []string
+	for i := range children {
+		if isTerminalChild(&children[i]) {
+			continue
+		}
+		if d := childDetail(&children[i]); d != "" {
+			details = append(details, d)
+		}
+	}
+	return joinDetails(details)
+}
+
+func isTerminalChild(vds *v1alpha2.VirtualDiskSnapshot) bool {
+	return vds.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || vds.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed
+}
+
+// failedChildren returns the names of the children that failed and a message suffix with their reasons.
+//
+// A child counts as failed when either its phase or its domain capture phase says so: the core flips
+// ChildrenSettled off the domain phase, which the disk controller writes before it patches the phase, so
+// reading only the phase would miss a failure the settled latch has already counted.
+func failedChildren(children []v1alpha2.VirtualDiskSnapshot) ([]string, string) {
+	var (
+		names   []string
+		details []string
+	)
+	for i := range children {
+		vds := &children[i]
+		a := &adapter.VirtualDiskSnapshotAdapter{VDS: vds}
+		if vds.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseFailed && a.GetDomainCaptureState().Phase != snapshotsdk.PhaseFailed {
+			continue
+		}
+		names = append(names, vds.Name)
+		if d := childDetail(vds); d != "" {
+			details = append(details, d)
+		}
+	}
+	sort.Strings(names)
+	return names, joinDetails(details)
 }
 
 func (r *Reconciler) failCapture(
