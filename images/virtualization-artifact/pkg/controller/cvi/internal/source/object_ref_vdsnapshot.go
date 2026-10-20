@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -131,10 +132,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.C
 
 		pvcKey := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID).PersistentVolumeClaim()
 
-		storageClassName := vs.Annotations[annotations.AnnStorageClassName]
-		if storageClassName == "" {
-			storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
-		}
+		storageClassName := storageclass.CapturedStorageClassName(vs)
 		volumeMode := vs.Annotations[annotations.AnnVolumeMode]
 		if volumeMode == "" {
 			volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]

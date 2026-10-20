@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package storageclass provides helpers to resolve the CSI provisioner that
-// backs the storage of virtualization sources (VirtualDisk, VirtualImage,
-// VirtualDiskSnapshot). They are used by admission webhooks to forbid creating
-// a block device from a source that lives on a different CSI driver.
+// Package storageclass provides helpers to resolve the storage class and the CSI
+// provisioner that back the storage of virtualization sources (VirtualDisk,
+// VirtualImage, VirtualDiskSnapshot). Admission webhooks use them to forbid
+// creating a block device from a source that lives on a different CSI driver.
 package storageclass
 
 import (
@@ -96,29 +96,30 @@ func ProvisionerOfVirtualImage(ctx context.Context, c client.Client, namespace, 
 	return provisioner, provisioner != "", nil
 }
 
-// ProvisionerOfVirtualDiskSnapshot resolves the provisioner that backs the
-// source PVC of a VirtualDiskSnapshot. The boolean is false when it cannot be
-// determined (the snapshot is missing, not ready, or its source PVC is gone).
-func ProvisionerOfVirtualDiskSnapshot(ctx context.Context, c client.Client, namespace, name string) (string, bool, error) {
+// VolumeSnapshotOfVirtualDiskSnapshot returns the VolumeSnapshot of a ready VirtualDiskSnapshot,
+// or nil when the snapshot is missing, not ready, or has no VolumeSnapshot.
+func VolumeSnapshotOfVirtualDiskSnapshot(ctx context.Context, c client.Client, namespace, name string) (*vsv1.VolumeSnapshot, error) {
 	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, c, &v1alpha2.VirtualDiskSnapshot{})
 	if err != nil {
-		return "", false, err
+		return nil, err
 	}
 	if vdSnapshot == nil ||
 		vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady ||
 		vdSnapshot.Status.VolumeSnapshotName == "" {
+		return nil, nil
+	}
+
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: vdSnapshot.Status.VolumeSnapshotName}, c, &vsv1.VolumeSnapshot{})
+}
+
+// ProvisionerOfVolumeSnapshot resolves the provisioner that backs the source PVC of a VolumeSnapshot.
+// The boolean is false when the source PVC is unknown or gone.
+func ProvisionerOfVolumeSnapshot(ctx context.Context, c client.Client, vs *vsv1.VolumeSnapshot) (string, bool, error) {
+	if vs.Spec.Source.PersistentVolumeClaimName == nil || *vs.Spec.Source.PersistentVolumeClaimName == "" {
 		return "", false, nil
 	}
 
-	vs, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: vdSnapshot.Status.VolumeSnapshotName}, c, &vsv1.VolumeSnapshot{})
-	if err != nil {
-		return "", false, err
-	}
-	if vs == nil || vs.Spec.Source.PersistentVolumeClaimName == nil || *vs.Spec.Source.PersistentVolumeClaimName == "" {
-		return "", false, nil
-	}
-
-	pvc, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: *vs.Spec.Source.PersistentVolumeClaimName}, c, &corev1.PersistentVolumeClaim{})
+	pvc, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vs.Namespace, Name: *vs.Spec.Source.PersistentVolumeClaimName}, c, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return "", false, err
 	}
@@ -132,4 +133,13 @@ func ProvisionerOfVirtualDiskSnapshot(ctx context.Context, c client.Client, name
 	}
 
 	return provisioner, provisioner != "", nil
+}
+
+// CapturedStorageClassName returns the storage class of the source PVC recorded on the VolumeSnapshot.
+func CapturedStorageClassName(vs *vsv1.VolumeSnapshot) string {
+	if scName := vs.Annotations[annotations.AnnStorageClassName]; scName != "" {
+		return scName
+	}
+
+	return vs.Annotations[annotations.AnnStorageClassNameDeprecated]
 }

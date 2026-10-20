@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -166,11 +167,7 @@ func (s CreatePersistentVolumeClaimStep) storageClassName(vi *v1alpha2.VirtualIm
 	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
 		return *vi.Spec.PersistentVolumeClaim.StorageClass
 	}
-	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
-	if storageClassName == "" {
-		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
-	}
-	return storageClassName
+	return storageclass.CapturedStorageClassName(vs)
 }
 
 func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx context.Context, vi *v1alpha2.VirtualImage, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {

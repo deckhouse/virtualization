@@ -70,7 +70,11 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 		return sc
 	}
 
-	newSnapshotSource := func(snapshotSC string) []client.Object {
+	newSnapshotSource := func(vsSC string) []client.Object {
+		vsAnnotations := map[string]string{}
+		if vsSC != "" {
+			vsAnnotations[annotations.AnnStorageClassName] = vsSC
+		}
 		return []client.Object{
 			&v1alpha2.VirtualDiskSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
@@ -80,13 +84,13 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 				Status: v1alpha2.VirtualDiskSnapshotStatus{
 					Phase:              v1alpha2.VirtualDiskSnapshotPhaseReady,
 					VolumeSnapshotName: vsName,
-					StorageClassName:   snapshotSC,
 				},
 			},
 			&vsv1.VolumeSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      vsName,
-					Namespace: namespace,
+					Name:        vsName,
+					Namespace:   namespace,
+					Annotations: vsAnnotations,
 				},
 				Spec: vsv1.VolumeSnapshotSpec{
 					Source: vsv1.VolumeSnapshotSource{
@@ -146,12 +150,6 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(expectedErr))
 	},
-		Entry("defaults to the snapshot storage class instead of the cluster default",
-			newVD("", nil),
-			append(newSnapshotSource("nfs"),
-				newStorageClass("nfs", "nfs.csi.k8s.io", false),
-				newStorageClass("local-thin", "local.csi.storage.deckhouse.io", true),
-			), ""),
 		Entry("uses status storage class first",
 			newVD("nfs", ptr.To("local-thin")),
 			append(newSnapshotSource("nfs"),
@@ -164,7 +162,13 @@ var _ = Describe("VirtualDiskSnapshotStorageClassValidator", func() {
 				newStorageClass("nfs", "nfs.csi.k8s.io", false),
 				newStorageClass("local-thin", "local.csi.storage.deckhouse.io", true),
 			), `virtual disk storage class "local-thin" provisioner "local.csi.storage.deckhouse.io" does not match the source VirtualDiskSnapshot`),
-		Entry("falls back to the cluster default when the snapshot has no storage class",
+		Entry("defaults to the storage class captured on the VolumeSnapshot by the built-in snapshotter",
+			newVD("", nil),
+			append(newSnapshotSource("nfs"),
+				newStorageClass("nfs", "nfs.csi.k8s.io", false),
+				newStorageClass("local-thin", "local.csi.storage.deckhouse.io", true),
+			), ""),
+		Entry("falls back to the cluster default when the snapshot has no storage class at all",
 			newVD("", nil),
 			append(newSnapshotSource(""),
 				newStorageClass("nfs", "nfs.csi.k8s.io", false),

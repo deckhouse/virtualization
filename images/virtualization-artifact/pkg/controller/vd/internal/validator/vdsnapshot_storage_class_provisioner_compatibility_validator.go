@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/types"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/storageclass"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -75,7 +74,12 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 		return nil
 	}
 
-	sourceProvisioner, ok, err := storageclass.ProvisionerOfVirtualDiskSnapshot(ctx, v.client, vd.Namespace, vd.Spec.DataSource.ObjectRef.Name)
+	vs, err := storageclass.VolumeSnapshotOfVirtualDiskSnapshot(ctx, v.client, vd.Namespace, vd.Spec.DataSource.ObjectRef.Name)
+	if err != nil || vs == nil {
+		return err
+	}
+
+	sourceProvisioner, ok, err := storageclass.ProvisionerOfVolumeSnapshot(ctx, v.client, vs)
 	if err != nil {
 		return err
 	}
@@ -83,7 +87,7 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 		return nil
 	}
 
-	scName, err := v.resolveTargetStorageClassName(ctx, vd)
+	scName, err := v.resolveTargetStorageClassName(ctx, vd, vs)
 	if err != nil {
 		return err
 	}
@@ -109,21 +113,16 @@ func (v *VirtualDiskSnapshotStorageClassValidator) validate(ctx context.Context,
 
 // resolveTargetStorageClassName resolves the storage class the disk will actually be
 // provisioned on. When the disk names no storage class itself, the provisioning step
-// defaults to the snapshot's storage class, not the module/cluster default — so the
-// validator must follow the same precedence to avoid rejecting legitimate restores.
-func (v *VirtualDiskSnapshotStorageClassValidator) resolveTargetStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk) (string, error) {
+// defaults to the storage class captured on the VolumeSnapshot, not the module/cluster
+// default — so the validator must follow the same precedence to avoid rejecting legitimate restores.
+func (v *VirtualDiskSnapshotStorageClassValidator) resolveTargetStorageClassName(ctx context.Context, vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (string, error) {
 	scName, err := commonvd.ResolveStorageClassName(ctx, vd, nil)
 	if err != nil || scName != "" {
 		return scName, err
 	}
 
-	vdSnapshotKey := types.NamespacedName{Namespace: vd.Namespace, Name: vd.Spec.DataSource.ObjectRef.Name}
-	vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, v.client, &v1alpha2.VirtualDiskSnapshot{})
-	if err != nil {
-		return "", err
-	}
-	if vdSnapshot != nil && vdSnapshot.Status.StorageClassName != "" {
-		return vdSnapshot.Status.StorageClassName, nil
+	if scName = storageclass.CapturedStorageClassName(vs); scName != "" {
+		return scName, nil
 	}
 
 	return commonvd.ResolveStorageClassName(ctx, vd, v.scService)

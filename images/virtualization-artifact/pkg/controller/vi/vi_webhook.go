@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strings"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -218,6 +219,7 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 
 	var (
 		sourceProvisioner string
+		capturedSCName    string
 		determinable      bool
 		err               error
 	)
@@ -227,7 +229,12 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 	case v1alpha2.VirtualImageObjectRefKindVirtualImage:
 		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualImage(ctx, v.client, vi.Namespace, ref.Name)
 	case v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot:
-		sourceProvisioner, determinable, err = storageclass.ProvisionerOfVirtualDiskSnapshot(ctx, v.client, vi.Namespace, ref.Name)
+		var vs *vsv1.VolumeSnapshot
+		vs, err = storageclass.VolumeSnapshotOfVirtualDiskSnapshot(ctx, v.client, vi.Namespace, ref.Name)
+		if err == nil && vs != nil {
+			sourceProvisioner, determinable, err = storageclass.ProvisionerOfVolumeSnapshot(ctx, v.client, vs)
+			capturedSCName = storageclass.CapturedStorageClassName(vs)
+		}
 	default:
 		return nil
 	}
@@ -238,7 +245,7 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 		return nil
 	}
 
-	targetSCName := v.resolveTargetStorageClassName(ctx, vi)
+	targetSCName := v.resolveTargetStorageClassName(ctx, vi, capturedSCName)
 	if targetSCName == "" {
 		return nil
 	}
@@ -263,11 +270,16 @@ func (v *Validator) validateSourceStorageClassProvisionerCompatibility(ctx conte
 }
 
 // resolveTargetStorageClassName resolves the storage class name a PVC-backed
-// VirtualImage will use: the explicit spec value, otherwise the module default,
-// otherwise the cluster default. Returns an empty name when it cannot be resolved.
-func (v *Validator) resolveTargetStorageClassName(ctx context.Context, vi *v1alpha2.VirtualImage) string {
+// VirtualImage will use: the explicit spec value, otherwise the storage class captured
+// on the source snapshot (the provisioning step restores onto it), otherwise the module
+// default, otherwise the cluster default. Returns an empty name when it cannot be resolved.
+func (v *Validator) resolveTargetStorageClassName(ctx context.Context, vi *v1alpha2.VirtualImage, capturedSCName string) string {
 	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
 		return *vi.Spec.PersistentVolumeClaim.StorageClass
+	}
+
+	if capturedSCName != "" {
+		return capturedSCName
 	}
 
 	if moduleSC, err := v.scService.GetModuleStorageClass(ctx); err == nil && moduleSC != nil {
