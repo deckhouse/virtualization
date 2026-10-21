@@ -159,3 +159,9 @@ func InstanceHasVolume(kvvmi *virtv1.VirtualMachineInstance, volumeName string) 
 	return slices.ContainsFunc(kvvmi.Status.VolumeStatus, func(vs virtv1.VolumeStatus) bool { return vs.Name == volumeName }) ||
 		slices.ContainsFunc(kvvmi.Spec.Volumes, func(v virtv1.Volume) bool { return v.Name == volumeName })
 }
+
+// IsHotplugVolumeInProgress reports whether a hot-plugged volume is neither attached nor unplugged:
+// it is being attached, detached or dumped.
+func IsHotplugVolumeInProgress(vs virtv1.VolumeStatus) bool {
+	return vs.HotplugVolume != nil && vs.Phase != virtv1.VolumeReady && vs.Phase != virtv1.HotplugVolumeUnMounted
+}

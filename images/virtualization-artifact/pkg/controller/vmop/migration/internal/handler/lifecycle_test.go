@@ -44,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -1555,6 +1556,311 @@ var _ = Describe("LifecycleHandler", func() {
 			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
 			Expect(completed.Reason).To(Equal(vmopcondition.ReasonOperationFailed.String()))
 			Expect(completed.Message).To(ContainSubstring("Timed out waiting for block device requests"))
+		})
+
+		Context("with attachment pods", func() {
+			waitingFor := func(d time.Duration) *v1alpha2.VirtualMachineOperation {
+				vmop := newVMOPMigrate()
+				vmop.Status.Phase = v1alpha2.VMOPPhasePending
+				vmop.Status.Conditions = []metav1.Condition{{
+					Type:               vmopcondition.TypeCompleted.String(),
+					Status:             metav1.ConditionFalse,
+					Reason:             vmopcondition.ReasonWaitingForBlockDeviceAttachment.String(),
+					LastTransitionTime: metav1.NewTime(time.Now().Add(-d)),
+				}}
+				return vmop
+			}
+
+			// kvvmiAttaching maps each attaching volume to the pod that attaches it.
+			kvvmiAttaching := func(podNames ...string) *virtv1.VirtualMachineInstance {
+				kvvmi := &virtv1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+				kvvmi.Status.NodeName = "node-a"
+				for i, podName := range podNames {
+					kvvmi.Status.VolumeStatus = append(kvvmi.Status.VolumeStatus, virtv1.VolumeStatus{
+						Name:          fmt.Sprintf("vd-%d", i),
+						Phase:         virtv1.VolumePending,
+						HotplugVolume: &virtv1.HotplugVolumeStatus{AttachPodName: podName},
+					})
+				}
+				return kvvmi
+			}
+
+			hpPod := func(podName string, cond corev1.PodCondition) *corev1.Pod {
+				return &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: namespace},
+					Status: corev1.PodStatus{
+						Phase:      corev1.PodPending,
+						Conditions: []corev1.PodCondition{cond},
+					},
+				}
+			}
+
+			placedAgo := func(d time.Duration) corev1.PodCondition {
+				return corev1.PodCondition{
+					Type:               corev1.PodScheduled,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(time.Now().Add(-d)),
+				}
+			}
+
+			unschedulableAgo := func(d time.Duration) corev1.PodCondition {
+				return corev1.PodCondition{
+					Type:               corev1.PodScheduled,
+					Status:             corev1.ConditionFalse,
+					Reason:             corev1.PodReasonUnschedulable,
+					Message:            "0/3 nodes are available",
+					LastTransitionTime: metav1.NewTime(time.Now().Add(-d)),
+				}
+			}
+			unschedulable := unschedulableAgo(attachmentWaitLimit + 2*time.Minute)
+
+			inProgress := func() *v1alpha2.VirtualMachineBlockDeviceAttachment {
+				return attachment(v1alpha2.BlockDeviceAttachmentPhaseInProgress)
+			}
+
+			const (
+				waitingMsg = `Waiting for block device requests to complete: vmbda. The disks cannot be attached on node "node-a" yet. Free up resources on the node or detach the disks.`
+				failedMsg  = `Timed out waiting for block device requests to complete: vmbda. The disks could not be attached on node "node-a". Free up resources on the node or detach the disks, then retry the operation.`
+			)
+
+			It("keeps waiting while a pod placed after the wait began is starting", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"), hpPod("hp", placedAgo(time.Minute)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal("Waiting for block device requests to complete: vmbda."))
+			})
+
+			It("keeps waiting while a pod shared by several volumes is starting", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp", "hp"), hpPod("hp", placedAgo(time.Minute)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			})
+
+			It("fails once a pod placed before the wait began does not start in time", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"), hpPod("hp", placedAgo(attachmentSettleTimeout+2*time.Minute)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			})
+
+			It("fails in time when the attaching pod is gone", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal("Timed out waiting for block device requests to complete: vmbda."))
+			})
+
+			attachmentOf := func(phase v1alpha2.BlockDeviceAttachmentPhase, kind v1alpha2.VMBDAObjectRefKind, diskName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
+				vmbda := attachment(phase)
+				vmbdabuilder.ApplyOptions(vmbda, vmbdabuilder.WithBlockDeviceRef(kind, diskName))
+				return vmbda
+			}
+
+			kvvmiWithVolume := func(volumeName string, phase virtv1.VolumePhase) *virtv1.VirtualMachineInstance {
+				kvvmi := &virtv1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+				kvvmi.Status.VolumeStatus = []virtv1.VolumeStatus{{
+					Name:          volumeName,
+					Phase:         phase,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{AttachPodName: "hp"},
+				}}
+				return kvvmi
+			}
+
+			DescribeTable("postpones the migration while the volume of a pending attachment is attaching",
+				func(kind v1alpha2.VMBDAObjectRefKind, diskName, volumeName string) {
+					changed, err := handle(newVMOPMigrate(),
+						attachmentOf(v1alpha2.BlockDeviceAttachmentPhasePending, kind, diskName),
+						kvvmiWithVolume(volumeName, virtv1.VolumeBound),
+						hpPod("hp", placedAgo(time.Second)),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+					completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+					Expect(completed.Message).To(Equal("Waiting for block device requests to complete: vmbda."))
+				},
+				Entry("VirtualDisk", v1alpha2.VMBDAObjectRefKindVirtualDisk, "vd", "vd-vd"),
+				Entry("VirtualImage", v1alpha2.VMBDAObjectRefKindVirtualImage, "vi", "vi-vi"),
+				Entry("ClusterVirtualImage", v1alpha2.VMBDAObjectRefKindClusterVirtualImage, "cvi", "cvi-cvi"),
+			)
+
+			DescribeTable("does not postpone the migration",
+				func(phase v1alpha2.BlockDeviceAttachmentPhase, volumePhase virtv1.VolumePhase) {
+					changed, err := handle(newVMOPMigrate(),
+						attachmentOf(phase, v1alpha2.VMBDAObjectRefKindVirtualDisk, "vd"),
+						kvvmiWithVolume("vd-vd", volumePhase),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+					Expect(completed.Reason).NotTo(Equal(vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()))
+				},
+				Entry("for a pending attachment whose volume is attached", v1alpha2.BlockDeviceAttachmentPhasePending, virtv1.VolumeReady),
+				Entry("for a pending attachment whose volume is unplugged", v1alpha2.BlockDeviceAttachmentPhasePending, virtv1.HotplugVolumeUnMounted),
+				Entry("for a failed attachment of a disk another one is attaching", v1alpha2.BlockDeviceAttachmentPhaseFailed, virtv1.VolumeBound),
+			)
+
+			disk := func(phase v1alpha2.DiskPhase, readyAgo time.Duration) *v1alpha2.VirtualDisk {
+				vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: "vd", Namespace: namespace}}
+				vd.Status.Phase = phase
+				if phase == v1alpha2.DiskReady {
+					vd.Status.Conditions = []metav1.Condition{{
+						Type:               vdcondition.ReadyType.String(),
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(time.Now().Add(-readyAgo)),
+					}}
+				}
+				return vd
+			}
+
+			It("keeps waiting past the settle timeout while the disk is provisioned for a pod that failed to be placed before", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"), hpPod("hp", unschedulable), disk(v1alpha2.DiskProvisioning, 0))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal(`Waiting for block device requests to complete: vmbda. The disks are being provisioned on node "node-a".`))
+			})
+
+			It("fails once the wait limit is over even while the disk is provisioned", func() {
+				changed, err := handle(waitingFor(attachmentWaitLimit+time.Minute), inProgress(), kvvmiAttaching("hp"), hpPod("hp", unschedulable), disk(v1alpha2.DiskProvisioning, 0))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal(`Timed out waiting for block device requests to complete: vmbda. The disks are still being provisioned on node "node-a". Retry the operation once the disks are ready.`))
+			})
+
+			It("keeps waiting while a disk provisioned after the wait began is attaching", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"), disk(v1alpha2.DiskReady, time.Minute))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+			})
+
+			It("restarts the clock once the disk is ready even for a pod that has not been placed yet", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"),
+					hpPod("hp", unschedulableAgo(3*time.Minute)), disk(v1alpha2.DiskReady, 30*time.Second))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal(waitingMsg))
+			})
+
+			It("fails with the node named when the pod is not placed in time after the disk was ready", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"),
+					hpPod("hp", unschedulableAgo(3*time.Minute)), disk(v1alpha2.DiskReady, attachmentSettleTimeout+2*time.Minute))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal(failedMsg))
+			})
+
+			Context("with several disks", func() {
+				namedDisk := func(diskName string, phase v1alpha2.DiskPhase, readyAgo time.Duration) *v1alpha2.VirtualDisk {
+					vd := disk(phase, readyAgo)
+					vd.Name = diskName
+					return vd
+				}
+				attachmentOfDisk := func(name, diskName string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
+					vmbda := attachmentOf(v1alpha2.BlockDeviceAttachmentPhaseInProgress, v1alpha2.VMBDAObjectRefKindVirtualDisk, diskName)
+					vmbda.Name = name
+					return vmbda
+				}
+
+				It("keeps waiting while any of the disks is provisioned", func() {
+					changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute),
+						attachmentOfDisk("vmbda-a", "vd-a"), attachmentOfDisk("vmbda-b", "vd-b"),
+						namedDisk("vd-a", v1alpha2.DiskReady, attachmentSettleTimeout+2*time.Minute),
+						namedDisk("vd-b", v1alpha2.DiskProvisioning, 0),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+				})
+
+				It("restarts the clock from the disk that became ready last", func() {
+					changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute),
+						attachmentOfDisk("vmbda-a", "vd-a"), attachmentOfDisk("vmbda-b", "vd-b"),
+						namedDisk("vd-a", v1alpha2.DiskReady, attachmentSettleTimeout+2*time.Minute),
+						namedDisk("vd-b", v1alpha2.DiskReady, time.Minute),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+				})
+			})
+
+			It("does not take a VirtualDisk named after an attached image for its disk", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute),
+					attachmentOf(v1alpha2.BlockDeviceAttachmentPhaseInProgress, v1alpha2.VMBDAObjectRefKindVirtualImage, "vd"),
+					disk(v1alpha2.DiskProvisioning, 0),
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			})
+
+			It("fails in time when the disk of the attachment is gone", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal("Timed out waiting for block device requests to complete: vmbda."))
+			})
+
+			It("fails once a disk ready before the wait began does not attach in time", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"), disk(v1alpha2.DiskReady, attachmentSettleTimeout+2*time.Minute))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			})
+
+			It("fails once the wait limit is over however recently the pod was placed", func() {
+				changed, err := handle(waitingFor(attachmentWaitLimit+time.Minute), inProgress(), kvvmiAttaching("hp"), hpPod("hp", placedAgo(time.Minute)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			})
+
+			It("tells that the disks cannot be attached on the node yet", func() {
+				changed, err := handle(waitingFor(time.Minute), inProgress(), kvvmiAttaching("hp"), hpPod("hp", unschedulable))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhasePending))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal(waitingMsg))
+			})
+
+			It("fails with the node named when the pod is not placed in time", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(), kvvmiAttaching("hp"), hpPod("hp", unschedulable))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal(failedMsg))
+			})
+
+			It("does not restart the clock for a placed pod while another one cannot be placed", func() {
+				changed, err := handle(waitingFor(attachmentSettleTimeout+time.Minute), inProgress(),
+					kvvmiAttaching("hp-placed", "hp-stuck"),
+					hpPod("hp-placed", placedAgo(time.Minute)),
+					hpPod("hp-stuck", unschedulable),
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(changed.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
+				Expect(completed.Message).To(Equal(failedMsg))
+			})
 		})
 	})
 })

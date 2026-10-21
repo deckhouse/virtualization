@@ -28,6 +28,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonkvvm "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -79,15 +80,11 @@ func (s AttachmentService) IsHotPlugged(ad *AttachmentDisk, vm *v1alpha2.Virtual
 
 	for _, vs := range kvvmi.Status.VolumeStatus {
 		if vs.HotplugVolume != nil && vs.Name == ad.GenerateName {
-			if vs.Phase == virtv1.VolumeReady {
-				return true, nil
+			if commonkvvm.IsHotplugVolumeInProgress(vs) {
+				return false, fmt.Errorf("%w: %s", ErrVolumeStatusNotReady, vs.Message)
 			}
 
-			if vs.Phase == virtv1.HotplugVolumeUnMounted {
-				return false, nil
-			}
-
-			return false, fmt.Errorf("%w: %s", ErrVolumeStatusNotReady, vs.Message)
+			return vs.Phase == virtv1.VolumeReady, nil
 		}
 	}
 

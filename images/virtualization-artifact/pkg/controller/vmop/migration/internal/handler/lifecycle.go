@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -31,10 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	commonkvvm "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	migrationprogress "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/progress"
 	migrationservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
@@ -42,6 +45,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -63,6 +67,10 @@ const waitForVMReadyToMigrateTimeout = 5 * time.Minute
 const prepareTargetTimeout = 5 * time.Minute
 
 const attachmentSettleTimeout = 5 * time.Minute
+
+// attachmentWaitLimit caps the wait for attachments that keep making progress, so disks that are
+// provisioned or attached one after another do not hold the migration forever.
+const attachmentWaitLimit = 15 * time.Minute
 
 const (
 	progressMigrationPending   int32 = 0
@@ -551,52 +559,167 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 }
 
 func (h LifecycleHandler) waitForBlockDeviceAttachments(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, bool, error) {
-	names, err := h.attachmentsInProgress(ctx, vmop)
+	kvvmi, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmop.GetNamespace(), Name: vmop.Spec.VirtualMachine}, h.client, &virtv1.VirtualMachineInstance{})
 	if err != nil {
 		return reconcile.Result{}, false, err
+	}
+	attaching := attachingVolumes(kvvmi)
+
+	names, err := h.unappliedVolumeRequests(ctx, vmop)
+	if err != nil {
+		return reconcile.Result{}, false, err
+	}
+	vmbdas, err := h.attachmentsInProgress(ctx, vmop, attaching)
+	if err != nil {
+		return reconcile.Result{}, false, err
+	}
+	for _, vmbda := range vmbdas {
+		names = append(names, vmbda.Name)
 	}
 
 	if len(names) == 0 {
 		return reconcile.Result{}, false, nil
 	}
 
+	pods, err := h.attachmentPods(ctx, vmop.GetNamespace(), attaching)
+	if err != nil {
+		return reconcile.Result{}, false, err
+	}
+	vds, err := h.attachedDisks(ctx, vmop.GetNamespace(), vmbdas)
+	if err != nil {
+		return reconcile.Result{}, false, err
+	}
+
+	unschedulableCond, unschedulable := unschedulablePodCondition(pods)
+	provisioning := slices.ContainsFunc(vds, func(vd *v1alpha2.VirtualDisk) bool {
+		return vd.Status.Phase == v1alpha2.DiskProvisioning
+	})
+
 	requests := strings.Join(names, ", ")
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 	waiting := completed.Reason == vmopcondition.ReasonWaitingForBlockDeviceAttachment.String()
 
-	if waiting && !completed.LastTransitionTime.IsZero() &&
-		time.Since(completed.LastTransitionTime.Time) > attachmentSettleTimeout {
+	// The clock restarts once the disks are provisioned and once the attachment pods are placed: each
+	// step is progress, and an attachment that waited long for one would otherwise have no time left
+	// for the next. A pod that cannot be placed holds the attachment back however recently the others
+	// were placed.
+	waitStart := completed.LastTransitionTime.Time
+	progressAt := []time.Time{waitStart, lastDiskReadyAt(vds)}
+	if !unschedulable {
+		progressAt = append(progressAt, lastPodPlacedAt(pods))
+	}
+	waitingSince := slices.MaxFunc(progressAt, func(a, b time.Time) int { return a.Compare(b) })
+	stalled := time.Since(waitStart) > attachmentWaitLimit ||
+		(!provisioning && time.Since(waitingSince) > attachmentSettleTimeout)
+
+	var nodeName string
+	if kvvmi != nil {
+		nodeName = kvvmi.Status.NodeName
+	}
+
+	if waiting && !waitStart.IsZero() && stalled {
+		event := "Timed out waiting for block device requests to complete"
+		var notPlacedMsg string
+		switch {
+		case provisioning:
+			notPlacedMsg = fmt.Sprintf(" The disks are still being provisioned on node %q. Retry the operation once the disks are ready.", nodeName)
+		case unschedulable:
+			event = fmt.Sprintf("%s: the disks cannot be attached on node %q: %s", event, nodeName, unschedulableCond.Message)
+			notPlacedMsg = fmt.Sprintf(" The disks could not be attached on node %q. Free up resources on the node or detach the disks, then retry the operation.", nodeName)
+		}
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Timed out waiting for block device requests to complete")
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, event)
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonOperationFailed).
 				Status(metav1.ConditionFalse).
-				Message(fmt.Sprintf("Timed out waiting for block device requests to complete: %s.", requests)),
+				Message(fmt.Sprintf("Timed out waiting for block device requests to complete: %s.%s", requests, notPlacedMsg)),
 			&vmop.Status.Conditions)
 		return reconcile.Result{}, true, nil
 	}
 
+	var notPlacedMsg string
+	switch {
+	case provisioning:
+		notPlacedMsg = fmt.Sprintf(" The disks are being provisioned on node %q.", nodeName)
+	case unschedulable:
+		notPlacedMsg = fmt.Sprintf(" The disks cannot be attached on node %q yet. Free up resources on the node or detach the disks.", nodeName)
+	}
 	vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	conditions.SetCondition(
 		completedCond.
 			Reason(vmopcondition.ReasonWaitingForBlockDeviceAttachment).
 			Status(metav1.ConditionFalse).
-			Message(fmt.Sprintf("Waiting for block device requests to complete: %s.", requests)),
+			Message(fmt.Sprintf("Waiting for block device requests to complete: %s.%s", requests, notPlacedMsg)),
 		&vmop.Status.Conditions)
 
 	return reconcile.Result{RequeueAfter: timeElapsedUpdateInterval}, true, nil
 }
 
-func (h LifecycleHandler) attachmentsInProgress(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) ([]string, error) {
-	names, err := h.unappliedVolumeRequests(ctx, vmop)
-	if err != nil {
-		return nil, err
+// attachingVolumes maps the hot-plugged volumes in progress to the pods attaching them. The
+// VirtualMachineBlockDeviceAttachment of such a volume may read Pending for a while, for example
+// while a disk waiting for its first consumer is being provisioned, though its request is already sent.
+func attachingVolumes(kvvmi *virtv1.VirtualMachineInstance) map[string]string {
+	if kvvmi == nil {
+		return nil
 	}
 
+	volumes := make(map[string]string)
+	for _, vs := range kvvmi.Status.VolumeStatus {
+		if commonkvvm.IsHotplugVolumeInProgress(vs) {
+			volumes[vs.Name] = vs.HotplugVolume.AttachPodName
+		}
+	}
+	return volumes
+}
+
+func (h LifecycleHandler) attachmentPods(ctx context.Context, namespace string, attaching map[string]string) ([]*corev1.Pod, error) {
+	var pods []*corev1.Pod
+	seen := make(map[string]struct{})
+	for _, podName := range attaching {
+		if _, ok := seen[podName]; ok || podName == "" {
+			continue
+		}
+		seen[podName] = struct{}{}
+
+		pod, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: podName}, h.client, &corev1.Pod{})
+		if err != nil {
+			return nil, err
+		}
+		if pod != nil {
+			pods = append(pods, pod)
+		}
+	}
+
+	return pods, nil
+}
+
+func unschedulablePodCondition(pods []*corev1.Pod) (corev1.PodCondition, bool) {
+	for _, pod := range pods {
+		scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
+		if scheduled.Status == corev1.ConditionFalse && scheduled.Reason == corev1.PodReasonUnschedulable {
+			return scheduled, true
+		}
+	}
+	return corev1.PodCondition{}, false
+}
+
+func lastPodPlacedAt(pods []*corev1.Pod) time.Time {
+	var placedAt time.Time
+	for _, pod := range pods {
+		scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
+		if scheduled.Status == corev1.ConditionTrue && scheduled.LastTransitionTime.After(placedAt) {
+			placedAt = scheduled.LastTransitionTime.Time
+		}
+	}
+	return placedAt
+}
+
+// attachmentsInProgress returns the attachments whose request is sent and not completed yet.
+func (h LifecycleHandler) attachmentsInProgress(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, attaching map[string]string) ([]v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
 	vmbdas := &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
-	err = h.client.List(ctx, vmbdas,
+	err := h.client.List(ctx, vmbdas,
 		client.InNamespace(vmop.GetNamespace()),
 		client.MatchingFields{indexer.IndexFieldVMBDAByVM: vmop.Spec.VirtualMachine},
 	)
@@ -604,13 +727,49 @@ func (h LifecycleHandler) attachmentsInProgress(ctx context.Context, vmop *v1alp
 		return nil, err
 	}
 
+	var inProgress []v1alpha2.VirtualMachineBlockDeviceAttachment
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.DeletionTimestamp != nil || vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseInProgress {
-			names = append(names, vmbda.Name)
+		// A failed attachment, such as a conflicting one, may name the disk another attachment is attaching.
+		_, isAttaching := attaching[kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef)]
+		isAttaching = isAttaching && vmbda.Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseFailed
+		if vmbda.DeletionTimestamp != nil || vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseInProgress || isAttaching {
+			inProgress = append(inProgress, vmbda)
 		}
 	}
 
-	return names, nil
+	return inProgress, nil
+}
+
+// attachedDisks returns the VirtualDisks of the attachments. A disk waiting for its first consumer is
+// provisioned for the attachment pod on the node chosen for it.
+func (h LifecycleHandler) attachedDisks(ctx context.Context, namespace string, vmbdas []v1alpha2.VirtualMachineBlockDeviceAttachment) ([]*v1alpha2.VirtualDisk, error) {
+	var vds []*v1alpha2.VirtualDisk
+	for _, vmbda := range vmbdas {
+		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
+			continue
+		}
+		vd, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: vmbda.Spec.BlockDeviceRef.Name}, h.client, &v1alpha2.VirtualDisk{})
+		if err != nil {
+			return nil, err
+		}
+		if vd != nil {
+			vds = append(vds, vd)
+		}
+	}
+	return vds, nil
+}
+
+// lastDiskReadyAt returns when the last of the disks became ready: the Ready condition turns true
+// once the storage of the disk is bound.
+func lastDiskReadyAt(vds []*v1alpha2.VirtualDisk) time.Time {
+	var readyAt time.Time
+	for _, vd := range vds {
+		ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+		if ready.Status == metav1.ConditionTrue && ready.LastTransitionTime.After(readyAt) {
+			readyAt = ready.LastTransitionTime.Time
+		}
+	}
+	return readyAt
 }
 
 func (h LifecycleHandler) unappliedVolumeRequests(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) ([]string, error) {
