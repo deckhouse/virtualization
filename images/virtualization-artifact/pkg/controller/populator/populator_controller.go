@@ -65,6 +65,7 @@ func NewController(
 	diskImporterImage string,
 	requirements corev1.ResourceRequirements,
 	dvcrSettings *dvcr.Settings,
+	volumeSnapshotAPIAvailable bool,
 ) (controller.Controller, error) {
 	reconciler := &Reconciler{
 		client: mgr.GetClient(),
@@ -85,7 +86,7 @@ func NewController(
 		return nil, err
 	}
 
-	if err := addWatches(mgr, ctr); err != nil {
+	if err := addWatches(mgr, ctr, volumeSnapshotAPIAvailable); err != nil {
 		return nil, err
 	}
 

@@ -26,7 +26,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,6 +54,18 @@ var _ = Describe("SnapshotService", func() {
 		clientMock = &ClientMock{}
 		virtClientMock = &VirtClientMock{}
 		snapshotter = NewSnapshotService(virtClientMock, clientMock, protectionService)
+	})
+
+	Context("GetVolumeSnapshot", func() {
+		It("treats a missing VolumeSnapshot API as a missing VolumeSnapshot", func() {
+			clientMock.GetFunc = func(_ context.Context, _ types.NamespacedName, _ client.Object, _ ...client.GetOption) error {
+				return &meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: "snapshot.storage.k8s.io", Kind: "VolumeSnapshot"}}
+			}
+
+			vs, err := snapshotter.GetVolumeSnapshot(ctx, "vs", "ns")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vs).To(BeNil())
+		})
 	})
 
 	Context("Filesystem", func() {

@@ -50,15 +50,17 @@ type Reconciler struct {
 	// unifiedSnapshotterPresent is the cluster default for the snapshot mechanism: where the
 	// state-snapshotter module is installed, an object nobody pinned belongs to the unified
 	// controllers, not to this one.
-	unifiedSnapshotterPresent bool
+	unifiedSnapshotterPresent  bool
+	volumeSnapshotAPIAvailable bool
 }
 
-func NewReconciler(client client.Client, apiReader client.Reader, unifiedSnapshotterPresent bool, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, apiReader client.Reader, unifiedSnapshotterPresent, volumeSnapshotAPIAvailable bool, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:                    client,
-		apiReader:                 apiReader,
-		handlers:                  handlers,
-		unifiedSnapshotterPresent: unifiedSnapshotterPresent,
+		client:                     client,
+		apiReader:                  apiReader,
+		handlers:                   handlers,
+		unifiedSnapshotterPresent:  unifiedSnapshotterPresent,
+		volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable,
 	}
 }
 
@@ -98,13 +100,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	for _, w := range []Watcher{
+	watchers := []Watcher{
 		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
-		watcher.NewVolumeSnapshotWatcher(),
 		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
 		watcher.NewKVVMIWatcher(mgr.GetClient()),
-	} {
+	}
+	if r.volumeSnapshotAPIAvailable {
+		watchers = append(watchers, watcher.NewVolumeSnapshotWatcher())
+	}
+
+	for _, w := range watchers {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
 			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)

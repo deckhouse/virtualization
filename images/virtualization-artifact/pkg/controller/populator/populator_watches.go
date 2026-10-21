@@ -37,7 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
-func addWatches(mgr manager.Manager, ctr controller.Controller) error {
+func addWatches(mgr manager.Manager, ctr controller.Controller, volumeSnapshotAPIAvailable bool) error {
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &corev1.PersistentVolumeClaim{},
 			&handler.TypedEnqueueRequestForObject[*corev1.PersistentVolumeClaim]{},
@@ -100,6 +100,10 @@ func addWatches(mgr manager.Manager, ctr controller.Controller) error {
 		),
 	); err != nil {
 		return fmt.Errorf("watch importer pods: %w", err)
+	}
+
+	if !volumeSnapshotAPIAvailable {
+		return nil
 	}
 
 	if err := ctr.Watch(

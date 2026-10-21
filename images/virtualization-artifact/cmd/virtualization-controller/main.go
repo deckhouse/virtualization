@@ -121,6 +121,8 @@ const (
 	migrationSystemNetworkNameEnv = "MIGRATION_SYSTEM_NETWORK_NAME"
 
 	unifiedSnapshotterPresentEnv = "UNIFIED_SNAPSHOTTER_PRESENT"
+
+	volumeSnapshotAPIAvailableEnv = "VOLUME_SNAPSHOT_API_AVAILABLE"
 )
 
 func main() {
@@ -180,6 +182,18 @@ func main() {
 	var unifiedSnapshotterPresent bool
 	if raw := os.Getenv(unifiedSnapshotterPresentEnv); raw != "" {
 		unifiedSnapshotterPresent, err = strconv.ParseBool(raw)
+		if err != nil {
+			slog.Default().Error(err.Error())
+			os.Exit(1)
+		}
+	}
+
+	// Without the snapshot.storage.k8s.io CRDs a watch on VolumeSnapshot never syncs and stops the
+	// manager, so the controllers skip those watches. The flag comes from the module template, and
+	// Deckhouse re-renders it once a module installs the CRDs, which rolls the controller out.
+	var volumeSnapshotAPIAvailable bool
+	if raw := os.Getenv(volumeSnapshotAPIAvailableEnv); raw != "" {
+		volumeSnapshotAPIAvailable, err = strconv.ParseBool(raw)
 		if err != nil {
 			slog.Default().Error(err.Error())
 			os.Exit(1)
@@ -438,13 +452,13 @@ func main() {
 	}
 
 	populatorLogger := logger.NewControllerLogger(populator.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, dvcrSettings); err != nil {
+	if _, err = populator.NewController(mgr, populatorLogger, importSettings.DiskImporterImage, importSettings.Requirements, dvcrSettings, volumeSnapshotAPIAvailable); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	storageProfileLogger := logger.NewControllerLogger(storageprofile.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = storageprofile.NewController(mgr, storageProfileLogger); err != nil {
+	if _, err = storageprofile.NewController(mgr, storageProfileLogger, volumeSnapshotAPIAvailable); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -536,13 +550,13 @@ func main() {
 	}
 
 	vdsnapshotLogger := logger.NewControllerLogger(vdsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vdsnapshot.NewController(ctx, mgr, vdsnapshotLogger, virtClient, unifiedSnapshotterPresent); err != nil {
+	if _, err = vdsnapshot.NewController(ctx, mgr, vdsnapshotLogger, virtClient, unifiedSnapshotterPresent, volumeSnapshotAPIAvailable); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	vmsnapshotLogger := logger.NewControllerLogger(vmsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient, unifiedSnapshotterPresent); err != nil {
+	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient, unifiedSnapshotterPresent, volumeSnapshotAPIAvailable); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

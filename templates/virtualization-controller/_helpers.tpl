@@ -11,6 +11,15 @@ true
 {{- end -}}
 {{- end -}}
 
+{{- define "virtualization-controller.volumeSnapshotAPIIsPresent" -}}
+{{- $vs := "snapshot.storage.k8s.io/v1/VolumeSnapshot" -}}
+{{- $vsc := "snapshot.storage.k8s.io/v1/VolumeSnapshotClass" -}}
+{{- $discovered := .Values.global.discovery.apiVersions -}}
+{{- if and (or ($discovered | has $vs) (.Capabilities.APIVersions.Has $vs)) (or ($discovered | has $vsc) (.Capabilities.APIVersions.Has $vsc)) -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "virtualization-controller.envs" -}}
 {{- $registry := include "dvcr.get_registry" (list .) }}
 - name: LOG_LEVEL
@@ -182,6 +191,10 @@ true
 # --feature-gates, hence the module state is passed in and folded into that default.
 - name: VPA_ENABLED
   value: {{ .Values.global.enabledModules | has "vertical-pod-autoscaler" | quote }}
+{{- if eq (include "virtualization-controller.volumeSnapshotAPIIsPresent" .) "true" }}
+- name: VOLUME_SNAPSHOT_API_AVAILABLE
+  value: "true"
+{{- end }}
 {{- if eq (include "unified-snapshotter.customSnapshotDefinitionIsPresent" .) "true" }}
 - name: UNIFIED_SNAPSHOTTER_PRESENT
   value: "true"

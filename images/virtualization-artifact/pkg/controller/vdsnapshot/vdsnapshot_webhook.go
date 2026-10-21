@@ -29,14 +29,16 @@ import (
 )
 
 type Validator struct {
-	logger                    *log.Logger
-	unifiedSnapshotterPresent bool
+	logger                     *log.Logger
+	unifiedSnapshotterPresent  bool
+	volumeSnapshotAPIAvailable bool
 }
 
-func NewValidator(logger *log.Logger, unifiedSnapshotterPresent bool) *Validator {
+func NewValidator(logger *log.Logger, unifiedSnapshotterPresent, volumeSnapshotAPIAvailable bool) *Validator {
 	return &Validator{
-		logger:                    logger.With("webhook", "validator"),
-		unifiedSnapshotterPresent: unifiedSnapshotterPresent,
+		logger:                     logger.With("webhook", "validator"),
+		unifiedSnapshotterPresent:  unifiedSnapshotterPresent,
+		volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable,
 	}
 }
 
@@ -44,6 +46,10 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	vds, ok := obj.(*v1alpha2.VirtualDiskSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualDiskSnapshot but got a %T", obj)
+	}
+
+	if err := validate.VolumeSnapshotAPIAvailable(vds, v.unifiedSnapshotterPresent, v.volumeSnapshotAPIAvailable); err != nil {
+		return nil, err
 	}
 
 	if err := validate.UnifiedSnapshotterAnnotationAvailable(vds, v.unifiedSnapshotterPresent); err != nil {

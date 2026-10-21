@@ -29,17 +29,25 @@ import (
 )
 
 type Validator struct {
-	unifiedSnapshotterPresent bool
+	unifiedSnapshotterPresent  bool
+	volumeSnapshotAPIAvailable bool
 }
 
-func NewValidator(unifiedSnapshotterPresent bool) *Validator {
-	return &Validator{unifiedSnapshotterPresent: unifiedSnapshotterPresent}
+func NewValidator(unifiedSnapshotterPresent, volumeSnapshotAPIAvailable bool) *Validator {
+	return &Validator{
+		unifiedSnapshotterPresent:  unifiedSnapshotterPresent,
+		volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable,
+	}
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	vmSnapshot, ok := obj.(*v1alpha2.VirtualMachineSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualMachineSnapshot but got a %T", obj)
+	}
+
+	if err := validate.VolumeSnapshotAPIAvailable(vmSnapshot, v.unifiedSnapshotterPresent, v.volumeSnapshotAPIAvailable); err != nil {
+		return nil, err
 	}
 
 	if err := validate.UnifiedSnapshotterAnnotationAvailable(vmSnapshot, v.unifiedSnapshotterPresent); err != nil {
