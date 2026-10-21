@@ -24,23 +24,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Validator struct {
-	logger *log.Logger
+	logger                     *log.Logger
+	volumeSnapshotAPIAvailable bool
 }
 
-func NewValidator(logger *log.Logger) *Validator {
+func NewValidator(logger *log.Logger, volumeSnapshotAPIAvailable bool) *Validator {
 	return &Validator{
-		logger: logger.With("webhook", "validator"),
+		logger:                     logger.With("webhook", "validator"),
+		volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable,
 	}
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
+	return nil, validate.VolumeSnapshotAPIAvailable(v.volumeSnapshotAPIAvailable)
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {

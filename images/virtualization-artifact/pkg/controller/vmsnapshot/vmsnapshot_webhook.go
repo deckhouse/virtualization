@@ -23,20 +23,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Validator struct{}
-
-func NewValidator() *Validator {
-	return &Validator{}
+type Validator struct {
+	volumeSnapshotAPIAvailable bool
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	logger.FromContext(ctx).Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
+func NewValidator(volumeSnapshotAPIAvailable bool) *Validator {
+	return &Validator{volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable}
+}
+
+func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+	return nil, validate.VolumeSnapshotAPIAvailable(v.volumeSnapshotAPIAvailable)
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {

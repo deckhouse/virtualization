@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -106,7 +108,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 	Context("The virtual disk snapshot without virtual machine", func() {
 		It("The volume snapshot has created", func() {
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -134,7 +136,7 @@ var _ = Describe("LifeCycle handler", func() {
 					return vs, nil
 				}
 
-				h := NewLifeCycleHandler(snapshotter)
+				h := NewLifeCycleHandler(snapshotter, true)
 
 				_, err := h.Handle(testContext(), vdSnapshot)
 				Expect(err).To(BeNil())
@@ -151,10 +153,24 @@ var _ = Describe("LifeCycle handler", func() {
 				return vs, nil
 			}
 
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
+		})
+
+		It("fails without the VolumeSnapshot API before freezing the filesystem", func() {
+			h := NewLifeCycleHandler(snapshotter, false)
+
+			res, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			Expect(res).To(Equal(reconcile.Result{RequeueAfter: time.Second}))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotFailed.String()))
+			Expect(snapshotter.SyncFSFreezeRequestCalls()).To(BeEmpty())
+			Expect(snapshotter.CreateVolumeSnapshotCalls()).To(BeEmpty())
 		})
 
 		It("The volume snapshot has failed", func() {
@@ -167,7 +183,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return vs, nil
 			}
 
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -183,7 +199,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return vs, nil
 			}
 
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -205,7 +221,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return false, nil
 			}
 
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -223,7 +239,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return nil, nil
 			}
 
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -237,7 +253,7 @@ var _ = Describe("LifeCycle handler", func() {
 		It("fails when the virtual disk pvc is not Bound", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -295,7 +311,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("Freeze virtual machine", func() {
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -311,7 +327,7 @@ var _ = Describe("LifeCycle handler", func() {
 				vm.Status.Phase = v1alpha2.MachineStopped
 				return vm, nil
 			}
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -327,7 +343,7 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.CanFreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return false, nil
 			}
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -343,7 +359,7 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.CanFreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return false, nil
 			}
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -364,7 +380,7 @@ var _ = Describe("LifeCycle handler", func() {
 				}
 				return vs, nil
 			}
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
@@ -400,7 +416,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return vm, nil
 			}
 
-			h := NewLifeCycleHandler(snapshotter)
+			h := NewLifeCycleHandler(snapshotter, true)
 
 			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 			_, err := h.Handle(testContext(), vdSnapshot)

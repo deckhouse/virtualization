@@ -50,7 +50,7 @@ type Reconciler struct {
 	log    *log.Logger
 }
 
-func NewController(mgr manager.Manager, log *log.Logger) (controller.Controller, error) {
+func NewController(mgr manager.Manager, log *log.Logger, volumeSnapshotAPIAvailable bool) (controller.Controller, error) {
 	reconciler := &Reconciler{client: mgr.GetClient(), log: log}
 	ctr, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:     reconciler,
@@ -59,7 +59,7 @@ func NewController(mgr manager.Manager, log *log.Logger) (controller.Controller,
 	if err != nil {
 		return nil, err
 	}
-	if err := addWatches(mgr, ctr); err != nil {
+	if err := addWatches(mgr, ctr, volumeSnapshotAPIAvailable); err != nil {
 		return nil, err
 	}
 	log.Info("Initialized StorageProfile controller")
@@ -216,7 +216,7 @@ func emptyStorageProfile(name string) *storagev1alpha1.StorageProfile {
 	}
 }
 
-func addWatches(mgr manager.Manager, ctr controller.Controller) error {
+func addWatches(mgr manager.Manager, ctr controller.Controller, volumeSnapshotAPIAvailable bool) error {
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &storagev1.StorageClass{}, &handler.TypedEnqueueRequestForObject[*storagev1.StorageClass]{})); err != nil {
 		return err
 	}
@@ -243,6 +243,9 @@ func addWatches(mgr manager.Manager, ctr controller.Controller) error {
 		},
 	)); err != nil {
 		return err
+	}
+	if !volumeSnapshotAPIAvailable {
+		return nil
 	}
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &vsv1.VolumeSnapshotClass{},
 		handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vsc *vsv1.VolumeSnapshotClass) []reconcile.Request {

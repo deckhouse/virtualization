@@ -43,12 +43,14 @@ import (
 )
 
 type LifeCycleHandler struct {
-	snapshotter LifeCycleSnapshotter
+	snapshotter                LifeCycleSnapshotter
+	volumeSnapshotAPIAvailable bool
 }
 
-func NewLifeCycleHandler(snapshotter LifeCycleSnapshotter) *LifeCycleHandler {
+func NewLifeCycleHandler(snapshotter LifeCycleSnapshotter, volumeSnapshotAPIAvailable bool) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		snapshotter: snapshotter,
+		snapshotter:                snapshotter,
+		volumeSnapshotAPIAvailable: volumeSnapshotAPIAvailable,
 	}
 }
 
@@ -121,6 +123,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			Message("")
 
 		return reconcile.Result{}, nil
+	}
+
+	// Fail before freezing the filesystem: the VolumeSnapshot could never be created. The requeue
+	// lets the Failed phase unfreeze a filesystem frozen before the API went away.
+	if !h.volumeSnapshotAPIAvailable {
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdscondition.VirtualDiskSnapshotFailed).
+			Message("Cannot take a snapshot: the storage-foundation and state-snapshotter modules must be enabled (or snapshot-controller for legacy installations).")
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
 	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)

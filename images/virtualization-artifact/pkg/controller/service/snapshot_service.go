@@ -24,6 +24,7 @@ import (
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -296,8 +297,14 @@ func (s *SnapshotService) GetVirtualMachine(ctx context.Context, name, namespace
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualMachine{})
 }
 
+// GetVolumeSnapshot treats a missing snapshot.storage.k8s.io API as a missing VolumeSnapshot: with the
+// CRDs removed the VolumeSnapshots are gone too, and a VirtualDiskSnapshot must still be deletable.
 func (s *SnapshotService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &vsv1.VolumeSnapshot{})
+	vs, err := object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &vsv1.VolumeSnapshot{})
+	if meta.IsNoMatchError(err) {
+		return nil, nil
+	}
+	return vs, err
 }
 
 func (s *SnapshotService) GetSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error) {

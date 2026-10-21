@@ -3520,6 +3520,10 @@ When a network is removed from the VM configuration:
 
 Snapshots allow you to capture the current state of a resource for later recovery or cloning: a disk snapshot saves only the data from the selected disk, while a virtual machine snapshot includes the VM settings and the state of all its disks.
 
+{{< alert level="info" >}}
+To work with snapshots, the [storage-foundation](/modules/storage-foundation/) and [state-snapshotter](/modules/state-snapshotter/) modules must be enabled. The deprecated [snapshot-controller](/modules/snapshot-controller/) module is also supported (not recommended for new installations).
+{{< /alert >}}
+
 ### Consistent snapshots
 
 Snapshots can be consistent or inconsistent; this is controlled by the `requiredConsistency` parameter. By default, `requiredConsistency` is set to `true`, which means a consistent snapshot is required.

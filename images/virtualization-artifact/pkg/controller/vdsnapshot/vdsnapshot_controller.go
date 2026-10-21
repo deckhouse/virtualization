@@ -42,14 +42,16 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 	virtClient kubeclient.Client,
+	volumeSnapshotAPIAvailable bool,
 ) (controller.Controller, error) {
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDSnapshotProtection)
 	freezer := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		volumeSnapshotAPIAvailable,
 		internal.NewVirtualDiskReadyHandler(freezer),
-		internal.NewLifeCycleHandler(freezer),
+		internal.NewLifeCycleHandler(freezer, volumeSnapshotAPIAvailable),
 		internal.NewDeletionHandler(freezer),
 	)
 
@@ -71,7 +73,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualDiskSnapshot{}).
-		WithValidator(NewValidator(log)).
+		WithValidator(NewValidator(log, volumeSnapshotAPIAvailable)).
 		Complete(); err != nil {
 		return nil, err
 	}

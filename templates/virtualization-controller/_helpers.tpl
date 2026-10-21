@@ -4,6 +4,15 @@ true
 {{- end -}}
 {{- end -}}
 
+{{- define "virtualization-controller.volumeSnapshotAPIIsPresent" -}}
+{{- $vs := "snapshot.storage.k8s.io/v1/VolumeSnapshot" -}}
+{{- $vsc := "snapshot.storage.k8s.io/v1/VolumeSnapshotClass" -}}
+{{- $discovered := .Values.global.discovery.apiVersions -}}
+{{- if and (or ($discovered | has $vs) (.Capabilities.APIVersions.Has $vs)) (or ($discovered | has $vsc) (.Capabilities.APIVersions.Has $vsc)) -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "virtualization-controller.envs" -}}
 {{- $registry := include "dvcr.get_registry" (list .) }}
 - name: LOG_LEVEL
@@ -130,6 +139,10 @@ true
   value: {{ .Values.global.clusterConfiguration.serviceSubnetCIDR }}
 - name: KUBE_APISERVER_FEATURE_GATES
   value: {{ .Values.virtualization.internal.kubeAPIServerFeatureGates | toJson | quote }}
+{{- if eq (include "virtualization-controller.volumeSnapshotAPIIsPresent" .) "true" }}
+- name: VOLUME_SNAPSHOT_API_AVAILABLE
+  value: "true"
+{{- end }}
 {{- end }}
 
 {{- define "virtualization-controller.feature-gates-flag-args-item" }}
