@@ -118,7 +118,7 @@ build_dev_manual:
     - .dev_vars
     - .base_build
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "web" && $BUILD_TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/'
+    - if: '($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && $BUILD_TAG =~ /^v\d+\.\d+\.\d+(-rc\.\d+)?$/'
       when: always
     - when: never
   script:

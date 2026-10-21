@@ -56,6 +56,7 @@ workflow:
     # ref except main. Gated on the dispatch variable instead of opening `api`
     # in general: every other API caller keeps getting the old behavior.
     - if: $CI_PIPELINE_SOURCE == "api" && $SVACE_BUILD_REF
+    - if: $CI_PIPELINE_SOURCE == "api" && $BUILD_TAG && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     # Avoid duplicate pipelines: a push to a non-default, non-tag branch that
     # already has an open MR would otherwise create BOTH a branch pipeline and
     # an MR pipeline. The predefined $CI_OPEN_MERGE_REQUESTS is non-empty only
