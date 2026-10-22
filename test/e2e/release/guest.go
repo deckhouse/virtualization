@@ -87,19 +87,30 @@ func (t *currentReleaseSmokeTest) expectGuestReady(vmScenario *vmScenario) {
 	util.UntilVMAgentReady(context.Background(), crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 }
 
-// EXCEPTION: the authoritative assertion here is the guest-side lsblk view,
-// which converges asynchronously after the VMBDAs report Attached (there is
-// no Kubernetes resource to observe for it); the VM status read only feeds
-// the failure message. A polling wait is used deliberately.
-func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vmScenario *vmScenario, expectedCount int) {
+// expectBlockDevices checks that every disk and image the VM was given (spec
+// and hotplugged) is attached, both in the VM status and, for Linux guests,
+// inside the guest: nothing may be lost across the module upgrade.
+//
+// EXCEPTION: the guest-side lsblk view converges asynchronously after the
+// VMBDAs report Attached (there is no Kubernetes resource to observe for
+// it), so a polling wait is used deliberately.
+func (t *currentReleaseSmokeTest) expectBlockDevices(vmScenario *vmScenario) {
 	vm := vmScenario.vm
 	eventually.UntilAssertion(func(g Gomega) {
 		currentVM := &v1alpha2.VirtualMachine{}
 		err := t.framework.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), currentVM)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		attachedHotplugDisks := hotpluggedAttachedDiskCount(currentVM)
-		g.Expect(attachedHotplugDisks).To(Equal(expectedCount))
+		attached := attachedBlockDevices(currentVM)
+		g.Expect(attached).To(ConsistOf(vmScenario.expectedBlockDevices),
+			"VM %s/%s attached block devices mismatch", vm.Namespace, vm.Name)
+
+		if vmScenario.skipDiskCheck {
+			return
+		}
+
+		// The root disk is excluded from the guest count.
+		expectedCount := len(vmScenario.expectedBlockDevices) - 1
 
 		rootDiskName, err := t.rootDiskName(vmScenario)
 		g.Expect(err).NotTo(HaveOccurred())
@@ -116,14 +127,14 @@ func (t *currentReleaseSmokeTest) expectAdditionalDiskCount(vmScenario *vmScenar
 		disks, err := parseLSBLKOutput(output)
 		g.Expect(err).NotTo(HaveOccurred())
 
-		actualCount := countAdditionalGuestDisks(disks, rootDiskName)
+		actualCount := countAdditionalGuestBlockDevices(disks, rootDiskName)
 		g.Expect(actualCount).To(
 			Equal(expectedCount),
-			"VM %s/%s additional disk mismatch; root disk: %q; hotplugged block devices in status: %d; lsblk devices: %s",
+			"VM %s/%s additional block device mismatch; root disk: %q; attached block devices in status: %v; lsblk devices: %s",
 			vm.Namespace,
 			vm.Name,
 			rootDiskName,
-			attachedHotplugDisks,
+			attached,
 			formatLSBLKDisks(disks),
 		)
 	}, framework.LongTimeout)
@@ -155,21 +166,23 @@ func parseLSBLKOutput(raw string) ([]lsblkDevice, error) {
 	return output.BlockDevices, nil
 }
 
-func hotpluggedAttachedDiskCount(vm *v1alpha2.VirtualMachine) int {
-	count := 0
+func attachedBlockDevices(vm *v1alpha2.VirtualMachine) []v1alpha2.BlockDeviceSpecRef {
+	attached := make([]v1alpha2.BlockDeviceSpecRef, 0, len(vm.Status.BlockDeviceRefs))
 	for _, blockDevice := range vm.Status.BlockDeviceRefs {
-		if !blockDevice.Hotplugged || !blockDevice.Attached || blockDevice.VirtualMachineBlockDeviceAttachmentName == "" {
+		if !blockDevice.Attached {
 			continue
 		}
-		count++
+		attached = append(attached, v1alpha2.BlockDeviceSpecRef{Kind: blockDevice.Kind, Name: blockDevice.Name})
 	}
-	return count
+	return attached
 }
 
-func countAdditionalGuestDisks(disks []lsblkDevice, rootDiskName string) int {
+// countAdditionalGuestBlockDevices counts disks and CD-ROMs (ISO images are
+// attached as CD-ROMs) other than the root disk and the cloud-init disk.
+func countAdditionalGuestBlockDevices(disks []lsblkDevice, rootDiskName string) int {
 	count := 0
 	for _, disk := range disks {
-		if disk.Type != "disk" {
+		if disk.Type != "disk" && disk.Type != "rom" {
 			continue
 		}
 		if disk.Name == rootDiskName {

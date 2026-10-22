@@ -188,13 +188,10 @@ func (t *currentReleaseSmokeTest) verifyVMsReady() {
 		t.expectGuestReady(vmScenario)
 	}
 
-	By("Checking attached disks inside guests")
+	By("Checking attached disks and images")
 	for _, vmScenario := range t.vms {
-		if vmScenario.skipDiskCheck {
-			continue
-		}
-		By(fmt.Sprintf("Checking attached disks on %s", vmScenario.vm.Name))
-		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
+		By(fmt.Sprintf("Checking attached disks and images on %s", vmScenario.vm.Name))
+		t.expectBlockDevices(vmScenario)
 	}
 }
 
@@ -210,12 +207,9 @@ func (t *currentReleaseSmokeTest) verifyVMsSurvivedUpgrade() {
 		t.expectGuestReady(vmScenario)
 	}
 
-	By("Checking attached disks after module upgrade")
+	By("Checking attached disks and images after module upgrade")
 	for _, vmScenario := range t.vms {
-		if vmScenario.skipDiskCheck {
-			continue
-		}
-		t.expectAdditionalDiskCount(vmScenario, vmScenario.expectedAdditionalDisks)
+		t.expectBlockDevices(vmScenario)
 	}
 }
 
