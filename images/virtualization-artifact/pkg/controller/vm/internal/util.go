@@ -85,6 +85,20 @@ func isKVVMIAlive(kvvmi *virtv1.VirtualMachineInstance) bool {
 	return kvvmi != nil && kvvmi.DeletionTimestamp == nil && !kvvmiCompleted(kvvmi)
 }
 
+// isKVVMStartExpected reports whether KubeVirt is going to create a new instance for the KVVM:
+// its run strategy is not Manual, or a start or restart was requested.
+func isKVVMStartExpected(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm.Spec.RunStrategy == nil || *kvvm.Spec.RunStrategy != virtv1.RunStrategyManual {
+		return true
+	}
+	if kvvm.Annotations[annotations.AnnVMStartRequested] == "true" || kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" {
+		return true
+	}
+	return slices.ContainsFunc(kvvm.Status.StateChangeRequests, func(r virtv1.VirtualMachineStateChangeRequest) bool {
+		return r.Action == virtv1.StartRequest
+	})
+}
+
 func getPhase(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) v1alpha2.MachinePhase {
 	if kvvm == nil {
 		return v1alpha2.MachinePending

@@ -62,7 +62,10 @@ const nameSyncKvvmHandler = "SyncKvvmHandler"
 // emptyNetworksSpec is the networks-spec annotation value of a pod with no additional networks.
 const emptyNetworksSpec = "[]"
 
-var errWaitForNetworkReady = errors.New("wait for SDN to configure network interfaces on the pod")
+var (
+	errWaitForNetworkReady = errors.New("wait for SDN to configure network interfaces on the pod")
+	errWaitForVMITeardown  = errors.New("wait for the previous virtual machine instance to terminate")
+)
 
 type syncVolumesService interface {
 	SyncVolumes(ctx context.Context, s state.VirtualMachineState, restartRequired bool) (reconcile.Result, error)
@@ -236,7 +239,8 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	synced, kvvmSyncErr := h.syncKVVM(ctx, s, allChanges)
 	waitForNetwork := errors.Is(kvvmSyncErr, errWaitForNetworkReady)
 	waitForMainIPAddress := errors.Is(kvvmSyncErr, network.ErrMainIPAddressNotReady)
-	if kvvmSyncErr != nil && !waitForNetwork && !waitForMainIPAddress {
+	waitForVMITeardown := errors.Is(kvvmSyncErr, errWaitForVMITeardown)
+	if kvvmSyncErr != nil && !waitForNetwork && !waitForMainIPAddress && !waitForVMITeardown {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
 	}
 
@@ -267,6 +271,11 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message("Waiting for the IPAddress of the Main network to become ready.")
+	case waitForVMITeardown:
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message("Waiting for the previous virtual machine instance to terminate.")
 	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, v1alpha2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
@@ -344,7 +353,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	if migrateVolumesErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
 	}
-	if (waitForNetwork || waitForMainIPAddress) && result.RequeueAfter == 0 {
+	if (waitForNetwork || waitForMainIPAddress || waitForVMITeardown) && result.RequeueAfter == 0 {
 		result.RequeueAfter = 5 * time.Second
 	}
 	return result, errs
@@ -400,6 +409,13 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 			return false, fmt.Errorf("failed to delete the internal virtual machine instance's pod: %w", err)
 		}
 		return true, nil
+	// Wait for the deleting instance of a KVVM that is not going to start: otherwise KubeVirt reports
+	// WaitingForVolumeBinding for a not yet bound PVC, the Stopped VM flips to Pending and Start is rejected.
+	case kvvmi != nil && kvvmi.DeletionTimestamp != nil && !isKVVMStartExpected(kvvm):
+		if allChanges.IsEmpty() {
+			return true, nil
+		}
+		return false, errWaitForVMITeardown
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, kvvmi, pod):
 		// KVVM should be updated when VM become stopped.
 		// It is safe to update KVVM at this point in general and also all related resources

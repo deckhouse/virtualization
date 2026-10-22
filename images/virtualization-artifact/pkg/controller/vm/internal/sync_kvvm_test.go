@@ -447,13 +447,23 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, makeVMIP(), makeVMClass())
 
-		syncKVVM := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
-		_, err := syncKVVM.Handle(ctx, vmState)
-		Expect(err).NotTo(HaveOccurred())
-		_, err = NewSyncPowerStateHandler(fakeClient, recorder).Handle(ctx, vmState)
-		Expect(err).NotTo(HaveOccurred())
+		reconcile := func() {
+			syncKVVM := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+			_, err := syncKVVM.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = NewSyncPowerStateHandler(fakeClient, recorder).Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		reconcile()
 
 		newKVVM := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newKVVM)).To(Succeed())
+		Expect(newKVVM.Spec.RunStrategy).To(HaveValue(Equal(virtv1.RunStrategyManual)), "the sync waits for the instance to be gone")
+
+		newKVVM.ResourceVersion = ""
+		fakeClient, reconcileObj, vmState = setupEnvironment(vm, newKVVM, makeVMIP(), makeVMClass())
+		reconcile()
+
 		Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newKVVM)).To(Succeed())
 		Expect(newKVVM.Spec.RunStrategy).To(HaveValue(Equal(virtv1.RunStrategyAlways)))
 	})
@@ -1154,6 +1164,58 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Expect(changes.GetAll()[3].ActionRequired).To(Equal(vmchange.ActionRestart))
 		Expect(changes.GetAll()[4].ActionRequired).To(Equal(vmchange.ActionApplyImmediate))
 	})
+
+	deletingKVVMI := func() *virtv1.VirtualMachineInstance {
+		kvvmi := newEmptyKVVMI(name, namespace)
+		kvvmi.Status.Phase = virtv1.Succeeded
+		kvvmi.DeletionTimestamp = ptr.To(metav1.Now())
+		kvvmi.Finalizers = []string{"test"}
+		return kvvmi
+	}
+
+	DescribeTable("KVVM sync of a stopped VM while the previous instance is torn down",
+		func(runStrategy virtv1.VirtualMachineRunStrategy, startRequested bool, kvvmi *virtv1.VirtualMachineInstance, expectSynced bool) {
+			ip := makeVMIP()
+			vmClass := makeVMClass()
+
+			vm := makeVM(v1alpha2.MachineStopped)
+			kvvm := makeKVVM(vm)
+			kvvm.Spec.RunStrategy = ptr.To(runStrategy)
+			kvvm.Status.Created = kvvmi != nil
+			if startRequested {
+				kvvm.Status.StateChangeRequests = []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
+			}
+			mutateCPUCores(3)(nil, vm, kvvm)
+
+			objs := []client.Object{kvvm, ip, vmClass}
+			if kvvmi != nil {
+				objs = append(objs, kvvmi)
+			}
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, objs...)
+
+			h := NewSyncKvvmHandler(nil, fakeClient, recorder, featuregates.Default(), vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
+			result, err := h.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedKVVM := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), updatedKVVM)).To(Succeed())
+			if expectSynced {
+				Expect(updatedKVVM.Spec.Template.Spec.Domain.CPU).NotTo(BeNil())
+				return
+			}
+			Expect(updatedKVVM.Spec.Template.Spec.Domain.CPU).To(BeNil(), "KVVM must not be rewritten while the instance still exists")
+			Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+		},
+		Entry("postpones the sync while the instance is being deleted", virtv1.RunStrategyManual, false, deletingKVVMI(), false),
+		Entry("syncs once the instance is gone", virtv1.RunStrategyManual, false, nil, true),
+		Entry("syncs while a completed instance is not deleted yet", virtv1.RunStrategyManual, false, func() *virtv1.VirtualMachineInstance {
+			kvvmi := newEmptyKVVMI(name, namespace)
+			kvvmi.Status.Phase = virtv1.Succeeded
+			return kvvmi
+		}(), true),
+		Entry("syncs a KVVM that starts on its own", virtv1.RunStrategyAlways, false, deletingKVVMI(), true),
+		Entry("syncs a KVVM with a pending start request", virtv1.RunStrategyManual, true, deletingKVVMI(), true),
+	)
 
 	DescribeTable("isPlacementPolicyChanged",
 		func(path string, expected bool) {
