@@ -3,6 +3,37 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.11.3
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: October 22, 2026.
+</span>
+
+### Highlights
+
+- Fixed vulnerabilities in the module.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-56742
+  - CVE-2026-56851
+  - CVE-2026-56857
+  - CVE-2026-56866
+  - CVE-2026-61801
+  - CVE-2026-78659
+  - CVE-2026-78660
+  - CVE-2026-78663
+  - CVE-2026-78667
+  - CVE-2026-78669
+  - CVE-2026-85747
+  - CVE-2026-94439
+  - CVE-2026-94440
+  - CVE-2026-94448
+  - CVE-2026-97030
+  - CVE-2026-97031
+  - CVE-2026-97032
+
 ## v1.11.2
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
