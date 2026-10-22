@@ -40,6 +40,15 @@ const (
 
 var imageURLClient = &http.Client{Timeout: 30 * time.Second}
 
+// precreatedCVIs builds the CVIs the precheck ensures and the cleanup deletes.
+var precreatedCVIs = object.PrecreatedClusterVirtualImages
+
+// SetPrecreatedCVIs overrides the precreated CVI list for a suite.
+// Call it before Run.
+func SetPrecreatedCVIs(fn func() []*v1alpha2.ClusterVirtualImage) {
+	precreatedCVIs = fn
+}
+
 // precreatedCVIPrecheck implements Precheck interface for precreated ClusterVirtualImages.
 // This is a common precheck that creates or verifies precreated CVIs for the e2e suite.
 type precreatedCVIPrecheck struct{}
@@ -58,7 +67,7 @@ func (p *precreatedCVIPrecheck) Run(ctx context.Context, f *framework.Framework)
 		return err
 	}
 
-	cvis := object.PrecreatedClusterVirtualImages()
+	cvis := precreatedCVIs()
 	By(fmt.Sprintf("Ensuring %d precreated CVIs are available", len(cvis)))
 
 	if err := p.ensureCVIs(ctx, f, cvis); err != nil {
@@ -205,7 +214,7 @@ func CleanupPrecreatedCVIs(ctx context.Context, f *framework.Framework) {
 		return
 	}
 
-	cvis := object.PrecreatedClusterVirtualImages()
+	cvis := precreatedCVIs()
 	By(fmt.Sprintf("Cleaning up %d precreated CVIs", len(cvis)))
 
 	k8sClient := f.GenericClient()

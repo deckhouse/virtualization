@@ -27,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization/test/e2e/controller"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
 )
 
@@ -39,6 +40,7 @@ func TestRelease(t *testing.T) {
 var _ = SynchronizedBeforeSuite(func() {
 	controller.NewBeforeProcess1Body()
 
+	precheck.SetPrecreatedCVIs(object.ReleasePrecreatedClusterVirtualImages)
 	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
 }, func() {})
 

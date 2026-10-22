@@ -128,25 +128,15 @@ var (
 	ImageURLCustomISO = imageURL("/e2e/custom-bios.iso")
 )
 
-// PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by e2e
-// tests. Only images actually referenced by the suites are precreated: the
+// PrecreatedClusterVirtualImages returns the suite-wide CVIs shared by the main
+// e2e suite. Only images actually referenced by its tests are precreated: the
 // custom flavors (the default guest image), Ubuntu (the SecureBoot
 // migration-cancel entry and the systemd interface-name-persistence subtests)
-// MyOS/UbuntuISO (the VirtualMachinePool suite), and AlpineUEFI/RedOS (the
-// release current-release smoke suite).
-//
-// NOTE: RedOS, Win2022Core and VirtioWin are new here. Unlike the other
-// entries, they have not been copied to the nightly pipeline's image mirror
-// (see imageBaseURLEnv above), so the nightly precreated-CVI precheck will
-// fail until they are.
+// and MyOS (the VirtualMachinePool suite).
 func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 	return []*v1alpha2.ClusterVirtualImage{
 		newPrecreatedHTTPCVI(PrecreatedCVIUbuntu, ImageURLUbuntu),
 		newPrecreatedHTTPCVI(PrecreatedCVIMyOS, ImageURLMyOS),
-		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFI, ImageURLAlpineUEFI),
-		newPrecreatedHTTPCVI(PrecreatedCVIRedOS, ImageURLRedOS),
-		newPrecreatedHTTPCVI(PrecreatedCVIWin2022Core, ImageURLWin2022Core),
-		newPrecreatedHTTPCVI(PrecreatedCVIVirtioWin, ImageURLVirtioWin),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOS, ImageURLCustomBIOS),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomEFI, ImageURLCustomEFI),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomISO, ImageURLCustomISO),
@@ -154,6 +144,23 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOSVMDK, ImageURLCustomBIOSVMDK),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOSRawGzip, ImageURLCustomBIOSRawGzip),
 		newPrecreatedHTTPCVI(PrecreatedCVICustomBIOSGzip, ImageURLCustomBIOSGzip),
+	}
+}
+
+// ReleasePrecreatedClusterVirtualImages returns the CVIs the release smoke
+// suite needs: AlpineUEFI, Ubuntu and RedOS for the Linux VMs, Win2022Core and
+// VirtioWin for the Windows iperf client.
+//
+// NOTE: RedOS, Win2022Core and VirtioWin have not been copied to the nightly
+// pipeline's image mirror (see imageBaseURLEnv above), so the release suite's
+// precreated-CVI precheck fails there until they are.
+func ReleasePrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
+	return []*v1alpha2.ClusterVirtualImage{
+		newPrecreatedHTTPCVI(PrecreatedCVIAlpineUEFI, ImageURLAlpineUEFI),
+		newPrecreatedHTTPCVI(PrecreatedCVIUbuntu, ImageURLUbuntu),
+		newPrecreatedHTTPCVI(PrecreatedCVIRedOS, ImageURLRedOS),
+		newPrecreatedHTTPCVI(PrecreatedCVIWin2022Core, ImageURLWin2022Core),
+		newPrecreatedHTTPCVI(PrecreatedCVIVirtioWin, ImageURLVirtioWin),
 	}
 }
 
