@@ -127,12 +127,17 @@ rules:
   - list
   - watch
 ---
+# Cluster-wide virtual hardware is managed by ClusterAdmin only.
+# ClusterAdmin is mapped to "virtualization administrator".
+# ClusterEditor is mapped to the "security administrator" related
+#  to audit. It requires no additional rules specific for
+#  the virtualization module.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    user-authz.deckhouse.io/access-level: ClusterEditor
-  name: d8:user-authz:virtualization:cluster-editor
+    user-authz.deckhouse.io/access-level: ClusterAdmin
+  name: d8:user-authz:virtualization:cluster-admin
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 rules:
 - apiGroups:
@@ -155,15 +160,6 @@ rules:
   - deletecollection
   - patch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  annotations:
-    user-authz.deckhouse.io/access-level: ClusterAdmin
-  name: d8:user-authz:virtualization:cluster-admin
-  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
-rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
