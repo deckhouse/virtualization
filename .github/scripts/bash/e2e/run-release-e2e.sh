@@ -76,6 +76,9 @@ ginkgo_exit_code=0
 # makes the migration limits precheck moot - it guards the parallel run, where many
 # VMs migrate at once - so skip it and leave the limits at their defaults.
 export MIGRATION_LIMITS_PRECHECK=no
+# The post-upgrade phase checks the VMs the pre-upgrade phase left behind, so
+# never delete them; a failed spec still gets its dump. Clean up by hand.
+export POST_CLEANUP=never
 go tool ginkgo \
   -v --race --timeout=45m \
   ./release | tee "${ginkgo_result}" || ginkgo_exit_code=$?

@@ -123,7 +123,8 @@ EOF
 }
 
 run_suite() {
-  # Same settings as run-release-e2e.sh: serial, migration limits untouched.
+  # Same settings as run-release-e2e.sh: serial, migration limits untouched,
+  # nothing deleted (the cleanup phase does that).
   # RUNNER_TEMP is where the framework saves the dumps of a failed spec.
   local ginkgo_args=()
   read -r -a ginkgo_args <<< "${GINKGO_ARGS:-}"
@@ -133,6 +134,7 @@ run_suite() {
     E2E_CONFIG="${E2E_CONFIG:-${E2E_DIR}/default_config.yaml}" \
     RUNNER_TEMP="${STATE_DIR}" \
     MIGRATION_LIMITS_PRECHECK=no \
+    POST_CLEANUP=never \
       go tool ginkgo -v --race --timeout=45m "${ginkgo_args[@]}" ./release
   )
 }

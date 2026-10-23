@@ -96,6 +96,8 @@ func (t *currentReleaseSmokeTest) migration() (window migrationWindow, ok bool) 
 func runPreUpgradeReleaseSmoke() {
 	f := framework.NewFramework("")
 	namespace := createReleaseProject(f)
+	f.SetProjectNamespace(namespace)
+	DeferCleanup(f.After)
 
 	test := newCurrentReleaseSmokeTest(f, namespace)
 	test.createResources()
@@ -107,6 +109,8 @@ func runPreUpgradeReleaseSmoke() {
 func runPostUpgradeReleaseSmoke() {
 	namespace := mustGetEnv(releaseNamespaceEnv)
 	f := framework.NewFramework("")
+	f.SetProjectNamespace(namespace)
+	DeferCleanup(f.After)
 	test := newCurrentReleaseSmokeTest(f, namespace)
 
 	test.verifyVMsSurvivedUpgrade()

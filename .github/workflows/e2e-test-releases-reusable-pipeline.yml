@@ -673,8 +673,8 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always() && steps.release-e2e.outcome != 'skipped'
         with:
-          name: current-release-resources-from-failed-tests-${{ github.run_id }}
-          path: ${{ runner.temp }}/e2e_failed__*
+          name: DUMP-current-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/e2e_failed/
           if-no-files-found: ignore
           retention-days: 3
 
@@ -823,6 +823,7 @@ jobs:
           go mod download
 
       - name: "Run E2E tests on new-release"
+        id: release-e2e
         env:
           NEW_RELEASE: ${{ env.NEW_RELEASE }}
           CSI: ${{ inputs.storage_type }}
@@ -833,6 +834,15 @@ jobs:
           RELEASE_UPGRADE_STARTED_AT: ${{ needs.patch-modulepulloverride.outputs.upgrade_started_at }}
           RELEASE_UPGRADE_MIGRATES_VMS: ${{ needs.patch-modulepulloverride.outputs.migrates_vms }}
         run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
+
+      - name: Upload resources from failed new-release tests
+        uses: actions/upload-artifact@v7
+        if: always() && steps.release-e2e.outcome != 'skipped'
+        with:
+          name: DUMP-new-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/e2e_failed/
+          if-no-files-found: ignore
+          retention-days: 3
 
   report-clusteralerts:
     name: ClusterAlerts in nested cluster
