@@ -41,12 +41,7 @@ tasks:
     desc: |-
       Add Flant CE license to files sh,go,py. Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
     cmds:
-      - |
-        {{if .CLI_ARGS}}
-          go run ../../tools/addlicense/{main,variables,msg,utils}.go -directory {{ .CLI_ARGS }}
-        {{else}}
-          go run ../../tools/addlicense/{main,variables,msg,utils}.go -directory ./
-        {{end}}
+      - go run ../../tools/modtools/cmd license add --directory {{ .CLI_ARGS | default "./" }}
 
   test:unit:
     desc: "Run go unit tests"

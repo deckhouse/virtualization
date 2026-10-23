@@ -1,8 +1,8 @@
 # Validation, lint, scan, and gitlab-ci lint jobs.
 #
 # This file is the direct migration of the GitHub Actions workflow
-# .github/workflows/dev_validation.yaml (paths_filter + no_cyrillic +
-# doc_changes + shellcheck + helm_templates + check_gens_files).
+# .github/workflows/dev_validation.yaml (paths_filter + doc_changes +
+# shellcheck + helm_templates + check_gens_files).
 #
 # The `actionlint` job from the GH workflow is intentionally NOT migrated. In its place we run the new
 # `lint:gitlab-ci` job that validates the GitLab CI configuration itself
@@ -85,14 +85,14 @@ lint:release-notes:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
-# Both diff-based validations below (no_cyrillic, doc_changes) check only the
-# lines added by the change, so they need the base of that change fetched.
+# The diff-based validation below (doc_changes) checks only the lines added by
+# the change, so it needs the base of that change fetched.
 # That base is the merge request target branch — NOT always main: diffing a
 # release branch against main spans everything backported since the branch
 # point, which reports unrelated files as changed.
 #
-# Outside a merge request pipeline the validations diff the pushed commits,
-# which the GIT_DEPTH: "0" clone already has, and fall back to main when there
+# Outside a merge request pipeline the validation diffs the pushed commits,
+# which the GIT_DEPTH: "0" clone already has, and falls back to main when there
 # is no previous commit to diff against — so main is the base to fetch there.
 # ---------------------------------------------------------------------------
 
@@ -102,26 +102,6 @@ lint:release-notes:
     - |
       base="${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}"
       git fetch --no-tags origin "+${base}:refs/remotes/origin/${base}"
-
-# ---------------------------------------------------------------------------
-# no_cyrillic
-# ---------------------------------------------------------------------------
-
-lint:no-cyrillic:
-  stage: lint
-  variables:
-    GIT_DEPTH: "0"
-  before_script:
-    - !reference [.fetch-diff-base, before_script]
-  script:
-    - task validation:no-cyrillic
-  rules:
-    - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/no_cyrillic/'
-      when: never
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
-    - if: '$CI_COMMIT_BRANCH =~ /^release-/ && $CI_PIPELINE_SOURCE == "push"'
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "lint-validate"'
 
 # ---------------------------------------------------------------------------
 # doc_changes
@@ -134,7 +114,7 @@ lint:doc-changes:
   before_script:
     - !reference [.fetch-diff-base, before_script]
   script:
-    - task validation:doc-changes
+    - task modtools:doc-changes
   rules:
     - if: '$CI_MERGE_REQUEST_LABELS =~ /validation\/skip\/doc_changes/'
       when: never

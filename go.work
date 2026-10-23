@@ -17,11 +17,10 @@ use (
 	./test/performance/tools/evicter
 	./test/performance/tools/shatal
 	./test/performance/tools/statistic
-	./tools/addlicense
 	./tools/changelog
+	./tools/modtools
 	./tools/moduleversions
 	./tools/releasenotes
-	./tools/validation
 )
 
 // Local workspace modules referenced by other modules through placeholder

@@ -75,8 +75,6 @@ package-lock.json
 images/kube-api-rewriter/kube-api-rewriter
 images/pre-delete-hook/pre-delete-hook
 images/vm-route-forge/vm-route-forge
-tools/addlicense/addlicense
-tools/validation/validation
 tools/moduleversions/moduleversions
 tools/changelog/changelog
 tools/releasenotes/releasenotes

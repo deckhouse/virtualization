@@ -14,24 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+// Package diff parses unified git diff output into a structured form the checks
+// can iterate over, and loads it either from a patch file or from `git diff`.
+package diff
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 )
+
+// Loader returns the parsed diff a command should operate on.
+type Loader func() (*DiffInfo, error)
 
 type DiffInfo struct {
 	Files []*DiffFileInfo
 }
 
 func NewDiffInfo() *DiffInfo {
-	return &DiffInfo{
-		Files: make([]*DiffFileInfo, 0),
-	}
+	return &DiffInfo{Files: make([]*DiffFileInfo, 0)}
 }
 
 func (d *DiffInfo) Dump() string {
@@ -76,15 +82,57 @@ func (d *DiffFileInfo) NewLines() []string {
 }
 
 func NewDiffFileInfo() *DiffFileInfo {
-	return &DiffFileInfo{
-		Lines: make([]string, 0),
-	}
+	return &DiffFileInfo{Lines: make([]string, 0)}
 }
 
-var diffStartRe = regexp.MustCompile(`^diff --git a/(.*) b/(.*)$`)
-var oldFileNameRe = regexp.MustCompile(`^--- (/dev/null|a/(.*))$`)
-var newFileNameRe = regexp.MustCompile(`^\+\+\+ (/dev/null|b/(.*))$`)
-var endMetadataRe = regexp.MustCompile(`^@@[\-+ \d,]+@@(.*)$`)
+// Load reads the diff from patchFile when set, otherwise from `git diff`.
+func Load(patchFile string) (*DiffInfo, error) {
+	if patchFile != "" {
+		content, err := os.ReadFile(patchFile)
+		if err != nil {
+			return nil, err
+		}
+		return ParseDiffOutput(bytes.NewReader(content))
+	}
+
+	diffRange := resolveDiffRange(os.Getenv)
+	fmt.Printf("Run git diff %s ...\n", diffRange)
+	out, err := exec.Command("git", "diff", diffRange, "-w", "--ignore-blank-lines").Output()
+	if err != nil {
+		return nil, err
+	}
+	return ParseDiffOutput(bytes.NewReader(out))
+}
+
+const zeroSHA = "0000000000000000000000000000000000000000"
+
+// resolveDiffRange returns the git revision range covering the change under
+// validation. The range must not depend on a hardcoded base branch: on a
+// release branch, a diff against origin/main spans everything backported since
+// the branch point, so unrelated files get reported as changed.
+//
+//  1. Merge request pipeline: three-dot diff against the target branch, so only
+//     the commits of this change are validated.
+//  2. Push pipeline: the commits actually pushed. There is no target branch
+//     here, and a three-dot diff against the branch itself would be empty.
+//  3. Anything else (a new branch, a local run): three-dot diff against
+//     origin/main.
+func resolveDiffRange(getenv func(string) string) string {
+	if target := getenv("CI_MERGE_REQUEST_TARGET_BRANCH_NAME"); target != "" {
+		return "origin/" + target + "..."
+	}
+	if before := getenv("CI_COMMIT_BEFORE_SHA"); before != "" && before != zeroSHA {
+		return before + "..HEAD"
+	}
+	return "origin/main..."
+}
+
+var (
+	diffStartRe   = regexp.MustCompile(`^diff --git a/(.*) b/(.*)$`)
+	oldFileNameRe = regexp.MustCompile(`^--- (/dev/null|a/(.*))$`)
+	newFileNameRe = regexp.MustCompile(`^\+\+\+ (/dev/null|b/(.*))$`)
+	endMetadataRe = regexp.MustCompile(`^@@[\-+ \d,]+@@(.*)$`)
+)
 
 func ParseDiffOutput(r io.Reader) (*DiffInfo, error) {
 	res := NewDiffInfo()

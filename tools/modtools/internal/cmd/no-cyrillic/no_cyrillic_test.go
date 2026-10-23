@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package no_cyrillic
 
 import (
 	"fmt"
@@ -53,9 +53,8 @@ func Test_found_msg(t *testing.T) {
 
 	// Multiple words with Cyrillic letters.
 	in = "asdqwe Там на qw q cheсk tеst qwd неведомых qqw"
-	expected =
-		"  asdqwe Там на qw q cheсk tеst qwd неведомых qqw\n" +
-			"  -------^^^-^^---------^---^-------^^^^^^^^^"
+	expected = "  asdqwe Там на qw q cheсk tеst qwd неведомых qqw\n" +
+		"  -------^^^-^^---------^---^-------^^^^^^^^^"
 
 	actual, has = checkCyrillicLetters(in)
 
@@ -74,11 +73,10 @@ func Test_found_msg(t *testing.T) {
 	in = "Lorem ipsum dolor sit amet,\n consectetur adipiscing elit,\n" +
 		"раскрою перед вами всю \nкартину и разъясню," +
 		"Ut enim ad minim veniam,"
-	expected =
-		"  раскрою перед вами всю \n" +
-			"  ^^^^^^^-^^^^^-^^^^-^^^\n" +
-			"  картину и разъясню,Ut enim ad minim veniam,\n" +
-			"  ^^^^^^^-^-^^^^^^^^"
+	expected = "  раскрою перед вами всю \n" +
+		"  ^^^^^^^-^^^^^-^^^^-^^^\n" +
+		"  картину и разъясню,Ut enim ad minim veniam,\n" +
+		"  ^^^^^^^-^-^^^^^^^^"
 
 	actual, has = checkCyrillicLetters(in)
 
@@ -92,7 +90,6 @@ func Test_found_msg(t *testing.T) {
 			actual)
 		t.Errorf("Expect \n%s\n, got \n%s\n", expected, actual)
 	}
-
 }
 
 func Test_skip_release_notes_source(t *testing.T) {

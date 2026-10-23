@@ -27,6 +27,9 @@ includes:
   d8v-cli:
     taskfile: ./src/cli
     dir: ./src/cli
+  modtools:
+    taskfile: ./tools/modtools/Taskfile.dist.yaml
+    dir: ./tools/modtools
 
 vars:
   deckhouse_lib_helm_ver: 1.72.0
@@ -167,14 +170,9 @@ tasks:
 
   dev:addlicense:
     desc: |-
-      Add Flant CE license to files sh,go,py. Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
+      Add Flant license to files sh,go,py,js. CE by default; pass LICENSE=ee for Enterprise Edition sources (Go files with an EE build constraint always get the EE header). Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
     cmds:
-      - |
-        {{if .CLI_ARGS}}
-          go run tools/addlicense/{main,variables,msg,utils}.go -directory {{ .CLI_ARGS }}
-        {{else}}
-          go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
-        {{end}}
+      - task: modtools:license-add
 
   golangci-lint:sync:
     desc: "Sync root .golangci.yaml to all subprojects"
@@ -188,8 +186,8 @@ tasks:
           "src/cli"
           "test/e2e"
           "test/performance/tools/shatal"
-          "tools/addlicense"
           "tools/changelog"
+          "tools/modtools"
           "tools/moduleversions"
           "tools/releasenotes"
         )
@@ -266,16 +264,6 @@ tasks:
         docker run --rm \
           -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
           sh -c "cd /tmp/virt ; prettier -c \"**/*.yaml\" \"**/*.yml\""
-
-  validation:no-cyrillic:
-    desc: "No cyrillic"
-    cmds:
-      - go run {{ .VALIDATION_FILES }} --type no-cyrillic
-
-  validation:doc-changes:
-    desc: "Doc-changes"
-    cmds:
-      - go run {{ .VALIDATION_FILES }} --type doc-changes
 
   validation:changelog:
     desc: "Run the unit tests of tools/changelog, the tool that reads ```changes blocks"

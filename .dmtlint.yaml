@@ -37,7 +37,6 @@ linters-settings:
     exclude-rules:
       license:
         directories:
-          - tools/addlicense/testdata
           - test/performance/ssh
           - images/dvcr-artifact/staging
           - images/pvc-artifact/staging

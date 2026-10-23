@@ -156,7 +156,7 @@ variables:
   #   changelog:milestone            changelog-milestone              nightly
   #   changelog:all-active-milestones changelog-all-active-milestones nightly
   #   mrs:summary                    mrs-summary                      0 7 * * *
-  #   lint:no-cyrillic / lint:go / lint:gitlab-ci lint-validate       as needed
+  #   lint:go / lint:gitlab-ci       lint-validate                    as needed
   #   e2e-nightly:{redos,astra,alt}  e2e-nightly                      nightly
   #
   # The global workflow:rules in .gitlab/ci/workflow.yml still create a
