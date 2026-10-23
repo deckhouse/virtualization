@@ -114,10 +114,10 @@ variables:
   # slot. Built by deckhouse/virtualization/tools/ci-images, which prints the
   # digest to pin; that project must list this one under its job token
   # permissions, or the pull is denied.
-  GOLANGCI_LINT_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/golangci-lint:2.11.1@sha256:a43e899d1a432e6d8ce7feebfe692dba231de63908b40cd3c87635f5456c2d8e"
+  GOLANGCI_LINT_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/golangci-lint:2.11.1@sha256:34d3c2a6b62c83b8ff8ae2ce46dd76b2670f7d3b199e729ddc8eed057dfcb920"
   # The image the e2e:* jobs run in. Built by deckhouse/virtualization/tools/ci-images,
   # pinned by digest like GOLANGCI_LINT_IMAGE.
-  E2E_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/e2e:45f6c336@sha256:e2174c5113aca912d9657fa5e7c234d3c23456cc4b533f4347a96ebbf0cc2ca3"
+  E2E_IMAGE: "registry.flant.com/deckhouse/virtualization/tools/ci-images/e2e:45f6c336@sha256:df2c5622b32a413387a1ac66d6a596b022c6c2d5f985ae00c276ceccd4830620"
   # Helm v3 + jq are needed by `task validation:helm-templates` (tools/kubeconform).
   # They are not assumed to be on the runner host; lint:helm-templates installs
   # portable binaries from these versions in its before_script.
