@@ -127,9 +127,17 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 		return false, nil
 	}
 
+	return s.Migrate(ctx, vm, annotationKey, annotationExpectedValue)
+}
+
+// Migrate creates a live migration for the workload-update trigger (annotationKey with
+// annotationValue) and reports whether it was created.
+func (s *OneShotMigrationService) Migrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationValue string) (bool, error) {
+	log := logger.FromContext(ctx)
+
 	log.Info("Create VMOP")
-	vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName(), annotationKey, annotationExpectedValue)
-	if err = s.client.Create(ctx, vmop); err != nil {
+	vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName(), annotationKey, annotationValue)
+	if err := s.client.Create(ctx, vmop); err != nil {
 		// The cached VMOP list can lag behind the webhook's live view, so a
 		// concurrent operation may still be detected only at admission time.
 		// That is a wait-and-retry situation, not a reconcile failure.

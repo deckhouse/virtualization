@@ -166,22 +166,28 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	// detection and quota math run on a concrete value. The original VM (and its
 	// persisted spec) is untouched — the user-facing coreFraction stays "Auto".
 	resolved := resolveCoreFraction(current, class)
+	var cpuHeld bool
 	if kvvm != nil {
 		lastAppliedSpec = h.loadLastAppliedSpec(current, kvvm)
 		lastClassAppliedSpec := h.loadClassLastAppliedSpec(class, kvvm)
+		kvvmi, kvvmiErr := s.KVVMI(ctx)
+		if kvvmiErr != nil {
+			return reconcile.Result{}, kvvmiErr
+		}
+		resolved, cpuHeld = holdPendingCPU(resolved, lastAppliedSpec, kvvmi)
 		changes = h.detectSpecChanges(ctx, kvvm, &resolved.Spec, lastAppliedSpec)
 		if !changes.IsEmpty() {
-			kvvmi, kvvmiErr := s.KVVMI(ctx)
-			if kvvmiErr == nil {
-				nonHotpluggableVolumes := nonHotpluggableVolumeRefs(kvvmi)
-				changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
-					return blockDeviceChangeTouchesRefs(change, nonHotpluggableVolumes)
-				})
-			}
-			// Require restart for CPU and memory changes if VM is non migratable.
-			if h.isVMNonMigratable(current) {
+			nonHotpluggableVolumes := nonHotpluggableVolumeRefs(kvvmi)
+			changes.UpgradeBlockDeviceChangesToRestartMatching(func(change vmchange.FieldChange) bool {
+				return blockDeviceChangeTouchesRefs(change, nonHotpluggableVolumes)
+			})
+			// Require restart for CPU and memory changes if VM is non migratable. An autoscaler step
+			// never asks for one: the node applies it in place once it has room.
+			switch {
+			case autoscaledChanges(current, &changes):
+			case h.isVMNonMigratable(current):
 				changes.UpgradeHotplugComputeChangesToRestart()
-			} else {
+			default:
 				quotaMessage, insufficientQuota, quotaErr := h.hasInsufficientHotplugMigrationQuota(ctx, resolved, changes)
 				if quotaErr != nil {
 					err = fmt.Errorf("failed to check project quota for hotplug migration: %w", quotaErr)
@@ -257,6 +263,9 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	hotplug, err := h.observeHotplug(ctx, s, current, kvvmi)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("observe the pending CPU and memory changes: %w", err)
+	}
+	if cpuHeld && hotplug != nil {
+		hotplug.message += " The newer CPU changes wait until these are applied."
 	}
 
 	// 4. Set ConfigurationApplied condition.
@@ -622,6 +631,17 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	}
 	// Render KVVM from the effective coreFraction when the spec value is "Auto".
 	current = resolveCoreFraction(current, class)
+	if kvvm != nil {
+		kvvmi, err := s.KVVMI(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// An invalid annotation is reported by Handle; nothing is held without the last applied spec.
+		lastApplied, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+		if err == nil {
+			current, _ = holdPendingCPU(current, lastApplied, kvvmi)
+		}
+	}
 
 	usesVMIP, err := s.UsesVMIP(ctx)
 	if err != nil {
@@ -1008,6 +1028,51 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	}
 
 	return false
+}
+
+// holdPendingCPU returns vm unchanged unless the running instance has a CPU change it has not
+// applied yet; then the copy keeps the CPU of the last applied spec. KubeVirt rejects a CPU change
+// on top of a pending one and stops syncing the rest of the virtual machine (memory, tolerations,
+// volumes), so the newer value waits until the pending one is applied.
+//
+// TODO: hold only the number of cores once KubeVirt can replace a pending core fraction and no
+// longer stops the sync on a rejected CPU change.
+func holdPendingCPU(vm *v1alpha2.VirtualMachine, lastApplied *v1alpha2.VirtualMachineSpec, kvvmi *virtv1.VirtualMachineInstance) (*v1alpha2.VirtualMachine, bool) {
+	// No cores means the last applied spec is unknown: a valid one has at least one.
+	if lastApplied == nil || kvvmi == nil || lastApplied.CPU.Cores == 0 || lastApplied.CPU.CoreFraction == v1alpha2.CoreFractionAuto {
+		return vm, false
+	}
+	if cond, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVCPUChange, kvvmi.Status.Conditions); cond.Status != corev1.ConditionTrue {
+		return vm, false
+	}
+	if vm.Spec.CPU.Cores == lastApplied.CPU.Cores && coreFractionOrDefault(vm.Spec.CPU.CoreFraction) == coreFractionOrDefault(lastApplied.CPU.CoreFraction) {
+		return vm, false
+	}
+	held := vm.DeepCopy()
+	held.Spec.CPU.Cores = lastApplied.CPU.Cores
+	held.Spec.CPU.CoreFraction = lastApplied.CPU.CoreFraction
+	return held, true
+}
+
+func coreFractionOrDefault(coreFraction string) string {
+	if coreFraction == "" {
+		return vmchange.DefaultCPUCoreFraction
+	}
+	return coreFraction
+}
+
+// autoscaledChanges reports whether the autoscaler alone changed the virtual machine: its core
+// fraction is "Auto" and the core fraction is all that changed.
+func autoscaledChanges(vm *v1alpha2.VirtualMachine, changes *vmchange.SpecChanges) bool {
+	if vm.Spec.CPU.CoreFraction != v1alpha2.CoreFractionAuto {
+		return false
+	}
+	for _, change := range changes.GetAll() {
+		if change.Path != "cpu.coreFraction" {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *SyncKvvmHandler) isVMNonMigratable(

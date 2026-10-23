@@ -18,14 +18,18 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -183,5 +187,35 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(migrate).To(BeTrue())
 		Expect(listVMOPs(fakeClient)).To(HaveLen(maxMigrationAttempts + 1))
+	})
+
+	It("Migrate creates a migration that carries the trigger", func() {
+		fakeClient, err := testutil.NewFakeClientWithObjects(newVM(), newKVVMI())
+		Expect(err).ToNot(HaveOccurred())
+
+		migrate, err := NewOneShotMigrationService(fakeClient, newRecorder(), prefix).Migrate(testutil.ContextBackgroundWithNoOpLogger(), getVM(fakeClient), "key", "value")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(migrate).To(BeTrue())
+
+		vmops := listVMOPs(fakeClient)
+		Expect(vmops).To(HaveLen(1))
+		Expect(vmops[0].Spec.Type).To(Equal(v1alpha2.VMOPTypeEvict))
+		Expect(vmops[0].Spec.VirtualMachine).To(Equal(vmName))
+		Expect(vmops[0].Annotations).To(HaveKeyWithValue("key", "value"))
+		Expect(vmops[0].Annotations).To(HaveKey(annotations.AnnVMOPWorkloadUpdate))
+	})
+
+	It("Migrate waits instead of failing when the webhook sees another operation", func() {
+		denied := interceptor.Funcs{
+			Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+				return k8serrors.NewForbidden(v1alpha2.Resource("virtualmachineoperations"), "", errors.New("the operation vmop-1 should finish first"))
+			},
+		}
+		fakeClient, err := testutil.NewFakeClientWithInterceptorWithObjects(denied, newVM(), newKVVMI())
+		Expect(err).ToNot(HaveOccurred())
+
+		migrate, err := NewOneShotMigrationService(fakeClient, newRecorder(), prefix).Migrate(testutil.ContextBackgroundWithNoOpLogger(), getVM(fakeClient), "key", "value")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(migrate).To(BeFalse())
 	})
 })

@@ -1348,12 +1348,19 @@ spec:
 The selection works as follows:
 
 - A machine created with the `Auto` value starts at 10% or the nearest value allowed by the sizing policy, because a machine with no consumption history counts as idle.
-- A machine moved to `Auto` from a fixed percentage keeps its current share and waits there for the first recommendation, so the switch doesn't reduce the guaranteed share. If the current share isn't one of the steps, the nearest step above it applies, and only the 100% share is replaced with the nearest step below, because 100% is never selected automatically.
+- A machine moved to `Auto` from a fixed percentage also starts at 10% or the nearest value allowed by the sizing policy, not at its previous share. Until the first recommendation, its guaranteed share may go down.
 - The fraction changes in steps. If the class sizing policy defines a `coreFractions` list, its values become the steps, otherwise 5%, 10%, 15%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, and 99% are used.
 - The 100% value is never selected automatically, because at that value the CPU requests equal the limits, and such a machine can't be changed without a restart. If 100% is listed in `coreFractions`, it simply isn't used, and the ceiling becomes the next value down, while without a sizing policy the ceiling is 99%.
 - For the same reason, the sizing policy has to leave at least two values to choose from. A policy that allows only 50%, or 50% and 100%, would pin the machine at 50% forever, so such a combination is rejected and you have to set the fraction explicitly.
-- The recommended value is published in the [`.status.recommendedResources.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-status-recommendedresources-cpu-corefraction) field, and the applied one in [`.status.resources.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-status-resources-cpu-corefraction). Every change is reported by the `CoreFractionScaling` event.
-- If the node doesn't have room for the new requests, the machine moves to another node and keeps running.
+- The recommended value is published in the [`.status.recommendedResources.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-status-recommendedresources-cpu-corefraction) field, and the share assigned to the machine in [`.status.resources.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-status-resources-cpu-corefraction). Until the node applies it, the `ConfigurationApplied` condition has the `False` status and explains why. Every change is reported by the `CoreFractionScaling` event.
+
+If the node doesn't have enough CPU for the new share:
+
+- The machine moves to another node and keeps running, at every step of the selection.
+- If the move fails, Deckhouse Platform retries it after 5, 10, and 15 minutes. If it still fails, the machine keeps running with the previous share, and the `ConfigurationApplied` condition shows the share selected, the one the machine runs with, and why the move failed.
+- If the machine can't be moved, for example it's pinned to its node, the new share waits until its node has free CPU.
+
+The machine is never restarted for a selected share, even with `restartApprovalMode: Automatic`.
 
 The `CoreFractionAutoscaling` condition shows whether the selection is running. While it works, the condition has the `True` status, and for the first few minutes, until statistics accumulate, the reason is `WaitingForRecommendation`, and then `CoreFractionAutoscalingEnabled`.
 
@@ -2008,6 +2015,7 @@ You can change the configuration of a virtual machine (VM) at any time after cre
 | [`.spec.affinity`](cr.html#virtualmachine-v1alpha2-spec-affinity)                                               | Right away in commercial DP editions, a restart is required in DP Open                                                                                                                       |
 | [`.spec.nodeSelector`](cr.html#virtualmachine-v1alpha2-spec-nodeselector)                                       | Right away in commercial DP editions, a restart is required in DP Open                                                                                                                       |
 | [`.spec.cpu.cores`](cr.html#virtualmachine-v1alpha2-spec-cpu-cores)                                             | Without a restart if [changing the number of cores without a restart](#changing-the-number-of-cores-without-a-restart) is enabled in commercial DP editions, otherwise a restart is required |
+| [`.spec.cpu.coreFraction`](cr.html#virtualmachine-v1alpha2-spec-cpu-corefraction)                               | As `.spec.cpu.cores`, except that a change to or from 100% always requires a restart                                                                                                         |
 | [`.spec.networks`](cr.html#virtualmachine-v1alpha2-spec-networks)                                               | Adding and removing networks applies on a running VM if the guest OS supports attaching interfaces on the fly                                                                                |
 | Other `.spec` fields                                                                                            | A restart is required                                                                                                                                                                        |
 
@@ -2231,6 +2239,16 @@ cat <<'EOF' > /etc/udev/rules.d/99-hotplug-memory.rules
 SUBSYSTEM=="memory",ACTION=="add",DEVPATH=="/devices/system/memory/memory[0-9]*", TEST=="state", ATTR{state}!="online", ATTR{state}="online"
 EOF
 ```
+
+#### When a change without a restart doesn't apply
+
+If the node can't apply a new number of cores, CPU core fraction, or amount of memory in place, Deckhouse Platform moves the machine to another node by live migration. Until the change applies, the `ConfigurationApplied` condition has the `False` status and explains what happens to it.
+
+- If the live migration fails, Deckhouse Platform retries it after 5, 10, and 15 minutes. After four failed attempts, the machine keeps running with the previous resources, and a restart is required.
+- If the machine has moved but the change hasn't applied within a minute, Deckhouse Platform moves it once more. If the change still hasn't applied after the second move, a restart is required.
+- A new CPU change made while the previous one is pending waits until the previous one applies. The other changes of the machine apply as usual.
+
+A share selected with `coreFraction: Auto` never requires a restart, see [Automatic coreFraction (Auto)](#automatic-corefraction-auto).
 
 ### Placing VMs on nodes
 

@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -30,10 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/hotplugmigration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/inplaceresize"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -56,10 +59,10 @@ const inplaceResizeConditionTimeout = 30 * time.Second
 // another operation on the virtual machine holds it back.
 const hotplugMigrationRetryInterval = 30 * time.Second
 
-func NewHotplugHandler(client client.Client, migration OneShotMigration, inplaceResize *inplaceresize.Service, featureGate featuregate.FeatureGate, recorder eventrecord.EventRecorderLogger) *HotplugHandler {
+func NewHotplugHandler(client client.Client, migration HotplugMigration, inplaceResize *inplaceresize.Service, featureGate featuregate.FeatureGate, recorder eventrecord.EventRecorderLogger) *HotplugHandler {
 	return &HotplugHandler{
 		client:               client,
-		oneShotMigration:     migration,
+		migration:            migration,
 		inplaceResize:        inplaceResize,
 		featureGate:          featureGate,
 		recorder:             recorder,
@@ -69,11 +72,11 @@ func NewHotplugHandler(client client.Client, migration OneShotMigration, inplace
 }
 
 type HotplugHandler struct {
-	client           client.Client
-	oneShotMigration OneShotMigration
-	inplaceResize    *inplaceresize.Service
-	featureGate      featuregate.FeatureGate
-	recorder         eventrecord.EventRecorderLogger
+	client        client.Client
+	migration     HotplugMigration
+	inplaceResize *inplaceresize.Service
+	featureGate   featuregate.FeatureGate
+	recorder      eventrecord.EventRecorderLogger
 
 	inplaceResizeTimeout time.Duration
 
@@ -85,7 +88,7 @@ type HotplugHandler struct {
 // in-place resize of a particular desired state, and whether the fallback to live migration has
 // already been announced for it.
 type inplaceResizeWait struct {
-	resourcesSum  string
+	configKey     string
 	since         time.Time
 	fallbackNoted bool
 }
@@ -109,8 +112,36 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// A stopped KVVMI keeps the resize and hotplug conditions of its last pod, but nothing applies
+	// them any more: neither a migration nor the wait for the runtime makes sense.
+	if kvvmi.IsFinal() || !kvvmi.GetDeletionTimestamp().IsZero() {
+		h.forgetInplaceResizeWait(vm)
+		return reconcile.Result{}, nil
+	}
+
 	log := logger.FromContext(ctx).With(logger.SlogHandler(hotplugHandler))
 	ctx = logger.ToContext(ctx, log)
+
+	pod, err := kvvm.FindPodByKVVMI(ctx, h.client, kvvmi)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	vmops, err := h.listMigrations(ctx, vm)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Recorded before the in-place path returns: otherwise a return to the configuration a migration
+	// produced the pod for looks like a migration that did not apply it.
+	var plan hotplugmigration.Plan
+	if pod != nil {
+		plan = hotplugmigration.Evaluate(hotplugmigration.Input{Now: time.Now(), VM: vm, KVVMI: kvvmi, Pod: pod, VMOPs: vmops})
+		if plan.RecordMark {
+			if err = object.EnsureAnnotation(ctx, h.client, kvvmi, hotplugmigration.Annotation, plan.Mark); err != nil {
+				return reconcile.Result{}, fmt.Errorf("record the configuration migrated into the launcher pod: %w", err)
+			}
+		}
+	}
 
 	if !h.inplaceResize.InProgress(kvvmi) {
 		h.forgetInplaceResizeWait(vm)
@@ -118,18 +149,34 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 		completed := h.inplaceResize.IsCompleted(kvvmi)
 		possible, err := h.inplaceResize.IsPossible(ctx, kvvmi)
 		switch {
-		case err == nil:
-			if possible || completed {
-				h.forgetInplaceResizeWait(vm)
+		case err == nil && possible:
+			h.forgetInplaceResizeWait(vm)
+			return reconcile.Result{}, nil
+		case err == nil && completed:
+			// A resize condition left over from the pod before a live migration reports the current pod
+			// as resized while it is not: only another migration applies the changes then. The pending
+			// conditions flicker in that state, so the wait outlives them.
+			if !hasPendingHotplug(kvvmi) {
 				return reconcile.Result{}, nil
 			}
+			elapsed := h.noteInplaceResizeWait(vm, hotplugmigration.Key(kvvmi))
+			if elapsed < h.inplaceResizeTimeout {
+				return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
+			}
+			if h.noteInplaceResizeFallback(vm) {
+				log.Info("The runtime has not applied the changes after the inplace resize, switch to resize via live migration",
+					"timeout", h.inplaceResizeTimeout.String())
+				h.recorder.WithLogging(log).Event(vm, corev1.EventTypeNormal, v1alpha2.ReasonVMCPUResizing,
+					"In-place resize has completed, but the runtime has not applied the changes; applying them via live migration.")
+			}
+		case err == nil:
 			// inplace resize is not possible, but it is not complete
 			// switch to resize via live migration
 		case errors.Is(err, inplaceresize.ErrConditionNotFound):
 			// The runtime has not confirmed the resize yet. Give it a bounded amount of time:
 			// the condition never appears for a rejected resize, so waiting indefinitely
 			// deadlocks the virtual machine instead of falling back to live migration.
-			elapsed := h.noteInplaceResizeWait(vm, vmutil.HotplugResourcesSum(vm))
+			elapsed := h.noteInplaceResizeWait(vm, hotplugmigration.Key(kvvmi))
 			if elapsed < h.inplaceResizeTimeout {
 				if elapsed == 0 {
 					log.Info("Waiting for the runtime to confirm the inplace resize",
@@ -173,22 +220,52 @@ func (h *HotplugHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine
 		return reconcile.Result{}, nil
 	}
 
-	resourcesSum := vmutil.HotplugResourcesSum(vm)
-	migrate, err := h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum, resourcesSum)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if migrate {
-		log.Info("The virtual machine was triggered to migrate by the hotplug resources handler.")
+	if pod == nil {
 		return reconcile.Result{}, nil
 	}
 
-	// No record on the KVVMI means the migration is still to be created.
-	if kvvmi.GetAnnotations()[annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum] != resourcesSum {
+	switch plan.Phase {
+	case hotplugmigration.PhaseDue:
+	case hotplugmigration.PhaseSettling, hotplugmigration.PhaseRetrying:
+		return reconcile.Result{RequeueAfter: max(time.Until(plan.At), time.Second)}, nil
+	default:
+		// A running migration re-queues the virtual machine when it ends; a configuration that a
+		// migration did not apply or that ran out of attempts waits for the next change.
+		return reconcile.Result{}, nil
+	}
+
+	// A virtual machine that cannot move keeps the change pending on its node, which applies it
+	// once it has room.
+	if !isLiveMigratable(kvvmi) {
+		log.Debug("The virtual machine cannot be migrated to apply the hotplug resources.")
+		return reconcile.Result{}, nil
+	}
+
+	migrate, err := h.migration.Migrate(ctx, vm, hotplugmigration.Annotation, plan.Key)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if !migrate {
 		return reconcile.Result{RequeueAfter: hotplugMigrationRetryInterval}, nil
 	}
 
+	log.Info("The virtual machine was triggered to migrate by the hotplug resources handler.")
 	return reconcile.Result{}, nil
+}
+
+func (h *HotplugHandler) listMigrations(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]*v1alpha2.VirtualMachineOperation, error) {
+	vmopList := &v1alpha2.VirtualMachineOperationList{}
+	if err := h.client.List(ctx, vmopList, client.InNamespace(vm.GetNamespace()),
+		client.MatchingFields{indexer.IndexFieldVMOPByVM: vm.GetName()}); err != nil {
+		return nil, fmt.Errorf("list virtual machine operations: %w", err)
+	}
+	var vmops []*v1alpha2.VirtualMachineOperation
+	for i := range vmopList.Items {
+		if commonvmop.IsMigration(&vmopList.Items[i]) {
+			vmops = append(vmops, &vmopList.Items[i])
+		}
+	}
+	return vmops, nil
 }
 
 func (h *HotplugHandler) Name() string {
@@ -196,22 +273,22 @@ func (h *HotplugHandler) Name() string {
 }
 
 // noteInplaceResizeWait reports how long the handler has been waiting for the runtime to confirm
-// the in-place resize of resourcesSum, starting the countdown on the first call. Zero means the
+// the in-place resize of configKey, starting the countdown on the first call. Zero means the
 // wait has just started.
 //
-// The countdown is kept per desired state: a change of resourcesSum restarts it, so a fresh
+// The countdown is kept per desired state: a change of configKey restarts it, so a fresh
 // request always gets the full timeout even when the previous one ended in a fallback. Without
 // that, every subsequent change would be migrated immediately instead of being given a chance to
 // be applied in place.
-func (h *HotplugHandler) noteInplaceResizeWait(vm *v1alpha2.VirtualMachine, resourcesSum string) time.Duration {
+func (h *HotplugHandler) noteInplaceResizeWait(vm *v1alpha2.VirtualMachine, configKey string) time.Duration {
 	key := object.NamespacedName(vm)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	wait, found := h.inplaceResizeWaits[key]
-	if !found || wait.resourcesSum != resourcesSum {
-		h.inplaceResizeWaits[key] = inplaceResizeWait{resourcesSum: resourcesSum, since: time.Now()}
+	if !found || wait.configKey != configKey {
+		h.inplaceResizeWaits[key] = inplaceResizeWait{configKey: configKey, since: time.Now()}
 		return 0
 	}
 
@@ -246,6 +323,16 @@ func (h *HotplugHandler) forgetInplaceResizeWait(vm *v1alpha2.VirtualMachine) {
 	defer h.mu.Unlock()
 
 	delete(h.inplaceResizeWaits, key)
+}
+
+// hasPendingHotplug reports whether the runtime still has a CPU or memory change to apply.
+func hasPendingHotplug(kvvmi *virtv1.VirtualMachineInstance) bool {
+	for _, t := range []virtv1.VirtualMachineInstanceConditionType{virtv1.VirtualMachineInstanceMemoryChange, virtv1.VirtualMachineInstanceVCPUChange} {
+		if cond, _ := conditions.GetKVVMICondition(t, kvvmi.Status.Conditions); cond.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 func isAwaitingRestartToApplyConfiguration(vm *v1alpha2.VirtualMachine) bool {

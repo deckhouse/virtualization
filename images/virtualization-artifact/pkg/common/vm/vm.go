@@ -81,12 +81,6 @@ func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket, maxCor
 	return sockets, coresPerSocket, maxCoresPerSocket
 }
 
-// HotplugResourcesSum identifies the CPU and memory configuration of the virtual machine; the
-// workload updater records it on the migrations it creates and on the KVVMI once it is done.
-func HotplugResourcesSum(vm *v1alpha2.VirtualMachine) string {
-	return fmt.Sprintf("cpu.cores=%d,cpu.coreFraction=%s,memory.size=%s", vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction, vm.Spec.Memory.Size.String())
-}
-
 func ApprovalMode(vm *v1alpha2.VirtualMachine) v1alpha2.RestartApprovalMode {
 	if vm.Spec.Disruptions == nil {
 		return v1alpha2.Manual

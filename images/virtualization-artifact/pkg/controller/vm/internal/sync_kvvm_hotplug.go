@@ -17,20 +17,18 @@ limitations under the License.
 package internal
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"slices"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
-	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/hotplugmigration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -38,15 +36,17 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-// hotplugMigrationAttempts is how many failed live migrations are tolerated for one CPU and
-// memory configuration before a restart is requested.
-const hotplugMigrationAttempts = 3
-
 // hotplugState describes CPU and memory changes accepted by a running virtual machine that its
 // guest has not received yet.
 type hotplugState struct {
 	cpu    bool
 	memory bool
+	// autoscaled marks a change made by the autoscaler alone: it never asks for a restart. The
+	// user sees only "Auto" in the spec, so the messages name the core fraction the autoscaler
+	// selected and the one the virtual machine runs with, when it is known.
+	autoscaled bool
+	selected   string
+	running    string
 
 	// message goes to the condition; details is the node's text and goes to the event only.
 	message string
@@ -55,6 +55,27 @@ type hotplugState struct {
 	warning bool
 	// restartRequired marks changes that will not reach the guest without a restart.
 	restartRequired bool
+}
+
+// giveUp ends the message for changes the platform stops applying on its own: a change made by
+// the user asks for a restart, an autoscaler step leaves the virtual machine as it is.
+func (st *hotplugState) giveUp() {
+	switch {
+	case !st.autoscaled:
+		st.restartRequired = true
+		st.message += " Restart the virtual machine to apply the changes."
+	case st.running != "":
+		st.message += fmt.Sprintf(" The core fraction stays at %s.", st.running)
+	default:
+		st.message += " The core fraction stays as it is."
+	}
+}
+
+// introduceAutoscalerStep names the autoscaler step the message is about.
+func (st *hotplugState) introduceAutoscalerStep() {
+	if st.selected != "" {
+		st.message = fmt.Sprintf("The autoscaler has selected a CPU core fraction of %s. ", st.selected) + st.message
+	}
 }
 
 // resources names the changed resources as used in messages.
@@ -110,13 +131,28 @@ func (h *SyncKvvmHandler) observeHotplug(ctx context.Context, s state.VirtualMac
 		return nil, nil
 	}
 
-	// A migration created for this configuration supersedes whatever the in-place attempt said.
-	vmops, err := h.hotplugMigrations(ctx, s, vm)
+	vmops, err := s.VMOPs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(vmops) > 0 {
-		h.describeHotplugMigrations(st, vmops)
+	pod, err := s.Pod(ctx)
+	if err != nil {
+		return nil, err
+	}
+	plan := hotplugmigration.Evaluate(hotplugmigration.Input{Now: time.Now(), VM: vm, KVVMI: kvvmi, Pod: pod, VMOPs: vmops})
+	if plan.Autoscaled {
+		st.autoscaled = true
+		st.selected = sizingpolicy.RecommendedCoreFraction(vm)
+		if pod != nil {
+			if fraction, ok := pod.GetAnnotations()[kvbuilder.CPUResourcesRequestsFractionAnnotation]; ok {
+				st.running = fraction + "%"
+			}
+		}
+		defer st.introduceAutoscalerStep()
+	}
+
+	// A migration created for this configuration supersedes whatever the in-place attempt said.
+	if describeHotplugMigrations(st, plan) {
 		return st, nil
 	}
 
@@ -132,7 +168,7 @@ func (h *SyncKvvmHandler) observeHotplug(ctx context.Context, s state.VirtualMac
 		refusal = refused
 	}
 
-	h.describeHotplugMigrationPlan(st, vm, kvvmi, refusal)
+	h.describeHotplugMigrationPlan(st, vm, refusal)
 	return st, nil
 }
 
@@ -184,108 +220,79 @@ func (h *SyncKvvmHandler) describeInplaceResize(ctx context.Context, st *hotplug
 }
 
 // describeHotplugMigrationPlan fills st for changes no migration has been created for yet.
-func (h *SyncKvvmHandler) describeHotplugMigrationPlan(st *hotplugState, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, refusal string) {
+func (h *SyncKvvmHandler) describeHotplugMigrationPlan(st *hotplugState, vm *v1alpha2.VirtualMachine, refusal string) {
 	resources := st.resources()
 	prefix := ""
 	if refusal != "" {
 		prefix = refusal + " "
 	}
 
-	// The workload updater records the configuration on the KVVMI once it gives up on it.
-	if kvvmi.GetAnnotations()[annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum] == vmutil.HotplugResourcesSum(vm) {
-		st.warning = true
-		st.restartRequired = true
-		st.message = prefix + fmt.Sprintf("Live migration to apply the %s changes did not succeed. Restart the virtual machine to apply the changes.", resources)
-		return
-	}
-
 	if (st.cpu && !h.featureGate.Enabled(featuregates.HotplugCPUWithLiveMigration)) ||
 		(st.memory && !h.featureGate.Enabled(featuregates.HotplugMemoryWithLiveMigration)) {
 		st.warning = true
-		st.restartRequired = true
-		st.message = prefix + fmt.Sprintf("Live migration to apply the %s changes is disabled in the module settings. Restart the virtual machine to apply the changes.", resources)
+		st.message = prefix + fmt.Sprintf("Live migration to apply the %s changes is disabled in the module settings.", resources)
+		st.giveUp()
+		return
+	}
+
+	if h.isVMNonMigratable(vm) {
+		if st.autoscaled {
+			// The node keeps the change pending and applies it once it has room.
+			st.message = prefix + fmt.Sprintf("The virtual machine cannot be migrated to another node, so the %s changes wait until its node can apply them in place.", resources)
+			return
+		}
+		st.warning = true
+		st.message = prefix + fmt.Sprintf("The virtual machine cannot be migrated to apply the %s changes.", resources)
+		st.giveUp()
 		return
 	}
 
 	st.message = prefix + fmt.Sprintf("The %s changes will be applied by live migration.", resources)
 }
 
-// describeHotplugMigrations fills st from the migrations created for the current configuration.
-func (h *SyncKvvmHandler) describeHotplugMigrations(st *hotplugState, vmops []*v1alpha2.VirtualMachineOperation) {
+// describeHotplugMigrations fills st from the migrations of the virtual machine and reports
+// whether they decide its state. Otherwise a migration is yet to be created.
+func describeHotplugMigrations(st *hotplugState, plan hotplugmigration.Plan) bool {
 	resources := st.resources()
 
-	var (
-		active *v1alpha2.VirtualMachineOperation
-		failed []*v1alpha2.VirtualMachineOperation
-	)
-	for _, vmop := range vmops {
-		switch {
-		case !commonvmop.IsFinished(vmop):
-			active = vmop
-		case vmop.Status.Phase == v1alpha2.VMOPPhaseFailed:
-			failed = append(failed, vmop)
-		}
-	}
-
-	if active != nil {
+	switch plan.Phase {
+	case hotplugmigration.PhaseMigrating:
 		st.message = fmt.Sprintf("The %s changes are being applied by live migration.", resources)
-		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, active.Status.Conditions)
-		if active.Status.Phase == v1alpha2.VMOPPhasePending && completed.Message != "" {
+		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, plan.Active.Status.Conditions)
+		if plan.Active.Status.Phase == v1alpha2.VMOPPhasePending && completed.Message != "" {
 			st.message += " The live migration has not started yet: " + withoutTrailingPeriod(completed.Message) + "."
 		}
-		return
-	}
-
-	if len(failed) == 0 {
+	case hotplugmigration.PhaseSettling:
 		st.message = fmt.Sprintf("The %s changes are being applied to the virtual machine.", resources)
-		return
-	}
-
-	slices.SortFunc(failed, func(a, b *v1alpha2.VirtualMachineOperation) int {
-		return cmp.Compare(a.GetCreationTimestamp().UnixNano(), b.GetCreationTimestamp().UnixNano())
-	})
-	last := failed[len(failed)-1]
-	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, last.Status.Conditions)
-	reason := ""
-	if completed.Message != "" {
-		reason = ": " + withoutTrailingPeriod(completed.Message)
-	}
-
-	st.warning = true
-	switch {
-	case len(failed) >= hotplugMigrationAttempts:
-		st.restartRequired = true
-		st.message = fmt.Sprintf("Live migration to apply the %s changes failed %d times%s. Restart the virtual machine to apply the changes.", resources, len(failed), reason)
-	case len(failed) == 1:
-		st.message = fmt.Sprintf("Live migration to apply the %s changes failed%s; retrying.", resources, reason)
+	case hotplugmigration.PhaseNotApplied:
+		st.warning = true
+		st.message = fmt.Sprintf("The virtual machine was migrated to apply the %s changes, but they have not been applied.", resources)
+		st.giveUp()
+	case hotplugmigration.PhaseRetrying:
+		st.warning = true
+		st.message = fmt.Sprintf("Live migration to apply the %s changes %s; the next attempt is at %s.",
+			resources, describeFailures(plan.Failed), plan.At.UTC().Format(time.RFC3339))
+	case hotplugmigration.PhaseExhausted:
+		st.warning = true
+		st.message = fmt.Sprintf("Live migration to apply the %s changes %s.", resources, describeFailures(plan.Failed))
+		st.giveUp()
 	default:
-		st.message = fmt.Sprintf("Live migration to apply the %s changes failed %d times%s; retrying.", resources, len(failed), reason)
+		return false
 	}
+	return true
 }
 
-// hotplugMigrations lists the live migrations the workload updater created for the current CPU
-// and memory configuration.
-func (h *SyncKvvmHandler) hotplugMigrations(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) ([]*v1alpha2.VirtualMachineOperation, error) {
-	vmops, err := s.VMOPs(ctx)
-	if err != nil {
-		return nil, err
+// describeFailures tells how many times the migrations failed and why the last one did.
+func describeFailures(failed []*v1alpha2.VirtualMachineOperation) string {
+	times := "failed"
+	if len(failed) > 1 {
+		times = fmt.Sprintf("failed %d times", len(failed))
 	}
-
-	sum := vmutil.HotplugResourcesSum(vm)
-	var result []*v1alpha2.VirtualMachineOperation
-	for _, vmop := range vmops {
-		if !commonvmop.IsMigration(vmop) {
-			continue
-		}
-		if _, managed := vmop.GetAnnotations()[annotations.AnnVMOPWorkloadUpdate]; !managed {
-			continue
-		}
-		if vmop.GetAnnotations()[annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum] != sum {
-			continue
-		}
-		result = append(result, vmop)
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, failed[len(failed)-1].Status.Conditions)
+	if completed.Message == "" {
+		return times
 	}
-	return result, nil
+	return times + ": " + withoutTrailingPeriod(completed.Message)
 }
 
 // hotplugRestartAwaitingChanges lists the pending CPU and memory changes in the format of

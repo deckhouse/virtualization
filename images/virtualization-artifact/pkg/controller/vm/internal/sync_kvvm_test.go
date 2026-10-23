@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -38,11 +39,12 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
+	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/hotplugmigration"
 	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
@@ -306,6 +308,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 		memSize := resource.MustParse(size)
 		return func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
 			vm.Spec.Memory.Size = memSize
+		}
+	}
+
+	// mutateCoreFraction moves the core fraction from applied to desired; for "Auto" the autoscaler
+	// asks for recommended.
+	mutateCoreFraction := func(applied, desired, recommended string) func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
+		return func(fakeClient client.WithWatch, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
+			lastApplied, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+			Expect(err).NotTo(HaveOccurred())
+			lastApplied.CPU.CoreFraction = applied
+			Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{Spec: *lastApplied})).To(Succeed())
+			vm.Spec.CPU.CoreFraction = desired
+			sizingpolicy.SetRecommendedCoreFraction(vm, recommended)
 		}
 	}
 
@@ -596,6 +611,8 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("should present on cpu.cores change when hotplug enabled", v1alpha2.MachineRunning, newFeatureGateEnableCPUHotplug(), mutateCPUCores(3), metav1.ConditionTrue, true),
 		Entry("should present on memory.size change", v1alpha2.MachineRunning, nil, mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
 		Entry("should present on memory.size change when hotplug enabled", v1alpha2.MachineRunning, newFeatureGateEnableMemoryHotplug(), mutateMemorySize("4Gi"), metav1.ConditionTrue, true),
+		Entry("should present on cpu.coreFraction change by the user", v1alpha2.MachineRunning, newFeatureGateEnableResourceInPlaceResize(), mutateCoreFraction("10%", "50%", ""), metav1.ConditionTrue, true),
+		Entry("should not present on cpu.coreFraction step of the autoscaler", v1alpha2.MachineRunning, newFeatureGateEnableResourceInPlaceResize(), mutateCoreFraction("10%", string(v1alpha2.CoreFractionAuto), "50%"), metav1.ConditionUnknown, false),
 	)
 
 	DescribeTable("AwaitingRestart Condition for Hotplug VM with Project Quota",
@@ -637,6 +654,24 @@ var _ = Describe("SyncKvvmHandler", func() {
 			metav1.ConditionTrue,
 			true,
 			[]string{`project quota "project-quota" has insufficient requests.cpu`},
+		),
+		Entry(
+			"should present on cpu.coreFraction change by the user when quota is insufficient during migration",
+			newFeatureGate(featuregates.HotplugCPUAndMemoryWithInPlaceResize, featuregates.HotplugCPUWithLiveMigration),
+			mutateCoreFraction("10%", "50%", ""),
+			newResourceQuota(resource.MustParse("1"), resource.MustParse("32Gi"), resource.MustParse("500m"), resource.MustParse("2Gi")),
+			metav1.ConditionTrue,
+			true,
+			[]string{`project quota "project-quota" has insufficient requests.cpu`},
+		),
+		Entry(
+			"should not present on cpu.coreFraction step of the autoscaler when quota is insufficient during migration",
+			newFeatureGate(featuregates.HotplugCPUAndMemoryWithInPlaceResize, featuregates.HotplugCPUWithLiveMigration),
+			mutateCoreFraction("10%", string(v1alpha2.CoreFractionAuto), "50%"),
+			newResourceQuota(resource.MustParse("1"), resource.MustParse("32Gi"), resource.MustParse("500m"), resource.MustParse("2Gi")),
+			metav1.ConditionUnknown,
+			false,
+			nil,
 		),
 		Entry(
 			"should not present on cpu hotplug when quota is sufficient during migration",
@@ -864,15 +899,17 @@ var _ = Describe("SyncKvvmHandler", func() {
 			}
 		}
 
-		makeHotplugVMOP := func(vm *v1alpha2.VirtualMachine, name string, phase v1alpha2.VMOPPhase, completedMessage string, created time.Time) *v1alpha2.VirtualMachineOperation {
+		// makeHotplugVMOP returns a migration created for the configuration the KVVMI asks for. A
+		// finished one ends a second after it is created.
+		makeHotplugVMOP := func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, name string, phase v1alpha2.VMOPPhase, completedMessage string, created time.Time) *v1alpha2.VirtualMachineOperation {
 			vmop := &v1alpha2.VirtualMachineOperation{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              name,
 					Namespace:         namespace,
 					CreationTimestamp: metav1.NewTime(created),
 					Annotations: map[string]string{
-						annotations.AnnVMOPWorkloadUpdate:                    "true",
-						annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum: vmutil.HotplugResourcesSum(vm),
+						annotations.AnnVMOPWorkloadUpdate: "true",
+						hotplugmigration.Annotation:       hotplugmigration.Key(kvvmi),
 					},
 				},
 				Spec: v1alpha2.VirtualMachineOperationSpec{
@@ -881,15 +918,36 @@ var _ = Describe("SyncKvvmHandler", func() {
 				},
 				Status: v1alpha2.VirtualMachineOperationStatus{Phase: phase},
 			}
-			if completedMessage != "" {
+			if completedMessage != "" || phase == v1alpha2.VMOPPhaseCompleted || phase == v1alpha2.VMOPPhaseFailed {
 				vmop.Status.Conditions = []metav1.Condition{{
 					Type:    vmopcondition.TypeCompleted.String(),
 					Status:  metav1.ConditionFalse,
 					Reason:  vmopcondition.ReasonOperationFailed.String(),
 					Message: completedMessage,
 				}}
+				if phase == v1alpha2.VMOPPhaseCompleted || phase == v1alpha2.VMOPPhaseFailed {
+					vmop.Status.Conditions[0].LastTransitionTime = metav1.NewTime(created.Add(time.Second))
+				}
 			}
 			return vmop
+		}
+
+		makeLauncherPod := func(kvvmi *virtv1.VirtualMachineInstance, created time.Time) *corev1.Pod {
+			return &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "virt-launcher-test",
+					Namespace:         namespace,
+					UID:               podUID,
+					CreationTimestamp: metav1.NewTime(created),
+					Labels: map[string]string{
+						virtv1.AppLabel:                "virt-launcher",
+						virtv1.CreatedByLabel:          string(kvvmi.UID),
+						virtv1.VirtualMachineNameLabel: name,
+					},
+				},
+				Spec:   corev1.PodSpec{NodeName: nodeName},
+				Status: corev1.PodStatus{Phase: corev1.PodRunning},
+			}
 		}
 
 		type expectation struct {
@@ -979,8 +1037,9 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		It("passes on why the migration has not started", func() {
 			vm := makeHotplugVM()
-			vmop := makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhasePending, "Project quota exceeded", time.Now())
-			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange), vmop)
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			vmop := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhasePending, "Project quota exceeded", time.Now())
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi, vmop)
 			expect(newVM, expectation{
 				message: "The CPU changes are being applied by live migration. The live migration has not started yet: Project quota exceeded.",
 			})
@@ -988,33 +1047,45 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 		It("reports a running migration", func() {
 			vm := makeHotplugVM()
-			vmop := makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhaseInProgress, "", time.Now())
-			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange), vmop)
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			vmop := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseInProgress, "", time.Now())
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi, vmop)
 			expect(newVM, expectation{message: "The CPU changes are being applied by live migration."})
 		})
 
-		It("warns about a failed migration that is going to be retried", func() {
+		It("warns about a failed migration and tells when the next attempt is", func() {
 			vm := makeHotplugVM()
-			vmop := makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhaseFailed, "The migration target is unschedulable.", time.Now())
-			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange), vmop)
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			created := time.Now().Truncate(time.Second)
+			vmop := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseFailed, "The migration target is unschedulable.", created)
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi, vmop)
 			expect(newVM, expectation{
-				message: "Live migration to apply the CPU changes failed: The migration target is unschedulable; retrying.",
+				message: "Live migration to apply the CPU changes failed: The migration target is unschedulable; the next attempt is at " +
+					created.Add(time.Second+5*time.Minute).UTC().Format(time.RFC3339) + ".",
 				warning: true,
 			})
 		})
 
-		It("asks for a restart once the migration has failed too many times", func() {
-			vm := makeHotplugVM()
+		// failedMigrations returns the last allowed number of failed migrations, finished a minute apart.
+		failedMigrations := func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) []client.Object {
 			now := time.Now()
-			vmops := []client.Object{
-				makeHotplugVMOP(vm, "hotplug-resources-1", v1alpha2.VMOPPhaseFailed, "first", now.Add(-2*time.Minute)),
-				makeHotplugVMOP(vm, "hotplug-resources-2", v1alpha2.VMOPPhaseFailed, "second", now.Add(-time.Minute)),
-				makeHotplugVMOP(vm, "hotplug-resources-3", v1alpha2.VMOPPhaseFailed, "The migration target is unschedulable.", now),
+			var vmops []client.Object
+			for i := range hotplugmigration.MaxAttempts {
+				message := "earlier"
+				if i == hotplugmigration.MaxAttempts-1 {
+					message = "The migration target is unschedulable."
+				}
+				vmops = append(vmops, makeHotplugVMOP(vm, kvvmi, fmt.Sprintf("hotplug-resources-%d", i), v1alpha2.VMOPPhaseFailed, message, now.Add(time.Duration(i-hotplugmigration.MaxAttempts)*time.Minute)))
 			}
+			return vmops
+		}
+
+		It("asks for a restart once the migrations of a change made by the user have failed", func() {
+			vm := makeHotplugVM()
 			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange, virtv1.VirtualMachineInstanceMemoryChange)
-			newVM := run(vm, newFeatureGateEnableResourceHotplug(), append(vmops, kvvmi)...)
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), append(failedMigrations(vm, kvvmi), kvvmi)...)
 			confApplied, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
-			Expect(confApplied.Message).To(Equal("Live migration to apply the CPU and memory changes failed 3 times: The migration target is unschedulable. Restart the virtual machine to apply the changes."))
+			Expect(confApplied.Message).To(Equal("Live migration to apply the CPU and memory changes failed 4 times: The migration target is unschedulable. Restart the virtual machine to apply the changes."))
 			awaitingRestart, exists := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(awaitingRestart.Reason).To(Equal(vmcondition.ReasonChangesPendingRestart.String()))
@@ -1022,17 +1093,206 @@ var _ = Describe("SyncKvvmHandler", func() {
 			Expect(events).To(ContainElement(HavePrefix(corev1.EventTypeWarning + "/" + v1alpha2.ReasonVMCPUAndMemoryResizing + ": ")))
 		})
 
-		// The workload updater records the configuration on the KVVMI when it gives up on it.
-		It("asks for a restart when the configuration is recorded as given up on", func() {
+		It("migrates once more when a completed migration has not applied a change made by the user", func() {
 			vm := makeHotplugVM()
 			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
-			kvvmi.Annotations = map[string]string{annotations.AnnVMOPWorkloadUpdateHotplugResourcesSum: vmutil.HotplugResourcesSum(vm)}
-			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi)
+			podCreated := time.Now().Add(-10 * time.Minute)
+			produced := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseCompleted, "", podCreated.Add(-time.Second))
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi, produced, makeLauncherPod(kvvmi, podCreated))
+			expect(newVM, expectation{message: "The CPU changes will be applied by live migration."})
+		})
+
+		It("asks for a restart when the repeated migration has not applied a change made by the user", func() {
+			vm := makeHotplugVM()
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			metav1.SetMetaDataAnnotation(&kvvmi.ObjectMeta, hotplugmigration.Annotation, string(podUID)+"/"+hotplugmigration.Key(kvvmi)+"/retried")
+			podCreated := time.Now().Add(-10 * time.Minute)
+			produced := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseCompleted, "", podCreated.Add(-time.Second))
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi, produced, makeLauncherPod(kvvmi, podCreated))
 			expect(newVM, expectation{
-				message:             "Live migration to apply the CPU changes did not succeed. Restart the virtual machine to apply the changes.",
+				message:             "The virtual machine was migrated to apply the CPU changes, but they have not been applied. Restart the virtual machine to apply the changes.",
 				restartRequired:     true,
 				restartChangesPaths: []string{"cpu.cores"},
 				warning:             true,
+			})
+		})
+
+		It("waits for the runtime right after a completed migration", func() {
+			vm := makeHotplugVM()
+			kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+			podCreated := time.Now().Add(-10 * time.Second)
+			produced := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseCompleted, "", podCreated.Add(-time.Second))
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), kvvmi, produced, makeLauncherPod(kvvmi, podCreated))
+			expect(newVM, expectation{message: "The CPU changes are being applied to the virtual machine."})
+		})
+
+		It("asks for a restart when a change made by the user cannot be migrated", func() {
+			vm := makeHotplugVM()
+			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+				Type:   vmcondition.TypeMigratable.String(),
+				Status: metav1.ConditionFalse,
+				Reason: string(vmcondition.ReasonHostDevicesNotMigratable),
+			})
+			newVM := run(vm, newFeatureGateEnableResourceHotplug(), makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange))
+			expect(newVM, expectation{
+				message:             "The virtual machine cannot be migrated to apply the CPU changes. Restart the virtual machine to apply the changes.",
+				restartRequired:     true,
+				restartChangesPaths: []string{"cpu.cores"},
+				warning:             true,
+			})
+		})
+
+		Context("with a newer CPU change while one is pending", func() {
+			// runChanged applies the VM spec with 2 cores and 2Gi to the KVVM, then reconciles the VM
+			// changed by mutate.
+			runChanged := func(mutate func(vm *v1alpha2.VirtualMachine), conditionTypes ...virtv1.VirtualMachineInstanceConditionType) (*v1alpha2.VirtualMachine, *v1alpha2.VirtualMachineSpec) {
+				vm := makeVM(v1alpha2.MachineRunning)
+				vm.Spec.CPU.CoreFraction = "100%"
+				vm.Status.Resources.CPU.Cores = vm.Spec.CPU.Cores
+				vm.Status.Resources.Memory.Size = vm.Spec.Memory.Size
+				kvvm := makeKVVM(vm)
+				mutateCoreFraction("100%", "100%", "")(nil, vm, kvvm)
+				mutate(vm)
+				fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, makePendingKVVMI(conditionTypes...), makeVMIP(), makeVMClass())
+				featureGates = newFeatureGateEnableResourceHotplug()
+				reconcile()
+
+				newVM := &v1alpha2.VirtualMachine{}
+				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+				newKVVM := &virtv1.VirtualMachine{}
+				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(kvvm), newKVVM)).To(Succeed())
+				lastApplied, err := kvbuilder.LoadLastAppliedSpec(newKVVM)
+				Expect(err).NotTo(HaveOccurred())
+				return newVM, lastApplied
+			}
+
+			It("holds the newer CPU change until the pending one is applied", func() {
+				newVM, lastApplied := runChanged(func(vm *v1alpha2.VirtualMachine) { vm.Spec.CPU.Cores = 3 }, virtv1.VirtualMachineInstanceVCPUChange)
+				Expect(lastApplied.CPU.Cores).To(Equal(2), "the newer number of cores must not reach the internal virtual machine")
+				confApplied, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+				Expect(confApplied.Message).To(HaveSuffix("The newer CPU changes wait until these are applied."))
+				_, awaitingRestart := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, newVM.Status.Conditions)
+				Expect(awaitingRestart).To(BeFalse())
+			})
+
+			It("still applies the other changes", func() {
+				_, lastApplied := runChanged(func(vm *v1alpha2.VirtualMachine) {
+					vm.Spec.CPU.Cores = 3
+					vm.Spec.Memory.Size = resource.MustParse("4Gi")
+				}, virtv1.VirtualMachineInstanceVCPUChange)
+				Expect(lastApplied.CPU.Cores).To(Equal(2))
+				Expect(lastApplied.Memory.Size.String()).To(Equal("4Gi"))
+			})
+
+			It("applies a CPU change at once when none is pending", func() {
+				_, lastApplied := runChanged(func(vm *v1alpha2.VirtualMachine) { vm.Spec.CPU.Cores = 3 })
+				Expect(lastApplied.CPU.Cores).To(Equal(3))
+			})
+
+			It("does not hold the CPU without the last applied spec", func() {
+				// loadLastAppliedSpec returns an empty spec for a KVVM with a missing or invalid annotation.
+				vm := makeVM(v1alpha2.MachineRunning)
+				held, ok := holdPendingCPU(vm, &v1alpha2.VirtualMachineSpec{}, makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange))
+				Expect(ok).To(BeFalse())
+				Expect(held).To(BeIdenticalTo(vm))
+			})
+
+			It("applies a CPU change at once when only a memory change is pending", func() {
+				_, lastApplied := runChanged(func(vm *v1alpha2.VirtualMachine) { vm.Spec.CPU.Cores = 3 }, virtv1.VirtualMachineInstanceMemoryChange)
+				Expect(lastApplied.CPU.Cores).To(Equal(3))
+			})
+		})
+
+		Context("for a step of the autoscaler", func() {
+			// makeAutoscaledVM returns a running VM whose autoscaler asks for 50% while 10% is applied.
+			makeAutoscaledVM := func() *v1alpha2.VirtualMachine {
+				vm := makeVM(v1alpha2.MachineRunning)
+				vm.Spec.CPU.CoreFraction = string(v1alpha2.CoreFractionAuto)
+				sizingpolicy.SetRecommendedCoreFraction(vm, "50%")
+				vm.Status.Resources.CPU.Cores = vm.Spec.CPU.Cores
+				vm.Status.Resources.CPU.CoreFraction = "10%"
+				return vm
+			}
+
+			runAutoscaled := func(vm *v1alpha2.VirtualMachine, objs ...client.Object) *v1alpha2.VirtualMachine {
+				kvvm := makeKVVM(vm)
+				mutateCoreFraction("50%", string(v1alpha2.CoreFractionAuto), "50%")(nil, vm, kvvm)
+				objs = append(objs, kvvm, makeVMIP(), makeVMClass())
+				fakeClient, reconcileObj, vmState = setupEnvironment(vm, objs...)
+				featureGates = newFeatureGateEnableResourceHotplug()
+				reconcile()
+				newVM := &v1alpha2.VirtualMachine{}
+				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+				return newVM
+			}
+
+			// runningAt sets the core fraction the launcher pod runs with.
+			runningAt := func(pod *corev1.Pod, fraction string) *corev1.Pod {
+				pod.Annotations = map[string]string{kvbuilder.CPUResourcesRequestsFractionAnnotation: fraction}
+				return pod
+			}
+
+			It("reports the failed migrations without asking for a restart", func() {
+				vm := makeAutoscaledVM()
+				kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+				pod := runningAt(makeLauncherPod(kvvmi, time.Now().Add(-time.Hour)), "10")
+				newVM := runAutoscaled(vm, append(failedMigrations(vm, kvvmi), kvvmi, pod)...)
+				expect(newVM, expectation{
+					message: "The autoscaler has selected a CPU core fraction of 50%. Live migration to apply the CPU changes failed 4 times: The migration target is unschedulable. The core fraction stays at 10%.",
+					warning: true,
+				})
+			})
+
+			It("does not make up the core fraction the virtual machine runs with when it is unknown", func() {
+				vm := makeAutoscaledVM()
+				kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+				newVM := runAutoscaled(vm, append(failedMigrations(vm, kvvmi), kvvmi)...)
+				expect(newVM, expectation{
+					message: "The autoscaler has selected a CPU core fraction of 50%. Live migration to apply the CPU changes failed 4 times: The migration target is unschedulable. The core fraction stays as it is.",
+					warning: true,
+				})
+			})
+
+			It("reports a repeated migration that has not applied the step without asking for a restart", func() {
+				vm := makeAutoscaledVM()
+				kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+				metav1.SetMetaDataAnnotation(&kvvmi.ObjectMeta, hotplugmigration.Annotation, string(podUID)+"/"+hotplugmigration.Key(kvvmi)+"/retried")
+				podCreated := time.Now().Add(-10 * time.Minute)
+				produced := makeHotplugVMOP(vm, kvvmi, "hotplug-resources-1", v1alpha2.VMOPPhaseCompleted, "", podCreated.Add(-time.Second))
+				newVM := runAutoscaled(vm, kvvmi, produced, runningAt(makeLauncherPod(kvvmi, podCreated), "10"))
+				expect(newVM, expectation{
+					message: "The autoscaler has selected a CPU core fraction of 50%. The virtual machine was migrated to apply the CPU changes, but they have not been applied. The core fraction stays at 10%.",
+					warning: true,
+				})
+			})
+
+			It("leaves the step to the node when the virtual machine cannot be migrated", func() {
+				vm := makeAutoscaledVM()
+				vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+					Type:   vmcondition.TypeMigratable.String(),
+					Status: metav1.ConditionFalse,
+					Reason: string(vmcondition.ReasonHostDevicesNotMigratable),
+				})
+				newVM := runAutoscaled(vm, makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange))
+				expect(newVM, expectation{
+					message: "The autoscaler has selected a CPU core fraction of 50%. The virtual machine cannot be migrated to another node, so the CPU changes wait until its node can apply them in place.",
+				})
+			})
+
+			It("does not ask for a restart when live migration is disabled in the module settings", func() {
+				vm := makeAutoscaledVM()
+				kvvm := makeKVVM(vm)
+				mutateCoreFraction("50%", string(v1alpha2.CoreFractionAuto), "50%")(nil, vm, kvvm)
+				kvvmi := makePendingKVVMI(virtv1.VirtualMachineInstanceVCPUChange)
+				fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, runningAt(makeLauncherPod(kvvmi, time.Now().Add(-time.Hour)), "10"), makeVMIP(), makeVMClass())
+				featureGates = newFeatureGateEnableResourceInPlaceResize()
+				reconcile()
+				newVM := &v1alpha2.VirtualMachine{}
+				Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)).To(Succeed())
+				expect(newVM, expectation{
+					message: "The autoscaler has selected a CPU core fraction of 50%. Live migration to apply the CPU changes is disabled in the module settings. The core fraction stays at 10%.",
+					warning: true,
+				})
 			})
 		})
 	})

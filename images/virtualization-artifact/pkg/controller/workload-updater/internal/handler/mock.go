@@ -92,3 +92,87 @@ func (mock *OneShotMigrationMock) OnceMigrateCalls() []struct {
 	mock.lockOnceMigrate.RUnlock()
 	return calls
 }
+
+// Ensure, that HotplugMigrationMock does implement HotplugMigration.
+// If this is not the case, regenerate this file with moq.
+var _ HotplugMigration = &HotplugMigrationMock{}
+
+// HotplugMigrationMock is a mock implementation of HotplugMigration.
+//
+//	func TestSomethingThatUsesHotplugMigration(t *testing.T) {
+//
+//		// make and configure a mocked HotplugMigration
+//		mockedHotplugMigration := &HotplugMigrationMock{
+//			MigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationValue string) (bool, error) {
+//				panic("mock out the Migrate method")
+//			},
+//		}
+//
+//		// use mockedHotplugMigration in code that requires HotplugMigration
+//		// and then make assertions.
+//
+//	}
+type HotplugMigrationMock struct {
+	// MigrateFunc mocks the Migrate method.
+	MigrateFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationValue string) (bool, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Migrate holds details about calls to the Migrate method.
+		Migrate []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+			// AnnotationKey is the annotationKey argument value.
+			AnnotationKey string
+			// AnnotationValue is the annotationValue argument value.
+			AnnotationValue string
+		}
+	}
+	lockMigrate sync.RWMutex
+}
+
+// Migrate calls MigrateFunc.
+func (mock *HotplugMigrationMock) Migrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationValue string) (bool, error) {
+	if mock.MigrateFunc == nil {
+		panic("HotplugMigrationMock.MigrateFunc: method is nil but HotplugMigration.Migrate was just called")
+	}
+	callInfo := struct {
+		Ctx             context.Context
+		VM              *v1alpha2.VirtualMachine
+		AnnotationKey   string
+		AnnotationValue string
+	}{
+		Ctx:             ctx,
+		VM:              vm,
+		AnnotationKey:   annotationKey,
+		AnnotationValue: annotationValue,
+	}
+	mock.lockMigrate.Lock()
+	mock.calls.Migrate = append(mock.calls.Migrate, callInfo)
+	mock.lockMigrate.Unlock()
+	return mock.MigrateFunc(ctx, vm, annotationKey, annotationValue)
+}
+
+// MigrateCalls gets all the calls that were made to Migrate.
+// Check the length with:
+//
+//	len(mockedHotplugMigration.MigrateCalls())
+func (mock *HotplugMigrationMock) MigrateCalls() []struct {
+	Ctx             context.Context
+	VM              *v1alpha2.VirtualMachine
+	AnnotationKey   string
+	AnnotationValue string
+} {
+	var calls []struct {
+		Ctx             context.Context
+		VM              *v1alpha2.VirtualMachine
+		AnnotationKey   string
+		AnnotationValue string
+	}
+	mock.lockMigrate.RLock()
+	calls = mock.calls.Migrate
+	mock.lockMigrate.RUnlock()
+	return calls
+}

@@ -22,8 +22,12 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate go tool moq -rm -out mock.go . OneShotMigration
+//go:generate go tool moq -rm -out mock.go . OneShotMigration HotplugMigration
 
 type OneShotMigration interface {
 	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
+}
+
+type HotplugMigration interface {
+	Migrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationValue string) (bool, error)
 }
