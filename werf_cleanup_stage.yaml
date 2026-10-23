@@ -1,0 +1,30 @@
+# Cleanup policy for the STAGE registry, where a vX.Y.Z tag is built before
+# Promote copies it into PROD. Used by `cleanup:stage`
+# (.gitlab/ci/jobs/cleanup.yml), one run per edition repo. The first three policies are the same as in
+# werf_cleanup.yaml (dev registry). The last one is stage-only: every release
+# tag keeps all of its images in STAGE for 90 days after the tagged commit, so
+# that Promote can still copy it to PROD long after the build. werf keeps an
+# image when any policy keeps it, so the 72h `tag: /.*/` window does not cut it
+# shorter.
+project: virtualization
+configVersion: 1
+cleanup:
+  keepPolicies:
+  - references:
+      tag: /.*/
+      limit:
+        in: 72h
+  - references:
+      branch: /.*/
+      limit:
+        in: 168h # keep dev images build during last week which not main|pre-alpha
+  - references:
+      branch: /main|release-[0-9]+.*/
+      limit:
+        last: 5 # keep 5 images for branches release-* and main
+    imagesPerReference:
+      last: 1
+  - references:
+      tag: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+      limit:
+        in: 2160h # 90 days: a release must survive until it is promoted

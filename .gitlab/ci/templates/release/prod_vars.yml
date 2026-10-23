@@ -1,19 +1,20 @@
 # PROD registry variable bundle.
 #
 # Anything that uses `extends: .prod_vars` authenticates against the PROD
-# registry (via .login_prod_registry) and gets MODULES_MODULE_SOURCE and
-# ENV=PROD, all sourced from the PROD_* Project Variables.
+# registry (via .login_prod_registry, credentials from Seguro) and gets
+# MODULES_MODULE_SOURCE and ENV=PROD. Only Promote and the release-channel
+# deploys write here; release builds go to STAGE (.stage_vars).
 #
 # MODULES_MODULE_SOURCE is composed dynamically from PROD_REGISTRY,
 # PROD_MODULE_SOURCE_NAME, and the matrix-driven EDITION variable so that
 # ce/ee/se-plus/fe editions can each deploy into the right subpath without
 # duplicating templates.
 #
-# MODULE_EDITION is NOT set here: it is provided per edition by the
-# parallel:matrix in build-prod.yml / deploy-prod.yml (CE for ce, EE for
-# ee/se-plus/fe), matching .github/workflows/release_module_build-and-registration.yml.
-# .werf/consts.yaml defaults MODULE_EDITION to EE, so it MUST be set by the
-# matrix — otherwise the ce prod image is built/deployed as EE.
+# MODULE_EDITION is NOT set here: deploy-prod.yml / promote.yml carry it per
+# edition in their parallel:matrix (CE for ce, EE for ee/se-plus/fe), which
+# mirrors build_prod's so that `needs` can pair the legs. The jobs that really
+# depend on it are the release builds (.stage_vars): .werf/consts.yaml defaults
+# MODULE_EDITION to EE, so a ce build without it would be built as EE.
 #
 # The read-only registry login used by the prod verification jobs lives in
 # base/registry-login.yml as .login_prod_read_registry.

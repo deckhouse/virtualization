@@ -19,7 +19,8 @@
 #                         NOT in dev/MR pipelines. Declared BEFORE build purely
 #                         so prod:build:* can `needs:` it — the early position
 #                         is a DAG-ordering artifact, not a dev-pipeline stage.
-#   build             — werf build for dev / dev-tags / main / prod
+#   build             — werf build for dev / dev-tags / main, and release
+#                       builds into the STAGE registry
 #                       (dev tags are build-only: the DEV registry has no
 #                       release channels, so there is no DEV deploy stage)
 #   fuzz              — corpus replay in a dynamic child pipeline
@@ -28,6 +29,12 @@
 #                         pool (jobs/e2e.yml). One manual job per MR pipeline,
 #                         `needs: [build_dev]`, so its position after scan is a
 #                         DAG artifact rather than a real ordering requirement.
+#   promote             — copy a release from the STAGE registry into PROD by
+#                         digest (upstream `.promote`, whose default stage is
+#                         `deploy`, absent here). Manual per-edition jobs, both
+#                         on a tag push (jobs/promote.yml) and in the Run
+#                         pipeline release flow (release-channels.yml). The
+#                         only stage that writes release images into PROD.
 #   deploy_prod         — prod release-channel deploy. ONE stage with independent
 #                         manual jobs per channel (tag-push flow, deploy-prod.yml)
 #                         and per-edition deploy from Run pipeline
@@ -56,6 +63,7 @@ stages:
   - fuzz
   - scan
   - e2e
+  - promote
   - deploy_prod
   - prod_verify
   - prod_release

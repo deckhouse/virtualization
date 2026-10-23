@@ -3,7 +3,8 @@
 # Carries forward the cleanup job from the previous root .gitlab-ci.yml and
 # the GitHub .github/workflows/dev_registry-cleanup.yml workflow. Runs only
 # on scheduled pipelines and prunes old module images from the DEV registry
-# using werf cleanup --without-kube=true --config werf_cleanup.yaml.
+# using werf cleanup --without-kube=true --config werf_cleanup.yaml. The STAGE
+# registry is pruned by `cleanup:stage` at the end of this file.
 #
 # The weekly cadence (GitHub cron "12 0 * * 6") is configured in the
 # GitLab UI under CI/CD -> Schedules, not here. This job only gates on
@@ -45,3 +46,34 @@ cleanup:
   script:
     - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf
     - werf cleanup --repo ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} --without-kube=true --config werf_cleanup.yaml
+
+# STAGE registry cleanup.
+#
+# A vX.Y.Z tag is built into STAGE (build_prod, prod:build:*) and copied into
+# PROD by Promote; STAGE keeps the builds until then, so it needs pruning of
+# its own. Same schedule and gating as `cleanup` above, one run per edition:
+# every edition has its own STAGE repo (.stage_vars composes the path from
+# EDITION, the way the release builds do). Credentials come from Seguro via
+# .stage_vars, which hands them out to protected refs only — the schedule runs
+# on main, which is protected.
+#
+# werf_cleanup_stage.yaml is werf_cleanup.yaml plus a 90-day keep window for
+# vX.Y.Z tags, so a release stays promotable long after its build.
+cleanup:stage:
+  stage: cleanup
+  # Mutates the registry (werf cleanup); never auto-cancel mid-run. Also set by
+  # .stage_vars, stated here for parity with `cleanup`.
+  interruptible: false
+  extends:
+    - .stage_vars
+  variables:
+    MODULES_MODULE_TAG: v0.0.0-main
+    WERF_DRY_RUN: "false"
+  parallel:
+    matrix:
+      - EDITION: [ce, ee, se-plus, fe]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "cleanup"
+  script:
+    - bash .gitlab/ci/scripts/bash/check-runner-tools.sh werf
+    - werf cleanup --repo ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} --without-kube=true --config werf_cleanup_stage.yaml

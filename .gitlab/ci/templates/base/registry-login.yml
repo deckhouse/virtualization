@@ -5,14 +5,88 @@
 #   1. ALWAYS logs into $MODULES_REGISTRY using
 #      $MODULES_REGISTRY_LOGIN / $MODULES_REGISTRY_PASSWORD — the primary
 #      registry the job builds/pushes/pulls against.
-#   2. ADDITIONALLY logs into $DEV_MODULES_REGISTRY when its credentials are
-#      set — a second registry used only to pull already-built layers.
+#   2. ADDITIONALLY logs into $DEV_MODULES_REGISTRY and $STAGE_MODULES_REGISTRY
+#      when their credentials are set.
 #
 # These templates just populate those variables, so `extends`-ing them selects
 # which registries a job authenticates to. Pick the primary with exactly one of
-# .login_dev_registry / .login_prod_registry / .login_prod_read_registry, and
-# add .dev_registry_pull_login when a prod job must also read the DEV registry.
-# Prod BUILD jobs additionally add .werf_secondary_repo to reuse DEV-built layers.
+# .login_dev_registry / .login_stage_registry / .login_prod_registry /
+# .login_prod_read_registry.
+#
+# Release images go through two registries, and neither is reachable from the
+# dev side: a release is built into the STAGE registry and copied into PROD only
+# by Promote (jobs/promote.yml, prod:promote:* in jobs/release-channels.yml).
+# The stage and prod credentials come from Seguro, never from CI/CD variables,
+# and Seguro hands them out to protected refs only (role
+# virtualization-production, team/security/seguro-policy). The dev and the
+# read-only credentials are still project variables.
+
+# Seguro login shared by the stage and prod credential bundles below. The role
+# is set here rather than globally: other jobs (build-fuzz.yml, cve-scan.yml)
+# authenticate to Seguro under roles of their own.
+.seguro_production:
+  variables:
+    VAULT_SERVER_URL: https://seguro.flant.com
+    VAULT_AUTH_PATH: fox
+    VAULT_AUTH_ROLE: virtualization-production
+  id_tokens:
+    VAULT_ID_TOKEN:
+      aud: gitlab-access-aud
+
+# STAGE registry credentials. GitLab resolves `secrets:` before before_script,
+# so they are in place when Setup logs in. A reference to a secret is not
+# expanded in `variables:`, so every name a consumer reads is a secret of its
+# own (file: false puts the value straight into the environment):
+#   MODULES_REGISTRY_*        — Setup's primary login (stage builds, cleanup);
+#   STAGE_MODULES_REGISTRY_*  — the stage login of `.promote` (and of Setup);
+#   REGISTRY_USER/PASSWORD    — cosign, which attaches the VEX attestations of a
+#                               build to the images it pushed
+#                               (.werf/defines/vex.tmpl).
+.stage_registry_credentials:
+  extends:
+    - .seguro_production
+  secrets:
+    MODULES_REGISTRY_LOGIN:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/stage-registry/modules/virtualization/login@projects
+      token: $VAULT_ID_TOKEN
+      file: false
+    MODULES_REGISTRY_PASSWORD:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/stage-registry/modules/virtualization/password@projects
+      token: $VAULT_ID_TOKEN
+      file: false
+    STAGE_MODULES_REGISTRY_LOGIN:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/stage-registry/modules/virtualization/login@projects
+      token: $VAULT_ID_TOKEN
+      file: false
+    STAGE_MODULES_REGISTRY_PASSWORD:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/stage-registry/modules/virtualization/password@projects
+      token: $VAULT_ID_TOKEN
+      file: false
+    REGISTRY_USER:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/stage-registry/modules/virtualization/login@projects
+      token: $VAULT_ID_TOKEN
+      file: false
+    REGISTRY_PASSWORD:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/stage-registry/modules/virtualization/password@projects
+      token: $VAULT_ID_TOKEN
+      file: false
+
+# PROD registry credentials, as Setup's primary login. Listed after
+# .stage_registry_credentials in a Promote job's `extends`, so the merged
+# `secrets:` keeps the stage login under STAGE_MODULES_REGISTRY_* and the prod
+# one under MODULES_REGISTRY_*.
+.prod_registry_credentials:
+  extends:
+    - .seguro_production
+  secrets:
+    MODULES_REGISTRY_LOGIN:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/registry-write/modules/virtualization/login@projects
+      token: $VAULT_ID_TOKEN
+      file: false
+    MODULES_REGISTRY_PASSWORD:
+      vault: 101ceaca-97cd-462f-aed5-070d9b9de175/registry-write/modules/virtualization/password@projects
+      token: $VAULT_ID_TOKEN
+      file: false
 
 # Primary = DEV registry (write). Used by all dev builds
 # (MR / main / release-* / dev tags); pulled in via .dev_vars.
@@ -25,16 +99,21 @@
     REGISTRY_USER: "${MODULES_REGISTRY_LOGIN}"
     REGISTRY_PASSWORD: "${MODULES_REGISTRY_PASSWORD}"
 
-# Primary = PROD registry (write). Used by prod release builds/deploys;
-# pulled in via .prod_vars.
+# Primary = STAGE registry (write). Used by release builds (build_prod,
+# prod:build:*) and the stage cleanup; pulled in via .stage_vars.
+.login_stage_registry:
+  extends:
+    - .stage_registry_credentials
+  variables:
+    MODULES_REGISTRY: "${STAGE_MODULES_REGISTRY}"
+
+# Primary = PROD registry (write). Used by Promote and the release-channel
+# deploys; pulled in via .prod_vars.
 .login_prod_registry:
+  extends:
+    - .prod_registry_credentials
   variables:
     MODULES_REGISTRY: "${PROD_REGISTRY}"
-    MODULES_REGISTRY_LOGIN: "${PROD_MODULES_REGISTRY_LOGIN}"
-    MODULES_REGISTRY_PASSWORD: "${PROD_MODULES_REGISTRY_PASSWORD}"
-    # Generic aliases some tooling expects for the primary registry credentials.
-    REGISTRY_USER: "${MODULES_REGISTRY_LOGIN}"
-    REGISTRY_PASSWORD: "${MODULES_REGISTRY_PASSWORD}"
 
 # Primary = PROD read-only registry. Used by the version/requirements check
 # jobs (prod:check-requirements, prod:check-version). NOTE: the Go/bash tools
@@ -45,31 +124,3 @@
     MODULES_REGISTRY: "${PROD_READ_REGISTRY}"
     MODULES_REGISTRY_LOGIN: "${PROD_READ_REGISTRY_USER}"
     MODULES_REGISTRY_PASSWORD: "${PROD_READ_REGISTRY_PASSWORD}"
-
-# Additional DEV login for prod jobs that must ALSO read the DEV registry.
-# Compose with the prod primary, e.g.:
-#   extends: [.prod_vars, .dev_registry_pull_login]
-# Needed by BOTH prod builds (which reuse DEV layers, see .werf_secondary_repo) and
-# prod deploys (which crane-copy the source image out of the DEV registry). Dev
-# jobs never need it — their primary already IS the DEV registry.
-.dev_registry_pull_login:
-  variables:
-    DEV_MODULES_REGISTRY: "${DEV_REGISTRY}"
-    DEV_MODULES_REGISTRY_LOGIN: "${DEV_MODULES_REGISTRY_LOGIN}"
-    DEV_MODULES_REGISTRY_PASSWORD: "${DEV_MODULES_REGISTRY_PASSWORD}"
-
-# werf secondary read-only repos (the WERF_SECONDARY_REPO_* family): repos with
-# already-built images that `werf build` reuses as a cache, so prod builds don't
-# rebuild from scratch. Group all WERF_SECONDARY_REPO_N here; today we set just
-# _1 = the DEV registry. These are consumed ONLY by `werf build`, so this belongs
-# on BUILD jobs alone — never on deploy jobs, which crane-copy rather than build.
-# WERF_SECONDARY_REPO_1 mirrors the GitHub build action input
-# `secondary_repo: "${vars.DEV_MODULE_SOURCE}/${vars.MODULE_NAME}"` (exported as
-# WERF_SECONDARY_REPO_1 by modules-actions/build), which in the GH workflows is
-# passed to build@v4 only, never to deploy@v2. (Related werf repo families if
-# ever needed: WERF_REPO — primary, set by upstream Setup; WERF_CACHE_REPO_*;
-# WERF_FINAL_REPO.) Compose alongside .dev_registry_pull_login on build jobs:
-#   extends: [.prod_vars, .dev_registry_pull_login, .werf_secondary_repo, .base_build]
-.werf_secondary_repo:
-  variables:
-    WERF_SECONDARY_REPO_1: "${DEV_MODULE_SOURCE}/${MODULE_NAME}"

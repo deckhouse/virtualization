@@ -1,0 +1,28 @@
+# STAGE registry variable bundle.
+#
+# Anything that uses `extends: .stage_vars` authenticates against the STAGE
+# registry (via .login_stage_registry) and builds into its per-edition path.
+# Release builds (build_prod on a tag push, prod:build:* in the manual release
+# flow) use it instead of .prod_vars: a release is built into STAGE and reaches
+# PROD only through Promote, which copies exactly those images by digest.
+#
+# STAGE mirrors the PROD layout (<PROD_MODULE_SOURCE_NAME>/<edition>/modules),
+# so Promote copies between the same relative paths. MODULES_MODULE_SOURCE
+# drives WERF_REPO (upstream Setup derives it as
+# ${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}), so werf uses the STAGE repo
+# as its only cache: the DEV registry is a different build contour and must not
+# be read from here, which is why the first release build after a fresh STAGE
+# repo is cold.
+#
+# MODULE_EDITION is NOT set here, for the same reason as in .prod_vars: it is
+# provided per edition by the job (parallel:matrix or explicit variables).
+
+.stage_vars:
+  extends:
+    - .login_stage_registry
+  # Release builds must never be auto-cancelled mid-release; override the
+  # global `interruptible: true` default, as .prod_vars does.
+  interruptible: false
+  variables:
+    MODULES_MODULE_SOURCE: "${STAGE_MODULES_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
+    ENV: PROD

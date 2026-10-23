@@ -18,7 +18,7 @@
 # .github/workflows/dev_module_build.yml, which ran
 # deckhouse/modules-actions/lint@v2 with continue-on-error: true.
 #
-# Consumes the rules-free `.lint_base` from the upstream modules-gitlab-ci
+# Consumes the rules-free `.lint_base` from the upstream ssdlc/gitlab-ci
 # Build.gitlab-ci.yml (included via .gitlab/ci/includes.yml): it provides the
 # `dmt lint ./` script and allow_failure: true. We override the stage to our
 # `lint` stage and add `.dev` for MR-only gating (`.lint_base` carries no rules,

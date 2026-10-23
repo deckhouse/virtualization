@@ -1,0 +1,82 @@
+# Copyright 2026 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Promote job (tag-push flow).
+#
+# build_prod builds a vX.Y.Z tag into the STAGE registry; this job copies that
+# exact release into PROD, so PROD receives only what was built for the release.
+# The copy is the upstream `.promote` (ssdlc/gitlab-ci Promote.gitlab-ci.yml):
+# every component image listed in the bundle's /images_digests.json plus its
+# `.att` attestation by digest, then the bundle tag, the module registration
+# and `release:<tag>`. The release-channel deploys (deploy-prod.yml) need this
+# job, not the build. The Run pipeline release flow has its own counterpart,
+# manual in the same way: prod:promote:* in release-channels.yml.
+#
+# One job per edition, with the same matrix as build_prod: `needs` pairs each
+# leg with the build of the same edition, and GitLab only matches a
+# `needs:parallel:matrix` entry when every matrix variable matches, so
+# MODULE_EDITION is listed although Promote does not read it.
+#
+# Registries: SOURCE is the STAGE path the build wrote to, TARGET the PROD one.
+# Setup's global before_script logs into PROD (MODULES_REGISTRY_* from
+# .prod_tag -> .prod_vars), `.promote_login` into STAGE (STAGE_MODULES_REGISTRY_*
+# from .stage_registry_credentials). The order of `extends` matters: the PROD
+# bundle comes last so its MODULES_REGISTRY_* win the `secrets:` merge.
+#
+# Not overridden on purpose:
+#   - `tags`: `.promote` pins the `deckhouse-build-prod` runner, the only one
+#     allowed to write to PROD; a job-level `tags:` would replace it.
+#   - `before_script`: `.promote_login` calls the werf that Setup's
+#     before_script installs.
+#
+# Manual, like each channel deploy: a pushed tag lands in STAGE on its own and
+# reaches PROD on a click. `allow_failure: false` keeps the pipeline waiting on
+# the button and turns it red if Promote fails. It is the default for
+# `when: manual` inside `rules`, but `.promote` sets `when: manual` at job
+# level, where the default is the opposite, so it is stated explicitly.
+
+promote:
+  stage: promote
+  # Same per-(tag, edition) mutex as build_prod: a Promote never overlaps a
+  # re-run of the build it copies.
+  resource_group: "prod:${CI_COMMIT_TAG}:${EDITION}"
+  extends:
+    - .promote
+    - .stage_registry_credentials
+    - .prod_tag
+  variables:
+    MODULES_MODULE_SOURCE: "${STAGE_MODULES_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
+    MODULES_MODULE_TARGET: "${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
+  rules:
+    # https://regex101.com/r/lToOvi/1
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: manual
+      allow_failure: false
+    - when: never
+  needs:
+    - job: build_prod
+      parallel:
+        matrix:
+          - EDITION: $[[ matrix.EDITION ]]
+            MODULE_EDITION: $[[ matrix.MODULE_EDITION ]]
+  parallel:
+    matrix:
+      - EDITION: ce
+        MODULE_EDITION: CE
+      - EDITION: ee
+        MODULE_EDITION: EE
+      - EDITION: se-plus
+        MODULE_EDITION: EE
+      - EDITION: fe
+        MODULE_EDITION: EE

@@ -1,13 +1,29 @@
 # Prod release-channels parity with GitHub.
 #
 # Port of .github/workflows/release_module_release-channels.yml: a manual,
-# single-channel/single-tag release dispatch with on-demand build, deploy,
-# version verification, GitLab release creation, and a Loop notification.
+# single-channel/single-tag release dispatch with on-demand build + promote,
+# deploy, version verification, GitLab release creation, and a Loop
+# notification.
 #
-# Trigger: CI/CD -> Pipelines -> Run pipeline, on ANY ref (typically main) with
-# $RELEASE_TAG set (CI_PIPELINE_SOURCE == "web"). These jobs run ONLY on such
-# manual web pipelines, so they never collide with the tag-push flow
-# (build_prod / deploy_to_prod_* in build-prod.yml / deploy-prod.yml).
+# Trigger: CI/CD -> Pipelines -> Run pipeline, on a protected ref (typically
+# main) with $RELEASE_TAG set (CI_PIPELINE_SOURCE == "web"). These jobs run ONLY
+# on such manual web pipelines, so they never collide with the tag-push flow
+# (build_prod / promote / deploy_to_prod_* in build-prod.yml / promote.yml /
+# deploy-prod.yml). The ref must be protected: Seguro hands the STAGE and PROD
+# registry credentials out to protected refs only, so a run from an unprotected
+# branch fails at the first registry job.
+#
+# Registries: the build writes to STAGE (.stage_vars), prod:promote:<edition>
+# copies that release into PROD by digest (upstream `.promote`), and the deploy
+# moves the channel inside PROD. With ENABLE_BUILD=true the pipeline stops after
+# the build: each prod:promote:<edition> is a button, exactly like `promote` in
+# the tag-push flow, so the STAGE image can be checked (e.g. through a
+# ModulePullOverride) before it reaches PROD. The deploy of an edition waits for
+# the promote of that edition; the version check, the GitLab release and the
+# Loop report wait for the deploys of every selected edition. With
+# ENABLE_BUILD=false there is neither a build nor a promote: the deploy expects
+# release:<tag> to be in PROD already (promoted by the tag-push flow or an
+# earlier run).
 #
 # Run pipeline UI variables (all optional except RELEASE_TAG):
 #   RELEASE_CHANNEL          alpha|beta|early-access|stable|rock-solid (default alpha)
@@ -116,8 +132,8 @@ prod:print-vars:
   script:
     - |
       set -e
-      echo "MODULES_REGISTRY=${PROD_REGISTRY}"
-      echo "MODULES_MODULE_SOURCE=${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/<edition>/modules"
+      echo "BUILD_SOURCE=${STAGE_MODULES_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/<edition>/modules"
+      echo "PROMOTE_TARGET=${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/<edition>/modules"
       echo "MODULES_MODULE_NAME=${MODULES_MODULE_NAME}"
       echo "PIPELINE_REF=${CI_COMMIT_REF_NAME}"
       echo "RELEASE_CHANNEL=${RELEASE_CHANNEL}"
@@ -204,6 +220,28 @@ prod:check-requirements:
     - git checkout "tags/${RELEASE_TAG}"
     - !reference [.base_build, script]
 
+# Release promote body: copy the release prod:build:<edition> just built into
+# STAGE over to PROD (upstream `.promote`, see jobs/promote.yml for the details
+# shared with the tag-push flow). Same registry wiring as there: STAGE
+# credentials for `.promote_login`, the PROD bundle last so Setup logs into
+# PROD; `tags` (the deckhouse-build-prod runner) and `before_script` stay the
+# upstream ones. `.promote` is manual and tag-only; here it stays manual but is
+# gated on the Run pipeline inputs instead of a tag, so each job states its own
+# rule. `allow_failure: false` keeps the pipeline waiting on the button and
+# turns it red if the promote fails, as in jobs/promote.yml.
+.prod_release_promote:
+  extends:
+    - .promote
+    - .stage_registry_credentials
+    - .prod_vars
+  stage: promote
+  when: manual
+  allow_failure: false
+  variables:
+    MODULES_MODULE_SOURCE: "${STAGE_MODULES_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
+    MODULES_MODULE_TARGET: "${PROD_REGISTRY}/${PROD_MODULE_SOURCE_NAME}/${EDITION}/modules"
+    MODULES_MODULE_TAG: "${RELEASE_TAG}"
+
 # --- CE ---
 prod:build:ce:
   stage: build
@@ -211,9 +249,7 @@ prod:build:ce:
   extends:
     - .prod_release_rules
     - .prod_release_build
-    - .prod_vars
-    - .dev_registry_pull_login
-    - .werf_secondary_repo
+    - .stage_vars
   needs:
     - job: prod:check-requirements
       optional: true
@@ -225,6 +261,20 @@ prod:build:ce:
     - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_CE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
     - when: never
 
+prod:promote:ce:
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ce"
+  extends:
+    - .prod_release_rules
+    - .prod_release_promote
+  needs: ["prod:build:ce"]
+  variables:
+    EDITION: ce
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_CE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+      when: manual
+      allow_failure: false
+    - when: never
+
 prod:deploy:ce:
   stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ce"
@@ -232,11 +282,12 @@ prod:deploy:ce:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dev_registry_pull_login
   needs:
     - job: prod:check-requirements
       optional: true
     - job: prod:build:ce
+      optional: true
+    - job: prod:promote:ce
       optional: true
   variables:
     EDITION: ce
@@ -253,9 +304,7 @@ prod:build:ee:
   extends:
     - .prod_release_rules
     - .prod_release_build
-    - .prod_vars
-    - .dev_registry_pull_login
-    - .werf_secondary_repo
+    - .stage_vars
   needs:
     - job: prod:check-requirements
       optional: true
@@ -267,6 +316,20 @@ prod:build:ee:
     - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
     - when: never
 
+prod:promote:ee:
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ee"
+  extends:
+    - .prod_release_rules
+    - .prod_release_promote
+  needs: ["prod:build:ee"]
+  variables:
+    EDITION: ee
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+      when: manual
+      allow_failure: false
+    - when: never
+
 prod:deploy:ee:
   stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:ee"
@@ -274,11 +337,12 @@ prod:deploy:ee:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dev_registry_pull_login
   needs:
     - job: prod:check-requirements
       optional: true
     - job: prod:build:ee
+      optional: true
+    - job: prod:promote:ee
       optional: true
   variables:
     EDITION: ee
@@ -295,9 +359,7 @@ prod:build:se-plus:
   extends:
     - .prod_release_rules
     - .prod_release_build
-    - .prod_vars
-    - .dev_registry_pull_login
-    - .werf_secondary_repo
+    - .stage_vars
   needs: ["prod:build:ee"]
   variables:
     EDITION: se-plus
@@ -307,6 +369,20 @@ prod:build:se-plus:
     - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
     - when: never
 
+prod:promote:se-plus:
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:se-plus"
+  extends:
+    - .prod_release_rules
+    - .prod_release_promote
+  needs: ["prod:build:se-plus"]
+  variables:
+    EDITION: se-plus
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+      when: manual
+      allow_failure: false
+    - when: never
+
 prod:deploy:se-plus:
   stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:se-plus"
@@ -314,9 +390,10 @@ prod:deploy:se-plus:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dev_registry_pull_login
   needs:
     - job: prod:build:se-plus
+      optional: true
+    - job: prod:promote:se-plus
       optional: true
     # SE-Plus derives from EE: block its deploy whenever the EE deploy is
     # blocked (e.g. a failed prod:check-requirements skips deploy:ee). On a
@@ -339,9 +416,7 @@ prod:build:fe:
   extends:
     - .prod_release_rules
     - .prod_release_build
-    - .prod_vars
-    - .dev_registry_pull_login
-    - .werf_secondary_repo
+    - .stage_vars
   needs: ["prod:build:ee"]
   variables:
     EDITION: fe
@@ -351,6 +426,20 @@ prod:build:fe:
     - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
     - when: never
 
+prod:promote:fe:
+  resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:fe"
+  extends:
+    - .prod_release_rules
+    - .prod_release_promote
+  needs: ["prod:build:fe"]
+  variables:
+    EDITION: fe
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web" && $RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/ && $EDITION_EE == "true" && $CHECK_ONLY != "true" && $ENABLE_BUILD == "true"
+      when: manual
+      allow_failure: false
+    - when: never
+
 prod:deploy:fe:
   stage: deploy_prod
   resource_group: "prod-release:${RELEASE_CHANNEL}:${RELEASE_TAG}:fe"
@@ -358,9 +447,10 @@ prod:deploy:fe:
     - .prod_release_rules
     - .prod_deploy_script
     - .prod_vars
-    - .dev_registry_pull_login
   needs:
     - job: prod:build:fe
+      optional: true
+    - job: prod:promote:fe
       optional: true
     # FE derives from EE: block its deploy whenever the EE deploy is blocked
     # (e.g. a failed prod:check-requirements skips deploy:ee). On a deploy-only

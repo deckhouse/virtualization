@@ -19,7 +19,7 @@
 
 # Shared base for the DEV-registry build jobs.
 #
-# - .base_build (this repo): consumes the upstream modules-gitlab-ci
+# - .base_build (this repo): consumes the upstream ssdlc/gitlab-ci
 #   Build.gitlab-ci.yml `.build_base` (werf build --save-build-report + bundle/
 #   attestation crane copy + release-channel crane copy + crane append to
 #   register the module), which is rules-free so it does not override our strict

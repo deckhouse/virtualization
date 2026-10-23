@@ -6,7 +6,7 @@
 # build-only (see build_dev_tags).
 #
 # It no longer carries a verbatim copy of the upstream deploy script. Instead it
-# consumes the rules-free `.deploy_base` from the upstream modules-gitlab-ci
+# consumes the rules-free `.deploy_base` from the upstream ssdlc/gitlab-ci
 # Deploy.gitlab-ci.yml (included via .gitlab/ci/includes.yml) with
 # `!reference [.deploy_base, script]`, and only prepends the local
 # check-runner-tools guard.

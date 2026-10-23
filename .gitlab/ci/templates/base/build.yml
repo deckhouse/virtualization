@@ -4,7 +4,7 @@
 # (build_dev / build_main / build_prod / prod:build:* / precache / svace:build).
 #
 # It no longer carries a verbatim copy of the upstream build script. Instead it
-# consumes the rules-free `.build_base` from the upstream modules-gitlab-ci
+# consumes the rules-free `.build_base` from the upstream ssdlc/gitlab-ci
 # Build.gitlab-ci.yml (included via .gitlab/ci/includes.yml) with
 # `!reference [.build_base, script]`, and only prepends the local
 # check-runner-tools guard. This keeps a single source of truth for the build

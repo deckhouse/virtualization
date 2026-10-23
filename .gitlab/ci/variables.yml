@@ -7,8 +7,8 @@
 # Legacy variable migration:
 #   EXTERNAL_MODULES_DEV_REGISTRY_LOGIN    -> DEV_MODULES_REGISTRY_LOGIN
 #   EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD -> DEV_MODULES_REGISTRY_PASSWORD
-#   EXTERNAL_MODULES_PROD_REGISTRY_LOGIN   -> PROD_MODULES_REGISTRY_LOGIN
-#   EXTERNAL_MODULES_PROD_REGISTRY_PASSWORD-> PROD_MODULES_REGISTRY_PASSWORD
+#   EXTERNAL_MODULES_PROD_REGISTRY_LOGIN   -> Seguro (see PROD registry below)
+#   EXTERNAL_MODULES_PROD_REGISTRY_PASSWORD-> Seguro (see PROD registry below)
 # Hardcoded registry hosts (`dev-registry.deckhouse.io`,
 # `registry-write.deckhouse.io`, `sys/deckhouse-oss/modules`,
 # `deckhouse/${EDITION}/modules`) move to DEV_REGISTRY / DEV_MODULE_SOURCE /
@@ -51,7 +51,7 @@ variables:
   MODULES_MODULE_NAME: virtualization
 
   # --- Werf / base images / lib-helm ---
-  # These match upstream modules-gitlab-ci Setup.gitlab-ci.yml defaults.
+  # These match upstream ssdlc/gitlab-ci Setup.gitlab-ci.yml defaults.
   # Override at the project level once the base-images + lib-helm versions
   # are validated against this module's werf config.
   BASE_IMAGES_VERSION: v0.5.7
@@ -71,15 +71,21 @@ variables:
   # Required Project Variables (masked):
   #   DEV_MODULES_REGISTRY_PASSWORD
   #
-  # --- PROD registry (vars-only) ---
+  # --- PROD registry ---
   # Required Project Variables (vars):
   #   PROD_REGISTRY                 e.g. registry-write.deckhouse.io
   #   PROD_MODULE_SOURCE_NAME       e.g. deckhouse
-  #   PROD_MODULES_REGISTRY_LOGIN
-  # Required Project Variables (masked):
-  #   PROD_MODULES_REGISTRY_PASSWORD
+  # The write credentials are NOT project variables: they come from Seguro
+  # (registry-write/modules/virtualization, role virtualization-production),
+  # see templates/base/registry-login.yml.
   # Optional read-only license registry (used by cve-scan + check:requirements):
   #   PROD_READ_REGISTRY, PROD_READ_REGISTRY_USER, PROD_READ_REGISTRY_PASSWORD
+  #
+  # --- STAGE registry ---
+  # Where a release is built before Promote copies it into PROD. Same
+  # <PROD_MODULE_SOURCE_NAME>/<edition>/modules layout as PROD. Credentials come
+  # from Seguro (stage-registry/modules/virtualization), like the PROD ones.
+  STAGE_MODULES_REGISTRY: registry-stage.deckhouse.io
 
   # --- CVE scan (Trivy) ---
   # Required Project Variable (vars, not masked):
@@ -142,7 +148,7 @@ variables:
   # below when creating a pipeline schedule:
   #
   #   Job(s)                         SCHEDULE_TYPE                    Intended cron
-  #   cleanup                        cleanup                          12 0 * * 6
+  #   cleanup, cleanup:stage         cleanup                          12 0 * * 6
   #   cve:scan:daily                 cve-scan-daily                   0 2 * * *
   #   svace:*                        svace                            0 4 * * 6
   #   gitleaks:full:scheduled        gitleaks-full                    daily

@@ -8,8 +8,8 @@
 # All stages, jobs, and helper templates are loaded through
 # .gitlab/ci/includes.yml (see that file for the full include list).
 #
-# Upstream templates are sourced from deckhouse/3p/deckhouse/modules-gitlab-ci
-# at ref v15.0, including fuzz build/replay. The ref is configured in
+# Upstream templates are sourced from deckhouse/ssdlc/gitlab-ci at a pinned
+# release tag, including fuzz build/replay and promote. The ref is configured in
 # .gitlab/ci/includes.yml.
 
 include:

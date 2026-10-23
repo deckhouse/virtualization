@@ -8,7 +8,7 @@
 # In GitHub the SAME vX.Y.Z tag also triggers the prod build
 # (release_module_build-and-registration.yml). We reproduce that by NOT making
 # this rule mutually exclusive with .prod_always: on a vX.Y.Z tag both
-# build_dev_tags (DEV, here) and build_prod (PROD, .prod_always) run in the
+# build_dev_tags (DEV, here) and build_prod (STAGE, .prod_always) run in the
 # same pipeline; on a vX.Y.Z-rc.N tag only this DEV build runs (the prod rule
 # is strict `^vX.Y.Z$`). This intentionally drops the previous GitLab-only
 # `-dev*` scheme, which never matched a real GitHub tag.

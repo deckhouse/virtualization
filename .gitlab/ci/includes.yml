@@ -2,40 +2,48 @@
 #
 # Order is significant: stages/variables/defaults must be loaded before any
 # job file because GitLab CI merges variables and stages across all included
-# documents. The Setup template from modules-gitlab-ci provides its own
-# stages: [build, deploy]; we explicitly extend stages via .gitlab/ci/stages.yml
-# so the final list is the union of both.
+# documents. The Setup template provides its own stages: [build, deploy]; we
+# explicitly extend stages via .gitlab/ci/stages.yml so the final list is the
+# union of both.
 #
-# Upstream template names (deckhouse/3p/deckhouse/modules-gitlab-ci, v15.0):
-#   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dual-registry login)
+# Upstream template names (deckhouse/ssdlc/gitlab-ci, v1.0.5):
+#   - Setup.gitlab-ci.yml           (trdl + werf + ci-env + dev/stage/primary
+#                                   registry login)
 #   - Build.gitlab-ci.yml           (.build_base — werf build + bundle/attestation
 #                                   copy + release-channel copy + registration;
 #                                   .lint_base — dmt lint)
 #   - Deploy.gitlab-ci.yml          (.deploy_base — release-channel crane copy)
+#   - Promote.gitlab-ci.yml         (.promote — copy a release from the stage
+#                                   registry to prod by digest)
 #   - CVE_Scan.gitlab-ci.yml        (.cve_scan — Trivy scan via Vault)
 #   - gitleaks.gitlab-ci.yml        (.gitleaks_scan — secrets scanning)
 #   - Svace.gitlab-ci.yml           (.svace — analysis + svacer autoimport +
 #                                   autoreview in a single job; replaces the old
 #                                   .svace_analyze from Svace_Analayze.gitlab-ci.yml)
 #   - Build_Fuzz.gitlab-ci.yml     (.fuzz_build + .fuzz_replay child pipeline)
-#   - Translate_Changelog.gitlab-ci.yml (included from jobs/translate-changelog.yml)
+#   - Translate_Changelog.gitlab-ci.yml (.translate_and_create_mr, consumed by
+#                                   jobs/translate-changelog.yml)
 #
-# We include only the templates actually consumed by local jobs (Setup, Build,
-# Deploy, CVE_Scan, gitleaks, Svace, Build_Fuzz). The *_base bodies are
-# rules-free, so our own .dev / .main / .prod context templates drive gating.
+# We include only the templates actually consumed by local jobs. The *_base
+# bodies are rules-free, so our own .dev / .main / .prod context templates
+# drive gating.
 
 include:
-  # --- Upstream modules-gitlab-ci (deckhouse/3p, ref v15.0) ---
-  # Tracks the v15.0 branch so upstream fixes flow in automatically. The
-  # rules-free base split (.build_base / .deploy_base / .lint_base, upstream
-  # #89) and the CVE_Scan variable-collision fix (previously carried on the
-  # `fast-fix` branch) have both landed in v15.0; to pin for reproducibility,
-  # swap the ref for a tagged SHA.
-  - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
-    ref: &templates_ref v15.0
+  # --- Upstream ssdlc/gitlab-ci (ref v1.0.5) ---
+  # Pinned to a release tag on purpose: the templates have no compatibility
+  # contract or test suite, and every release-channel rollout (Run pipeline,
+  # release-channels.yml) is a new pipeline that would otherwise pick up a new
+  # template version in the middle of a release. Bump the ref by hand in a
+  # dedicated MR. It is the only template ref in the pipeline: every template,
+  # Translate_Changelog included, is listed here, and FUZZ_REPLAY_TEMPLATE_REF
+  # below reuses the anchor (YAML anchors do not cross files, and include:ref
+  # does not expand variables from `variables:`).
+  - project: "deckhouse/ssdlc/gitlab-ci"
+    ref: &templates_ref v1.0.5
     file:
-      # Setup.gitlab-ci.yml provides trdl + werf setup + dual-registry
-      # `werf cr login` in before_script. See templates/Setup.gitlab-ci.yml.
+      # Setup.gitlab-ci.yml provides trdl + werf setup + `werf cr login` into
+      # the primary registry (plus DEV/STAGE when their credentials are set)
+      # in before_script. See templates/Setup.gitlab-ci.yml.
       - "/templates/Setup.gitlab-ci.yml"
       # Build.gitlab-ci.yml provides the rules-free `.build_base` (werf build +
       # bundle/attestation copy + release-channel copy + module registration)
@@ -47,6 +55,10 @@ include:
       # would otherwise override it).
       - "/templates/Build.gitlab-ci.yml"
       - "/templates/Deploy.gitlab-ci.yml"
+      # Promote.gitlab-ci.yml provides `.promote`: the only way release images
+      # reach the prod registry (stage -> prod by digest). Consumed by
+      # jobs/promote.yml and the prod:promote:* jobs in jobs/release-channels.yml.
+      - "/templates/Promote.gitlab-ci.yml"
       # Validation/scanning jobs extend these upstream templates.
       - "/templates/CVE_Scan.gitlab-ci.yml"
       - "/templates/gitleaks.gitlab-ci.yml"
@@ -55,6 +67,7 @@ include:
       # one job. Consumed by svace:analyze in jobs/svace.yml.
       - "/templates/Svace.gitlab-ci.yml"
       - "/templates/Build_Fuzz.gitlab-ci.yml"
+      - "/templates/Translate_Changelog.gitlab-ci.yml"
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
   - local: ".gitlab/ci/stages.yml"
@@ -66,13 +79,16 @@ include:
   # templates/ is grouped by the two global processes plus shared base:
   #   base/    - process-agnostic base job bodies + helpers
   #   dev/     - development process (DEV registry): MR / main / release / dev-tag
-  #   release/ - release process (PROD registry): tag-push + manual dispatch
+  #   release/ - release process (STAGE -> PROD registries): tag-push + manual
+  #              dispatch
   # Anchor names are unchanged (.base_build, .dev, .prod_vars, ...), so no job
   # `extends:` edits are needed.
-  # Registry-login helpers must load before dev_vars/prod_vars, which extend
-  # them (.login_dev_registry / .login_prod_registry).
+  # Registry-login helpers must load before dev_vars/stage_vars/prod_vars,
+  # which extend them (.login_dev_registry / .login_stage_registry /
+  # .login_prod_registry).
   - local: ".gitlab/ci/templates/base/registry-login.yml"
   - local: ".gitlab/ci/templates/dev/dev_vars.yml"
+  - local: ".gitlab/ci/templates/release/stage_vars.yml"
   - local: ".gitlab/ci/templates/release/prod_vars.yml"
   - local: ".gitlab/ci/templates/dev/dev.yml"
   - local: ".gitlab/ci/templates/dev/dev_tags.yml"
@@ -92,6 +108,8 @@ include:
   - local: ".gitlab/ci/jobs/build-dev.yml"
   - local: ".gitlab/ci/jobs/build-fuzz.yml"
   - local: ".gitlab/ci/jobs/build-prod.yml"
+  # Copies a release built into STAGE by build_prod into PROD.
+  - local: ".gitlab/ci/jobs/promote.yml"
   # No deploy-dev.yml: the DEV registry has no release channels (only tags),
   # so a dev tag is just built (build_dev_tags) and never crane-copied into
   # alpha/beta/... The GitHub "Deploy Dev" workflow

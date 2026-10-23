@@ -20,7 +20,7 @@
 # default branch (main) and release-X.Y branches.
 #
 # Direction note (verified against upstream):
-# The upstream modules-gitlab-ci@v15.0 `.translate_and_create_mr` template
+# The upstream ssdlc/gitlab-ci `.translate_and_create_mr` template
 # (templates/Translate_Changelog.gitlab-ci.yml) is hardcoded to the OPPOSITE
 # direction (RU -> EN, globs `v*.ru.yml`) and exposes NO direction variables
 # (only TRANSLATE_CHANGELOG_PATH / TRANSLATE_BASE_BRANCH). This repo has no
@@ -44,13 +44,9 @@
 # push / merge-request permissions.
 #
 # We delegate to the upstream GitLab CI template at
-# https://fox.flant.com/deckhouse/3p/deckhouse/modules-gitlab-ci
-# (branch v15.0).
-
-include:
-  - project: "deckhouse/3p/deckhouse/modules-gitlab-ci"
-    ref: "v15.0"
-    file: "/templates/Translate_Changelog.gitlab-ci.yml"
+# https://fox.flant.com/deckhouse/ssdlc/gitlab-ci. It is included from
+# .gitlab/ci/includes.yml together with the other templates, so this job
+# always uses the same pinned ref as the rest of the pipeline.
 
 # Local job definition that extends the upstream hidden job.
 # Tag override is intentional: we want our project's runner tag, not the
