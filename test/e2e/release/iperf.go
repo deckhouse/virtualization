@@ -144,6 +144,10 @@ func waitForIPerfClientToStart(f *framework.Framework, vm *v1alpha2.VirtualMachi
 	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
 }
 
+// stopIPerfClient interrupts the iperf3 client so it writes its final report,
+// and waits for it to exit. No running client counts as stopped: the
+// pre-upgrade phase calls this on a fresh VM too, to drop a client left by an
+// earlier attempt of the job.
 func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
@@ -151,7 +155,9 @@ func stopIPerfClient(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	// Kubernetes resource, so a polling wait is used deliberately.
 	// None of the images used here ship pkill; signal the PIDs that pidof
 	// reports instead.
-	command := "kill -INT $(pidof iperf3)"
+	command := "pids=$(pidof iperf3) || exit 0; kill -INT $pids; " +
+		"i=0; while pidof iperf3 >/dev/null && [ $i -lt 30 ]; do sleep 1; i=$((i+1)); done; " +
+		"! pidof iperf3 >/dev/null"
 	eventually.Until(func() error {
 		_, err := f.SSHCommand(vm.Name, vm.Namespace, command)
 		if err != nil {

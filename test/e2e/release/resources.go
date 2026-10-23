@@ -17,10 +17,37 @@ limitations under the License.
 package release
 
 import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
+
+// createOrReuse creates objs like CreateWithDeferredDeletion, but keeps an
+// object that already exists: a rerun of the pre-upgrade job lands in the
+// Project of the failed attempt (see releaseNamespaceEnv) and picks up where it
+// stopped. It returns the names of the objects that already existed.
+func createOrReuse(ctx context.Context, f *framework.Framework, objs ...crclient.Object) map[string]bool {
+	GinkgoHelper()
+
+	reused := make(map[string]bool)
+	for _, obj := range objs {
+		err := f.CreateWithDeferredDeletion(ctx, obj)
+		if k8serrors.IsAlreadyExists(err) {
+			GinkgoWriter.Printf("Reusing %T %s/%s from an earlier attempt\n", obj, obj.GetNamespace(), obj.GetName())
+			f.DeferDelete(obj)
+			reused[obj.GetName()] = true
+			continue
+		}
+		Expect(err).NotTo(HaveOccurred())
+	}
+	return reused
+}
 
 func (t *currentReleaseSmokeTest) diskObjects() []crclient.Object {
 	objects := make([]crclient.Object, 0, len(t.vms)+len(t.dataDisks))

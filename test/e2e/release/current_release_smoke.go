@@ -95,7 +95,7 @@ func (t *currentReleaseSmokeTest) migration() (window migrationWindow, ok bool) 
 
 func runPreUpgradeReleaseSmoke() {
 	f := framework.NewFramework("")
-	namespace := createReleaseProject(f)
+	namespace := createReleaseProject(f, os.Getenv(releaseNamespaceEnv))
 	f.SetProjectNamespace(namespace)
 	DeferCleanup(f.After)
 
@@ -124,7 +124,7 @@ func (t *currentReleaseSmokeTest) createResources() {
 
 	if len(t.extraObjects) > 0 {
 		By("Creating supporting resources (Windows sysprep secret, extra images)")
-		Expect(t.framework.CreateWithDeferredDeletion(ctx, t.extraObjects...)).To(Succeed())
+		createOrReuse(ctx, t.framework, t.extraObjects...)
 	}
 
 	// Observers are armed before the resources are created, so every phase
@@ -138,19 +138,25 @@ func (t *currentReleaseSmokeTest) createResources() {
 	for _, diskScenario := range t.dataDisks {
 		diskObservers = append(diskObservers, vdobs.StartObserver(ctx, t.framework, diskScenario.disk))
 	}
-	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.diskObjects()...)).To(Succeed())
+	createOrReuse(ctx, t.framework, t.diskObjects()...)
 
 	By("Creating virtual machines")
 	for _, vmScenario := range t.vms {
 		vmScenario.vmObs = vmobs.StartObserver(ctx, t.framework, vmScenario.vm)
 	}
-	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.vmObjects()...)).To(Succeed())
+	reusedVMs := createOrReuse(ctx, t.framework, t.vmObjects()...)
 	for _, vmScenario := range t.vms {
-		if vmScenario.expectedInitialPhase() == string(v1alpha2.MachineRunning) {
+		switch {
+		case vmScenario.expectedInitialPhase() == string(v1alpha2.MachineRunning):
 			err := vmScenario.vmObs.WaitFor(vmobs.BeRunning(), framework.LongTimeout)
 			Expect(err).NotTo(HaveOccurred(),
 				"VM %s should be Running initially", vmScenario.vm.Name)
-		} else {
+		case reusedVMs[vmScenario.vm.Name]:
+			// The earlier attempt may have started it already.
+			err := vmScenario.vmObs.WaitFor(beStoppedOrRunning(), framework.MiddleTimeout)
+			Expect(err).NotTo(HaveOccurred(),
+				"reused VM %s should be Stopped or Running", vmScenario.vm.Name)
+		default:
 			err := vmScenario.vmObs.WaitFor(vmobs.BeStopped(), framework.MiddleTimeout)
 			Expect(err).NotTo(HaveOccurred(),
 				"VM %s should be Stopped initially", vmScenario.vm.Name)
@@ -159,6 +165,10 @@ func (t *currentReleaseSmokeTest) createResources() {
 
 	By("Starting manual-policy virtual machines")
 	for _, vmScenario := range t.manualStartVMs() {
+		vm := t.getVirtualMachine(vmScenario.vm.Name, vmScenario.vm.Namespace)
+		if vm.Status.Phase != v1alpha2.MachineStopped {
+			continue
+		}
 		util.StartVirtualMachine(ctx, t.framework, vmScenario.vm)
 	}
 	for _, vmScenario := range t.manualStartVMs() {
@@ -172,7 +182,7 @@ func (t *currentReleaseSmokeTest) createResources() {
 	for _, attachmentScenario := range t.attachments {
 		attachmentObservers = append(attachmentObservers, vmbdaobs.StartObserver(ctx, t.framework, attachmentScenario.attachment))
 	}
-	Expect(t.framework.CreateWithDeferredDeletion(ctx, t.attachmentObjects()...)).To(Succeed())
+	createOrReuse(ctx, t.framework, t.attachmentObjects()...)
 	for i, obs := range attachmentObservers {
 		err := obs.WaitFor(vmbdaobs.BeAttached(), framework.MaxTimeout)
 		Expect(err).NotTo(HaveOccurred(),
@@ -239,15 +249,20 @@ func (t *currentReleaseSmokeTest) startLongRunningIPerf() {
 	GinkgoHelper()
 
 	// iperf3 is installed via cloud-init but nothing starts it at boot, so
-	// the smoke launches the server itself.
+	// the smoke launches the server itself. A server left running by an
+	// earlier attempt of the job is kept: the new client connects to it.
 	_, err := t.framework.SSHCommand(
 		t.iperfServer.vm.Name,
 		t.iperfServer.vm.Namespace,
-		"nohup iperf3 -s >/dev/null 2>&1 </dev/null &",
+		"pidof iperf3 >/dev/null || { nohup iperf3 -s >/dev/null 2>&1 </dev/null & }",
 	)
 	Expect(err).NotTo(HaveOccurred(), "failed to start iperf3 server")
 
 	waitForIPerfServerToStart(t.framework, t.iperfServer.vm)
+
+	// A client left by an earlier attempt may be talking to a server that is
+	// gone, so always start a new one.
+	stopIPerfClient(t.framework, t.iperfClient.vm)
 
 	serverVM := t.getVirtualMachine(t.iperfServer.vm.Name, t.iperfServer.vm.Namespace)
 	command := fmt.Sprintf(
@@ -397,16 +412,24 @@ func mustGetEnv(name string) string {
 
 // createReleaseProject creates a Deckhouse Project (see object.NewReleaseProject)
 // and waits for it to be deployed, in place of a bare Namespace. The Project's
-// generated name doubles as the namespace name: multitenancy-manager creates a
-// namespace of that same name for every resource in this file to use.
-func createReleaseProject(f *framework.Framework) string {
+// name doubles as the namespace name: multitenancy-manager creates a namespace
+// of that same name for every resource in this file to use.
+//
+// An empty name gets a generated one. CI passes a name that stays the same
+// across attempts of a run, so a rerun reuses the Project and everything the
+// failed attempt left in it instead of deploying a second set of VMs.
+func createReleaseProject(f *framework.Framework, name string) string {
 	GinkgoHelper()
 
 	ctx := context.Background()
 	project := object.NewReleaseProject("release", framework.NamespaceBasePrefix)
+	if name != "" {
+		project.GenerateName = ""
+		project.Name = name
+	}
 
-	By("Creating a Project", func() {
-		Expect(f.CreateWithDeferredDeletion(ctx, project)).To(Succeed())
+	By("Creating or reusing a Project", func() {
+		createOrReuse(ctx, f, project)
 
 		projObs := projobs.StartObserver(ctx, f, project.Name)
 		err := projObs.WaitFor(projobs.BeDeployed(), framework.LongTimeout)
@@ -415,4 +438,12 @@ func createReleaseProject(f *framework.Framework) string {
 
 	By(fmt.Sprintf("Project %q has been created", project.Name))
 	return project.Name
+}
+
+// beStoppedOrRunning reports the VirtualMachine has settled in either the
+// Stopped or the Running phase.
+func beStoppedOrRunning() vmobs.Predicate {
+	return func(vm *v1alpha2.VirtualMachine) (bool, error) {
+		return vm.Status.Phase == v1alpha2.MachineStopped || vm.Status.Phase == v1alpha2.MachineRunning, nil
+	}
 }

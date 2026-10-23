@@ -658,6 +658,9 @@ jobs:
           E2E_CONFIG: ${{ github.workspace }}/test/e2e/default_config.yaml
           RELEASE_TEST_PHASE: pre-upgrade
           RELEASE_UPGRADE_CONTEXT_PATH: ${{ runner.temp }}/release-upgrade-context.json
+          # Same name on every attempt: a rerun reuses the VMs of the failed one
+          # instead of deploying a second set the workers have no memory for.
+          RELEASE_NAMESPACE: v12n-e2e-release-${{ github.run_id }}
         run: bash "${E2E_SCRIPT_DIR}/run-release-e2e.sh"
 
       - name: Export release upgrade context
