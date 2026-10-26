@@ -24,6 +24,10 @@
 # hangs in `canceling`. The nightly GitHub workflow tears its runner down
 # instead, which is why this lives here and `run-nightly-e2e.sh` stays the
 # plain, shared suite invocation.
+#
+# The same watchdog stops a suite that runs longer than E2E_SUITE_TIMEOUT: left
+# to the job timeout, GitLab runs neither after_script nor the artifact upload,
+# so the cluster is not cleaned up and the report is lost.
 
 set -Eeuo pipefail
 
@@ -34,6 +38,12 @@ job_shell_pid=$PPID
 # The runner process that owns the job. Its death is the only sign of a cancel,
 # so the watchdog compares against this value; 0 disables that check.
 job_shell_ppid="$(awk '{ sub(/^.*\) /, ""); print $2 }' "/proc/${job_shell_pid}/stat" 2>/dev/null || echo 0)"
+# Epoch second by which the suite must be gone; 0 (no E2E_SUITE_TIMEOUT) disables it.
+case "${E2E_SUITE_TIMEOUT:-}" in
+  *h) deadline=$(($(date +%s) + ${E2E_SUITE_TIMEOUT%h} * 3600)) ;;
+  *m) deadline=$(($(date +%s) + ${E2E_SUITE_TIMEOUT%m} * 60)) ;;
+  *) deadline=0 ;;
+esac
 suite_pgid_file="$(mktemp)"
 watchdog_log="${CI_PROJECT_DIR:-$PWD}/e2e_watchdog.log"
 
@@ -49,7 +59,7 @@ suite_pid=$!
 # take the killer with it.
 # shellcheck disable=SC2016  # the body runs in the inner shell with its own args
 setsid bash -c '
-  wrapper_pid=$1 suite_pid=$2 pgid_file=$3 job_shell_pid=$4 job_shell_ppid=$5
+  wrapper_pid=$1 suite_pid=$2 pgid_file=$3 job_shell_pid=$4 job_shell_ppid=$5 deadline=$6
 
   say() { printf "%s watchdog: %s\n" "$(date -u +%H:%M:%SZ)" "$1"; }
 
@@ -89,10 +99,13 @@ setsid bash -c '
     if [ "${s}" = "Z" ]; then
       printf "wrapper %s is a zombie" "${wrapper_pid}"; return 0
     fi
+    if [ "${deadline}" != "0" ] && [ "$(date +%s)" -ge "${deadline}" ]; then
+      printf "suite ran past its deadline %s" "$(date -u -d "@${deadline}" +%H:%M:%SZ)"; return 0
+    fi
     return 1
   }
 
-  say "watching job shell ${job_shell_pid} (parent ${job_shell_ppid}), wrapper ${wrapper_pid}, suite ${suite_pid}"
+  say "watching job shell ${job_shell_pid} (parent ${job_shell_ppid}), wrapper ${wrapper_pid}, suite ${suite_pid}, deadline ${deadline}"
   ticks=0
   while ! reason="$(job_over_reason)" && kill -0 "${suite_pid}" 2>/dev/null; do
     # Once a minute, so a watchdog that never fires can be told from a blind
@@ -112,7 +125,7 @@ setsid bash -c '
 
   pgid="$(cat "${pgid_file}" 2>/dev/null)"
   [ -n "${pgid}" ] || pgid="${suite_pid}"
-  say "job is over, sending TERM to process group ${pgid}"
+  say "stopping the suite, sending TERM to process group ${pgid}"
   kill -TERM -- "-${pgid}" 2>/dev/null || say "TERM to -${pgid} failed"
   # Ginkgo needs a moment to finish the spec it is inside (grace-period 1m in
   # the Taskfile); anything still alive after that is not going to exit.
@@ -124,7 +137,7 @@ setsid bash -c '
     say "suite stopped after TERM"
   fi
 ' watchdog "${wrapper_pid}" "${suite_pid}" "${suite_pgid_file}" "${job_shell_pid}" \
-  "${job_shell_ppid}" >> "${watchdog_log}" 2>&1 < /dev/null &
+  "${job_shell_ppid}" "${deadline}" >> "${watchdog_log}" 2>&1 < /dev/null &
 watchdog_pid=$!
 
 set +e

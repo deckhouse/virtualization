@@ -99,6 +99,9 @@ include:
     # Must cover the five bounded steps below (5 x 10m), or `release` never runs
     # and the lease stays busy behind a dead job.
     RUNNER_AFTER_SCRIPT_TIMEOUT: 55m
+    # run-mr-e2e.sh stops a suite running longer than this, so that the job
+    # timeout (3h) still leaves room for after_script (55m above).
+    E2E_SUITE_TIMEOUT: 2h
   # Overrides the upstream Setup.gitlab-ci.yml before_script (trdl + werf),
   # which does not work in the job container; crane in checkout-to-mpo only
   # needs the registry login.
