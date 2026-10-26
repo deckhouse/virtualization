@@ -1,3 +1,52 @@
+- version: v1.12.3
+  date: "2026-10-26"
+  highlights:
+    - en: Fixed vulnerabilities in the module.
+      ru: "Устранены уязвимости в модуле."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-63209
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+            - CVE-2026-111943
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-63209
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+            - CVE-2026-111943
 - version: v1.12.2
   date: "2026-09-30"
   highlights:
@@ -157,6 +206,78 @@
   upgrade:
     - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
       ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
+- version: v1.11.3
+  date: "2026-10-26"
+  highlights:
+    - en: Fixed vulnerabilities in the module.
+      ru: "Устранены уязвимости в модуле."
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-63209
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+            - CVE-2026-111943
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-56742
+            - CVE-2026-56851
+            - CVE-2026-56857
+            - CVE-2026-56866
+            - CVE-2026-61801
+            - CVE-2026-63209
+            - CVE-2026-78659
+            - CVE-2026-78660
+            - CVE-2026-78663
+            - CVE-2026-78667
+            - CVE-2026-78669
+            - CVE-2026-85747
+            - CVE-2026-94439
+            - CVE-2026-94440
+            - CVE-2026-94448
+            - CVE-2026-97030
+            - CVE-2026-97031
+            - CVE-2026-97032
+            - CVE-2026-111943
+- version: v1.11.2
+  date: "2026-09-22"
+  highlights:
+    - en: "Updating the module in Deckhouse Platform Open (DP Open) no longer blocks the Deckhouse queue. The release also patches vulnerabilities in the module."
+      ru: "Обновление модуля в редакции Deckhouse Platform Open (DP Open) больше не блокирует очередь Deckhouse. Также исправлены уязвимости в модуле."
+  fixes:
+    module:
+      - en: Updating the module in DP Open no longer blocks the Deckhouse queue.
+        ru: Обновление модуля в редакции DP Open больше не блокирует очередь Deckhouse.
+      - en: The module no longer stops working if a [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) is created while the module is installing.
+        ru: Модуль больше не перестаёт работать, если [VirtualMachineClass](/modules/virtualization/cr.html#virtualmachineclass) создан во время его установки.
+  security:
+    module:
+      - en: |-
+          Fixed vulnerabilities:
+            - CVE-2026-81870
+            - CVE-2026-81871
+            - CVE-2026-84445
+        ru: |-
+          Исправлены уязвимости:
+            - CVE-2026-81870
+            - CVE-2026-81871
+            - CVE-2026-84445
 - version: v1.11.1
   date: "2026-09-09"
   highlights:
