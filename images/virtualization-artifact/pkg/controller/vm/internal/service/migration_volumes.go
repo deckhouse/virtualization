@@ -38,6 +38,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vdmigration"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -111,6 +112,20 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if kvvmiInCluster == nil {
+		// Once a disk has completed the migration, the guest already ran on the targets: reverting
+		// would start it on a mix of sources and targets. Before that the targets may be half-copied.
+		vds, err := vmState.VirtualDisksByName(ctx)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if vdmigration.IsMigrationCompleting(vds, time.Now()) {
+			if s.shouldPatchVolumes(kvvmInCluster, builtKVVMWithMigrationVolumes) {
+				log.Info("kvvmi is nil and the volume migration is completing, patch kvvm volumes to the targets.")
+				return s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
+			}
+			return reconcile.Result{}, nil
+		}
+
 		if s.shouldPatchVolumes(kvvmInCluster, builtKVVM) {
 			log.Info("kvvmi is nil, force revert kvvm volumes to source volumes.")
 			return s.patchVolumes(ctx, builtKVVM)

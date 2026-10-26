@@ -31,9 +31,11 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 var _ = Describe("MigrationVolumesService", func() {
@@ -279,6 +281,48 @@ var _ = Describe("MigrationVolumesService", func() {
 		Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(sourcePVC))
 		Expect(updatedKVVM.Spec.Template.Spec.Affinity).To(Equal(desiredKVVM.Spec.Template.Spec.Affinity))
 	})
+
+	DescribeTable("keeps the migration targets while kvvmi is missing only once the migration is completing",
+		func(reason, expectedPVC string) {
+			ctx := testutil.ContextBackgroundWithNoOpLogger()
+			migrationStrategy := virtv1.UpdateVolumesStrategyMigration
+
+			vm := newVM()
+			vm.Status.BlockDeviceRefs = []v1alpha2.BlockDeviceStatusRef{{Kind: v1alpha2.DiskDevice, Name: "root"}}
+			vd := &v1alpha2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: namespace},
+			}
+			vd.Status.MigrationState.StartTimestamp = metav1.Now()
+			vd.Status.MigrationState.TargetPVC = targetPVC
+			vd.Status.Conditions = []metav1.Condition{{
+				Type:   vdcondition.MigratingType.String(),
+				Status: metav1.ConditionTrue,
+				Reason: reason,
+			}}
+
+			kvvmInCluster := newKVVMWithVolume(targetPVC, &migrationStrategy, "node")
+			kvvmInCluster.Spec.Template.Spec.Volumes[0].Name = kvbuilder.GenerateVDDiskName("root")
+			desiredKVVM := newKVVMWithVolume(sourcePVC, nil, "node")
+			desiredKVVM.Spec.Template.Spec.Volumes[0].Name = kvbuilder.GenerateVDDiskName("root")
+			vmState := setupState(vm, kvvmInCluster, vd)
+
+			service := NewMigrationVolumesService(
+				vmState.Client(),
+				builtFrom(kvvmInCluster, desiredKVVM),
+				10*time.Second,
+			)
+
+			_, err := service.SyncVolumes(ctx, vmState, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedKVVM := &virtv1.VirtualMachine{}
+			Expect(vmState.Client().Get(ctx, types.NamespacedName{Name: vmName, Namespace: namespace}, updatedKVVM)).To(Succeed())
+			Expect(updatedKVVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(expectedPVC))
+		},
+		Entry("the disk is still migrating", vdcondition.MigratingInProgressReason.String(), sourcePVC),
+		Entry("the disk waits for the source release", vdcondition.MigratingWaitForSourceVolumeReleaseReason.String(), targetPVC),
+		Entry("every disk reverts", vdcondition.MigratingWaitForTargetVolumeReleaseReason.String(), sourcePVC),
+	)
 
 	It("force-reverts kvvm to source when kvvm/kvvmi diverged and no migration is in progress", func() {
 		ctx := testutil.ContextBackgroundWithNoOpLogger()

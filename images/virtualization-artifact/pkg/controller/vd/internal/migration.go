@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +42,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	pvcspec "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vdmigration"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -189,6 +191,18 @@ const (
 )
 
 func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDisk, log *slog.Logger) (action, error) {
+	// Before any revert below: they judge by the VirtualMachine state, which a restart loses.
+	if commonvd.IsMigrating(vd) {
+		completed, err := h.isVolumeMigrationCompleted(ctx, vd)
+		if err != nil {
+			return none, err
+		}
+		if completed {
+			log.Info("The volume migration has been completed. Will be completed.")
+			return complete, nil
+		}
+	}
+
 	// We should check ready disk only before start migration.
 	inUse, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUse.Reason != vdcondition.AttachedToVirtualMachine.String() && conditions.IsLastUpdated(inUse, vd) {
@@ -235,14 +249,18 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 			return none, nil
 		}
 
+		vmop, err := h.getInProgressMigratingVMOP(ctx, vm)
+		if err != nil {
+			return none, err
+		}
+
 		// Check StorageClass before local disks
 		if commonvd.StorageClassChanged(vd) {
-			unfinalized, err := h.isKVVMIHasUnfinalizedVolumeMigration(ctx, vd, vm)
+			unfinalized, err := h.isPreviousMigrationUnfinalized(ctx, vd, vm, vmop, log)
 			if err != nil {
 				return none, err
 			}
 			if unfinalized {
-				log.Info("The KVVMI still carries the previous round's volume-change state, delay the new round.")
 				return delayNewRound, nil
 			}
 			log.Info("StorageClass Changed. VirtualDisk should be migrated.")
@@ -258,20 +276,15 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *v1alpha2.VirtualDis
 			// finished, a new prepare would race with the operation finalization: it
 			// overwrites the disk migration timestamp, breaks isMigrationStarted on
 			// the next reconcile and gets reverted.
-			waiting, err := h.migratingIsWaitingForDisks(ctx, vm)
-			if err != nil {
-				return none, err
-			}
-			if !waiting {
+			if !isWaitingForDisks(vmop) {
 				log.Info("Operation is not waiting for disks to migrate, skip starting a new volume migration.")
 				return none, nil
 			}
-			unfinalized, err := h.isKVVMIHasUnfinalizedVolumeMigration(ctx, vd, vm)
+			unfinalized, err := h.isPreviousMigrationUnfinalized(ctx, vd, vm, vmop, log)
 			if err != nil {
 				return none, err
 			}
 			if unfinalized {
-				log.Info("The KVVMI still carries the previous round's volume-change state, delay the new round.")
 				return delayNewRound, nil
 			}
 			return h.getActionIfDisksShouldBeMigrating(ctx, vd, log)
@@ -405,6 +418,36 @@ func (h MigrationHandler) isKVVMIHasUnfinalizedVolumeMigration(ctx context.Conte
 
 	volumesChange, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceVolumesChange, kvvmi.Status.Conditions)
 	return volumesChange.Status == corev1.ConditionTrue, nil
+}
+
+// Volume migrations must not overlap (see vdmigration.InSameMigration).
+func (h MigrationHandler) isPreviousMigrationUnfinalized(ctx context.Context, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation, log *slog.Logger) (bool, error) {
+	unfinalized, err := h.isKVVMIHasUnfinalizedVolumeMigration(ctx, vd, vm)
+	if err != nil {
+		return false, err
+	}
+	if unfinalized {
+		log.Info("The KVVMI still carries the previous volume migration state, delay the new one.")
+		return true, nil
+	}
+
+	disks, err := h.getOtherVirtualMachineDisks(ctx, h.apiReader, vd, vm)
+	if err != nil {
+		return false, err
+	}
+	for i := range disks {
+		other := &disks[i]
+		if !commonvd.IsMigrating(other) {
+			continue
+		}
+		startedBefore := vmop != nil && other.Status.MigrationState.StartTimestamp.Before(&vmop.CreationTimestamp)
+		if startedBefore || vdmigration.IsWaitingForSourceRelease(other) || vdmigration.IsWaitingForTargetRelease(other) {
+			log.Info("Another VirtualDisk is still finalizing the previous volume migration, delay the new one.", slog.String("vd.name", other.Name))
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (h MigrationHandler) getActionIfDisksShouldBeMigrating(ctx context.Context, vd *v1alpha2.VirtualDisk, log *slog.Logger) (action, error) {
@@ -856,6 +899,14 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *v1alpha2.Virtu
 		return reconcile.Result{RequeueAfter: finalizeMigrationRequeueAfter}, nil
 	}
 
+	waiting, err := h.waitForDisksInSameMigration(ctx, vd)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if waiting {
+		return reconcile.Result{RequeueAfter: finalizeMigrationRequeueAfter}, nil
+	}
+
 	log.Info("Complete migration. Delete source PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
 	err = h.deleteSourcePersistentVolumeClaim(ctx, vd)
@@ -963,19 +1014,14 @@ func isRunningOrMigratingPhase(vm *v1alpha2.VirtualMachine) bool {
 // is in the phase where it waits for the disks to become ready to migrate. Only
 // then a new disk target should be prepared; later phases mean the compute
 // migration has already started or is being finalized.
-func (h MigrationHandler) migratingIsWaitingForDisks(ctx context.Context, vm *v1alpha2.VirtualMachine) (bool, error) {
-	vmop, err := h.getInProgressMigratingVMOP(ctx, vm)
-	if err != nil {
-		return false, err
-	}
-
+func isWaitingForDisks(vmop *v1alpha2.VirtualMachineOperation) bool {
 	if vmop == nil {
-		return false, nil
+		return false
 	}
 
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 
-	return completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String(), nil
+	return completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()
 }
 
 func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string, volumeMode corev1.PersistentVolumeMode, accessMode corev1.PersistentVolumeAccessMode) (*corev1.PersistentVolumeClaim, error) {
@@ -1186,6 +1232,142 @@ func isMigrationStarted(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) b
 	state := vm.Status.MigrationState
 
 	return state != nil && state.StartTimestamp != nil && state.StartTimestamp.After(vdStart.Time)
+}
+
+// KubeVirt moves all volumes in one migration, so one disk proving the switch proves it for all.
+// A completion seen in the cache is confirmed uncached, as it cannot be undone.
+func (h MigrationHandler) isVolumeMigrationCompleted(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	if vdmigration.IsSwitchedToTarget(vd) {
+		return true, nil
+	}
+
+	disks, err := h.getDisksInSameMigration(ctx, h.client, vd)
+	if err != nil {
+		return false, err
+	}
+
+	for i := range disks {
+		if !vdmigration.IsSwitchedToTarget(&disks[i]) {
+			continue
+		}
+
+		other, err := object.FetchObject(ctx, client.ObjectKeyFromObject(&disks[i]), h.apiReader, &v1alpha2.VirtualDisk{})
+		if err != nil {
+			return false, err
+		}
+		if other != nil && vdmigration.IsSwitchedToTarget(other) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// A disk still migrating could revert, so the source claim is kept until all disks complete. A revert
+// needs no such wait: the target stays in the KVVM until all disks revert (see kvbuilder.ApplyMigrationVolumes).
+func (h MigrationHandler) waitForDisksInSameMigration(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	pending, err := h.getDiskNamesNotCompleting(ctx, h.client, vd)
+	if err != nil {
+		return false, err
+	}
+	// The cache may lag behind: confirm uncached right before the source claim is deleted.
+	if len(pending) == 0 {
+		pending, err = h.getDiskNamesNotCompleting(ctx, h.apiReader, vd)
+		if err != nil {
+			return false, err
+		}
+	}
+	if len(pending) == 0 {
+		return false, nil
+	}
+
+	logger.FromContext(ctx).Info("Cannot complete the migration yet, waiting for the other disks of the same migration", slog.Any("vd.names", pending))
+
+	cb := conditions.NewConditionBuilder(vdcondition.MigratingType).
+		Generation(vd.GetGeneration()).
+		Status(metav1.ConditionTrue).
+		Reason(vdcondition.MigratingWaitForSourceVolumeReleaseReason).
+		Message(fmt.Sprintf("Cannot complete the migration yet: waiting for the VirtualDisks migrating together with this one: %s.",
+			strings.Join(pending, ", ")))
+	conditions.SetCondition(cb, &vd.Status.Conditions)
+
+	return true, nil
+}
+
+func (h MigrationHandler) getDiskNamesNotCompleting(ctx context.Context, reader client.Reader, vd *v1alpha2.VirtualDisk) ([]string, error) {
+	disks, err := h.getDisksInSameMigration(ctx, reader, vd)
+	if err != nil {
+		return nil, err
+	}
+
+	var pending []string
+	for i := range disks {
+		if commonvd.IsMigrating(&disks[i]) && !vdmigration.IsWaitingForSourceRelease(&disks[i]) {
+			pending = append(pending, disks[i].Name)
+		}
+	}
+	slices.Sort(pending)
+
+	return pending, nil
+}
+
+// KubeVirt migrates together exactly the disks whose targets went into the KVVM in one patch.
+func (h MigrationHandler) getDisksInSameMigration(ctx context.Context, reader client.Reader, vd *v1alpha2.VirtualDisk) ([]v1alpha2.VirtualDisk, error) {
+	kvvm, err := h.getMigrationKVVM(ctx, vd)
+	if err != nil || kvvm == nil {
+		return nil, err
+	}
+	vm, err := object.FetchObject(ctx, object.NamespacedName(kvvm), h.client, &v1alpha2.VirtualMachine{})
+	if err != nil || vm == nil {
+		return nil, err
+	}
+
+	disks, err := h.getOtherVirtualMachineDisks(ctx, reader, vd, vm)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	return slices.DeleteFunc(disks, func(other v1alpha2.VirtualDisk) bool {
+		return !vdmigration.InSameMigration(vd, &other, now) || !vdmigration.IsTargetInKVVM(&other, kvvm)
+	}), nil
+}
+
+// The disks are fetched one by one: listing the namespace on every reconcile is too costly during a
+// mass migration. Disks being deleted are never finalized and would hold the migration forever.
+func (h MigrationHandler) getOtherVirtualMachineDisks(ctx context.Context, reader client.Reader, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) ([]v1alpha2.VirtualDisk, error) {
+	var disks []v1alpha2.VirtualDisk
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind != v1alpha2.DiskDevice || bd.Name == vd.Name {
+			continue
+		}
+
+		other, err := object.FetchObject(ctx, types.NamespacedName{Name: bd.Name, Namespace: vd.Namespace}, reader, &v1alpha2.VirtualDisk{})
+		if err != nil {
+			return nil, fmt.Errorf("fetch virtual disk %q: %w", bd.Name, err)
+		}
+		if other == nil || !other.GetDeletionTimestamp().IsZero() {
+			continue
+		}
+		disks = append(disks, *other)
+	}
+
+	return disks, nil
+}
+
+// After a restart the disk is mounted nowhere, and it may be attached to several VirtualMachines: the
+// one migrating it is the one whose KVVM has its target.
+func (h MigrationHandler) getMigrationKVVM(ctx context.Context, vd *v1alpha2.VirtualDisk) (*virtv1.VirtualMachine, error) {
+	for _, attached := range vd.Status.AttachedToVirtualMachines {
+		kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: attached.Name, Namespace: vd.Namespace}, h.client, &virtv1.VirtualMachine{})
+		if err != nil {
+			return nil, err
+		}
+		if vdmigration.IsTargetInKVVM(vd, kvvm) {
+			return kvvm, nil
+		}
+	}
+	return nil, nil
 }
 
 func (h MigrationHandler) canFinalizeRevert(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, string, error) {

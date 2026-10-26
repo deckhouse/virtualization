@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	"fmt"
 	"maps"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -598,6 +599,9 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 		targetPVC   = "pvc-target"
 	)
 
+	revert := vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()
+	const reverted = "reverted"
+
 	It("should switch hotplugged VMBDA disk to migration target PVC", func() {
 		kvvm := newKVVMWithVMBDAVolume(sourcePVC)
 		vm := &v1alpha2.VirtualMachine{
@@ -693,6 +697,81 @@ var _ = Describe("ApplyMigrationVolumes", func() {
 			vdcondition.MigratingWaitForSourceVolumeReleaseReason.String(), targetPVC),
 		Entry("migration in progress",
 			vdcondition.MigratingInProgressReason.String(), targetPVC),
+	)
+
+	DescribeTable("should release the target of a disk only when the whole migration reverts",
+		func(diskReason string, diskDeleted bool, otherReason string, otherDeleted bool, expectedPVC string) {
+			newDisk := func(name, reason string) *v1alpha2.VirtualDisk {
+				return &v1alpha2.VirtualDisk{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmNamespace},
+					Status: v1alpha2.VirtualDiskStatus{
+						Target: v1alpha2.DiskTarget{PersistentVolumeClaim: name + "-source"},
+						Conditions: []metav1.Condition{{
+							Type:   vdcondition.MigratingType.String(),
+							Status: metav1.ConditionTrue,
+							Reason: reason,
+						}},
+						MigrationState: v1alpha2.VirtualDiskMigrationState{
+							SourcePVC:      name + "-source",
+							TargetPVC:      name + "-target",
+							StartTimestamp: metav1.NewTime(time.Now().Add(-time.Minute)),
+						},
+					},
+				}
+			}
+
+			kvvm := newKVVMWithVMBDAVolume(diskName + "-source")
+			vm := &v1alpha2.VirtualMachine{
+				Status: v1alpha2.VirtualMachineStatus{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
+						{Kind: v1alpha2.DiskDevice, Name: diskName, Hotplugged: true},
+						{Kind: v1alpha2.DiskDevice, Name: "other-disk", Hotplugged: true},
+					},
+				},
+			}
+			vds := map[string]*v1alpha2.VirtualDisk{
+				diskName:     newDisk(diskName, diskReason),
+				"other-disk": newDisk("other-disk", otherReason),
+			}
+			if diskDeleted {
+				vds[diskName].DeletionTimestamp = ptr.To(metav1.Now())
+			}
+			if otherDeleted {
+				vds["other-disk"].DeletionTimestamp = ptr.To(metav1.Now())
+			}
+			if otherReason == reverted {
+				vds["other-disk"].Status.Conditions = nil
+				vds["other-disk"].Status.MigrationState.EndTimestamp = metav1.NewTime(time.Now().Add(-time.Second))
+				vds["other-disk"].Status.MigrationState.Result = v1alpha2.VirtualDiskMigrationResultFailed
+			}
+
+			Expect(ApplyMigrationVolumes(kvvm, vm, vds)).To(Succeed())
+
+			volumeName := GenerateVDDiskName(diskName)
+			for _, v := range kvvm.Resource.Spec.Template.Spec.Volumes {
+				if v.Name == volumeName {
+					Expect(v.PersistentVolumeClaim.ClaimName).To(Equal(expectedPVC))
+					return
+				}
+			}
+			Fail("the volume of the disk is not found")
+		},
+		Entry("another disk is still migrating",
+			revert, false, vdcondition.MigratingInProgressReason.String(), false, diskName+"-target"),
+		Entry("another disk waits for the source release",
+			revert, false, vdcondition.MigratingWaitForSourceVolumeReleaseReason.String(), false, diskName+"-target"),
+		Entry("every disk reverts",
+			revert, false, revert, false, diskName+"-source"),
+		Entry("another disk is still migrating but is being deleted",
+			revert, false, vdcondition.MigratingInProgressReason.String(), true, diskName+"-source"),
+		Entry("the disk is being deleted and the other disks revert",
+			vdcondition.MigratingInProgressReason.String(), true, revert, false, diskName+"-source"),
+		Entry("the disk is being deleted and the other disks have already reverted",
+			vdcondition.MigratingInProgressReason.String(), true, reverted, false, diskName+"-source"),
+		Entry("the disk is being deleted after the guest has switched to its target",
+			vdcondition.MigratingWaitForSourceVolumeReleaseReason.String(), true, revert, false, diskName+"-target"),
+		Entry("only disks being deleted migrate",
+			vdcondition.MigratingInProgressReason.String(), true, vdcondition.MigratingInProgressReason.String(), true, diskName+"-target"),
 	)
 })
 

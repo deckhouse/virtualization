@@ -25,6 +25,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/vdmigration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -150,6 +151,17 @@ func (h *HotplugHandler) Handle(ctx context.Context, s state.VirtualMachineState
 		// KubeVirt refuses to unplug a static disk; it leaves the KVVM on the next restart.
 		if !vol.hotpluggable {
 			continue
+		}
+		if key.kind == v1alpha2.DiskDevice {
+			vd, vdErr := s.VirtualDisk(ctx, key.name)
+			if vdErr != nil {
+				errs = append(errs, fmt.Errorf("get %s/%s: %w", key.kind, key.name, vdErr))
+				continue
+			}
+			if vdmigration.ShouldDelayDetach(vd, kvvm) {
+				log.Info("Block device is migrating, delay the unplug", "kind", key.kind, "name", key.name)
+				continue
+			}
 		}
 
 		if err = h.svc.UnplugDisk(ctx, kvvm, vol.name); err != nil {

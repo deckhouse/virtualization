@@ -30,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vdmigration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -45,7 +46,7 @@ func GetCurrentlyMountedVMName(vd *v1alpha2.VirtualDisk) string {
 }
 
 func IsMigrating(vd *v1alpha2.VirtualDisk) bool {
-	return vd != nil && !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
+	return vdmigration.IsMigrating(vd)
 }
 
 // VolumeMigrationEnabled returns true if volume migration is enabled or if the volume is currently migrating

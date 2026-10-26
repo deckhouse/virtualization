@@ -400,6 +400,38 @@ var _ = Describe("HotplugHandler", func() {
 		Expect(mockSvc.HotPlugDiskCalls()).To(BeEmpty()) // hotplug still waits for the block devices
 	})
 
+	DescribeTable("should delay the unplug of a migrating disk once KubeVirt has its target",
+		func(kvvmClaim string, vdDeleted, expectUnplug bool) {
+			now := metav1.Now()
+			vd := newVD("old-vd", "pvc-old")
+			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{SourcePVC: "pvc-old", TargetPVC: "pvc-old-target", StartTimestamp: now}
+			if vdDeleted {
+				vd.DeletionTimestamp = &now
+				vd.Finalizers = []string{v1alpha2.FinalizerVDProtection}
+			}
+			vm := newVM(v1alpha2.MachineRunning)
+			kvvm := newKVVM([]virtv1.Volume{{
+				Name: "vd-old-vd",
+				VolumeSource: virtv1.VolumeSource{PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: kvvmClaim},
+					Hotpluggable:                      true,
+				}},
+			}})
+			kvvmi := newEmptyKVVMI(vmName, vmNamespace)
+
+			_, err := runHandle(vm, kvvm, kvvmi, vd)
+			Expect(err).NotTo(HaveOccurred())
+			if expectUnplug {
+				Expect(mockSvc.UnplugDiskCalls()).To(HaveLen(1))
+			} else {
+				Expect(mockSvc.UnplugDiskCalls()).To(BeEmpty())
+			}
+		},
+		Entry("the target is in the KVVM", "pvc-old-target", false, false),
+		Entry("the target is not in the KVVM yet", "pvc-old", false, true),
+		Entry("the disk is being deleted", "pvc-old-target", true, true),
+	)
+
 	It("should not unplug a static disk removed from spec", func() {
 		vm := newVM(v1alpha2.MachineRunning)
 		kvvm := newKVVM([]virtv1.Volume{{

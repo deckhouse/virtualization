@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vdmigration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -96,6 +97,15 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 			}
 		}
 
+		delayDetach, err := h.shouldDelayDetach(ctx, vmbda, kvvm)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if delayDetach {
+			h.setTerminatingCondition(vmbda, vmbdacondition.TerminatingBlockedByMigration, diskMigrationBlockedMessage(vmbda))
+			return reconcile.Result{}, nil
+		}
+
 		h.setTerminatingCondition(vmbda, vmbdacondition.DetachPending, detachPendingMessage(vmbda))
 
 		var res reconcile.Result
@@ -140,6 +150,19 @@ func (h *DeletionHandler) volumeIsInInstance(ctx context.Context, vmbda *v1alpha
 	return false, nil
 }
 
+func (h *DeletionHandler) shouldDelayDetach(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, kvvm *virtv1.VirtualMachine) (bool, error) {
+	if kvvm == nil || vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
+		return false, nil
+	}
+
+	vd, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.BlockDeviceRef.Name}, h.client, &v1alpha2.VirtualDisk{})
+	if err != nil {
+		return false, fmt.Errorf("fetch vd: %w", err)
+	}
+
+	return vdmigration.ShouldDelayDetach(vd, kvvm), nil
+}
+
 func (h *DeletionHandler) setTerminatingCondition(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment, reason vmbdacondition.TerminatingReason, message string) {
 	service.SetTerminatingCondition(&vmbda.Status.Conditions, vmbdacondition.TerminatingType, reason, vmbda.Generation, message)
 }
@@ -150,6 +173,10 @@ func detachPendingMessage(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) s
 
 func migrationBlockedMessage(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) string {
 	return fmt.Sprintf("cannot detach the %s %q from the VirtualMachine %q while it is migrating", vmbda.Spec.BlockDeviceRef.Kind, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.VirtualMachineName)
+}
+
+func diskMigrationBlockedMessage(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) string {
+	return fmt.Sprintf("cannot detach the %s %q from the VirtualMachine %q while the disk is migrating; the detach will continue once the migration finishes", vmbda.Spec.BlockDeviceRef.Kind, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.VirtualMachineName)
 }
 
 func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {

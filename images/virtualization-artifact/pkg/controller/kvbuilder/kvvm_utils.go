@@ -23,6 +23,7 @@ import (
 	"hash/fnv"
 	"slices"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -34,10 +35,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vdmigration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -468,6 +468,7 @@ func syncAttachedVMBDAHotplugVolumes(
 	// that window either undoes the detach or races the attach, so wait it out.
 	restoring := !HasPendingVolumeRequests(kvvm.Resource)
 	missing := make(map[string]struct{})
+	now := time.Now()
 
 	for ref, vmbdas := range vmbdaByBlockDeviceRef {
 		diskName := GenerateDiskName(v1alpha2.BlockDeviceKind(ref.Kind), ref.Name)
@@ -486,7 +487,7 @@ func syncAttachedVMBDAHotplugVolumes(
 		}
 
 		if vd, ok := vdByName[ref.Name]; ok && vd != nil {
-			if isVolumeMigrating(vd) {
+			if shouldUseTargetPVC(vd, vdByName, now) {
 				continue
 			}
 		}
@@ -693,26 +694,27 @@ func removeDisk(kvvm *KVVM, name string) {
 	)
 }
 
-// isVolumeMigrating reports whether the KVVM must keep pointing at the target PersistentVolumeClaim
-// of the disk migration.
-//
 // A migration waiting for its target claim to be released is being reverted, and the claim cannot be
 // released while the KVVM pins it: the volumes have to be reverted to the source first. Waiting for
 // the source claim is the opposite case — the migration has succeeded and the guest already runs on
-// the target, so the target must stay pinned.
-func isVolumeMigrating(vd *v1alpha2.VirtualDisk) bool {
-	if vd.Status.MigrationState.StartTimestamp.IsZero() || !vd.Status.MigrationState.EndTimestamp.IsZero() {
+// the target, so the target must stay pinned. A reverting disk is released only when the whole
+// migration reverts: until then another disk may still prove it completed. A disk being deleted
+// decides nothing and follows the others: KubeVirt cancels a volume migration only when every volume
+// is back on its source.
+func shouldUseTargetPVC(vd *v1alpha2.VirtualDisk, vds map[string]*v1alpha2.VirtualDisk, now time.Time) bool {
+	if !vdmigration.IsMigrating(vd) {
 		return false
 	}
-
-	cond, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
-
-	return cond.Reason != vdcondition.MigratingWaitForTargetVolumeReleaseReason.String()
+	if !vd.GetDeletionTimestamp().IsZero() {
+		return vdmigration.IsWaitingForSourceRelease(vd) || !vdmigration.IsRevertedByOtherDisks(vd, vds, now)
+	}
+	return !vdmigration.IsWaitingForTargetRelease(vd) || !vdmigration.IsMigrationReverting(vds)
 }
 
 func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
 	bootOrder := uint(1)
 	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
+	now := time.Now()
 
 	for _, bd := range vm.Status.BlockDeviceRefs {
 		if bd.Kind != v1alpha2.DiskDevice {
@@ -728,7 +730,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 		}
 
 		var pvcName string
-		if isVolumeMigrating(vd) && vd.Status.MigrationState.TargetPVC != "" {
+		if shouldUseTargetPVC(vd, vdsByName, now) && vd.Status.MigrationState.TargetPVC != "" {
 			pvcName = vd.Status.MigrationState.TargetPVC
 			updateVolumesStrategy = ptr.To(virtv1.UpdateVolumesStrategyMigration)
 		}

@@ -69,6 +69,10 @@ func diskChangeMattersToAttachments(oldVD, newVD *v1alpha2.VirtualDisk) bool {
 		return true
 	}
 
+	if commonvd.IsMigrating(oldVD) != commonvd.IsMigrating(newVD) {
+		return true
+	}
+
 	oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
 	newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if oldReadyCondition.Status != newReadyCondition.Status {

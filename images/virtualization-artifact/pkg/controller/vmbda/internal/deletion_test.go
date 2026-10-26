@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -87,6 +88,64 @@ var _ = Describe("DeletionHandler", func() {
 		Expect(cond.Reason).To(Equal(vmbdacondition.DetachPending.String()))
 		Expect(cond.Message).To(Equal(`Waiting for the VirtualDisk "vd" to detach from the VirtualMachine "vm".`))
 	})
+
+	DescribeTable("waits for the disk migration once KubeVirt has the target",
+		func(kvvmClaim string, vdDeleted, expectBlocked bool) {
+			now := metav1.Now()
+			vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmbda", Namespace: "default", DeletionTimestamp: &now},
+				Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
+					VirtualMachineName: "vm",
+					BlockDeviceRef:     v1alpha2.VMBDAObjectRef{Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk, Name: "vd"},
+				},
+			}
+			vm := &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"}}
+			vd := &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: "vd", Namespace: "default"}}
+			vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{SourcePVC: "source", TargetPVC: "target", StartTimestamp: now}
+			if vdDeleted {
+				vd.DeletionTimestamp = &now
+				vd.Finalizers = []string{v1alpha2.FinalizerVDProtection}
+			}
+			kvvm := &virtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
+				Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{Spec: virtv1.VirtualMachineInstanceSpec{
+					Volumes: []virtv1.Volume{{
+						Name: kvbuilder.GenerateVMBDADiskName(vmbda.Spec.BlockDeviceRef),
+						VolumeSource: virtv1.VolumeSource{PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: kvvmClaim},
+						}},
+					}},
+				}}},
+			}
+
+			client, err := testutil.NewFakeClientWithObjects(vm, vd, kvvm)
+			Expect(err).NotTo(HaveOccurred())
+			unplugCalled := false
+			handler := NewDeletionHandler(vmbdaUnplug{
+				isAttached: func(*v1alpha2.VirtualMachine, *virtv1.VirtualMachine, *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
+					return true
+				},
+				unplugDisk: func(context.Context, *virtv1.VirtualMachine, string) error {
+					unplugCalled = true
+					return nil
+				},
+			}, client)
+
+			_, err = handler.Handle(context.Background(), vmbda)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(unplugCalled).To(Equal(!expectBlocked))
+
+			cond, _ := conditions.GetCondition(vmbdacondition.TerminatingType, vmbda.Status.Conditions)
+			if expectBlocked {
+				Expect(cond.Reason).To(Equal(vmbdacondition.TerminatingBlockedByMigration.String()))
+			} else {
+				Expect(cond.Reason).To(Equal(vmbdacondition.DetachPending.String()))
+			}
+		},
+		Entry("the target is in the KVVM", "target", false, true),
+		Entry("the target is not in the KVVM yet", "source", false, false),
+		Entry("the disk is being deleted", "target", true, false),
+	)
 
 	It("waits for migration to finish instead of unplugging while the VM is migrating", func() {
 		now := metav1.Now()
