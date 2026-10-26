@@ -54,7 +54,7 @@ include:
   # Keep fuzz build and its generated replay pipeline on the same release-aware
   # ref without upgrading Setup, delivery, or scanning templates.
   - project: "deckhouse/ssdlc/gitlab-ci"
-    ref: &fuzz_templates_ref fuzz-release-branch-support
+    ref: &fuzz_templates_ref v1.0.6
     file: "/templates/Build_Fuzz.gitlab-ci.yml"
 
   # --- Local structural fragments (order: stages, vars, defaults, then jobs) ---
