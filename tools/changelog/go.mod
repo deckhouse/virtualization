@@ -1,6 +1,6 @@
 module changelog
 
-go 1.26.9
+go 1.26.10
 
 require (
 	github.com/yuin/goldmark v1.8.5

@@ -103,7 +103,7 @@ on:
       go_version:
         required: false
         type: string
-        default: "1.26.9"
+        default: "1.26.10"
         description: "Go version"
       apt_mirror_enabled:
         required: false
