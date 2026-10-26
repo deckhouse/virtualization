@@ -6,7 +6,7 @@ weight: 70
 ## v1.11.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: October 22, 2026.
+Release date: October 26, 2026.
 </span>
 
 ### Highlights
@@ -21,6 +21,7 @@ Release date: October 22, 2026.
   - CVE-2026-56857
   - CVE-2026-56866
   - CVE-2026-61801
+  - CVE-2026-63209
   - CVE-2026-78659
   - CVE-2026-78660
   - CVE-2026-78663
@@ -33,6 +34,7 @@ Release date: October 22, 2026.
   - CVE-2026-97030
   - CVE-2026-97031
   - CVE-2026-97032
+  - CVE-2026-111943
 
 ## v1.11.2
 
