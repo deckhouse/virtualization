@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: virtualization-pprof
+  labels:
+    # Alloy runs with hostNetwork to reach loopback-only pprof endpoints on every node.
+    security.deckhouse.io/pod-policy: privileged

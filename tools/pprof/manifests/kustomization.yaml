@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: virtualization-pprof
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - pyroscope.yaml
+  - alloy.yaml
+configMapGenerator:
+  - name: alloy-config
+    files:
+      - config.alloy

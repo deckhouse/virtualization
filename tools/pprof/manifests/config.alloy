@@ -1,0 +1,109 @@
+// Profiles module components on this node and ships them to the in-cluster Pyroscope.
+// Endpoints listen only when the module runs with `logLevel: debug`.
+
+discovery.kubernetes "pods" {
+	role = "pod"
+
+	namespaces {
+		names = ["d8-virtualization"]
+	}
+
+	selectors {
+		role  = "pod"
+		field = "spec.nodeName=" + sys.env("NODE_NAME")
+	}
+}
+
+discovery.relabel "components" {
+	targets = discovery.kubernetes.pods.targets
+
+	rule {
+		source_labels = ["__meta_kubernetes_pod_phase"]
+		regex         = "Running"
+		action        = "keep"
+	}
+
+	// One target per pod: the container port named "pprof". The usb plugin binds
+	// pprof to loopback and declares no port for it, so its "health" port is used
+	// as the anchor and the address is rewritten below.
+	rule {
+		source_labels = ["__meta_kubernetes_pod_label_app", "__meta_kubernetes_pod_container_port_name"]
+		separator     = ";"
+		regex         = "(virtualization-controller|vm-route-forge|virtualization-dra-pci);pprof|virtualization-dra;health"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_kubernetes_pod_label_app"]
+		regex         = "virtualization-dra"
+		target_label  = "__address__"
+		replacement   = "127.0.0.1:4109"
+	}
+
+	rule {
+		source_labels = ["__meta_kubernetes_pod_label_app"]
+		target_label  = "service_name"
+	}
+
+	rule {
+		source_labels = ["__meta_kubernetes_pod_name"]
+		target_label  = "pod"
+	}
+
+	rule {
+		source_labels = ["__meta_kubernetes_pod_node_name"]
+		target_label  = "node"
+	}
+
+	rule {
+		source_labels = ["__meta_kubernetes_pod_container_name"]
+		target_label  = "container"
+	}
+}
+
+pyroscope.scrape "components" {
+	targets         = discovery.relabel.components.output
+	forward_to      = [pyroscope.write.local.receiver]
+	scrape_interval = "15s"
+
+	profiling_config {
+		profile.process_cpu {
+			enabled = true
+		}
+
+		profile.memory {
+			enabled = true
+		}
+
+		profile.goroutine {
+			enabled = true
+		}
+
+		// Block and mutex profiles are empty unless the process enables them at runtime.
+		profile.block {
+			enabled = false
+		}
+
+		profile.mutex {
+			enabled = false
+		}
+
+		profile.godeltaprof_memory {
+			enabled = false
+		}
+
+		profile.godeltaprof_block {
+			enabled = false
+		}
+
+		profile.godeltaprof_mutex {
+			enabled = false
+		}
+	}
+}
+
+pyroscope.write "local" {
+	endpoint {
+		url = "http://pyroscope.virtualization-pprof.svc:4040"
+	}
+}

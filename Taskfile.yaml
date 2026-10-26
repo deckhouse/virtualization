@@ -219,8 +219,7 @@ tasks:
         test/e2e/scripts/*.sh
         api/scripts/update-codegen.sh
         images/virtualization-artifact/hack/args.sh
-        images/virtualization-artifact/hack/dlv.sh
-        images/virtualization-artifact/hack/pyroscope.sh"
+        images/virtualization-artifact/hack/dlv.sh"
         EXPANDED="$(for f in $EXPLICIT; do [ -f "$f" ] && echo "$f"; done | sort -u)"
         if [ -z "$EXPANDED" ]; then
           echo "No shell scripts found to lint."; exit 0
@@ -496,3 +495,23 @@ tasks:
       }'
       kubectl -n d8-virtualization port-forward pod/<virtualization-dra-pod> 2345:2345
       EOF
+
+  pprof:install:
+    desc: "Deploy Pyroscope and Alloy to the cluster to profile module components (requires logLevel: debug). See tools/pprof/README.md"
+    cmd: kubectl apply -k tools/pprof/manifests
+
+  pprof:uninstall:
+    desc: "Remove Pyroscope and Alloy from the cluster"
+    cmd: kubectl delete -k tools/pprof/manifests --ignore-not-found
+
+  pprof:ui:
+    desc: "Forward Pyroscope UI to http://localhost:4040"
+    cmd: kubectl -n virtualization-pprof port-forward svc/pyroscope 4040:4040
+
+  pprof:status:
+    desc: "Show Pyroscope and Alloy pods"
+    cmd: kubectl -n virtualization-pprof get pods -o wide
+
+  pprof:wipe:
+    desc: "Drop collected profiles by restarting Pyroscope"
+    cmd: kubectl -n virtualization-pprof rollout restart deploy/pyroscope
