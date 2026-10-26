@@ -132,7 +132,7 @@ func FuzzParseImageSize(f *testing.F) {
 		// "1", and 1e19 has a negative Value(). The importer sizes the target
 		// through Value(), so that range is recorded in FUZZING.md rather than
 		// asserted here.
-		if quantity.Sign() < 0 || quantity.Cmp(*resource.NewQuantity(math.MaxInt64, resource.DecimalSI)) > 0 {
+		if !fuzzImageSizeWithinInt64Range(quantity) {
 			return
 		}
 		if quantity.Value() < 0 {
@@ -145,8 +145,47 @@ func FuzzParseImageSize(f *testing.F) {
 		if err != nil {
 			t.Fatalf("image size %q: canonical form %q is rejected: %v", imageSize, quantity.String(), err)
 		}
+		if !fuzzImageSizeWithinInt64Range(again) {
+			t.Fatalf("image size %q: canonical form %q is outside the checked range", imageSize, quantity.String())
+		}
 		if again.Cmp(quantity) != 0 {
 			t.Fatalf("image size %q: canonical form %q parses to %s, not %s", imageSize, quantity.String(), again.String(), quantity.String())
 		}
 	})
+}
+
+func fuzzImageSizeWithinInt64Range(quantity resource.Quantity) bool {
+	// Inspect the decimal scale before Cmp, Value or canonicalization. Comparing
+	// quantities with unrelated scales can expand huge powers of ten in inf.Dec.
+	// SI suffixes through Exa and Quantity's nano precision need scales -18..9;
+	// other scales still exercise parsing, but not the additional arithmetic oracle.
+	scale := quantity.AsDec().Scale()
+	if scale < -18 || scale > 9 {
+		return false
+	}
+
+	return quantity.Sign() >= 0 && quantity.Cmp(*resource.NewQuantity(math.MaxInt64, resource.DecimalSI)) <= 0
+}
+
+func TestFuzzImageSizeWithinInt64Range(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		quantity resource.Quantity
+		want     bool
+	}{
+		{"zero", *resource.NewQuantity(0, resource.DecimalSI), true},
+		{"nano", *resource.NewScaledQuantity(1, resource.Nano), true},
+		{"exa", *resource.NewScaledQuantity(1, resource.Exa), true},
+		{"max-int64", *resource.NewQuantity(math.MaxInt64, resource.DecimalSI), true},
+		{"negative", *resource.NewQuantity(-1, resource.DecimalSI), false},
+		{"above-int64", *resource.NewScaledQuantity(10, resource.Exa), false},
+		{"scale-above-si", *resource.NewScaledQuantity(1, resource.Scale(19)), false},
+		{"scale-below-nano", *resource.NewScaledQuantity(1, resource.Scale(-10)), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := fuzzImageSizeWithinInt64Range(tc.quantity); got != tc.want {
+				t.Fatalf("checked range = %t, want %t", got, tc.want)
+			}
+		})
+	}
 }
