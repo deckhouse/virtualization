@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization-dra
 
-go 1.26.9
+go 1.26.10
 
 tool github.com/onsi/ginkgo/v2/ginkgo
 
@@ -8,7 +8,7 @@ require (
 	github.com/containerd/nri v0.10.0
 	github.com/deckhouse/deckhouse/pkg/log v0.1.0
 	github.com/go-logr/logr v1.4.4
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.18.7
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
 	github.com/spf13/cobra v1.10.1

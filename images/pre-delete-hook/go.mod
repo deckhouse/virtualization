@@ -1,6 +1,6 @@
 module pre-delete-hook
 
-go 1.26.9
+go 1.26.10
 
 require (
 	github.com/ilyakaznacheev/cleanenv v1.5.0

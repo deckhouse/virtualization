@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/api
 
-go 1.26.9
+go 1.26.10
 
 tool (
 	github.com/deckhouse/deckhouse/pkg/crd-enricher/cmd/crd-enricher
