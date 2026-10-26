@@ -6,7 +6,7 @@ weight: 70
 ## v1.11.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
-Release date: October 26, 2026.
+Release date: October 27, 2026.
 </span>
 
 ### Highlights
