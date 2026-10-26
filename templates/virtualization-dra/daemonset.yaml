@@ -253,6 +253,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            {{- if eq (include "moduleLogLevel" .) "debug" }}
+            {{/* Loopback only: the pod runs with hostNetwork, reach it via kubectl port-forward. */}}
+            - name: PPROF_BIND_ADDRESS
+              value: "127.0.0.1:{{ include "virtualization_dra.pprof_port" . }}"
+            {{- end }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

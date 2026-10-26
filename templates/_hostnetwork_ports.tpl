@@ -19,6 +19,7 @@ Port map:
 
   virtualization-dra:
   4107       virtualization-dra: liveness and readiness probes, bound to 127.0.0.1.
+  4109       virtualization-dra: pprof (PPROF_BIND_ADDRESS), debug mode only, bound to 127.0.0.1.
   4280       virtualization-dra: USB/IP daemon (--usbipd-port flag).
 */ -}}
 
@@ -35,4 +36,5 @@ Port map:
 
 {{- /* virtualization-dra */ -}}
 {{- define "virtualization_dra.health_port" -}}4107{{- end -}}
+{{- define "virtualization_dra.pprof_port" -}}4109{{- end -}}
 {{- define "virtualization_dra.usbipd_port" -}}4280{{- end -}}

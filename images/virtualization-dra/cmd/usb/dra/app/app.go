@@ -17,6 +17,7 @@ limitations under the License.
 package app
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
+	"github.com/deckhouse/virtualization-dra/pkg/pprof"
 	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
@@ -75,6 +77,8 @@ type draOptions struct {
 	NodeName    string
 	CDIRoot     string
 	HealthzAddr string
+	// PprofBindAddress enables the net/http/pprof server when non-empty.
+	PprofBindAddress string
 
 	logging      *logger.Options
 	monitor      *libusb.MonitorConfig
@@ -103,6 +107,7 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.NodeName, "node-name", cli.GetStringEnv("NODE_NAME", ""), "Node name")
 	mfs.StringVar(&o.CDIRoot, "cdi-root", cli.GetStringEnv("CDI_ROOT", cdi.SpecDir), "CDI root")
 	mfs.StringVar(&o.HealthzAddr, "healthz-bind-address", cli.GetStringEnv("HEALTHZ_BIND_ADDRESS", ":51515"), "Healthz bind address")
+	mfs.StringVar(&o.PprofBindAddress, "pprof-bind-address", cli.GetStringEnv(pprof.BindAddressEnv, ""), "The address the pprof endpoint binds to. Empty disables pprof.")
 
 	o.logging.AddFlags(fs.FlagSet("logging"))
 	o.monitor.AddFlags(fs.FlagSet("usb-monitor"))
@@ -159,6 +164,14 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	var usbGateway usbgateway.USBGateway
 
 	group, ctx := errgroup.WithContext(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if o.PprofBindAddress != "" {
+		group.Go(func() error {
+			return pprof.Run(ctx, o.PprofBindAddress)
+		})
+	}
 
 	if o.usbGatewayEnabled {
 		usbipd, err := o.usbipdConfig.Complete(monitor)
@@ -216,6 +229,8 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	}
 
 	group.Go(func() error {
+		// Stop the auxiliary servers once the plugin manager exits, even without an error.
+		defer cancel()
 		return mgr.Run(ctx)
 	})
 

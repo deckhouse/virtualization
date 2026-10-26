@@ -17,10 +17,12 @@ limitations under the License.
 package app
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/cli/flag"
@@ -30,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-dra/internal/plugin"
 	"github.com/deckhouse/virtualization-dra/pkg/cli"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
+	"github.com/deckhouse/virtualization-dra/pkg/pprof"
 )
 
 func NewVirtualizationDraPCICommand() *cobra.Command {
@@ -64,6 +67,8 @@ type draOptions struct {
 	CDIRoot        string
 	HealthzAddr    string
 	RescanInterval time.Duration
+	// PprofBindAddress enables the net/http/pprof server when non-empty.
+	PprofBindAddress string
 
 	logging *logger.Options
 }
@@ -81,6 +86,7 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.CDIRoot, "cdi-root", cli.GetStringEnv("CDI_ROOT", cdi.SpecDir), "CDI root")
 	mfs.StringVar(&o.HealthzAddr, "healthz-bind-address", cli.GetStringEnv("HEALTHZ_BIND_ADDRESS", ":51516"), "Healthz bind address")
 	mfs.DurationVar(&o.RescanInterval, "rescan-interval", 5*time.Minute, "PCI bus rescan interval")
+	mfs.StringVar(&o.PprofBindAddress, "pprof-bind-address", cli.GetStringEnv(pprof.BindAddressEnv, ""), "The address the pprof endpoint binds to. Empty disables pprof.")
 
 	o.logging.AddFlags(fs.FlagSet("logging"))
 	plugin.AddFlags(fs.FlagSet("plugin"))
@@ -127,5 +133,21 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}
 
-	return mgr.Run(ctx)
+	group, ctx := errgroup.WithContext(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if o.PprofBindAddress != "" {
+		group.Go(func() error {
+			return pprof.Run(ctx, o.PprofBindAddress)
+		})
+	}
+
+	group.Go(func() error {
+		// Stop the pprof server once the plugin manager exits, even without an error.
+		defer cancel()
+		return mgr.Run(ctx)
+	})
+
+	return group.Wait()
 }

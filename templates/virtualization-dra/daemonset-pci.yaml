@@ -186,6 +186,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            {{- if eq (include "moduleLogLevel" .) "debug" }}
+            - name: PPROF_BIND_ADDRESS
+              value: ":8081"
+            {{- end }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -195,6 +199,9 @@ spec:
           ports:
             - containerPort: 51516
               name: health
+              protocol: TCP
+            - containerPort: 8081
+              name: pprof
               protocol: TCP
           readinessProbe:
             httpGet:
