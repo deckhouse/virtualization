@@ -1,5 +1,5 @@
 - version: v1.12.3
-  date: "2026-10-26"
+  date: "2026-10-27"
   highlights:
     - en: Fixed vulnerabilities in the module.
       ru: "Устранены уязвимости в модуле."
@@ -207,7 +207,7 @@
     - en: During the upgrade to this version, running virtual machines will be automatically migrated to update their firmware version.
       ru: В процессе обновления до этой версии работающие виртуальные машины будут автоматически мигрированы для обновления версии прошивки.
 - version: v1.11.3
-  date: "2026-10-26"
+  date: "2026-10-27"
   highlights:
     - en: Fixed vulnerabilities in the module.
       ru: "Устранены уязвимости в модуле."
