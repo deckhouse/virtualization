@@ -1,5 +1,38 @@
 # Changelog v1.11
 
+## v1.11.3
+
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-56742
+- CVE-2026-56851
+- CVE-2026-56857
+- CVE-2026-56866
+- CVE-2026-61801
+- CVE-2026-78659
+- CVE-2026-78660
+- CVE-2026-78663
+- CVE-2026-78667
+- CVE-2026-78669
+- CVE-2026-94439
+- CVE-2026-94440
+- CVE-2026-94448
+- CVE-2026-97030
+- CVE-2026-97031
+- CVE-2026-97032 ([!616](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/616))
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-85747 ([!644](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/644))
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-63209
+- CVE-2026-111943 ([!672](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/672))
+
+### docs
+
+- **docs** (low): Backport v1.11.3 release notes. ([!648](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/648))
+- **fix** (low): Fix v1.11.3 release date in release notes. ([!664](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/664))
+- **docs** (low): Set the v1.11.3 release date to October 27, 2026. ([!678](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/678))
+
 ## v1.11.2
 
 ### core

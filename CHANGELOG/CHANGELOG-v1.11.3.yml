@@ -1,0 +1,5 @@
+docs:
+  fixes:
+    - summary: Fix v1.11.3 release date in release notes.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/664
+
