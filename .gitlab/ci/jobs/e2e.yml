@@ -93,8 +93,9 @@ include:
   variables:
     E2E_SCRIPT_DIR: $CI_PROJECT_DIR/.github/scripts/bash/e2e
     E2E_CONFIG: $CI_PROJECT_DIR/test/e2e/default_config.yaml
-    # Below the ginkgo default of 24: more parallelism gets the single-master pool
-    # cluster's apiserver killed by kubelet. The nightly jobs inherit this too.
+    # ginkgo default PROCS=24 is too high for the single-master pool:
+    # cluster's apiserver killed by kubelet.
+    # Other jobs may override this value, e.g. nightly jobs.
     PROCS: "10"
     # Must cover the five bounded steps below (5 x 10m), or `release` never runs
     # and the lease stays busy behind a dead job.
@@ -280,6 +281,10 @@ e2e:local:
   variables:
     # Test the rolling `main` module image; .e2e/.dev use the MR's mr<iid> tag.
     MODULES_MODULE_TAG: main
+    # Nightly jobs use the first level cluster (non-nested)
+    # so override PROCS back to ginkgo default 24 for faster
+    # runs below 1h timeout.
+    PROCS: "24"
     # The cloud stands answer on api.<name>.dvp.flant.dev, not the e2e-regular
     # pool's domain; the lease check in the pool template is built against this.
     E2E_POOL_API_DOMAIN: dvp.flant.dev
