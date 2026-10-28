@@ -1,5 +1,43 @@
 # Changelog v1.12
 
+## v1.12.4
+
+_No changelog entries._
+
+## v1.12.3
+
+### core
+
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-56742
+- CVE-2026-56851
+- CVE-2026-56857
+- CVE-2026-56866
+- CVE-2026-61801
+- CVE-2026-78659
+- CVE-2026-78660
+- CVE-2026-78663
+- CVE-2026-78667
+- CVE-2026-78669
+- CVE-2026-94439
+- CVE-2026-94440
+- CVE-2026-94448
+- CVE-2026-97030
+- CVE-2026-97031
+- CVE-2026-97032 ([!615](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/615))
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-85747 ([!643](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/643))
+- **chore** (default): Fixed vulnerabilities:
+- CVE-2026-63209
+- CVE-2026-111943 ([!671](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/671))
+
+### docs
+
+- **docs** (low): Added release notes v1.12.3 and v1.11.3. ([!646](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/646))
+- **docs** (low): Backport v1.12.3 and v1.11.3 release notes. ([!647](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/647))
+- **docs** (low): Fixed release notes v1.12.3 and v1.11.3. ([!677](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/677))
+- **docs** (low): Fixed the release date of v1.12.3 and v1.11.3 in release notes. ([!680](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/680))
+
 ## v1.12.2
 
 ### module
