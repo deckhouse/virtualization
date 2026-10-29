@@ -255,6 +255,39 @@ func cpuFeaturePolicy(name string, nestedVirtualizationEnabled bool) string {
 	}
 }
 
+// keepRunningCPUFeatures keeps the CPU features of a running instance until a restart when they
+// differ from the class only in ArchCapabilitiesCPUFeatures: KubeVirt would require a restart for it.
+func keepRunningCPUFeatures(kvvm *KVVM, kvvmi *virtv1.VirtualMachineInstance) {
+	if kvvmi == nil || kvvmi.DeletionTimestamp != nil || kvvmi.Spec.Domain.CPU == nil ||
+		(kvvmi.Status.Phase != virtv1.Running && kvvmi.Status.Phase != virtv1.Scheduled) ||
+		IsRestartRequested(kvvm.Resource) {
+		return
+	}
+	cpu := kvvm.Resource.Spec.Template.Spec.Domain.CPU
+	running := kvvmi.Spec.Domain.CPU
+	stable := slices.DeleteFunc(slices.Clone(running.Features), func(f virtv1.CPUFeature) bool {
+		return slices.Contains(v1alpha2.ArchCapabilitiesCPUFeatures, f.Name)
+	})
+	if slices.Equal(stable, cpu.Features) {
+		cpu.Features = slices.Clone(running.Features)
+	}
+}
+
+// IsRestartRequested reports whether a restart was requested and the new instance is not started yet.
+func IsRestartRequested(kvvm *virtv1.VirtualMachine) bool {
+	return kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" ||
+		slices.ContainsFunc(kvvm.Status.StateChangeRequests, func(r virtv1.VirtualMachineStateChangeRequest) bool {
+			return r.Action == virtv1.StartRequest
+		})
+}
+
+func HasArchCapabilitiesCPUFeatures(kvvm *virtv1.VirtualMachine) bool {
+	cpu := kvvm.Spec.Template.Spec.Domain.CPU
+	return cpu != nil && slices.ContainsFunc(cpu.Features, func(f virtv1.CPUFeature) bool {
+		return slices.Contains(v1alpha2.ArchCapabilitiesCPUFeatures, f.Name)
+	})
+}
+
 func (b *KVVM) SetRunPolicy(runPolicy v1alpha2.RunPolicy) error {
 	switch runPolicy {
 	case v1alpha2.AlwaysOnPolicy,

@@ -238,6 +238,7 @@ func ApplyVirtualMachineSpec(
 	if err := kvvm.SetCPUModel(class); err != nil {
 		return err
 	}
+	keepRunningCPUFeatures(kvvm, kvvmi)
 
 	kvvm.SetUSBMigrationStrategy()
 	kvvm.SetMetadata(vm.ObjectMeta)

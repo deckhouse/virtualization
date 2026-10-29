@@ -529,6 +529,33 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase without changes, shouldn't have condition", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 	)
 
+	DescribeTable("CPU features kept in the template for the running instance",
+		func(restartRequested bool, expected []virtv1.CPUFeature) {
+			vm := makeVM(v1alpha2.MachineRunning)
+			kvvm := makeKVVM(vm)
+			kvvm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
+				Model:    virtv1.CPUModeHostModel,
+				Features: []virtv1.CPUFeature{{Name: "arch-capabilities", Policy: "require"}},
+			}
+			if restartRequested {
+				kvvm.Status.StateChangeRequests = []virtv1.VirtualMachineStateChangeRequest{
+					{Action: virtv1.StopRequest}, {Action: virtv1.StartRequest},
+				}
+			}
+			kvvmi := makeKVVMI()
+			kvvmi.Status.Phase = virtv1.Running
+
+			fakeClient, reconcileObj, vmState = setupEnvironment(vm, kvvm, kvvmi, makeVMIP(), makeVMClass())
+			reconcile()
+
+			newKVVM := &virtv1.VirtualMachine{}
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newKVVM)).To(Succeed())
+			Expect(newKVVM.Spec.Template.Spec.Domain.CPU.Features).To(Equal(expected))
+		},
+		Entry("give way to those of the class before a restart", true, nil),
+		Entry("stay while no restart is requested", false, []virtv1.CPUFeature{{Name: "arch-capabilities", Policy: "require"}}),
+	)
+
 	It("should require restart when GPU devices change on a running VM", func() {
 		ip := makeVMIP()
 		vmClass := makeVMClass()

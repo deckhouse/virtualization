@@ -97,8 +97,8 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		// Drop unstable vulnerability-status CPU features from the discovered
 		// model. They must never gate scheduling, and filtering an already
 		// persisted set here also heals classes that froze them before an
-		// upgrade removed them from the nodes. See unstableCPUFeatures.
-		featuresEnabled = filterUnstableCPUFeatures(featuresEnabled)
+		// upgrade removed them from the nodes. See v1alpha2.ArchCapabilitiesCPUFeatures.
+		featuresEnabled = filterArchCapabilitiesCPUFeatures(featuresEnabled)
 		// With nested virtualization off the virtual machines of the class never get vmx and
 		// svm, so the features are left out of the model: the status then shows the CPU model
 		// the virtual machines actually get, and a node is not excluded for lacking a feature
@@ -228,39 +228,11 @@ func NodeNamesDiff(prev, current []string) (added, removed []string) {
 	return added, removed
 }
 
-// unstableCPUFeatures are CPU "features" that reflect the bits of the Intel
-// IA32_ARCH_CAPABILITIES MSR (the MSR itself is exposed as arch-capabilities).
-// They advertise the absence of a hardware vulnerability ("this mitigation is
-// not needed") rather than a real compute capability, and qemu/KVM exposes them
-// inconsistently: they are native on Intel but synthesized on AMD, and a qemu
-// upgrade can stop advertising them for a host model without any hardware
-// change. Requiring every node to keep exposing them would then flip a
-// Discovery VirtualMachineClass to NotReady and strand its VMs in Pending, so
-// they are excluded from the discovered model and from node matching. The only
-// consequence for a guest is that it may apply a mitigation it does not need.
-var unstableCPUFeatures = map[string]struct{}{
-	"arch-capabilities":  {},
-	"rdctl-no":           {},
-	"ibrs-all":           {},
-	"rsba":               {},
-	"skip-l1dfl-vmentry": {},
-	"ssb-no":             {},
-	"mds-no":             {},
-	"pschange-mc-no":     {},
-	"tsx-ctrl":           {},
-	"taa-no":             {},
-	"fb-clear":           {},
-	"gds-no":             {},
-	"rfds-no":            {},
-	"rfds-clear":         {},
-}
-
-// filterUnstableCPUFeatures returns the given features without the entries
-// listed in unstableCPUFeatures, preserving order.
-func filterUnstableCPUFeatures(features []string) []string {
+// filterArchCapabilitiesCPUFeatures returns the given features without the entries
+// listed in v1alpha2.ArchCapabilitiesCPUFeatures, preserving order.
+func filterArchCapabilitiesCPUFeatures(features []string) []string {
 	return filterCPUFeatures(features, func(f string) bool {
-		_, unstable := unstableCPUFeatures[f]
-		return unstable
+		return slices.Contains(v1alpha2.ArchCapabilitiesCPUFeatures, f)
 	})
 }
 
