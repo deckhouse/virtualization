@@ -125,6 +125,39 @@ setsid bash -c '
 
   pgid="$(cat "${pgid_file}" 2>/dev/null)"
   [ -n "${pgid}" ] || pgid="${suite_pid}"
+
+  # Pids of the ginkgo procs (the compiled *.test binaries) in the suite group.
+  suite_test_pids() {
+    local stat line comm pg pid
+    for stat in /proc/[0-9]*/stat; do
+      line="$(cat "${stat}" 2>/dev/null)" || continue
+      comm="${line#*(}"; comm="${comm%)*}"
+      read -r _ _ pg _ <<<"${line##*) }"
+      if [ "${pg}" = "$1" ] && [[ "${comm}" == *.test ]]; then
+        pid="${stat#/proc/}"; echo "${pid%/stat}"
+      fi
+    done
+  }
+
+  # A suite past its deadline hangs in a proc ginkgo cannot interrupt. USR1
+  # makes each proc print a ginkgo progress report into the job log; QUIT
+  # makes the Go runtime dump every goroutine, which the CLI prints as the
+  # proc output once all procs are gone.
+  case "${reason:-}" in
+    *deadline*)
+      procs="$(suite_test_pids "${pgid}" | tr "\n" " ")"
+      if [ -n "${procs}" ]; then
+        say "suite procs still alive: ${procs}; sending USR1, then QUIT"
+        # shellcheck disable=SC2086  # one pid per word
+        kill -USR1 ${procs} 2>/dev/null || true
+        sleep 15
+        # shellcheck disable=SC2086
+        kill -QUIT ${procs} 2>/dev/null || true
+        sleep 15
+      fi
+      ;;
+  esac
+
   say "stopping the suite, sending TERM to process group ${pgid}"
   kill -TERM -- "-${pgid}" 2>/dev/null || say "TERM to -${pgid} failed"
   # Ginkgo needs a moment to finish the spec it is inside (grace-period 1m in

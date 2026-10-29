@@ -47,6 +47,7 @@ tasks:
           {{end -}}
           --race \
           --grace-period=1m \
+          --output-interceptor-mode=none \
           {{if and (eq .SEQUENTIAL "true") (not .FOCUS) -}}
           --label-filter="!Slow" \
           {{end -}}
