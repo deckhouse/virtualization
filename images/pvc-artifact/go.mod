@@ -5,6 +5,7 @@ go 1.26.10
 require (
 	github.com/containers/image/v5 v5.32.0
 	github.com/docker/go-units v0.5.0
+	github.com/golang/snappy v0.0.4
 	github.com/klauspost/compress v1.18.7
 	github.com/machadovilaca/operator-observability v0.0.20
 	github.com/pkg/errors v0.9.1

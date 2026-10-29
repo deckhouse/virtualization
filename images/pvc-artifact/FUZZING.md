@@ -21,11 +21,13 @@ Contents:
 
 ## Targets
 
-Nine targets. The seed counts were read off `task fuzz:local:seeds`, counting the
+Eleven targets. The seed counts were read off `task fuzz:local:seeds`, counting the
 `FuzzX/seed#…` subtests.
 
 | Target | Package | Seeds | Covers |
 | --- | --- | --- | --- |
+| `FuzzImageHeaders` | `pkg/image` | 33 | CDI header matching for disk, compression and archive signatures |
+| `FuzzSnappyImageHeaders` | `pkg/image` | 36 | Snappy framing up to the first decoded 512-byte header, then the same CDI matching |
 | `FuzzFormatReaders` | `pkg/importer` | 49 | image format detection and the compression unwrapping of `format-readers.go`, including `image.Header.Match`/`Size` and the qcow2 size parse |
 | `FuzzSafeJoinPaths` | `pkg/importer` | 35 | the zip-slip guard applied to the tar entry names of a container image layer |
 | `FuzzEnvsToLabels` | `pkg/importer` | 31 | conversion of the image's environment variables into the labels reported through the termination message |
@@ -45,10 +47,36 @@ stack handed to the caller is usable, that no payload panics or hangs it, and th
 drains up to the limit. The `matchHeader` it exercises is the older CDI edition: a short read
 is an error, and the header buffer is re-offered to the next round without a copy.
 
+## Header targets
+
+`FuzzImageHeaders` and `FuzzSnappyImageHeaders` moved from dvcr-importers to this
+module's existing `pkg/image`. The release's `CopyKnownHdrs` and `Header.Match`
+implementations match the CDI dependency used by dvcr-importers. No production
+implementation is copied or changed. The Snappy dependency is pinned to the same
+`github.com/golang/snappy v0.0.4` used by the original test and is imported only by
+the relocated test.
+
+The ordinary target zero-fills a 512-byte window and checks every signature at its
+specified offset without changing the input. The Snappy target accepts up to
+64 KiB of encoded input, reads one complete decoded header, and rejects malformed
+or shorter streams. It does not validate the rest of the stream. Neither target
+calls `getImageInfo`, `qemu-img` or `file`, checks virtual sizes, or adds a Snappy
+path to the production PVC importer.
+
+Both use the existing `pvc-artifact-fuzz`, its `/src` workdir and the unchanged
+Taskfile. `-coverpkg=./...` now includes the actual local header code. This measures
+the local CDI module, not Snappy's internal coverage. There is no additional image,
+preparation script, vet override, or change to werf configuration.
+
+The old dvcr-artifact S3 corpus and published reports must remain unchanged with
+their original image/package metadata. The relocated targets have a new
+component/package identity; transfer compatible inputs explicitly before their
+first campaign. The move itself does not start fuzzing or replace old results.
+
 ## Traceability
 
 The threat model (`virtualization-threat-model.md`, the `Fuzzing` row of the security
-test plan) lists these nine targets as the coverage of `pvc-importer`: image format parsing,
+test plan) lists these targets as the coverage of `pvc-importer`: image format parsing,
 the `qemu-img` wrapper and the resource limits placed on it, the entry names of a layer, and
 the metrics port. The targets of `main` that are not here — `FuzzChecksums` and the cloud-init
 validation — stand on code this branch does not carry, and the same row records them as
@@ -74,9 +102,9 @@ certification requirement, not a style preference. The lowest count today is 31.
   job in an MR to check this module; the ordinary unit-test jobs leave it alone — the pipeline
   runs unit tests for `images/virtualization-artifact` and the hooks only.
 
-Every input is capped at 64 KiB with `t.Skip`. That is a technical limit against pointless
-memory and time, never a filter on malformed data - malformed data is what these paths exist
-to reject.
+The existing targets cap input at 64 KiB with `t.Skip`; the relocated plain-header target
+caps it at 512 bytes. That is a technical limit against pointless memory and time, never a
+filter on malformed data - malformed data is what these paths exist to reject.
 
 ## Running a target
 
@@ -144,7 +172,7 @@ first.
 
 ```bash
 task fuzz:local:image                                # build the image, once
-task fuzz:local:list                                 # the nine targets
+task fuzz:local:list                                 # the eleven targets
 task fuzz:local:seeds                                # replay every seed corpus
 
 FUZZ_PKG=./pkg/image FUZZ_TARGET=FuzzQemuImgInfo FUZZ_TIME=60s FUZZ_WORKERS=4 \
