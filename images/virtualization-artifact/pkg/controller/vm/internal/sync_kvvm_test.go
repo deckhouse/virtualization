@@ -905,3 +905,75 @@ func newResourceQuota(cpuHard, memoryHard, cpuUsed, memoryUsed resource.Quantity
 		},
 	}
 }
+
+var _ = Describe("SyncKvvmHandler.isVMStopped", func() {
+	const (
+		name      = "vm-stopped"
+		namespace = "default"
+	)
+
+	var (
+		handler *SyncKvvmHandler
+		vm      *v1alpha2.VirtualMachine
+		kvvm    *virtv1.VirtualMachine
+		kvvmi   *virtv1.VirtualMachineInstance
+	)
+
+	BeforeEach(func() {
+		handler = &SyncKvvmHandler{}
+		vm = vmbuilder.NewEmpty(name, namespace)
+		vm.Status.Phase = v1alpha2.MachineStopped
+		kvvm = &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Status: virtv1.VirtualMachineStatus{
+				PrintableStatus: virtv1.VirtualMachineStatusStopped,
+			},
+		}
+		kvvmi = &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Status:     virtv1.VirtualMachineInstanceStatus{Phase: virtv1.Pending},
+		}
+	})
+
+	It("reports a stopped VM when no instance exists", func() {
+		Expect(handler.isVMStopped(vm, kvvm, nil, nil)).To(BeTrue())
+	})
+
+	// The internal virtual machine's status is written by virt-controller and lags behind the
+	// instance it describes, so a freshly created instance is routinely paired with a status
+	// still saying "Stopped". Taking the stopped branch there rewrites the whole spec under a
+	// live instance and makes virt-controller tear it down.
+	It("does not report a stopped VM while an instance exists, even a Pending one", func() {
+		Expect(handler.isVMStopped(vm, kvvm, kvvmi, nil)).To(BeFalse())
+	})
+
+	It("does not report a stopped VM while a running instance exists", func() {
+		kvvmi.Status.Phase = virtv1.Running
+		Expect(handler.isVMStopped(vm, kvvm, kvvmi, nil)).To(BeFalse())
+	})
+
+	// A guest-initiated reboot or shutdown leaves the instance behind in a final phase. That is
+	// the only window in which a disruptive change awaiting a restart reaches the internal
+	// virtual machine, so a finished instance must not be mistaken for a live one.
+	DescribeTable("reports a stopped VM once the instance has finished",
+		func(phase virtv1.VirtualMachineInstancePhase) {
+			kvvmi.Status.Phase = phase
+			Expect(handler.isVMStopped(vm, kvvm, kvvmi, nil)).To(BeTrue())
+		},
+		Entry("succeeded", virtv1.Succeeded),
+		Entry("failed", virtv1.Failed),
+	)
+
+	It("reports a stopped VM while the instance is being deleted", func() {
+		kvvmi.Status.Phase = virtv1.Running
+		kvvmi.DeletionTimestamp = ptr.To(metav1.Now())
+		Expect(handler.isVMStopped(vm, kvvm, kvvmi, nil)).To(BeTrue())
+	})
+
+	It("does not report a stopped VM when a finished instance still has a live pod", func() {
+		kvvmi.Status.Phase = virtv1.Succeeded
+		kvvm.Status.Created = true
+		pod := &corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning}}
+		Expect(handler.isVMStopped(vm, kvvm, kvvmi, pod)).To(BeFalse())
+	})
+})

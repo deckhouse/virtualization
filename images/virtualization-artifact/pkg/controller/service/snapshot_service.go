@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -99,9 +100,6 @@ func (s *SnapshotService) CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 	return false, nil
 }
 
-// TODO: The Freeze method should be atomic because there is a chance of encountering
-// a dead-end with the `ErrUntrustedFilesystemFrozenCondition` error in the SyncFSFreezeRequest method
-// when the API returns an error on an freeze request.
 func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
 		return fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)
@@ -114,7 +112,24 @@ func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachi
 
 	err = s.virtClient.VirtualMachines(kvvmi.Namespace).Freeze(ctx, kvvmi.Name, subv1alpha2.VirtualMachineFreeze{})
 	if err != nil {
-		return fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w", kvvmi.Namespace, kvvmi.Name, err)
+		return errors.Join(
+			fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w", kvvmi.Namespace, kvvmi.Name, err),
+			s.rollBackFSFreezeRequest(ctx, kvvmi),
+		)
+	}
+
+	return nil
+}
+
+// rollBackFSFreezeRequest retires the freeze request annotation after the call it was written for failed.
+//
+// A pending freeze request parks every later pass in SyncFSFreezeRequest until the guest reports frozen,
+// and a freeze is never re-sent, so an annotation left behind by a failed call holds the capture until
+// the caller's confirmation deadline fails it. The roll-back lets the next pass ask again instead. It is
+// best-effort: when the patch fails too, that deadline stays the backstop.
+func (s *SnapshotService) rollBackFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+	if err := s.removeAnnFSFreezeRequest(ctx, kvvmi); err != nil {
+		return fmt.Errorf("failed to roll back the filesystem request annotation on %s/%s: %w", kvvmi.Namespace, kvvmi.Name, err)
 	}
 
 	return nil
@@ -132,6 +147,10 @@ type unfreezeScope struct {
 	// skipAbandonedChildren excludes VirtualDiskSnapshots whose owning VirtualMachineSnapshot is gone or
 	// already terminal.
 	skipAbandonedChildren bool
+	// ignoreFrozenState drops the precondition that the guest currently reads frozen, leaving only the
+	// survey of the other snapshots. It serves a caller that knows the guest is frozen from its own
+	// records while kvvmi.Status.FSFreezeStatus reads empty.
+	ignoreFrozenState bool
 }
 
 func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, scope unfreezeScope) (bool, error) {
@@ -139,13 +158,15 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 		return false, nil
 	}
 
-	isFrozen, err := s.IsFrozen(kvvmi)
-	if err != nil {
-		return false, err
-	}
+	if !scope.ignoreFrozenState {
+		isFrozen, err := s.IsFrozen(kvvmi)
+		if err != nil {
+			return false, err
+		}
 
-	if !isFrozen {
-		return false, nil
+		if !isFrozen {
+			return false, nil
+		}
 	}
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
@@ -154,7 +175,7 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 		}
 
 		var vdSnapshots v1alpha2.VirtualDiskSnapshotList
-		err = s.client.List(ctx, &vdSnapshots,
+		err := s.client.List(ctx, &vdSnapshots,
 			client.InNamespace(vm.Namespace),
 			client.MatchingFields{indexer.IndexFieldVDSnapshotByVD: bdr.Name},
 		)
@@ -191,7 +212,7 @@ func (s *SnapshotService) canUnfreeze(ctx context.Context, vm *v1alpha2.VirtualM
 	}
 
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
-	err = s.client.List(ctx, &vmSnapshots,
+	err := s.client.List(ctx, &vmSnapshots,
 		client.InNamespace(vm.Namespace),
 		client.MatchingFields{indexer.IndexFieldVMSnapshotByVM: vm.Name},
 	)
@@ -272,11 +293,30 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshotTree(ctx context.
 	})
 }
 
-// TODO: The Unfreeze method should be atomic because there is a chance of encountering
-// a dead-end with the `ErrUntrustedFilesystemFrozenCondition` error in the SyncFSFreezeRequest method
-// when the API returns an error on an unfreeze request.
+// NoOtherSnapshotHoldsFreeze reports whether every snapshot of this VirtualMachine outside
+// vmSnapshot's own run tree has finished capturing, so releasing the freeze takes it from nobody.
+//
+// It is the sibling survey of CanUnfreezeWithVirtualMachineSnapshotTree without that method's
+// precondition that the guest currently reads frozen. A caller holding its own record of the freeze
+// needs the survey while kvvmi.Status.FSFreezeStatus reads empty, and the precondition would answer
+// "no" for the very reason the caller is working around.
+func (s *SnapshotService) NoOtherSnapshotHoldsFreeze(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) (bool, error) {
+	return s.canUnfreeze(ctx, vm, nil, unfreezeScope{
+		skipVMSnapshotName:    vmSnapshot.Name,
+		skipChildrenOfUID:     vmSnapshot.UID,
+		skipAbandonedChildren: true,
+		ignoreFrozenState:     true,
+	})
+}
+
+// Unfreeze asks the guest to thaw its filesystems.
+//
+// A failed API call leaves the unfreeze request annotation in place, and the caller re-sends it while
+// the request stays pending. Re-sending is safe because thawing a guest that is no longer frozen is a
+// no-op, so an unfreeze already pending is accepted. Only a request of the OTHER kind is unexpected: a
+// freeze pending here means something else is driving the guest.
 func (s *SnapshotService) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
-	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
+	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok && request != RequestFSUnfreeze {
 		return fmt.Errorf("failed to unfreeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)
 	}
 
@@ -372,17 +412,11 @@ func (s *SnapshotService) annotateWithFSFreezeRequest(ctx context.Context, reque
 		return fmt.Errorf("failed to annotate virtual machine instance; virtual machine instance cannot be nil")
 	}
 
-	if kvvmi.Annotations == nil {
-		kvvmi.Annotations = make(map[string]string)
-	}
-	kvvmi.Annotations[annotations.AnnVMFilesystemRequest] = requestType
-
-	err := s.client.Update(ctx, kvvmi)
-	if err != nil {
-		return err
+	if kvvmi.Annotations[annotations.AnnVMFilesystemRequest] == requestType {
+		return nil
 	}
 
-	return nil
+	return s.patchFSFreezeRequest(ctx, kvvmi, requestType)
 }
 
 func (s *SnapshotService) removeAnnFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
@@ -390,18 +424,32 @@ func (s *SnapshotService) removeAnnFSFreezeRequest(ctx context.Context, kvvmi *v
 		return fmt.Errorf("failed to annotate virtual machine instance; virtual machine instance cannot be nil")
 	}
 
-	if kvvmi.Annotations == nil {
+	if _, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; !ok {
 		return nil
 	}
 
-	delete(kvvmi.Annotations, annotations.AnnVMFilesystemRequest)
+	return s.patchFSFreezeRequest(ctx, kvvmi, nil)
+}
 
-	err := s.client.Update(ctx, kvvmi)
+// patchFSFreezeRequest writes the filesystem request annotation on the instance, setting it to
+// requestType or, for a nil requestType, removing it.
+//
+// It is a merge patch over that single annotation to prevent
+// "the object has been modified" error as the virt-controller
+// may mutate the same KVVMI object during reconcile.
+func (s *SnapshotService) patchFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, requestType any) error {
+	mergePatch, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]any{
+				annotations.AnnVMFilesystemRequest: requestType,
+			},
+		},
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare the filesystem request patch: %w", err)
 	}
 
-	return nil
+	return s.client.Patch(ctx, kvvmi, client.RawPatch(types.MergePatchType, mergePatch))
 }
 
 // DiscardFSFreezeRequest retires a filesystem request the guest never honored.

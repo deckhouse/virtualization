@@ -316,9 +316,46 @@ func (s *BlockDevicesState) Reload(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// VirtualDisksByName only resolves disks referenced by vm.Spec.BlockDeviceRefs or
+	// vm.Status.BlockDeviceRefs. A disk attached solely through a VMBDA never appears in
+	// the spec, and only enters the status once BlockDeviceHandler has already recorded
+	// it there from the KVVM built this same reconcile - so on the reconcile where the
+	// VMBDA first becomes Attached, vdByName is missing it. setVMBDABlockDeviceDisk then
+	// skips the disk entirely, leaving its claim, serial and hotplug flag unwritten until
+	// the status catches up a reconcile later. Resolve straight from the Attached VMBDA
+	// reference instead, so the disk is built on the very reconcile it is attached.
+	for ref, vmbdas := range vmbdaByRef {
+		if ref.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
+			continue
+		}
+		if _, ok := vdByName[ref.Name]; ok {
+			continue
+		}
+		if !anyVMBDAAttached(vmbdas) {
+			continue
+		}
+		vd, err := s.s.VirtualDisk(ctx, ref.Name)
+		if err != nil {
+			return err
+		}
+		if vd != nil {
+			vdByName[ref.Name] = vd
+		}
+	}
+
 	s.VIByName = viByName
 	s.CVIByName = ciByName
 	s.VDByName = vdByName
 	s.VMBDAByBlockDeviceRef = vmbdaByRef
 	return nil
+}
+
+func anyVMBDAAttached(vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
+	for _, vmbda := range vmbdas {
+		if vmbda != nil && vmbda.Status.Phase == v1alpha2.BlockDeviceAttachmentPhaseAttached {
+			return true
+		}
+	}
+	return false
 }

@@ -105,16 +105,16 @@ func (h *SyncPowerStateHandler) syncPowerState(
 	}
 
 	if runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually {
-		if kvvmi != nil {
-			err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
-		} else if kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyAlways {
+		if instanceLeftPending(kvvmi) {
+			err = kvvmutil.EnsureRunStrategy(ctx, h.client, kvvm, virtv1.RunStrategyManual)
+		} else if kvvmi == nil && kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyAlways {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
 				"Start on create initiated by controller for %v policy",
 				runPolicy,
 			)
 		}
 	} else {
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
+		err = kvvmutil.EnsureRunStrategy(ctx, h.client, kvvm, virtv1.RunStrategyManual)
 	}
 
 	if err != nil {
@@ -178,12 +178,36 @@ func (h *SyncPowerStateHandler) syncPowerState(
 	case Start:
 		return h.start(ctx, s, kvvm, isConfigurationApplied)
 	case Stop:
+		// A stop has to stick. If the internal virtual machine is still under the create-time
+		// RunStrategyAlways (see instanceLeftPending), KubeVirt would recreate the instance right
+		// after it is deleted, so trade that strategy for Manual before deleting.
+		if err = kvvmutil.EnsureRunStrategy(ctx, h.client, kvvm, virtv1.RunStrategyManual); err != nil {
+			return fmt.Errorf("enforce runPolicy %s before stop: %w", runPolicy, err)
+		}
 		return h.deleteKVVMI(ctx, kvvmi)
 	case Restart:
 		return h.restart(ctx, s, kvvm, kvvmi, isConfigurationApplied)
 	}
 
 	return nil
+}
+
+// instanceLeftPending reports whether KubeVirt got the virtual machine instance past Pending,
+// that is whether it has created the instance's pod.
+//
+// It gates the moment AlwaysOnUnlessStoppedManually hands power management back to this
+// controller.
+func instanceLeftPending(kvvmi *virtv1.VirtualMachineInstance) bool {
+	if kvvmi == nil {
+		return false
+	}
+
+	switch kvvmi.Status.Phase {
+	case virtv1.VmPhaseUnset, virtv1.Pending:
+		return false
+	default:
+		return true
+	}
 }
 
 func (h *SyncPowerStateHandler) handleAlwaysOffPolicy(
@@ -468,28 +492,6 @@ func (h *SyncPowerStateHandler) interruptRunningVM(
 	if err != nil {
 		return fmt.Errorf("add annotation to KVVM: %w", err)
 	}
-	return nil
-}
-
-func (h *SyncPowerStateHandler) ensureRunStrategy(
-	ctx context.Context,
-	kvvm *virtv1.VirtualMachine,
-	desiredRunStrategy virtv1.VirtualMachineRunStrategy,
-) error {
-	if kvvm == nil {
-		return nil
-	}
-	kvvmRunStrategy := kvvmutil.GetRunStrategy(kvvm)
-
-	if kvvmRunStrategy == desiredRunStrategy {
-		return nil
-	}
-	patch := kvvmutil.PatchRunStrategy(desiredRunStrategy)
-	err := h.client.Patch(ctx, kvvm, patch)
-	if err != nil {
-		return fmt.Errorf("patch KVVM with runStrategy %s: %w", desiredRunStrategy, err)
-	}
-
 	return nil
 }
 

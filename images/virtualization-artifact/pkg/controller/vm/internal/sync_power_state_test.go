@@ -22,8 +22,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -33,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("Test power actions with VMs", func() {
@@ -452,3 +455,106 @@ func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedNam
 func setupKVVMAnnotations(kvvm *virtv1.VirtualMachine, key string) {
 	kvvm.Annotations[key] = "true"
 }
+
+var _ = Describe("Start-on-create handoff for AlwaysOnUnlessStoppedManually", func() {
+	var (
+		ctx          context.Context
+		handler      *SyncPowerStateHandler
+		recorderMock *eventrecord.EventRecorderLoggerMock
+		fakeClient   client.Client
+		vmState      state.VirtualMachineState
+		vm           *v1alpha2.VirtualMachine
+		kvvm         *virtv1.VirtualMachine
+		kvvmi        *virtv1.VirtualMachineInstance
+		vmPod        *corev1.Pod
+		key          types.NamespacedName
+	)
+
+	BeforeEach(func() {
+		ctx = testutil.ContextBackgroundWithNoOpLogger()
+		key = types.NamespacedName{Namespace: "vm", Name: "ns"}
+
+		vm, kvvm, kvvmi, vmPod = createObjectsForPowerstateTest(key)
+		vm.Spec.RunPolicy = v1alpha2.AlwaysOnUnlessStoppedManually
+		// The create-time strategy: KubeVirt owns the first start until the instance is up.
+		kvvm.Spec.RunStrategy = ptr.To(virtv1.RunStrategyAlways)
+
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
+			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
+				return recorderMock
+			},
+		}
+	})
+
+	AfterEach(func() {
+		vm, kvvm, kvvmi, vmPod = nil, nil, nil, nil
+		fakeClient, vmState, handler, recorderMock = nil, nil, nil, nil
+	})
+
+	sync := func() {
+		GinkgoHelper()
+		fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
+		handler = NewSyncPowerStateHandler(fakeClient, recorderMock)
+		Expect(handler.syncPowerState(ctx, vmState, kvvm, v1alpha2.AlwaysOnUnlessStoppedManually)).To(Succeed())
+	}
+
+	liveRunStrategy := func() virtv1.VirtualMachineRunStrategy {
+		GinkgoHelper()
+		live := &virtv1.VirtualMachine{}
+		Expect(fakeClient.Get(ctx, key, live)).To(Succeed())
+		Expect(live.Spec.RunStrategy).NotTo(BeNil())
+		return *live.Spec.RunStrategy
+	}
+
+	// Trading Always for Manual here would leave nobody to start the machine if KubeVirt tears
+	// the Pending instance down, and a WaitForFirstConsumer disk would then wait forever for a
+	// pod that is never created.
+	It("keeps RunStrategyAlways while the instance has not left Pending", func() {
+		kvvmi.Status.Phase = virtv1.Pending
+
+		sync()
+
+		Expect(liveRunStrategy()).To(Equal(virtv1.RunStrategyAlways))
+	})
+
+	It("keeps RunStrategyAlways while the instance has no phase yet", func() {
+		kvvmi.Status.Phase = virtv1.VmPhaseUnset
+
+		sync()
+
+		Expect(liveRunStrategy()).To(Equal(virtv1.RunStrategyAlways))
+	})
+
+	DescribeTable("takes power management back once the instance has a pod",
+		func(phase virtv1.VirtualMachineInstancePhase) {
+			kvvmi.Status.Phase = phase
+
+			sync()
+
+			Expect(liveRunStrategy()).To(Equal(virtv1.RunStrategyManual))
+		},
+		Entry("scheduling", virtv1.Scheduling),
+		Entry("scheduled", virtv1.Scheduled),
+		Entry("running", virtv1.Running),
+	)
+
+	// Maintenance stops the machine through the Stop action. Deleting the instance while the
+	// create-time RunStrategyAlways is still in place would just make KubeVirt recreate it.
+	It("switches to RunStrategyManual before stopping a still-Pending instance", func() {
+		kvvmi.Status.Phase = virtv1.Pending
+		vm.Status.Conditions = []metav1.Condition{
+			{
+				Type:               vmcondition.TypeMaintenance.String(),
+				Status:             metav1.ConditionTrue,
+				Reason:             "UnderMaintenance",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+
+		sync()
+
+		Expect(liveRunStrategy()).To(Equal(virtv1.RunStrategyManual))
+		Expect(fakeClient.Get(ctx, key, &virtv1.VirtualMachineInstance{})).To(MatchError(k8serrors.IsNotFound, "not found"))
+	})
+})

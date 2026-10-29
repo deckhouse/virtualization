@@ -23,6 +23,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -41,14 +42,35 @@ type StopOperation struct {
 }
 
 func (o StopOperation) Execute(ctx context.Context) error {
+	key := virtualMachineKeyByVmop(o.vmop)
+
 	kvvmi := &virtv1.VirtualMachineInstance{}
-	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvmi)
+	err := o.client.Get(ctx, key, kvvmi)
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
+
+	// The instance is deleted directly, bypassing the power state handler of the virtual machine
+	// controller, so the run strategy has to be settled here. An internal virtual machine still
+	// carrying the create-time RunStrategyAlways would have KubeVirt recreate the instance right
+	// back and the stop would be silently undone. That strategy stays in place until the instance
+	// leaves Pending (see instanceLeftPending in vm/internal/sync_power_state.go), which is
+	// exactly the window a stop of a still-starting machine lands in.
+	//
+	// Order matters: patching first means a failed patch leaves the instance alone and the
+	// operation simply retries, whereas stopping first would open a window with the instance
+	// already gone and RunStrategyAlways still in place.
+	kvvm := &virtv1.VirtualMachine{}
+	if err = o.client.Get(ctx, key, kvvm); err != nil {
+		return err
+	}
+	if err = kvvmutil.EnsureRunStrategy(ctx, o.client, kvvm, virtv1.RunStrategyManual); err != nil {
+		return err
+	}
+
 	return powerstate.StopVM(ctx, o.client, kvvmi, o.vmop.Spec.Force)
 }
 

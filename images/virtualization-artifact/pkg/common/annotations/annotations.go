@@ -355,6 +355,20 @@ const (
 	// AnnVMFilesystemRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
 	AnnVMFilesystemRequest = AnnAPIGroupV + "/virtual-machine-filesystem-request"
 
+	// The freeze bookkeeping a VirtualMachineSnapshot keeps about itself. They live here rather than in
+	// the snapshot controller because the disk captures under that snapshot read them too:
+	// kvvmi.Status.FSFreezeStatus is not a latch and has been observed going frozen -> empty -> frozen
+	// within seconds, so both sides need a record of the freeze that does not flap.
+	//
+	// AnnFSFreezeRequestedAt records when the controller asked the guest to freeze. Nothing else carries
+	// that moment: AnnVMFilesystemRequest is a bare marker with no timestamp.
+	AnnFSFreezeRequestedAt = AnnAPIGroupV + "/fs-freeze-requested-at"
+	// AnnFSUnfreezeRequestedAt is its unfreeze counterpart, and marks the freeze as given up.
+	AnnFSUnfreezeRequestedAt = AnnAPIGroupV + "/fs-unfreeze-requested-at"
+	// AnnFSFrozenConfirmedAt records that the guest was actually observed frozen for this snapshot. It
+	// is what separates a freeze that landed from one the guest never confirmed.
+	AnnFSFrozenConfirmedAt = AnnAPIGroupV + "/fs-frozen-confirmed-at"
+
 	// AnnDVCRDeploymentSwitchToGarbageCollectionMode is an annotation on secret/dvcr-garbage-collection to indicate that deployment/dcvr should be switched to garbage-collection mode.
 	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection-mode"
 	// AnnDVCRGarbageCollectionDone is an annotation on secret/dvcr-garbage-collection to indicate the garbage collection process is done.

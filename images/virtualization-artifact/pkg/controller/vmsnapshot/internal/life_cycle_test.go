@@ -18,18 +18,22 @@ package internal
 
 import (
 	"context"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -337,6 +341,47 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Reason).To(Equal(vmscondition.FileSystemFreezing.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
+	})
+
+	Context("The virtual machine snapshot has already failed", func() {
+		const failureMessage = `The virtual disk snapshot "vd-bar-snapshot" is failed: cannot take snapshot. ` +
+			`VolumeSnapshot "d8v-vds-vd-bar" has an error: not enough space in pool thin-data.`
+
+		BeforeEach(func() {
+			vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmscondition.VirtualMachineSnapshotReadyType).
+					Status(metav1.ConditionFalse).
+					Reason(vmscondition.VirtualMachineSnapshotFailed).
+					Message(failureMessage),
+				&vmSnapshot.Status.Conditions,
+			)
+		})
+
+		// Both errors make the filesystem sync give up and return early, before the phase is examined.
+		DescribeTable("keeps the recorded failure reason while the filesystem state is unsettled",
+			func(syncErr error) {
+				snapshotter.SyncFSFreezeRequestFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
+					return syncErr
+				}
+
+				h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
+
+				_, err := h.Handle(testContext(), vmSnapshot)
+				Expect(err).To(BeNil())
+				Expect(vmSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualMachineSnapshotPhaseFailed))
+				ready, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
+				Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+				Expect(ready.Reason).To(Equal(vmscondition.VirtualMachineSnapshotFailed.String()))
+				Expect(ready.Message).To(Equal(failureMessage))
+			},
+			Entry("the frozen condition cannot be trusted yet", service.ErrUntrustedFilesystemFrozenCondition),
+			Entry("the status update conflicts", k8serrors.NewConflict(
+				schema.GroupResource{Group: "virtualization.deckhouse.io", Resource: "virtualmachinesnapshots"},
+				"vm-snapshot",
+				errors.New("the object has been modified"),
+			)),
+		)
 	})
 
 	Context("The virtual machine snapshot is Ready", func() {
