@@ -36,11 +36,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/peering"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
 const nameIpamHandler = "IPAMHandler"
@@ -48,7 +50,7 @@ const nameIpamHandler = "IPAMHandler"
 type IPAM interface {
 	IsBound(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) bool
 	CheckIPAddressAvailableForBinding(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) error
-	CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client) error
+	CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client, staticIP string) error
 }
 
 func NewIPAMHandler(ipam IPAM, cl client.Client, recorder eventrecord.EventRecorderLogger) *IPAMHandler {
@@ -60,9 +62,17 @@ func NewIPAMHandler(ipam IPAM, cl client.Client, recorder eventrecord.EventRecor
 }
 
 type IPAMHandler struct {
-	ipam     IPAM
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
+	ipam      IPAM
+	client    client.Client
+	apiReader client.Reader
+	recorder  eventrecord.EventRecorderLogger
+}
+
+// WithAPIReader lets the handler re-read the address of a received VM past the cache: the address may
+// have been created by the previous reconcile and the informer may not have seen it yet.
+func (h *IPAMHandler) WithAPIReader(reader client.Reader) *IPAMHandler {
+	h.apiReader = reader
+	return h
 }
 
 func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -138,7 +148,15 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		}
 		log.Info("VirtualMachineIPAddress not found: create the new one", slog.String("vmipName", vm.GetName()))
 		cb.Message(fmt.Sprintf("VirtualMachineIPAddress %q was not found: it may be in the process of being created.", vm.GetName()))
-		return reconcile.Result{}, h.ipam.CreateIPAddress(ctx, vm, h.client)
+		receiver, err := loadMigrationReceiver(ctx, h.client, vm)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if address := peering.ReceiverIPAddress(receiver); isReceiving(receiver) && address != "" {
+			// A VM received from another cluster keeps its address.
+			return reconcile.Result{}, h.createReceiverIPAddress(ctx, vm, receiver, address)
+		}
+		return reconcile.Result{}, h.ipam.CreateIPAddress(ctx, vm, h.client, "")
 	}
 
 	// 3. Check if possible to bind virtual machine with the found ip address.
@@ -290,4 +308,48 @@ func (h *IPAMHandler) deleteManagedVMIP(ctx context.Context, s state.VirtualMach
 
 func (h *IPAMHandler) Name() string {
 	return nameIpamHandler
+}
+
+// createReceiverIPAddress reserves the source address of a received VM. A webhook denial does not always
+// mean the address is taken: the previous reconcile may have created the address already, and the cache
+// has not seen it yet. The live read tells this cluster's own address from a foreign one.
+func (h *IPAMHandler) createReceiverIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, receiver *intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver, address string) error {
+	denial := h.ipam.CreateIPAddress(ctx, vm, h.client, address)
+	if !isAdmissionDenial(denial) {
+		return denial
+	}
+	own, err := h.findOwnStaticIPAddress(ctx, vm, address)
+	if err != nil {
+		return err
+	}
+	if own != nil {
+		return nil
+	}
+	why := denial.Error()
+	if _, after, ok := strings.Cut(why, "denied the request: "); ok {
+		why = after
+	}
+	return peering.SetReceiverFailed(ctx, h.client, receiver, peering.ReceiverReasonIPAddressNotAvailable,
+		fmt.Sprintf("the IP address %s is not available in namespace %q: %s. Free the address there and retry the move", address, vm.Namespace, why))
+}
+
+func (h *IPAMHandler) findOwnStaticIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, address string) (*v1alpha2.VirtualMachineIPAddress, error) {
+	reader := h.apiReader
+	if reader == nil {
+		reader = h.client
+	}
+	var list v1alpha2.VirtualMachineIPAddressList
+	if err := reader.List(ctx, &list, client.InNamespace(vm.Namespace), client.MatchingLabels{annotations.LabelVirtualMachineUID: string(vm.GetUID())}); err != nil {
+		return nil, err
+	}
+	for i := range list.Items {
+		if list.Items[i].Spec.StaticIP == address {
+			return &list.Items[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func isAdmissionDenial(err error) bool {
+	return err != nil && (k8serrors.IsInvalid(err) || strings.Contains(err.Error(), "denied the request"))
 }

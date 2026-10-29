@@ -24,6 +24,8 @@ import (
 	fakevirtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2/fake"
 	virtualizationv1alpha3 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha3"
 	fakevirtualizationv1alpha3 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha3/fake"
+	internalv1alpha1 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/internalvirtualization/v1alpha1"
+	fakeinternalv1alpha1 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/internalvirtualization/v1alpha1/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -98,4 +100,9 @@ func (c *Clientset) VirtualizationV1alpha2() virtualizationv1alpha2.Virtualizati
 // VirtualizationV1alpha3 retrieves the VirtualizationV1alpha3Client
 func (c *Clientset) VirtualizationV1alpha3() virtualizationv1alpha3.VirtualizationV1alpha3Interface {
 	return &fakevirtualizationv1alpha3.FakeVirtualizationV1alpha3{Fake: &c.Fake}
+}
+
+// InternalV1alpha1 retrieves the InternalV1alpha1Client
+func (c *Clientset) InternalV1alpha1() internalv1alpha1.InternalV1alpha1Interface {
+	return &fakeinternalv1alpha1.FakeInternalV1alpha1{Fake: &c.Fake}
 }

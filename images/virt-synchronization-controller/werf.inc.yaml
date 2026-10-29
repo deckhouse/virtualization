@@ -1,0 +1,24 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
+import:
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-binaries/
+  to: /usr/bin
+  includePaths:
+  - virt-synchronization-controller
+  before: setup
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-config-files/
+  to: /etc
+  includePaths:
+  - passwd
+  - group
+  - .version
+  before: setup
+imageSpec:
+  config:
+    user: 64535
+    entrypoint: ["/usr/bin/virt-synchronization-controller"]

@@ -43,6 +43,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
 // newKVVMWithMainInterfaceSpec builds an internal virtual machine whose template
@@ -483,6 +484,43 @@ var _ = Describe("IPAddressHandler for the Main network", func() {
 
 		Expect(listIPAddresses()).To(HaveLen(1))
 	})
+
+	It("keeps the address of the source for a VM received from another cluster", func() {
+		vm.Annotations = map[string]string{annotations.AnnVMMigrationReceiver: "receiver-uid"}
+		receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "receiver-uid"},
+			Spec:       intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.1"},
+		}
+		fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), receiver)
+		reconcile()
+
+		items := listIPAddresses()
+		Expect(items).To(HaveLen(1))
+		Expect(items[0].Spec.Type).To(Equal(sdnapi.IPAddressTypeStatic))
+		Expect(items[0].Spec.Static.IP).To(Equal("10.66.10.1"))
+	})
+
+	DescribeTable("fails the receive when this cluster cannot give the address of the source",
+		func(ipa *sdnapi.IPAddress) {
+			vm.Annotations = map[string]string{annotations.AnnVMMigrationReceiver: "receiver-uid"}
+			receiver := &intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: "receiver-uid"},
+				Spec:       intvirtv1alpha1.VirtualMachineReceiverSpec{IPAddress: "10.66.10.1"},
+			}
+			fakeClient, resource, vmState = setupEnvironment(vm, newMainPrimaryCNINetwork(), receiver, ipa)
+			reconcile()
+
+			Expect(fakeClient.Get(ctx, client.ObjectKeyFromObject(receiver), receiver)).To(Succeed())
+			Expect(receiver.Status.Phase).To(Equal(intvirtv1alpha1.ReceiverFailed))
+			Expect(receiver.Status.Message).To(ContainSubstring("10.66.10.1"))
+		},
+		Entry("another resource holds it", newSDNIPAddress("other", "other-ns", "other-uid", "ClusterNetwork", "main", "10.66.10.1", true)),
+		Entry("the sdn module does not allocate it", func() *sdnapi.IPAddress {
+			ipa := newSDNIPAddress("vm-a", namespace, "vm-uid", "ClusterNetwork", "main", "", false)
+			ipa.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-2 * receivedAddressAllocationWait))
+			return ipa
+		}()),
+	)
 
 	It("does not create an IPAddress for a static Main network", func() {
 		vm.Spec.Networks = []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, IPAddressName: "my-static-ip"}}

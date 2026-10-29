@@ -57,17 +57,18 @@ func EnsureSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.Virtu
 }
 
 // EnsureMainSDNIPAddress is EnsureSDNIPAddress for the Main network, where the
-// address of a running machine must not change: a replacement for a resource
-// deleted by hand is Static with the address the machine holds, not a new Auto
-// one. An address another IPAddress holds is not kept: a Static one would stay Pending.
-func EnsureMainSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, ipAddresses []sdnapi.IPAddress) (string, error) {
+// address must not change: a replacement for a resource deleted by hand is Static
+// with the address to keep (the one the machine holds, or the one of the source for
+// a machine received from another cluster), not a new Auto one. An address another
+// IPAddress holds is not kept: a Static one would stay Pending.
+func EnsureMainSDNIPAddress(ctx context.Context, c client.Client, vm *v1alpha2.VirtualMachine, address string, ipAddresses []sdnapi.IPAddress) (string, error) {
 	mainSpec := v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}
 	if existing := PreferredSDNIPAddress(vm, ipAddressesOfNetwork(ipAddresses, mainSpec)); existing != nil {
 		return liveIPAddressName(existing)
 	}
 
 	spec := sdnapi.IPAddressSpec{NetworkRef: SDNNetworkRef(mainSpec), Type: sdnapi.IPAddressTypeAuto}
-	if address := vm.Status.IPAddress; address != "" {
+	if address != "" {
 		ipas, err := MainSDNIPAddressesByAddress(ctx, c)
 		if err != nil {
 			return "", err

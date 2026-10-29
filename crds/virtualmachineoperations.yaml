@@ -177,7 +177,21 @@ spec:
 
                         > The `nodeSelector` field is not available in the Community Edition.
                       type: object
+                    projectPeerName:
+                      description: |-
+                        Peer cluster to move the virtual machine to: the name of its ClusterPeer, which
+                        must be paired with the project. The virtual machine moves to the paired project of that cluster with
+                        its disks, without stopping the guest, keeps its address, and is deleted in this cluster once the peer
+                        confirms that it runs there. Without the field, the virtual machine migrates within this cluster.
+                        Only the Migrate operation can set this field.
+                      minLength: 1
+                      type: string
                   type: object
+                  x-kubernetes-validations:
+                    - message:
+                        "nodeSelector cannot be set with projectPeerName: the scheduler
+                        of the peer cluster chooses the node"
+                      rule: "!(has(self.projectPeerName) && has(self.nodeSelector))"
                 restore:
                   description: Restore defines the restore operation.
                   properties:

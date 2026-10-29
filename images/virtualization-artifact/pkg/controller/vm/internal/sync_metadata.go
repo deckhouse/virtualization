@@ -303,6 +303,7 @@ var annotationsToKeep = []string{
 	kvbuilder.VCPUTopologyDynamicCoresAnnotation,
 	annotations.AnnSchedulerExtraPVCs,
 	annotations.AnnSpice,
+	annotations.AnnSourceVolumeSizes,
 }
 
 // updateKVVMSpecTemplateMetadataAnnotations ensures that the special network annotation is present if it exists.

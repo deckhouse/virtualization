@@ -38,6 +38,7 @@ import (
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
 const (
@@ -68,7 +69,7 @@ func SetupController(
 		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
-		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
+		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder).WithAPIReader(mgr.GetAPIReader()),
 		internal.NewMACHandler(netmanager.NewMACManager(), client, recorder),
 		internal.NewIPAddressHandler(client, recorder),
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
@@ -119,6 +120,13 @@ func SetupController(
 		For(&v1alpha2.VirtualMachine{}).
 		WithValidator(NewValidator(client, blockDeviceService, attachmentService, featuregates.Default(), log, virtualMachineCIDRs)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
+		Complete(); err != nil {
+		return err
+	}
+
+	if err = builder.WebhookManagedBy(mgr).
+		For(&intvirtv1alpha1.InternalVirtualizationVirtualMachineReceiver{}).
+		WithValidator(NewMigrationReceiverValidator()).
 		Complete(); err != nil {
 		return err
 	}

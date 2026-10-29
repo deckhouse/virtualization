@@ -496,7 +496,7 @@ var _ = Describe("Protecting the Main IPAddress of a running virtual machine", f
 		return ReleaseTerminatingSDNIPAddresses(ctx, cl, vm, ipAddressesOf(cl, vm))
 	}
 	ensureMain := func(cl client.Client, vm *v1alpha2.VirtualMachine) (string, error) {
-		return EnsureMainSDNIPAddress(ctx, cl, vm, ipAddressesOf(cl, vm))
+		return EnsureMainSDNIPAddress(ctx, cl, vm, vm.Status.IPAddress, ipAddressesOf(cl, vm))
 	}
 
 	getIPAddress := func(cl client.Client, name string) *sdnapi.IPAddress {

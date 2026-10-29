@@ -1,0 +1,28 @@
+{{- if and (eq (include "d8.securityPolicyException.isEnabled" .) "true") (has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list)) }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicyException
+metadata:
+  name: virt-synchronization-controller
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" .Chart.Name)) | nindent 2 }}
+spec:
+  network:
+    hostNetwork:
+      allowedValue: true
+      metadata:
+        description: |
+          The synchronization controller of another cluster connects to this one directly:
+          the address it publishes is the node's, as pod addresses are not routable between clusters.
+    hostPorts:
+      - port: 9185
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort 9185 for the synchronization API of migrations between clusters.
+      - port: 8443
+        protocol: TCP
+        metadata:
+          description: |
+            Allow hostPort 8443 for the health check service of the synchronization controller.
+{{- end }}

@@ -176,6 +176,11 @@ shell:
     {{- end }}
     - chown 64535:64535 /kubevirt-binaries/virt-api
 
+    - echo ============== Build virt-synchronization-controller =
+    {{- $_ := set $ "ProjectName" "virt-synchronization-controller/virt-synchronization-controller" }}
+    - |
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-synchronization-controller ./cmd/synchronization-controller/`) | nindent 6 }}
+
     - echo ============== Build virt-operator ====================
     {{- $_ := set $ "ProjectName" "virt-operator/virt-operator" }}
     - |

@@ -88,6 +88,9 @@ const (
 
 	// PrecheckVerticalPodAutoscaler - test requires the vertical-pod-autoscaler module to be enabled.
 	PrecheckVerticalPodAutoscaler = "vertical-pod-autoscaler-precheck"
+
+	// PrecheckPeering - test requires the Peering feature gate to be enabled.
+	PrecheckPeering = "peering-precheck"
 )
 
 // KnownPrecheckLabels returns all known precheck label constants.
@@ -113,6 +116,7 @@ func KnownPrecheckLabels() []string {
 		HotplugMemoryWithLiveMigrationPrecheck,
 		HotplugInPlaceResizePrecheck,
 		PrecheckVerticalPodAutoscaler,
+		PrecheckPeering,
 	}
 }
 

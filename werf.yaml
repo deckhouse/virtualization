@@ -228,6 +228,8 @@ git:
     {{- end }}
 shell:
   install:
+    # The version of the module for the templates: PeeringCapability tells it to peers.
+    - echo '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > /prep-bundle/version.json
     - ls -la /prep-bundle
 ---
 image: release-channel-version

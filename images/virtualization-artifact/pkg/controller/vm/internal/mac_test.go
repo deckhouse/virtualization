@@ -130,6 +130,32 @@ var _ = Describe("MACHandler", func() {
 			Expect(vmmacList.Items).To(HaveLen(2))
 		})
 
+		It("takes the MAC addresses of a received VM from the domain of the source", func() {
+			const sourceMAC = "aa:bb:cc:dd:ee:01"
+			vm.Annotations = map[string]string{annotations.AnnVMMigrationReceiver: "uid-1"}
+			vm.Spec.Networks = []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "net-a"},
+			}
+			fakeClient, resource, vmState = setupEnvironment(vm)
+			reconcile()
+			vmmacList := &v1alpha2.VirtualMachineMACAddressList{}
+			Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
+			Expect(vmmacList.Items).To(BeEmpty(), "no address is allocated before the domain of the source is here")
+
+			kvvm := &virtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+				Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{Spec: virtv1.VirtualMachineInstanceSpec{
+					Domain: virtv1.DomainSpec{Devices: virtv1.Devices{Interfaces: []virtv1.Interface{{Name: "veth_n1", MacAddress: sourceMAC}}}},
+				}}},
+			}
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
+			reconcile()
+			Expect(fakeClient.List(ctx, vmmacList, client.InNamespace(namespace))).To(Succeed())
+			Expect(vmmacList.Items).To(HaveLen(1))
+			Expect(vmmacList.Items[0].Spec.Address).To(Equal(sourceMAC))
+		})
+
 		DescribeTable("should create a VMMAC only for a network replacing one still attached",
 			func(additionalNetworks []v1alpha2.NetworksSpec, netAInVMI bool, expectedVMMACs int) {
 				const netAMAC = "aa:bb:cc:dd:ee:ff"

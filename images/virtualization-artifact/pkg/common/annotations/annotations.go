@@ -164,6 +164,39 @@ const (
 	// (see createKVVM) to honor the "unless stopped manually" contract.
 	AnnVMRestorePowerState = AnnAPIGroupV + "/restore-power-state"
 
+	// AnnVMMigrationReceiver marks a VirtualMachine taken to receive a live migration from a peer cluster;
+	// the value is the migration ID. It is removed once the VM runs here.
+	AnnVMMigrationReceiver = AnnAPIGroupV + "/migration-receiver"
+
+	// AnnSourceVolumeSizes gives the receiving KVVM instance the sizes of the source images by volume name,
+	// as JSON: KubeVirt creates the image of a Filesystem volume here with exactly that size.
+	AnnSourceVolumeSizes = AnnAPIGroupV + "/source-volume-sizes"
+
+	// AnnVMMovedToPeer marks a VirtualMachine that moves to a peer cluster; the value is the name of the
+	// VirtualMachineOperation. The VM is not started or synchronized as usual until the mark is removed.
+	AnnVMMovedToPeer = AnnAPIGroupV + "/moved-to-peer"
+
+	// AnnVDSerial keeps on a VirtualDisk the serial its device had in the cluster it came from: the guest
+	// sees the same /dev/disk/by-id links after a move to another cluster.
+	AnnVDSerial = AnnAPIGroupV + "/serial"
+
+	// AnnReceiverNewIPAddress on a InternalVirtualizationVirtualMachineReceiver gives the VM an address of the receiving cluster
+	// instead of the one of the source.
+	AnnReceiverNewIPAddress = "internal.virtualization.deckhouse.io/new-ip-address"
+	// AnnReceiverSourceSyncPin on a InternalVirtualizationVirtualMachineReceiver carries the pin of the key the synchronization
+	// controller of the source generated for this migration; the receiving cluster gives it to its migration.
+	AnnReceiverSourceSyncPin = "internal.virtualization.deckhouse.io/source-sync-pin"
+	// AnnReceiverPhaseSince on a InternalVirtualizationVirtualMachineReceiver records when its status phase was entered:
+	// the TTL of a failed or running request counts from it, not from the creation of the request.
+	AnnReceiverPhaseSince = "internal.virtualization.deckhouse.io/receiver-phase-since"
+	// AnnMigrationPeerSyncPin on a KubeVirt migration to or from a peer cluster carries the pin of the key of the
+	// synchronization controller of the peer, as the KubeVirt fork expects it (MigrationPeerSyncPinAnnotation).
+	AnnMigrationPeerSyncPin = "virtualization.deckhouse.io/peer-sync-pin"
+
+	// LabelVMReceiver marks the objects created to receive a VM from a peer cluster; the value is the UID
+	// of the InternalVirtualizationVirtualMachineReceiver.
+	LabelVMReceiver = "internal.virtualization.deckhouse.io/receiver"
+
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                    = AnnAPIGroupV + "/workload-update"
 	AnnVMOPWorkloadUpdateImage               = AnnAPIGroupV + "/workload-update-image"
@@ -449,6 +482,8 @@ var ExcludedAnnotationPrefixes = []string{
 	AnnAPIGroupV + "/vm-start-requested",
 	AnnAPIGroupV + "/vm-restart-requested",
 	AnnAPIGroupV + "/restore-power-state",
+	AnnAPIGroupV + "/migration-receiver",
+	AnnAPIGroupV + "/moved-to-peer",
 	AnnAPIGroupV + "/virtual-machine-filesystem-request",
 	AnnAPIGroupV + "/inbound-migration",
 	AnnAPIGroupV + "/sync-migration",

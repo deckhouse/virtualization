@@ -73,6 +73,23 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
+	// The receiving KVVM runs with WaitAsReceiver until the migration completes.
+	if isMigrationReceiver(changed) {
+		return reconcile.Result{}, nil
+	}
+
+	// A VM that moves to a peer cluster is not started here: its guest runs or is about to run there.
+	if op := changed.GetAnnotations()[annotations.AnnVMMovedToPeer]; op != "" {
+		conditions.SetCondition(conditions.NewConditionBuilder(vmcondition.TypeMovedToPeer).
+			Generation(changed.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonMovedToPeerInProgress).
+			Message(fmt.Sprintf("The virtual machine is being moved to a peer cluster by VirtualMachineOperation %q.", op)),
+			&changed.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+	conditions.RemoveCondition(vmcondition.TypeMovedToPeer, &changed.Status.Conditions)
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("find the internal virtual machine: %w", err)

@@ -131,6 +131,25 @@ var _ = Describe("LifecycleHandler", func() {
 		return vmop
 	}
 
+	It("leaves a move to a peer cluster to the peer handler", func() {
+		vmop := newVMOPMigrate()
+		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: "cluster-b"}
+		vm := newVM(v1alpha2.AlwaysSafeMigrationPolicy)
+
+		fakeClient, srv = setupEnvironment(vmop, vm)
+		migrationService := service.NewMigrationService(fakeClient, featuregates.Default())
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
+
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock, "")
+		_, err := h.Handle(ctx, srv.Changed())
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(srv.Changed().Status.Phase).To(BeEmpty(), "the lifecycle handler must not drive a move to a peer")
+		var migrations virtv1.VirtualMachineInstanceMigrationList
+		Expect(fakeClient.List(ctx, &migrations)).To(Succeed())
+		Expect(migrations.Items).To(BeEmpty(), "no migration within this cluster for a move to a peer")
+	})
+
 	DescribeTable("Evict operation for migration policy", func(vmop *v1alpha2.VirtualMachineOperation, vmPolicy v1alpha2.LiveMigrationPolicy, expectedPhase v1alpha2.VMOPPhase) {
 		vm := newVM(vmPolicy)
 

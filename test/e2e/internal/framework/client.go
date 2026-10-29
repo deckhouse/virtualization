@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
+	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 	dv1alpha2 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
@@ -57,6 +58,8 @@ func GetClients() Clients {
 }
 
 type Clients struct {
+	restConfig         *rest.Config
+	scheme             *apiruntime.Scheme
 	virtClient         kubeclient.Client
 	kubeClient         kubernetes.Interface
 	kubectl            kubectl.Kubectl
@@ -87,6 +90,14 @@ func (c Clients) GenericClient() client.Client {
 // internal resource (KVVM, KVVMI) go through this client.
 func (c Clients) ControllerSAClient() client.Client {
 	return c.controllerSAClient
+}
+
+// ImpersonatedClient acts as the given user and groups: for checks of what the admission policies admit
+// to an identity the test cannot log in as.
+func (c Clients) ImpersonatedClient(user string, groups ...string) (client.Client, error) {
+	cfg := rest.CopyConfig(c.restConfig)
+	cfg.Impersonate = rest.ImpersonationConfig{UserName: user, Groups: groups}
+	return client.New(cfg, client.Options{Scheme: c.scheme})
 }
 
 func (c Clients) DynamicClient() dynamic.Interface {
@@ -148,6 +159,7 @@ func InitClients() {
 		for _, f := range []func(*apiruntime.Scheme) error{
 			v1alpha2.AddToScheme,
 			v1alpha3.AddToScheme,
+			intvirtv1alpha1.AddToScheme,
 			clientgoscheme.AddToScheme,
 			dv1alpha1.AddToScheme,
 			dv1alpha2.AddToScheme,
@@ -161,6 +173,7 @@ func InitClients() {
 		if err != nil {
 			panic(err)
 		}
+		clients.restConfig, clients.scheme = restConfig, scheme
 
 		controllerSAConfig := rest.CopyConfig(restConfig)
 		controllerSAConfig.Impersonate = rest.ImpersonationConfig{

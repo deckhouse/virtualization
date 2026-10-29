@@ -278,6 +278,20 @@ spec:
       resourceName: virt-handler
       patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
+    - resourceType: Deployment
+      resourceName: virt-synchronization-controller
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
+      type: strategic
+    {{- if has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
+    # Pod addresses are not routable between clusters: the synchronization controller listens
+    # on the node's address, which it then publishes to the other cluster. One replica, replaced
+    # rather than rolled: two pods cannot share the node port, and a pod left on the pod network
+    # would take the lease and publish an unreachable address.
+    - resourceType: Deployment
+      resourceName: virt-synchronization-controller
+      patch: '{"spec":{"replicas":1,"strategy":{"type":"Recreate","rollingUpdate":null},"template":{"metadata":{"labels":{"security.deckhouse.io/security-policy-exception":"virt-synchronization-controller"}},"spec":{"hostNetwork":true,"dnsPolicy":"ClusterFirstWithHostNet"}}}}'
+      type: strategic
+    {{- end }}
 
 # Additional environment variables for virt-controller.
 {{ define "virt-controller-additional-envs" }}

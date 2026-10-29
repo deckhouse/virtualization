@@ -60,6 +60,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/nodeusbdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/pcidevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/pciresourceslice"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/peering"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/populator"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/resourceslice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -94,6 +95,7 @@ import (
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
+	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
 const (
@@ -310,6 +312,7 @@ func main() {
 		resourcev1.AddToScheme,
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
+		intvirtv1alpha1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
@@ -562,7 +565,7 @@ func main() {
 	}
 
 	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmop.SetupController(ctx, mgr, vmopLogger, os.Getenv(migrationSystemNetworkNameEnv)); err != nil {
+	if err = vmop.SetupController(ctx, mgr, vmopLogger, os.Getenv(migrationSystemNetworkNameEnv), controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -633,6 +636,13 @@ func main() {
 	if err = workloadupdater.SetupController(ctx, mgr, workloadUpdaterLogger, firmwareImage, controllerNamespace, virtControllerName, disableFirmwareUpdate); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
+	}
+
+	if featuregates.Default().Enabled(featuregates.Peering) {
+		if err = peering.SetupReceiverController(mgr, controllerNamespace); err != nil {
+			log.Error(err.Error())
+			os.Exit(1)
+		}
 	}
 
 	evacuationLogger := logger.NewControllerLogger(evacuation.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)

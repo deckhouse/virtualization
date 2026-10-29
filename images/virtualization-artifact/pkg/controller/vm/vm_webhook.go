@@ -63,6 +63,7 @@ func NewValidator(client client.Client, blockDeviceService *service.BlockDeviceS
 			validators.NewPVNodeAffinityValidator(client, attachmentService),
 			validators.NewLegacyOSValidator(),
 			validators.NewProvisioningValidator(),
+			validators.NewPeerMigrationLockValidator(client),
 		},
 		log: log.With("webhook", "validation"),
 	}

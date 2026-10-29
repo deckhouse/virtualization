@@ -88,6 +88,8 @@ linters-settings:
         - /etc/virt-handler/clientcertificates
         - /etc/virt-handler/servercertificates
         - /etc/virt-operator/certificates
+        - /etc/virt-sync-controller/clientcertificates
+        - /etc/virt-sync-controller/servercertificates
         - /etc/virtualization-api-proxy/certificates
         - /etc/virtualization-api/certificates
         - /etc/virtualization-audit/certificates

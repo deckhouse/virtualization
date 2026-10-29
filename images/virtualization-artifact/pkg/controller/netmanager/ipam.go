@@ -64,8 +64,12 @@ func (m IPAM) CheckIPAddressAvailableForBinding(vmName string, vmip *v1alpha2.Vi
 	return nil
 }
 
-func (m IPAM) CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client) error {
+func (m IPAM) CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client, staticIP string) error {
 	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
+	spec := v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeAuto}
+	if staticIP != "" {
+		spec = v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeStatic, StaticIP: staticIP}
+	}
 	return client.Create(ctx, &v1alpha2.VirtualMachineIPAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -75,9 +79,7 @@ func (m IPAM) CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, 
 			Namespace:       vm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*ownerRef},
 		},
-		Spec: v1alpha2.VirtualMachineIPAddressSpec{
-			Type: v1alpha2.VirtualMachineIPAddressTypeAuto,
-		},
+		Spec: spec,
 	})
 }
 

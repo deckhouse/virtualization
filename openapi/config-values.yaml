@@ -297,6 +297,7 @@ properties:
       - `HotplugCPUAndMemoryWithInPlaceResize` - enable live changing of cpu cores number or memory size via InPlaceResize. (Not available in CE; requires Kubernetes 1.33 or newer both on the control plane and on every node running virtual machines);
       - `GPU` — enable attaching GPU devices to virtual machines via DRA by referencing a GPUClass. (Not available in CE; requires Kubernetes 1.34 or newer both on the control plane and on every node running virtual machines);
       - `VIOMMU` — allow adding an emulated IOMMU to a virtual machine via the `virtualization.deckhouse.io/enable-viommu` annotation, so VFIO-based PCI passthrough works inside the guest. (Not available in CE);
+      - `Peering` — enable live migration of virtual machines between clusters. Prototype, not for production use. (Not available in CE);
     items:
       type: string
       enum:
@@ -305,3 +306,4 @@ properties:
         - "HotplugCPUAndMemoryWithInPlaceResize"
         - "GPU"
         - "VIOMMU"
+        - "Peering"

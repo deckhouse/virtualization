@@ -8,6 +8,8 @@
   value: {{ include "helm_lib_module_image" (list . "virtController") | quote }}
 - name: VIRT_HANDLER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "virtHandler") | quote }}
+- name: VIRT_SYNCHRONIZATIONCONTROLLER_IMAGE
+  value: {{ include "helm_lib_module_image" (list . "virtSynchronizationController") | quote }}
 - name: VIRT_LAUNCHER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "virtLauncher") | quote }}
 {{- end }}

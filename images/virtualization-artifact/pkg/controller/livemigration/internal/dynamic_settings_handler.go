@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,8 +52,14 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 
 	var vm v1alpha2.VirtualMachine
 	vmKey := client.ObjectKeyFromObject(kvvmi)
+	vmFound := true
 	if err := h.client.Get(ctx, vmKey, &vm); err != nil {
-		return reconcile.Result{}, err
+		// A decentralized migration may run for a KubeVirt VM with no VirtualMachine behind it
+		// (the prototype creates such VMs by hand): it gets the default settings.
+		if !k8serrors.IsNotFound(err) || !kvvmi.IsDecentralizedMigration() {
+			return reconcile.Result{}, err
+		}
+		vmFound = false
 	}
 
 	// TODO Temporary fix before proper implementing of liveMigration settings in ModuleConfig.
@@ -68,15 +75,18 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, err
 	}
 
-	// Fetch InProgress vmop
-	vmopInProgress, err := h.getVMOPInProgressForVM(ctx, vmKey)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	var effectivePolicy v1alpha2.LiveMigrationPolicy
+	var autoConverge bool
+	if vmFound {
+		vmopInProgress, err := h.getVMOPInProgressForVM(ctx, vmKey)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 
-	effectivePolicy, autoConverge, err := livemigration.CalculateEffectivePolicy(vm, vmopInProgress)
-	if err != nil {
-		return reconcile.Result{}, err
+		effectivePolicy, autoConverge, err = livemigration.CalculateEffectivePolicy(vm, vmopInProgress)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	conf := livemigration.NewMigrationConfiguration(autoConverge, kvconfig)

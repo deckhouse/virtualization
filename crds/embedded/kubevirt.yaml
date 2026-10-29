@@ -3333,6 +3333,12 @@ spec:
                 description: KubeVirtPhase is a label for the phase of a KubeVirt
                   deployment at the current time.
                 type: string
+              synchronizationAddresses:
+                description: The synchronization addresses for the KubeVirt cluster.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               targetDeploymentConfig:
                 type: string
               targetDeploymentID:

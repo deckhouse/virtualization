@@ -33,6 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -111,6 +112,10 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
+	if err = h.syncMovePhase(ctx, changed, kvvmi); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	pod, err := s.Pod(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -118,6 +123,32 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
 	return reconcile.Result{}, h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
+}
+
+// syncMovePhase shows a move to a peer cluster as one migration: the receiving KVVM starts its instance on
+// the way, and the source instance runs on for a moment after the guest left it. Only the state of the
+// migration of the move counts: the VMI keeps the state of the migration it arrived with, and the KVVM may
+// report Running after the switchover before the VMI reports it.
+func (h *LifeCycleHandler) syncMovePhase(ctx context.Context, changed *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
+	switch {
+	case changed.Status.Phase == v1alpha2.MachineStarting && changed.Annotations[annotations.AnnVMMigrationReceiver] != "":
+		changed.Status.Phase = v1alpha2.MachineMigrating
+	case changed.Annotations[annotations.AnnVMMovedToPeer] != "" && kvvmi != nil && kvvmi.Status.MigrationState != nil:
+		var vmim virtv1.VirtualMachineInstanceMigration
+		err := h.client.Get(ctx, types.NamespacedName{Namespace: changed.Namespace, Name: commonvmop.MigrationName(changed.Annotations[annotations.AnnVMMovedToPeer])}, &vmim)
+		if client.IgnoreNotFound(err) != nil {
+			return err
+		}
+		state := kvvmi.Status.MigrationState
+		switch {
+		case err != nil || state.MigrationUID != vmim.UID:
+		case state.Completed && !state.Failed:
+			changed.Status.Phase = v1alpha2.MachineStopped
+		case !state.Completed && changed.Status.Phase == v1alpha2.MachineRunning:
+			changed.Status.Phase = v1alpha2.MachineMigrating
+		}
+	}
+	return nil
 }
 
 func (h *LifeCycleHandler) Name() string {

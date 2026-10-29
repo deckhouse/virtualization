@@ -24,6 +24,7 @@ import (
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	virtualizationv1alpha3 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha3"
+	internalv1alpha1 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/internalvirtualization/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -33,6 +34,7 @@ type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	VirtualizationV1alpha2() virtualizationv1alpha2.VirtualizationV1alpha2Interface
 	VirtualizationV1alpha3() virtualizationv1alpha3.VirtualizationV1alpha3Interface
+	InternalV1alpha1() internalv1alpha1.InternalV1alpha1Interface
 }
 
 // Clientset contains the clients for groups.
@@ -40,6 +42,7 @@ type Clientset struct {
 	*discovery.DiscoveryClient
 	virtualizationV1alpha2 *virtualizationv1alpha2.VirtualizationV1alpha2Client
 	virtualizationV1alpha3 *virtualizationv1alpha3.VirtualizationV1alpha3Client
+	internalV1alpha1       *internalv1alpha1.InternalV1alpha1Client
 }
 
 // VirtualizationV1alpha2 retrieves the VirtualizationV1alpha2Client
@@ -50,6 +53,11 @@ func (c *Clientset) VirtualizationV1alpha2() virtualizationv1alpha2.Virtualizati
 // VirtualizationV1alpha3 retrieves the VirtualizationV1alpha3Client
 func (c *Clientset) VirtualizationV1alpha3() virtualizationv1alpha3.VirtualizationV1alpha3Interface {
 	return c.virtualizationV1alpha3
+}
+
+// InternalV1alpha1 retrieves the InternalV1alpha1Client
+func (c *Clientset) InternalV1alpha1() internalv1alpha1.InternalV1alpha1Interface {
+	return c.internalV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -104,6 +112,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.internalV1alpha1, err = internalv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -127,6 +139,7 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.virtualizationV1alpha2 = virtualizationv1alpha2.New(c)
 	cs.virtualizationV1alpha3 = virtualizationv1alpha3.New(c)
+	cs.internalV1alpha1 = internalv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

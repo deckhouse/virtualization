@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/peering"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
@@ -35,7 +36,7 @@ const (
 	controllerName = "vmop-migration-controller"
 )
 
-func NewController(client client.Client, mgr manager.Manager, featureGate featuregate.FeatureGate, systemNetworkName string) *Controller {
+func NewController(client client.Client, mgr manager.Manager, featureGate featuregate.FeatureGate, systemNetworkName string, peers *peering.PeerClients) *Controller {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, controllerName)
 	baseSvc := genericservice.NewBaseVMOPService(client, recorder)
 	migration := service.NewMigrationService(client, featureGate)
@@ -48,6 +49,7 @@ func NewController(client client.Client, mgr manager.Manager, featureGate featur
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
 			handler.NewDeletionHandler(migration),
+			handler.NewPeerMigrationHandler(client, peers, migration, recorder),
 			handler.NewLifecycleHandler(client, migration, baseSvc, recorder, systemNetworkName),
 		},
 		observer: statistic.NewObserver(migration),

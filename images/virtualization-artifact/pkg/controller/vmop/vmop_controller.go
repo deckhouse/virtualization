@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/peering"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/powerstate"
@@ -56,12 +57,18 @@ func SetupController(
 	mgr manager.Manager,
 	log *log.Logger,
 	systemNetworkName string,
+	controllerNamespace string,
 ) error {
 	client := mgr.GetClient()
 
+	peers, err := peering.NewPeerClients(mgr.GetAPIReader(), client, controllerNamespace)
+	if err != nil {
+		return err
+	}
+
 	controllers := []SubController{
 		powerstate.NewController(client, mgr),
-		migration.NewController(client, mgr, featuregates.Default(), systemNetworkName),
+		migration.NewController(client, mgr, featuregates.Default(), systemNetworkName, peers),
 		snapshot.NewController(client, mgr),
 	}
 
@@ -89,7 +96,7 @@ func SetupController(
 
 	if err := builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineOperation{}).
-		WithValidator(NewValidator(mgr.GetClient(), log)).
+		WithValidator(NewValidator(mgr.GetClient(), peers, log)).
 		Complete(); err != nil {
 		return err
 	}

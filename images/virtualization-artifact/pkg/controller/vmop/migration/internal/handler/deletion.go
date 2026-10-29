@@ -53,6 +53,12 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
+	// A move to a peer cluster can be canceled only before the switchover and with the objects created in
+	// the peer: PeerMigrationHandler handles its deletion.
+	if IsPeerMigration(vmop) {
+		return reconcile.Result{}, nil
+	}
+
 	log.Info("Deletion observed: cleanup VirtualMachineOperation")
 
 	// Delete migration if exists.

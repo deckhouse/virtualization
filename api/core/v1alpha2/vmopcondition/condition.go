@@ -120,6 +120,25 @@ const (
 	// The virtual machine must be restarted to become migratable again.
 	ReasonBlockDeviceStateCorrupted ReasonCompleted = "BlockDeviceStateCorrupted"
 
+	// ReasonWaitingForPeer indicates that a migration to a peer cluster waits for the peer: for its
+	// receiver to be ready or for its confirmation that the virtual machine runs there.
+	ReasonWaitingForPeer ReasonCompleted = "WaitingForPeer"
+
+	// ReasonPeerRejected indicates that the peer cluster refused to receive the virtual machine.
+	ReasonPeerRejected ReasonCompleted = "PeerRejected"
+
+	// ReasonPeerNotSupported indicates that the peer cluster stopped being usable for the move after it
+	// started: its ClusterPeer is deleted, not Active, or gives no virtualization capability.
+	ReasonPeerNotSupported ReasonCompleted = "PeerNotSupported"
+
+	// ReasonMigrationNetworkUnreachable indicates that the nodes of this cluster do not reach the peer
+	// cluster: the synchronization of the migration did not start in time.
+	ReasonMigrationNetworkUnreachable ReasonCompleted = "MigrationNetworkUnreachable"
+
+	// ReasonPeerNotConfirmed indicates that the peer cluster did not confirm in time that the virtual
+	// machine runs there: the virtual machine is kept stopped in this cluster.
+	ReasonPeerNotConfirmed ReasonCompleted = "PeerNotConfirmed"
+
 	// ReasonSourceSuspended indicates that source VM has been suspended.
 	ReasonSourceSuspended ReasonCompleted = "SourceSuspended"
 

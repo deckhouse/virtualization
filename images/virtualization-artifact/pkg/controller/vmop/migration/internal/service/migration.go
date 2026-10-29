@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -62,7 +62,7 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vmop.GetNamespace(),
-			Name:      migrationName(vmop),
+			Name:      MigrationName(vmop),
 			// VMIM has specific annotations, such as kubevirt.io/migrationUnschedulablePodTimeoutSeconds. This is useful for testing.
 			Annotations: vmop.GetAnnotations(),
 			OwnerReferences: []metav1.OwnerReference{
@@ -102,15 +102,14 @@ func (s MigrationService) DeleteMigration(ctx context.Context, vmop *v1alpha2.Vi
 
 func (s MigrationService) GetMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*virtv1.VirtualMachineInstanceMigration, error) {
 	return object.FetchObject(ctx, types.NamespacedName{
-		Name:      migrationName(vmop),
+		Name:      MigrationName(vmop),
 		Namespace: vmop.GetNamespace(),
 	}, s.client, &virtv1.VirtualMachineInstanceMigration{})
 }
 
-const vmopPrefix = "vmop-"
-
-func migrationName(vmop *v1alpha2.VirtualMachineOperation) string {
-	return fmt.Sprintf("%s%s", vmopPrefix, vmop.GetName())
+// MigrationName is the name of the KubeVirt migration of the operation.
+func MigrationName(vmop *v1alpha2.VirtualMachineOperation) string {
+	return commonvmop.MigrationName(vmop.GetName())
 }
 
 func (s MigrationService) IsTargetMigrationEnabled() bool {

@@ -199,6 +199,15 @@ func GenerateSerialFromObject(obj metav1.Object) string {
 	return GenerateSerial(string(obj.GetUID()))
 }
 
+// VirtualDiskSerial is the serial of the device of a VirtualDisk: the one it came with from another
+// cluster, or one derived from its UID.
+func VirtualDiskSerial(vd *v1alpha2.VirtualDisk) string {
+	if serial := vd.GetAnnotations()[annotations.AnnVDSerial]; serial != "" {
+		return serial
+	}
+	return GenerateSerialFromObject(vd)
+}
+
 func GenerateSerial(input string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(input))
@@ -621,7 +630,7 @@ func setBlockDeviceDisk(
 		}
 		return kvvm.SetDisk(GenerateVDDiskName(bd.Name), SetDiskOptions{
 			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
-			Serial:                GenerateSerialFromObject(vd),
+			Serial:                VirtualDiskSerial(vd),
 			BootOrder:             bootOrder,
 			IsHotplugged:          hotpluggable,
 		})
@@ -660,7 +669,7 @@ func setVMBDABlockDeviceDisk(
 
 		return kvvm.SetDisk(name, SetDiskOptions{
 			PersistentVolumeClaim: ptr.To(vd.Status.Target.PersistentVolumeClaim),
-			Serial:                GenerateSerialFromObject(vd),
+			Serial:                VirtualDiskSerial(vd),
 			IsHotplugged:          true,
 		})
 	case v1alpha2.VMBDAObjectRefKindVirtualImage:
@@ -741,7 +750,7 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 		name := GenerateVDDiskName(bd.Name)
 		opts := SetDiskOptions{
 			PersistentVolumeClaim: ptr.To(pvcName),
-			Serial:                GenerateSerialFromObject(vd),
+			Serial:                VirtualDiskSerial(vd),
 			IsHotplugged:          bd.Hotplugged,
 		}
 		if !bd.Hotplugged {

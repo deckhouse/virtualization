@@ -37,14 +37,16 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewValidator(c client.Client, log *log.Logger) admission.CustomValidator {
+func NewValidator(c client.Client, peers pairedPeers, log *log.Logger) admission.CustomValidator {
 	return validator.NewValidator[*v1alpha2.VirtualMachineOperation](log.
 		With("controller", "vmop-controller").
 		With("webhook", "validation"),
 	).WithCreateValidators(
 		&nodeSelectorValidator{},
 		&localStorageMigrationValidator{client: c},
+		&lockedVMValidator{client: c},
 		&activeVMOPValidator{client: c},
+		&peerMigrationValidator{client: c, peers: peers},
 	)
 }
 

@@ -1,0 +1,31 @@
+{{- if has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
+{{- $peeringAPI := "peering.deckhouse.io/v1alpha1/PeeringCapability" }}
+{{- if or (.Values.global.discovery.apiVersions | has $peeringAPI) (.Capabilities.APIVersions.Has $peeringAPI) }}
+---
+# Declares the virtualization capability to the peering module: virtualization-controller reaches the
+# apiserver of a peer through the peering tunnel, and a peer gets the rules below in the namespaces of
+# the projects paired with it. The receiving side sets the rights of a peer: a peer creates only the
+# request to receive, everything else here is created by this cluster.
+apiVersion: peering.deckhouse.io/v1alpha1
+kind: PeeringCapability
+metadata:
+  name: virtualization
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+spec:
+  version: {{ (.Files.Get "version.json" | fromJson).version | default "dev" | quote }}
+  rules:
+    - apiGroups: ["internal.virtualization.deckhouse.io"]
+      resources: ["internalvirtualizationvirtualmachinereceivers"]
+      verbs: ["create", "get", "list", "watch", "patch", "delete"]
+    - apiGroups: ["internal.virtualization.deckhouse.io"]
+      resources: ["internalvirtualizationvirtualmachinereceivers/status"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["internal.virtualization.deckhouse.io"]
+      resources: ["internalvirtualizationvirtualmachineinstancemigrations"]
+      verbs: ["get"]
+  consumers:
+    - kind: ServiceAccount
+      name: virtualization-controller
+      namespace: d8-{{ .Chart.Name }}
+{{- end }}
+{{- end }}

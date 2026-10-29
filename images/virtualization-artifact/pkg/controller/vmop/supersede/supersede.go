@@ -19,6 +19,7 @@ package supersede
 import (
 	"k8s.io/utils/ptr"
 
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -43,6 +44,11 @@ func CanSupersede(oldVMOP, newVMOP *v1alpha2.VirtualMachineOperation) bool {
 		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop && newForce ||
 			newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart && newForce
 	case v1alpha2.VMOPTypeMigrate, v1alpha2.VMOPTypeEvict:
+		// A move to a peer cluster is canceled only by deleting it: after the switchover the guest runs in
+		// the peer, and a stop here would leave nothing to stop.
+		if commonvmop.PeerName(oldVMOP) != "" {
+			return false
+		}
 		return newVMOP.Spec.Type == v1alpha2.VMOPTypeStop || newVMOP.Spec.Type == v1alpha2.VMOPTypeRestart
 	case v1alpha2.VMOPTypeRestart:
 		if oldForce {

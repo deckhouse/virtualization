@@ -40,6 +40,7 @@ const (
 	VirtualMachinePool                   featuregate.Feature = "VirtualMachinePool"
 	UploadViaAPIGateway                  featuregate.Feature = "UploadViaAPIGateway"
 	VerticalVirtualMachineAutoscaler     featuregate.Feature = "VerticalVirtualMachineAutoscaler"
+	Peering                              featuregate.Feature = "Peering"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
@@ -116,6 +117,11 @@ var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 			kubeapi.VerticalPodAutoscalerModuleEnabled() &&
 			kubeapi.VerticalPodAutoscalerV1Available(),
 		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	Peering: {
+		Default:       false,
+		LockToDefault: version.GetEdition() == version.EditionCE,
 		PreRelease:    featuregate.Alpha,
 	},
 }

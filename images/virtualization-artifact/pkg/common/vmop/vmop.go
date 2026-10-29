@@ -55,3 +55,17 @@ func IsOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
 	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	return sent.Status == metav1.ConditionTrue && !IsFinished(vmop)
 }
+
+// MigrationName is the name of the KubeVirt migration of the operation of the name.
+func MigrationName(vmop string) string {
+	return "vmop-" + vmop
+}
+
+// PeerName is the peer cluster a Migrate operation moves the VM to, empty for a migration within the
+// cluster.
+func PeerName(vmop *v1alpha2.VirtualMachineOperation) string {
+	if vmop == nil || vmop.Spec.Migrate == nil {
+		return ""
+	}
+	return vmop.Spec.Migrate.ProjectPeerName
+}

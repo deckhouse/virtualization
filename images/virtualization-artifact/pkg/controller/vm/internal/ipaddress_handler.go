@@ -26,12 +26,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonnetwork "github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/peering"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -211,7 +213,23 @@ func (h *IPAddressHandler) ensureMainIPAddress(ctx context.Context, vm *v1alpha2
 	if mainSpec == nil || mainSpec.IPAddressName != "" {
 		return reconcile.Result{}, nil
 	}
-	name, err := commonnetwork.EnsureMainSDNIPAddress(ctx, h.client, vm, ipAddresses)
+	address := vm.Status.IPAddress
+	receiver, err := loadMigrationReceiver(ctx, h.client, vm)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if source := peering.ReceiverIPAddress(receiver); isReceiving(receiver) && source != "" {
+		// A VM received from another cluster keeps its address: one this cluster cannot give fails the move.
+		address = source
+		msg, err := receivedAddressProblem(ctx, h.client, source, ipAddresses)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if msg != "" {
+			return reconcile.Result{}, peering.SetReceiverFailed(ctx, h.client, receiver, peering.ReceiverReasonIPAddressNotAvailable, msg)
+		}
+	}
+	name, err := commonnetwork.EnsureMainSDNIPAddress(ctx, h.client, vm, address, ipAddresses)
 	switch {
 	case errors.Is(err, commonnetwork.ErrIPAddressTerminating):
 		log.Debug("The Main network IPAddress is still terminating, waiting")
@@ -221,6 +239,34 @@ func (h *IPAddressHandler) ensureMainIPAddress(ctx context.Context, vm *v1alpha2
 	}
 	log.Debug("Ensured SDN IPAddress for the Main network", "ipAddress", name)
 	return reconcile.Result{}, nil
+}
+
+// receivedAddressAllocationWait is how long the address of the source may stay unallocated before the
+// move fails: the sdn module reports an address outside its pool only as not allocated.
+const receivedAddressAllocationWait = time.Minute
+
+// receivedAddressProblem tells why this cluster cannot give a received VM the address of the source: another
+// resource holds it, or the IPAddress of the VM is not allocated for a while.
+func receivedAddressProblem(ctx context.Context, c client.Client, address string, ipAddresses []sdnapi.IPAddress) (string, error) {
+	for i := range ipAddresses {
+		ipa := &ipAddresses[i]
+		if !commonnetwork.IsMainNetworkIPAddress(ipa) {
+			continue
+		}
+		cond := apimeta.FindStatusCondition(ipa.Status.Conditions, sdnapi.ConditionAllocated)
+		if cond != nil && cond.Status == metav1.ConditionFalse && time.Since(cond.LastTransitionTime.Time) > receivedAddressAllocationWait {
+			return fmt.Sprintf("the IP address %s is not available in this cluster: %s", address, cond.Message), nil
+		}
+		return "", nil
+	}
+	held, err := commonnetwork.MainSDNIPAddressesByAddress(ctx, c)
+	if err != nil {
+		return "", err
+	}
+	if _, ok := held[address]; ok {
+		return fmt.Sprintf("the IP address %s is used in this cluster", address), nil
+	}
+	return "", nil
 }
 
 // cleanupOrphanedIPAddresses removes auto-IPAddress resources owned by the VM

@@ -7,6 +7,23 @@ metadata:
     werf.io/weight: "0"
   name: "virtualization-controller-admission-webhook"
 webhooks:
+  - name: "vmr.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["internal.virtualization.deckhouse.io"]
+        apiVersions: ["v1alpha1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["internalvirtualizationvirtualmachinereceivers"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: /validate-internal-virtualization-deckhouse-io-v1alpha1-internalvirtualizationvirtualmachinereceiver
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
   - name: "vm.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]

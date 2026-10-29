@@ -23,6 +23,7 @@ import (
 
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1alpha3 "github.com/deckhouse/virtualization/api/core/v1alpha3"
+	v1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -53,7 +54,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=virtualization.deckhouse.io, Version=v1alpha2
+	// Group=internal.virtualization.deckhouse.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("internalvirtualizationvirtualmachinereceivers"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Internal().V1alpha1().InternalVirtualizationVirtualMachineReceivers().Informer()}, nil
+
+		// Group=virtualization.deckhouse.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithResource("clustervirtualimages"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().ClusterVirtualImages().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("nodepcidevices"):

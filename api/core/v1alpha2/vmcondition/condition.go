@@ -65,6 +65,21 @@ const (
 	// It is absent when nothing is being performed; the outcome of a finished operation is reported
 	// by the operation itself.
 	TypeOperationInProgress Type = "OperationInProgress"
+
+	// TypeMovedToPeer indicates that the virtual machine is being moved to a peer cluster:
+	// it cannot be started, changed or operated on until the move ends.
+	TypeMovedToPeer Type = "MovedToPeer"
+)
+
+type MovedToPeerReason string
+
+func (r MovedToPeerReason) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonMovedToPeerInProgress indicates that the move to a peer cluster is in progress.
+	ReasonMovedToPeerInProgress MovedToPeerReason = "InProgress"
 )
 
 type AgentReadyReason string

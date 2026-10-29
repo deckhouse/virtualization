@@ -70,6 +70,9 @@ because its business logic does not yet have their default behavior implemented.
 - HotplugHostDevicesWithDRA # custom feature gate - added in our KubeVirt fork, not present in upstream
 - GPUsWithDRA
 - VideoConfig # required for spec.domain.devices.video
+{{- if has "Peering" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
+- DecentralizedLiveMigration
+{{- end }}
 {{- if has "HotplugCPUAndMemoryWithInPlaceResize" (.Values.virtualization.internal | dig "moduleConfig" "featureGates" list) }}
 - InPlaceResize # custom feature gate - added in our KubeVirt fork, not present in upstream
 {{- end }}

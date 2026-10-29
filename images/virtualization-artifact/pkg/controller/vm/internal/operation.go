@@ -308,6 +308,12 @@ func describeOperation(vmop *v1alpha2.VirtualMachineOperation) operationDescript
 			running: "The virtual machine is restarting",
 		}
 	case v1alpha2.VMOPTypeMigrate:
+		if peer := commonvmop.PeerName(vmop); peer != "" {
+			return operationDescription{
+				reason:  vmcondition.ReasonVirtualMachineMigrating,
+				running: fmt.Sprintf("The virtual machine is being migrated to cluster %q", peer),
+			}
+		}
 		return operationDescription{
 			reason:  vmcondition.ReasonVirtualMachineMigrating,
 			running: "The virtual machine is being migrated to another node",

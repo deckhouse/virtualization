@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
+	intvirtv1alpha1 "github.com/deckhouse/virtualization/api/internalvirtualization/v1alpha1"
 )
 
 func registerNetworkGVKs(scheme *apiruntime.Scheme) {
@@ -58,6 +59,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		v1alpha2.AddToScheme,
 		v1alpha3.AddToScheme,
+		intvirtv1alpha1.AddToScheme,
 		virtv1.AddToScheme,
 		storagev1alpha1.AddToScheme,
 		clientgoscheme.AddToScheme,

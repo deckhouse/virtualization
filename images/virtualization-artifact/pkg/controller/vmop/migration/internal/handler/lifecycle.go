@@ -141,6 +141,12 @@ func NewLifecycleHandler(client client.Client, migration *migrationservice.Migra
 }
 
 func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
+	// A move to a peer cluster is led by the peer handler alone: a migration within this cluster instead of
+	// it would report success while the VM stays here.
+	if IsPeerMigration(vmop) {
+		return reconcile.Result{}, nil
+	}
+
 	// Do not update conditions for object in the deletion state.
 	if commonvmop.IsTerminating(vmop) {
 		h.forgetProgress(vmop)

@@ -44,7 +44,8 @@ function source::settings {
                               "USBDevice"
                               "NodePCIDevice"
                               "PCIDevice"
-                              "VirtualMachinePool")
+                              "VirtualMachinePool"
+                              "InternalVirtualizationVirtualMachineReceiver")
 
     # shellcheck source=/dev/null
     source "${CODEGEN_PKG}/kube_codegen.sh"
@@ -69,6 +70,10 @@ function generate::core {
         --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
         "${API_ROOT}/core"
 
+    kube::codegen::gen_helpers                           \
+        --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
+        "${API_ROOT}/internalvirtualization"
+
     kube::codegen::gen_client                            \
         --with-watch                                     \
         --output-dir "${API_ROOT}/client/generated"      \
@@ -81,10 +86,10 @@ function generate::crds {
     OUTPUT_BASE=$(mktemp -d)
     trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
 
-    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/..." output:crd:dir="${OUTPUT_BASE}"
+    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/...;${API_ROOT}/internalvirtualization/v1alpha1/..." output:crd:dir="${OUTPUT_BASE}"
 
     go tool crd-enricher \
-        paths="./core/v1alpha2/...,./core/v1alpha3/..." \
+        paths="./core/v1alpha2/...,./core/v1alpha3/...,./internalvirtualization/v1alpha1/..." \
         crds="${OUTPUT_BASE}" \
         dir="${API_ROOT}"
 

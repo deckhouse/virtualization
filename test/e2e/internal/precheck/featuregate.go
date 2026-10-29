@@ -71,6 +71,7 @@ const (
 	hotplugCPUWithLiveMigrationCheckEnvName    = "HOTPLUG_CPU_LIVE_MIGRATION_PRECHECK"
 	hotplugMemoryWithLiveMigrationCheckEnvName = "HOTPLUG_MEMORY_LIVE_MIGRATION_PRECHECK"
 	hotplugInPlaceCheckEnvName                 = "HOTPLUG_IN_PLACE_PRECHECK"
+	peeringCheckEnvName                        = "PEERING_PRECHECK"
 )
 
 func init() {
@@ -90,6 +91,12 @@ func init() {
 		label: HotplugInPlaceResizePrecheck,
 		env:   hotplugInPlaceCheckEnvName,
 		gates: []string{"HotplugCPUAndMemoryWithInPlaceResize"},
+	}, false)
+
+	RegisterPrecheck(&featureGatePrecheck{
+		label: PrecheckPeering,
+		env:   peeringCheckEnvName,
+		gates: []string{"Peering"},
 	}, false)
 }
 

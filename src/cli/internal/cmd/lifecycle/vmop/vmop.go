@@ -93,9 +93,12 @@ func (v VirtualMachineOperation) Evict(ctx context.Context, vmName, vmNamespace 
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }
 
-func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespace, targetNodeName string) (msg string, err error) {
+func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespace, targetNodeName, projectPeer string) (msg string, err error) {
 	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeMigrate, v.options.force)
-	if targetNodeName != "" {
+	switch {
+	case projectPeer != "":
+		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: projectPeer}
+	case targetNodeName != "":
 		vmop.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{
 			NodeSelector: map[string]string{corev1.LabelHostname: targetNodeName},
 		}

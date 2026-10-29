@@ -88,13 +88,22 @@ type VirtualMachineOperationCloneSpec struct {
 	Customization *VirtualMachineOperationCloneCustomization `json:"customization,omitempty"`
 }
 
-// VirtualMachineOperationMigrateSpec defines the restore operation.
+// VirtualMachineOperationMigrateSpec defines the migrate operation: the target is either a node of this
+// cluster or a peer cluster.
+// +kubebuilder:validation:XValidation:rule="!(has(self.projectPeerName) && has(self.nodeSelector))",message="nodeSelector cannot be set with projectPeerName: the scheduler of the peer cluster chooses the node"
 type VirtualMachineOperationMigrateSpec struct {
 	// Node selector for scheduling the VM onto a node. Must match the target node's labels.
 	// [Same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/) as the Pod `spec.nodeSelector` field in Kubernetes.
 	//
 	// > The `nodeSelector` field is not available in the Community Edition.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// Peer cluster to move the virtual machine to: the name of its ClusterPeer, which
+	// must be paired with the project. The virtual machine moves to the paired project of that cluster with
+	// its disks, without stopping the guest, keeps its address, and is deleted in this cluster once the peer
+	// confirms that it runs there. Without the field, the virtual machine migrates within this cluster.
+	// Only the Migrate operation can set this field.
+	// +kubebuilder:validation:MinLength=1
+	ProjectPeerName string `json:"projectPeerName,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="!has(self.namePrefix) || (size(self.namePrefix) >= 1 && size(self.namePrefix) <= 59)",message="namePrefix length must be between 1 and 59 characters if set"

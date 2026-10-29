@@ -41,6 +41,13 @@ var _ = Describe("CanSupersede", func() {
 		}
 	})
 
+	It("does not let Stop or Restart supersede a move to a peer cluster", func() {
+		move := vmop(v1alpha2.VMOPTypeMigrate, false)
+		move.Spec.Migrate = &v1alpha2.VirtualMachineOperationMigrateSpec{ProjectPeerName: "cluster-b"}
+		Expect(CanSupersede(move, vmop(v1alpha2.VMOPTypeStop, true))).To(BeFalse())
+		Expect(CanSupersede(move, vmop(v1alpha2.VMOPTypeRestart, false))).To(BeFalse())
+	})
+
 	It("denies operations for different virtual machines", func() {
 		oldVMOP := vmop(v1alpha2.VMOPTypeStart, false)
 		newVMOP := vmop(v1alpha2.VMOPTypeStop, false)

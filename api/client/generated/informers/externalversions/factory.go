@@ -26,6 +26,7 @@ import (
 	versioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	core "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/core"
 	internalinterfaces "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/internalinterfaces"
+	internalvirtualization "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/internalvirtualization"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -255,8 +256,13 @@ type SharedInformerFactory interface {
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
 	Virtualization() core.Interface
+	Internal() internalvirtualization.Interface
 }
 
 func (f *sharedInformerFactory) Virtualization() core.Interface {
 	return core.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Internal() internalvirtualization.Interface {
+	return internalvirtualization.New(f, f.namespace, f.tweakListOptions)
 }

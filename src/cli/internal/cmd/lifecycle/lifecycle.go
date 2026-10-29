@@ -57,7 +57,7 @@ type Manager interface {
 	Start(ctx context.Context, name, namespace string) (msg string, err error)
 	Restart(ctx context.Context, name, namespace string) (msg string, err error)
 	Evict(ctx context.Context, name, namespace string) (msg string, err error)
-	Migrate(ctx context.Context, name, namespace, targetNodeName string) (msg string, err error)
+	Migrate(ctx context.Context, name, namespace, targetNodeName, projectPeer string) (msg string, err error)
 }
 
 func NewLifecycle(cmd Command) *Lifecycle {
@@ -119,6 +119,8 @@ func (o *Options) validate(args []string) error {
 
 type MigrationOpts struct {
 	TargetNodeName string
+	// ProjectPeer moves the virtual machine to the paired project of a peer cluster.
+	ProjectPeer string
 }
 
 func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
@@ -200,15 +202,26 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 	case Migrate:
 		for _, key := range keys {
 			targetNodeName := l.migrationOpts.TargetNodeName
+			peer := l.migrationOpts.ProjectPeer
 
-			if err := l.validateNodeName(cmd, key.Name, targetNodeName); err != nil {
+			if err := validatePeerMigration(targetNodeName, peer); err != nil {
 				l.handleMsgError(cmd, "", err)
 				continue
 			}
+			if peer == "" {
+				if err := l.validateNodeName(cmd, key.Name, targetNodeName); err != nil {
+					l.handleMsgError(cmd, "", err)
+					continue
+				}
+			}
 
 			l.withConfirm(cmd, Migrate, key, func() {
-				cmd.Printf("Migrating virtual machine %q\n", key.String())
-				msg, err := mgr.Migrate(ctx, key.Name, key.Namespace, targetNodeName)
+				if peer != "" {
+					cmd.Printf("Moving virtual machine %q to cluster %q\n", key.String(), peer)
+				} else {
+					cmd.Printf("Migrating virtual machine %q\n", key.String())
+				}
+				msg, err := mgr.Migrate(ctx, key.Name, key.Namespace, targetNodeName, peer)
 				l.handleMsgError(cmd, msg, err)
 			})
 		}
@@ -391,4 +404,16 @@ func AddCommandLineMigrationArgs(flagset *pflag.FlagSet, migrationOpts *Migratio
 	flagset.StringVar(&migrationOpts.TargetNodeName, "target-node-name", "",
 		"Set the target node name for virtual machine migration.",
 	)
+	flagset.StringVar(&migrationOpts.ProjectPeer, "project-peer", "",
+		"Move the virtual machine to the paired project of this peering cluster.",
+	)
+}
+
+// validatePeerMigration checks the flags of a move to a peer cluster: the node there is chosen by its
+// scheduler.
+func validatePeerMigration(targetNodeName, peer string) error {
+	if peer != "" && targetNodeName != "" {
+		return fmt.Errorf("--target-node-name cannot be used with --project-peer: the peer cluster chooses the node")
+	}
+	return nil
 }

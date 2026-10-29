@@ -98,6 +98,12 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		return reconcile.Result{}, err
 	}
 	expectedMACAddresses := countMACAddresses(vm, kvvmi)
+	// A VM receiving a migration takes the MAC addresses of the source from the domain of its KubeVirt VM:
+	// addresses allocated before it exists would replace them at the next rebuild.
+	if len(vmmacs) < expectedMACAddresses && kvvm == nil && isMigrationReceiver(vm) {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message("Waiting for the MAC addresses of the source cluster.")
+		return reconcile.Result{}, nil
+	}
 	if len(vmmacs) < expectedMACAddresses {
 		createdCount := 0
 		if kvvm != nil && len(vmmacs) == 0 {

@@ -142,6 +142,23 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		return reconcile.Result{}, nil
 	}
 
+	// The KVVM of a VM that moves to a peer cluster is kept as the move set it: synchronizing it would
+	// restart the guest here after it has left.
+	if current.GetAnnotations()[annotations.AnnVMMovedToPeer] != "" {
+		return reconcile.Result{}, nil
+	}
+
+	receiver, err := loadMigrationReceiver(ctx, h.client, current)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if receiver != nil || isMigrationReceiver(s.VirtualMachine().Changed()) {
+		synced, err := h.syncMigrationReceiver(ctx, s, receiver)
+		if err != nil || !synced {
+			return reconcile.Result{RequeueAfter: migrationReceiverRequeueDelay}, err
+		}
+	}
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		cbConfApplied.
