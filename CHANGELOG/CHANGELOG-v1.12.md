@@ -2,7 +2,15 @@
 
 ## v1.12.4
 
-_No changelog entries._
+### vm
+
+- **fix** (low): A virtual machine stopped while it is still starting no longer starts again on its own. ([!715](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/715))
+
+### vmsnapshot
+
+- **fix** (default): Snapshots taken through the `state-snapshotter` module wait five minutes instead of one for the filesystem freeze and no longer fail with the `did not confirm the guest filesystem freeze` error. ([!715](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/715))
+- **fix** (default): VM snapshots retry a failed unfreeze request and no longer leave the guest filesystem frozen. ([!715](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/715))
+- **fix** (low): A failed snapshot of a virtual machine now reports why it failed instead of reporting that it is waiting for the filesystem. ([!715](https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/715))
 
 ## v1.12.3
 
