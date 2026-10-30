@@ -1,3 +1,14 @@
+- version: v1.12.4
+  date: "2026-10-30"
+  highlights:
+    - en: Virtual machine (VM) snapshots no longer leave the guest filesystem frozen.
+      ru: Снимки виртуальных машин (ВМ) больше не оставляют файловую систему гостевой ОС замороженной.
+  fixes:
+    virtual-machines:
+      - en: Snapshots taken through the `state-snapshotter` module wait five minutes instead of one for the filesystem freeze and no longer fail with the `did not confirm the guest filesystem freeze` error.
+        ru: Снимки через модуль `state-snapshotter` ждут заморозку файловой системы пять минут вместо одной и больше не завершаются ошибкой `did not confirm the guest filesystem freeze`.
+      - en: VM snapshots retry a failed unfreeze request and no longer leave the guest filesystem frozen.
+        ru: Снимки ВМ повторяют запрос на разморозку после ошибки и больше не оставляют файловую систему гостевой ОС замороженной.
 - version: v1.12.3
   date: "2026-10-27"
   highlights:
