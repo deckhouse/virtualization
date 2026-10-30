@@ -463,6 +463,12 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 				return false, fmt.Errorf("apply network readiness sync: %w", err)
 			}
 		}
+		// The new instance is made from the template: drop the CPU features kept for the old one.
+		if kvbuilder.IsRestartRequested(kvvm) && kvbuilder.HasArchCapabilitiesCPUFeatures(kvvm) {
+			if err := h.updateKVVM(ctx, s); err != nil {
+				return false, fmt.Errorf("update the CPU features of the internal virtual machine before a restart: %w", err)
+			}
+		}
 		// Attaching a block device does not change the VirtualMachine spec, so a hotplug volume
 		// that fell out of the internal virtual machine would never be rewritten back: without
 		// it the instance and its virtual machine stay apart and the VM cannot migrate at all.

@@ -301,3 +301,22 @@ const (
 
 // NestedVirtualizationCPUFeatures lists the CPU features Spec.CPU.EnableNestedVirtualization controls.
 var NestedVirtualizationCPUFeatures = []string{CPUFeatureVMX, CPUFeatureSVM}
+
+// ArchCapabilitiesCPUFeatures are the bits of the IA32_ARCH_CAPABILITIES MSR. They only report the absence
+// of a vulnerability, and a qemu upgrade can stop exposing them, so Discovery leaves them out.
+var ArchCapabilitiesCPUFeatures = []string{
+	"arch-capabilities",
+	"rdctl-no",
+	"ibrs-all",
+	"rsba",
+	"skip-l1dfl-vmentry",
+	"ssb-no",
+	"mds-no",
+	"pschange-mc-no",
+	"tsx-ctrl",
+	"taa-no",
+	"fb-clear",
+	"gds-no",
+	"rfds-no",
+	"rfds-clear",
+}

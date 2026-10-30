@@ -19,9 +19,11 @@ package kvbuilder
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -167,5 +169,93 @@ var _ = Describe("cpuFeaturePolicy", func() {
 		Entry("invtsc is never required", "invtsc", true, cpuFeaturePolicyOptional),
 		Entry("any other feature is required", "mmx", true, cpuFeaturePolicyRequire),
 		Entry("any other feature is required with nested disabled", "mmx", false, cpuFeaturePolicyRequire),
+	)
+})
+
+var _ = Describe("CPU features of a running virtual machine", func() {
+	required := func(name string) virtv1.CPUFeature {
+		return virtv1.CPUFeature{Name: name, Policy: cpuFeaturePolicyRequire}
+	}
+	svm := virtv1.CPUFeature{Name: "svm", Policy: cpuFeaturePolicyOptional}
+	classFeatures := []virtv1.CPUFeature{required("avx"), required("mmx"), svm}
+	runningFeatures := []virtv1.CPUFeature{required("arch-capabilities"), required("avx"), required("mds-no"), required("mmx"), svm}
+
+	instance := func(phase virtv1.VirtualMachineInstancePhase, features ...virtv1.CPUFeature) *virtv1.VirtualMachineInstance {
+		kvvmi := &virtv1.VirtualMachineInstance{}
+		kvvmi.Spec.Domain.CPU = &virtv1.CPU{Model: GenericCPUModel, Features: features}
+		kvvmi.Status.Phase = phase
+		return kvvmi
+	}
+
+	featuresOf := func(kvvm *KVVM, kvvmi *virtv1.VirtualMachineInstance) []virtv1.CPUFeature {
+		vm := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "test-ns"},
+			Spec: v1alpha2.VirtualMachineSpec{
+				RunPolicy:  v1alpha2.ManualPolicy,
+				OsType:     v1alpha2.GenericOs,
+				Bootloader: v1alpha2.BIOS,
+			},
+		}
+		class := &v1alpha2.VirtualMachineClass{
+			Spec:   v1alpha2.VirtualMachineClassSpec{CPU: v1alpha2.CPU{Type: v1alpha2.CPUTypeDiscovery}},
+			Status: v1alpha2.VirtualMachineClassStatus{CpuFeatures: v1alpha2.CpuFeatures{Enabled: []string{"avx", "mmx"}}},
+		}
+
+		Expect(ApplyVirtualMachineSpec(kvvm, vm, nil, nil, nil, nil, class, "", nil, kvvmi)).To(Succeed())
+		return kvvm.GetResource().Spec.Template.Spec.Domain.CPU.Features
+	}
+	newKVVM := func() *KVVM {
+		return NewEmptyKVVM(namespacedName("test-vm", "test-ns"), KVVMOptions{})
+	}
+	featuresFor := func(kvvmi *virtv1.VirtualMachineInstance) []virtv1.CPUFeature {
+		return featuresOf(newKVVM(), kvvmi)
+	}
+
+	It("keeps the features of the instance when the class stopped listing only unstable ones", func() {
+		Expect(featuresFor(instance(virtv1.Running, runningFeatures...))).To(Equal(runningFeatures))
+	})
+
+	It("keeps the features of an instance started with the former name of the generic CPU model", func() {
+		kvvmi := instance(virtv1.Running, runningFeatures...)
+		kvvmi.Spec.Domain.CPU.Model = "kvm64"
+
+		Expect(featuresFor(kvvmi)).To(Equal(runningFeatures))
+	})
+
+	It("keeps the features of an instance that is scheduled to a node", func() {
+		Expect(featuresFor(instance(virtv1.Scheduled, runningFeatures...))).To(Equal(runningFeatures))
+	})
+
+	It("takes the features of the class once a restart is requested", func() {
+		kvvm := newKVVM()
+		kvvm.Resource.Annotations = map[string]string{annotations.AnnVMRestartRequested: "true"}
+
+		Expect(featuresOf(kvvm, instance(virtv1.Running, runningFeatures...))).To(Equal(classFeatures))
+	})
+
+	It("takes the features of the class once KubeVirt is asked to restart the instance", func() {
+		kvvm := newKVVM()
+		kvvm.Resource.Status.StateChangeRequests = []virtv1.VirtualMachineStateChangeRequest{
+			{Action: virtv1.StopRequest}, {Action: virtv1.StartRequest},
+		}
+
+		Expect(featuresOf(kvvm, instance(virtv1.Running, runningFeatures...))).To(Equal(classFeatures))
+	})
+
+	It("takes the features of the class for an instance being deleted", func() {
+		kvvmi := instance(virtv1.Running, runningFeatures...)
+		kvvmi.DeletionTimestamp = ptr.To(metav1.Now())
+
+		Expect(featuresFor(kvvmi)).To(Equal(classFeatures))
+	})
+
+	DescribeTable("takes the features of the class",
+		func(kvvmi *virtv1.VirtualMachineInstance) {
+			Expect(featuresFor(kvvmi)).To(Equal(classFeatures))
+		},
+		Entry("with no instance", nil),
+		Entry("with an instance that is not running yet", instance(virtv1.Scheduling, runningFeatures...)),
+		Entry("when another feature differs as well",
+			instance(virtv1.Running, required("arch-capabilities"), required("avx"), svm)),
 	)
 })
