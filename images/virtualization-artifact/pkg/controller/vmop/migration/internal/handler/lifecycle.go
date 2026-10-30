@@ -374,10 +374,13 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 				migrationState.Failed &&
 				migrationState.EndTimestamp != nil &&
 				genericservice.IsAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop) {
-				if isBlockDeviceStateCorrupted(migrationState.FailureReason) {
+				switch {
+				case isBlockDeviceStateCorrupted(migrationState.FailureReason):
 					completedCond.Reason(vmopcondition.ReasonBlockDeviceStateCorrupted)
 					msg = fmt.Sprintf("%s: %s", h.getFailedMessage(vmopcondition.ReasonBlockDeviceStateCorrupted, nil), migrationState.FailureReason)
-				} else {
+				case isTargetNodeIncompatible(migrationState.FailureReason):
+					msg = fmt.Sprintf("%s: %s", messageTargetNodeIncompatible, migrationState.FailureReason)
+				default:
 					msg = fmt.Sprintf("Migration failed: %s", migrationState.FailureReason)
 				}
 			}
@@ -1021,6 +1024,10 @@ func (h LifecycleHandler) getFailedMessage(reason vmopcondition.ReasonCompleted,
 		base = "Migration failed: a block device of the virtual machine was left in a corrupted state by a previous failed migration, restart the VirtualMachine to make it migratable again"
 	}
 
+	if reason == vmopcondition.ReasonFailed && mig != nil && mig.Status.MigrationState != nil && isTargetNodeIncompatible(mig.Status.MigrationState.FailureReason) {
+		base = messageTargetNodeIncompatible
+	}
+
 	if mig != nil && mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
 		return fmt.Sprintf("%s: %s", base, mig.Status.MigrationState.FailureReason)
 	}
@@ -1229,6 +1236,16 @@ func failureEventMessage(conditionMessage string) string {
 // the domain fails and only a restart of the virtual machine recovers it.
 func isBlockDeviceStateCorrupted(failureText string) bool {
 	return strings.Contains(strings.ToLower(failureText), "is ejected")
+}
+
+const messageTargetNodeIncompatible = "Migration failed: the target node does not support device features the virtual machine got on its current node, usually because the target node runs an older Linux kernel; run the same kernel version on all nodes, or restart the VirtualMachine so that it starts with the features of the node it runs on"
+
+// isTargetNodeIncompatible reports whether the target refused the device state of the guest
+// because it does not support features the guest negotiated on the source node. The guest
+// negotiates virtio features with the tap and vhost-net of the node it starts on, so a guest
+// started on a node with a newer kernel cannot move to one with an older kernel.
+func isTargetNodeIncompatible(failureText string) bool {
+	return strings.Contains(strings.ToLower(failureText), "unsupported. allowed features")
 }
 
 func humanizeMigrationFailedMessage(message string) string {

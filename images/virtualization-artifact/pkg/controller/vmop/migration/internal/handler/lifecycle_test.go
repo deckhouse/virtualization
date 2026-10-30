@@ -430,6 +430,15 @@ var _ = Describe("LifecycleHandler", func() {
 			),
 		)
 
+		It("should name the kernel of the target node for an incompatible target", func() {
+			h := LifecycleHandler{}
+			mig := &virtv1.VirtualMachineInstanceMigration{Status: virtv1.VirtualMachineInstanceMigrationStatus{MigrationState: &virtv1.VirtualMachineInstanceMigrationState{FailureReason: "internal error: QEMU unexpectedly closed the monitor: qemu-system-x86_64: Features 0x130afffaf unsupported. Allowed features: 0x179bfffef; load of migration failed: error while loading state for instance 0x0 of device '0000:00:02.0:00.0/virtio-net'"}}}
+			Expect(h.getFailedReason(mig)).To(Equal(vmopcondition.ReasonFailed))
+			msg := h.getFailedMessage(vmopcondition.ReasonFailed, mig)
+			Expect(msg).To(ContainSubstring("older Linux kernel"))
+			Expect(msg).To(ContainSubstring("Allowed features"))
+		})
+
 		It("should recommend a restart for the corrupted block device state", func() {
 			h := LifecycleHandler{}
 			msg := h.getFailedMessage(vmopcondition.ReasonBlockDeviceStateCorrupted, nil)

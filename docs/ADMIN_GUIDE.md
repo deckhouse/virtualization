@@ -1151,6 +1151,10 @@ Live migration is limited in speed and in the number of concurrent moves:
 - The transfer rate of a single migration is limited to 640 MiB/s, which is about 5 Gbit/s. On a [dedicated migration network](#dedicated-migration-network), the rate is unlimited.
 {{< /alert >}}
 
+{{< alert level="warning" >}}
+Use the same Linux kernel version on all nodes that run VMs. A VM gets the features of its virtual network devices from the kernel of the node it starts on. A migration to a node with an older kernel that does not support these features fails. The message of the `Completed` condition in the [`.status.conditions`](cr.html#virtualmachineoperation-v1alpha2-status-conditions) block of the VirtualMachineOperation resource names the kernel of the target node as the likely cause. During a rolling OS update, migrate VMs only to nodes that are already updated. If a VM can't migrate, restart it so that it gets the features of the node it starts on.
+{{< /alert >}}
+
 #### Moving a selected VM to another node
 
 The following steps show how to move a selected VM to another node.
