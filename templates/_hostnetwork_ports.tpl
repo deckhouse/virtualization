@@ -13,6 +13,10 @@ Port map:
   4101       virt-handler: Console server port (--console-server-port flag).
   4135-4199  virt-handler: live-migration tunnels (KubeVirt migration range).
 
+  virt-synchronization-controller (a Deployment, on the host network with the Peering feature gate):
+  4102       synchronization API of migrations between clusters (spec.synchronizationPort of KubeVirt).
+  4103       health check (--health-port flag).
+
   vm-route-forge:
   4105       vm-route-forge: liveness and readiness probes (HEALTH_PROBE_BIND_ADDRESS).
   4106       vm-route-forge: pprof (PPROF_BIND_ADDRESS), debug mode only.
@@ -29,6 +33,10 @@ Port map:
 
 {{- define "virt_handler.migration_port_first" -}}4135{{- end -}}
 {{- define "virt_handler.migration_port_last" -}}4199{{- end -}}
+
+{{- /* virt-synchronization-controller */ -}}
+{{- define "virt_synchronization_controller.port" -}}4102{{- end -}}
+{{- define "virt_synchronization_controller.health_port" -}}4103{{- end -}}
 
 {{- /* vm-route-forge */ -}}
 {{- define "vm_route_forge.health_port" -}}4105{{- end -}}

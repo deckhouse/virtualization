@@ -15,14 +15,14 @@ spec:
           The synchronization controller of another cluster connects to this one directly:
           the address it publishes is the node's, as pod addresses are not routable between clusters.
     hostPorts:
-      - port: 9185
+      - port: {{ include "virt_synchronization_controller.port" . }}
         protocol: TCP
         metadata:
           description: |
-            Allow hostPort 9185 for the synchronization API of migrations between clusters.
-      - port: 8443
+            Allow the hostPort for the synchronization API of migrations between clusters.
+      - port: {{ include "virt_synchronization_controller.health_port" . }}
         protocol: TCP
         metadata:
           description: |
-            Allow hostPort 8443 for the health check service of the synchronization controller.
+            Allow the hostPort for the health check service of the synchronization controller.
 {{- end }}

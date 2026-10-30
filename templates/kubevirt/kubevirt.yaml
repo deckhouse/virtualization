@@ -291,6 +291,16 @@ spec:
       resourceName: virt-synchronization-controller
       patch: '{"spec":{"replicas":1,"strategy":{"type":"Recreate","rollingUpdate":null},"template":{"metadata":{"labels":{"security.deckhouse.io/security-policy-exception":"virt-synchronization-controller"}},"spec":{"hostNetwork":true,"dnsPolicy":"ClusterFirstWithHostNet"}}}}'
       type: strategic
+    # Rewrite the command with the host-network ports: the health port is not in the KubeVirt resource,
+    # and customizeComponents.flags only appends flags and cannot replace existing ones.
+    - resourceType: Deployment
+      resourceName: virt-synchronization-controller
+      patch: {{ include "kubevirt.virt_synchronization_controller_args_strategic_patch_json" . }}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-synchronization-controller
+      patch: {{ include "kubevirt.virt_synchronization_controller_ports_json_patch" . }}
+      type: json
     {{- end }}
 
 # Additional environment variables for virt-controller.
@@ -367,6 +377,7 @@ volumes:
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: virtualization-module-registry
+  synchronizationPort: {{ include "virt_synchronization_controller.port" . | quote }}
   workloadUpdateStrategy:
     workloadUpdateMethods:
       - LiveMigrate

@@ -204,6 +204,52 @@ spec:
 '{{ include "kubevirt.virt_handler_probes_strategic_patch" . | fromYaml | toJson }}'
 {{- end }}
 
+{{- define "kubevirt.virt_synchronization_controller_ports_json_patch" -}}
+'[
+  {
+    "op":"replace",
+    "path":"/spec/template/spec/containers/0/ports",
+    "value":[
+      {
+        "containerPort":{{ include "virt_synchronization_controller.health_port" . | int }},
+        "name":"metrics",
+        "protocol":"TCP"
+      },
+      {
+        "containerPort":{{ include "virt_synchronization_controller.port" . | int }},
+        "name":"sync",
+        "protocol":"TCP"
+      }
+    ]
+  }
+]'
+{{- end -}}
+
+{{- define "kubevirt.virt_synchronization_controller_args_strategic_patch" -}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: sync
+        command:
+        - virt-synchronization-controller
+        - --v
+        - {{ include "kubevirt.logVerbosity" (include "moduleLogLevel" .) | quote }}
+        - --port
+        - {{ include "virt_synchronization_controller.port" . | quote }}
+        - --health-port
+        - {{ include "virt_synchronization_controller.health_port" . | quote }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ include "virt_synchronization_controller.health_port" . | int }}
+            scheme: HTTPS
+{{- end -}}
+
+{{- define "kubevirt.virt_synchronization_controller_args_strategic_patch_json" -}}
+'{{ include "kubevirt.virt_synchronization_controller_args_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}
+
 
 {{/*
   Note on `capabilities.drop: [ALL]` for the privileged containers below.

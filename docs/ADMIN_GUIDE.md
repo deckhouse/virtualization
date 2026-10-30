@@ -1494,7 +1494,7 @@ The Platform does not map the resources of one cluster to the resources of the o
 | Port              | Purpose                                                 | Where to open               |
 | ----------------- | ------------------------------------------------------- | --------------------------- |
 | `4135`–`4199`/TCP | Transfer of VM memory and disks                         | On the nodes that run VMs   |
-| `9185`/TCP        | Synchronization of the migration state between clusters | On all nodes of the cluster |
+| `4102`/TCP        | Synchronization of the migration state between clusters | On all nodes of the cluster |
 
 The target cluster itself creates the VM, its disks, and its IP address, so the project quotas and checks of the target cluster apply to them.
 
