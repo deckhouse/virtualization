@@ -136,7 +136,15 @@ var _ = Describe("CreateLeaseStep", func() {
 
 	It("gives the address back when a vmip without a mirror already leases it", func() {
 		// The sdn module cannot see such a lease; the next mirror gets another address.
-		leaseOfAnotherVMIP := &v1alpha2.VirtualMachineIPAddressLease{ObjectMeta: metav1.ObjectMeta{Name: ip.IPToLeaseName(address)}}
+		leaseOfAnotherVMIP := &v1alpha2.VirtualMachineIPAddressLease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   ip.IPToLeaseName(address),
+				Labels: map[string]string{annotations.LabelVirtualMachineIPAddressUID: "other-uid"},
+			},
+			Spec: v1alpha2.VirtualMachineIPAddressLeaseSpec{
+				VirtualMachineIPAddressRef: &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Name: "other", Namespace: namespace},
+			},
+		}
 		cl := newStepFakeClient(newMainClusterNetworkWithPool(), newAutoMirror(address), leaseOfAnotherVMIP)
 
 		take(cl)
@@ -144,6 +152,42 @@ var _ = Describe("CreateLeaseStep", func() {
 		Expect(listLeases(cl)).To(HaveLen(1))
 		err := cl.Get(ctx, types.NamespacedName{Name: vmip.Name, Namespace: namespace}, &sdnapi.IPAddress{})
 		Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "the mirror of a leased address must be deleted")
+	})
+
+	It("takes the Released lease of a deleted vmip of the namespace when sdn gives its address again", func() {
+		released := &v1alpha2.VirtualMachineIPAddressLease{
+			ObjectMeta: metav1.ObjectMeta{Name: ip.IPToLeaseName(address)},
+			Spec: v1alpha2.VirtualMachineIPAddressLeaseSpec{
+				VirtualMachineIPAddressRef: &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Namespace: namespace},
+			},
+		}
+		cl := newStepFakeClient(newMainClusterNetworkWithPool(), newAutoMirror(address), released)
+
+		take(cl)
+
+		Expect(cl.Get(ctx, types.NamespacedName{Name: vmip.Name, Namespace: namespace}, &sdnapi.IPAddress{})).To(Succeed())
+		got := &v1alpha2.VirtualMachineIPAddressLease{}
+		Expect(cl.Get(ctx, types.NamespacedName{Name: released.Name}, got)).To(Succeed())
+		Expect(got.Spec.VirtualMachineIPAddressRef.Name).To(Equal(vmip.Name))
+		Expect(got.Labels[annotations.LabelVirtualMachineIPAddressUID]).To(Equal(string(vmip.UID)))
+	})
+
+	It("gives the address back when the Released lease is of another namespace", func() {
+		released := &v1alpha2.VirtualMachineIPAddressLease{
+			ObjectMeta: metav1.ObjectMeta{Name: ip.IPToLeaseName(address)},
+			Spec: v1alpha2.VirtualMachineIPAddressLeaseSpec{
+				VirtualMachineIPAddressRef: &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Namespace: "other"},
+			},
+		}
+		cl := newStepFakeClient(newMainClusterNetworkWithPool(), newAutoMirror(address), released)
+
+		take(cl)
+
+		err := cl.Get(ctx, types.NamespacedName{Name: vmip.Name, Namespace: namespace}, &sdnapi.IPAddress{})
+		Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+		got := &v1alpha2.VirtualMachineIPAddressLease{}
+		Expect(cl.Get(ctx, types.NamespacedName{Name: released.Name}, got)).To(Succeed())
+		Expect(got.Spec.VirtualMachineIPAddressRef.Name).To(BeEmpty())
 	})
 
 	It("keeps the mirror when the lease of its address is this vmip's own", func() {
@@ -175,6 +219,51 @@ var _ = Describe("CreateLeaseStep", func() {
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas)).To(Succeed())
 		Expect(ipas.Items).To(BeEmpty())
+	})
+
+	Context("with a vmip whose mirror the sdn module refused", func() {
+		newRefusedVMIP := func(bound bool) (*v1alpha2.VirtualMachineIPAddress, *sdnapi.IPAddress) {
+			refused := &v1alpha2.VirtualMachineIPAddress{
+				ObjectMeta: metav1.ObjectMeta{Name: "refused", Namespace: namespace, UID: "refused-uid"},
+				Spec:       v1alpha2.VirtualMachineIPAddressSpec{Type: v1alpha2.VirtualMachineIPAddressTypeStatic, StaticIP: address},
+				Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: address},
+			}
+			if bound {
+				refused.Status.Conditions = []metav1.Condition{{Type: vmipcondition.BoundType.String(), Status: metav1.ConditionTrue}}
+			}
+			mirror := newStaticIPAddress(refused.Name, address, metav1.Condition{Status: metav1.ConditionFalse, Reason: sdnapi.ReasonIPAddressIsUsed})
+			mirror.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: string(refused.UID)})
+			return refused, mirror
+		}
+
+		It("creates an Auto IPAddress while that vmip is not Bound", func() {
+			refused, mirror := newRefusedVMIP(false)
+			cl := newStepFakeClient(newMainClusterNetworkWithPool(), refused, mirror)
+
+			take(cl)
+
+			Expect(allocator.asked).To(BeFalse())
+			Expect(cl.Get(ctx, types.NamespacedName{Name: vmip.Name, Namespace: namespace}, &sdnapi.IPAddress{})).To(Succeed())
+		})
+
+		It("allocates by the vmip allocator while that vmip is Bound", func() {
+			refused, mirror := newRefusedVMIP(true)
+			cl := newStepFakeClient(newMainClusterNetworkWithPool(), refused, mirror)
+
+			take(cl)
+
+			Expect(allocator.asked).To(BeTrue())
+		})
+
+		It("allocates by the vmip allocator while the refused mirror is on a former address of that vmip", func() {
+			refused, mirror := newRefusedVMIP(false)
+			refused.Status.Address = "10.66.10.15"
+			cl := newStepFakeClient(newMainClusterNetworkWithPool(), refused, mirror)
+
+			take(cl)
+
+			Expect(allocator.asked).To(BeTrue())
+		})
 	})
 
 	It("creates an Auto IPAddress once every vmip address is taken in the sdn pool", func() {

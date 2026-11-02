@@ -31,8 +31,10 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 // GetIPAddressTakingVMIPAddress need not return the mirror of the vmip: any Static
@@ -271,6 +273,13 @@ func EnsureAutoMirror(ctx context.Context, c client.Client, vmip *v1alpha2.Virtu
 		return createMirror(ctx, c, vmip, spec, owner)
 	case existing.GetDeletionTimestamp() != nil:
 		return nil, ErrIPAddressTerminating
+	case IPAddressTakenByAnother(existing):
+		// Left from a given-up address: sdn would retry it only after the reservation, up to
+		// an hour. The precondition guards a new mirror behind a stale cache.
+		if err := c.Delete(ctx, existing, client.Preconditions{ResourceVersion: &existing.ResourceVersion}); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("delete the refused mirror IPAddress %s/%s: %w", existing.Namespace, existing.Name, err)
+		}
+		return nil, ErrIPAddressTerminating
 	default:
 		return existing, nil
 	}
@@ -313,8 +322,22 @@ func IsMirrorOf(ipa *sdnapi.IPAddress, vmip *v1alpha2.VirtualMachineIPAddress) b
 	return vmipUID != "" && vmipUID == string(vmip.UID)
 }
 
+// isVMRunningOnAddress: status.ipAddress stays on a stopped machine, which needs no route.
+func isVMRunningOnAddress(vm *v1alpha2.VirtualMachine, address string) bool {
+	if vm == nil || vm.Status.IPAddress != address {
+		return false
+	}
+	switch vm.Status.Phase {
+	case "", v1alpha2.MachinePending, v1alpha2.MachineStopped:
+		return false
+	}
+	return true
+}
+
 // VMIPAddressesTakenInSDNPool counts any allocated IPAddress on the address, not only
-// the mirror.
+// the mirror. It skips a vmip refused by sdn unless it is Bound or a VM runs on its address
+// (a lost lease drops Bound): waiting for it sends new VMs to the vmip allocator, which does
+// not see sdn reservations.
 func VMIPAddressesTakenInSDNPool(ctx context.Context, c client.Client) (bool, error) {
 	vmips := &v1alpha2.VirtualMachineIPAddressList{}
 	if err := c.List(ctx, vmips, client.UnsafeDisableDeepCopy); err != nil {
@@ -325,6 +348,7 @@ func VMIPAddressesTakenInSDNPool(ctx context.Context, c client.Client) (bool, er
 		return false, fmt.Errorf("list SDN IPAddress: %w", err)
 	}
 	taken := make(map[string]struct{}, len(ipas.Items))
+	refusedAddressOfVMIP := make(map[types.UID]string)
 	for i := range ipas.Items {
 		ipa := &ipas.Items[i]
 		if !IsMainNetworkIPAddress(ipa) {
@@ -333,14 +357,29 @@ func VMIPAddressesTakenInSDNPool(ctx context.Context, c client.Client) (bool, er
 		if IPAddressAllocated(ipa) && ipa.Status.Address != "" {
 			taken[ipa.Status.Address] = struct{}{}
 		}
+		if IsMirror(ipa) && ipa.GetDeletionTimestamp() == nil && ipa.Spec.Static != nil && IPAddressTakenByAnother(ipa) {
+			refusedAddressOfVMIP[types.UID(ipa.GetAnnotations()[annotations.AnnMirrorOfVMIP])] = ipa.Spec.Static.IP
+		}
 	}
 	for i := range vmips.Items {
-		address := vmips.Items[i].Status.Address
+		vmip := &vmips.Items[i]
+		address := vmip.Status.Address
 		if address == "" {
 			continue
 		}
+		bound, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
+		if refusedAddressOfVMIP[vmip.UID] == address && bound.Status != metav1.ConditionTrue {
+			vm, err := GetVMOfVMIP(ctx, c, vmip)
+			if err != nil {
+				return false, err
+			}
+			if !isVMRunningOnAddress(vm, address) {
+				logger.FromContext(ctx).Debug("The sdn module refused the address of a vmip no machine runs on: not waiting for it", "vmip", vmip.Namespace+"/"+vmip.Name, "address", address)
+				continue
+			}
+		}
 		if _, ok := taken[address]; !ok {
-			logger.FromContext(ctx).Debug("A vmip address is not taken in the sdn pool yet", "vmip", vmips.Items[i].Namespace+"/"+vmips.Items[i].Name, "address", address)
+			logger.FromContext(ctx).Debug("A vmip address is not taken in the sdn pool yet", "vmip", vmip.Namespace+"/"+vmip.Name, "address", address)
 			return false, nil
 		}
 	}

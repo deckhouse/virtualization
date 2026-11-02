@@ -74,10 +74,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMa
 			Message("")
 		conditions.SetCondition(cb, &lease.Status.Conditions)
 	} else {
-		annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, "")
-		if lease.Spec.VirtualMachineIPAddressRef != nil {
-			lease.Spec.VirtualMachineIPAddressRef.Name = ""
-		}
+		ip.UnbindLease(lease)
 
 		if lease.Status.Phase != v1alpha2.VirtualMachineIPAddressLeasePhaseReleased {
 			h.recorder.Eventf(lease, corev1.EventTypeWarning, v1alpha2.ReasonReleased, "VirtualMachineIPAddressLease is released.")

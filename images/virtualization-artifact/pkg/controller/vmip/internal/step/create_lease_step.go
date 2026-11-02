@@ -213,8 +213,7 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 	}
 
 	// The sdn module does not see the leases of vmips without a mirror and may give
-	// out such an address: the mirror is deleted and the vmip allocator picks another;
-	// for a Released lease, sdn may repeat it until the lease is deleted.
+	// out such an address: the mirror is deleted and the vmip allocator picks another.
 	address := mirror.Status.Address
 	lease := &v1alpha2.VirtualMachineIPAddressLease{}
 	err = s.client.Get(ctx, types.NamespacedName{Name: ip.IPToLeaseName(address)}, lease)
@@ -223,6 +222,11 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 		if ref := lease.Spec.VirtualMachineIPAddressRef; ref != nil && ref.Namespace == vmip.Namespace && ref.Name == vmip.Name {
 			// Our own lease from a reconcile the cache has not caught up with.
 			return &reconcile.Result{}, nil
+		}
+		// sdn gives a recreated vmip its former address while the module retains the
+		// Released lease: deleting the mirror would loop until the retention ends.
+		if canTakeLease(lease, vmip) {
+			return NewTakeLeaseStep(lease, s.client, s.cb, s.recorder).Take(ctx, vmip)
 		}
 		if err := network.DeleteSDNIPAddressByName(ctx, s.client, vmip.Namespace, mirror.GetName()); err != nil {
 			return nil, err
@@ -234,6 +238,13 @@ func (s CreateLeaseStep) createLeaseForAddressFromSDN(ctx context.Context, vmip 
 	}
 
 	return s.createLease(ctx, vmip, address)
+}
+
+func canTakeLease(lease *v1alpha2.VirtualMachineIPAddressLease, vmip *v1alpha2.VirtualMachineIPAddress) bool {
+	ref := lease.Spec.VirtualMachineIPAddressRef
+	return lease.GetDeletionTimestamp() == nil &&
+		lease.Labels[annotations.LabelVirtualMachineIPAddressUID] == "" &&
+		(ref == nil || ref.Name == "" && (ref.Namespace == "" || ref.Namespace == vmip.Namespace))
 }
 
 func (s CreateLeaseStep) createLease(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress, ipAddress string) (*reconcile.Result, error) {

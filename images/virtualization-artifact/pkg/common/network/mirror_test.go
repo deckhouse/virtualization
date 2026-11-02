@@ -22,9 +22,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
@@ -287,6 +289,48 @@ var _ = Describe("GetIPAddressTakingVMIPAddress", func() {
 	})
 })
 
+var _ = Describe("GetAllocatedMainIPAddress", func() {
+	const address = "10.66.10.14"
+	ctx := context.Background()
+
+	get := func(objs ...client.Object) *sdnapi.IPAddress {
+		ipa, err := GetAllocatedMainIPAddress(ctx, newIPAMFakeClient(objs...), address)
+		Expect(err).NotTo(HaveOccurred())
+		return ipa
+	}
+
+	It("returns the IPAddress of the Main network the sdn module allocated the address to", func() {
+		refused := newStaticIPAddressObj("refused", address)
+		refused.Status.Conditions[0].Status = metav1.ConditionFalse
+		refused.Status.Conditions[0].Reason = sdnapi.ReasonIPAddressIsUsed
+		holder := newSDNIPAddressObj("holder", "", v1alpha2.NetworksTypeClusterNetwork, MainClusterNetworkName, address, true)
+		holder.Namespace = "other"
+
+		ipa := get(refused, holder)
+
+		Expect(ipa).NotTo(BeNil())
+		Expect(ipa.GetName()).To(Equal("holder"))
+		Expect(ipa.GetNamespace()).To(Equal("other"))
+	})
+
+	It("returns nil for an IPAddress being deleted", func() {
+		deleting := newSDNIPAddressObj("deleting", "", v1alpha2.NetworksTypeClusterNetwork, MainClusterNetworkName, address, true)
+		deleting.SetDeletionTimestamp(&metav1.Time{Time: time.Now()})
+		deleting.SetFinalizers([]string{"network.deckhouse.io/ip-address-controller"})
+
+		Expect(get(deleting)).To(BeNil())
+	})
+
+	It("returns nil when only a refused IPAddress or another network has the address", func() {
+		refused := newStaticIPAddressObj("refused", address)
+		refused.Status.Conditions[0].Status = metav1.ConditionFalse
+		refused.Status.Conditions[0].Reason = sdnapi.ReasonIPAddressIsUsed
+		other := newSDNIPAddressObj("other", "", v1alpha2.NetworksTypeClusterNetwork, "other-net", address, true)
+
+		Expect(get(refused, other)).To(BeNil())
+	})
+})
+
 var _ = Describe("EnsureAutoMirror", func() {
 	ctx := context.Background()
 
@@ -311,6 +355,51 @@ var _ = Describe("EnsureAutoMirror", func() {
 		ipas := &sdnapi.IPAddressList{}
 		Expect(cl.List(ctx, ipas)).To(Succeed())
 		Expect(ipas.Items).To(HaveLen(1))
+	})
+
+	It("replaces a Static mirror refused on the address the vmip gave up", func() {
+		refused := newStaticIPAddressObj("vmip", "10.66.10.99")
+		refused.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: "vmip-uid"})
+		refused.Status.Conditions = []metav1.Condition{{Type: sdnapi.ConditionAllocated, Status: metav1.ConditionFalse, Reason: sdnapi.ReasonIPAddressIsUsed}}
+		cl := newIPAMFakeClient(refused)
+
+		_, err := EnsureAutoMirror(ctx, cl, newVMIP(), nil)
+		Expect(err).To(MatchError(ErrIPAddressTerminating))
+		ipas := &sdnapi.IPAddressList{}
+		Expect(cl.List(ctx, ipas)).To(Succeed())
+		Expect(ipas.Items).To(BeEmpty())
+
+		created, err := EnsureAutoMirror(ctx, cl, newVMIP(), nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(created.Spec.Type).To(Equal(sdnapi.IPAddressTypeAuto))
+	})
+
+	It("keeps a new mirror when the cache still shows the refused one under its name", func() {
+		stale := newStaticIPAddressObj("vmip", "10.66.10.99")
+		stale.UID = "stale-uid"
+		stale.ResourceVersion = "1"
+		stale.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: "vmip-uid"})
+		stale.Status.Conditions = []metav1.Condition{{Type: sdnapi.ConditionAllocated, Status: metav1.ConditionFalse, Reason: sdnapi.ReasonIPAddressIsUsed}}
+		current := newSDNIPAddressObj("vmip", "", v1alpha2.NetworksTypeClusterNetwork, MainClusterNetworkName, "10.66.10.5", true)
+		current.UID = "current-uid"
+		current.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: "vmip-uid"})
+		cl := interceptor.NewClient(newIPAMFakeClient(current).(client.WithWatch), interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if ipa, ok := obj.(*sdnapi.IPAddress); ok {
+					stale.DeepCopyInto(ipa)
+					return nil
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		})
+
+		_, err := EnsureAutoMirror(ctx, cl, newVMIP(), nil)
+
+		Expect(apierrors.IsConflict(err)).To(BeTrue())
+		raw := &sdnapi.IPAddressList{}
+		Expect(cl.List(ctx, raw)).To(Succeed())
+		Expect(raw.Items).To(HaveLen(1))
+		Expect(raw.Items[0].UID).To(Equal(types.UID("current-uid")))
 	})
 
 	It("reports nil when the name is taken by a foreign IPAddress", func() {

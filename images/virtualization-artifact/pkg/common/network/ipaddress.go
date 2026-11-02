@@ -87,6 +87,21 @@ func liveIPAddressName(ipa *sdnapi.IPAddress) (string, error) {
 	return ipa.GetName(), nil
 }
 
+// GetAllocatedMainIPAddress skips an IPAddress being deleted: deleting it again frees nothing.
+func GetAllocatedMainIPAddress(ctx context.Context, c client.Client, address string) (*sdnapi.IPAddress, error) {
+	list := &sdnapi.IPAddressList{}
+	if err := c.List(ctx, list, client.UnsafeDisableDeepCopy); err != nil {
+		return nil, fmt.Errorf("list SDN IPAddress: %w", err)
+	}
+	for i := range list.Items {
+		ipa := &list.Items[i]
+		if IsMainNetworkIPAddress(ipa) && ipa.GetDeletionTimestamp() == nil && IPAddressAllocated(ipa) && ipa.Status.Address == address {
+			return ipa.DeepCopy(), nil
+		}
+	}
+	return nil, nil
+}
+
 // MainSDNIPAddressesByAddress counts an IPAddress being deleted too: its address is
 // free only once the sdn module is done with it.
 func MainSDNIPAddressesByAddress(ctx context.Context, c client.Client) (map[string]types.NamespacedName, error) {
