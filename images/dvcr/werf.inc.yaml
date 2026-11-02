@@ -76,7 +76,7 @@ shell:
 # Corpus restore and replay run in the CI child pipeline, after image publication.
 ---
 {{- include "fuzz image" (list . "/distribution") }}
-      FUZZ_PKGS: "./registry/auth/dvcrk8s/..."
+      FUZZ_PKGS: "./registry/auth/dvcrk8s/... ./configuration ./registry/api/v2 ./registry/auth/token"
       CGO_ENABLED: "0"
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
