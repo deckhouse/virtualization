@@ -10,7 +10,7 @@
       },
       "products": [
         {
-          "@id": "pkg:golang/golang.org/x/crypto@v0.57.0"
+          "@id": "pkg:golang/golang.org/x/crypto@v0.58.0"
         }
       ],
       "status": "not_affected",
