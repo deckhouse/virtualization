@@ -34,8 +34,11 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 func Test_CheckSDNRouteForger(t *testing.T) {
@@ -98,19 +101,84 @@ var _ = Describe("Check SDN route forger hook", func() {
 		})
 	}
 
-	prepareNetwork := func(conditions []metav1.Condition) {
+	prepareNetworkWithAddresses := func(conditions []metav1.Condition, vmips []v1alpha2.VirtualMachineIPAddress, ipas []sdnapi.IPAddress, vms ...v1alpha2.VirtualMachine) {
 		clusterNetwork := &sdnapi.ClusterNetwork{
 			ObjectMeta: metav1.ObjectMeta{Name: network.MainClusterNetworkName},
 			Status:     sdnapi.ClusterNetworkStatus{Conditions: conditions},
 		}
 
-		dc.GetK8sClientMock.Return(&fakeKubernetesClient{get: func(_ context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
-			Expect(key.Name).To(Equal(network.MainClusterNetworkName))
-			target, ok := obj.(*sdnapi.ClusterNetwork)
-			Expect(ok).To(BeTrue())
-			*target = *clusterNetwork
-			return nil
-		}}, nil)
+		dc.GetK8sClientMock.Return(&fakeKubernetesClient{
+			get: func(_ context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+				if target, ok := obj.(*v1alpha2.VirtualMachine); ok {
+					for i := range vms {
+						if vms[i].Namespace == key.Namespace && vms[i].Name == key.Name {
+							*target = vms[i]
+							return nil
+						}
+					}
+					return apierrors.NewNotFound(schema.GroupResource{Resource: "virtualmachines"}, key.Name)
+				}
+				Expect(key.Name).To(Equal(network.MainClusterNetworkName))
+				target, ok := obj.(*sdnapi.ClusterNetwork)
+				Expect(ok).To(BeTrue())
+				*target = *clusterNetwork
+				return nil
+			},
+			list: func(_ context.Context, list ctrlclient.ObjectList) error {
+				switch target := list.(type) {
+				case *v1alpha2.VirtualMachineIPAddressList:
+					target.Items = vmips
+				case *sdnapi.IPAddressList:
+					target.Items = ipas
+				case *v1alpha2.VirtualMachineList:
+					target.Items = vms
+				default:
+					Fail("unexpected list")
+				}
+				return nil
+			},
+		}, nil)
+	}
+
+	prepareNetwork := func(conditions []metav1.Condition) {
+		prepareNetworkWithAddresses(conditions, nil, nil)
+	}
+
+	prepareAddressListFailure := func(conditions []metav1.Condition) {
+		clusterNetwork := &sdnapi.ClusterNetwork{
+			ObjectMeta: metav1.ObjectMeta{Name: network.MainClusterNetworkName},
+			Status:     sdnapi.ClusterNetworkStatus{Conditions: conditions},
+		}
+
+		dc.GetK8sClientMock.Return(&fakeKubernetesClient{
+			get: func(_ context.Context, _ ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+				*obj.(*sdnapi.ClusterNetwork) = *clusterNetwork
+				return nil
+			},
+			list: func(_ context.Context, _ ctrlclient.ObjectList) error {
+				return errors.New("the API server is unavailable")
+			},
+		}, nil)
+	}
+
+	vmipWithAddress := func(address string) v1alpha2.VirtualMachineIPAddress {
+		return v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
+			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: address},
+		}
+	}
+
+	allocatedMainIPAddress := func(address string) sdnapi.IPAddress {
+		return sdnapi.IPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
+			Spec: sdnapi.IPAddressSpec{
+				NetworkRef: network.SDNNetworkRef(v1alpha2.NetworksSpec{Type: v1alpha2.NetworksTypeMain}),
+			},
+			Status: sdnapi.IPAddressStatus{
+				Address:    address,
+				Conditions: []metav1.Condition{{Type: sdnapi.ConditionAllocated, Status: metav1.ConditionTrue}},
+			},
+		}
 	}
 
 	prepareNetworkAbsent := func() {
@@ -214,6 +282,150 @@ var _ = Describe("Check SDN route forger hook", func() {
 			Expect(stateSetInValues).To(BeTrue(), "the hook must record the state so the DaemonSet stops being rendered")
 			Expect(metricValue).To(Equal(1.0), "the alert on the missing DaemonSet must go silent")
 		})
+
+		It("keeps shipping vm-route-forge while a vmip address has no IPAddress", func() {
+			prepareSnapshotEmpty()
+			prepareStateValuesEmpty()
+			prepareNetworkWithAddresses(routeForgerSupportedConditions,
+				[]v1alpha2.VirtualMachineIPAddress{vmipWithAddress("10.66.10.1")}, nil)
+
+			// The sdn agents would drop the route of this VM.
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(metricValue).To(Equal(0.0))
+		})
+
+		It("keeps shipping vm-route-forge while the IPAddress of a vmip address is not allocated", func() {
+			prepareSnapshotEmpty()
+			prepareStateValuesEmpty()
+			ipa := allocatedMainIPAddress("10.66.10.1")
+			ipa.Status.Conditions = []metav1.Condition{{Type: sdnapi.ConditionAllocated, Status: metav1.ConditionFalse}}
+			prepareNetworkWithAddresses(routeForgerSupportedConditions,
+				[]v1alpha2.VirtualMachineIPAddress{vmipWithAddress("10.66.10.1")},
+				[]sdnapi.IPAddress{ipa})
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(metricValue).To(Equal(0.0))
+		})
+
+		It("keeps shipping vm-route-forge while sdn refuses the address a VM still runs on", func() {
+			prepareSnapshotEmpty()
+			prepareStateValuesEmpty()
+			// The vmip lost its lease and is not Bound, yet the VM runs on the address.
+			vmip := vmipWithAddress("10.66.10.1")
+			vmip.UID = "vmip-uid"
+			vmip.Status.VirtualMachine = "vm"
+			vmip.Status.Conditions = []metav1.Condition{{
+				Type:   vmipcondition.BoundType.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmipcondition.VirtualMachineIPAddressLeaseLost.String(),
+			}}
+			mirror := allocatedMainIPAddress("")
+			mirror.Annotations = map[string]string{annotations.AnnMirrorOfVMIP: string(vmip.UID)}
+			mirror.Spec.Type = sdnapi.IPAddressTypeStatic
+			mirror.Spec.Static = &sdnapi.StaticIPAddress{IP: "10.66.10.1"}
+			mirror.Status.Conditions = []metav1.Condition{{Type: sdnapi.ConditionAllocated, Status: metav1.ConditionFalse, Reason: sdnapi.ReasonIPAddressIsUsed}}
+			vm := v1alpha2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
+				Status:     v1alpha2.VirtualMachineStatus{Phase: v1alpha2.MachineRunning, IPAddress: "10.66.10.1"},
+			}
+			prepareNetworkWithAddresses(routeForgerSupportedConditions,
+				[]v1alpha2.VirtualMachineIPAddress{vmip}, []sdnapi.IPAddress{mirror}, vm)
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(metricValue).To(Equal(0.0))
+		})
+
+		Context("with a VM running on a vmip", func() {
+			var (
+				vmip   v1alpha2.VirtualMachineIPAddress
+				mirror sdnapi.IPAddress
+				vm     v1alpha2.VirtualMachine
+			)
+
+			BeforeEach(func() {
+				prepareSnapshotEmpty()
+				prepareStateValuesEmpty()
+				vmip = vmipWithAddress("10.66.10.1")
+				vmip.UID = "vmip-uid"
+				mirror = allocatedMainIPAddress("10.66.10.1")
+				mirror.Annotations = map[string]string{annotations.AnnMirrorOfVMIP: string(vmip.UID)}
+				mirror.Status.Phase = sdnapi.PhaseAllocated
+				vm = v1alpha2.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: "default"},
+					Status: v1alpha2.VirtualMachineStatus{
+						Phase:                   v1alpha2.MachineRunning,
+						VirtualMachineIPAddress: vmip.Name,
+						VirtualMachinePods: []v1alpha2.VirtualMachinePod{
+							{Name: "virt-launcher-old", Active: false},
+							{Name: "virt-launcher-new", Active: true},
+						},
+					},
+				}
+			})
+
+			reconcile := func() (stateSetInValues bool) {
+				prepareNetworkWithAddresses(routeForgerSupportedConditions,
+					[]v1alpha2.VirtualMachineIPAddress{vmip}, []sdnapi.IPAddress{mirror}, vm)
+				values.SetMock.Optional().Set(func(_ string, _ any) { stateSetInValues = true })
+				Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+				return stateSetInValues
+			}
+
+			It("keeps shipping vm-route-forge while the mirror is allocated but not used by the pod", func() {
+				// The sdn agent has no node to route the address to yet.
+				Expect(reconcile()).To(BeFalse())
+				Expect(metricValue).To(Equal(0.0))
+			})
+
+			It("keeps shipping vm-route-forge while the mirror lists only the previous pod", func() {
+				mirror.Status.Phase = sdnapi.PhaseBound
+				mirror.Status.UsedByPods = []string{"default/virt-launcher-old"}
+				Expect(reconcile()).To(BeFalse())
+			})
+
+			It("records the state once the mirror is Bound and used by the active pod", func() {
+				mirror.Status.Phase = sdnapi.PhaseBound
+				mirror.Status.UsedByPods = []string{"default/virt-launcher-new"}
+				Expect(reconcile()).To(BeTrue())
+				Expect(metricValue).To(Equal(1.0))
+			})
+
+			It("keeps shipping vm-route-forge while only another IPAddress on the address is used by the pod", func() {
+				mirror.Status.Phase = sdnapi.PhaseBound
+				other := allocatedMainIPAddress("10.66.10.1")
+				other.Name = "other"
+				other.Status.Phase = sdnapi.PhaseBound
+				other.Status.UsedByPods = []string{"default/virt-launcher-new"}
+				prepareNetworkWithAddresses(routeForgerSupportedConditions,
+					[]v1alpha2.VirtualMachineIPAddress{vmip}, []sdnapi.IPAddress{mirror, other}, vm)
+				Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+				Expect(metricValue).To(Equal(0.0))
+			})
+
+			It("does not wait for the pod of a stopped VM", func() {
+				vm.Status.Phase = v1alpha2.MachineStopped
+				vm.Status.VirtualMachinePods = nil
+				Expect(reconcile()).To(BeTrue())
+			})
+		})
+
+		It("records the state once every vmip address has an allocated IPAddress", func() {
+			prepareSnapshotEmpty()
+			prepareStateValuesEmpty()
+			prepareNetworkWithAddresses(routeForgerSupportedConditions,
+				[]v1alpha2.VirtualMachineIPAddress{vmipWithAddress("10.66.10.1")},
+				[]sdnapi.IPAddress{allocatedMainIPAddress("10.66.10.1")})
+
+			var stateSetInValues bool
+			values.SetMock.Set(func(path string, _ any) {
+				Expect(path).To(Equal(routeForgerStateValuesPath))
+				stateSetInValues = true
+			})
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(stateSetInValues).To(BeTrue())
+			Expect(metricValue).To(Equal(1.0))
+		})
 	})
 
 	Context("the state is already recorded", func() {
@@ -266,14 +478,28 @@ var _ = Describe("Check SDN route forger hook", func() {
 			// dropping the DaemonSet here would leave the fleet without routes.
 			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
 		})
+
+		It("keeps shipping vm-route-forge when the addresses cannot be listed", func() {
+			prepareSnapshotEmpty()
+			prepareStateValuesEmpty()
+			prepareAddressListFailure(routeForgerSupportedConditions)
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(metricValue).To(Equal(0.0))
+		})
 	})
 })
 
 type fakeKubernetesClient struct {
 	pkg.KubernetesClient
-	get func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error
+	get  func(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error
+	list func(ctx context.Context, list ctrlclient.ObjectList) error
 }
 
 func (f *fakeKubernetesClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, _ ...ctrlclient.GetOption) error {
 	return f.get(ctx, key, obj)
+}
+
+func (f *fakeKubernetesClient) List(ctx context.Context, list ctrlclient.ObjectList, _ ...ctrlclient.ListOption) error {
+	return f.list(ctx, list)
 }
