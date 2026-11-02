@@ -165,7 +165,20 @@ func (s MirrorStep) ensureMirror(ctx context.Context, vmip *v1alpha2.VirtualMach
 	case s.canTakeAnotherAddress(vmip):
 		return s.takeAnotherAddress(ctx, vmip, ipa)
 	default:
-		setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The sdn module refused the address %s for the IPAddress %q: %s. Delete the IPAddress that already has this address, or give this VirtualMachineIPAddress another address.", vmip.Status.Address, ipa.GetName(), ipAddressRefusalMessage(ipa)))
+		holder, err := network.GetAllocatedMainIPAddress(ctx, s.client, vmip.Status.Address)
+		if err != nil {
+			return nil, err
+		}
+		orAnother := ""
+		if vmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic {
+			orAnother = ", or give this VirtualMachineIPAddress another address"
+		}
+		// No live holder: sdn refuses for the reservation of a deleted IPAddress.
+		if holder == nil {
+			setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The address %s is still reserved by the sdn module for a recently deleted resource and becomes available once the reservation expires. Wait%s.", vmip.Status.Address, orAnother))
+			return &reconcile.Result{}, nil
+		}
+		setLeaseNotReadyCondition(s.cb, fmt.Sprintf("The address %s is held by the IPAddress %q in the namespace %q. Delete that IPAddress%s.", vmip.Status.Address, holder.GetName(), holder.GetNamespace(), orAnother))
 		return &reconcile.Result{}, nil
 	}
 }
@@ -218,19 +231,24 @@ func (s MirrorStep) canTakeAnotherAddress(vmip *v1alpha2.VirtualMachineIPAddress
 }
 
 // takeAnotherAddress releases the lease of the address the sdn module has handed out
-// to another IPAddress, together with the mirror of this vmip on it, so that the
-// vmip gets another address. A resource of somebody else stays.
+// to another IPAddress and deletes the mirror of this vmip on it, so that the vmip
+// gets another address. A resource of somebody else stays.
 func (s MirrorStep) takeAnotherAddress(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress, ipa *sdnapi.IPAddress) (*reconcile.Result, error) {
 	msg := fmt.Sprintf("The sdn module refused the address %s (%s): picking another address for this VirtualMachineIPAddress.", vmip.Status.Address, ipAddressRefusalMessage(ipa))
 	s.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseNotReady.String(), msg)
 
+	// Preconditions: behind a stale cache the names may belong to new resources already.
 	if network.IsMirrorOf(ipa, vmip) {
-		if err := network.DeleteSDNIPAddressByName(ctx, s.client, vmip.Namespace, ipa.GetName()); err != nil {
+		if err := s.client.Delete(ctx, ipa, client.Preconditions{ResourceVersion: &ipa.ResourceVersion}); err != nil && !k8serrors.IsNotFound(err) {
 			return nil, fmt.Errorf("delete the conflicting mirror IPAddress %q: %w", ipa.GetName(), err)
 		}
 	}
-	if err := s.client.Delete(ctx, s.lease); err != nil && !k8serrors.IsNotFound(err) {
-		return nil, fmt.Errorf("release the conflicting lease %q: %w", s.lease.Name, err)
+	// Unbound, not deleted: a deleted lease may be another vmip's by now. The retention
+	// removes it; if the status is not saved, the next reconcile gives the address up again.
+	unbound := s.lease.DeepCopy()
+	ip.UnbindLease(unbound)
+	if err := s.client.Patch(ctx, unbound, client.MergeFromWithOptions(s.lease, client.MergeFromWithOptimisticLock{})); err != nil && !k8serrors.IsNotFound(err) {
+		return nil, fmt.Errorf("unbind the conflicting lease %q: %w", s.lease.Name, err)
 	}
 	vmip.Status.Address = ""
 	setLeaseNotReadyCondition(s.cb, msg)

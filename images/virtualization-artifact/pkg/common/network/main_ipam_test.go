@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 // newMainClusterNetworkObj creates the PrimaryCNI ClusterNetwork "main".
@@ -168,7 +169,7 @@ var _ = Describe("UsesVMIP", func() {
 		Expect(UsesVMIP(ctx, cl, newVM("my-vmip"))).To(BeTrue())
 	})
 
-	It("gives a new machine an IPAddress where the sdn module serves the Main network", func() {
+	It("uses an sdn IPAddress for a new machine where the sdn module serves the Main network", func() {
 		cl := newIPAMFakeClient(newMainClusterNetworkObj("PrimaryCNI", true))
 		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeFalse())
 	})
@@ -183,7 +184,7 @@ var _ = Describe("UsesVMIP", func() {
 		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeFalse())
 	})
 
-	It("gives a new machine a vmip while a vmip address is not allocated in the sdn module", func() {
+	It("uses a vmip for a new machine while a vmip address is not allocated in the sdn module", func() {
 		vmip := &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{Name: "other-vmip", Namespace: "ns"},
 			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: "10.66.10.5"},
@@ -192,7 +193,73 @@ var _ = Describe("UsesVMIP", func() {
 		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeTrue())
 	})
 
-	It("gives a new machine an IPAddress once every vmip address is allocated in the sdn module", func() {
+	It("uses an sdn IPAddress for a new machine while a vmip refused by the sdn module is not Bound", func() {
+		vmip := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "other-vmip", Namespace: "ns", UID: "other-vmip-uid"},
+			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: "10.66.10.5"},
+		}
+		mirror := newSDNIPAddressObj("other-vmip", "", "ClusterNetwork", MainClusterNetworkName, "", false)
+		mirror.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: string(vmip.UID)})
+		mirror.Spec.Type = sdnapi.IPAddressTypeStatic
+		mirror.Spec.Static = &sdnapi.StaticIPAddress{IP: "10.66.10.5"}
+		mirror.Status.Conditions[0].Reason = sdnapi.ReasonIPAddressIsUsed
+		cl := newIPAMFakeClient(newMainClusterNetworkObj("PrimaryCNI", true), vmip, mirror)
+		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeFalse())
+	})
+
+	It("uses a vmip for a new machine while a refused vmip that lost its lease has a machine running on the address", func() {
+		vmip := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "other-vmip", Namespace: "ns", UID: "other-vmip-uid"},
+			Status: v1alpha2.VirtualMachineIPAddressStatus{
+				Address:        "10.66.10.5",
+				VirtualMachine: "other-vm",
+				Conditions: []metav1.Condition{{
+					Type:   vmipcondition.BoundType.String(),
+					Status: metav1.ConditionFalse,
+					Reason: vmipcondition.VirtualMachineIPAddressLeaseLost.String(),
+				}},
+			},
+		}
+		running := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "other-vm", Namespace: "ns"},
+			Status:     v1alpha2.VirtualMachineStatus{Phase: v1alpha2.MachineRunning, IPAddress: "10.66.10.5"},
+		}
+		mirror := newSDNIPAddressObj("other-vmip", "", "ClusterNetwork", MainClusterNetworkName, "", false)
+		mirror.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: string(vmip.UID)})
+		mirror.Spec.Type = sdnapi.IPAddressTypeStatic
+		mirror.Spec.Static = &sdnapi.StaticIPAddress{IP: "10.66.10.5"}
+		mirror.Status.Conditions[0].Reason = sdnapi.ReasonIPAddressIsUsed
+		cl := newIPAMFakeClient(newMainClusterNetworkObj("PrimaryCNI", true), vmip, running, mirror)
+		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeTrue())
+	})
+
+	It("uses an sdn IPAddress for a new machine while a refused vmip that lost its lease belongs to a stopped machine", func() {
+		vmip := &v1alpha2.VirtualMachineIPAddress{
+			ObjectMeta: metav1.ObjectMeta{Name: "other-vmip", Namespace: "ns", UID: "other-vmip-uid"},
+			Status: v1alpha2.VirtualMachineIPAddressStatus{
+				Address:        "10.66.10.5",
+				VirtualMachine: "other-vm",
+				Conditions: []metav1.Condition{{
+					Type:   vmipcondition.BoundType.String(),
+					Status: metav1.ConditionFalse,
+					Reason: vmipcondition.VirtualMachineIPAddressLeaseLost.String(),
+				}},
+			},
+		}
+		stopped := &v1alpha2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "other-vm", Namespace: "ns"},
+			Status:     v1alpha2.VirtualMachineStatus{Phase: v1alpha2.MachineStopped, IPAddress: "10.66.10.5"},
+		}
+		mirror := newSDNIPAddressObj("other-vmip", "", "ClusterNetwork", MainClusterNetworkName, "", false)
+		mirror.SetAnnotations(map[string]string{annotations.AnnMirrorOfVMIP: string(vmip.UID)})
+		mirror.Spec.Type = sdnapi.IPAddressTypeStatic
+		mirror.Spec.Static = &sdnapi.StaticIPAddress{IP: "10.66.10.5"}
+		mirror.Status.Conditions[0].Reason = sdnapi.ReasonIPAddressIsUsed
+		cl := newIPAMFakeClient(newMainClusterNetworkObj("PrimaryCNI", true), vmip, stopped, mirror)
+		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeFalse())
+	})
+
+	It("uses an sdn IPAddress for a new machine once every vmip address is allocated in the sdn module", func() {
 		vmip := &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{Name: "other-vmip", Namespace: "ns"},
 			Status:     v1alpha2.VirtualMachineIPAddressStatus{Address: "10.66.10.5"},
@@ -202,7 +269,7 @@ var _ = Describe("UsesVMIP", func() {
 		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeFalse())
 	})
 
-	It("gives a new machine a vmip where it does not", func() {
+	It("uses a vmip for a new machine where the sdn module does not serve the Main network", func() {
 		cl := newIPAMFakeClient()
 		Expect(UsesVMIP(ctx, cl, newVM(""))).To(BeTrue())
 	})

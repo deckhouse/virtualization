@@ -226,12 +226,61 @@ var _ = Describe("MirrorStep", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).NotTo(BeNil())
 		Expect(vmip.Status.Address).To(BeEmpty())
-		err = cl.Get(ctx, types.NamespacedName{Name: lease.Name}, &v1alpha2.VirtualMachineIPAddressLease{})
-		Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 		cond := cb.Condition()
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Message).To(ContainSubstring("picking another address"))
 		Expect(events).NotTo(BeEmpty())
+	})
+
+	It("unbinds the lease it releases and leaves it to the retention", func() {
+		vmip.UID = "vmip-uid"
+		lease.Finalizers = []string{v1alpha2.FinalizerIPAddressLeaseCleanup}
+		lease.Labels = map[string]string{annotations.LabelVirtualMachineIPAddressUID: string(vmip.UID)}
+		lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Name: vmip.Name, Namespace: namespace}
+		cl := newStepFakeClient(newMainClusterNetworkWithPool(), newRefusedIPAddress(), lease)
+
+		_, err := NewMirrorStep(lease, cl, cb, recorder).Take(ctx, vmip)
+		Expect(err).NotTo(HaveOccurred())
+
+		released := &v1alpha2.VirtualMachineIPAddressLease{}
+		Expect(cl.Get(ctx, types.NamespacedName{Name: lease.Name}, released)).To(Succeed())
+		Expect(released.GetDeletionTimestamp()).To(BeNil())
+		Expect(released.Labels[annotations.LabelVirtualMachineIPAddressUID]).To(BeEmpty())
+		Expect(released.Spec.VirtualMachineIPAddressRef.Name).To(BeEmpty())
+		Expect(released.Spec.VirtualMachineIPAddressRef.Namespace).To(Equal(namespace))
+	})
+
+	It("gives the address up again when the status without it was not saved", func() {
+		// The previous reconcile unbound the lease; the vmip still has the address.
+		lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Namespace: namespace}
+		cl := newStepFakeClient(newMainClusterNetworkWithPool(), newRefusedIPAddress(), lease)
+
+		_, err := NewMirrorStep(lease, cl, cb, recorder).Take(ctx, vmip)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vmip.Status.Address).To(BeEmpty())
+		Expect(cb.Condition().Message).To(ContainSubstring("picking another address"))
+	})
+
+	It("leaves the lease alone when the cache is behind and its name is another vmip's now", func() {
+		vmip.UID = "vmip-uid"
+		current := lease.DeepCopy()
+		current.Labels = map[string]string{annotations.LabelVirtualMachineIPAddressUID: "other-uid"}
+		current.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Name: "other", Namespace: namespace}
+		cl := newStepFakeClient(newMainClusterNetworkWithPool(), newRefusedIPAddress(), current)
+		stale := lease.DeepCopy()
+		stale.ResourceVersion = "1"
+		stale.Labels = map[string]string{annotations.LabelVirtualMachineIPAddressUID: string(vmip.UID)}
+		stale.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{Name: vmip.Name, Namespace: namespace}
+
+		_, err := NewMirrorStep(stale, cl, cb, recorder).Take(ctx, vmip)
+
+		Expect(k8serrors.IsConflict(err)).To(BeTrue())
+		got := &v1alpha2.VirtualMachineIPAddressLease{}
+		Expect(cl.Get(ctx, types.NamespacedName{Name: lease.Name}, got)).To(Succeed())
+		Expect(got.GetDeletionTimestamp()).To(BeNil())
+		Expect(got.Labels[annotations.LabelVirtualMachineIPAddressUID]).To(Equal("other-uid"))
+		Expect(got.Spec.VirtualMachineIPAddressRef.Name).To(Equal("other"))
 	})
 
 	Context("on a vmip the controller created for a VM", func() {
@@ -310,7 +359,8 @@ var _ = Describe("MirrorStep", func() {
 			Expect(result).NotTo(BeNil())
 			cond := cb.Condition()
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Message).To(ContainSubstring("is reserved by IPAddressLease stale-lease"))
+			Expect(cond.Message).To(ContainSubstring("still reserved by the sdn module"))
+			Expect(cond.Message).NotTo(ContainSubstring("another address"), "an Auto vmip has no address to change")
 			Expect(events).To(BeEmpty())
 			Expect(cl.Get(ctx, types.NamespacedName{Name: lease.Name}, &v1alpha2.VirtualMachineIPAddressLease{})).To(Succeed())
 		})
@@ -359,7 +409,27 @@ var _ = Describe("MirrorStep", func() {
 		cond := cb.Condition()
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(vmipcondition.VirtualMachineIPAddressLeaseNotReady.String()))
-		Expect(cond.Message).To(ContainSubstring("is reserved by IPAddressLease stale-lease"))
+		Expect(cond.Message).To(ContainSubstring("still reserved by the sdn module for a recently deleted resource"))
+		Expect(cond.Message).To(ContainSubstring("give this VirtualMachineIPAddress another address"))
+		Expect(cond.Message).NotTo(ContainSubstring("Delete the IPAddress"))
+	})
+
+	It("tells a static vmip to delete the IPAddress that holds its address", func() {
+		vmip.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeStatic
+		vmip.Spec.StaticIP = address
+		holder := newAllocatedIPAddress("holder", address)
+		holder.Namespace = "other"
+		cl := newStepFakeClient(
+			newMainClusterNetworkWithPool(),
+			newRefusedIPAddress(),
+			holder,
+			lease,
+		)
+
+		_, err := NewMirrorStep(lease, cl, cb, recorder).Take(ctx, vmip)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cb.Condition().Message).To(ContainSubstring(`is held by the IPAddress "holder" in the namespace "other"`))
 	})
 })
 
