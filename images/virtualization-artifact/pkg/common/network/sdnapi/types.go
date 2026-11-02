@@ -32,6 +32,8 @@ const (
 const (
 	PhasePending   = "Pending"
 	PhaseAllocated = "Allocated"
+	PhaseBound     = "Bound"
+	PhaseAttached  = "Attached"
 )
 
 // ConditionAllocated is True once the address is taken out of the pool.

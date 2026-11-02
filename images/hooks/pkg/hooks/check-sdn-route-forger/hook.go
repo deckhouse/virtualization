@@ -20,11 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -32,6 +35,8 @@ import (
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network/sdnapi"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/hooks/pkg/settings"
 )
 
@@ -113,7 +118,7 @@ func Reconcile(ctx context.Context, input *pkg.HookInput) error {
 	if err != nil {
 		// A failed read is not evidence of absence: keep shipping the DaemonSet
 		// rather than drop the routing of a running fleet on a transient error.
-		input.Logger.Error("Cannot read the Main ClusterNetwork, keep shipping vm-route-forge", "error", err)
+		input.Logger.Error("Cannot check whether sdn routes virtual machines, keep shipping vm-route-forge", "error", err)
 	}
 	if !sdnRoutesVMs {
 		setRouteForgerSupportedMetric(input, false)
@@ -163,14 +168,14 @@ func readStateFromSecret(input *pkg.HookInput) (*routeForgerState, error) {
 }
 
 // sdnRoutesVirtualMachines is true once every sdn agent routes virtual machines, as the
-// Main ClusterNetwork condition says. Without the CRD or the network there is no
-// such condition.
+// Main ClusterNetwork condition says, sdn knows the address of every vmip and can route
+// every running VM on a vmip. Without the CRD or the network there is no such condition.
 func sdnRoutesVirtualMachines(ctx context.Context, input *pkg.HookInput) (bool, error) {
 	if input.DC == nil {
 		return false, fmt.Errorf("dependency container is nil")
 	}
 
-	k8sClient, err := input.DC.GetK8sClient(sdnSchemeOption{})
+	k8sClient, err := input.DC.GetK8sClient(schemeOption{})
 	if err != nil {
 		return false, fmt.Errorf("get kubernetes client: %w", err)
 	}
@@ -184,11 +189,82 @@ func sdnRoutesVirtualMachines(ctx context.Context, input *pkg.HookInput) (bool, 
 		return false, fmt.Errorf("get ClusterNetwork/%s: %w", network.MainClusterNetworkName, err)
 	}
 
-	return meta.IsStatusConditionTrue(clusterNetwork.Status.Conditions, routeForgerSupportedCondition), nil
+	if !meta.IsStatusConditionTrue(clusterNetwork.Status.Conditions, routeForgerSupportedCondition) {
+		return false, nil
+	}
+
+	// Once vm-route-forge is gone, the sdn agents drop every route without an IPAddress:
+	// wait until each vmip address has one.
+	ctx = logger.ToContext(ctx, slog.New(input.Logger.Handler()))
+	taken, err := network.VMIPAddressesTakenInSDNPool(ctx, k8sClient)
+	if err != nil || !taken {
+		return false, err
+	}
+	return vmsOnVMIPRoutedBySDN(ctx, k8sClient)
 }
 
-type sdnSchemeOption struct{}
+// vmsOnVMIPRoutedBySDN: an sdn agent routes an address only once its IPAddress is Bound or
+// Attached and lists the pod using it. The mirror gets the pod a reconcile of the VM after
+// it is allocated, when the pod gets the Main interface spec.
+func vmsOnVMIPRoutedBySDN(ctx context.Context, c client.Client) (bool, error) {
+	vms := &v1alpha2.VirtualMachineList{}
+	if err := c.List(ctx, vms); err != nil {
+		return false, fmt.Errorf("list VirtualMachine: %w", err)
+	}
+	vmips := &v1alpha2.VirtualMachineIPAddressList{}
+	if err := c.List(ctx, vmips); err != nil {
+		return false, fmt.Errorf("list VirtualMachineIPAddress: %w", err)
+	}
+	ipas := &sdnapi.IPAddressList{}
+	if err := c.List(ctx, ipas); err != nil {
+		return false, fmt.Errorf("list SDN IPAddress: %w", err)
+	}
 
-func (sdnSchemeOption) Apply(optsApplier pkg.KubernetesOptionApplier) {
+	vmipByName := make(map[types.NamespacedName]*v1alpha2.VirtualMachineIPAddress, len(vmips.Items))
+	for i := range vmips.Items {
+		vmipByName[types.NamespacedName{Namespace: vmips.Items[i].Namespace, Name: vmips.Items[i].Name}] = &vmips.Items[i]
+	}
+
+	for i := range vms.Items {
+		vm := &vms.Items[i]
+		pod := activePodName(vm)
+		if pod == "" || vm.Status.VirtualMachineIPAddress == "" {
+			continue
+		}
+		vmip := vmipByName[types.NamespacedName{Namespace: vm.Namespace, Name: vm.Status.VirtualMachineIPAddress}]
+		if vmip == nil || !mirrorRoutesPod(ipas.Items, vmip, vm.Namespace+"/"+pod) {
+			logger.FromContext(ctx).Debug("sdn cannot route a running VM on a vmip yet", "vm", vm.Namespace+"/"+vm.Name, "pod", pod)
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func activePodName(vm *v1alpha2.VirtualMachine) string {
+	for _, pod := range vm.Status.VirtualMachinePods {
+		if pod.Active {
+			return pod.Name
+		}
+	}
+	return ""
+}
+
+func mirrorRoutesPod(ipas []sdnapi.IPAddress, vmip *v1alpha2.VirtualMachineIPAddress, pod string) bool {
+	for i := range ipas {
+		ipa := &ipas[i]
+		if !network.IsMirrorOf(ipa, vmip) || ipa.Status.Address != vmip.Status.Address {
+			continue
+		}
+		if ipa.Status.Phase == sdnapi.PhaseBound || ipa.Status.Phase == sdnapi.PhaseAttached {
+			return slices.Contains(ipa.Status.UsedByPods, pod)
+		}
+	}
+	return false
+}
+
+type schemeOption struct{}
+
+func (schemeOption) Apply(optsApplier pkg.KubernetesOptionApplier) {
 	optsApplier.WithSchemeBuilder(sdnapi.SchemeBuilder)
+	optsApplier.WithSchemeBuilder(v1alpha2.SchemeBuilder)
 }
