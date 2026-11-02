@@ -45,7 +45,8 @@ function source::settings {
                               "NodePCIDevice"
                               "PCIDevice"
                               "VirtualMachinePool"
-                              "InternalVirtualizationVirtualMachineReceiver")
+                              "InternalVirtualizationVirtualMachineReceiver"
+                              "VirtualMachineAccessClaim")
 
     # shellcheck source=/dev/null
     source "${CODEGEN_PKG}/kube_codegen.sh"
@@ -74,6 +75,10 @@ function generate::core {
         --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
         "${API_ROOT}/internalvirtualization"
 
+    kube::codegen::gen_helpers                           \
+        --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
+        "${API_ROOT}/coordination"
+
     kube::codegen::gen_client                            \
         --with-watch                                     \
         --output-dir "${API_ROOT}/client/generated"      \
@@ -86,10 +91,10 @@ function generate::crds {
     OUTPUT_BASE=$(mktemp -d)
     trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
 
-    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/...;${API_ROOT}/internalvirtualization/v1alpha1/..." output:crd:dir="${OUTPUT_BASE}"
+    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/...;${API_ROOT}/internalvirtualization/v1alpha1/...;${API_ROOT}/coordination/v1alpha1/..." output:crd:dir="${OUTPUT_BASE}"
 
     go tool crd-enricher \
-        paths="./core/v1alpha2/...,./core/v1alpha3/...,./internalvirtualization/v1alpha1/..." \
+        paths="./core/v1alpha2/...,./core/v1alpha3/...,./internalvirtualization/v1alpha1/...,./coordination/v1alpha1/..." \
         crds="${OUTPUT_BASE}" \
         dir="${API_ROOT}"
 
@@ -100,7 +105,14 @@ function generate::crds {
         if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
             continue
         fi
-        cp "$file" "${ROOT}/crds/$(echo "$file" | awk -Fio_ '{print $2}')"
+        # CRDs of internal groups go to a subdirectory: Deckhouse installs CRDs from crds/ recursively,
+        # while the documentation site publishes only the files placed directly in crds/.
+        crd_dir="${ROOT}/crds"
+        if [[ "$(yq '.spec.group' "$file")" == *.internal.virtualization.deckhouse.io ]]; then
+            crd_dir="${ROOT}/crds/internal"
+            mkdir -p "${crd_dir}"
+        fi
+        cp "$file" "${crd_dir}/$(echo "$file" | awk -Fio_ '{print $2}')"
     done
 }
 

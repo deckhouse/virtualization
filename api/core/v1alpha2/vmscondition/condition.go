@@ -57,6 +57,22 @@ const (
 	VirtualMachineSnapshotReady VirtualMachineSnapshotReadyReason = "VirtualMachineSnapshotReady"
 	// VirtualMachineSnapshotFailed signifies that the snapshot process has failed.
 	VirtualMachineSnapshotFailed VirtualMachineSnapshotReadyReason = "VirtualMachineSnapshotFailed"
+	// VirtualMachineBusy signifies that the snapshot has failed because another snapshot holds the virtual machine.
+	VirtualMachineBusy VirtualMachineSnapshotReadyReason = "VirtualMachineBusy"
+	// FilesystemAlreadyFrozen signifies that the snapshot has failed because the filesystem of the virtual machine was already frozen when the snapshot started.
+	FilesystemAlreadyFrozen VirtualMachineSnapshotReadyReason = "FilesystemAlreadyFrozen"
+	// VirtualMachineNotReady signifies that the snapshot has failed because the virtual machine was not ready to be snapshotted: it was just created, or its internal state was removed.
+	VirtualMachineNotReady VirtualMachineSnapshotReadyReason = "VirtualMachineNotReady"
+	// FilesystemFreezeFailed signifies that the snapshot has failed because a consistent snapshot was required and the filesystem of the virtual machine could not be frozen.
+	FilesystemFreezeFailed VirtualMachineSnapshotReadyReason = "FilesystemFreezeFailed"
+	// VirtualMachineStateChanged signifies that the snapshot has failed because the virtual machine stopped, started, restarted or started migrating while the snapshot was being taken.
+	VirtualMachineStateChanged VirtualMachineSnapshotReadyReason = "VirtualMachineStateChanged"
+	// FilesystemUnfrozenUnexpectedly signifies that the snapshot has failed because the filesystem of the virtual machine was unfrozen while the snapshot was being taken.
+	FilesystemUnfrozenUnexpectedly VirtualMachineSnapshotReadyReason = "FilesystemUnfrozenUnexpectedly"
+	// DeadlineExceeded signifies that the snapshot has failed because it was not taken before the deadline the virtual machine was reserved for it.
+	DeadlineExceeded VirtualMachineSnapshotReadyReason = "DeadlineExceeded"
+	// AbortedByModuleUpdate signifies that the snapshot has failed because it was started before an update of the virtualization module, and the updated module cannot complete it.
+	AbortedByModuleUpdate VirtualMachineSnapshotReadyReason = "AbortedByModuleUpdate"
 )
 
 func (t Type) String() string {

@@ -204,6 +204,25 @@ rules:
   - list
   - delete
 - apiGroups:
+  - coordination.internal.virtualization.deckhouse.io
+  resources:
+  - virtualmachineaccessclaims
+  verbs:
+  - get
+  - watch
+  - create
+  - patch
+  - update
+  - list
+  - delete
+- apiGroups:
+  - coordination.internal.virtualization.deckhouse.io
+  resources:
+  - virtualmachineaccessclaims/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
   - snapshot.storage.k8s.io
   resources:
   - volumesnapshots

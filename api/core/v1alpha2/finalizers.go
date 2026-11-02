@@ -60,4 +60,7 @@ const (
 	FinalizerUSBDeviceCleanup       = "virtualization.deckhouse.io/usbdevice-cleanup"
 	FinalizerNodePCIDeviceCleanup   = "virtualization.deckhouse.io/nodepcidevice-cleanup"
 	FinalizerPCIDeviceCleanup       = "virtualization.deckhouse.io/pcidevice-cleanup"
+	// FinalizerVMACCleanup keeps a VirtualMachineAccessClaim until the coordinator has unfrozen the
+	// virtual machine for it, so deleting a claim never leaves the guest filesystem frozen.
+	FinalizerVMACCleanup = "virtualization.deckhouse.io/vmac-cleanup"
 )

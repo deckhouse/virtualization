@@ -71,4 +71,20 @@ const (
 	VirtualDiskSnapshotReady VirtualDiskSnapshotReadyReason = "VirtualDiskSnapshotReady"
 	// VirtualDiskSnapshotFailed signifies that the snapshot process has failed.
 	VirtualDiskSnapshotFailed VirtualDiskSnapshotReadyReason = "VirtualDiskSnapshotFailed"
+	// VirtualMachineBusy signifies that the snapshot has failed because another snapshot holds the virtual machine the virtual disk is attached to.
+	VirtualMachineBusy VirtualDiskSnapshotReadyReason = "VirtualMachineBusy"
+	// FilesystemAlreadyFrozen signifies that the snapshot has failed because the filesystem of the virtual machine the virtual disk is attached to was already frozen when the snapshot started.
+	FilesystemAlreadyFrozen VirtualDiskSnapshotReadyReason = "FilesystemAlreadyFrozen"
+	// VirtualMachineNotReady signifies that the snapshot has failed because the virtual machine the virtual disk is attached to was not ready to be snapshotted: it was just created, or its internal state was removed.
+	VirtualMachineNotReady VirtualDiskSnapshotReadyReason = "VirtualMachineNotReady"
+	// FilesystemFreezeFailed signifies that the snapshot has failed because a consistent snapshot was required and the filesystem of the virtual machine the virtual disk is attached to could not be frozen.
+	FilesystemFreezeFailed VirtualDiskSnapshotReadyReason = "FilesystemFreezeFailed"
+	// VirtualMachineStateChanged signifies that the snapshot has failed because the virtual machine the virtual disk is attached to stopped, started, restarted or started migrating while the snapshot was being taken.
+	VirtualMachineStateChanged VirtualDiskSnapshotReadyReason = "VirtualMachineStateChanged"
+	// FilesystemUnfrozenUnexpectedly signifies that the snapshot has failed because the filesystem of the virtual machine the virtual disk is attached to was unfrozen while the snapshot was being taken.
+	FilesystemUnfrozenUnexpectedly VirtualDiskSnapshotReadyReason = "FilesystemUnfrozenUnexpectedly"
+	// DeadlineExceeded signifies that the snapshot has failed because it was not taken before the deadline the virtual machine the virtual disk is attached to was reserved for it.
+	DeadlineExceeded VirtualDiskSnapshotReadyReason = "DeadlineExceeded"
+	// AbortedByModuleUpdate signifies that the snapshot has failed because it was started before an update of the virtualization module, and the updated module cannot complete it.
+	AbortedByModuleUpdate VirtualDiskSnapshotReadyReason = "AbortedByModuleUpdate"
 )

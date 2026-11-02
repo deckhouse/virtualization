@@ -1,0 +1,287 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  labels:
+    heritage: deckhouse
+    module: virtualization
+  name: virtualmachineaccessclaims.coordination.internal.virtualization.deckhouse.io
+spec:
+  group: coordination.internal.virtualization.deckhouse.io
+  names:
+    kind: VirtualMachineAccessClaim
+    listKind: VirtualMachineAccessClaimList
+    plural: virtualmachineaccessclaims
+    singular: virtualmachineaccessclaim
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - description: VirtualMachineAccessClaim phase.
+          jsonPath: .status.phase
+          name: Phase
+          type: string
+        - description: VirtualMachine name.
+          jsonPath: .spec.virtualMachine.name
+          name: VirtualMachine
+          type: string
+        - description: Kind of the snapshot that requested access.
+          jsonPath: .metadata.ownerReferences[?(@.controller==true)].kind
+          name: RequesterKind
+          type: string
+        - description: Name of the snapshot that requested access.
+          jsonPath: .metadata.ownerReferences[?(@.controller==true)].name
+          name: Requester
+          type: string
+        - description: Whether the virtual machine filesystem is frozen for this session.
+          jsonPath: .status.frozen
+          name: Frozen
+          type: boolean
+        - description: Time the session ends unless released earlier.
+          jsonPath: .status.deadline
+          name: Deadline
+          type: string
+        - description: Time of resource creation.
+          jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: |-
+            VirtualMachineAccessClaim requests access to a virtual machine for taking a snapshot of its disks. The
+            snapshot that owns the claim creates and releases it; the virtual machine access coordinator grants or
+            denies it and is the only component that freezes and unfreezes the guest filesystem.
+
+            It is an internal resource: user roles carry no permissions for it.
+          properties:
+            apiVersion:
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
+              type: object
+            spec:
+              description:
+                Requested access to the virtual machine. Cannot be changed
+                after creation, except for `release`.
+              properties:
+                access:
+                  description: |-
+                    Access modes requested. Always contains `Snapshot`; `Freeze` is added to freeze the guest filesystem
+                    while the snapshot is taken.
+                  items:
+                    description: |-
+                      Access to the virtual machine:
+                      * `Snapshot`: taking a snapshot of the virtual machine disks.
+                      * `Freeze`: freezing the guest filesystem.
+                    enum:
+                      - Snapshot
+                      - Freeze
+                    type: string
+                  maxItems: 2
+                  minItems: 1
+                  type: array
+                  x-kubernetes-list-type: set
+                  x-kubernetes-validations:
+                    - message: spec.access must contain Snapshot.
+                      rule: self.exists(a, a == 'Snapshot')
+                    - message: spec.access is immutable.
+                      rule: self == oldSelf
+                freezePolicy:
+                  description: |-
+                    What happens when the filesystem cannot be frozen. Set only when access contains `Freeze`:
+                    * `Required`: the claim is denied.
+                    * `BestEffort`: the access is granted without the freeze, and the snapshot is not consistent.
+                  enum:
+                    - Required
+                    - BestEffort
+                  type: string
+                  x-kubernetes-validations:
+                    - message: spec.freezePolicy is immutable.
+                      rule: self == oldSelf
+                release:
+                  description:
+                    Set by the snapshot once the access is no longer needed.
+                    Cannot be unset.
+                  type: boolean
+                timeout:
+                  description: |-
+                    Session deadline, counted from the moment access is granted. Past it the coordinator unfreezes the
+                    virtual machine and aborts the session. At most 30m, as it also bounds how long the guest may stay
+                    frozen without the coordinator.
+                  pattern: ^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$
+                  type: string
+                  x-kubernetes-validations:
+                    - message: spec.timeout must be greater than zero and not exceed 30m.
+                      rule: duration(self) > duration('0s') && duration(self) <= duration('30m')
+                    - message: spec.timeout is immutable.
+                      rule: self == oldSelf
+                virtualMachine:
+                  description: |-
+                    Virtual machine to access. The UID pins the claim to one incarnation of the virtual machine, so a
+                    virtual machine recreated under the same name is never accessed through a claim made for its
+                    predecessor.
+                  properties:
+                    name:
+                      description: Name of the virtual machine.
+                      minLength: 1
+                      type: string
+                    uid:
+                      description: UID of the virtual machine.
+                      minLength: 1
+                      type: string
+                  required:
+                    - name
+                    - uid
+                  type: object
+                  x-kubernetes-validations:
+                    - message: spec.virtualMachine is immutable.
+                      rule: self == oldSelf
+              required:
+                - access
+                - timeout
+                - virtualMachine
+              type: object
+              x-kubernetes-validations:
+                - message:
+                    spec.freezePolicy must be set exactly when spec.access contains
+                    Freeze.
+                  rule: has(self.freezePolicy) == self.access.exists(a, a == 'Freeze')
+                - message: spec.freezePolicy is immutable.
+                  rule: has(self.freezePolicy) == has(oldSelf.freezePolicy)
+                - message: spec.release cannot be unset.
+                  rule:
+                    "!has(oldSelf.release) || !oldSelf.release || (has(self.release)
+                    && self.release)"
+            status:
+              properties:
+                conditions:
+                  description: The latest available observations of the claim's state.
+                  items:
+                    description:
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
+                    properties:
+                      lastTransitionTime:
+                        description: |-
+                          lastTransitionTime is the last time the condition transitioned from one status to another.
+                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        format: date-time
+                        type: string
+                      message:
+                        description: |-
+                          message is a human readable message indicating details about the transition.
+                          This may be an empty string.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: |-
+                          observedGeneration represents the .metadata.generation that the condition was set based upon.
+                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                          with respect to the current state of the instance.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: |-
+                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                          Producers of specific condition types may define expected values and meanings for this field,
+                          and whether the values are considered a guaranteed API.
+                          The value should be a CamelCase string.
+                          This field may not be empty.
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: status of the condition, one of True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                deadline:
+                  description: Time the session ends unless released earlier.
+                  format: date-time
+                  type: string
+                frozen:
+                  description:
+                    Whether the virtual machine filesystem was frozen for
+                    this session.
+                  type: boolean
+                grantedAt:
+                  description: Time the access was granted.
+                  format: date-time
+                  type: string
+                observedGeneration:
+                  description: Resource generation last processed by the coordinator.
+                  format: int64
+                  type: integer
+                phase:
+                  description: |-
+                    Current phase of the claim:
+                    * `Pending`: the coordinator is granting the access, for example waiting for the filesystem to freeze.
+                    * `Granted`: the access is granted.
+                    * `Denied`: the access cannot be granted.
+                    * `Aborted`: the session was interrupted before release.
+                    * `Completed`: the access was released and the session went through without violations.
+                  enum:
+                    - Pending
+                    - Granted
+                    - Denied
+                    - Aborted
+                    - Completed
+                  type: string
+                virtualMachineInstanceUID:
+                  description:
+                    UID of the virtual machine instance the session is bound
+                    to. Empty for a stopped virtual machine.
+                  type: string
+              type: object
+          required:
+            - spec
+          type: object
+          x-doc-examples:
+            - apiVersion: coordination.internal.virtualization.deckhouse.io/v1alpha1
+              kind: VirtualMachineAccessClaim
+              metadata:
+                name: vms-7b2c9f4e-1d3a-4c8b-9e2f-5a6d7c8b9e0f
+              spec:
+                access:
+                  - Snapshot
+                  - Freeze
+                freezePolicy: Required
+                timeout: 10m
+                virtualMachine:
+                  name: example-vm
+                  uid: 3a9e1b2c-4d5e-4f6a-8b7c-9d0e1f2a3b4c
+      served: true
+      storage: true
+      subresources:
+        status: {}
