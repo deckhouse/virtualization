@@ -2,7 +2,7 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://openvex.dev/docs/public/vex-virtualization-dvcr-importer-go-2026-5932",
   "author": "Deckhouse <contact@deckhouse.io>",
-  "version": 4,
+  "version": 5,
   "statements": [
     {
       "vulnerability": {
@@ -10,7 +10,7 @@
       },
       "products": [
         {
-          "@id": "pkg:golang/golang.org/x/crypto@v0.57.0"
+          "@id": "pkg:golang/golang.org/x/crypto@v0.58.0"
         }
       ],
       "status": "not_affected",
@@ -34,8 +34,59 @@
       "justification": "vulnerable_code_not_present",
       "impact_statement": "CVE-2026-85747 относится к пакету github.com/docker/distribution/registry/client: метод manifests.Get не сверяет полученный manifest с запрошенным digest, а pull-through proxy registry/proxy кеширует такой manifest. Модуль github.com/docker/distribution (v2) архивирован, исправленной версии нет. В образе dvcr-importer модуль присутствует как транзитивная зависимость (github.com/containers/image/v5/docker, github.com/google/go-containerregistry/pkg/v1/remote/transport); в бинарный файл usr/local/bin/dvcr-importer из него попадают только пакеты registry/api/errcode, registry/api/v2, registry/client/auth/challenge. Пакеты registry/client и registry/proxy в бинарные файлы образа не входят, поэтому уязвимость для образа не достижима.",
       "timestamp": "2026-10-19T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-116587",
+        "aliases": [
+          "GHSA-mgcc-cww5-fp2q"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/go-jose/go-jose/v3@v3.0.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-116587 (DoS при разборе JWK с RSA-ключами) затрагивает go-jose v3 до 3.0.5 включительно. В образе dvcr-importer модуль github.com/go-jose/go-jose/v3 v3.0.5 (последняя версия ветки v3, исправления нет — фикс только в v4) попадает в бинарный файл usr/local/bin/dvcr-importer транзитивно: dvcr-importer импортирует из форка CDI пакет kubevirt.io/containerized-data-importer/pkg/controller/common ради констант (имена переменных окружения, TLS-настройки), а тот импортирует pkg/token (подпись и проверка clone-токенов через go-jose/v3/jwt). dvcr-importer не вызывает функции pkg/token и не разбирает JWS/JWE/JWK, поэтому уязвимый код go-jose v3 не входит в путь исполнения. VEX станет неверным, если dvcr-importer начнёт проверять clone-токены CDI или иным образом разбирать JOSE-объекты.",
+      "timestamp": "2026-11-02T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-116585",
+        "aliases": [
+          "GHSA-4w3g-jfj2-cw2q"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/go-jose/go-jose/v3@v3.0.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-116585 (panic при обработке CBC-HMAC (JWE)) затрагивает go-jose v3 до 3.0.5 включительно. В образе dvcr-importer модуль github.com/go-jose/go-jose/v3 v3.0.5 (последняя версия ветки v3, исправления нет — фикс только в v4) попадает в бинарный файл usr/local/bin/dvcr-importer транзитивно: dvcr-importer импортирует из форка CDI пакет kubevirt.io/containerized-data-importer/pkg/controller/common ради констант (имена переменных окружения, TLS-настройки), а тот импортирует pkg/token (подпись и проверка clone-токенов через go-jose/v3/jwt). dvcr-importer не вызывает функции pkg/token и не разбирает JWS/JWE/JWK, поэтому уязвимый код go-jose v3 не входит в путь исполнения. VEX станет неверным, если dvcr-importer начнёт проверять clone-токены CDI или иным образом разбирать JOSE-объекты.",
+      "timestamp": "2026-11-02T00:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-116586",
+        "aliases": [
+          "GHSA-vvm8-gf78-28g4"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/go-jose/go-jose/v3@v3.0.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "CVE-2026-116586 (panic при разборе JSON-сериализации JOSE) затрагивает go-jose v3 до 3.0.5 включительно. В образе dvcr-importer модуль github.com/go-jose/go-jose/v3 v3.0.5 (последняя версия ветки v3, исправления нет — фикс только в v4) попадает в бинарный файл usr/local/bin/dvcr-importer транзитивно: dvcr-importer импортирует из форка CDI пакет kubevirt.io/containerized-data-importer/pkg/controller/common ради констант (имена переменных окружения, TLS-настройки), а тот импортирует pkg/token (подпись и проверка clone-токенов через go-jose/v3/jwt). dvcr-importer не вызывает функции pkg/token и не разбирает JWS/JWE/JWK, поэтому уязвимый код go-jose v3 не входит в путь исполнения. VEX станет неверным, если dvcr-importer начнёт проверять clone-токены CDI или иным образом разбирать JOSE-объекты.",
+      "timestamp": "2026-11-02T00:00:00Z"
     }
   ],
   "timestamp": "2026-07-13T00:00:00Z",
-  "last_updated": "2026-10-19T00:00:00Z"
+  "last_updated": "2026-11-02T00:00:00Z"
 }
