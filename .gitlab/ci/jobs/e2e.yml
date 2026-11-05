@@ -303,11 +303,6 @@ e2e-nightly:astra:
     E2E_OS: astra
     E2E_POOL_TYPE: e2e-astra
 
-# ALT lands on nested-thin-r1 one day in three, where replicated storage does
-# not build on the ALT kernel - that run fails on purpose (see
-# nightly-storage-class.sh). Left visible rather than hidden, so the day it
-# starts passing shows up; flip this to allow_failure or drop the class from the
-# rotation if the red night becomes noise.
 e2e-nightly:alt:
   extends: .e2e-nightly
   variables:

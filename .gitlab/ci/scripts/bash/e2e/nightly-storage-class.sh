@@ -26,9 +26,6 @@
 #
 # Which classes are in play, and why some are excluded:
 #   - ceph is not stood up on any stand yet, so it is used nowhere;
-#   - replicated (nested-thin-r1) does not build on the ALT kernel (DRBD 9.2),
-#     so an ALT run that lands on it is a KNOWN FAILURE, kept in the rotation on
-#     purpose so coverage continues and the day it starts passing is visible;
 #   - astra carries no replicated class (only nfs/local).
 #
 # Usage, from a job script:
