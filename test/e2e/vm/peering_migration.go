@@ -207,7 +207,14 @@ var _ = Describe("PeeringMigration", Label(label.SIGCompute, precheck.PrecheckPe
 		dst.DeferDelete(request)
 		Expect(dst.GenericClient().Delete(ctx, request)).To(Succeed(), "an administrator may delete a request to receive")
 
-		kvvm := &unstructured.Unstructured{}
+		// The smallest spec the API server accepts. An object it rejects by its schema or a kubevirt
+		// webhook never reaches the policy, so the check would not test the policy at all.
+		kvvm := &unstructured.Unstructured{Object: map[string]any{
+			"spec": map[string]any{
+				"runStrategy": "Halted",
+				"template":    map[string]any{"spec": map[string]any{"domain": map[string]any{"devices": map[string]any{}}}},
+			},
+		}}
 		kvvm.SetGroupVersionKind(schema.GroupVersionKind{Group: "internal.virtualization.deckhouse.io", Version: "v1", Kind: "InternalVirtualizationVirtualMachine"})
 		kvvm.SetNamespace(dst.Namespace().Name)
 		kvvm.SetName("policy-check")
