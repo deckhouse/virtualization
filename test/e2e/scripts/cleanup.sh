@@ -175,7 +175,9 @@ verify_platform_healthy() {
     local pods not_ready
 
     while :; do
+        # A node shutdown leaves the old pod in Failed next to the new one. Skip finished pods.
         pods=$(kubectl -n d8-system get pods -l app=deckhouse \
+            --field-selector=status.phase!=Failed,status.phase!=Succeeded \
             -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[?(@.name=="deckhouse")].ready}{"\n"}{end}')
         not_ready=$(awk 'NF && $2 != "true" { print $1 }' <<<"$pods")
 

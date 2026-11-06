@@ -102,7 +102,8 @@ tasks:
           echo "Error: v12n_tag is not set."
           exit 1
         fi
-        DECKHOUSE_READY_STATUS=$(kubectl get po -n d8-system -l app=deckhouse -o json | jq -r '.items[0].status.conditions[] | select(.type=="ContainersReady") | .status')
+        # A node shutdown leaves the old pod in Failed next to the new one. Skip finished pods.
+        DECKHOUSE_READY_STATUS=$(kubectl get po -n d8-system -l app=deckhouse --field-selector=status.phase!=Failed,status.phase!=Succeeded -o json | jq -r '.items[0].status.conditions[] | select(.type=="ContainersReady") | .status')
         if [ "$DECKHOUSE_READY_STATUS" != "True" ]; then
           echo "Error: Deckhouse is not ready."
           exit 1
