@@ -106,26 +106,28 @@ func (h *HealthCheck) Check(ctx context.Context, req *grpc_health_v1.HealthCheck
 		Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING,
 	}
 
-	regClient, err := h.newRegClient()
+	regConn, err := h.newRegConn()
 	if err != nil {
 		h.log.Error("failed to create registration client", slog.Any("err", err))
 		return healthCheckResponse, err
 	}
+	defer h.closeConn(regConn)
 
-	info, err := regClient.GetInfo(ctx, &registerapi.InfoRequest{})
+	info, err := registerapi.NewRegistrationClient(regConn).GetInfo(ctx, &registerapi.InfoRequest{})
 	if err != nil {
 		h.log.Error("failed to call GetInfo", slog.Any("err", err))
 		return healthCheckResponse, nil
 	}
 	h.log.Debug("Successfully invoked GetInfo", "info", info)
 
-	draClient, err := h.newDraConn()
+	draConn, err := h.newDraConn()
 	if err != nil {
 		h.log.Error("failed to create DRA client", slog.Any("err", err))
 		return healthCheckResponse, err
 	}
+	defer h.closeConn(draConn)
 
-	_, err = draClient.NodePrepareResources(ctx, &drapb.NodePrepareResourcesRequest{})
+	_, err = drapb.NewDRAPluginClient(draConn).NodePrepareResources(ctx, &drapb.NodePrepareResourcesRequest{})
 	if err != nil {
 		h.log.Error("failed to call NodePrepareResources", slog.Any("err", err))
 		return healthCheckResponse, nil
@@ -136,7 +138,7 @@ func (h *HealthCheck) Check(ctx context.Context, req *grpc_health_v1.HealthCheck
 	return healthCheckResponse, nil
 }
 
-func (h *HealthCheck) newRegClient() (registerapi.RegistrationClient, error) {
+func (h *HealthCheck) newRegConn() (*grpc.ClientConn, error) {
 	regConn, err := grpc.NewClient(
 		h.regSockPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -144,10 +146,10 @@ func (h *HealthCheck) newRegClient() (registerapi.RegistrationClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connect to registration socket: %w", err)
 	}
-	return registerapi.NewRegistrationClient(regConn), nil
+	return regConn, nil
 }
 
-func (h *HealthCheck) newDraConn() (drapb.DRAPluginClient, error) {
+func (h *HealthCheck) newDraConn() (*grpc.ClientConn, error) {
 	draConn, err := grpc.NewClient(
 		h.draSockPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -155,5 +157,13 @@ func (h *HealthCheck) newDraConn() (drapb.DRAPluginClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connect to DRA socket: %w", err)
 	}
-	return drapb.NewDRAPluginClient(draConn), nil
+	return draConn, nil
+}
+
+// closeConn closes a connection opened for a single health check.
+// Each check opens fresh connections, so an unclosed one stays in memory for the process lifetime.
+func (h *HealthCheck) closeConn(conn *grpc.ClientConn) {
+	if err := conn.Close(); err != nil {
+		h.log.Error("failed to close health check connection", slog.Any("err", err))
+	}
 }
