@@ -285,9 +285,9 @@ e2e:local:
     # so override PROCS back to ginkgo default 24 for faster
     # runs below 1h timeout.
     PROCS: "24"
-    # The cloud stands answer on api.<name>.dvp.flant.dev, not the e2e-regular
+    # The cloud stands answer on api.<name>.e2e.dvp.flant.dev, not the e2e-regular
     # pool's domain; the lease check in the pool template is built against this.
-    E2E_POOL_API_DOMAIN: dvp.flant.dev
+    E2E_POOL_API_DOMAIN: e2e.dvp.flant.dev
     # Picked up by .e2e's before_script: a non-empty E2E_OS turns on the per-day
     # storage-class rotation for that stand. The per-OS jobs set it below.
 
