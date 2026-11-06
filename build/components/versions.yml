@@ -16,7 +16,7 @@ package:
   gcc: releases/gcc-14.2.0
   glib2: 2.84.2
   glibc: glibc-2.38
-  libgmp: 6.3.0
+  libgmp: gmp-6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2
   libaudit: v4.0.3
