@@ -2,7 +2,7 @@
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- flex gcc gcc-c++ libtool pkgconf gettext-tools
+- flex bison gcc gcc-c++ libtool pkgconf gettext-tools
 - make makeinfo autoconf automake
 - git
 {{- end -}}
@@ -10,7 +10,7 @@ altPackages:
 {{- $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "gmp/gmp" }}
+{{- $gitRepoUrl := "gmp/gmp-6.3" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
@@ -67,6 +67,7 @@ shell:
     # Notes:
     # - Use x86_64 cpu to produce the most portable binary but not the most performant one.
     # - Disable fat binary.
+    ./.bootstrap  # generate configure with autotools
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \

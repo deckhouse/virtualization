@@ -18,7 +18,7 @@ package:
   # https://sourceware.org/git/?p=glibc.git;a=commit;h=650a0aaaffa9ddb44732fa6156b31c5f30ee596f
   # https://git.altlinux.org/gears/g/glibc.git?p=glibc.git;a=log;h=bb14266fc6e81ea0239c3974d32c57f3fdefe86d
   glibc: 650a0aaaffa9ddb44732fa6156b31c5f30ee596f # release/2.38/master
-  libgmp: 6.3.0
+  libgmp: gmp-6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2
   libaio: libaio-0.3.113
@@ -96,5 +96,5 @@ package:
   zstd: v1.5.7
   krb5: krb5-1.21.3-final
   lz4: v1.9.4
-  lzo: lzo-2.10
+  lzo: 0083878c235a89ef96a009d1ff0b500f3a364e4b # lzo-2.10
   xz: v5.4.5
