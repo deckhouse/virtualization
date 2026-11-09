@@ -74,13 +74,18 @@ func loadModule(path string) error {
 	return nil
 }
 
-func uncompressModuleToTmp(path string) (string, error) {
+func uncompressModuleToTmp(path string) (_ string, err error) {
 	pattern := filepath.Base(path) + "-*"
 	uncompress, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return "", err
 	}
 	defer uncompress.Close()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(uncompress.Name())
+		}
+	}()
 
 	in, err := os.Open(path)
 	if err != nil {

@@ -65,7 +65,20 @@ func (o *initOptions) Complete() {
 	logger.SetDefaultLogger(log)
 }
 
+// usbipDrivers are the drivers the USB gateway needs. usbip-core is not listed:
+// both drivers depend on it, so it is in the kernel whenever they are.
+var usbipDrivers = []string{
+	"bus/usb/drivers/usbip-host",
+	"bus/platform/drivers/vhci_hcd",
+}
+
 func (o *initOptions) Run(_ *cobra.Command, _ []string) error {
+	// Deckhouse Engine builds USB/IP into the kernel and ships no .ko files to load.
+	if modprobe.DriversRegistered("/sys", usbipDrivers...) {
+		slog.Info("USB/IP drivers are already registered in the kernel, nothing to load")
+		return nil
+	}
+
 	if o.customBuildPath != "" {
 		return o.loadCustomBuildPath(o.tryCustomBuildPath)
 	}
