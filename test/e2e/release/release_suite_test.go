@@ -38,9 +38,16 @@ func TestRelease(t *testing.T) {
 
 var _ = SynchronizedBeforeSuite(func() {
 	controller.NewBeforeProcess1Body()
+	if err := framework.InitStorageClasses(); err != nil {
+		Fail("failed to read StorageClasses: " + err.Error())
+	}
 
 	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
-}, func() {})
+}, func() {
+	if err := framework.InitStorageClasses(); err != nil {
+		Fail("failed to read StorageClasses: " + err.Error())
+	}
+})
 
 var _ = SynchronizedAfterSuite(func() {
 	precheck.CleanupPrecreatedCVIs(context.Background(), framework.NewFramework(""))

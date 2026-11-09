@@ -46,6 +46,9 @@ var _ = SynchronizedBeforeSuite(func() {
 	// Initialize test resources BEFORE running prechecks
 	// This ensures resources are available even if prechecks fail
 	controller.NewBeforeProcess1Body()
+	if err := framework.InitStorageClasses(); err != nil {
+		Fail("failed to read StorageClasses: " + err.Error())
+	}
 
 	// Validate precheck labels from JSON report (created by dry-run during prepare)
 	if err := precheck.ValidateFromJSONFile(precheck.LabelsFile); err != nil {
@@ -56,7 +59,11 @@ var _ = SynchronizedBeforeSuite(func() {
 	precheck.LoadSpecLabelsFromFile(precheck.LabelsFile, GinkgoLabelFilter())
 	// Run prechecks based on loaded labels
 	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
-}, func() {})
+}, func() {
+	if err := framework.InitStorageClasses(); err != nil {
+		Fail("failed to read StorageClasses: " + err.Error())
+	}
+})
 
 var _ = SynchronizedAfterSuite(func() {
 	// Cleanup precreated CVIs if PRECREATED_CVI_CLEANUP=yes

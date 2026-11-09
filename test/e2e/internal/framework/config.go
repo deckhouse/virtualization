@@ -28,6 +28,7 @@ var (
 	confMu             sync.RWMutex
 	once               sync.Once
 	storageClassesOnce sync.Once
+	errStorageClasses  error
 )
 
 func onceLoadConfig() {
@@ -40,7 +41,11 @@ func onceLoadConfig() {
 	})
 }
 
-func initStorageClasses() {
+// InitStorageClasses reads the StorageClasses of the cluster into the config.
+// Call it from SynchronizedBeforeSuite: a failure there is reported, while a panic
+// during the spec tree construction stops the process and Ginkgo drops the results
+// of all processes.
+func InitStorageClasses() error {
 	storageClassesOnce.Do(func() {
 		onceLoadConfig()
 		InitClients()
@@ -48,15 +53,15 @@ func initStorageClasses() {
 		confMu.Lock()
 		defer confMu.Unlock()
 
-		if err := conf.SetStorageClasses(context.Background(), clients.client); err != nil {
-			panic(err)
-		}
+		errStorageClasses = conf.SetStorageClasses(context.Background(), clients.client)
 	})
+	return errStorageClasses
 }
 
+// GetConfig does not read StorageClasses: AfterSuite needs only the flags, also
+// when InitStorageClasses failed.
 func GetConfig() *config.Config {
 	onceLoadConfig()
-	initStorageClasses()
 
 	confMu.RLock()
 	copied := *conf

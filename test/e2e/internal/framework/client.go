@@ -17,8 +17,13 @@ limitations under the License.
 package framework
 
 import (
+	"errors"
+	"net"
+	"net/http"
 	"sync"
+	"time"
 
+	. "github.com/onsi/ginkgo/v2"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -46,6 +51,55 @@ import (
 // internal API group are only admitted for it and its siblings.
 const ControllerServiceAccountUser = "system:serviceaccount:d8-virtualization:virtualization-controller"
 
+const (
+	dialRetryWindow   = 2 * time.Minute
+	dialRetryInterval = 5 * time.Second
+)
+
+// retryOnDialError repeats a request when the connection to the API server fails.
+// Such a request did not reach the server, so a repeat is safe for every verb.
+// The network between the CI runner and the cluster drops for some seconds,
+// and one failed request must not fail a spec or the whole suite.
+type retryOnDialError struct {
+	next     http.RoundTripper
+	window   time.Duration
+	interval time.Duration
+}
+
+func (t retryOnDialError) RoundTrip(req *http.Request) (*http.Response, error) {
+	deadline := time.Now().Add(t.window)
+	resp, err := t.next.RoundTrip(req)
+	for attempt := 2; isDialError(err) && time.Now().Before(deadline); attempt++ {
+		// The transport closes a sent body. Without GetBody it cannot be sent again.
+		if req.Body != nil && req.Body != http.NoBody && req.GetBody == nil {
+			return resp, err
+		}
+		select {
+		case <-req.Context().Done():
+			return resp, err
+		case <-time.After(t.interval):
+		}
+
+		retry := req.Clone(req.Context())
+		if req.GetBody != nil {
+			body, bodyErr := req.GetBody()
+			if bodyErr != nil {
+				return resp, err
+			}
+			retry.Body = body
+		}
+		// The log line shows in the report which requests were repeated.
+		GinkgoWriter.Printf("retryOnDialError: %s %s, attempt %d after: %v\n", req.Method, req.URL.Path, attempt, err)
+		resp, err = t.next.RoundTrip(retry)
+	}
+	return resp, err
+}
+
+func isDialError(err error) bool {
+	var opErr *net.OpError
+	return errors.As(err, &opErr) && opErr.Op == "dial"
+}
+
 var clients = Clients{}
 
 var clientsOnce sync.Once
@@ -53,7 +107,6 @@ var clientsOnce sync.Once
 func GetClients() Clients {
 	onceLoadConfig()
 	InitClients()
-	initStorageClasses()
 	return clients
 }
 
@@ -130,6 +183,9 @@ func InitClients() {
 		if err != nil {
 			panic(err)
 		}
+		restConfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+			return retryOnDialError{next: rt, window: dialRetryWindow, interval: dialRetryInterval}
+		})
 		clients.virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig)
 		if err != nil {
 			panic(err)
