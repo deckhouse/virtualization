@@ -1,0 +1,5 @@
+core:
+  fixes:
+    - summary: The `virtualization-dra` component no longer leaks memory on health checks. Previously, its memory consumption on every node kept growing until the component was restarted.
+      pull_request: https://fox.flant.com/deckhouse/virtualization/virtualization/-/merge_requests/751
+
