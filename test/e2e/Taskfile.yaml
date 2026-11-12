@@ -73,6 +73,35 @@ tasks:
           --repeat "{{ .REPEAT }}"
           {{end -}}
 
+  run:upgrade:
+    desc: "Run the module upgrade suite for one phase: UPGRADE_PHASE=pre-upgrade|post-upgrade task run:upgrade (STORAGE_CLASS_NAME and LOCAL_STORAGE_CLASS_NAME are required)"
+    deps:
+      - kubectl
+      - d8
+    vars:
+      PROCS: '{{.PROCS | default "8"}}'
+    preconditions:
+      - sh: '[ "{{.UPGRADE_PHASE}}" = "pre-upgrade" ] || [ "{{.UPGRADE_PHASE}}" = "post-upgrade" ]'
+        msg: "UPGRADE_PHASE must be pre-upgrade or post-upgrade"
+      - sh: '[ -n "{{.STORAGE_CLASS_NAME}}" ] && [ -n "{{.LOCAL_STORAGE_CLASS_NAME}}" ]'
+        msg: "STORAGE_CLASS_NAME (replicated) and LOCAL_STORAGE_CLASS_NAME (node-local) must both be set"
+    cmds:
+      - |
+        # The "upgrade" tag selects release_test.go instead of e2e_test.go.
+        UPGRADE_PHASE="{{.UPGRADE_PHASE}}" \
+        STORAGE_CLASS_NAME="{{.STORAGE_CLASS_NAME}}" \
+        LOCAL_STORAGE_CLASS_NAME="{{.LOCAL_STORAGE_CLASS_NAME}}" \
+        {{if .UPGRADE_MIGRATES_VMS -}}UPGRADE_MIGRATES_VMS="{{.UPGRADE_MIGRATES_VMS}}" {{end -}}go tool ginkgo -v \
+          --tags upgrade \
+          -p --procs={{.PROCS}} \
+          --grace-period=1m \
+          --output-interceptor-mode=none \
+          {{if .JSON_REPORT -}}
+          --json-report={{ .JSON_REPORT }} \
+          {{end -}}
+          --timeout={{.TIMEOUT | default "45m"}} \
+          .
+
   fzf:
     desc: "Select and run e2e suites with fzf"
     cmds:
@@ -92,112 +121,6 @@ tasks:
     cmds:
       - |
         ./scripts/cleanup.sh
-
-  checkout-to-mpo:
-    deps:
-      - d8
-    cmds:
-      - |
-        if [ -z "$v12n_tag" ]; then
-          echo "Error: v12n_tag is not set."
-          exit 1
-        fi
-        # A node shutdown leaves the old pod in Failed next to the new one. Skip finished pods.
-        DECKHOUSE_READY_STATUS=$(kubectl get po -n d8-system -l app=deckhouse --field-selector=status.phase!=Failed,status.phase!=Succeeded -o json | jq -r '.items[0].status.conditions[] | select(.type=="ContainersReady") | .status')
-        if [ "$DECKHOUSE_READY_STATUS" != "True" ]; then
-          echo "Error: Deckhouse is not ready."
-          exit 1
-        fi
-
-        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}"
-        images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
-
-        v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
-
-        audit_status=$(kubectl get mc virtualization -o=jsonpath='{.spec.settings.audit.enabled}')
-        audit_image_skip=$(if [ -z $audit_status ] || [ $audit_status == "false" ]; then echo "true";else echo "false";fi)
-
-        retry_count=0
-        max_retries=120
-        sleep_interval=5
-
-        SKIP_IMAGES=()
-        if [ $audit_image_skip == "true" ]; then
-          SKIP_IMAGES+=("virtualizationAudit")
-        fi
-        # DRA drivers run only on nodes labeled for the matching passthrough
-        # (usbip / vfio). e2e stands carry no such nodes, so their DaemonSets
-        # stay at DESIRED=0 and their images never appear in any pod. Skip both
-        # so the readiness gate does not wait forever on an image that is not
-        # supposed to run here.
-        SKIP_IMAGES+=("virtualizationDraUsb")
-        SKIP_IMAGES+=("virtualizationDraPci")
-        # vm-route-forge is not deployed when the sdn module serves the Main
-        # network (sdn takes over VM routing), so its DaemonSet is absent and its
-        # image never appears in any pod. Skip it only in that case, so clusters
-        # that still run vm-route-forge keep validating its image.
-        route_forge_desired=$(kubectl -n d8-virtualization get ds vm-route-forge -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "")
-        if [ -z "$route_forge_desired" ] || [ "$route_forge_desired" -eq 0 ]; then
-          SKIP_IMAGES+=("vmRouteForge")
-        fi
-
-        is_skipped_image() {
-          local img="$1"
-          if [ ${#img} -eq 0 ]; then return 1 ;fi
-
-          for skip in "${SKIP_IMAGES[@]}"; do
-            if [[ "$img" == "$skip" ]]; then
-              return 0  # image found in skip list
-            fi
-          done
-          return 1  # image not in skip list
-        }
-
-        while true; do
-          all_hashes_found=true
-
-          # Fetch current pods information
-          v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
-
-          # Process each image entry
-          while IFS= read -r image_entry; do
-            image=$(echo "$image_entry" | jq -r '.key')
-            hash=$(echo "$image_entry" | jq -r '.value')
-
-            if [[ "${image,,}" =~ (libguestfs|predeletehook) ]]; then
-              continue
-            fi
-
-            if is_skipped_image "$image"; then
-              echo "- ⏭️  Skipping $image"
-              continue
-            fi
-
-            if echo "$v12n_pods" | grep -q "$hash"; then
-              echo "- ✅ $image $hash"
-            else
-              echo "- 🟥 $image $hash"
-              all_hashes_found=false
-            fi
-          done < <(echo "$images_hash" | jq -c '. | to_entries | sort_by(.key)[]')
-
-          # If all hashes are found, break the loop
-          if [ "$all_hashes_found" = true ]; then
-            echo "All image hashes found in pods."
-            break
-          fi
-
-          retry_count=$((retry_count + 1))
-          echo "Some hashes are missing, rechecking... Attempt: $retry_count"
-
-          # Check if the retry limit has been reached
-          if [ "$retry_count" -ge "$max_retries" ]; then
-            echo "Error: Timeout reached after $((retry_count * sleep_interval)) seconds. Some image hashes are still missing."
-            exit 1
-          fi
-          # Wait for the specified interval before retrying
-          sleep "$sleep_interval"
-        done
 
   _ensure:golangci-lint:
     desc: "Ensure golangci-lint v2+ is available"

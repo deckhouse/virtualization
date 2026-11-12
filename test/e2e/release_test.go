@@ -1,3 +1,5 @@
+//go:build upgrade
+
 /*
 Copyright 2026 Flant JSC
 
@@ -5,7 +7,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package release
+package e2e
 
 import (
 	"context"
@@ -28,12 +30,14 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/controller"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/precheck"
+	. "github.com/deckhouse/virtualization/test/e2e/release"
 )
 
-func TestRelease(t *testing.T) {
+// Run with "task run:upgrade"; the build tag keeps these specs out of "task run".
+func TestUpgrade(t *testing.T) {
 	log.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Release Tests")
+	RunSpecs(t, "Module Upgrade Tests")
 }
 
 var _ = SynchronizedBeforeSuite(func() {
@@ -42,15 +46,21 @@ var _ = SynchronizedBeforeSuite(func() {
 		Fail("failed to read StorageClasses: " + err.Error())
 	}
 
-	precheck.Run(framework.NewFramework(""), GinkgoLabelFilter())
+	f := framework.NewFramework("")
+	precheck.RunByLabels(f, precheck.PrecheckVirtualization, precheck.PrecheckVMC, precheck.PrecheckUpgradeStorageClasses)
+
+	switch GetPhase() {
+	case PhasePreUpgrade:
+		CreateScenarioResources(context.Background(), f)
+	case PhasePostUpgrade:
+		ExpectProjectExists(context.Background(), f)
+	}
 }, func() {
 	if err := framework.InitStorageClasses(); err != nil {
 		Fail("failed to read StorageClasses: " + err.Error())
 	}
 })
 
-var _ = SynchronizedAfterSuite(func() {
-	precheck.CleanupPrecreatedCVIs(context.Background(), framework.NewFramework(""))
-}, func() {
+var _ = SynchronizedAfterSuite(func() {}, func() {
 	controller.NewAfterAllProcessBody()
 })

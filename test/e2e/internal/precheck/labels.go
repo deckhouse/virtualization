@@ -91,6 +91,10 @@ const (
 
 	// PrecheckPeering - test requires the Peering feature gate to be enabled.
 	PrecheckPeering = "peering-precheck"
+
+	// PrecheckUpgradeStorageClasses verifies the two StorageClasses the module
+	// upgrade suite is pointed at (STORAGE_CLASS_NAME and LOCAL_STORAGE_CLASS_NAME).
+	PrecheckUpgradeStorageClasses = "upgrade-sc-precheck"
 )
 
 // KnownPrecheckLabels returns all known precheck label constants.
@@ -117,6 +121,7 @@ func KnownPrecheckLabels() []string {
 		HotplugInPlaceResizePrecheck,
 		PrecheckVerticalPodAutoscaler,
 		PrecheckPeering,
+		PrecheckUpgradeStorageClasses,
 	}
 }
 

@@ -358,6 +358,27 @@ func Run(f *framework.Framework, labelFilter string) {
 }
 
 // isCheckEnabled returns true if the precheck is not disabled.
+// RunByLabels runs the prechecks registered under the given labels, in that
+// order, for a suite that picks its prechecks explicitly instead of deriving
+// them from spec labels (the module upgrade suite).
+func RunByLabels(f *framework.Framework, labels ...string) {
+	ctx := context.Background()
+
+	for _, label := range labels {
+		p := registeredPrechecks[label]
+		if p == nil {
+			Fail("unknown precheck label " + label)
+		}
+
+		fmt.Printf("[precheck] running precheck %q ...\n", label)
+		start := time.Now()
+		if err := p.Run(ctx, f); err != nil {
+			Fail("precheck " + label + " failed: " + err.Error())
+		}
+		fmt.Printf("[precheck] precheck %q passed (%s)\n", label, time.Since(start).Truncate(time.Millisecond))
+	}
+}
+
 func isCheckEnabled(envName string) bool {
 	if os.Getenv("PRECHECK") == "no" {
 		return false

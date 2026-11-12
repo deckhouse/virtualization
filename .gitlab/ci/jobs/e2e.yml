@@ -104,12 +104,12 @@ include:
     # timeout (3h) still leaves room for after_script (55m above).
     E2E_SUITE_TIMEOUT: 2h
   # Overrides the upstream Setup.gitlab-ci.yml before_script (trdl + werf),
-  # which does not work in the job container; crane in checkout-to-mpo only
+  # which does not work in the job container; crane in checkout-to-mpo.sh only
   # needs the registry login.
   before_script:
     - |
       set -e
-      # Fail here, not in checkout-to-mpo, when the credentials are empty.
+      # Fail here, not in checkout-to-mpo.sh, when the credentials are empty.
       # `:` is a no-op; on an empty variable bash prints only its name.
       : "${MODULES_REGISTRY_LOGIN:?}" "${MODULES_REGISTRY_PASSWORD:?}"
       export DOCKER_CONFIG="$CI_PROJECT_DIR/.docker-e2e"
@@ -136,7 +136,7 @@ include:
       : fold the preparation into a collapsed log section
       echo -e "\e[0Ksection_start:$(date +%s):e2e_prepare[collapsed=true]\r\e[0KPrepare cluster (lease, module image, readiness gates)"
     - !reference [.e2e_pool, acquire]
-    - v12n_tag="$MODULES_MODULE_TAG" task -d test/e2e checkout-to-mpo
+    - bash "$CI_PROJECT_DIR/.gitlab/ci/scripts/bash/e2e/checkout-to-mpo.sh" "$MODULES_MODULE_TAG"
     - bash "$E2E_SCRIPT_DIR/patch-virtualization-feature-gates.sh" "$MODULES_MODULE_TAG"
     # The gates patch triggers another module reconcile; the suite's
     # virtualization-precheck insists on Ready, so wait the reconcile out
@@ -172,11 +172,11 @@ include:
     - !reference [.e2e_pool, env]
     # The DOCKER_CONFIG variable from before_script does not survive into this
     # shell either; the config file it points at does, but the login is repeated
-    # rather than relying on the workspace, since checkout-to-mpo below reads
+    # rather than relying on the workspace, since checkout-to-mpo.sh below reads
     # the module image with crane.
     - |
       set -e
-      # Fail here, not in checkout-to-mpo, when the credentials are empty.
+      # Fail here, not in checkout-to-mpo.sh, when the credentials are empty.
       # `:` is a no-op; on an empty variable bash prints only its name.
       : "${MODULES_REGISTRY_LOGIN:?}" "${MODULES_REGISTRY_PASSWORD:?}"
       export DOCKER_CONFIG="$CI_PROJECT_DIR/.docker-e2e"
@@ -189,7 +189,7 @@ include:
     - |
       if timeout 10m task -d test/e2e cleanup &&
         timeout 10m bash "$E2E_SCRIPT_DIR/patch-virtualization-feature-gates.sh" "$MODULES_MODULE_TAG" main &&
-        v12n_tag=main timeout 10m task -d test/e2e checkout-to-mpo &&
+        timeout 10m bash "$CI_PROJECT_DIR/.gitlab/ci/scripts/bash/e2e/checkout-to-mpo.sh" main &&
         timeout 10m bash -c 'source "$E2E_SCRIPT_DIR/wait-virtualization-ready.sh"
           d8_queue
           virtualization_ready

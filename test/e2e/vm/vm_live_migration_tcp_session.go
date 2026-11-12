@@ -21,8 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -49,9 +47,9 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 		iperfServer    *v1alpha2.VirtualMachine
 		iperfServerObs vmobs.Observer
 		iperfClient    *v1alpha2.VirtualMachine
-		report         *IPerfReport
+		report         *util.IPerfReport
 
-		reportName      = "iperf-client-report.json"
+		reportPath      = "/root/iperf-client-report.json"
 		iperfServerName = "iperf-server"
 		iperfClientName = "iperf-client"
 
@@ -115,10 +113,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 
 		By("Start the iPerf server", func() {
 			eventually.SSHReadyAsRoot(f, iperfServer, framework.MiddleTimeout)
-			_, err := f.SSHCommand(iperfServer.Name, iperfServer.Namespace,
-				"nohup iperf3 -s >/dev/null 2>&1 </dev/null &", framework.WithSSHUser("root"))
-			Expect(err).NotTo(HaveOccurred(), "failed to start iperf3 server")
-			waitForIPerfServerToStart(iperfServer.Name, f.Namespace().Name, f)
+			eventually.StartIPerfServer(f, iperfServer)
 		})
 
 		By("Run the iPerf client", func() {
@@ -127,11 +122,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServer.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			cmd := fmt.Sprintf("nohup iperf3 -c %s -t 0 --json > ~/%s 2>&1 < /dev/null &", iperfServer.Status.IPAddress, reportName)
-			_, err = f.SSHCommand(iperfClient.Name, iperfClient.Namespace, cmd, framework.WithSSHUser("root"))
-			Expect(err).NotTo(HaveOccurred(), "failed to run iperf3 client")
-
-			waitForIPerfClientToStart(iperfClient.Name, iperfClient.Namespace, f)
+			eventually.StartIPerfClient(f, iperfClient, iperfServer.Status.IPAddress, reportPath)
 		})
 
 		By("Migrate the iPerf server", func() {
@@ -153,18 +144,13 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 		By("Check the iPerf client report", func() {
 			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServerName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			stopIPerfClient(iperfClient.Name, f.Namespace().Name, f)
-			report = getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, f)
-			Expect(report).NotTo(BeNil(), "iPerf report cannot be nil")
+			eventually.StopIPerfClient(f, iperfClient)
+			report = eventually.ReadIPerfClientReport(f, iperfClient, reportPath)
 
-			iPerfClientStartTime, err := time.Parse(time.RFC1123, report.Start.Timestamp.Time)
+			iPerfClientStartTime, err := report.GetStartTime()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(iPerfClientStartTime.Before(iperfServer.Status.MigrationState.StartTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should start before the virtual machine is migrated")
-
-			iPerfClientEndTimeSec := int64(report.Start.Timestamp.Timesecs) + int64(report.End.SumSent.End)
-			iPerfClientEndTimeNSec := int64((report.End.SumSent.End - float64(int64(report.End.SumSent.End))) * 1e9)
-			iPerfClientEndTime := time.Unix(iPerfClientEndTimeSec, iPerfClientEndTimeNSec).UTC()
-			Expect(iPerfClientEndTime.After(iperfServer.Status.MigrationState.EndTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should stop after the virtual machine is migrated")
+			Expect(report.GetEndTime().After(iperfServer.Status.MigrationState.EndTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should stop after the virtual machine is migrated")
 
 			// The session is allowed to stall exactly once, while the machine is
 			// switching over, and not a second longer. How long that stall lasts is
@@ -174,17 +160,8 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 			// seconds, whereas on shared storage it is under one. So the check is
 			// not on the number of silent intervals but on where they sit: a single
 			// uninterrupted run of them, entirely inside the migration window.
-			var silent []int
-			for i, iv := range report.Intervals {
-				if iv.Sum.Bytes == 0 {
-					silent = append(silent, i)
-				}
-			}
-
-			base := time.Unix(int64(report.Start.Timestamp.Timesecs), 0).UTC()
-			at := func(offset float64) time.Time {
-				return base.Add(time.Duration(offset * float64(time.Second)))
-			}
+			silent := report.FindSilentIntervals()
+			at := report.GetIntervalTime
 
 			// The migration timestamps are metav1.Time, which keeps whole
 			// seconds only, so the reported end stands for any instant up to a
@@ -215,94 +192,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", Label(label.SIGCompute
 	})
 })
 
-func waitForIPerfServerToStart(vmName, vmNamespace string, f *framework.Framework) {
-	GinkgoHelper()
-
-	// EXCEPTION: guest-side wait (iperf3 server process over SSH), not a
-	// Kubernetes resource — nothing to observe via an Observer.
-	// BusyBox has no pgrep; pidof is the baked-in equivalent.
-	iPerfServerPidCmd := "pidof iperf3"
-	eventually.Until(func() error {
-		stdout, err := f.SSHCommand(vmName, vmNamespace, iPerfServerPidCmd, framework.WithSSHUser("root"))
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", iPerfServerPidCmd, err)
-		}
-		pid := strings.TrimSpace(stdout)
-
-		re := regexp.MustCompile(`^[\d ]+$`)
-		if !re.MatchString(pid) {
-			return fmt.Errorf("failed to find iPerf server PID: %s", pid)
-		}
-
-		return nil
-	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
-}
-
-func waitForIPerfClientToStart(vmName, vmNamespace string, f *framework.Framework) {
-	GinkgoHelper()
-	// EXCEPTION: guest-side wait (iperf3 client process over SSH), not a
-	// Kubernetes resource — nothing to observe via an Observer.
-	// BusyBox has no pgrep; pidof is the baked-in equivalent.
-	iPerfClientPidCmd := "pidof iperf3"
-	eventually.Until(func() error {
-		stdout, err := f.SSHCommand(vmName, vmNamespace, iPerfClientPidCmd, framework.WithSSHUser("root"))
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", iPerfClientPidCmd, err)
-		}
-		pid := strings.TrimSpace(strings.TrimSuffix(stdout, "\n"))
-		re := regexp.MustCompile(`^[\d ]+$`)
-		if !re.MatchString(pid) {
-			return fmt.Errorf("iperf3 client not running yet (no PID found): %q", stdout)
-		}
-		return nil
-	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
-}
-
-func stopIPerfClient(vmName, vmNamespace string, f *framework.Framework) {
-	GinkgoHelper()
-
-	// EXCEPTION: guest-side action retried over SSH, not a Kubernetes
-	// resource — nothing to observe via an Observer.
-	// BusyBox has no pkill; signal the PIDs that pidof reports.
-	stopIPerfClientCmd := "kill -INT $(pidof iperf3)"
-	eventually.Until(func() error {
-		_, err := f.SSHCommand(vmName, vmNamespace, stopIPerfClientCmd, framework.WithSSHUser("root"))
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", stopIPerfClientCmd, err)
-		}
-		return nil
-	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
-}
-
-func getIPerfClientReport(vmName, vmNamespace, reportName string, f *framework.Framework) *IPerfReport {
-	GinkgoHelper()
-
-	rawReport := new(string)
-	// The report is read raw (the custom image has no jq); json.Unmarshal
-	// below is the validity check.
-	cmd := fmt.Sprintf("cat ~/%s", reportName)
-	// EXCEPTION: guest-side wait (the iperf3 report file over SSH), not a
-	// Kubernetes resource — nothing to observe via an Observer.
-	eventually.Until(func() error {
-		stdout, err := f.SSHCommand(vmName, vmNamespace, cmd, framework.WithSSHUser("root"))
-		if err != nil {
-			return fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
-		}
-		if len(strings.TrimSpace(stdout)) < 100 || !strings.Contains(stdout, `"start"`) {
-			return fmt.Errorf("iperf3 report empty or incomplete (len=%d)", len(stdout))
-		}
-		*rawReport = stdout
-		return nil
-	}, framework.MiddleTimeout, eventually.WithPolling(framework.PollingInterval))
-
-	report := &IPerfReport{}
-	err := json.Unmarshal([]byte(*rawReport), report)
-	Expect(err).NotTo(HaveOccurred(), "iperf3 report must be valid JSON (file may be truncated or iperf3 did not run)")
-
-	return report
-}
-
-func saveIPerfClientReport(report *IPerfReport) {
+func saveIPerfClientReport(report *util.IPerfReport) {
 	GinkgoHelper()
 
 	ft := framework.GetFormattedTestCaseFullText()
@@ -316,49 +206,6 @@ func saveIPerfClientReport(report *IPerfReport) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-type Timestamp struct {
-	Time     string `json:"time"`
-	Timesecs int    `json:"timesecs"`
-}
-
-type Start struct {
-	Timestamp Timestamp `json:"timestamp"`
-}
-
-type SumSent struct {
-	End float64 `json:"end"`
-}
-
-type End struct {
-	SumSent SumSent `json:"sum_sent"`
-}
-
-type Sum struct {
-	Bytes int64 `json:"bytes"`
-	// Start and End are offsets in seconds from the start of the iPerf run,
-	// used to place an interval on the wall clock and tell the intervals that
-	// overlap the migration apart from the ones that do not.
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-}
-
-type IPerfInterval struct {
-	Sum Sum `json:"sum"`
-}
-
-type IPerfReport struct {
-	Start     Start           `json:"start"`
-	Intervals []IPerfInterval `json:"intervals"`
-	End       End             `json:"end"`
-	Error     string          `json:"error,omitempty"`
-}
-
-// migrationStallGrace is how far outside the reported migration window a silent
-// interval may still be attributed to the switchover. The window is taken from
-// the VM status, while the last packets are carried by a network path that is
-// rewired slightly after the migration is reported complete. It covers the
-// rewiring, nothing more: a session that stays silent past it did not survive
-// the migration, and widening the grace would only hide that.
 const migrationStallGrace = 5 * time.Second
 
 func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk) *v1alpha2.VirtualMachine {

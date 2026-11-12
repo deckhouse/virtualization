@@ -130,6 +130,17 @@ func PrecreatedClusterVirtualImages() []*v1alpha2.ClusterVirtualImage {
 	}
 }
 
+// PrecreatedClusterVirtualImage returns the precreated ClusterVirtualImage with
+// the given name, or nil when no such image is in the precreated set.
+func FindPrecreatedClusterVirtualImage(name string) *v1alpha2.ClusterVirtualImage {
+	for _, cvi := range PrecreatedClusterVirtualImages() {
+		if cvi.GetName() == name {
+			return cvi
+		}
+	}
+	return nil
+}
+
 func newPrecreatedHTTPCVI(name, imageURL string) *v1alpha2.ClusterVirtualImage {
 	return cvi.New(
 		cvi.WithName(name),

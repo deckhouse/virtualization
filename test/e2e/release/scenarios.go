@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,254 +17,166 @@ limitations under the License.
 package release
 
 import (
+	"strings"
+
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
-	vmobs "github.com/deckhouse/virtualization/test/e2e/internal/observer/vm"
 )
 
+// Every virtual machine boots the custom image: no cloud-init, SSH as root.
 const (
-	replicatedStorageClass = "nested-thin-r1"
-	localThinStorageClass  = "nested-local-thin"
-	// customRootDiskSize is for roots backed by the custom image
-	// (~47Mi virtual); it grows its root filesystem to the disk on first boot.
-	customRootDiskSize   = "64Mi"
-	defaultDataDiskSize  = "50Mi"
-	releaseNamespaceName = "v12n-test-release"
+	rootDiskSize = "64Mi"
+	dataDiskSize = "50Mi"
+
+	iperfServerVM   = "vm-iperf-server"
+	iperfClientVM   = "vm-iperf-client"
+	iperfReportPath = "/root/upgrade-iperf-client-report.json"
 )
 
 type vmScenario struct {
-	name                    string
-	rootDiskName            string
-	cviName                 string
-	cloudInit               string
-	runPolicy               v1alpha2.RunPolicy
-	rootDiskSize            string
-	expectedAdditionalDisks int
-	skipGuestAgentCheck     bool
-	// customImage marks a scenario booted from the custom image: no
-	// cloud-init (cloudInit must be empty), guest commands log in as root
-	// (dropbear, baked key) without sudo.
-	customImage bool
-
-	rootDisk *v1alpha2.VirtualDisk
-	vm       *v1alpha2.VirtualMachine
-
-	// vmObs is armed before the VM is created (pre-upgrade phase only), so
-	// phase and agent transitions are captured from the very beginning.
-	vmObs vmobs.Observer
+	name      string
+	runPolicy v1alpha2.RunPolicy
 }
 
+// dataDiskScenario is a blank disk hotplugged to vm, on STORAGE_CLASS_NAME or,
+// when local is set, on LOCAL_STORAGE_CLASS_NAME.
 type dataDiskScenario struct {
-	name         string
-	storageClass string
-	size         string
-
-	disk *v1alpha2.VirtualDisk
+	name  string
+	vm    string
+	local bool
 }
 
-type attachmentScenario struct {
-	name     string
-	vmName   string
-	diskName string
-
-	attachment *v1alpha2.VirtualMachineBlockDeviceAttachment
+var vmScenarios = []vmScenario{
+	{name: "vm-manual", runPolicy: v1alpha2.ManualPolicy},
+	{name: "vm-single-hotplug", runPolicy: v1alpha2.AlwaysOnUnlessStoppedManually},
+	{name: "vm-double-hotplug", runPolicy: v1alpha2.AlwaysOnPolicy},
+	{name: "vm-replicated-five", runPolicy: v1alpha2.AlwaysOnUnlessStoppedManually},
+	{name: "vm-mixed-five", runPolicy: v1alpha2.AlwaysOnUnlessStoppedManually},
+	{name: iperfClientVM, runPolicy: v1alpha2.AlwaysOnUnlessStoppedManually},
+	{name: iperfServerVM, runPolicy: v1alpha2.AlwaysOnUnlessStoppedManually},
 }
 
-func (s *vmScenario) expectedInitialPhase() string {
-	if s.runPolicy == v1alpha2.ManualPolicy {
-		return string(v1alpha2.MachineStopped)
-	}
-
-	return string(v1alpha2.MachineRunning)
+var dataDiskScenarios = []dataDiskScenario{
+	{name: "vd-data-single-hotplug-01-repl", vm: "vm-single-hotplug"},
+	{name: "vd-data-double-hotplug-01-repl", vm: "vm-double-hotplug"},
+	{name: "vd-data-double-hotplug-02-local", vm: "vm-double-hotplug", local: true},
+	{name: "vd-data-replicated-five-01-repl", vm: "vm-replicated-five"},
+	{name: "vd-data-replicated-five-02-repl", vm: "vm-replicated-five"},
+	{name: "vd-data-replicated-five-03-repl", vm: "vm-replicated-five"},
+	{name: "vd-data-replicated-five-04-repl", vm: "vm-replicated-five"},
+	{name: "vd-data-replicated-five-05-repl", vm: "vm-replicated-five"},
+	{name: "vd-data-mixed-five-01-repl", vm: "vm-mixed-five"},
+	{name: "vd-data-mixed-five-02-repl", vm: "vm-mixed-five"},
+	{name: "vd-data-mixed-five-03-local", vm: "vm-mixed-five", local: true},
+	{name: "vd-data-mixed-five-04-local", vm: "vm-mixed-five", local: true},
+	{name: "vd-data-mixed-five-05-local", vm: "vm-mixed-five", local: true},
+	{name: "vd-data-iperf-client-01-repl", vm: iperfClientVM},
+	{name: "vd-data-iperf-client-02-repl", vm: iperfClientVM},
 }
 
-func newCurrentReleaseSmokeTest(f *framework.Framework, namespace string) *currentReleaseSmokeTest {
-	Expect(namespace).NotTo(BeEmpty(), "namespace must be provided")
-
-	test := &currentReleaseSmokeTest{
-		framework:      f,
-		vmByName:       make(map[string]*vmScenario),
-		dataDiskByName: make(map[string]*dataDiskScenario),
+func findVMScenario(name string) vmScenario {
+	for _, s := range vmScenarios {
+		if s.name == name {
+			return s
+		}
 	}
-
-	// The scenario names keep their historical alpine/ubuntu identities: they
-	// are the stable anchor the post-upgrade phase looks resources up by.
-	// All non-iperf scenarios boot the custom image (no cloud-init);
-	// only the iperf pair still needs a cloud-init image for iperf3.
-	test.vms = []*vmScenario{
-		{
-			name:                    "vm-alpine-manual",
-			rootDiskName:            "vd-root-alpine-manual",
-			cviName:                 object.PrecreatedCVICustomBIOS,
-			runPolicy:               v1alpha2.ManualPolicy,
-			rootDiskSize:            customRootDiskSize,
-			expectedAdditionalDisks: 0,
-			customImage:             true,
-		},
-		{
-			name:                    "vm-alpine-single-hotplug",
-			rootDiskName:            "vd-root-alpine-single-hotplug",
-			cviName:                 object.PrecreatedCVICustomBIOS,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            customRootDiskSize,
-			expectedAdditionalDisks: 1,
-			customImage:             true,
-		},
-		{
-			name:                    "vm-alpine-double-hotplug",
-			rootDiskName:            "vd-root-alpine-double-hotplug",
-			cviName:                 object.PrecreatedCVICustomBIOS,
-			runPolicy:               v1alpha2.AlwaysOnPolicy,
-			rootDiskSize:            customRootDiskSize,
-			expectedAdditionalDisks: 2,
-			customImage:             true,
-		},
-		{
-			name:                    "vm-ubuntu-replicated-five",
-			rootDiskName:            "vd-root-ubuntu-replicated-five",
-			cviName:                 object.PrecreatedCVICustomBIOS,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            customRootDiskSize,
-			expectedAdditionalDisks: 5,
-			customImage:             true,
-		},
-		{
-			name:                    "vm-ubuntu-mixed-five",
-			rootDiskName:            "vd-root-ubuntu-mixed-five",
-			cviName:                 object.PrecreatedCVICustomBIOS,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            customRootDiskSize,
-			expectedAdditionalDisks: 5,
-			customImage:             true,
-		},
-		{
-			name:                    "vm-alpine-iperf-client",
-			rootDiskName:            "vd-root-alpine-iperf-client",
-			cviName:                 object.PrecreatedCVICustomBIOS,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            customRootDiskSize,
-			expectedAdditionalDisks: 2,
-			skipGuestAgentCheck:     true,
-			customImage:             true,
-		},
-		{
-			// iperf3 is baked into the custom image; the smoke starts the
-			// server over SSH (see startLongRunningIPerf).
-			name:                    "vm-alpine-iperf-server",
-			rootDiskName:            "vd-root-alpine-iperf-server",
-			cviName:                 object.PrecreatedCVICustomBIOS,
-			runPolicy:               v1alpha2.AlwaysOnUnlessStoppedManually,
-			rootDiskSize:            customRootDiskSize,
-			expectedAdditionalDisks: 0,
-			customImage:             true,
-		},
-	}
-
-	test.dataDisks = []*dataDiskScenario{
-		{name: "vd-data-alpine-single-hotplug-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-double-hotplug-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-double-hotplug-02-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-03-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-04-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-replicated-five-05-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-03-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-04-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-ubuntu-mixed-five-05-local", storageClass: localThinStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-iperf-client-01-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-		{name: "vd-data-alpine-iperf-client-02-repl", storageClass: replicatedStorageClass, size: defaultDataDiskSize},
-	}
-
-	test.attachments = []*attachmentScenario{
-		{name: "vmbda-alpine-single-hotplug-01", vmName: "vm-alpine-single-hotplug", diskName: "vd-data-alpine-single-hotplug-01-repl"},
-		{name: "vmbda-alpine-double-hotplug-01", vmName: "vm-alpine-double-hotplug", diskName: "vd-data-alpine-double-hotplug-01-repl"},
-		{name: "vmbda-alpine-double-hotplug-02", vmName: "vm-alpine-double-hotplug", diskName: "vd-data-alpine-double-hotplug-02-local"},
-		{name: "vmbda-ubuntu-replicated-five-01", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-01-repl"},
-		{name: "vmbda-ubuntu-replicated-five-02", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-02-repl"},
-		{name: "vmbda-ubuntu-replicated-five-03", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-03-repl"},
-		{name: "vmbda-ubuntu-replicated-five-04", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-04-repl"},
-		{name: "vmbda-ubuntu-replicated-five-05", vmName: "vm-ubuntu-replicated-five", diskName: "vd-data-ubuntu-replicated-five-05-repl"},
-		{name: "vmbda-ubuntu-mixed-five-01", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-01-repl"},
-		{name: "vmbda-ubuntu-mixed-five-02", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-02-repl"},
-		{name: "vmbda-ubuntu-mixed-five-03", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-03-local"},
-		{name: "vmbda-ubuntu-mixed-five-04", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-04-local"},
-		{name: "vmbda-ubuntu-mixed-five-05", vmName: "vm-ubuntu-mixed-five", diskName: "vd-data-ubuntu-mixed-five-05-local"},
-		{name: "vmbda-alpine-iperf-client-01", vmName: "vm-alpine-iperf-client", diskName: "vd-data-alpine-iperf-client-01-repl"},
-		{name: "vmbda-alpine-iperf-client-02", vmName: "vm-alpine-iperf-client", diskName: "vd-data-alpine-iperf-client-02-repl"},
-	}
-
-	for _, vmScenario := range test.vms {
-		vmScenario.rootDisk = newRootDisk(vmScenario.rootDiskName, namespace, vmScenario.cviName, replicatedStorageClass, vmScenario.rootDiskSize)
-		vmScenario.vm = newVM(vmScenario.name, namespace, vmScenario.runPolicy, vmScenario.rootDisk.Name, vmScenario.cloudInit)
-		test.vmByName[vmScenario.name] = vmScenario
-	}
-
-	for _, diskScenario := range test.dataDisks {
-		diskScenario.disk = newHotplugDisk(diskScenario.name, namespace, diskScenario.storageClass, diskScenario.size)
-		test.dataDiskByName[diskScenario.name] = diskScenario
-	}
-
-	for _, attachmentScenario := range test.attachments {
-		vmScenario := test.vmByName[attachmentScenario.vmName]
-		diskScenario := test.dataDiskByName[attachmentScenario.diskName]
-		attachmentScenario.attachment = object.NewVMBDAFromDisk(attachmentScenario.name, vmScenario.vm.Name, diskScenario.disk)
-	}
-
-	test.iperfClient = test.vmByName["vm-alpine-iperf-client"]
-	test.iperfServer = test.vmByName["vm-alpine-iperf-server"]
-
-	return test
+	Expect(name).To(BeElementOf(listVMScenarioNames()), "unknown virtual machine scenario")
+	return vmScenario{}
 }
 
-func newRootDisk(name, namespace, cviName, storageClass, size string) *v1alpha2.VirtualDisk {
-	options := []vdbuilder.Option{
+func listVMScenarioNames() []string {
+	names := make([]string, 0, len(vmScenarios))
+	for _, s := range vmScenarios {
+		names = append(names, s.name)
+	}
+	return names
+}
+
+func findDataDisks(vmName string) []dataDiskScenario {
+	var disks []dataDiskScenario
+	for _, d := range dataDiskScenarios {
+		if d.vm == vmName {
+			disks = append(disks, d)
+		}
+	}
+	return disks
+}
+
+func (s vmScenario) getRootDiskName() string {
+	return "vd-root-" + strings.TrimPrefix(s.name, "vm-")
+}
+
+func (s vmScenario) newVMRef() *v1alpha2.VirtualMachine {
+	return &v1alpha2.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: s.name, Namespace: projectName}}
+}
+
+func (s vmScenario) newRootDiskRef() *v1alpha2.VirtualDisk {
+	return &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: s.getRootDiskName(), Namespace: projectName}}
+}
+
+func (s vmScenario) newRootDisk(storageClass string) *v1alpha2.VirtualDisk {
+	return object.NewVDFromCVI(s.getRootDiskName(), projectName, object.PrecreatedCVICustomBIOS,
 		vdbuilder.WithStorageClass(ptr.To(storageClass)),
-	}
-	if size != "" {
-		options = append(options, vdbuilder.WithSize(ptr.To(resource.MustParse(size))))
-	}
-
-	return object.NewVDFromCVI(name, namespace, cviName, options...)
-}
-
-func newHotplugDisk(name, namespace, storageClass, size string) *v1alpha2.VirtualDisk {
-	return object.NewBlankVD(
-		name,
-		namespace,
-		ptr.To(storageClass),
-		ptr.To(resource.MustParse(size)),
+		vdbuilder.WithSize(ptr.To(resource.MustParse(rootDiskSize))),
 	)
 }
 
-func newVM(name, namespace string, runPolicy v1alpha2.RunPolicy, rootDiskName, cloudInit string) *v1alpha2.VirtualMachine {
-	opts := []vmbuilder.Option{
-		vmbuilder.WithName(name),
-		vmbuilder.WithNamespace(namespace),
+func (s vmScenario) newVM() *v1alpha2.VirtualMachine {
+	return vmbuilder.New(
+		vmbuilder.WithName(s.name),
+		vmbuilder.WithNamespace(projectName),
 		vmbuilder.WithCPU(1, ptr.To(object.CustomImageVMCoreFraction)),
 		vmbuilder.WithMemory(resource.MustParse(object.CustomImageVMMemory)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-		vmbuilder.WithRunPolicy(runPolicy),
+		vmbuilder.WithRunPolicy(s.runPolicy),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.DiskDevice,
-			Name: rootDiskName,
+			Name: s.getRootDiskName(),
 		}),
+	)
+}
+
+func (d dataDiskScenario) getAttachmentName() string {
+	return "vmbda-" + strings.TrimPrefix(d.name, "vd-data-")
+}
+
+func (d dataDiskScenario) newDiskRef() *v1alpha2.VirtualDisk {
+	return &v1alpha2.VirtualDisk{ObjectMeta: metav1.ObjectMeta{Name: d.name, Namespace: projectName}}
+}
+
+func (d dataDiskScenario) newAttachmentRef() *v1alpha2.VirtualMachineBlockDeviceAttachment {
+	return &v1alpha2.VirtualMachineBlockDeviceAttachment{ObjectMeta: metav1.ObjectMeta{Name: d.getAttachmentName(), Namespace: projectName}}
+}
+
+func (d dataDiskScenario) newDisk(storageClass string) *v1alpha2.VirtualDisk {
+	return object.NewBlankVD(d.name, projectName, ptr.To(storageClass), ptr.To(resource.MustParse(dataDiskSize)))
+}
+
+func (d dataDiskScenario) newAttachment(disk *v1alpha2.VirtualDisk) *v1alpha2.VirtualMachineBlockDeviceAttachment {
+	return object.NewVMBDAFromDisk(d.getAttachmentName(), d.vm, disk)
+}
+
+func listDiskRefs(s vmScenario) []crclient.Object {
+	objects := []crclient.Object{s.newRootDiskRef()}
+	for _, d := range findDataDisks(s.name) {
+		objects = append(objects, d.newDiskRef())
 	}
-	// An empty cloudInit means the scenario boots the custom image:
-	// it has no cloud-init, and the guest agent is baked in, so no
-	// provisioning is needed.
-	if cloudInit != "" {
-		opts = append(opts, vmbuilder.WithProvisioningUserData(cloudInit))
+	return objects
+}
+
+func listAttachmentRefs(disks []dataDiskScenario) []crclient.Object {
+	objects := make([]crclient.Object, 0, len(disks))
+	for _, d := range disks {
+		objects = append(objects, d.newAttachmentRef())
 	}
-	return vmbuilder.New(opts...)
+	return objects
 }

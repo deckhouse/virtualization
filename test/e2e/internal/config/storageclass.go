@@ -31,6 +31,10 @@ const (
 
 	// StorageClassNameEnv overrides DefaultStorageClass for tests (see README).
 	StorageClassNameEnv = "STORAGE_CLASS_NAME"
+	// LocalStorageClassNameEnv names a second, node-local StorageClass for the
+	// suites that need both a migratable and a local disk (the module upgrade
+	// suite). It is optional for everything else.
+	LocalStorageClassNameEnv = "LOCAL_STORAGE_CLASS_NAME"
 )
 
 // FindDefaultStorageClass returns the default StorageClass from the list.
@@ -75,6 +79,26 @@ func StorageClassNameOverride() string {
 	return os.Getenv(StorageClassNameEnv)
 }
 
+func LocalStorageClassNameOverride() string {
+	return os.Getenv(LocalStorageClassNameEnv)
+}
+
+// ResolveLocalStorageClass returns the LOCAL_STORAGE_CLASS_NAME StorageClass, or
+// nil when the variable is not set.
+func ResolveLocalStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
+	scName, ok := os.LookupEnv(LocalStorageClassNameEnv)
+	if !ok {
+		return nil, nil
+	}
+	if scName == "" {
+		return nil, fmt.Errorf("%s env is set but empty", LocalStorageClassNameEnv)
+	}
+	if sc := findStorageClassInList(scList, scName); sc != nil {
+		return sc, nil
+	}
+	return nil, fmt.Errorf("StorageClass %q from %s env not found", scName, LocalStorageClassNameEnv)
+}
+
 // ResolveDefaultStorageClass returns the StorageClass for the suite: an explicit
 // STORAGE_CLASS_NAME override when set, otherwise the cluster default StorageClass.
 func ResolveDefaultStorageClass(scList *storagev1.StorageClassList) (*storagev1.StorageClass, error) {
@@ -106,6 +130,12 @@ func (c *Config) SetStorageClasses(ctx context.Context, k8sClient client.Client)
 		return err
 	}
 	c.StorageClass.DefaultStorageClass = defaultSC
+
+	localSC, err := ResolveLocalStorageClass(&scList)
+	if err != nil {
+		return err
+	}
+	c.StorageClass.LocalStorageClass = localSC
 
 	return nil
 }

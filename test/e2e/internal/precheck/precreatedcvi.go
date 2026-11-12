@@ -58,16 +58,23 @@ func (p *precreatedCVIPrecheck) Run(ctx context.Context, f *framework.Framework)
 		return err
 	}
 
-	cvis := object.PrecreatedClusterVirtualImages()
-	By(fmt.Sprintf("Ensuring %d precreated CVIs are available", len(cvis)))
+	return EnsurePrecreatedCVIs(ctx, f, object.PrecreatedClusterVirtualImages()...)
+}
 
-	if err := p.ensureCVIs(ctx, f, cvis); err != nil {
+// EnsurePrecreatedCVIs creates (or recreates, when stale) the given precreated
+// ClusterVirtualImages and waits until every one of them is Ready. The common
+// precheck ensures the whole set; a suite that boots a single image calls it
+// with just that image.
+func EnsurePrecreatedCVIs(ctx context.Context, f *framework.Framework, cvis ...*v1alpha2.ClusterVirtualImage) error {
+	GinkgoHelper()
+
+	By(fmt.Sprintf("Ensuring %d precreated CVIs are available", len(cvis)))
+	if err := ensureCVIs(ctx, f, cvis); err != nil {
 		return err
 	}
 
-	// Wait for all CVIs to become ready
 	By(fmt.Sprintf("Waiting for all %d precreated CVIs to be ready", len(cvis)))
-	p.waitForCVIsReady(ctx, cvis)
+	waitForCVIsReady(ctx, cvis)
 
 	By(fmt.Sprintf("All %d precreated CVIs are ready", len(cvis)))
 	return nil
@@ -84,7 +91,7 @@ func (p *precreatedCVIPrecheck) validateCleanupEnv() error {
 	return nil
 }
 
-func (p *precreatedCVIPrecheck) ensureCVIs(ctx context.Context, f *framework.Framework, cvis []*v1alpha2.ClusterVirtualImage) error {
+func ensureCVIs(ctx context.Context, f *framework.Framework, cvis []*v1alpha2.ClusterVirtualImage) error {
 	k8sClient := f.GenericClient()
 
 	for _, cvi := range cvis {
@@ -178,7 +185,7 @@ func probeHTTPSource(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (st
 	return resp.Header.Get("Content-Length"), nil
 }
 
-func (p *precreatedCVIPrecheck) waitForCVIsReady(ctx context.Context, cvis []*v1alpha2.ClusterVirtualImage) {
+func waitForCVIsReady(ctx context.Context, cvis []*v1alpha2.ClusterVirtualImage) {
 	GinkgoHelper()
 
 	// Convert []*ClusterVirtualImage to []client.Object for util.UntilObjectPhase

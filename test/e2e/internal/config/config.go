@@ -111,6 +111,9 @@ type StorageClass struct {
 	// STORAGE_CLASS_NAME when set, otherwise the cluster default StorageClass. Its volume
 	// binding mode is not constrained.
 	DefaultStorageClass *storagev1.StorageClass
+	// LocalStorageClass is the node-local StorageClass from LOCAL_STORAGE_CLASS_NAME,
+	// nil when the variable is not set. Only the module upgrade suite requires it.
+	LocalStorageClass *storagev1.StorageClass
 }
 
 type ClusterTransport struct {

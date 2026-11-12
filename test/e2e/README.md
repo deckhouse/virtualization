@@ -59,6 +59,9 @@ spec, so the cluster default StorageClass applies.
 The StorageClass (`STORAGE_CLASS_NAME` or the cluster default) may use any volume binding
 mode. When the cluster has no default StorageClass, set `STORAGE_CLASS_NAME` explicitly.
 
+`LOCAL_STORAGE_CLASS_NAME` names a second, node-local StorageClass. Only the module upgrade
+suite requires it (see below); the regular suite ignores it.
+
 Note: `task run VAR=value` style passes variables to the Taskfile templates only, not to the
 environment of the test process. Environment variables consumed by the tests themselves
 (`STORAGE_CLASS_NAME` aside, which the Taskfile forwards, e.g. `*_PRECHECK=no` switches)
@@ -135,6 +138,32 @@ For example, run a test in no-cleanup mode:
 ```bash
 POST_CLEANUP=never task run
 ```
+
+## Module upgrade tests
+
+`test/e2e/release` checks that running virtual machines survive an upgrade of the
+virtualization module. The suite is run twice, around an upgrade that something else
+performs (the release bot, a CI job, a human):
+
+```bash
+# on the version being upgraded from: creates the virtual machines and checks them
+UPGRADE_PHASE=pre-upgrade STORAGE_CLASS_NAME=nested-thin-r1 LOCAL_STORAGE_CLASS_NAME=nested-local-thin task run:upgrade
+
+# ... upgrade the module and wait for the migrations it triggers ...
+
+# on the new version: finds the same virtual machines and checks that the upgrade did not disturb them
+UPGRADE_PHASE=post-upgrade STORAGE_CLASS_NAME=nested-thin-r1 LOCAL_STORAGE_CLASS_NAME=nested-local-thin task run:upgrade
+```
+
+- `STORAGE_CLASS_NAME` is the replicated (migratable) StorageClass for the root disks and most
+  data disks, `LOCAL_STORAGE_CLASS_NAME` the node-local one for the rest. Both are required.
+- `UPGRADE_MIGRATES_VMS=false` tells the post-upgrade phase that the upgrade ships the same
+  virt-handler and virt-launcher and never migrates a virtual machine; the checks that need a
+  migration are then skipped.
+- The virtual machines live in the `v12n-e2e-upgrade` Project between the phases; the
+  pre-upgrade phase recreates it. `task cleanup` removes it like any other e2e namespace.
+- The suite is built with the `upgrade` build tag (`release_test.go`) and never runs as part of
+  `task run`.
 
 ### Working with `Virtualization-controller` errors
 
