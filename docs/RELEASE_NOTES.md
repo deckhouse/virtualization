@@ -3,6 +3,29 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.11.4
+
+<span style="opacity:0.6; font-style:italic; font-size:0.9em;">
+Release date: November 12, 2026.
+</span>
+
+### Highlights
+
+- The `virtualization-dra` component no longer leaks memory on cluster nodes. The release also patches vulnerabilities in the module.
+
+### Fixes
+
+- [core] The `virtualization-dra` component no longer leaks memory on health checks. Previously, its memory consumption on every node kept growing until the component was restarted.
+
+### Security
+
+- [core] Fixed vulnerabilities:
+  - CVE-2026-78661
+  - CVE-2026-97045
+  - CVE-2026-116585
+  - CVE-2026-116586
+  - CVE-2026-116587
+
 ## v1.11.3
 
 <span style="opacity:0.6; font-style:italic; font-size:0.9em;">
